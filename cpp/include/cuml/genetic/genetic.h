@@ -16,115 +16,122 @@
 
 #pragma once
 
-#include "node.h"
+#include <raft/handle.hpp>
+#include "common.h"
 #include "program.h"
-
-#include <cstdint>
-#include <string>
-#include <vector>
 
 namespace cuml {
 namespace genetic {
 
-/** Type of initialization of the member programs in the population */
-enum class init_method_t : uint32_t {
-  /** random nodes chosen, allowing shorter or asymmetrical trees */
-  grow,
-  /** growing till a randomly chosen depth */
-  full,
-  /** 50% of the population on `grow` and the rest with `full` */
-  half_and_half,
-};  // enum class init_method_t
-
-/** fitness metric types */
-enum class metric_t : uint32_t {
-  /** mean absolute error (regression-only) */
-  mae,
-  /** mean squared error (regression-only) */
-  mse,
-  /** root mean squared error (regression-only) */
-  rmse,
-  /** pearson product-moment coefficient (regression and transformation) */
-  pearson,
-  /** spearman's rank-order coefficient (regression and transformation) */
-  spearman,
-  /** binary cross-entropy loss (classification-only) */
-  logloss,
-};  // enum class metric_t
-
-enum class transformer_t : uint32_t {
-  /** sigmoid function */
-  sigmoid,
-};  // enum class transformer_t
+/**
+ * @brief Visualize an AST
+ *
+ * @param prog  host object containing the AST
+ * @return      String representation of the AST
+ */
+std::string stringify(const program& prog);
 
 /**
- * @brief contains all the hyper-parameters for training
+ * @brief Fit either a regressor, classifier or a transformer to the given dataset
  *
- * @note Unless otherwise mentioned, all the parameters below are applicable to
- *       all of classification, regression and transformation.
+ * @param handle          cuML handle
+ * @param input           device pointer to the feature matrix
+ * @param labels          device pointer to the label vector of length n_rows
+ * @param sample_weights  device pointer to the sample weights of length n_rows
+ * @param n_rows          number of rows of the feature matrix
+ * @param n_cols          number of columns of the feature matrix
+ * @param params          host struct containing hyperparameters needed for training
+ * @param final_progs     device pointer to the final generation of programs(sorted by decreasing
+ * fitness)
+ * @param history         host vector containing the list of all programs in every generation
+ * (sorted by decreasing fitness)
+ *
+ * @note This module allocates extra device memory for the nodes of the last generation that is
+ * pointed by `final_progs[i].nodes` for each program `i` in `final_progs`. The amount of memory
+ * allocated is found at runtime, and is `final_progs[i].len * sizeof(node)` for each program `i`.
+ * The reason this isn't deallocated within the function is because the resulting memory is needed
+ * for executing predictions in `symRegPredict`, `symClfPredict`, `symClfPredictProbs` and
+ * `symTransform` functions. The above device memory is expected to be explicitly deallocated by the
+ * caller AFTER calling the predict function.
  */
-struct param {
-  /** number of programs in each generation */
-  int population_size = 1000;
-  /**
-   * number of fittest programs to compare during correlation
-   * (transformation-only)
-   */
-  int hall_of_fame = 100;
-  /**
-   * number of fittest programs to return from `hall_of_fame` top programs
-   * (transformation-only)
-   */
-  int n_components = 10;
-  /** number of generations to evolve */
-  int generations = 20;
-  /**
-   * number of programs that compete in the tournament to become part of next
-   * generation
-   */
-  int tournament_size = 20;
-  /** metric threshold used for early stopping */
-  float stopping_criteria = 0.0f;
-  /** minimum/maximum value for `constant` nodes */
-  float const_range[2] = {-1.0f, 1.0f};
-  /** minimum/maximum depth of programs after initialization */
-  int init_depth[2] = {2, 6};
-  /** initialization method */
-  init_method_t init_method = init_method_t::half_and_half;
-  /** list of functions to choose from */
-  std::vector<node::type> function_set{
-    node::type::add, node::type::mul, node::type::div, node::type::sub};
-  /** transformation function to class probabilities (classification-only) */
-  transformer_t transformer = transformer_t::sigmoid;
-  /** fitness metric */
-  metric_t metric = metric_t::mae;
-  /** penalization factor for large programs */
-  float parsimony_coefficient = 0.001f;
-  /** crossover mutation probability of the tournament winner */
-  float p_crossover = 0.9f;
-  /** subtree mutation probability of the tournament winner*/
-  float p_subtree_mutation = 0.01f;
-  /** hoist mutation probability of the tournament winner */
-  float p_hoist_mutation = 0.01f;
-  /** point mutation probabiilty of the tournament winner */
-  float p_point_mutation = 0.01f;
-  /** point replace probabiility for point mutations */
-  float p_point_replace = 0.05f;
-  /** subsampling factor */
-  float max_samples = 1.0f;
-  /** list of feature names for generating syntax trees from the programs */
-  std::vector<std::string> feature_names;
-  ///@todo: feature_names
-  ///@todo: verbose
-  /** random seed used for RNG */
-  uint64_t random_state = 0ull;
+void symFit(const raft::handle_t& handle,
+            const float* input,
+            const float* labels,
+            const float* sample_weights,
+            const int n_rows,
+            const int n_cols,
+            param& params,
+            program_t& final_progs,
+            std::vector<std::vector<program>>& history);
 
-  /** Computes the probability of 'reproduction' */
-  float p_reproduce() const;
+/**
+ * @brief Make predictions for a symbolic regressor
+ *
+ * @param handle      cuML handle
+ * @param input       device pointer to feature matrix
+ * @param n_rows      number of rows of the feature matrix
+ * @param best_prog   device pointer to best AST fit during training
+ * @param output      device pointer to output values
+ */
+void symRegPredict(const raft::handle_t& handle,
+                   const float* input,
+                   const int n_rows,
+                   const program_t& best_prog,
+                   float* output);
 
-  /** maximum possible number of programs */
-  int max_programs() const;
-};  // struct param
+/**
+ * @brief Probability prediction for a symbolic classifier. If a transformer(like sigmoid) is
+ *        specified, then it is applied on the output before returning it.
+ *
+ * @param handle      cuML handle
+ * @param input       device pointer to feature matrix
+ * @param n_rows      number of rows of the feature matrix
+ * @param params      host struct containg training hyperparameters
+ * @param best_prog   The best program obtained during training. Inferences are made using this
+ * @param output      device pointer to output probability(in col major format)
+ */
+void symClfPredictProbs(const raft::handle_t& handle,
+                        const float* input,
+                        const int n_rows,
+                        const param& params,
+                        const program_t& best_prog,
+                        float* output);
+
+/**
+ * @brief Return predictions for a binary classification program defining the decision boundary
+ *
+ * @param handle      cuML handle
+ * @param input       device pointer to feature matrix
+ * @param n_rows      number of rows of the feature matrix
+ * @param params      host struct containg training hyperparameters
+ * @param best_prog   Best program obtained after training
+ * @param output      Device pointer to output predictions
+ */
+void symClfPredict(const raft::handle_t& handle,
+                   const float* input,
+                   const int n_rows,
+                   const param& params,
+                   const program_t& best_prog,
+                   float* output);
+
+/**
+ * @brief Transform the values in the input feature matrix according to the supplied programs
+ *
+ * @param handle      cuML handle
+ * @param input       device pointer to feature matrix
+ * @param params      Hyperparameters used during training
+ * @param final_progs List of ASTs used for generating new features
+ * @param n_rows      number of rows of the feature matrix
+ * @param n_cols      number of columns of the feature matrix
+ * @param output      device pointer to transformed input
+ */
+void symTransform(const raft::handle_t& handle,
+                  const float* input,
+                  const param& params,
+                  const program_t& final_progs,
+                  const int n_rows,
+                  const int n_cols,
+                  float* output);
 
 }  // namespace genetic
 }  // namespace cuml
