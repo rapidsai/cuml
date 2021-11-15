@@ -268,6 +268,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/fil/infer.cu
         src/glm/glm.cu
         src/genetic/genetic.cu
+        src/genetic/program.cu
         src/genetic/node.cu
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu
