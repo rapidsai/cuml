@@ -21,7 +21,7 @@
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
 #include <raft/handle.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/cudart_utils.h>

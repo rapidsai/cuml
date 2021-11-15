@@ -22,7 +22,7 @@ from collections import defaultdict
 import warnings
 
 from scipy import sparse as sp_sparse
-from cupy import sparse as cu_sparse
+from cupyx.scipy import sparse as cu_sparse
 import numpy as cpu_np
 import cupy as np
 import numba

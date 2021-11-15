@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <algorithm>
 #include <limits>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <selection/kselection.cuh>
 
 namespace MLCommon {

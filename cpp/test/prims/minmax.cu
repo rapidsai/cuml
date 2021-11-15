@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <limits>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <stats/minmax.cuh>
 #include "test_utils.h"
 

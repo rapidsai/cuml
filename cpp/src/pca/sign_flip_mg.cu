@@ -23,8 +23,8 @@
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_vector.h>
@@ -40,8 +40,12 @@ namespace opg {
 
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
-void findMaxAbsOfColumns(
-  T* input, int n_rows, int n_cols, T* max_vals, cudaStream_t stream, bool row_major = false)
+void findMaxAbsOfColumns(T* input,
+                         std::size_t n_rows,
+                         std::size_t n_cols,
+                         T* max_vals,
+                         cudaStream_t stream,
+                         bool row_major = false)
 {
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
@@ -50,59 +54,62 @@ void findMaxAbsOfColumns(
   auto execution_policy = rmm::exec_policy(stream);
 
   if (row_major) {
-    thrust::for_each(execution_policy, counting, counting + n_rows, [=] __device__(int idx) {
-      T max         = 0.0;
-      int max_index = 0;
-      int d_i       = idx;
-      int end       = d_i + (m * n);
+    thrust::for_each(
+      execution_policy, counting, counting + n_rows, [=] __device__(std::size_t idx) {
+        T max                 = 0.0;
+        std::size_t max_index = 0;
+        std::size_t d_i       = idx;
+        std::size_t end       = d_i + (m * n);
 
-      for (int i = d_i; i < end; i = i + m) {
-        T val = input[i];
-        if (val < 0.0) { val = -val; }
-        if (val > max) {
-          max       = val;
-          max_index = i;
+        for (auto i = d_i; i < end; i = i + m) {
+          T val = input[i];
+          if (val < 0.0) { val = -val; }
+          if (val > max) {
+            max       = val;
+            max_index = i;
+          }
         }
-      }
-      max_vals[idx] = input[max_index];
-    });
+        max_vals[idx] = input[max_index];
+      });
   } else {
-    thrust::for_each(execution_policy, counting, counting + n_cols, [=] __device__(int idx) {
-      T max         = 0.0;
-      int max_index = 0;
-      int d_i       = idx * m;
-      int end       = d_i + m;
+    thrust::for_each(
+      execution_policy, counting, counting + n_cols, [=] __device__(std::size_t idx) {
+        T max                 = 0.0;
+        std::size_t max_index = 0;
+        std::size_t d_i       = idx * m;
+        std::size_t end       = d_i + m;
 
-      for (int i = d_i; i < end; i++) {
-        T val = input[i];
-        if (val < 0.0) { val = -val; }
-        if (val > max) {
-          max       = val;
-          max_index = i;
+        for (auto i = d_i; i < end; i++) {
+          T val = input[i];
+          if (val < 0.0) { val = -val; }
+          if (val > max) {
+            max       = val;
+            max_index = i;
+          }
         }
-      }
-      max_vals[idx] = input[max_index];
-    });
+        max_vals[idx] = input[max_index];
+      });
   }
 }
 
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
-void flip(T* input, int n_rows, int n_cols, T* max_vals, cudaStream_t stream)
+void flip(T* input, std::size_t n_rows, std::size_t n_cols, T* max_vals, cudaStream_t stream)
 {
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(int idx) {
-    int d_i = idx * m;
-    int end = d_i + m;
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
+      auto d_i = idx * m;
+      auto end = d_i + m;
 
-    if (max_vals[idx] < 0.0) {
-      for (int i = d_i; i < end; i++) {
-        input[i] = -input[i];
+      if (max_vals[idx] < 0.0) {
+        for (auto i = d_i; i < end; i++) {
+          input[i] = -input[i];
+        }
       }
-    }
-  });
+    });
 }
 
 /**
@@ -122,9 +129,9 @@ void sign_flip_imp(raft::handle_t& handle,
                    std::vector<Matrix::Data<T>*>& input,
                    Matrix::PartDescriptor& input_desc,
                    T* components,
-                   int n_components,
+                   std::size_t n_components,
                    cudaStream_t* streams,
-                   int n_stream)
+                   std::uint32_t n_stream)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -140,7 +147,7 @@ void sign_flip_imp(raft::handle_t& handle,
       input[i]->ptr, local_blocks[i]->size, n_components, mv_loc, streams[i % n_stream]);
   }
 
-  for (int i = 0; i < n_stream; i++) {
+  for (std::uint32_t i = 0; i < n_stream; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
@@ -158,7 +165,7 @@ void sign_flip_imp(raft::handle_t& handle,
       input[i]->ptr, local_blocks[i]->size, n_components, max_vals.data(), streams[i % n_stream]);
   }
 
-  for (int i = 0; i < n_stream; i++) {
+  for (std::uint32_t i = 0; i < n_stream; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
@@ -169,9 +176,9 @@ void sign_flip(raft::handle_t& handle,
                std::vector<Matrix::Data<float>*>& input_data,
                Matrix::PartDescriptor& input_desc,
                float* components,
-               int n_components,
+               std::size_t n_components,
                cudaStream_t* streams,
-               int n_stream)
+               std::uint32_t n_stream)
 {
   sign_flip_imp(handle, input_data, input_desc, components, n_components, streams, n_stream);
 }
@@ -180,9 +187,9 @@ void sign_flip(raft::handle_t& handle,
                std::vector<Matrix::Data<double>*>& input_data,
                Matrix::PartDescriptor& input_desc,
                double* components,
-               int n_components,
+               std::size_t n_components,
                cudaStream_t* streams,
-               int n_stream)
+               std::uint32_t n_stream)
 {
   sign_flip_imp(handle, input_data, input_desc, components, n_components, streams, n_stream);
 }
