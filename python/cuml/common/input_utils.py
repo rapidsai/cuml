@@ -28,13 +28,16 @@ import cuml.internals
 import cuml.common.array
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_scipy
+from cuml.common.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
 from cuml.common.memory_utils import ArrayInfo
 from cuml.common.memory_utils import _check_array_contiguity
 
 if has_scipy():
     import scipy.sparse
+
+if has_dask_cudf():
+    import dask_cudf
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -312,6 +315,10 @@ def input_to_cuml_array(X,
 
     # format conversion
 
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
+
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
             raise ValueError("Error: cuDF Series has missing/null values, "
@@ -563,6 +570,10 @@ def convert_dtype(X,
     Convert X to be of dtype `dtype`, raising a TypeError
     if the conversion would lose information.
     """
+
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
 
     if safe_dtype:
         would_lose_info = _typecast_will_lose_information(X, to_dtype)

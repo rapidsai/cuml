@@ -794,6 +794,10 @@ class QN(Base,
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
+        # temporary fix for dask-sql empty partitions
+        if(n_rows == 0):
+            return preds
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
