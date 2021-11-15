@@ -30,8 +30,6 @@ from cuml.raft.common.handle cimport handle_t, _Stream
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from rmm._lib.device_uvector cimport device_uvector
 cimport rmm._lib.lib as rmm
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
@@ -280,7 +278,6 @@ cdef class LinearSVMWrapper:
 
         self.dtype = X.dtype if do_training else coefs.dtype
         cdef _Stream stream = self.handle.get_stream()
-        cdef cuda_stream_view sview = cuda_stream_view(stream)
         nClasses = 0
         nCols = 0
 

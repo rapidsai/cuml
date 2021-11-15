@@ -168,10 +168,9 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         self.__loss = loss
 
     def get_param_names(self):
-        return [
+        return list({
             "handle",
             "verbose",
-            "output_type",
             'penalty',
             'loss',
             'fit_intercept',
@@ -184,4 +183,4 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             'grad_tol',
             'change_tol',
             'multiclass_strategy',
-        ]
+        }.union(super().get_param_names()))
