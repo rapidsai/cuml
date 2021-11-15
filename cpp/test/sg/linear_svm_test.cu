@@ -434,10 +434,10 @@ struct TestClasProbs {
     LinearSVMParams mp;
     mp.probability = true;
     return {/* .nRowsTrain   */ 1000,
-            /* .nRowsTest    */ 100,
+            /* .nRowsTest    */ 1000,
             /* .nCols        */ 200,
             /* .nClasses     */ ps,
-            /* .errStd       */ 1.0,
+            /* .errStd       */ 0.9,
             /* .bias         */ 0,
             /* .tolerance    */ 0.01,
             /* .seed         */ 42ULL,

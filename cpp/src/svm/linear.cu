@@ -62,12 +62,7 @@ inline int narrowDown(std::size_t n)
   return int(n);
 }
 
-/** The cuda kernel for classification. Call it via PredictClass::run(..).
- *
- * @param out - [out] vector of classes (nRows,)
- * @param z   - [in] row-major matrix of scores (nRows, coefCols)
- * @param coefCols - nClasses > 2 ? nClasses : 1
- * */
+/** The cuda kernel for classification. Call it via PredictClass::run(..). */
 template <typename T, int BX = 32, int BY = 8>
 __global__ void predictClass(
   T* out, const T* z, const T* classes, const int nRows, const int coefCols)
@@ -91,12 +86,19 @@ __global__ void predictClass(
     auto maxkv =
       WarpRed(warpStore[threadIdx.y]).Reduce(cub::KeyValuePair(maxj, maxval), cub::ArgMax());
     if (threadIdx.x == 0) out[i] = classes[maxkv.key];
+  } else {
+    // Some older nvcc versions complain on maxj being unused when BX == 1.
+    std::ignore = maxj;
   }
 }
 
 /**
  * The wrapper struct on top of predictClass that recursively selects the best BX
  * (largest BX satisfying `BX < coefCols*2`) and then schedules the kernel launch.
+ *
+ * @tparam T - the data element type (e.g. float/double).
+ * @tparam BlockSize - the total size of the cuda thread block (BX * BY).
+ * @tparam BX - the size of the block along rows (nClasses dim).
  */
 template <typename T, int BlockSize = 256, int BX = 32>
 struct PredictClass {
@@ -105,9 +107,12 @@ struct PredictClass {
   /**
    * Predict classes using the scores.
    *
-   * @param out - [out] vector of classes (nRows,)
-   * @param z   - [in] row-major matrix of scores (nRows, coefCols)
-   * @param coefCols - nClasses > 2 ? nClasses : 1
+   * @param [out] out - vector of classes (nRows,)
+   * @param [in] z   - row-major matrix of scores (nRows, coefCols)
+   * @param [in] classes - class labels in the problem (nClasses, ).
+   * @param [in] nRows - number of rows in the data.
+   * @param [in] coefCols - nClasses > 2 ? nClasses : 1
+   * @param [in] stream - the work stream.
    * */
   static inline void run(
     T* out, const T* z, const T* classes, const int nRows, const int coefCols, cudaStream_t stream)
@@ -124,11 +129,7 @@ struct PredictClass {
   }
 };
 
-/**
- * The cuda kernel for classification. Call it via PredictProba::run(..).
- * @param out - [out] row-major matrix of probabilities (nRows, nClasses)
- * @param z   - [in] row-major matrix of scores (nRows, Binary ? 1 : nClasses)
- */
+/**  The cuda kernel for classification. Call it via PredictProba::run(..). */
 template <typename T, bool Log, bool Binary, int BX = 32, int BY = 8>
 __global__ void predictProba(T* out, const T* z, const int nRows, const int nClasses)
 {
