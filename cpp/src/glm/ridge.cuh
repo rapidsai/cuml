@@ -22,12 +22,12 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
-#include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
+#include <raft/stats/stddev.hpp>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
 #include "preprocess.cuh"
 

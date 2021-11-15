@@ -520,7 +520,11 @@ void init_sparse(const raft::handle_t& h,
                  const fil_node_t* nodes,
                  const forest_params_t* params);
 
+struct predict_params;
+
 }  // namespace fil
+
+static const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
 
 std::string output2str(fil::output_t output);
 }  // namespace ML

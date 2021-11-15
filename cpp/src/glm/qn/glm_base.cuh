@@ -24,7 +24,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include <vector>
 #include "simple_mat.cuh"
 

@@ -280,10 +280,6 @@ class TSNE(Base,
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
-        if n_components != 2 and (method == 'barnes_hut' or method == 'fft'):
-            warnings.warn("Barnes Hut and FFT only work when "
-                          "n_components == 2. Switching to exact.")
-            method = 'exact'
         if n_components != 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(n_components))
@@ -426,7 +422,6 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
-
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -455,7 +450,8 @@ class TSNE(Base,
         self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
             order="F",
-            dtype=np.float32)
+            dtype=np.float32,
+            index=self.X_m.index)
 
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 

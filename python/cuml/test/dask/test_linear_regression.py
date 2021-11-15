@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,8 +73,8 @@ def test_ols(nrows, ncols, n_parts, fit_intercept,
     from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
     n_info = 5
-    nrows = np.int(nrows)
-    ncols = np.int(ncols)
+    nrows = int(nrows)
+    ncols = int(ncols)
     X, y = make_regression_dataset(datatype, nrows, ncols, n_info)
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
