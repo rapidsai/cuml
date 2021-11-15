@@ -326,13 +326,13 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
   }
 };
 
-#define TEST_SVM(fun, TestClass, ElemType)                        \
-  typedef LinearSVMTest<float, TestClass> TestClass##_##ElemType; \
-  TEST_P(TestClass##_##ElemType, fun)                             \
-  {                                                               \
-    if (!isInputValid()) GTEST_SKIP();                            \
-    ASSERT_TRUE(fun());                                           \
-  }                                                               \
+#define TEST_SVM(fun, TestClass, ElemType)                           \
+  typedef LinearSVMTest<ElemType, TestClass> TestClass##_##ElemType; \
+  TEST_P(TestClass##_##ElemType, fun)                                \
+  {                                                                  \
+    if (!isInputValid()) GTEST_SKIP();                               \
+    ASSERT_TRUE(fun());                                              \
+  }                                                                  \
   INSTANTIATE_TEST_SUITE_P(LinearSVM, TestClass##_##ElemType, TestClass##Params)
 
 auto TestClasTargetsParams =
@@ -345,15 +345,18 @@ struct TestClasTargets {
   typedef std::tuple<LinearSVMParams::Loss, LinearSVMParams::Penalty, int, int> Params;
   static LinearSVMTestParams read(Params ps)
   {
-    return {.nRowsTrain  = 100,
-            .nRowsTest   = 100,
-            .nCols       = std::get<3>(ps),
-            .nClasses    = std::get<2>(ps),
-            .errStd      = 0.4,
-            .bias        = 0.0,
-            .tolerance   = 0.05,
-            .seed        = 42ULL,
-            .modelParams = {.penalty = std::get<1>(ps), .loss = std::get<0>(ps)}};
+    LinearSVMParams mp;
+    mp.penalty = std::get<1>(ps);
+    mp.loss    = std::get<0>(ps);
+    return {/* .nRowsTrain   */ 100,
+            /* .nRowsTest    */ 100,
+            /* .nCols        */ std::get<3>(ps),
+            /* .nClasses     */ std::get<2>(ps),
+            /* .errStd       */ 0.4,
+            /* .bias         */ 0.0,
+            /* .tolerance    */ 0.05,
+            /* .seed         */ 42ULL,
+            /* .modelParams  */ mp};
   }
 };
 
@@ -370,15 +373,15 @@ struct TestClasBias {
     LinearSVMParams mp;
     mp.fit_intercept       = std::get<0>(ps);
     mp.penalized_intercept = std::get<1>(ps);
-    return {.nRowsTrain  = 1000,
-            .nRowsTest   = 100,
-            .nCols       = std::get<3>(ps),
-            .nClasses    = std::get<2>(ps),
-            .errStd      = 0.2,
-            .bias        = std::get<4>(ps),
-            .tolerance   = 0.05,
-            .seed        = 42ULL,
-            .modelParams = mp};
+    return {/* .nRowsTrain   */ 1000,
+            /* .nRowsTest    */ 100,
+            /* .nCols        */ std::get<3>(ps),
+            /* .nClasses     */ std::get<2>(ps),
+            /* .errStd       */ 0.2,
+            /* .bias         */ std::get<4>(ps),
+            /* .tolerance    */ 0.05,
+            /* .seed         */ 42ULL,
+            /* .modelParams  */ mp};
   }
 };
 
@@ -389,15 +392,15 @@ struct TestClasManyClasses {
   static LinearSVMTestParams read(Params ps)
   {
     LinearSVMParams mp;
-    return {.nRowsTrain  = 1000,
-            .nRowsTest   = 1000,
-            .nCols       = 200,
-            .nClasses    = ps,
-            .errStd      = 1.0,
-            .bias        = 0,
-            .tolerance   = 0.01,
-            .seed        = 42ULL,
-            .modelParams = mp};
+    return {/* .nRowsTrain   */ 1000,
+            /* .nRowsTest    */ 1000,
+            /* .nCols        */ 200,
+            /* .nClasses     */ ps,
+            /* .errStd       */ 1.0,
+            /* .bias         */ 0,
+            /* .tolerance    */ 0.01,
+            /* .seed         */ 42ULL,
+            /* .modelParams  */ mp};
   }
 };
 
@@ -410,15 +413,15 @@ struct TestClasProbsSum {
     LinearSVMParams mp;
     mp.probability = true;
     mp.max_iter    = 100;
-    return {.nRowsTrain  = 100,
-            .nRowsTest   = 100,
-            .nCols       = 80,
-            .nClasses    = ps,
-            .errStd      = 1.0,
-            .bias        = 0,
-            .tolerance   = 1e-5,
-            .seed        = 42ULL,
-            .modelParams = mp};
+    return {/* .nRowsTrain   */ 100,
+            /* .nRowsTest    */ 100,
+            /* .nCols        */ 80,
+            /* .nClasses     */ ps,
+            /* .errStd       */ 1.0,
+            /* .bias         */ 0,
+            /* .tolerance    */ 1e-5,
+            /* .seed         */ 42ULL,
+            /* .modelParams  */ mp};
   }
 };
 
@@ -430,15 +433,15 @@ struct TestClasProbs {
   {
     LinearSVMParams mp;
     mp.probability = true;
-    return {.nRowsTrain  = 1000,
-            .nRowsTest   = 100,
-            .nCols       = 200,
-            .nClasses    = ps,
-            .errStd      = 1.0,
-            .bias        = 0,
-            .tolerance   = 0.01,
-            .seed        = 42ULL,
-            .modelParams = mp};
+    return {/* .nRowsTrain   */ 1000,
+            /* .nRowsTest    */ 100,
+            /* .nCols        */ 200,
+            /* .nClasses     */ ps,
+            /* .errStd       */ 1.0,
+            /* .bias         */ 0,
+            /* .tolerance    */ 0.01,
+            /* .seed         */ 42ULL,
+            /* .modelParams  */ mp};
   }
 };
 
@@ -465,15 +468,15 @@ struct TestRegTargets {
     mp.C       = 100.0;
     mp.epsilon = std::get<5>(ps);
     mp.verbose = 2;
-    return {.nRowsTrain  = 1000,
-            .nRowsTest   = 100,
-            .nCols       = std::get<3>(ps),
-            .nClasses    = 1,
-            .errStd      = 0.02,
-            .bias        = std::get<4>(ps),
-            .tolerance   = 0.05,
-            .seed        = 42ULL,
-            .modelParams = mp};
+    return {/* .nRowsTrain   */ 1000,
+            /* .nRowsTest    */ 100,
+            /* .nCols        */ std::get<3>(ps),
+            /* .nClasses     */ 1,
+            /* .errStd       */ 0.02,
+            /* .bias         */ std::get<4>(ps),
+            /* .tolerance    */ 0.05,
+            /* .seed         */ 42ULL,
+            /* .modelParams  */ mp};
   }
 };
 

@@ -41,7 +41,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <glm/ols.cuh>
@@ -141,7 +141,7 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
   const T* rowIn = z + i * (Binary ? 1 : nClasses);
   T* rowOut      = out + i * nClasses;
 
-  // the largest 'z' in the row (for substract it from z for numeric stability).
+  // the largest 'z' in the row (to substract it from z for numeric stability).
   T t      = std::numeric_limits<T>::lowest();
   T maxVal = t;
   int j    = threadIdx.x;
@@ -194,6 +194,10 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
 /**
  * The wrapper struct on top of predictProba that recursively selects the best BX
  * (largest BX satisfying `BX < coefCols*2`) and then schedules the kernel launch.
+ *
+ * @tparam T - the data element type (e.g. float/double).
+ * @tparam BlockSize - the total size of the cuda thread block (BX * BY).
+ * @tparam BX - the size of the block along rows (nClasses dim).
  */
 template <typename T, int BlockSize = 256, int BX = 32>
 struct PredictProba {
@@ -202,8 +206,12 @@ struct PredictProba {
   /**
    * Predict probabilities using the scores.
    *
-   * @param out - [out] row-major matrix of probabilities (nRows, nClasses)
-   * @param z   - [in] row-major matrix of scores (nRows, Binary ? 1 : nClasses)
+   * @param [out] out - row-major matrix of probabilities (nRows, nClasses).
+   * @param [in] z   - row-major matrix of scores (nRows, Binary ? 1 : nClasses).
+   * @param [in] nRows - number of rows in the data.
+   * @param [in] nClasses - number of classes in the problem.
+   * @param [in] log - whether to compute log-probabilities.
+   * @param [in] stream - the work stream.
    */
   static inline void run(
     T* out, const T* z, const int nRows, const int nClasses, const bool log, cudaStream_t stream)
@@ -290,11 +298,11 @@ LinearSVMModel<T> LinearSVMModel<T>::allocate(const raft::handle_t& handle,
   const std::size_t cSize    = nClasses >= 2 ? nClasses : 0;
   const std::size_t pSize    = params.probability ? 2 * coefCols : 0;
   auto bytes = static_cast<T*>(res->allocate(sizeof(T) * (wSize + cSize + pSize), stream));
-  return LinearSVMModel<T>{.w         = bytes,
-                           .classes   = cSize > 0 ? bytes + wSize : nullptr,
-                           .probScale = pSize > 0 ? bytes + wSize + cSize : nullptr,
-                           .nClasses  = cSize,
-                           .coefRows  = coefRows};
+  return LinearSVMModel<T>{/* .w         */ bytes,
+                           /* .classes   */ cSize > 0 ? bytes + wSize : nullptr,
+                           /* .probScale */ pSize > 0 ? bytes + wSize + cSize : nullptr,
+                           /* .nClasses  */ cSize,
+                           /* .coefRows  */ coefRows};
 }
 
 template <typename T>
