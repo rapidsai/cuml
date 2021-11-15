@@ -48,8 +48,8 @@ def _training_data_to_numpy(X, y):
         X_np = X
         y_np = y
     elif isinstance(X, cudf.DataFrame):
-        X_np = X.to_cupy().copy_to_host()
-        y_np = y.to_gpu_array().copy_to_host()
+        X_np = X.to_numpy()
+        y_np = y.to_numpy()
     elif cuda.devicearray.is_cuda_ndarray(X):
         X_np = X.copy_to_host()
         y_np = y.copy_to_host()
