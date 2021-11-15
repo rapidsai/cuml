@@ -212,6 +212,8 @@ struct alignas(8) sparse_node8 : base_node {
     and how FIL aggregates them into class margins/regression result/best class
 **/
 enum leaf_algo_t {
+  /** For iteration purposes */
+  MIN_LEAF_ALGO = 0,
   /** storing a class probability or regression summand. We add all margins
       together and determine regression result or use threshold to determine
       one of the two classes. **/
@@ -239,6 +241,7 @@ enum leaf_algo_t {
   /** Leaf contains an index into a vector of class probabilities. **/
   VECTOR_LEAF = 5,
   // to be extended
+  MAX_LEAF_ALGO = 5
 };
 
 template <leaf_algo_t leaf_algo>
@@ -300,7 +303,7 @@ struct forest_params_t {
   // at once inside a block (sharing trees means splitting input rows)
   int threads_per_tree;
   // n_items is how many input samples (items) any thread processes. If 0 is given,
-  // choose most (up to 4) that fit into shared memory.
+  // choose most (up to MAX_N_ITEMS) that fit into shared memory.
   int n_items;
 };
 
@@ -517,7 +520,11 @@ void init_sparse(const raft::handle_t& h,
                  const fil_node_t* nodes,
                  const forest_params_t* params);
 
+struct predict_params;
+
 }  // namespace fil
+
+static const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
 
 std::string output2str(fil::output_t output);
 }  // namespace ML

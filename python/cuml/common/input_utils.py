@@ -308,6 +308,8 @@ def input_to_cuml_array(X,
                           safe_dtype=safe_dtype_conversion)
         check_dtype = False
 
+    index = getattr(X, 'index', None)
+
     # format conversion
 
     if (isinstance(X, cudf.Series)):
@@ -322,9 +324,11 @@ def input_to_cuml_array(X,
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
-            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
+            X_m = CumlArray(data=X.as_gpu_matrix(order='F'),
+                            index=index)
         else:
-            X_m = CumlArray(data=X.as_gpu_matrix(order=order))
+            X_m = CumlArray(data=X.as_gpu_matrix(order=order),
+                            index=index)
 
     elif isinstance(X, CumlArray):
         X_m = X
@@ -349,7 +353,6 @@ def input_to_cuml_array(X,
             if not _check_array_contiguity(X):
                 debug("Non contiguous array or view detected, a "
                       "contiguous copy of the data will be done.")
-                # X = cp.array(X, order=order, copy=True)
                 make_copy = True
 
         # If we have a host array, we copy it first before changing order
@@ -359,7 +362,8 @@ def input_to_cuml_array(X,
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
-        X_m = CumlArray(data=cp_arr)
+        X_m = CumlArray(data=cp_arr,
+                        index=index)
 
         if deepcopy:
             X_m = copy.deepcopy(X_m)
@@ -404,9 +408,13 @@ def input_to_cuml_array(X,
 
     if (check_order(X_m.order)):
         X_m = cp.array(X_m, copy=False, order=order)
-        X_m = CumlArray(data=X_m)
+        X_m = CumlArray(data=X_m,
+                        index=index)
 
-    return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+    return cuml_array(array=X_m,
+                      n_rows=n_rows,
+                      n_cols=n_cols,
+                      dtype=X_m.dtype)
 
 
 @nvtx.annotate(message="common.input_utils.input_to_cupy_array",

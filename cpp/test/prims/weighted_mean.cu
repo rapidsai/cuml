@@ -18,7 +18,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <stats/weighted_mean.cuh>
 #include "test_utils.h"
 
