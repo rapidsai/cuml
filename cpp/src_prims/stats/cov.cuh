@@ -18,7 +18,7 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemm.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean_center.hpp>
 
 namespace MLCommon {
 namespace Stats {
@@ -49,8 +49,8 @@ void cov(const raft::handle_t& handle,
          Type* covar,
          Type* data,
          const Type* mu,
-         int D,
-         int N,
+         std::size_t D,
+         std::size_t N,
          bool sample,
          bool rowMajor,
          bool stable,

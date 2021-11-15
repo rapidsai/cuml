@@ -7,7 +7,7 @@ set -ex
 
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 
 # Set home to the job's workspace
 export HOME="$WORKSPACE"
@@ -27,7 +27,7 @@ export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 cd "$WORKSPACE"
 
 # If nightly build, append current YYMMDD to version
-if [[ "$BUILD_MODE" = "branch" && "$SOURCE_BRANCH" = branch-* ]] ; then
+if [ "${IS_STABLE_BUILD}" != "true" ] ; then
   export VERSION_SUFFIX=`date +%y%m%d`
 fi
 
@@ -42,8 +42,8 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
-# Remove rapidsai-nightly channel if we are building main branch
-if [ "$SOURCE_BRANCH" = "main" ]; then
+# Remove rapidsai-nightly channel if it is stable build
+if [ "${IS_STABLE_BUILD}" = "true" ]; then
   conda config --system --remove channels rapidsai-nightly
 fi
 

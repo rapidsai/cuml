@@ -22,7 +22,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <random>
 #include <vector>
 

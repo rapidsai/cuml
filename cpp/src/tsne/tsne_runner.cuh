@@ -74,7 +74,7 @@ class TSNE_runner {
         " might be a bit strange...");
   }
 
-  void run()
+  value_t run()
   {
     distance_and_perplexity();
 
@@ -86,11 +86,11 @@ class TSNE_runner {
 
     switch (params.algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
-        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
-        break;
-      case TSNE_ALGORITHM::FFT: TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
-      case TSNE_ALGORITHM::EXACT: TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
+        return TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      case TSNE_ALGORITHM::FFT: return TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      case TSNE_ALGORITHM::EXACT: return TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
     }
+    return 0;
   }
 
  private:
@@ -137,7 +137,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Normalize distances
     CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-    TSNE::normalize_distances(n, k_graph.knn_dists, params.n_neighbors, stream);
+    TSNE::normalize_distances(k_graph.knn_dists, n * params.n_neighbors, stream);
     //---------------------------------------------------
     END_TIMER(NormalizeTime);
 
@@ -160,6 +160,14 @@ class TSNE_runner {
 
     START_TIMER;
     //---------------------------------------------------
+    // Normalize perplexity to prepare for symmetrization
+    value_t P_sum = thrust::reduce(rmm::exec_policy(stream), P.begin(), P.end());
+    raft::linalg::scalarMultiply(P.data(), P.data(), 1.0f / (2.0f * P_sum), P.size(), stream);
+    //---------------------------------------------------
+    END_TIMER(NormalizeTime);
+
+    START_TIMER;
+    //---------------------------------------------------
     // Convert data to COO layout
     TSNE::symmetrize_perplexity(P.data(),
                                 k_graph.knn_indices,
@@ -172,12 +180,15 @@ class TSNE_runner {
     END_TIMER(SymmetrizeTime);
   }
 
+ public:
+  raft::sparse::COO<value_t, value_idx> COO_Matrix;
+
+ private:
   const raft::handle_t& handle;
   tsne_input& input;
   knn_graph<value_idx, value_t>& k_graph;
   TSNEParams& params;
 
-  raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;
   value_t* Y;
 };

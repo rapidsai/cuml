@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ data = [
 @pytest.mark.parametrize('use_idf', [True, False])
 @pytest.mark.parametrize('smooth_idf', [True, False])
 @pytest.mark.parametrize('sublinear_tf', [True, False])
+@pytest.mark.filterwarnings("ignore:divide by zero(.*):RuntimeWarning:"
+                            "sklearn[.*]")
 def test_tfidf_transformer(data, norm, use_idf, smooth_idf, sublinear_tf):
     data_gpu = cp.array(data)
 

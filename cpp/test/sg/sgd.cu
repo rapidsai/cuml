@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <test_utils.h>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include <solver/sgd.cuh>
 
 namespace ML {

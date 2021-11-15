@@ -15,7 +15,7 @@ function hasArg {
 
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/cuml/cpu/.conda-bld/
 
 # Set home to the job's workspace
@@ -55,7 +55,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=0.23.*" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.4.2dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.5.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
@@ -191,7 +191,7 @@ else
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x

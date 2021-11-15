@@ -259,7 +259,8 @@ class DBSCAN(Base,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
+                                       index=X_m.index)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL

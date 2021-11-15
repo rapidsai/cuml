@@ -35,16 +35,17 @@ namespace TSNE {
  * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
-void Exact_TSNE(value_t* VAL,
-                const value_idx* COL,
-                const value_idx* ROW,
-                const value_idx NNZ,
-                const raft::handle_t& handle,
-                value_t* Y,
-                const value_idx n,
-                const TSNEParams& params)
+value_t Exact_TSNE(value_t* VAL,
+                   const value_idx* COL,
+                   const value_idx* ROW,
+                   const value_idx NNZ,
+                   const raft::handle_t& handle,
+                   value_t* Y,
+                   const value_idx n,
+                   const TSNEParams& params)
 {
   cudaStream_t stream = handle.get_stream();
+  value_t kl_div      = 0;
   const value_idx dim = params.dim;
 
   if (params.initialize_embeddings)
@@ -69,6 +70,10 @@ void Exact_TSNE(value_t* VAL,
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
   rmm::device_uvector<value_t> gradient(n * dim, stream);
+
+  rmm::device_uvector<value_t> tmp(NNZ, stream);
+  value_t* Qs      = tmp.data();
+  value_t* KL_divs = tmp.data();
   //---------------------------------------------------
 
   // Calculate degrees of freedom
@@ -96,9 +101,24 @@ void Exact_TSNE(value_t* VAL,
     // Get row norm of Y
     raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false, stream);
 
+    bool last_iter = iter == params.max_iter - 1;
+
     // Compute attractive forces
-    TSNE::attractive_forces(
-      VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ, n, dim, df_power, recp_df, stream);
+    TSNE::attractive_forces(VAL,
+                            COL,
+                            ROW,
+                            Y,
+                            norm.data(),
+                            attract.data(),
+                            last_iter ? Qs : nullptr,
+                            NNZ,
+                            n,
+                            dim,
+                            fmaxf(params.dim - 1, 1),
+                            stream);
+
+    if (last_iter) { kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream); }
+
     // Compute repulsive forces
     const float Z = TSNE::repulsive_forces(
       Y, repel.data(), norm.data(), Z_sum.data(), n, dim, df_power, recp_df, stream);
@@ -139,6 +159,8 @@ void Exact_TSNE(value_t* VAL,
       if (iter % 100 == 0) { CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z); }
     }
   }
+
+  return kl_div;
 }
 
 }  // namespace TSNE

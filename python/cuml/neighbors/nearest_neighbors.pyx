@@ -391,6 +391,7 @@ class NearestNeighbors(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+        self._output_index = self.X_m.index
 
         if self.metric not in \
                 valid_metrics[self.working_algorithm_]:
@@ -453,7 +454,7 @@ class NearestNeighbors(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params", "algo_params"]
+                "p", "metric_params", "algo_params", "n_jobs"]
 
     @staticmethod
     def _build_metric_type(metric):
@@ -654,6 +655,7 @@ class NearestNeighbors(Base,
             # expanded metrics. This code correct numerical instabilities
             # that could arise.
             if metric_is_l2_based:
+                index = I_ndarr.index
                 X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
@@ -670,7 +672,9 @@ class NearestNeighbors(Base,
                 I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
 
                 D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                D_ndarr.index = index
                 I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
+                I_ndarr.index = index
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
@@ -702,9 +706,11 @@ class NearestNeighbors(Base,
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
+        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C",
+                                  index=X_m.index)
         D_ndarr = CumlArray.zeros((N, n_neighbors),
-                                  dtype=np.float32, order="C")
+                                  dtype=np.float32, order="C",
+                                  index=X_m.index)
 
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr
