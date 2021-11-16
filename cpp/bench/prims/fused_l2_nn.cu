@@ -20,7 +20,7 @@
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace Bench {

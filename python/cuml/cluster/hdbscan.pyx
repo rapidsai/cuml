@@ -580,7 +580,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
 
-        self.labels_ = CumlArray.empty(n_rows, dtype="int32")
+        self.labels_ = CumlArray.empty(n_rows, dtype="int32", index=X_m.index)
         self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
         self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
         self.sizes_ = CumlArray.empty(n_rows, dtype="int32")

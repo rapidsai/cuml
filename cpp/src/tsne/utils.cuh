@@ -32,8 +32,8 @@
 #include <thrust/transform.h>
 
 #include <sys/time.h>
-#include <raft/random/rng.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/random/rng.hpp>
+#include <raft/stats/sum.hpp>
 
 #include <unistd.h>
 #include <chrono>
@@ -183,8 +183,8 @@ __global__ void min_max_kernel(
  */
 template <typename value_idx, typename value_t>
 __global__ void compute_kl_div_k(const value_t* restrict Ps,
-                                 const value_t* restrict Qs,
-                                 value_t* restrict KL_divs,
+                                 const value_t* Qs,
+                                 value_t* KL_divs,
                                  const value_idx NNZ)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -199,11 +199,8 @@ __global__ void compute_kl_div_k(const value_t* restrict Ps,
  * Compute KL divergence
  */
 template <typename value_t>
-value_t compute_kl_div(value_t* restrict Ps,
-                       value_t* restrict Qs,
-                       value_t* restrict KL_divs,
-                       const size_t NNZ,
-                       cudaStream_t stream)
+value_t compute_kl_div(
+  value_t* restrict Ps, value_t* Qs, value_t* KL_divs, const size_t NNZ, cudaStream_t stream)
 {
   value_t P_sum = thrust::reduce(rmm::exec_policy(stream), Ps, Ps + NNZ);
   raft::linalg::scalarMultiply(Ps, Ps, 1.0f / P_sum, NNZ, stream);
