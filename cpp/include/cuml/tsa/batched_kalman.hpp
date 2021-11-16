@@ -30,9 +30,9 @@ namespace ML {
  *
  * @param[in]  handle        cuML handle
  * @param[in]  arima_mem     Pre-allocated temporary memory
- * @param[in]  d_ys_b        Batched time series
+ * @param[in]  d_ys          Batched time series
  *                           Shape (nobs, batch_size) (col-major, device)
- * @param[in]  d_exog_b      Batched exogenous variables
+ * @param[in]  d_exog        Batched exogenous variables
  *                           Shape (nobs, n_exog * batch_size) (col-major, device)
  * @param[in]  nobs          Number of samples per time series
  * @param[in]  params        ARIMA parameters (device)
@@ -52,7 +52,7 @@ namespace ML {
  */
 void batched_kalman_filter(raft::handle_t& handle,
                            const ARIMAMemory<double>& arima_mem,
-                           const double* d_ys_b,
+                           const double* d_ys,
                            const double* d_exog,
                            int nobs,
                            const ARIMAParams<double>& params,
