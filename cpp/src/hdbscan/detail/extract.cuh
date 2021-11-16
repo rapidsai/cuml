@@ -26,9 +26,9 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/sparse/op/sort.h>
 #include <raft/label/classlabels.cuh>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

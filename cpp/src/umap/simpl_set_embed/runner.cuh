@@ -20,7 +20,7 @@
 #include <raft/mr/device/allocator.hpp>
 #include "algo.cuh"
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
 namespace UMAPAlgo {
 
