@@ -357,7 +357,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
-      int left = is_dense<fil_node_t>() ? 2 * cur + 1 : sparse_index - root;
+      int left = node_traits<fil_node_t>::IS_DENSE ? 2 * cur + 1 : sparse_index - root;
       sparse_index += 2;
       conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
         left, tree, node_id, forest_params, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
@@ -536,63 +536,32 @@ void tl2fil_common(forest_params_t* params,
   params->n_items          = tl_params->n_items;
 }
 
-template <typename fil_node_t>
-struct tl2fil_sparse_check_t {
-  template <typename threshold_t, typename leaf_t>
-  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model)
-  {
-    ASSERT(false,
-           "internal error: "
-           "only a specialization of this template should be used");
-  }
-};
+template <typename node_t>
+template <typename threshold_t, typename leaf_t>
+void node_traits<node_t>::check(const treelite::ModelImpl<threshold_t, leaf_t>& model) {
+  if constexpr(!std::is_same<node_t, sparse_node8>()) return;
+  const int MAX_FEATURES   = 1 << sparse_node8::FID_NUM_BITS;
+  const int MAX_TREE_NODES = (1 << sparse_node8::LEFT_NUM_BITS) - 1;
+  // check the number of features
+  int num_features = model.num_feature;
+  ASSERT(num_features <= MAX_FEATURES,
+         "model has %d features, "
+         "but only %d supported for 8-byte sparse nodes",
+         num_features,
+         MAX_FEATURES);
 
-template <>
-struct tl2fil_sparse_check_t<dense_node> {
-  // no extra check for 16-byte sparse nodes
-  template <typename threshold_t, typename leaf_t>
-  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model)
-  {
-  }
-};
-
-template <>
-struct tl2fil_sparse_check_t<sparse_node16> {
-  // no extra check for 16-byte sparse nodes
-  template <typename threshold_t, typename leaf_t>
-  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model)
-  {
-  }
-};
-
-template <>
-struct tl2fil_sparse_check_t<sparse_node8> {
-  static const int MAX_FEATURES   = 1 << sparse_node8::FID_NUM_BITS;
-  static const int MAX_TREE_NODES = (1 << sparse_node8::LEFT_NUM_BITS) - 1;
-  template <typename threshold_t, typename leaf_t>
-  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model)
-  {
-    // check the number of features
-    int num_features = model.num_feature;
-    ASSERT(num_features <= MAX_FEATURES,
-           "model has %d features, "
+  // check the number of tree nodes
+  const std::vector<tl::Tree<threshold_t, leaf_t>>& trees = model.trees;
+  for (std::size_t i = 0; i < trees.size(); ++i) {
+    int num_nodes = trees[i].num_nodes;
+    ASSERT(num_nodes <= MAX_TREE_NODES,
+           "tree %zu has %d nodes, "
            "but only %d supported for 8-byte sparse nodes",
-           num_features,
-           MAX_FEATURES);
-
-    // check the number of tree nodes
-    const std::vector<tl::Tree<threshold_t, leaf_t>>& trees = model.trees;
-    for (std::size_t i = 0; i < trees.size(); ++i) {
-      int num_nodes = trees[i].num_nodes;
-      ASSERT(num_nodes <= MAX_TREE_NODES,
-             "tree %zu has %d nodes, "
-             "but only %d supported for 8-byte sparse nodes",
-             i,
-             num_nodes,
-             MAX_TREE_NODES);
-    }
+           i,
+           num_nodes,
+           MAX_TREE_NODES);
   }
-};
+}
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
 struct tl2fil_t {
@@ -608,7 +577,7 @@ struct tl2fil_t {
     : model(model_), tl_params(tl_params_)
   {
     tl2fil_common(&params, model, &tl_params);
-    tl2fil_sparse_check_t<fil_node_t>::check(model);
+    node_traits<fil_node_t>::check(model);
 
     size_t num_trees = model.trees.size();
 
@@ -616,14 +585,14 @@ struct tl2fil_t {
     trees.push_back(0);
     for (size_t i = 0; i < num_trees; ++i) {
       int num_nodes =
-        is_dense<fil_node_t>() ? tree_num_nodes(params.depth) : model.trees[i].num_nodes;
+        node_traits<fil_node_t>::IS_DENSE ? tree_num_nodes(params.depth) : model.trees[i].num_nodes;
       trees.push_back(num_nodes + trees.back());
     }
     size_t total_nodes = trees.back();
     trees.pop_back();
 
     if (params.leaf_algo == VECTOR_LEAF) {
-      size_t max_leaves = is_dense<fil_node_t>()
+      size_t max_leaves = node_traits<fil_node_t>::IS_DENSE
                             ? num_trees * (tree_num_nodes(params.depth) + 1) / 2
                             : (total_nodes + num_trees) / 2;
       vector_leaf.resize(max_leaves * params.num_classes);
@@ -643,7 +612,7 @@ struct tl2fil_t {
     params.num_nodes = nodes.size();
   }
 
-  void init_GPU(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
+  void init_gpu(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
   {
     init(handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
     // sync is necessary as nodes are used in init(),
@@ -695,17 +664,17 @@ void from_treelite(const raft::handle_t& handle,
   switch (storage_type) {
     case storage_type_t::DENSE: {
       tl2fil_t<dense_node, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_GPU(handle, pforest, storage_type);
+      tl2fil.init_gpu(handle, pforest, storage_type);
       break;
     }
     case storage_type_t::SPARSE: {
       tl2fil_t<sparse_node16, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_GPU(handle, pforest, storage_type);
+      tl2fil.init_gpu(handle, pforest, storage_type);
       break;
     }
     case storage_type_t::SPARSE8: {
       tl2fil_t<sparse_node8, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_GPU(handle, pforest, storage_type);
+      tl2fil.init_gpu(handle, pforest, storage_type);
       break;
     }
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
