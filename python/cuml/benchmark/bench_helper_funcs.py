@@ -34,8 +34,34 @@ def fit(m, x, y=None):
     m.fit(x) if y is None else m.fit(x, y)
 
 
-def fit_transform(m, x):
-    m.fit_transform(x)
+def fit_transform(m, x, y=None):
+    if y is None:
+        if hasattr(m, 'transform'):
+            m.fit(x)
+            m.transform(x)
+        else:
+            m.fit_transform(x)
+    else:
+        if hasattr(m, 'transform'):
+            m.fit(x, y)
+            m.transform(x)
+        else:
+            m.fit_transform(x, y)
+
+
+def fit_predict(m, x, y=None):
+    if y is None:
+        if hasattr(m, 'predict'):
+            m.fit(x)
+            m.predict(x)
+        else:
+            m.fit_predict(x)
+    else:
+        if hasattr(m, 'predict'):
+            m.fit(x, y)
+            m.predict(x)
+        else:
+            m.fit_predict(x, y)
 
 
 def predict(m, x):
