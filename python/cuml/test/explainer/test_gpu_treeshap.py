@@ -34,11 +34,11 @@ if has_xgboost():
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_xgb_regressor(objective):
     X, y = fetch_california_housing(return_X_y=True)
-    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dtrain = xgb.DMatrix(X, label=y)
     param = {'max_depth': 8, 'eta': 0.1, 'objective': objective}
     num_round = 10
     xgb_model = xgb.train(param, dtrain, num_boost_round=num_round,
-                          evals=[(dtrain, 'train'), (dtest, 'test')])
+                          evals=[(dtrain, 'train')])
     tl_model = treelite.Model.from_xgboost(xgb_model)
 
     explainer = TreeExplainer(model=tl_model)
