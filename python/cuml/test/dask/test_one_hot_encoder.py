@@ -24,7 +24,7 @@ from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from pandas.testing import assert_frame_equal
 from cuml.test.test_one_hot_encoder import generate_inputs_from_categories
 from cuml.test.test_one_hot_encoder import assert_inverse_equal
-from cuml.test.test_one_hot_encoder import from_df_to_array
+from cuml.test.test_one_hot_encoder import from_df_to_numpy
 
 
 @pytest.mark.mg
