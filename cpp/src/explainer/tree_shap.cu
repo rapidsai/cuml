@@ -24,37 +24,55 @@
 #include <iostream>
 #include <vector>
 
-namespace {
-
 namespace tl = treelite;
 
-// Define a custom split condition implementing EvaluateSplit and Merge
-template <typename T>
-struct MySplitCondition {
-  MySplitCondition() = default;
-  MySplitCondition(T feature_lower_bound, T feature_upper_bound)
+/* All functions and classes defined in this anonymous namespace are strictly
+ * for internal use by GPUTreeSHAP. */
+namespace {
+
+template <typename ThresholdType>
+struct SplitCondition {
+  SplitCondition() = default;
+  SplitCondition(ThresholdType feature_lower_bound,
+                 ThresholdType feature_upper_bound,
+                 tl::Operator comparison_op)
       : feature_lower_bound(feature_lower_bound),
-        feature_upper_bound(feature_upper_bound) {
-    assert(feature_lower_bound <= feature_upper_bound);
+        feature_upper_bound(feature_upper_bound),
+        comparison_op(comparison_op)  {
+    if (feature_lower_bound > feature_upper_bound) {
+      RAFT_FAIL("Lower bound cannot exceed upper bound");
+    }
+    if (comparison_op != tl::Operator::kLT
+        && comparison_op != tl::Operator::kLE
+        && comparison_op != tl::Operator::kNone) {
+      RAFT_FAIL("Unsupported comparison operator");
+    }
   }
 
-  /*! Feature values >= lower and < upper flow down this path. */
-  T feature_lower_bound;
-  T feature_upper_bound;
+  // Lower and upper bounds on feature values flowing down this path
+  ThresholdType feature_lower_bound;
+  ThresholdType feature_upper_bound;
+  // Comparison operator used in the test. For now only < (kLT) and <= (kLE)
+  // are supported.
+  tl::Operator comparison_op;
 
   // Does this instance flow down this path?
-  __host__ __device__ bool EvaluateSplit(T x) const {
+  __host__ __device__ bool EvaluateSplit(ThresholdType x) const {
+    if (comparison_op == tl::Operator::kLE) {
+      return x > feature_lower_bound && x <= feature_upper_bound;
+    }
     return x >= feature_lower_bound && x < feature_upper_bound;
   }
 
   // Combine two split conditions on the same feature
   __host__ __device__ void Merge(
-      const MySplitCondition& other) {  // Combine duplicate features
+      const SplitCondition& other) {  // Combine duplicate features
     feature_lower_bound = max(feature_lower_bound, other.feature_lower_bound);
     feature_upper_bound = min(feature_upper_bound, other.feature_upper_bound);
   }
-  static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
-                "T must be a float or double");
+  static_assert(std::is_same<ThresholdType, float>::value
+                || std::is_same<ThresholdType, double>::value,
+                "ThresholdType must be a float or double");
 };
 
 enum class CondType : uint8_t {
@@ -73,19 +91,19 @@ class ExtractedPath {
   virtual CondType GetCondType() = 0;
   virtual ~ExtractedPath() = default;
 
-  template <typename T>
+  template <typename ThresholdType>
   static std::unique_ptr<ExtractedPath> Create();
 
   template <typename Func, typename ...Args>
   auto Dispatch(Func func, Args&& ...args);
 };
 
-template <typename T>
+template <typename ThresholdType>
 class ExtractedPathImpl : public ExtractedPath {
  public:
-  std::vector<gpu_treeshap::PathElement<MySplitCondition<T>>> paths;
+  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> paths;
   ExtractedPathImpl() {
-    if (std::is_same<T, double>::value) {
+    if (std::is_same<ThresholdType, double>::value) {
       cond_type = CondType::kDouble;
     } else {
       cond_type = CondType::kFloat;
@@ -98,10 +116,10 @@ class ExtractedPathImpl : public ExtractedPath {
   }
 };
 
-template <typename T>
+template <typename ThresholdType>
 std::unique_ptr<ExtractedPath> ExtractedPath::Create() {
   std::unique_ptr<ExtractedPath> model
-    = std::make_unique<ExtractedPathImpl<T>>();
+    = std::make_unique<ExtractedPathImpl<ThresholdType>>();
   return model;
 }
 
@@ -151,9 +169,7 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
   }
   if (model.task_type != tl::TaskType::kBinaryClfRegr
       && model.task_type != tl::TaskType::kMultiClfGrovePerClass) {
-    RAFT_FAIL("Only tree models with task type kBinaryClfRegr, "
-              "kMultiClfGrovePerClass are supported. So for example, "
-              "scikit-learn trees are not supported.");
+    RAFT_FAIL("Only regressors and binary classifiers are supported");
   }
   std::unique_ptr<ExtractedPath> path_container
     = ExtractedPath::Create<ThresholdType>();
@@ -204,8 +220,9 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
           }
           // Encode the range of feature values that flow down this path
           bool is_left_path = tree.LeftChild(parent_idx) == child_idx;
-          if (tree.SplitType(parent_idx) == tl::SplitFeatureType::kCategorical) {
-            RAFT_FAIL("For now only trees with numerical splits are supported. "
+          if (tree.SplitType(parent_idx)
+              == tl::SplitFeatureType::kCategorical) {
+            RAFT_FAIL("Only trees with numerical splits are supported. "
                       "Trees with categorical splits are not supported yet.");
           }
           ThresholdType lower_bound =
@@ -213,12 +230,13 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
           ThresholdType upper_bound =
             is_left_path ? tree.Threshold(parent_idx) : inf;
           int group_id = tree_idx % num_groups;
+          auto comparison_op = tree.ComparisonOp(parent_idx);
           paths->paths.push_back(
-              gpu_treeshap::PathElement<MySplitCondition<ThresholdType>>{
+              gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
                 path_idx,
                 tree.SplitIndex(parent_idx),
                 group_id,
-                {lower_bound, upper_bound},
+                SplitCondition{lower_bound, upper_bound, comparison_op},
                 zero_fraction,
                 v});
           child_idx = parent_idx;
@@ -227,9 +245,15 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
         // Root node has feature -1
         {
           int group_id = tree_idx % num_groups;
+          auto comparison_op = tree.ComparisonOp(child_idx);
           paths->paths.push_back(
-              gpu_treeshap::PathElement<MySplitCondition<ThresholdType>>{
-                path_idx, -1, group_id, {-inf, inf}, 1.0, v});
+              gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+                path_idx,
+                -1,
+                group_id,
+                SplitCondition{-inf, inf, comparison_op},
+                1.0,
+                v});
           path_idx++;
         }
       }

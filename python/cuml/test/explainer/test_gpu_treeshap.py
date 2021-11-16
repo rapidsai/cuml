@@ -23,7 +23,7 @@ from cuml.common.import_utils import has_lightgbm
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.datasets import fetch_california_housing, load_iris
-from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_classification
 
 if has_xgboost():
     import xgboost as xgb
@@ -31,14 +31,10 @@ if has_xgboost():
 @pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
                                        'reg:squaredlogerror',
                                        'reg:pseudohubererror'])
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_xgb_regressor(objective):
     X, y = fetch_california_housing(return_X_y=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
-                                                        shuffle=True,
-                                                        random_state=0)
     dtrain = xgb.DMatrix(X_train, label=y_train)
-    dtest = xgb.DMatrix(X_test, label=y_test)
     param = {'max_depth': 8, 'eta': 0.1, 'objective': objective}
     num_round = 10
     xgb_model = xgb.train(param, dtrain, num_boost_round=num_round,
@@ -46,66 +42,48 @@ def test_xgb_regressor(objective):
     tl_model = treelite.Model.from_xgboost(xgb_model)
 
     explainer = TreeExplainer(model=tl_model)
-    out = explainer.shap_values(X_test)
-    correct_out = xgb_model.predict(dtest, pred_contribs=True)
+    out = explainer.shap_values(X)
+    correct_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
 
-@pytest.mark.parametrize('objective,max_label',
+@pytest.mark.parametrize('objective,n_classes',
                          [('binary:logistic', 2),
                           ('binary:hinge', 2),
                           ('binary:logitraw', 2),
                           ('count:poisson', 4),
                           ('rank:pairwise', 5),
                           ('rank:ndcg', 5),
-                          ('rank:map', 5)],
+                          ('rank:map', 5),
+                          ('multi:softmax', 5),
+                          ('multi:softprob', 5)],
                          ids=['binary:logistic', 'binary:hinge',
                               'binary:logitraw', 'count:poisson',
-                              'rank:pairwise', 'rank:ndcg', 'rank:map'])
-def test_xgb_binary_classifier(objective, max_label):
-    nrow = 16
-    ncol = 8
-    rng = np.random.default_rng(seed=0)
-    X = rng.standard_normal(size=(nrow, ncol), dtype=np.float32)
-    y = rng.integers(0, max_label, size=nrow)
-    assert np.min(y) == 0
-    assert np.max(y) == max_label - 1
-
-    num_round = 4
+                              'rank:pairwise', 'rank:ndcg', 'rank:map',
+                              'multi:softmax', 'multi:softprob'])
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+def test_xgb_classifier(objective, n_classes):
+    n_samples = 1000
+    X, y = make_classification(n_samples=n_samples, n_features=8,
+                               n_informative=8, n_redundant=0, n_repeated=0,
+                               n_classes=n_classes, random_state=2021)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    num_round = 10
     dtrain = xgb.DMatrix(X, label=y)
+    params = {'objective': objective, 'base_score': 0.5, 'seed': 0,
+              'max_depth': 6}
     if objective.startswith('rank:'):
-        dtrain.set_group([nrow])
-    xgb_model = xgb.train({'objective': objective, 'base_score': 0.5,
-                           'seed': 0},
-                          dtrain=dtrain, num_boost_round=num_round)
+        dtrain.set_group([10] * 100)
+    if n_classes > 2 and objective.startswith('multi:'):
+        params['num_class'] = n_classes
+    xgb_model = xgb.train(params, dtrain=dtrain, num_boost_round=num_round)
     tl_model = treelite.Model.from_xgboost(xgb_model)
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
     correct_out = xgb_model.predict(dtrain, pred_contribs=True)
-    np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
 
-@pytest.mark.parametrize('objective', ['multi:softmax', 'multi:softprob'])
-def test_xgb_multiclass_classifier(objective):
-    X, y = load_iris(return_X_y=True)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
-            shuffle=True, random_state=0)
-    dtrain = xgb.DMatrix(X_train, label=y_train)
-    dtest = xgb.DMatrix(X_test, label=y_test)
-    param = {'max_depth': 6, 'eta': 0.1, 'objective': objective,
-             'num_class': 3, 'eval_metric': 'mlogloss',
-             'predictor': 'gpu_predictor'}
-    num_round = 10
-
-    xgb_model = xgb.train(param, dtrain, num_boost_round=num_round,
-                          evals=[(dtrain, 'train'), (dtest, 'test')])
-    tl_model = treelite.Model.from_xgboost(xgb_model)
-
-    explainer = TreeExplainer(model=tl_model)
-    out = explainer.shap_values(X_test)
-    correct_out = xgb_model.predict(dtest, pred_contribs=True)
-    np.testing.assert_almost_equal(out, correct_out)
-
-def test_cuml_rf_classifier():
+def test_cuml_rf_regressor():
     X, y = fetch_california_housing(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.float32)
     cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
@@ -118,4 +96,5 @@ def test_cuml_rf_classifier():
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
-    np.testing.assert_almost_equal(np.sum(out, axis=1), pred, decimal=3)
+    # SHAP values should add up to predicted score
+    np.testing.assert_almost_equal(np.sum(out, axis=1), pred, decimal=5)
