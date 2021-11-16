@@ -59,7 +59,7 @@ def test_sgd(dtype, lrate, penalty, loss, datatype):
 
     if datatype == "dataframe":
         assert isinstance(cu_pred, cudf.Series)
-        cu_pred = cu_pred.to_array()
+        cu_pred = cu_pred.to_numpy()
 
     else:
         assert isinstance(cu_pred, np.ndarray)
@@ -105,7 +105,7 @@ def test_sgd_default(dtype, datatype):
 
     if datatype == "dataframe":
         assert isinstance(cu_pred, cudf.Series)
-        cu_pred = cu_pred.to_array()
+        cu_pred = cu_pred.to_numpy()
 
     else:
         assert isinstance(cu_pred, np.ndarray)

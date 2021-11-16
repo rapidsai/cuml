@@ -1413,8 +1413,8 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
     cu_predict_decision = cuml_model.decision_function(X_test)
     cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
     if input_type == "cudf":
-        y_test = y_test.to_array()
-        y = y.to_array()
+        y_test = y_test.to_numpy()
+        y = y.to_numpy()
         cu_predict_decision = cp.asnumpy(cu_predict_decision.values)
     elif input_type == "cupy":
         y = cp.asnumpy(y)

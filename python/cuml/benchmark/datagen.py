@@ -176,7 +176,7 @@ def _convert_to_numpy(data):
     elif isinstance(data, cudf.DataFrame):
         return data.to_numpy()
     elif isinstance(data, cudf.Series):
-        return data.to_array()
+        return data.to_numpy()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data.to_numpy()
     else:
@@ -261,7 +261,7 @@ def _convert_to_scipy_sparse(data, input_type):
     elif isinstance(data, cudf.DataFrame):
         return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, cudf.Series):
-        return _sparsify_and_convert(data.to_array(), input_type)
+        return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return _sparsify_and_convert(data.to_numpy(), input_type)
     else:

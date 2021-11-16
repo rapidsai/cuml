@@ -166,7 +166,7 @@ def test_predict_proba(dataset, datatype, parameters, client):
     if datatype == 'dask_cudf':
         d_probas = list(map(lambda o: o.to_numpy()
                             if isinstance(o, DataFrame)
-                            else o.to_array()[..., np.newaxis],
+                            else o.to_numpy()[..., np.newaxis],
                             d_probas))
 
     check_probabilities(l_probas, d_probas)

@@ -359,7 +359,7 @@ def test_output(output_type, dtype, out_dtype, order, shape):
 
         elif output_type == 'series':
             comp = cudf.Series(np.ravel(inp)) == res
-            assert np.all(comp.to_array())
+            assert np.all(comp.to_numpy())
 
         elif output_type == 'dataframe':
             if len(inp.shape) == 1:
