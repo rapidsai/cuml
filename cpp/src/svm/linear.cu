@@ -235,6 +235,7 @@ struct PredictProba {
   }
 };
 
+/** The loss function is the main hint for whether we solve classification or regression. */
 inline bool isRegression(LinearSVMParams::Loss loss)
 {
   return loss == LinearSVMParams::EPSILON_INSENSITIVE ||
@@ -249,11 +250,18 @@ struct OvrSelector {
   __device__ T operator()(const T x) const { return x == classes[selected] ? 1 : 0; }
 };
 
-/** The linear part of the prediction.
+/**
+ * The linear part of the prediction.
  *
- * @param X - [in] column-major matrix of size (nRows, nCols)
- * @param w - [in] row-major matrix of size [nCols + fitIntercept, coefCols]
- * @param out - [out] row-major matrix of size [nRows, coefCols]
+ * @param [in] handle - raft handle
+ * @param [in] X - column-major matrix of size (nRows, nCols)
+ * @param [in] w - row-major matrix of size [nCols + fitIntercept, coefCols]
+ * @param [in] nRows - number of samples
+ * @param [in] nCols - number of features
+ * @param [in] coefCols - number of columns in `w` (`nClasses == 2 ? 1 : nClasses`)
+ * @param [in] fitIntercept - whether to add the bias term
+ * @param [out] out - row-major matrix of size [nRows, coefCols]
+ * @param [in] stream - cuda stream (not synchronized)
  */
 template <typename T>
 void predictLinear(const raft::handle_t& handle,
@@ -496,10 +504,6 @@ void LinearSVMModel<T>::predict(const raft::handle_t& handle,
     handle, X, model.w, nRows, nCols, coefCols, params.fit_intercept, temp.data(), stream);
   PredictClass<T>::run(out, temp.data(), model.classes, nRows, coefCols, stream);
 }
-
-struct Hello {
-  LinearSVMParams::Penalty penalty;
-};
 
 template <typename T>
 void LinearSVMModel<T>::predictProba(const raft::handle_t& handle,
