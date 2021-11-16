@@ -121,36 +121,6 @@ ExtractedPath::Dispatch(Func func, Args&& ...args) {
   }
 }
 
-template <typename T>
-std::ostream& operator<<(
-    std::ostream& os,
-    const std::vector<gpu_treeshap::PathElement<MySplitCondition<T>>>& paths) {
-  std::vector<gpu_treeshap::PathElement<MySplitCondition<T>>> tmp(paths);
-  std::sort(tmp.begin(), tmp.end(),
-            [&](const gpu_treeshap::PathElement<MySplitCondition<T>>& a,
-                const gpu_treeshap::PathElement<MySplitCondition<T>>& b) {
-              if (a.path_idx < b.path_idx) return true;
-              if (b.path_idx < a.path_idx) return false;
-
-              if (a.feature_idx < b.feature_idx) return true;
-              if (b.feature_idx < a.feature_idx) return false;
-              return false;
-            });
-
-  for (auto i = 0ull; i < tmp.size(); i++) {
-    auto e = tmp[i];
-    if (i == 0 || e.path_idx != tmp[i - 1].path_idx) {
-      os << "path_idx:" << e.path_idx << ", leaf value:" << e.v;
-      os << "\n";
-    }
-    os << " (feature:" << e.feature_idx << ", pz:" << e.zero_fraction << ", ["
-       << e.split_condition.feature_lower_bound << "<=x<"
-       << e.split_condition.feature_upper_bound << "])";
-    os << "\n";
-  }
-  return os;
-}
-
 class DenseDatasetWrapper {
   const float* data;
   std::size_t num_rows;
