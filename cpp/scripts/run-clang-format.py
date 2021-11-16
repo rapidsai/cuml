@@ -65,7 +65,7 @@ def parse_args():
         args.dstdir = tempfile.mkdtemp()
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
-    version = VERSION_REGEX.match(ret)
+    version = VERSION_REGEX.search(ret)
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)

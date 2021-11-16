@@ -103,7 +103,7 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
 
     local_model.fit(X_train, y=y_train)
 
-    distributed_model = MNMG_UMAP(local_model)
+    distributed_model = MNMG_UMAP(model=local_model)
     embedding = distributed_model.transform(X_transform_d)
 
     embedding = embedding.compute()
