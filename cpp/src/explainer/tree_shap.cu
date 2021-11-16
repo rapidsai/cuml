@@ -19,6 +19,8 @@
 #include <thrust/device_ptr.h>
 #include <GPUTreeShap/gpu_treeshap.h>
 #include <treelite/tree.h>
+#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <type_traits>
 #include <iostream>
@@ -75,7 +77,7 @@ struct SplitCondition {
                 "ThresholdType must be a float or double");
 };
 
-enum class CondType : uint8_t {
+enum class CondType : std::uint8_t {
   kFloat, kDouble
 };
 
@@ -216,7 +218,7 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
             has_count_info = true;
           }
           if (!has_count_info) {
-            RAFT_FAIL("Lacking sufficient info");
+            RAFT_FAIL("Tree model doesn't have data count information");
           }
           // Encode the range of feature values that flow down this path
           bool is_left_path = tree.LeftChild(parent_idx) == child_idx;
