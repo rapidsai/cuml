@@ -321,8 +321,8 @@ class OneHotEncoder(Base):
             for feature in X.columns:
                 encoder = self._encoders[feature]
                 col_idx = encoder.transform(X[feature])
-                idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
-                col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
+                idx_to_keep = col_idx.notnull().to_cupy()
+                col_idx = col_idx.dropna().to_cupy()
 
                 # Simple test to auto upscale col_idx type as needed
                 # First, determine the maximum value we will add assuming
