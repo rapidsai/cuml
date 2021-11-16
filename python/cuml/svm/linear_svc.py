@@ -101,7 +101,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
     probability: {LinearSVM_defaults.probability.__class__.__name__ \
             } (default = {LinearSVM_defaults.probability})
         Enable or disable probability estimates.
-    multiclass_strategy : {{currently, only 'ovr'}} (default = 'ovr')
+    multi_class : {{currently, only 'ovr'}} (default = 'ovr')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
         while ``'ovr'`` selects `OneVsRestClassifier
@@ -149,8 +149,12 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         # set classification-specific defaults
         if 'loss' not in kwargs:
             kwargs['loss'] = 'squared_hinge'
-        if 'multiclass_strategy' not in kwargs:
-            kwargs['multiclass_strategy'] = 'ovr'
+        if 'multi_class' not in kwargs:
+            # 'multi_class' is a real parameter here
+            # 'multiclass_strategy' is an ephemeral compatibility parameter
+            #              for easier switching between
+            #              sklearn.LinearSVC <-> cuml.LinearSVC <-> cuml.SVC
+            kwargs['multi_class'] = kwargs.pop('multiclass_strategy', 'ovr')
 
         super().__init__(**kwargs)
 
@@ -182,5 +186,5 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             'C',
             'grad_tol',
             'change_tol',
-            'multiclass_strategy',
+            'multi_class',
         }.union(super().get_param_names()))
