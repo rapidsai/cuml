@@ -545,8 +545,9 @@ void tl2fil_common(forest_params_t* params,
 
 template <typename node_t>
 template <typename threshold_t, typename leaf_t>
-void node_traits<node_t>::check(const treelite::ModelImpl<threshold_t, leaf_t>& model) {
-  if constexpr(!std::is_same<node_t, sparse_node8>()) return;
+void node_traits<node_t>::check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+{
+  if constexpr (!std::is_same<node_t, sparse_node8>()) return;
   const int MAX_FEATURES   = 1 << sparse_node8::FID_NUM_BITS;
   const int MAX_TREE_NODES = (1 << sparse_node8::LEFT_NUM_BITS) - 1;
   // check the number of features

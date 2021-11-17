@@ -29,8 +29,8 @@
 #include "internal.cuh"
 
 namespace treelite {
-  template<typename, typename>
-  struct ModelImpl;
+template <typename, typename>
+struct ModelImpl;
 }
 
 namespace ML {
@@ -125,8 +125,8 @@ struct sparse_forest;
 
 template <typename node_t>
 struct node_traits {
-  using storage = sparse_storage<node_t>;
-  using forest = sparse_forest<node_t>;
+  using storage              = sparse_storage<node_t>;
+  using forest               = sparse_forest<node_t>;
   static const bool IS_DENSE = false;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
@@ -134,11 +134,13 @@ struct node_traits {
 
 template <>
 struct node_traits<dense_node> {
-  using storage = dense_storage;
-  using forest = dense_forest;
+  using storage              = dense_storage;
+  using forest               = dense_forest;
   static const bool IS_DENSE = true;
   template <typename threshold_t, typename leaf_t>
-  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model) {}
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+  {
+  }
 };
 
 /// all model parameters mostly required to compute shared memory footprint,

@@ -379,7 +379,8 @@ struct dense_forest : forest {
     }
   }
 
-  /// const int* trees is ignored and only provided for compatibility with sparse_forest<node_t>::init()
+  /// const int* trees is ignored and only provided for compatibility with
+  /// sparse_forest<node_t>::init()
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
             const std::vector<float>& vector_leaf,
