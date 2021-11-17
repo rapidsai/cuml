@@ -27,6 +27,8 @@ from cuml.test.utils import unit_param, quality_param, stress_param
 
 import sklearn.svm as sk
 import cuml.svm as cu
+import cuml
+import cuml.common.logger as logger
 
 
 SEED = 42
@@ -193,10 +195,12 @@ def test_regression_eps(loss, epsilon, dims):
 
 def run_classification(datatype, penalty, loss, dims, nclasses):
 
+    t = time.perf_counter()
     nrows, ncols = dims
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype, nrows, ncols, nclasses
     )
+    logger.debug(f"Data generation time: {time.perf_counter() - t} s.")
 
     # solving in primal is not supported by sklearn for this loss type.
     skdual = loss == 'hinge' and penalty == 'l2'
@@ -209,10 +213,15 @@ def run_classification(datatype, penalty, loss, dims, nclasses):
     skit = max(10, min(cuit, cuit * 1000 / nrows))
 
     t = time.perf_counter()
-    cum = cu.LinearSVC(loss=loss, penalty=penalty, max_iter=cuit)
+    handle = cuml.Handle(n_streams=0)
+    cum = cu.LinearSVC(
+        handle=handle, loss=loss, penalty=penalty, max_iter=cuit)
     cum.fit(X_train, y_train)
     cus = cum.score(X_test, y_test)
-    t = max(5, (time.perf_counter() - t) * SKLEARN_TIMEOUT_FACTOR)
+    handle.sync()
+    t = time.perf_counter() - t
+    logger.debug(f"Cuml time: {t} s.")
+    t = max(5, t * SKLEARN_TIMEOUT_FACTOR)
 
     # cleanup cuml objects so that we can more easily fork the process
     # and test sklearn
