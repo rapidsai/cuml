@@ -120,7 +120,7 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     d_outputs = d_model.predict(X_test, convert_dtype=True)
     d_outputs = d_outputs.compute()
 
-    d_outputs = d_outputs.as_matrix() \
+    d_outputs = d_outputs.to_numpy() \
         if isinstance(d_outputs, DataFrame) \
         else d_outputs
 

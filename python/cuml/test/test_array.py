@@ -359,14 +359,14 @@ def test_output(output_type, dtype, out_dtype, order, shape):
 
         elif output_type == 'series':
             comp = cudf.Series(np.ravel(inp)) == res
-            assert np.all(comp.to_array())
+            assert np.all(comp.to_numpy())
 
         elif output_type == 'dataframe':
             if len(inp.shape) == 1:
                 inp = inp.reshape(inp.shape[0], 1)
             comp = cudf.DataFrame(inp)
             comp = comp == res
-            assert np.all(comp.as_gpu_matrix().copy_to_host())
+            assert np.all(comp.to_numpy())
 
         # check for e2e cartesian product:
         if output_type not in ['dataframe', 'cudf']:
