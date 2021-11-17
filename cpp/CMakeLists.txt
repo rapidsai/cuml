@@ -310,6 +310,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/spectral/spectral.cu
         src/svm/svc.cu
         src/svm/svr.cu
+        src/svm/linear.cu
         src/svm/ws_util.cu
         src/tsa/auto_arima.cu
         src/tsa/stationarity.cu

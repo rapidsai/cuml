@@ -315,6 +315,12 @@ Support Vector Machines
 .. autoclass:: cuml.svm.SVR
     :members:
 
+.. autoclass:: cuml.svm.LinearSVC
+    :members:
+
+.. autoclass:: cuml.svm.LinearSVR
+    :members:
+
 Nearest Neighbors Classification
 --------------------------------
 
