@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <linalg/reduce_rows_by_key.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {

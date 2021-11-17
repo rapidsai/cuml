@@ -22,7 +22,7 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import numpy as cpu_np
 import cupy as np
-from cupy import sparse
+from cupyx.scipy import sparse
 from scipy import stats
 from scipy import optimize
 from scipy.special import boxcox
@@ -1238,7 +1238,7 @@ class RobustScaler(TransformerMixin,
                 else:
                     column_data = X[:, feature_idx]
 
-                is_not_nan = ~np.isnan(column_data).astype(np.bool)
+                is_not_nan = ~np.isnan(column_data).astype(bool)
                 column_data = column_data[is_not_nan]
                 quantiles.append(np.percentile(column_data,
                                                self.quantile_range))
