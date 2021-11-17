@@ -17,7 +17,7 @@
 import pytest
 import treelite
 import numpy as np
-from cuml.explainer.tree_shap import TreeExplainer
+from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost
 from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.datasets import fetch_california_housing, make_classification
