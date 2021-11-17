@@ -642,8 +642,8 @@ void information_criterion(raft::handle_t& handle,
 template <bool isAr>
 DI bool test_invparams(const double* params, int pq)
 {
-  double new_params[4];
-  double tmp[4];
+  double new_params[8];
+  double tmp[8];
 
   constexpr double coef = isAr ? 1 : -1;
 
