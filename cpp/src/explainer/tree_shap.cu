@@ -192,6 +192,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
     num_groups = model.task_param.num_class;
   }
   for (const tl::Tree<ThresholdType, LeafType>& tree : model.trees) {
+    int group_id = tree_idx % num_groups;
     std::vector<int> parent_id(tree.num_nodes, -1);
     // Compute parent ID of each node
     for (int i = 0; i < tree.num_nodes; i++) {
@@ -206,10 +207,11 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
     // It's also possible to work from root to leaf
     for (int i = 0; i < tree.num_nodes; i++) {
       if (tree.IsLeaf(i)) {
-        float v        = static_cast<float>(tree.LeafValue(i));
-        int child_idx  = i;
-        int parent_idx = parent_id[child_idx];
-        const auto inf = std::numeric_limits<ThresholdType>::infinity();
+        auto v                     = static_cast<float>(tree.LeafValue(i));
+        int child_idx              = i;
+        int parent_idx             = parent_id[child_idx];
+        const auto inf             = std::numeric_limits<ThresholdType>::infinity();
+        tl::Operator comparison_op = tl::Operator::kNone;
         while (parent_idx != -1) {
           double zero_fraction = 1.0;
           bool has_count_info  = false;
@@ -232,8 +234,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
           }
           ThresholdType lower_bound = is_left_path ? -inf : tree.Threshold(parent_idx);
           ThresholdType upper_bound = is_left_path ? tree.Threshold(parent_idx) : inf;
-          int group_id              = tree_idx % num_groups;
-          auto comparison_op        = tree.ComparisonOp(parent_idx);
+          comparison_op             = tree.ComparisonOp(parent_idx);
           path_info->paths.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
             path_idx,
             tree.SplitIndex(parent_idx),
@@ -245,13 +246,10 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
           parent_idx = parent_id[child_idx];
         }
         // Root node has feature -1
-        {
-          int group_id       = tree_idx % num_groups;
-          auto comparison_op = tree.ComparisonOp(child_idx);
-          path_info->paths.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
-            path_idx, -1, group_id, SplitCondition{-inf, inf, comparison_op}, 1.0, v});
-          path_idx++;
-        }
+        comparison_op = tree.ComparisonOp(child_idx);
+        path_info->paths.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+          path_idx, -1, group_id, SplitCondition{-inf, inf, comparison_op}, 1.0, v});
+        path_idx++;
       }
     }
     tree_idx++;
