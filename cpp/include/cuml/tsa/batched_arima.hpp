@@ -284,6 +284,8 @@ void information_criterion(raft::handle_t& handle,
  * @param[in]  params      ARIMA parameters (device)
  * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
+ * @param[in]  d_exog      Exogenous variables.
+ *                         Shape = (n_obs, n_exog * batch_size) (device)
  * @param[in]  batch_size  Total number of batched time series
  * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
