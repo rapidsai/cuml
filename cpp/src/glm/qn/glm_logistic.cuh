@@ -28,29 +28,34 @@ template <typename T>
 struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   typedef GLMBase<T, LogisticLoss<T>> Super;
 
-  LogisticLoss(const raft::handle_t& handle, int D, bool has_bias) : Super(handle, D, 1, has_bias)
-  {
-  }
+  const struct Lz {
+    inline __device__ T log_sigmoid(const T x) const
+    {
+      // To avoid floating point overflow in the exp function
+      T temp = raft::myLog(1 + raft::myExp(x < 0 ? x : -x));
+      return x < 0 ? x - temp : -temp;
+    }
 
-  inline __device__ T log_sigmoid(T x) const
-  {
-    // To avoid floating point overflow in the exp function
-    T temp = raft::myLog(1 + raft::myExp(x < 0 ? x : -x));
-    return x < 0 ? x - temp : -temp;
-  }
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T ytil = 2 * y - 1;
+      return -log_sigmoid(ytil * z);
+    }
+  } lz;
 
-  inline __device__ T lz(const T y, const T z) const
-  {
-    T ytil = 2 * y - 1;
-    return -log_sigmoid(ytil * z);
-  }
+  const struct Dlz {
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      // To avoid fp overflow with exp(z) when abs(z) is large
+      T ez        = raft::myExp(z < 0 ? z : -z);
+      T numerator = z < 0 ? ez : T(1.0);
+      return numerator / (T(1.0) + ez) - y;
+    }
+  } dlz;
 
-  inline __device__ T dlz(const T y, const T z) const
+  LogisticLoss(const raft::handle_t& handle, int D, bool has_bias)
+    : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
-    // To avoid fp overflow with exp(z) when abs(z) is large
-    T ez        = raft::myExp(z < 0 ? z : -z);
-    T numerator = z < 0 ? ez : T(1.0);
-    return numerator / (T(1.0) + ez) - y;
   }
 };
 };  // namespace GLM
