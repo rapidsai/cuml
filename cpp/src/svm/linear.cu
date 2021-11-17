@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * @file linear_svm.cuh
- * @brief Fit linear SVM.
- */
-
 #include <random>
 #include <type_traits>
 

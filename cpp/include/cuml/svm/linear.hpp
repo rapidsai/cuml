@@ -16,11 +16,6 @@
 
 #pragma once
 
-/**
- * @file linear_svm.cuh
- * @brief Fit linear SVM.
- */
-
 #include <raft/handle.hpp>
 
 namespace ML {
