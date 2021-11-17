@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,8 +48,8 @@ def _training_data_to_numpy(X, y):
         X_np = X
         y_np = y
     elif isinstance(X, cudf.DataFrame):
-        X_np = X.as_gpu_matrix().copy_to_host()
-        y_np = y.to_gpu_array().copy_to_host()
+        X_np = X.to_numpy()
+        y_np = y.to_numpy()
     elif cuda.devicearray.is_cuda_ndarray(X):
         X_np = X.copy_to_host()
         y_np = y.copy_to_host()

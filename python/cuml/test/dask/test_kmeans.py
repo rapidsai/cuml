@@ -196,7 +196,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
     if input_type == "dataframe":
         xformed = cp.array(xformed
                            if len(xformed.shape) == 1
-                           else xformed.as_gpu_matrix())
+                           else xformed.to_cupy())
 
     if nclusters == 1:
         # series shape is (nrows,) not (nrows, 1) but both are valid

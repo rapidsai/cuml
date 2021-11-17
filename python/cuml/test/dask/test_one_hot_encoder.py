@@ -24,13 +24,13 @@ from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from pandas.testing import assert_frame_equal
 from cuml.test.test_one_hot_encoder import generate_inputs_from_categories
 from cuml.test.test_one_hot_encoder import assert_inverse_equal
-from cuml.test.test_one_hot_encoder import from_df_to_array
+from cuml.test.test_one_hot_encoder import from_df_to_numpy
 
 
 @pytest.mark.mg
 def test_onehot_vs_skonehot(client):
     X = DataFrame({'gender': ['Male', 'Female', 'Female'], 'int': [1, 3, 2]})
-    skX = from_df_to_array(X)
+    skX = from_df_to_numpy(X)
     X = dask_cudf.from_cudf(X, npartitions=2)
 
     enc = OneHotEncoder(sparse=False)
@@ -207,4 +207,4 @@ def test_onehot_get_categories(client):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_array())
+        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
