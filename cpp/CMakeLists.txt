@@ -189,6 +189,10 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+message(STATUS "CUML: Overriding thrust settings to set alwas_download.")
+include(${rapids-cmake-dir}/cpm/package_override.cmake)
+rapids_cpm_package_override(${CMAKE_CURRENT_SOURCE_DIR}/cmake/override_cpm.json)
+
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 
@@ -264,6 +268,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/fil/infer.cu
         src/glm/glm.cu
         src/genetic/genetic.cu
+        src/genetic/program.cu
         src/genetic/node.cu
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu

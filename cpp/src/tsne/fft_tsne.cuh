@@ -29,7 +29,7 @@
 #include <common/device_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/stats/sum.cuh>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "fft_kernels.cuh"

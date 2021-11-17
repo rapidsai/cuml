@@ -20,7 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include "simple_mat.cuh"
 
 namespace ML {
