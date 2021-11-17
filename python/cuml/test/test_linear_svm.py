@@ -58,7 +58,14 @@ def good_enough(myscore: float, refscore: float, training_size: int):
 
 def with_timeout(timeout, target, args=(), kwargs={}):
     '''Don't wait if the sklearn function takes really too long.'''
-    ctx = mp.get_context('fork')
+    try:
+        ctx = mp.get_context('fork')
+    except ValueError:
+        logger.warn(
+            '"fork" multiprocessing start method is not available. '
+            'The sklearn model will run in the same process and '
+            'cannot be killed if it runs too long.')
+        return target(*args, **kwargs)
     q = ctx.Queue()
 
     def target_res():
