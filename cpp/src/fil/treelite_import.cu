@@ -538,6 +538,10 @@ struct tl2fil_t {
   tl2fil_t(const tl::ModelImpl<threshold_t, leaf_t>& model_, const treelite_params_t& tl_params_)
     : model(model_), tl_params(tl_params_)
   {
+  }
+
+  void init_object()
+  {
     tl2fil_common(&params, model, &tl_params);
     node_traits<fil_node_t>::check(model);
 
@@ -614,7 +618,7 @@ struct tl2fil_t {
     return root;
   }
 
-  void init_gpu(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
+  void init_forest(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
   {
     init(handle, pforest, cat_sets.accessor(), vector_leaf, roots.data(), nodes.data(), &params);
     // sync is necessary as nodes are used in init(),
@@ -666,17 +670,20 @@ void from_treelite(const raft::handle_t& handle,
   switch (storage_type) {
     case storage_type_t::DENSE: {
       tl2fil_t<dense_node, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_gpu(handle, pforest, storage_type);
+      tl2fil.init_object();
+      tl2fil.init_forest(handle, pforest, storage_type);
       break;
     }
     case storage_type_t::SPARSE: {
       tl2fil_t<sparse_node16, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_gpu(handle, pforest, storage_type);
+      tl2fil.init_object();
+      tl2fil.init_forest(handle, pforest, storage_type);
       break;
     }
     case storage_type_t::SPARSE8: {
       tl2fil_t<sparse_node8, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_gpu(handle, pforest, storage_type);
+      tl2fil.init_object();
+      tl2fil.init_forest(handle, pforest, storage_type);
       break;
     }
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
