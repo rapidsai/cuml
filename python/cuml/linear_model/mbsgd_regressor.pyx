@@ -64,7 +64,7 @@ class MBSGDRegressor(Base,
                                                 loss='squared_loss',
                                                 alpha=0.5)
         cu_mbsgd_regressor.fit(X, y)
-        cu_pred = cu_mbsgd_regressor.predict(pred_data).to_array()
+        cu_pred = cu_mbsgd_regressor.predict(pred_data).to_numpy()
         print(" cuML intercept : ", cu_mbsgd_regressor.intercept_)
         print(" cuML coef : ", cu_mbsgd_regressor.coef_)
         print("cuML predictions : ", cu_pred)

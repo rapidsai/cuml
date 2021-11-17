@@ -275,9 +275,9 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     cu_rf_mg.fit(X_train_df, y_train_df)
 
     fil_preds = cu_rf_mg.predict(X_test_df).compute()
-    fil_preds = fil_preds.to_array()
+    fil_preds = fil_preds.to_numpy()
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-    fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
+    fil_preds_proba = fil_preds_proba.to_numpy()
     np.testing.assert_equal(fil_preds, np.argmax(fil_preds_proba, axis=1))
 
     y_proba = np.zeros(np.shape(fil_preds_proba))
@@ -426,13 +426,13 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 
     if estimator_type == 'classification':
         expected_pred = cu_rf_mg.predict(X_dask).astype(np.int32)
-        expected_pred = expected_pred.compute().to_array()
+        expected_pred = expected_pred.compute().to_numpy()
         for idx, row in enumerate(X):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
             assert expected_pred[idx] == majority_vote
     elif estimator_type == 'regression':
         expected_pred = cu_rf_mg.predict(X_dask).astype(np.float32)
-        expected_pred = expected_pred.compute().to_array()
+        expected_pred = expected_pred.compute().to_numpy()
         pred = []
         for idx, row in enumerate(X):
             pred.append(predict_with_json_rf_regressor(json_obj, row))

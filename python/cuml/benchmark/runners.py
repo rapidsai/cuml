@@ -248,7 +248,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             else:
                 y_pred_cuml = cuml_model.transform(X_test)
             if isinstance(y_pred_cuml, Series):
-                y_pred_cuml = y_pred_cuml.to_array()
+                y_pred_cuml = y_pred_cuml.to_numpy()
             cuml_accuracy = algo_pair.accuracy_function(
                 y_test, y_pred_cuml
             )
