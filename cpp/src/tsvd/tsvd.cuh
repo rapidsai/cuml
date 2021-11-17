@@ -28,11 +28,11 @@
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/stddev.hpp>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -54,17 +54,17 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
   auto cusolver_handle = handle.get_cusolver_dn_handle();
   auto cublas_handle   = handle.get_cublas_handle();
 
-  int diff     = prms.n_cols - prms.n_components;
+  auto diff    = prms.n_cols - prms.n_components;
   math_t ratio = math_t(diff) / math_t(prms.n_cols);
   ASSERT(ratio >= math_t(0.2),
          "Number of components should be less than at least 80 percent of the "
          "number of features");
 
-  int p = int(math_t(0.1) * math_t(prms.n_cols));
+  std::size_t p = static_cast<std::size_t>(math_t(0.1) * math_t(prms.n_cols));
   // int p = int(math_t(prms.n_cols) / math_t(4));
   ASSERT(p >= 5, "RSVD should be used where the number of columns are at least 50");
 
-  int total_random_vecs = prms.n_components + p;
+  auto total_random_vecs = prms.n_components + p;
   ASSERT(total_random_vecs < prms.n_cols,
          "RSVD should be used where the number of columns are at least 50");
 
@@ -120,7 +120,7 @@ void calEig(const raft::handle_t& handle,
   raft::matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
   raft::linalg::transpose(components, prms.n_cols, stream);
 
-  raft::matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
+  raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
 }
 
 /**
@@ -135,38 +135,43 @@ void calEig(const raft::handle_t& handle,
  * @{
  */
 template <typename math_t>
-void signFlip(
-  math_t* input, int n_rows, int n_cols, math_t* components, int n_cols_comp, cudaStream_t stream)
+void signFlip(math_t* input,
+              std::size_t n_rows,
+              std::size_t n_cols,
+              math_t* components,
+              std::size_t n_cols_comp,
+              cudaStream_t stream)
 {
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(int idx) {
-    int d_i = idx * m;
-    int end = d_i + m;
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
+      auto d_i = idx * m;
+      auto end = d_i + m;
 
-    math_t max    = 0.0;
-    int max_index = 0;
-    for (int i = d_i; i < end; i++) {
-      math_t val = input[i];
-      if (val < 0.0) { val = -val; }
-      if (val > max) {
-        max       = val;
-        max_index = i;
-      }
-    }
-
-    if (input[max_index] < 0.0) {
-      for (int i = d_i; i < end; i++) {
-        input[i] = -input[i];
+      math_t max            = 0.0;
+      std::size_t max_index = 0;
+      for (auto i = d_i; i < end; i++) {
+        math_t val = input[i];
+        if (val < 0.0) { val = -val; }
+        if (val > max) {
+          max       = val;
+          max_index = i;
+        }
       }
 
-      int len = n_cols * n_cols_comp;
-      for (int i = idx; i < len; i = i + n_cols) {
-        components[i] = -components[i];
+      if (input[max_index] < 0.0) {
+        for (auto i = d_i; i < end; i++) {
+          input[i] = -input[i];
+        }
+
+        auto len = n_cols * n_cols_comp;
+        for (auto i = idx; i < len; i = i + n_cols) {
+          components[i] = -components[i];
+        }
       }
-    }
-  });
+    });
 }
 
 /**
@@ -195,7 +200,7 @@ void tsvdFit(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  int n_components = prms.n_components;
+  auto n_components = prms.n_components;
   if (prms.n_components > prms.n_cols) n_components = prms.n_cols;
 
   size_t len = prms.n_cols * prms.n_cols;
@@ -281,7 +286,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
   raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, true, false, stream);
 
   rmm::device_scalar<math_t> total_vars(stream);
-  raft::stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
+  raft::stats::sum(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, false, stream);
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);

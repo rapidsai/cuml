@@ -291,7 +291,8 @@ cdef class BaseRandomProjection():
 
         X_new = CumlArray.empty((n_samples, self.params.n_components),
                                 dtype=self.dtype,
-                                order='F')
+                                order='F',
+                                index=X_m.index)
 
         cdef uintptr_t output_ptr = X_new.ptr
 

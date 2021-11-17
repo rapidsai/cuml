@@ -317,7 +317,7 @@ class Lars(Base, RegressorMixin):
             X = cp.copy(X)
 
         if self.eps is None:
-            self.eps = np.finfo(np.float).eps
+            self.eps = np.finfo(float).eps
 
         self._fit_cpp(X, y, Gram, x_scale)
 
@@ -365,7 +365,7 @@ class Lars(Base, RegressorMixin):
         cdef uintptr_t active_idx_ptr = \
             input_to_cuml_array(self.active_).array.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
 
         if self.dtype == np.float32:
             larsPredict(handle_[0], <float*> X_ptr, <int> n_rows,

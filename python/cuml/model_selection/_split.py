@@ -222,7 +222,7 @@ def _approximate_mode(class_counts, n_draws, rng):
             need_to_add -= add_now
             if need_to_add == 0:
                 break
-    return floored.astype(cp.int)
+    return floored.astype(int)
 
 
 def train_test_split(X,
