@@ -1341,7 +1341,7 @@ class CategoricalNB(_BaseDiscreteNB):
         self.fit_prior = fit_prior
 
     def _check_X_y(self, X, y):
-        if cupyx.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
             X.data = X.data.astype(cp.int32)
@@ -1359,7 +1359,7 @@ class CategoricalNB(_BaseDiscreteNB):
         return X, y
 
     def _check_X(self, X):
-        if cupyx.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
             X.data = X.data.astype(cp.int32)
@@ -1470,7 +1470,7 @@ class CategoricalNB(_BaseDiscreteNB):
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
         # In case of a partial fit, pad the array to have the highest feature
-        if not cupyx.sparse.issparse(self.category_count_):
+        if not cupyx.scipy.sparse.issparse(self.category_count_):
             self.category_count_ = cupyx.scipy.sparse.coo_matrix(
                 (self.n_features_ * n_classes, highest_feature))
         elif feature_diff > 0:
@@ -1562,7 +1562,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _update_feature_log_prob(self, alpha):
         highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
-        if cupyx.sparse.issparse(self.category_count_):
+        if cupyx.scipy.sparse.issparse(self.category_count_):
             # For sparse data we avoid the creation of the dense matrix
             # feature_log_prob_. This can be created on the fly during
             # the prediction without using as much memory.
@@ -1597,7 +1597,7 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Expected input with %d features, got %d instead"
                              % (self.n_features_, X.shape[1]))
         n_rows = X.shape[0]
-        if cupyx.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             # For sparse data we assume that most categories will be zeros,
             # so we first compute the jll for categories 0
             features_zeros = self.smoothed_cat_count[:, 0].todense()
