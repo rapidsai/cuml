@@ -40,17 +40,17 @@ void sign_flip(raft::handle_t& handle,
                std::vector<MLCommon::Matrix::Data<float>*>& input_data,
                MLCommon::Matrix::PartDescriptor& input_desc,
                float* components,
-               int n_components,
+               std::size_t n_components,
                cudaStream_t* streams,
-               int n_stream);
+               std::uint32_t n_stream);
 
 void sign_flip(raft::handle_t& handle,
                std::vector<MLCommon::Matrix::Data<double>*>& input_data,
                MLCommon::Matrix::PartDescriptor& input_desc,
                double* components,
-               int n_components,
+               std::size_t n_components,
                cudaStream_t* streams,
-               int n_stream);
+               std::uint32_t n_stream);
 
 };  // end namespace opg
 };  // end namespace PCA

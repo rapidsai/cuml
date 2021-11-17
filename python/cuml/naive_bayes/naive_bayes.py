@@ -182,16 +182,21 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
-            X = input_to_cupy_array(X, order='K',
+            X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32])
+            index = X.index
+            # todo: improve index management for cupy based codebases
+            X = X.array.to_output('cupy')
 
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
+        y_hat = CumlArray(data=y_hat, index=index)
         return y_hat
 
     @generate_docstring(
@@ -220,11 +225,15 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
-            X = input_to_cupy_array(X, order='K',
+            X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32,
                                                  cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32])
+            index = X.index
+            # todo: improve index management for cupy based codebases
+            X = X.array.to_output('cupy')
 
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
@@ -246,6 +255,7 @@ class _BaseNB(Base, ClassifierMixin):
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
+        result = CumlArray(data=result, index=index)
         return result
 
     @generate_docstring(
@@ -363,7 +373,7 @@ class GaussianNB(_BaseNB):
             raise ValueError("classes must be passed on the first call "
                              "to partial_fit.")
 
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(X, order='K',
@@ -513,7 +523,7 @@ class GaussianNB(_BaseNB):
         new_var = cp.zeros((self.n_classes_, self.n_features_), order="F",
                            dtype=X.dtype)
         class_counts = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
 
             count_features_coo = count_features_coo_kernel(X.dtype,
@@ -741,7 +751,7 @@ class _BaseDiscreteNB(_BaseNB):
                 as scipy_sparse_isspmatrix
 
         # TODO: use SparseCumlArray
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(X, order='K',
@@ -780,7 +790,7 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             check_labels(Y, self.classes_)
 
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             # X is assumed to be a COO here
             self._count_sparse(X.row, X.col, X.data, X.shape, Y, self.classes_)
         else:
@@ -832,7 +842,7 @@ class _BaseDiscreteNB(_BaseNB):
         Sum feature counts & class prior counts and add to current model.
         Parameters
         ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
                   (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
@@ -1035,7 +1045,7 @@ class MultinomialNB(_BaseDiscreteNB):
 
         # Put feature vectors and labels on the GPU
 
-        X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+        X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
         y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
         # Train model
@@ -1196,7 +1206,7 @@ class BernoulliNB(_BaseDiscreteNB):
     def _check_X(self, X):
         X = super()._check_X(X)
         if self.binarize is not None:
-            if cp.sparse.isspmatrix(X):
+            if cupyx.scipy.sparse.isspmatrix(X):
                 X.data = binarize(X.data, threshold=self.binarize)
             else:
                 X = binarize(X, threshold=self.binarize)
@@ -1205,7 +1215,7 @@ class BernoulliNB(_BaseDiscreteNB):
     def _check_X_y(self, X, y):
         X, y = super()._check_X_y(X, y)
         if self.binarize is not None:
-            if cp.sparse.isspmatrix(X):
+            if cupyx.scipy.sparse.isspmatrix(X):
                 X.data = binarize(X.data, threshold=self.binarize)
             else:
                 X = binarize(X, threshold=self.binarize)

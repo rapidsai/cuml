@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,9 @@ def test_singlets_holtwinters(seasonal, h, datatype):
     if seasonal == "multiplicative":
         pytest.xfail("Statsmodels nan errors with gcc 9.3 (Issue #3384)")
 
-    sm_hw = sm_ES(train, seasonal=seasonal,
+    sm_hw = sm_ES(train,
+                  initialization_method='heuristic',
+                  seasonal=seasonal,
                   seasonal_periods=12)
     sm_hw = sm_hw.fit()
 
@@ -113,9 +115,11 @@ def test_multits_holtwinters(seasonal, h, datatype):
                     seasonal_periods=12, ts_num=2)
 
     sm_air_hw = sm_ES(air_train,
+                      initialization_method='heuristic',
                       seasonal=seasonal,
                       seasonal_periods=12)
     sm_co2_hw = sm_ES(co2_train,
+                      initialization_method='heuristic',
                       seasonal=seasonal,
                       seasonal_periods=12)
     cu_hw.fit()

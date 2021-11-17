@@ -789,9 +789,14 @@ class QN(Base,
                 order='K'
             )
 
-        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype,
+                                index=X_m.index)
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
+
+        # temporary fix for dask-sql empty partitions
+        if(n_rows == 0):
+            return preds
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 

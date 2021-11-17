@@ -32,7 +32,7 @@
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
