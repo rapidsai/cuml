@@ -17,7 +17,7 @@
 /** @file treelite_import.cu converts from treelite format to a FIL-centric CPU-RAM format, so that
  * fil.cu can make a `forest` object out of it. */
 
-#include "common.cuh"    // for num_trees, tree_num_nodes
+#include "common.cuh"    // for node_traits, num_trees, tree_num_nodes
 #include "internal.cuh"  // for MAX_FIL_INT_FLOAT, BITS_PER_BYTE, cat_feature_counters, cat_sets, cat_sets_owner, categorical_sets, leaf_algo_t
 
 #include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
@@ -30,7 +30,7 @@
 
 #include <treelite/base.h>   // for Operator, SplitFeatureType, kGE, kGT, kLE, kLT, kNumerical
 #include <treelite/c_api.h>  // for ModelHandle
-#include <treelite/tree.h>   // for Tree
+#include <treelite/tree.h>   // for Tree, Model, ModelImpl, ModelParam
 
 #include <omp.h>  // for omp
 
