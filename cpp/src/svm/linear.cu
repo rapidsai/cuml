@@ -291,6 +291,34 @@ void predictLinear(const raft::handle_t& handle,
       out, out, w + nCols * coefCols, coefCols, nRows, true, true, cub::Sum(), stream);
 }
 
+/** A helper struct for selecting handle/stream depending on whether omp parallel is active. */
+class WorkerHandle {
+ private:
+  raft::handle_t* handle_ptr = nullptr;
+
+ public:
+  int stream_id = 0;
+  const raft::handle_t& handle;
+  cudaStream_t stream;
+
+  WorkerHandle(const raft::handle_t& handle, cudaStream_t stream) : handle(handle), stream(stream)
+  {
+  }
+
+  WorkerHandle(const raft::handle_t& h, int stream_id)
+    : handle_ptr(new raft::handle_t(h, stream_id, 0)),
+      stream_id(stream_id),
+      handle(*handle_ptr),
+      stream(h.get_internal_stream(stream_id))
+  {
+  }
+
+  ~WorkerHandle()
+  {
+    if (handle_ptr != nullptr) delete handle_ptr;
+  }
+};
+
 };  // namespace
 
 template <typename T>
@@ -406,18 +434,19 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   std::vector<int> num_iters(coefCols);
   const int n_streams = coefCols > 1 ? handle.get_num_internal_streams() : 1;
   bool parallel       = n_streams > 1;
-#pragma omp parallel for num_threads(n_streams)
+#pragma omp parallel for num_threads(n_streams) if (parallel)
   for (int class_i = 0; class_i < coefCols; class_i++) {
-    T* yi  = y1 + nRows * class_i;
-    T* wi  = w1 + coefRows * class_i;
-    auto s = parallel ? handle.get_internal_stream(omp_get_thread_num()) : stream;
+    T* yi = y1 + nRows * class_i;
+    T* wi = w1 + coefRows * class_i;
+    auto worker =
+      parallel ? WorkerHandle(handle, omp_get_thread_num()) : WorkerHandle(handle, stream);
     if (nClasses > 1) {
       raft::linalg::unaryOp(
-        yi, y, nRows, OvrSelector<T>{model.classes, nClasses == 2 ? 1 : class_i}, s);
+        yi, y, nRows, OvrSelector<T>{model.classes, nClasses == 2 ? 1 : class_i}, worker.stream);
     }
     T target;
     int num_iters;
-    GLM::qnFit<T>(handle,
+    GLM::qnFit<T>(worker.handle,
                   X1,
                   true,
                   yi,
@@ -437,18 +466,18 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   &target,
                   &num_iters,
                   qn_loss,
-                  s,
+                  worker.stream,
                   (T*)sampleWeight,
                   T(params.epsilon));
 
     if (!params.probability) continue;
     // Calibrate probabilities
     T* psi = ps1 + 2 * class_i;
-    rmm::device_uvector<T> xwBuf(nRows, s);
+    rmm::device_uvector<T> xwBuf(nRows, worker.stream);
     T* xw = xwBuf.data();
-    predictLinear(handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, s);
+    predictLinear(worker.handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, worker.stream);
 
-    GLM::qnFit<T>(handle,
+    GLM::qnFit<T>(worker.handle,
                   xw,
                   false,
                   yi,
@@ -469,7 +498,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   &target,
                   &num_iters,
                   ML::GLM::QN_LOSS_LOGISTIC,
-                  s,
+                  worker.stream,
                   (T*)sampleWeight);
   }
   if (parallel) handle.wait_on_internal_streams();
