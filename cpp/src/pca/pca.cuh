@@ -23,10 +23,10 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
@@ -41,10 +41,10 @@ void truncCompExpVars(const raft::handle_t& handle,
                       math_t* components,
                       math_t* explained_var,
                       math_t* explained_var_ratio,
-                      const paramsTSVDTemplate<enum_solver> prms,
+                      const paramsTSVDTemplate<enum_solver>& prms,
                       cudaStream_t stream)
 {
-  size_t len = prms.n_cols * prms.n_cols;
+  auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> components_all(len, stream);
   rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
   rmm::device_uvector<math_t> explained_var_ratio_all(prms.n_cols, stream);
@@ -55,10 +55,18 @@ void truncCompExpVars(const raft::handle_t& handle,
     components_all.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
   raft::matrix::ratio(
     handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
-  raft::matrix::truncZeroOrigin(
-    explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, 1, stream);
-  raft::matrix::truncZeroOrigin(
-    explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, 1, stream);
+  raft::matrix::truncZeroOrigin(explained_var_all.data(),
+                                prms.n_cols,
+                                explained_var,
+                                prms.n_components,
+                                std::size_t(1),
+                                stream);
+  raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(),
+                                prms.n_cols,
+                                explained_var_ratio,
+                                prms.n_components,
+                                std::size_t(1),
+                                stream);
 }
 
 /**
@@ -97,12 +105,12 @@ void pcaFit(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  int n_components = prms.n_components;
+  auto n_components = prms.n_components;
   if (n_components > prms.n_cols) n_components = prms.n_cols;
 
   raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-  size_t len = prms.n_cols * prms.n_cols;
+  auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
 
   Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
@@ -202,7 +210,7 @@ void pcaInverseTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  auto components_len = prms.n_cols * prms.n_components;
   rmm::device_uvector<math_t> components_copy{components_len, stream};
   raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 
@@ -262,7 +270,7 @@ void pcaTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  auto components_len = prms.n_cols * prms.n_components;
   rmm::device_uvector<math_t> components_copy{components_len, stream};
   raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 

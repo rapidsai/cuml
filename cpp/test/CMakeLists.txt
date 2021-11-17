@@ -53,6 +53,8 @@ if(BUILD_CUML_TESTS)
         sg/fnv_hash_test.cpp
         sg/genetic/node_test.cpp
         sg/genetic/param_test.cu
+        sg/genetic/program_test.cu
+        sg/genetic/evolution_test.cu
         sg/hdbscan_test.cu
         sg/holtwinters_test.cu
         sg/kmeans_test.cu
