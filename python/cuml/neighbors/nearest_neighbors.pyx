@@ -53,7 +53,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
 
-
 from numba import cuda
 import rmm
 
@@ -373,10 +372,9 @@ class NearestNeighbors(Base,
             else:
                 self.working_algorithm_ = "brute"
 
-        if self.algorithm == "rbc" and self.n_dims > 2 and \
-            self.metric not in ["euclidean", "l2"]:
-            raise ValueError("The rbc algorithm in >2 dimensions is only"
-                             " supported for the Euclidean metric currently.")
+        if self.algorithm == "rbc" and self.n_dims > 2:
+            raise ValueError("The rbc algorithm is not supported for"
+                             " >2 dimensions currently.")
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
