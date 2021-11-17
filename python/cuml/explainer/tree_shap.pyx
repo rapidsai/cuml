@@ -19,7 +19,9 @@ from cuml.common.array import CumlArray
 from cuml.internals import api_return_array
 from cuml.fil.fil import TreeliteModel
 
+from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uintptr_t
+from libcpp.utility cimport move
 import numpy as np
 
 cdef extern from "treelite/c_api.h":
@@ -30,33 +32,28 @@ cdef extern from "treelite/c_api_common.h":
     cdef const char* TreeliteGetLastError()
 
 cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
-    ctypedef void* ExtractedPathHandle
+    cdef cppclass TreePathInfo:
+        pass
 
-    cdef void extract_paths(ModelHandle model,
-                            ExtractedPathHandle* extracted_paths) except +
-    cdef void gpu_treeshap(ExtractedPathHandle extracted_paths,
+    cdef unique_ptr[TreePathInfo] extract_path_info(ModelHandle model) except +
+    cdef void gpu_treeshap(const TreePathInfo* path_info,
                            const float* data,
                            size_t n_rows,
                            size_t n_cols,
                            float* out_preds) except +
-    cdef void free_extracted_paths(ExtractedPathHandle) except +
 
 cdef class TreeExplainer_impl():
     cdef ModelHandle model_ptr
-    cdef ExtractedPathHandle extracted_paths
+    cdef unique_ptr[TreePathInfo] path_info
     cdef size_t num_class
 
     def __cinit__(self, handle=None):
         self.model_ptr = <ModelHandle> <uintptr_t> handle
-        self.extracted_paths = NULL
         self.num_class = 0
         if TreeliteQueryNumClass(self.model_ptr, &self.num_class) != 0:
-            raise RuntimeError('Treelite error: {}'.format(TreeliteGetLastError()))
-        extract_paths(self.model_ptr, &self.extracted_paths) 
-
-    def __dealloc__(self):
-        if self.extracted_paths != NULL:
-            free_extracted_paths(self.extracted_paths)
+            raise RuntimeError('Treelite error: {}'.format(
+                TreeliteGetLastError()))
+        self.path_info = move(extract_path_info(self.model_ptr))
 
     def shap_values(self, X):
         cdef uintptr_t X_ptr
@@ -69,7 +66,7 @@ cdef class TreeExplainer_impl():
         preds = CumlArray.empty(shape=pred_shape, dtype=np.float32, order='C')
         X_ptr = X_m.ptr
         preds_ptr = preds.ptr
-        gpu_treeshap(self.extracted_paths, <const float*> X_ptr,
+        gpu_treeshap(self.path_info.get(), <const float*> X_ptr,
                      <size_t> n_rows, <size_t> n_cols, <float*> preds_ptr)
         # Should remove to_output
         out = preds.to_output('numpy')

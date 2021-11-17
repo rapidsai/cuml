@@ -77,69 +77,34 @@ struct SplitCondition {
                 "ThresholdType must be a float or double");
 };
 
-enum class CondType : std::uint8_t {
-  kFloat, kDouble
-};
-
-class ExtractedPath {
+template <typename ThresholdType>
+class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
  public:
-  CondType cond_type;
+  ThresholdTypeEnum threshold_type;
   int num_tree;
   float global_bias;
   tl::TaskType task_type;
   tl::TaskParam task_param;
   bool average_tree_output;
-
-  virtual CondType GetCondType() = 0;
-  virtual ~ExtractedPath() = default;
-
-  template <typename ThresholdType>
-  static std::unique_ptr<ExtractedPath> Create();
-
-  template <typename Func, typename ...Args>
-  auto Dispatch(Func func, Args&& ...args);
-};
-
-template <typename ThresholdType>
-class ExtractedPathImpl : public ExtractedPath {
- public:
   std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> paths;
-  ExtractedPathImpl() {
+
+  static_assert(std::is_same<ThresholdType, float>::value
+                || std::is_same<ThresholdType, double>::value,
+                "ThresholdType must be a float or double");
+
+  TreePathInfoImpl() {
     if (std::is_same<ThresholdType, double>::value) {
-      cond_type = CondType::kDouble;
+      threshold_type = ThresholdTypeEnum::kDouble;
     } else {
-      cond_type = CondType::kFloat;
+      threshold_type = ThresholdTypeEnum::kFloat;
     }
   }
-  virtual ~ExtractedPathImpl() = default;
+  virtual ~TreePathInfoImpl() = default;
 
-  CondType GetCondType() override {
-    return cond_type;
+  ThresholdTypeEnum GetThresholdType() const override {
+    return threshold_type;
   }
 };
-
-template <typename ThresholdType>
-std::unique_ptr<ExtractedPath> ExtractedPath::Create() {
-  std::unique_ptr<ExtractedPath> model
-    = std::make_unique<ExtractedPathImpl<ThresholdType>>();
-  return model;
-}
-
-template <typename Func, typename ...Args>
-auto
-ExtractedPath::Dispatch(Func func, Args&& ...args) {
-  switch (this->cond_type) {
-   case CondType::kDouble:
-    func(*dynamic_cast<ExtractedPathImpl<double>*>(this),
-         std::forward<Args>(args)...);
-    break;
-   case CondType::kFloat:
-   default:
-    func(*dynamic_cast<ExtractedPathImpl<float>*>(this),
-         std::forward<Args>(args)...);
-    break;
-  }
-}
 
 class DenseDatasetWrapper {
   const float* data;
@@ -157,6 +122,41 @@ class DenseDatasetWrapper {
   __host__ __device__ std::size_t NumCols() const { return num_cols; }
 };
 
+template <typename ThresholdType>
+void gpu_treeshap_impl(const TreePathInfoImpl<ThresholdType>* path_info,
+                       const float* data, std::size_t n_rows,
+                       std::size_t n_cols, float* out_preds) {
+  DenseDatasetWrapper X(data, n_rows, n_cols);
+
+  std::size_t num_groups = 1;
+  if (path_info->task_type == tl::TaskType::kMultiClfGrovePerClass
+      && path_info->task_param.num_class > 1) {
+    num_groups = static_cast<std::size_t>(path_info->task_param.num_class);
+  }
+  std::size_t pred_size = n_rows * num_groups * (n_cols + 1);
+
+  thrust::device_ptr<float> out_preds_ptr
+    = thrust::device_pointer_cast(out_preds);
+  gpu_treeshap::GPUTreeShap(X, path_info->paths.begin(),
+                            path_info->paths.end(), num_groups, out_preds_ptr,
+                            out_preds_ptr + pred_size);
+
+  // Post-processing
+  auto count_iter = thrust::make_counting_iterator(0);
+  auto num_tree = path_info->num_tree;
+  auto global_bias = path_info->global_bias;
+  if (path_info->average_tree_output) {
+    thrust::for_each(thrust::device, count_iter, count_iter + pred_size,
+      [=] __device__(std::size_t idx) {
+        out_preds[idx] /= num_tree;
+      });
+  }
+  thrust::for_each(thrust::device, count_iter,
+      count_iter + (n_rows * num_groups),
+    [=] __device__(std::size_t idx) {
+      out_preds[(idx + 1) * (n_cols + 1) - 1] += global_bias;
+    });
+}
 
 }  // anonymous namespace
 
@@ -164,19 +164,19 @@ namespace ML {
 namespace Explainer {
 
 template <typename ThresholdType, typename LeafType>
-ExtractedPathHandle
-extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
+std::unique_ptr<TreePathInfo>
+extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
   if (!std::is_same<ThresholdType, LeafType>::value) {
     RAFT_FAIL("ThresholdType and LeafType must be identical");
   }
   if (model.task_type != tl::TaskType::kBinaryClfRegr
       && model.task_type != tl::TaskType::kMultiClfGrovePerClass) {
-    RAFT_FAIL("Only regressors and binary classifiers are supported");
+    RAFT_FAIL("cuML RF / scikit-learn classifiers must have n_classes == 2");
   }
-  std::unique_ptr<ExtractedPath> path_container
-    = ExtractedPath::Create<ThresholdType>();
-  ExtractedPathImpl<ThresholdType>* paths
-    = dynamic_cast<ExtractedPathImpl<ThresholdType>*>(path_container.get());
+  std::unique_ptr<TreePathInfo> path_info_ptr
+    = std::make_unique<TreePathInfoImpl<ThresholdType>>();
+  auto* path_info
+    = dynamic_cast<TreePathInfoImpl<ThresholdType>*>(path_info_ptr.get());
 
   std::size_t path_idx = 0;
   int tree_idx = 0;
@@ -233,7 +233,7 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
             is_left_path ? tree.Threshold(parent_idx) : inf;
           int group_id = tree_idx % num_groups;
           auto comparison_op = tree.ComparisonOp(parent_idx);
-          paths->paths.push_back(
+          path_info->paths.push_back(
               gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
                 path_idx,
                 tree.SplitIndex(parent_idx),
@@ -248,7 +248,7 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
         {
           int group_id = tree_idx % num_groups;
           auto comparison_op = tree.ComparisonOp(child_idx);
-          paths->paths.push_back(
+          path_info->paths.push_back(
               gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
                 path_idx,
                 -1,
@@ -262,60 +262,41 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
     }
     tree_idx++;
   }
-  paths->global_bias = model.param.global_bias;
-  paths->task_type = model.task_type;
-  paths->task_param = model.task_param;
-  paths->average_tree_output = model.average_tree_output;
-  paths->num_tree = static_cast<int>(model.trees.size());
+  path_info->global_bias = model.param.global_bias;
+  path_info->task_type = model.task_type;
+  path_info->task_param = model.task_param;
+  path_info->average_tree_output = model.average_tree_output;
+  path_info->num_tree = static_cast<int>(model.trees.size());
 
-  return static_cast<ExtractedPathHandle>(path_container.release());
+  return path_info_ptr;
 }
 
-void extract_paths(ModelHandle model, ExtractedPathHandle* extracted_paths) {
+std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model) {
   const tl::Model& model_ref = *static_cast<tl::Model*>(model);
 
-  *extracted_paths = model_ref.Dispatch([&](const auto& model_inner) {
+  return model_ref.Dispatch([&](const auto& model_inner) {
     // model_inner is of the concrete type tl::ModelImpl<threshold_t, leaf_t>
-    return extract_paths_impl(model_inner);
+    return extract_path_info_impl(model_inner);
   });
 }
 
-void gpu_treeshap(ExtractedPathHandle extracted_paths, const float* data,
+void gpu_treeshap(const TreePathInfo* path_info, const float* data,
                   std::size_t n_rows, std::size_t n_cols, float* out_preds) {
-  ExtractedPath& path_ref = *static_cast<ExtractedPath*>(extracted_paths);
-  DenseDatasetWrapper X(data, n_rows, n_cols);
-  std::size_t num_groups = 1;
-  if (path_ref.task_type == tl::TaskType::kMultiClfGrovePerClass
-      && path_ref.task_param.num_class > 1) {
-    num_groups = static_cast<std::size_t>(path_ref.task_param.num_class);
+  switch (path_info->GetThresholdType()) {
+   case TreePathInfo::ThresholdTypeEnum::kDouble: {
+      const auto* path_info_casted =
+        dynamic_cast<const TreePathInfoImpl<double>*>(path_info);
+      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
+    }
+    break;
+   case TreePathInfo::ThresholdTypeEnum::kFloat:
+   default: {
+      const auto* path_info_casted =
+        dynamic_cast<const TreePathInfoImpl<float>*>(path_info);
+      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
+    }
+    break;
   }
-  thrust::device_ptr<float> out_preds_ptr
-    = thrust::device_pointer_cast(out_preds);
-  path_ref.Dispatch([&](auto& paths) {
-    gpu_treeshap::GPUTreeShap(X, paths.paths.begin(), paths.paths.end(),
-                              num_groups, out_preds_ptr,
-                              out_preds_ptr
-                              + (n_rows * num_groups * (n_cols + 1)));
-  });
-  float global_bias = path_ref.global_bias;
-  int num_tree = path_ref.num_tree;
-  auto count_iter = thrust::make_counting_iterator(0);
-  if (path_ref.average_tree_output) {
-    thrust::for_each(thrust::device, count_iter,
-        count_iter + (n_rows * num_groups * (n_cols + 1)),
-      [=] __device__(std::size_t idx) {
-        out_preds[idx] /= num_tree;
-      });
-  }
-  thrust::for_each(thrust::device, count_iter,
-      count_iter + (n_rows * num_groups),
-    [=] __device__(std::size_t idx) {
-      out_preds[(idx + 1) * (n_cols + 1) - 1] += global_bias;
-    });
-}
-
-void free_extracted_paths(ExtractedPathHandle extracted_paths) {
-  delete static_cast<ExtractedPath*>(extracted_paths);
 }
 
 }  // namespace Explainer

@@ -18,16 +18,26 @@
 
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cstddef>
+#include <cstdint>
+#include <memory>
 
 namespace ML {
 namespace Explainer {
 
-typedef void* ExtractedPathHandle;
+// An abstract class representing an opaque handle to path information
+// extracted from a tree model. The implementation in tree_shap.cu will
+// define an internal class that inherits from this abtract class.
+class TreePathInfo {
+ public:
+  enum class ThresholdTypeEnum : std::uint8_t {
+    kFloat, kDouble
+  };
+  virtual ThresholdTypeEnum GetThresholdType() const = 0;
+};
 
-void extract_paths(ModelHandle model, ExtractedPathHandle* extracted_paths);
-void gpu_treeshap(ExtractedPathHandle extracted_paths, const float* data,
+std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
+void gpu_treeshap(const TreePathInfo* path_info, const float* data,
                   std::size_t n_rows, std::size_t n_cols, float* out_preds);
-void free_extracted_paths(ExtractedPathHandle extracted_paths);
 
 }  // namespace Explainer
 }  // namespace ML
