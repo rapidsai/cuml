@@ -149,6 +149,7 @@ __host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
+  /// ignoring left_index, this is useful to unify import from treelite
   dense_node(val_t output,
              val_t split,
              int fid,
@@ -158,7 +159,6 @@ struct alignas(8) dense_node : base_node {
              int left_index = -1)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
-    // ignoring left_index, this is useful to unify import from treelite
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
@@ -214,14 +214,6 @@ struct alignas(8) sparse_node8 : base_node {
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
 };
-
-struct dense_forest;
-
-template <typename T>
-constexpr bool is_dense()
-{
-  return std::is_same<T, dense_node>() || std::is_same<T, dense_forest>();
-}
 
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)
     and how FIL aggregates them into class margins/regression result/best class

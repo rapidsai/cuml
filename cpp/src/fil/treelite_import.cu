@@ -301,7 +301,6 @@ template <typename fil_node_t, typename T, typename L>
 conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
                                                const tl::Tree<T, L>& tree,
                                                int tl_node_id,
-                                               const forest_params_t& forest_params,
                                                cat_sets_owner* cat_sets,
                                                std::size_t* bit_pool_offset)
 {
@@ -338,51 +337,6 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   }
   fil_node_t node(val_t{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   return conversion_state<fil_node_t>{node, tl_left, tl_right};
-}
-
-template <typename fil_node_t, typename T, typename L>
-int tree2fil(std::vector<fil_node_t>& nodes,
-             int root,
-             const tl::Tree<T, L>& tree,
-             std::size_t tree_idx,
-             const forest_params_t& forest_params,
-             std::vector<float>* vector_leaf,
-             std::size_t* leaf_counter,
-             cat_sets_owner* cat_sets)
-{
-  typedef std::pair<int, int> pair_t;
-  std::stack<pair_t> stack;
-  int sparse_index = root + 1;
-  stack.push(pair_t(tree_root(tree), 0));
-  while (!stack.empty()) {
-    const pair_t& top = stack.top();
-    int node_id       = top.first;
-    int cur           = top.second;
-    stack.pop();
-
-    while (!tree.IsLeaf(node_id)) {
-      // reserve space for child nodes
-      // left is the offset of the left child node relative to the tree root
-      // in the array of all nodes of the FIL sparse forest
-      int left = node_traits<fil_node_t>::IS_DENSE ? 2 * cur + 1 : sparse_index - root;
-      sparse_index += 2;
-      conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
-        left, tree, node_id, forest_params, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
-      nodes[root + cur] = cs.node;
-      // push child nodes into the stack
-      stack.push(pair_t(cs.tl_right, left + 1));
-      // stack.push(pair_t(tl_left, left));
-      node_id = cs.tl_left;
-      cur     = left;
-    }
-
-    // leaf node
-    nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
-    tl2fil_leaf_payload(
-      &nodes[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
-  }
-
-  return root;
 }
 
 struct level_entry {
@@ -573,7 +527,7 @@ void node_traits<node_t>::check(const treelite::ModelImpl<threshold_t, leaf_t>& 
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
 struct tl2fil_t {
-  std::vector<int> trees;
+  std::vector<int> roots;
   std::vector<fil_node_t> nodes;
   std::vector<float> vector_leaf;
   forest_params_t params;
@@ -589,15 +543,15 @@ struct tl2fil_t {
 
     size_t num_trees = model.trees.size();
 
-    trees.reserve(num_trees + 1);
-    trees.push_back(0);
+    roots.reserve(num_trees + 1);
+    roots.push_back(0);
     for (size_t i = 0; i < num_trees; ++i) {
       int num_nodes =
         node_traits<fil_node_t>::IS_DENSE ? tree_num_nodes(params.depth) : model.trees[i].num_nodes;
-      trees.push_back(num_nodes + trees.back());
+      roots.push_back(num_nodes + roots.back());
     }
-    size_t total_nodes = trees.back();
-    trees.pop_back();
+    size_t total_nodes = roots.back();
+    roots.pop_back();
 
     if (params.leaf_algo == VECTOR_LEAF) {
       size_t max_leaves = node_traits<fil_node_t>::IS_DENSE
@@ -611,23 +565,63 @@ struct tl2fil_t {
 
 // convert the nodes
 #pragma omp parallel for
-    for (std::size_t i = 0; i < num_trees; ++i) {
+    for (std::size_t tree_idx = 0; tree_idx < num_trees; ++tree_idx) {
       // Max number of leaves processed so far
-      size_t leaf_counter = (trees[i] + i) / 2;
-      tree2fil(nodes, trees[i], model.trees[i], i, params, &vector_leaf, &leaf_counter, &cat_sets);
+      size_t leaf_counter = (roots[tree_idx] + tree_idx) / 2;
+      tree2fil(roots[tree_idx], model.trees[tree_idx], tree_idx, &leaf_counter);
     }
 
     params.num_nodes = nodes.size();
   }
 
+  int tree2fil(int root,
+               const tl::Tree<threshold_t, leaf_t>& tree,
+               std::size_t tree_idx,
+               std::size_t* leaf_counter)
+  {
+    typedef std::pair<int, int> pair_t;
+    std::stack<pair_t> stack;
+    int sparse_index = root + 1;
+    stack.push(pair_t(tree_root(tree), 0));
+    while (!stack.empty()) {
+      const pair_t& top = stack.top();
+      int node_id       = top.first;
+      int cur           = top.second;
+      stack.pop();
+
+      while (!tree.IsLeaf(node_id)) {
+        // reserve space for child nodes
+        // left is the offset of the left child node relative to the tree root
+        // in the array of all nodes of the FIL sparse forest
+        int left = node_traits<fil_node_t>::IS_DENSE ? 2 * cur + 1 : sparse_index - root;
+        sparse_index += 2;
+        conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
+          left, tree, node_id, &cat_sets, &cat_sets.bit_pool_offsets[tree_idx]);
+        nodes[root + cur] = cs.node;
+        // push child nodes into the stack
+        stack.push(pair_t(cs.tl_right, left + 1));
+        // stack.push(pair_t(tl_left, left));
+        node_id = cs.tl_left;
+        cur     = left;
+      }
+
+      // leaf node
+      nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
+      tl2fil_leaf_payload(
+        &nodes[root + cur], root + cur, tree, node_id, params, &vector_leaf, leaf_counter);
+    }
+
+    return root;
+  }
+
   void init_gpu(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
   {
-    init(handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
+    init(handle, pforest, cat_sets.accessor(), vector_leaf, roots.data(), nodes.data(), &params);
     // sync is necessary as nodes are used in init(),
     // but destructed at the end of this function
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     if (tl_params.pforest_shape_str) {
-      *tl_params.pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees, cat_sets);
+      *tl_params.pforest_shape_str = sprintf_shape(model, storage_type, nodes, roots, cat_sets);
     }
   }
 };

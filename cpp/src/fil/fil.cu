@@ -563,16 +563,6 @@ void check_params(const forest_params_t* params, bool dense)
          FIL_TPB);
 }
 
-template <typename fil_node_t>
-struct node2forest {
-  using T = sparse_forest<fil_node_t>;
-};
-
-template <>
-struct node2forest<dense_node> {
-  using T = dense_forest;
-};
-
 /** initializes a forest of any type
  * When fil_node_t == dense_node, const int* trees is ignored
  */
@@ -585,8 +575,9 @@ void init(const raft::handle_t& h,
           const fil_node_t* nodes,
           const forest_params_t* params)
 {
-  check_params(params, is_dense<fil_node_t>());
-  auto f = new typename node2forest<fil_node_t>::T(h);
+  check_params(params, node_traits<fil_node_t>::IS_DENSE);
+  using forest_type = typename node_traits<fil_node_t>::forest;
+  forest_type* f    = new forest_type(h);
   f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
