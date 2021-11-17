@@ -19,14 +19,12 @@ import treelite
 import numpy as np
 from cuml.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost
-from cuml.common.import_utils import has_lightgbm
-from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
-from sklearn.datasets import fetch_california_housing, load_iris
-from sklearn.datasets import make_classification
+from sklearn.datasets import fetch_california_housing, make_classification
 
 if has_xgboost():
     import xgboost as xgb
+
 
 @pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
                                        'reg:squaredlogerror',
@@ -45,6 +43,7 @@ def test_xgb_regressor(objective):
     out = explainer.shap_values(X)
     correct_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
+
 
 @pytest.mark.parametrize('objective,n_classes',
                          [('binary:logistic', 2),
@@ -82,6 +81,7 @@ def test_xgb_classifier(objective, n_classes):
     out = explainer.shap_values(X)
     correct_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
+
 
 def test_cuml_rf_regressor():
     X, y = fetch_california_housing(return_X_y=True)

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cuml/ensemble/treelite_defs.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <cuml/ensemble/treelite_defs.hpp>
 #include <memory>
 
 namespace ML {
@@ -29,15 +29,16 @@ namespace Explainer {
 // define an internal class that inherits from this abtract class.
 class TreePathInfo {
  public:
-  enum class ThresholdTypeEnum : std::uint8_t {
-    kFloat, kDouble
-  };
+  enum class ThresholdTypeEnum : std::uint8_t { kFloat, kDouble };
   virtual ThresholdTypeEnum GetThresholdType() const = 0;
 };
 
 std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
-void gpu_treeshap(const TreePathInfo* path_info, const float* data,
-                  std::size_t n_rows, std::size_t n_cols, float* out_preds);
+void gpu_treeshap(const TreePathInfo* path_info,
+                  const float* data,
+                  std::size_t n_rows,
+                  std::size_t n_cols,
+                  float* out_preds);
 
 }  // namespace Explainer
 }  // namespace ML

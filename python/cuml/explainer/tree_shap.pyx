@@ -74,6 +74,7 @@ cdef class TreeExplainer_impl():
             out = out.reshape((n_rows, self.num_class, n_cols + 1))
         return out
 
+
 class TreeExplainer:
     """
     Explainer for tree models, using GPUTreeSHAP
