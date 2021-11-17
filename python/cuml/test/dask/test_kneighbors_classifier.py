@@ -126,7 +126,7 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     d_outputs = d_model.predict(X_test, convert_dtype=True)
     d_outputs = d_outputs.compute()
 
-    d_outputs = d_outputs.as_matrix() \
+    d_outputs = d_outputs.to_numpy() \
         if isinstance(d_outputs, DataFrame) \
         else d_outputs
 
@@ -164,9 +164,9 @@ def test_predict_proba(dataset, datatype, parameters, client):
     d_probas = da.compute(d_probas)[0]
 
     if datatype == 'dask_cudf':
-        d_probas = list(map(lambda o: o.as_matrix()
+        d_probas = list(map(lambda o: o.to_numpy()
                             if isinstance(o, DataFrame)
-                            else o.to_array()[..., np.newaxis],
+                            else o.to_numpy()[..., np.newaxis],
                             d_probas))
 
     check_probabilities(l_probas, d_probas)

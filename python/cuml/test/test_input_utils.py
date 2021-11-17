@@ -249,7 +249,7 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
     if input_type == 'numpy':
         np.testing.assert_equal(converted_data, real_data)
     elif input_type == 'cudf':
-        np.testing.assert_equal(converted_data.as_matrix(), real_data)
+        np.testing.assert_equal(converted_data.to_numpy(), real_data)
     elif input_type == 'pandas':
         np.testing.assert_equal(converted_data.to_numpy(), real_data)
     else:

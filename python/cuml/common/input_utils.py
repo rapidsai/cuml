@@ -331,10 +331,9 @@ def input_to_cuml_array(X,
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
-            X_m = CumlArray(data=X.as_gpu_matrix(order='F'),
-                            index=index)
+            X_m = CumlArray(data=X.to_cupy(), index=index)
         else:
-            X_m = CumlArray(data=X.as_gpu_matrix(order=order),
+            X_m = CumlArray(data=cp.array(X.to_cupy(), order=order),
                             index=index)
 
     elif isinstance(X, CumlArray):

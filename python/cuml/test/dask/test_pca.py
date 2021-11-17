@@ -65,7 +65,7 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
         with_sign = False if attr in ['components_'] else True
         cuml_res = (getattr(cupca, attr))
         if type(cuml_res) == np.ndarray:
-            cuml_res = cuml_res.as_matrix()
+            cuml_res = cuml_res.to_numpy()
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
 

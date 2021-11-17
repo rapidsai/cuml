@@ -64,7 +64,7 @@ class MBSGDClassifier(Base,
                                                  loss='squared_loss',
                                                  alpha=0.5)
         cu_mbsgd_classifier.fit(X, y)
-        cu_pred = cu_mbsgd_classifier.predict(pred_data).to_array()
+        cu_pred = cu_mbsgd_classifier.predict(pred_data).to_numpy()
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
         print(" cuML coef : ", cu_mbsgd_classifier.coef_)
         print("cuML predictions : ", cu_pred)

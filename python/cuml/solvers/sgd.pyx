@@ -149,7 +149,7 @@ class SGD(Base,
                         fit_intercept=True, batch_size=2,
                         tol=0.0, penalty='none', loss='squared_loss')
         cu_sgd.fit(X, y)
-        cu_pred = cu_sgd.predict(pred_data).to_array()
+        cu_pred = cu_sgd.predict(pred_data).to_numpy()
         print(" cuML intercept : ", cu_sgd.intercept_)
         print(" cuML coef : ", cu_sgd.coef_)
         print("cuML predictions : ", cu_pred)
