@@ -20,7 +20,7 @@ import numpy as np
 from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost
 from cuml.ensemble import RandomForestRegressor as curfr
-from sklearn.datasets import fetch_california_housing, make_classification
+from sklearn.datasets import make_regression, make_classification
 
 if has_xgboost():
     import xgboost as xgb
@@ -31,18 +31,26 @@ if has_xgboost():
                                        'reg:pseudohubererror'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_xgb_regressor(objective):
-    X, y = fetch_california_housing(return_X_y=True)
+    n_samples = 100
+    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
+                           n_targets=1, random_state=2021)
+    # Ensure that the label exceeds -1
+    y += (-0.5) - np.min(y)
+    assert np.all(y > -1)
+    X, y = X.astype(np.float32), y.astype(np.float32)
     dtrain = xgb.DMatrix(X, label=y)
-    param = {'max_depth': 8, 'eta': 0.1, 'objective': objective}
+    params = {'objective': objective, 'base_score': 0.5, 'seed': 0,
+              'max_depth': 6, 'tree_method': 'gpu_hist',
+              'predictor': 'gpu_predictor'}
     num_round = 10
-    xgb_model = xgb.train(param, dtrain, num_boost_round=num_round,
+    xgb_model = xgb.train(params, dtrain, num_boost_round=num_round,
                           evals=[(dtrain, 'train')])
     tl_model = treelite.Model.from_xgboost(xgb_model)
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
     correct_out = xgb_model.predict(dtrain, pred_contribs=True)
-    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(out, correct_out)
 
 
 @pytest.mark.parametrize('objective,n_classes',
@@ -61,7 +69,7 @@ def test_xgb_regressor(objective):
                               'multi:softmax', 'multi:softprob'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_xgb_classifier(objective, n_classes):
-    n_samples = 1000
+    n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
                                n_informative=8, n_redundant=0, n_repeated=0,
                                n_classes=n_classes, random_state=2021)
@@ -69,9 +77,10 @@ def test_xgb_classifier(objective, n_classes):
     num_round = 10
     dtrain = xgb.DMatrix(X, label=y)
     params = {'objective': objective, 'base_score': 0.5, 'seed': 0,
-              'max_depth': 6}
+              'max_depth': 6, 'tree_method': 'gpu_hist',
+              'predictor': 'gpu_predictor'}
     if objective.startswith('rank:'):
-        dtrain.set_group([10] * 100)
+        dtrain.set_group([10] * 10)
     if n_classes > 2 and objective.startswith('multi:'):
         params['num_class'] = n_classes
     xgb_model = xgb.train(params, dtrain=dtrain, num_boost_round=num_round)
@@ -80,11 +89,13 @@ def test_xgb_classifier(objective, n_classes):
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
     correct_out = xgb_model.predict(dtrain, pred_contribs=True)
-    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(out, correct_out)
 
 
 def test_cuml_rf_regressor():
-    X, y = fetch_california_housing(return_X_y=True)
+    n_samples = 100
+    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
+                           n_targets=1, random_state=2021)
     X, y = X.astype(np.float32), y.astype(np.float32)
     cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
                        min_samples_leaf=2, random_state=123,
@@ -97,4 +108,4 @@ def test_cuml_rf_regressor():
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
     # SHAP values should add up to predicted score
-    np.testing.assert_almost_equal(np.sum(out, axis=1), pred, decimal=5)
+    np.testing.assert_almost_equal(np.sum(out, axis=1), pred, decimal=4)
