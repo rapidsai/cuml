@@ -329,14 +329,14 @@ class Matrix {
   }
 
   //! Visualize the first matrix.
-  void print(std::string name) const
+  void print(std::string name, size_t ib = 0) const
   {
-    std::size_t len = m_shape.first * m_shape.second * m_batch_size;
+    std::size_t len = m_shape.first * m_shape.second;
     std::vector<T> A(len);
-    raft::update_host(A.data(), raw_data(), len, m_stream);
+    raft::update_host(A.data(), raw_data() + ib * len, len, m_stream);
     std::cout << name << "=\n";
-    for (int i = 0; i < m_shape.first; i++) {
-      for (int j = 0; j < m_shape.second; j++) {
+    for (size_t i = 0; i < m_shape.first; i++) {
+      for (size_t j = 0; j < m_shape.second; j++) {
         // column major
         std::cout << std::setprecision(10) << A[j * m_shape.first + i] << ",";
       }
@@ -640,11 +640,13 @@ Matrix<T> b_gemm(const Matrix<T>& A, const Matrix<T>& B, bool aT = false, bool b
  *           - cuBLAS only supports overdetermined systems.
  *           - This function copies A to avoid modifying the original one.
  *
- * @param[in]     A  Batched matrix A (must have more rows than columns)
- * @param[inout]  C  Batched matrix C (the number of rows must match A)
+ * @param[in]    A       Batched matrix A (must have more rows than columns)
+ * @param[inout] C       Batched matrix C (the number of rows must match A)
+ * @param[out]   infoArr (optional) Success indicator for each problem.
+ *                        See devInfoArray in cuBLAS documentation.
  */
 template <typename T>
-void b_gels(const Matrix<T>& A, Matrix<T>& C)
+void b_gels(const Matrix<T>& A, Matrix<T>& C, int* devInfoArray = nullptr)
 {
   ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
   auto m = A.shape().first;
@@ -666,7 +668,7 @@ void b_gels(const Matrix<T>& A, Matrix<T>& C)
                                                C.data(),
                                                m,
                                                &info,
-                                               nullptr,
+                                               devInfoArray,
                                                A.batches(),
                                                A.stream()));
 }
@@ -698,25 +700,40 @@ Matrix<T> b_op_A(const Matrix<T>& A, F unary_op)
  *
  * @param[in]  A          Batched matrix A
  * @param[in]  B          Batched matrix B
+ * @param[out] C          Batched matrix C, result of A binary_op B
  * @param[in]  binary_op  The binary operation used on elements of A and B
- * @return A batched matrix, the result of A binary_op B
  */
 template <typename T, typename F>
-Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op)
+void b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& C, F binary_op)
 {
   ASSERT(A.shape().first == B.shape().first && A.shape().second == B.shape().second,
          "ERROR: Matrices must be same size");
 
   ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
-  auto batch_size = A.batches();
-  auto m          = A.shape().first;
-  auto n          = A.shape().second;
+  raft::linalg::binaryOp(C.raw_data(),
+                         A.raw_data(),
+                         B.raw_data(),
+                         A.shape().first * A.shape().second * A.batches(),
+                         binary_op,
+                         A.stream());
+}
 
-  Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.stream());
+/**
+ * @brief A utility method to implement pointwise operations between elements
+ *        of two batched matrices.
+ *
+ * @param[in]  A          Batched matrix A
+ * @param[in]  B          Batched matrix B
+ * @param[in]  binary_op  The binary operation used on elements of A and B
+ * @return A batched matrix, the result of A binary_op B
+ */
+template <typename T, typename F>
+Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op)
+{
+  Matrix<T> C(A.shape().first, A.shape().second, A.batches(), A.cublasHandle(), A.stream());
 
-  raft::linalg::binaryOp(
-    C.raw_data(), A.raw_data(), B.raw_data(), m * n * batch_size, binary_op, A.stream());
+  b_aA_op_B(A, B, C, binary_op);
 
   return C;
 }
