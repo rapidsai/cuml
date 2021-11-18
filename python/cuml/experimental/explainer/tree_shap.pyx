@@ -17,6 +17,7 @@
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.common.input_utils import determine_array_type
+from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -100,13 +101,16 @@ class TreeExplainer:
         # Handle various kinds of tree model objects
         cls = model.__class__
         # XGBoost model object
-        print(cls)
         if cls.__module__ == 'xgboost.core' and cls.__name__ == 'Booster':
             model = treelite.Model.from_xgboost(model)
             handle = model.handle.value
         # cuML RF model object
         elif isinstance(model, curfr):
-            model = model.convert_to_treelite_model()
+            try:
+                model = model.convert_to_treelite_model()
+            except NotFittedError as e:
+                raise NotFittedError(
+                        'Cannot compute SHAP for un-fitted model') from e
             handle = model.handle
         elif isinstance(model, curfc):
             raise NotImplementedError(

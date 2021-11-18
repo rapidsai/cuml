@@ -21,6 +21,7 @@ import cupy as cp
 import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost, has_shap
+from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 from sklearn.datasets import make_regression, make_classification
@@ -104,6 +105,30 @@ def test_xgb_classifier(objective, n_classes):
     np.testing.assert_almost_equal(out, correct_out)
     np.testing.assert_almost_equal(explainer.expected_value,
                                    ref_explainer.expected_value)
+
+
+def test_degenerate_cases():
+    n_samples = 100
+    cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
+                       min_samples_leaf=2, random_state=123,
+                       n_streams=1, n_estimators=10, max_leaves=-1,
+                       max_depth=16, accuracy_metric="mse")
+    # Attempt to import un-fitted model
+    with pytest.raises(NotFittedError):
+        TreeExplainer(model=cuml_model)
+
+    # Depth 0 trees
+    rng = np.random.default_rng(seed=0)
+    X = rng.standard_normal(size=(n_samples, 8), dtype=np.float32)
+    y = np.ones(shape=(n_samples,), dtype=np.float32)
+    cuml_model.fit(X, y)
+    explainer = TreeExplainer(model=cuml_model)
+    out = explainer.shap_values(X)
+    # Since the output is always 1.0 no matter the input, SHAP values for all
+    # features are zero, as feature values don't have any effect on the output.
+    # The bias (expected_value) is 1.0.
+    assert np.all(out == 0)
+    assert explainer.expected_value == 1.0
 
 
 @pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
