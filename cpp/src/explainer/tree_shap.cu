@@ -95,7 +95,7 @@ class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
 
   TreePathInfoImpl()
   {
-    if (std::is_same<ThresholdType, double>::value) {
+    if constexpr (std::is_same<ThresholdType, double>::value) {
       threshold_type = ThresholdTypeEnum::kDouble;
     } else {
       threshold_type = ThresholdTypeEnum::kFloat;
@@ -210,7 +210,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
         auto v                     = static_cast<float>(tree.LeafValue(i));
         int child_idx              = i;
         int parent_idx             = parent_id[child_idx];
-        const auto inf             = std::numeric_limits<ThresholdType>::infinity();
+        constexpr auto inf         = std::numeric_limits<ThresholdType>::infinity();
         tl::Operator comparison_op = tl::Operator::kNone;
         while (parent_idx != -1) {
           double zero_fraction = 1.0;
