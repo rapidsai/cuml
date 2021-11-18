@@ -17,7 +17,7 @@
 set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cublas
   CUDA::curand
-  CUDA::cusolver
+  ${cusolver_target}
   CUDA::cudart
   CUDA::cusparse
   CUDA::cufft

@@ -136,6 +136,12 @@ rapids_find_package(CUDAToolkit REQUIRED
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
+set(cusolver_target CUDA::cusolver_static)
+if(NOT TARGET CUDA::cusolver_static)
+  message(STATUS "CUML: FALLING BACK TO SHARED CUDA::cusolver")
+  set(cusolver_target CUDA::cusolver)
+endif()
+
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
 
@@ -387,7 +393,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cublas
       CUDA::cufft
       CUDA::curand
-      CUDA::cusolver
+      ${cusolver_target}
       CUDA::cudart
       CUDA::cusparse
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
