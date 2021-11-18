@@ -17,6 +17,8 @@
 import pytest
 import treelite
 import numpy as np
+import cupy as cp
+import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost, has_shap
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -104,11 +106,17 @@ def test_xgb_classifier(objective, n_classes):
                                    ref_explainer.expected_value)
 
 
-def test_cuml_rf_regressor():
+
+@pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
+def test_cuml_rf_regressor(input_type):
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
                            n_targets=1, random_state=2021)
     X, y = X.astype(np.float32), y.astype(np.float32)
+    if input_type == 'cupy':
+        X, y = cp.array(X), cp.array(y)
+    elif input_type == 'cudf':
+        X, y = cudf.DataFrame(X), cudf.Series(y)
     cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
                        min_samples_leaf=2, random_state=123,
                        n_streams=1, n_estimators=10, max_leaves=-1,
@@ -121,4 +129,10 @@ def test_cuml_rf_regressor():
     out = explainer.shap_values(X)
     # SHAP values should add up to predicted score
     shap_sum = np.sum(out, axis=1) + explainer.expected_value
+    if input_type == 'cupy':
+        pred = pred.get()
+        shap_sum = shap_sum.get()
+    elif input_type == 'cudf':
+        pred = pred.to_numpy()
+        shap_sum = shap_sum.get()
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)

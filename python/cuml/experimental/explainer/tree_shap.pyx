@@ -61,7 +61,7 @@ cdef class TreeExplainer_impl():
         cdef uintptr_t preds_ptr
         X_type = determine_array_type(X)
         # Coerce to CuPy / NumPy because we may need to return 3D array
-        output_type = 'cupy' if X_type == 'cupy' else 'numpy'
+        output_type = 'numpy' if X_type == 'numpy' else 'cupy'
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
         # Storing a C-order 3D array in a CumlArray leds to cryptic error
