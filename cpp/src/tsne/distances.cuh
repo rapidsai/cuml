@@ -200,16 +200,17 @@ value_t compute_grad_norm(const raft::handle_t& handle,
   auto att_forces_thrust = thrust::device_pointer_cast(attractive_forces_device);
   auto old_forces_thrust = thrust::device_pointer_cast(old_forces_device);
 
+  int n = n_pts / 2;
   thrust::transform(thrust_policy,
                     old_forces_thrust,
-                    old_forces_thrust + n_pts,
+                    old_forces_thrust + n,
                     att_forces_thrust,
                     FunctionalSquare());
 
   thrust::transform(thrust_policy,
                     att_forces_thrust,
-                    att_forces_thrust + n_pts,
-                    att_forces_thrust + n_pts,
+                    att_forces_thrust + n,
+                    att_forces_thrust + n,
                     att_forces_thrust,
                     thrust::plus<value_t>());
 
