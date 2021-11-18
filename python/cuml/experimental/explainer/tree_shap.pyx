@@ -16,7 +16,7 @@
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
-from cuml.internals import api_return_array
+from cuml.common.input_utils import determine_array_type
 from cuml.fil.fil import TreeliteModel
 
 from libcpp.memory cimport unique_ptr
@@ -58,21 +58,25 @@ cdef class TreeExplainer_impl():
     def shap_values(self, X):
         cdef uintptr_t X_ptr
         cdef uintptr_t preds_ptr
+        X_type = determine_array_type(X)
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
-        # Using 3D tensor leds to cryptic error
+        # Using 3D array leds to cryptic error
         # ValueError: len(shape) != len(strides)
+        # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
         preds = CumlArray.empty(shape=pred_shape, dtype=np.float32, order='C')
         X_ptr = X_m.ptr
         preds_ptr = preds.ptr
         gpu_treeshap(self.path_info.get(), <const float*> X_ptr,
                      <size_t> n_rows, <size_t> n_cols, <float*> preds_ptr)
-        # Should remove to_output
-        out = preds.to_output('numpy')
+        # Reshape to 3D as appropriate
+        output_type = 'cupy' if X_type == 'cupy' else 'numpy'
+        preds = preds.to_output(output_type=output_type)
         if self.num_class > 1:
-            out = out.reshape((n_rows, self.num_class, n_cols + 1))
-        return out
+            preds = preds.reshape((n_rows, self.num_class, n_cols + 1))
+
+        return preds
 
 
 class TreeExplainer:
