@@ -19,7 +19,15 @@ This folder contains various datasets to test our time series analysis. Using da
 - `police_recorded_crime.csv`: Recorded crimes (units) per year, 1878-2014.
 - `population_estimate.csv`: Population estimates (thousands) per year, 1875-2011.
 
-The following files are derived from the Stats NZ dataset by removing observations (to test support for missing observations):
+The following files are derived from the Stats NZ dataset by removing observations (to test support for missing observations) and/or adding procedural exogenous variables:
 - `guest_nights_by_region_missing.csv`
 - `hourly_earnings_by_industry_missing.csv`
 - `population_estimate_missing.csv`
+- `endog_deaths_by_region_exog.csv`
+- `endog_guest_nights_by_region_missing_exog.csv`
+- `endog_hourly_earnings_by_industry_missing_exog.csv`
+
+The following files represent procedural exogenous variables linked to the series above (normalized):
+- `exog_deaths_by_region_exog.csv`
+- `exog_guest_nights_by_region_missing_exog.csv`
+- `exog_hourly_earnings_by_industry_missing_exog.csv`
