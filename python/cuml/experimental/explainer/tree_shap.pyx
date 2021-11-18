@@ -46,6 +46,7 @@ cdef class TreeExplainer_impl():
     cdef ModelHandle model_ptr
     cdef unique_ptr[TreePathInfo] path_info
     cdef size_t num_class
+    cdef public object expected_value
 
     def __cinit__(self, handle=None):
         self.model_ptr = <ModelHandle> <uintptr_t> handle
@@ -59,9 +60,11 @@ cdef class TreeExplainer_impl():
         cdef uintptr_t X_ptr
         cdef uintptr_t preds_ptr
         X_type = determine_array_type(X)
+        # Coerce to CuPy / NumPy because we may need to return 3D array
+        output_type = 'cupy' if X_type == 'cupy' else 'numpy'
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
-        # Using 3D array leds to cryptic error
+        # Storing a C-order 3D array in a CumlArray leds to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
@@ -71,12 +74,19 @@ cdef class TreeExplainer_impl():
         gpu_treeshap(self.path_info.get(), <const float*> X_ptr,
                      <size_t> n_rows, <size_t> n_cols, <float*> preds_ptr)
         # Reshape to 3D as appropriate
-        output_type = 'cupy' if X_type == 'cupy' else 'numpy'
+        # To follow the convention of the SHAP package:
+        # 1. Store the bias term in the 'expected_value' attribute.
+        # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
         preds = preds.to_output(output_type=output_type)
         if self.num_class > 1:
             preds = preds.reshape((n_rows, self.num_class, n_cols + 1))
-
-        return preds
+            preds = preds.transpose((1, 0, 2))
+            self.expected_value = preds[:, 0, -1]
+            return preds[:, :, :-1]
+        else:
+            assert self.num_class == 1
+            self.expected_value = preds[0, -1]
+            return preds[:, :-1]
 
 
 class TreeExplainer:
@@ -94,4 +104,6 @@ class TreeExplainer:
         """
         Interface to estimate the SHAP values for a set of samples.
         """
-        return self.impl_.shap_values(X)
+        out = self.impl_.shap_values(X)
+        self.expected_value = self.impl_.expected_value
+        return out

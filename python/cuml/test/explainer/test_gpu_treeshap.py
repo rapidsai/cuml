@@ -18,18 +18,21 @@ import pytest
 import treelite
 import numpy as np
 from cuml.experimental.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost
+from cuml.common.import_utils import has_xgboost, has_shap
 from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.datasets import make_regression, make_classification
 
 if has_xgboost():
     import xgboost as xgb
+if has_shap():
+    import shap
 
 
 @pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
                                        'reg:squaredlogerror',
                                        'reg:pseudohubererror'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 def test_xgb_regressor(objective):
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
@@ -49,8 +52,12 @@ def test_xgb_regressor(objective):
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
-    correct_out = xgb_model.predict(dtrain, pred_contribs=True)
+
+    ref_explainer = shap.TreeExplainer(model=xgb_model)
+    correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_explainer.expected_value)
 
 
 @pytest.mark.parametrize('objective,n_classes',
@@ -68,6 +75,7 @@ def test_xgb_regressor(objective):
                               'rank:pairwise', 'rank:ndcg', 'rank:map',
                               'multi:softmax', 'multi:softprob'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 def test_xgb_classifier(objective, n_classes):
     n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
@@ -88,8 +96,12 @@ def test_xgb_classifier(objective, n_classes):
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
-    correct_out = xgb_model.predict(dtrain, pred_contribs=True)
+
+    ref_explainer = shap.TreeExplainer(model=xgb_model)
+    correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_explainer.expected_value)
 
 
 def test_cuml_rf_regressor():
@@ -108,4 +120,5 @@ def test_cuml_rf_regressor():
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
     # SHAP values should add up to predicted score
-    np.testing.assert_almost_equal(np.sum(out, axis=1), pred, decimal=4)
+    shap_sum = np.sum(out, axis=1) + explainer.expected_value
+    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
