@@ -41,12 +41,14 @@ from cuml.benchmark.bench_helper_funcs import (
     fit_transform,
     fit_predict,
     fit_kneighbors,
+    transform,
     predict,
     _build_cpu_skl_classifier,
     _build_fil_skl_classifier,
     _build_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
+    _build_mnmg_umap
 )
 import treelite
 import treelite_runtime
@@ -597,6 +599,8 @@ def all_algorithms():
             cuml.dask.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="MNMG.UMAP-Unsupervised",
+            bench_func=transform,
+            setup_cuml_func=_build_mnmg_umap,
             accepts_labels=False,
             accuracy_function=cuml.metrics.trustworthiness,
         ),
@@ -606,6 +610,8 @@ def all_algorithms():
             cuml.dask.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="MNMG.UMAP-Supervised",
+            bench_func=transform,
+            setup_cuml_func=_build_mnmg_umap,
             accepts_labels=True,
             accuracy_function=cuml.metrics.trustworthiness,
         ),

@@ -33,7 +33,6 @@ def bench_mnmg_kmeans(gpubenchmark, n_rows, n_features, client):
                     'blobs', n_rows, n_features, client=client)
 
 
-@pytest.mark.skip('DBSCAN needs to be updated to allow Dask Arrays/Dataframes')
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
 @pytest.mark.parametrize('algo_name', ['MNMG.DBSCAN'])
@@ -52,7 +51,6 @@ def bench_mnmg_nearest_neighbors(gpubenchmark, algo_name, client):
                     'blobs', 10000, 100, client=client)
 
 
-@pytest.mark.skip('MNMG UMAP requires a trained local model, work needed')
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
 @pytest.mark.parametrize('algo_name', ['MNMG.UMAP-Unsupervised',

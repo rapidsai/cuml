@@ -23,6 +23,7 @@ import sklearn.ensemble as skl_ensemble
 import cudf
 from numba import cuda
 from cuml.benchmark import datagen
+from cuml.manifold import UMAP
 
 
 def fit_kneighbors(m, x):
@@ -35,6 +36,7 @@ def fit(m, x, y=None):
 
 
 def fit_transform(m, x, y=None):
+    print('M:', type(m))
     if y is None:
         if hasattr(m, 'transform'):
             m.fit(x)
@@ -62,6 +64,10 @@ def fit_predict(m, x, y=None):
             m.predict(x)
         else:
             m.fit_predict(x, y)
+
+
+def transform(m, x, y=None):
+    m.transform(x, y)
 
 
 def predict(m, x):
@@ -208,3 +214,20 @@ def _treelite_fil_accuracy_score(y_true, y_pred):
 
     y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
     return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
+
+
+def _build_mnmg_umap(m, data, args, tmpdir):
+    client = args['client']
+    del args['client']
+    local_model = UMAP(**args)
+
+    if isinstance(data, (tuple, list)):
+        data = [x for x in data if x is not None]
+    if len(data) == 2:
+        X, y = data
+        local_model.fit(X, y)
+    else:
+        X = data
+        local_model.fit(X)
+
+    return m(client=client, model=local_model, **args)
