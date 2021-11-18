@@ -95,9 +95,8 @@ def test_xgb_classifier(objective, n_classes):
     if n_classes > 2 and objective.startswith('multi:'):
         params['num_class'] = n_classes
     xgb_model = xgb.train(params, dtrain=dtrain, num_boost_round=num_round)
-    tl_model = treelite.Model.from_xgboost(xgb_model)
 
-    explainer = TreeExplainer(model=tl_model)
+    explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
 
     ref_explainer = shap.TreeExplainer(model=xgb_model)
@@ -124,9 +123,8 @@ def test_cuml_rf_regressor(input_type):
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
     pred = cuml_model.predict(X)
-    tl_model = cuml_model.convert_to_treelite_model()
 
-    explainer = TreeExplainer(model=tl_model)
+    explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
     # SHAP values should add up to predicted score
     shap_sum = np.sum(out, axis=1) + explainer.expected_value
@@ -151,9 +149,8 @@ def test_cuml_rf_classifier(n_classes):
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
     pred = cuml_model.predict(X)
-    tl_model = cuml_model.convert_to_treelite_model()
 
     with pytest.raises(RuntimeError):
         # cuML RF classifier is not supported yet
-        explainer = TreeExplainer(model=tl_model)
+        explainer = TreeExplainer(model=cuml_model)
         out = explainer.shap_values(X)

@@ -18,11 +18,14 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.common.input_utils import determine_array_type
 from cuml.fil.fil import TreeliteModel
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.ensemble import RandomForestClassifier as curfc
 
 from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move
 import numpy as np
+import treelite
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -94,10 +97,25 @@ class TreeExplainer:
     Explainer for tree models, using GPUTreeSHAP
     """
     def __init__(self, *, model):
-        if isinstance(model, TreeliteModel):
+        # Handle various kinds of tree model objects
+        cls = model.__class__
+        # XGBoost model object
+        print(cls)
+        if cls.__module__ == 'xgboost.core' and cls.__name__ == 'Booster':
+            model = treelite.Model.from_xgboost(model)
+            handle = model.handle.value
+        # cuML RF model object
+        elif isinstance(model, curfr):
+            model = model.convert_to_treelite_model()
+            handle = model.handle
+        elif isinstance(model, curfc):
+            raise NotImplementedError('cuML RF classifiers are not supported yet')
+        elif isinstance(model, treelite.Model):
+            handle = model.handle.value
+        elif isinstance(model, TreeliteModel):
             handle = model.handle
         else:
-            handle = model.handle.value
+            raise ValueError('Unrecognized model object type')
         self.impl_ = TreeExplainer_impl(handle=handle)
 
     def shap_values(self, X) -> CumlArray:
