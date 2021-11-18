@@ -109,7 +109,8 @@ class TreeExplainer:
             model = model.convert_to_treelite_model()
             handle = model.handle
         elif isinstance(model, curfc):
-            raise NotImplementedError('cuML RF classifiers are not supported yet')
+            raise NotImplementedError(
+                'cuML RF classifiers are not supported yet')
         elif isinstance(model, treelite.Model):
             handle = model.handle.value
         elif isinstance(model, TreeliteModel):
