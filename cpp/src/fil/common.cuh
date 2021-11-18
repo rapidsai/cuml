@@ -28,6 +28,7 @@
 
 #include "internal.cuh"
 
+// needed for node_traits<...>
 namespace treelite {
 template <typename, typename>
 struct ModelImpl;

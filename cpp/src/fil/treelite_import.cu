@@ -339,6 +339,51 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   return conversion_state<fil_node_t>{node, tl_left, tl_right};
 }
 
+template <typename fil_node_t, typename T, typename L>
+int tree2fil(std::vector<fil_node_t>& nodes,
+             int root,
+             const tl::Tree<T, L>& tree,
+             std::size_t tree_idx,
+             const forest_params_t& forest_params,
+             std::vector<float>* vector_leaf,
+             std::size_t* leaf_counter,
+             cat_sets_owner* cat_sets)
+{
+  typedef std::pair<int, int> pair_t;
+  std::stack<pair_t> stack;
+  int sparse_index = root + 1;
+  stack.push(pair_t(tree_root(tree), 0));
+  while (!stack.empty()) {
+    const pair_t& top = stack.top();
+    int node_id       = top.first;
+    int cur           = top.second;
+    stack.pop();
+
+    while (!tree.IsLeaf(node_id)) {
+      // reserve space for child nodes
+      // left is the offset of the left child node relative to the tree root
+      // in the array of all nodes of the FIL sparse forest
+      int left = node_traits<fil_node_t>::IS_DENSE ? 2 * cur + 1 : sparse_index - root;
+      sparse_index += 2;
+      conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
+        left, tree, node_id, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
+      nodes[root + cur] = cs.node;
+      // push child nodes into the stack
+      stack.push(pair_t(cs.tl_right, left + 1));
+      // stack.push(pair_t(tl_left, left));
+      node_id = cs.tl_left;
+      cur     = left;
+    }
+
+    // leaf node
+    nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
+    tl2fil_leaf_payload(
+      &nodes[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
+  }
+
+  return root;
+}
+
 struct level_entry {
   int n_branch_nodes, n_leaves;
 };
@@ -527,108 +572,90 @@ void node_traits<node_t>::check(const treelite::ModelImpl<threshold_t, leaf_t>& 
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
 struct tl2fil_t {
-  std::vector<int> roots;
-  std::vector<fil_node_t> nodes;
-  std::vector<float> vector_leaf;
-  forest_params_t params;
-  cat_sets_owner cat_sets;
-  const tl::ModelImpl<threshold_t, leaf_t>& model;
-  const treelite_params_t& tl_params;
+  std::vector<int> roots_;
+  std::vector<fil_node_t> nodes_;
+  std::vector<float> vector_leaf_;
+  forest_params_t params_;
+  cat_sets_owner cat_sets_;
+  const tl::ModelImpl<threshold_t, leaf_t>& model_;
+  const treelite_params_t& tl_params_;
 
   tl2fil_t(const tl::ModelImpl<threshold_t, leaf_t>& model_, const treelite_params_t& tl_params_)
-    : model(model_), tl_params(tl_params_)
+    : model_(model_), tl_params_(tl_params_)
   {
   }
 
-  void init_object()
+  void init()
   {
-    tl2fil_common(&params, model, &tl_params);
-    node_traits<fil_node_t>::check(model);
+    tl2fil_common(&params_, model_, &tl_params_);
+    node_traits<fil_node_t>::check(model_);
 
-    size_t num_trees = model.trees.size();
+    size_t num_trees = model_.trees.size();
 
-    roots.reserve(num_trees + 1);
-    roots.push_back(0);
+    roots_.reserve(num_trees + 1);
+    roots_.push_back(0);
     for (size_t i = 0; i < num_trees; ++i) {
-      int num_nodes =
-        node_traits<fil_node_t>::IS_DENSE ? tree_num_nodes(params.depth) : model.trees[i].num_nodes;
-      roots.push_back(num_nodes + roots.back());
+      int num_nodes = node_traits<fil_node_t>::IS_DENSE ? tree_num_nodes(params_.depth)
+                                                        : model_.trees[i].num_nodes;
+      roots_.push_back(num_nodes + roots_.back());
     }
-    size_t total_nodes = roots.back();
-    roots.pop_back();
+    size_t total_nodes = roots_.back();
+    roots_.pop_back();
 
-    if (params.leaf_algo == VECTOR_LEAF) {
+    if (params_.leaf_algo == VECTOR_LEAF) {
       size_t max_leaves = node_traits<fil_node_t>::IS_DENSE
-                            ? num_trees * (tree_num_nodes(params.depth) + 1) / 2
+                            ? num_trees * (tree_num_nodes(params_.depth) + 1) / 2
                             : (total_nodes + num_trees) / 2;
-      vector_leaf.resize(max_leaves * params.num_classes);
+      vector_leaf_.resize(max_leaves * params_.num_classes);
     }
 
-    cat_sets = allocate_cat_sets_owner(model);
-    nodes.resize(total_nodes);
+    cat_sets_ = allocate_cat_sets_owner(model_);
+    nodes_.resize(total_nodes);
 
-// convert the nodes
+// convert the nodes_
 #pragma omp parallel for
     for (std::size_t tree_idx = 0; tree_idx < num_trees; ++tree_idx) {
       // Max number of leaves processed so far
-      size_t leaf_counter = (roots[tree_idx] + tree_idx) / 2;
-      tree2fil(roots[tree_idx], model.trees[tree_idx], tree_idx, &leaf_counter);
+      size_t leaf_counter = (roots_[tree_idx] + tree_idx) / 2;
+      tree2fil(nodes_,
+               roots_[tree_idx],
+               model_.trees[tree_idx],
+               tree_idx,
+               params_,
+               &vector_leaf_,
+               &leaf_counter,
+               &cat_sets_);
     }
 
-    params.num_nodes = nodes.size();
+    params_.num_nodes = nodes_.size();
   }
 
-  int tree2fil(int root,
-               const tl::Tree<threshold_t, leaf_t>& tree,
-               std::size_t tree_idx,
-               std::size_t* leaf_counter)
-  {
-    typedef std::pair<int, int> pair_t;
-    std::stack<pair_t> stack;
-    int sparse_index = root + 1;
-    stack.push(pair_t(tree_root(tree), 0));
-    while (!stack.empty()) {
-      const pair_t& top = stack.top();
-      int node_id       = top.first;
-      int cur           = top.second;
-      stack.pop();
-
-      while (!tree.IsLeaf(node_id)) {
-        // reserve space for child nodes
-        // left is the offset of the left child node relative to the tree root
-        // in the array of all nodes of the FIL sparse forest
-        int left = node_traits<fil_node_t>::IS_DENSE ? 2 * cur + 1 : sparse_index - root;
-        sparse_index += 2;
-        conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
-          left, tree, node_id, &cat_sets, &cat_sets.bit_pool_offsets[tree_idx]);
-        nodes[root + cur] = cs.node;
-        // push child nodes into the stack
-        stack.push(pair_t(cs.tl_right, left + 1));
-        // stack.push(pair_t(tl_left, left));
-        node_id = cs.tl_left;
-        cur     = left;
-      }
-
-      // leaf node
-      nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
-      tl2fil_leaf_payload(
-        &nodes[root + cur], root + cur, tree, node_id, params, &vector_leaf, leaf_counter);
-    }
-
-    return root;
-  }
-
+  /// initializes FIL forest object, to be ready to infer
   void init_forest(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
   {
-    init(handle, pforest, cat_sets.accessor(), vector_leaf, roots.data(), nodes.data(), &params);
-    // sync is necessary as nodes are used in init(),
+    ML::fil::init(
+      handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
+    // sync is necessary as nodes_ are used in init(),
     // but destructed at the end of this function
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    if (tl_params.pforest_shape_str) {
-      *tl_params.pforest_shape_str = sprintf_shape(model, storage_type, nodes, roots, cat_sets);
+    if (tl_params_.pforest_shape_str) {
+      *tl_params_.pforest_shape_str =
+        sprintf_shape(model_, storage_type, nodes_, roots_, cat_sets_);
     }
   }
 };
+
+template <typename fil_node_t, typename threshold_t, typename leaf_t>
+void convert(const tl::ModelImpl<threshold_t, leaf_t>& model,
+             const treelite_params_t& tl_params,
+             const raft::handle_t& handle,
+             forest_t* pforest,
+             storage_type_t storage_type)
+{
+  tl2fil_t<fil_node_t, threshold_t, leaf_t> tl2fil(model, tl_params);
+  tl2fil.init();
+  tl2fil.init_forest(handle, pforest, storage_type);
+}
 
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle,
@@ -668,24 +695,15 @@ void from_treelite(const raft::handle_t& handle,
   }
 
   switch (storage_type) {
-    case storage_type_t::DENSE: {
-      tl2fil_t<dense_node, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_object();
-      tl2fil.init_forest(handle, pforest, storage_type);
+    case storage_type_t::DENSE:
+      convert<dense_node>(model, *tl_params, handle, pforest, storage_type);
       break;
-    }
-    case storage_type_t::SPARSE: {
-      tl2fil_t<sparse_node16, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_object();
-      tl2fil.init_forest(handle, pforest, storage_type);
+    case storage_type_t::SPARSE:
+      convert<sparse_node16>(model, *tl_params, handle, pforest, storage_type);
       break;
-    }
-    case storage_type_t::SPARSE8: {
-      tl2fil_t<sparse_node8, threshold_t, leaf_t> tl2fil(model, *tl_params);
-      tl2fil.init_object();
-      tl2fil.init_forest(handle, pforest, storage_type);
+    case storage_type_t::SPARSE8:
+      convert<sparse_node8>(model, *tl_params, handle, pforest, storage_type);
       break;
-    }
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
 }
