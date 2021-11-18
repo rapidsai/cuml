@@ -180,7 +180,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   }
   if (model.task_type != tl::TaskType::kBinaryClfRegr &&
       model.task_type != tl::TaskType::kMultiClfGrovePerClass) {
-    RAFT_FAIL("cuML RF / scikit-learn classifiers must have n_classes == 2");
+    RAFT_FAIL("cuML RF / scikit-learn classifiers are not yet supported");
   }
   std::unique_ptr<TreePathInfo> path_info_ptr = std::make_unique<TreePathInfoImpl<ThresholdType>>();
   auto* path_info = dynamic_cast<TreePathInfoImpl<ThresholdType>*>(path_info_ptr.get());
