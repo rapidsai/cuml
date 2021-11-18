@@ -74,7 +74,7 @@ class DummyTestEstimator(cuml.Base):
         return self.fit(X).transform(X)
 
 
-def array_identical(a, b):
+def assert_array_identical(a, b):
 
     cupy_a = input_to_cuml_array(a, order="K").array
     cupy_b = input_to_cuml_array(b, order="K").array
@@ -82,16 +82,10 @@ def array_identical(a, b):
     if len(a) == 0 and len(b) == 0:
         return True
 
-    if (cupy_a.shape != cupy_b.shape):
-        return False
-
-    if (cupy_a.dtype != cupy_b.dtype):
-        return False
-
-    if (cupy_a.order != cupy_b.order):
-        return False
-
-    return cp.all(cp.asarray(cupy_a) == cp.asarray(cupy_b)).item()
+    assert cupy_a.shape == cupy_b.shape
+    assert cupy_a.dtype == cupy_b.dtype
+    assert cupy_a.order == cupy_b.order
+    assert cp.all(cp.asarray(cupy_a) == cp.asarray(cupy_b)).item()
 
 
 def create_input(input_type, input_dtype, input_shape, input_order):
@@ -124,7 +118,7 @@ def test_pickle(input_type):
     # Loop and verify we have filled the cache
     for out_type in test_output_types_str:
         with cuml.using_output_type(out_type):
-            assert array_identical(est.input_any_,
+            assert_array_identical(est.input_any_,
                                    create_output(X_in, out_type))
 
     est_pickled_bytes = pickle.dumps(est)
@@ -134,18 +128,18 @@ def test_pickle(input_type):
     assert est_unpickled.__dict__["input_any_"].input_type == input_type
     assert len(est_unpickled.__dict__["input_any_"].values) == 1
 
-    assert array_identical(est.get_input(), est_unpickled.get_input())
-    assert array_identical(est.input_any_, est_unpickled.input_any_)
+    assert_array_identical(est.get_input(), est_unpickled.get_input())
+    assert_array_identical(est.input_any_, est_unpickled.input_any_)
 
     # Loop one more time with the picked one to make sure it works right
     for out_type in test_output_types_str:
         with cuml.using_output_type(out_type):
-            assert array_identical(est.input_any_,
+            assert_array_identical(est.input_any_,
                                    create_output(X_in, out_type))
 
         est_unpickled.output_type = out_type
 
-        assert array_identical(est_unpickled.input_any_,
+        assert_array_identical(est_unpickled.input_any_,
                                create_output(X_in, out_type))
 
 
@@ -175,14 +169,14 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
     # Check the current type matches input type
     assert determine_array_type(est.input_any_) == input_type
 
-    assert array_identical(est.input_any_, X_in)
+    assert_array_identical(est.input_any_, X_in)
 
     # Switch output type and check type and equality
     with cuml.using_output_type(output_type):
 
         assert determine_array_type(est.input_any_) == output_type
 
-        assert array_identical(est.input_any_, X_out)
+        assert_array_identical(est.input_any_, X_out)
 
     # Now Test with output_type=output_type
     est = DummyTestEstimator(output_type=output_type)
@@ -192,13 +186,13 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
     # Check the current type matches output type
     assert determine_array_type(est.input_any_) == output_type
 
-    assert array_identical(est.input_any_, X_out)
+    assert_array_identical(est.input_any_, X_out)
 
     with cuml.using_output_type("input"):
 
         assert determine_array_type(est.input_any_) == input_type
 
-        assert array_identical(est.input_any_, X_in)
+        assert_array_identical(est.input_any_, X_in)
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
@@ -251,7 +245,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
 
     assert determine_array_type(X_out) == input_type
 
-    assert array_identical(X_in, X_out)
+    assert_array_identical(X_in, X_out)
 
     # Test with output_type=base_output_type
     est = DummyTestEstimator(output_type=base_output_type)
@@ -262,7 +256,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
 
     assert determine_array_type(X_out) == base_output_type
 
-    assert array_identical(X_in, X_out)
+    assert_array_identical(X_in, X_out)
 
     # Test with global_output_type, should return global_output_type
     with cuml.using_output_type(global_output_type):
@@ -278,7 +272,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
 
         assert determine_array_type(X_out) == target_output_type
 
-        assert array_identical(X_in, X_out)
+        assert_array_identical(X_in, X_out)
 
 
 @pytest.mark.parametrize('input_arg', ["X", "y", "bad", ...])

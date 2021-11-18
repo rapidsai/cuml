@@ -130,8 +130,8 @@ def test_self_neighboring(datatype, metric_p, nrows):
 
     if datatype == 'dataframe':
         assert isinstance(neigh_ind, cudf.DataFrame)
-        neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
-        neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
+        neigh_ind = neigh_ind.to_numpy()
+        neigh_dist = neigh_dist.to_numpy()
     else:
         assert isinstance(neigh_ind, cp.ndarray)
         neigh_ind = neigh_ind.get()
@@ -184,7 +184,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 
     if datatype == "dataframe":
         assert isinstance(neigh_ind, cudf.DataFrame)
-        neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
+        neigh_ind = neigh_ind.to_numpy()
     else:
         assert isinstance(neigh_ind, cp.ndarray)
 
@@ -356,8 +356,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
         assert isinstance(I_cuml, cudf.DataFrame)
-        D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
-        I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
+        D_cuml_np = D_cuml.to_numpy()
+        I_cuml_np = I_cuml.to_numpy()
     else:
         assert isinstance(D_cuml, cp.ndarray)
         assert isinstance(I_cuml, cp.ndarray)
@@ -666,3 +666,8 @@ def test_haversine_fails_high_dimensions():
                  algorithm='brute')
 
     cunn.fit(data).kneighbors(data)
+
+
+def test_n_jobs_parameter_passthrough():
+    cunn = cuKNN()
+    cunn.set_params(n_jobs=12)

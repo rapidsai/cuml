@@ -27,8 +27,8 @@
 #include <raft/mr/device/allocator.hpp>
 #include "jones_transform.cuh"
 
-namespace MLCommon {
-namespace TimeSeries {
+// Private helper functions and kernels in the anonymous namespace
+namespace {
 
 /**
  * Auxiliary function of reduced_polynomial. Computes a coefficient of an (S)AR
@@ -51,6 +51,128 @@ HDI DataT _param_to_poly(const DataT* param, int lags, int idx)
   } else
     return 1.0;
 }
+
+/**
+ * @brief Helper function that will read in src0 if the given index is
+ *        negative, src1 otherwise.
+ * @note  This is useful when one array is the logical continuation of
+ *        another and the index is expressed relatively to the second array.
+ *
+ * @param[in] src0  Data comes from here if the index is negative
+ * @param[in] size0 Size of src0
+ * @param[in] src1  Data comes from here if the index is positive
+ * @param[in] idx   Index, relative to the start of the second array src1
+ * @return Data read from src0 or src1 according to the index
+ */
+template <typename DataT>
+DI DataT _select_read(const DataT* src0, int size0, const DataT* src1, int idx)
+{
+  return idx < 0 ? src0[size0 + idx] : src1[idx];
+}
+
+/**
+ * @brief Prepare future data with a simple or seasonal difference
+ *
+ * @param[in]  in_past  Input (past). Shape (n_past, batch_size) (device)
+ * @param[in]  in_fut   Input (future). Shape (n_fut, batch_size) (device)
+ * @param[out] out      Output. Shape (n_fut, batch_size) (device)
+ * @param[in]  n_past   Number of past observations per series
+ * @param[in]  n_fut    Number of future observations per series
+ * @param[in]  period   Differencing period (1 or s)
+ * @param[in]  stream   CUDA stream
+ */
+template <typename T>
+__global__ void _future_diff_kernel(
+  const T* in_past, const T* in_fut, T* out, int n_past, int n_fut, int period = 1)
+{
+  const T* b_in_past = in_past + n_past * blockIdx.x;
+  const T* b_in_fut  = in_fut + n_fut * blockIdx.x;
+  T* b_out           = out + n_fut * blockIdx.x;
+
+  for (int i = threadIdx.x; i < n_fut; i += blockDim.x) {
+    b_out[i] = b_in_fut[i] - _select_read(b_in_past, n_past, b_in_fut, i - period);
+  }
+}
+
+/**
+ * @brief Prepare future data with two simple and/or seasonal differences
+ *
+ * @param[in]  in_past  Input (past). Shape (n_past, batch_size) (device)
+ * @param[in]  in_fut   Input (future). Shape (n_fut, batch_size) (device)
+ * @param[out] out      Output. Shape (n_fut, batch_size) (device)
+ * @param[in]  n_past   Number of past observations per series
+ * @param[in]  n_fut    Number of future observations per series
+ * @param[in]  period1  First differencing period (1 or s)
+ * @param[in]  period2  Second differencing period (1 or s)
+ * @param[in]  stream   CUDA stream
+ */
+template <typename T>
+__global__ void _future_second_diff_kernel(const T* in_past,
+                                           const T* in_fut,
+                                           T* out,
+                                           int n_past,
+                                           int n_fut,
+                                           int period1 = 1,
+                                           int period2 = 1)
+{
+  const T* b_in_past = in_past + n_past * blockIdx.x;
+  const T* b_in_fut  = in_fut + n_fut * blockIdx.x;
+  T* b_out           = out + n_fut * blockIdx.x;
+
+  for (int i = threadIdx.x; i < n_fut; i += blockDim.x) {
+    b_out[i] = b_in_fut[i] - _select_read(b_in_past, n_past, b_in_fut, i - period1) -
+               _select_read(b_in_past, n_past, b_in_fut, i - period2) +
+               _select_read(b_in_past, n_past, b_in_fut, i - period1 - period2);
+  }
+}
+
+/**
+ * @brief Kernel to undifference the data with up to two levels of simple
+ *        and/or seasonal differencing.
+ * @note  One thread per series.
+ *
+ * @tparam       double_diff true for two differences, false for one
+ * @tparam       DataT       Data type
+ * @param[inout] d_fc        Forecasts, modified in-place
+ * @param[in]    d_in        Past observations
+ * @param[in]    num_steps   Number of forecast steps
+ * @param[in]    batch_size  Batch size
+ * @param[in]    in_ld       Leading dimension of d_in
+ * @param[in]    n_in        Number of past observations
+ * @param[in]    s0          1st differencing period
+ * @param[in]    s1          2nd differencing period if relevant
+ */
+template <bool double_diff, typename DataT>
+__global__ void _undiff_kernel(DataT* d_fc,
+                               const DataT* d_in,
+                               int num_steps,
+                               int batch_size,
+                               int in_ld,
+                               int n_in,
+                               int s0,
+                               int s1 = 0)
+{
+  int bid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (bid < batch_size) {
+    DataT* b_fc       = d_fc + bid * num_steps;
+    const DataT* b_in = d_in + bid * in_ld;
+    for (int i = 0; i < num_steps; i++) {
+      if (!double_diff) {  // One simple or seasonal difference
+        b_fc[i] += _select_read(b_in, n_in, b_fc, i - s0);
+      } else {  // Two differences (simple, seasonal or both)
+        DataT fc_acc = -_select_read(b_in, n_in, b_fc, i - s0 - s1);
+        fc_acc += _select_read(b_in, n_in, b_fc, i - s0);
+        fc_acc += _select_read(b_in, n_in, b_fc, i - s1);
+        b_fc[i] += fc_acc;
+      }
+    }
+  }
+}
+
+}  // namespace
+
+namespace MLCommon {
+namespace TimeSeries {
 
 /**
  * Helper function to compute the reduced AR or MA polynomial based on the
@@ -80,7 +202,6 @@ HDI DataT reduced_polynomial(
 
 /**
  * @brief Prepare data by differencing if needed (simple and/or seasonal)
- *        and removing a trend if needed
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *
@@ -128,51 +249,68 @@ void prepare_data(DataT* d_out,
 }
 
 /**
- * @brief Helper function that will read in src0 if the given index is
- *        negative, src1 otherwise.
- * @note  This is useful when one array is the logical continuation of
- *        another and the index is expressed relatively to the second array.
+ * @brief Prepare future data by differencing if needed (simple and/or seasonal)
+ *
+ * This is a variant of prepare_data that produces an output of the same dimension
+ * as the input, using an other array of past data for the observations at the start
+ *
+ * @note: It is assumed that d + D <= 2. This is enforced on the Python side
+ *
+ * @param[out] d_out       Output. Shape (n_fut, batch_size) (device)
+ * @param[in]  d_in_past   Input (past). Shape (n_past, batch_size) (device)
+ * @param[in]  d_in_fut    Input (future). Shape (n_fut, batch_size) (device)
+ * @param[in]  batch_size  Number of series per batch
+ * @param[in]  n_past      Number of past observations per series
+ * @param[in]  n_fut       Number of future observations per series
+ * @param[in]  d           Order of simple differences (0, 1 or 2)
+ * @param[in]  D           Order of seasonal differences (0, 1 or 2)
+ * @param[in]  s           Seasonal period if D > 0
+ * @param[in]  stream      CUDA stream
  */
 template <typename DataT>
-DI DataT _select_read(const DataT* src0, int size0, const DataT* src1, int idx)
+void prepare_future_data(DataT* d_out,
+                         const DataT* d_in_past,
+                         const DataT* d_in_fut,
+                         int batch_size,
+                         int n_past,
+                         int n_fut,
+                         int d,
+                         int D,
+                         int s,
+                         cudaStream_t stream)
 {
-  return idx < 0 ? src0[size0 + idx] : src1[idx];
-}
-
-/**
- * @brief Kernel to undifference the data with up to two levels of simple
- *        and/or seasonal differencing.
- * @note  One thread per series.
- */
-template <bool double_diff, typename DataT>
-__global__ void _undiff_kernel(DataT* d_fc,
-                               const DataT* d_in,
-                               int num_steps,
-                               int batch_size,
-                               int in_ld,
-                               int n_in,
-                               int s0,
-                               int s1 = 0)
-{
-  int bid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (bid < batch_size) {
-    DataT* b_fc       = d_fc + bid * num_steps;
-    const DataT* b_in = d_in + bid * in_ld;
-    for (int i = 0; i < num_steps; i++) {
-      if (!double_diff) {  // One simple or seasonal difference
-        b_fc[i] += _select_read(b_in, n_in, b_fc, i - s0);
-      } else {  // Two differences (simple, seasonal or both)
-        DataT fc_acc = -_select_read(b_in, n_in, b_fc, i - s0 - s1);
-        fc_acc += _select_read(b_in, n_in, b_fc, i - s0);
-        fc_acc += _select_read(b_in, n_in, b_fc, i - s1);
-        b_fc[i] += fc_acc;
-      }
-    }
+  // Only one difference (simple or seasonal)
+  if (d + D == 1) {
+    int period = d ? 1 : s;
+    int tpb    = n_fut > 128 ? 64 : 32;  // quick heuristics
+    _future_diff_kernel<<<batch_size, tpb, 0, stream>>>(
+      d_in_past, d_in_fut, d_out, n_past, n_fut, period);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
+  // Two differences (simple or seasonal or both)
+  else if (d + D == 2) {
+    int period1 = d ? 1 : s;
+    int period2 = d == 2 ? 1 : s;
+    int tpb     = n_fut > 128 ? 64 : 32;
+    _future_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
+      d_in_past, d_in_fut, d_out, n_past, n_fut, period1, period2);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
+  // If no difference and the pointers are different, copy in to out
+  else if (d + D == 0 && d_in_fut != d_out) {
+    raft::copy(d_out, d_in_fut, n_fut * batch_size, stream);
+  }
+  // Other cases: no difference and the pointers are the same, nothing to do
 }
 
 /**
- * @brief Finalizes a forecast by undifferencing
+ * @brief Finalizes a forecast by undifferencing.
+ *
+ * This is used when doing "simple differencing" for integrated models (d > 0 or D > 0), i.e the
+ * series are differenced prior to running the Kalman filter. Forecasts output by the Kalman filter
+ * are then for the differenced series and we need to couple this with past observations to compute
+ * forecasts for the non-differenced series. This is not needed when differencing is handled by the
+ * Kalman filter.
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *

@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,9 +35,9 @@ def test_labelencoder_fit_transform(length, cardinality, client):
     df = dask_cudf.from_cudf(tmp, npartitions=len(client.has_what()))
     encoded = cuml.dask.preprocessing.LabelEncoder().fit_transform(df)
 
-    df_arr = df.compute().to_array()
+    df_arr = df.compute().to_numpy()
     df_arr = _arr_to_similarity_mat(df_arr)
-    encoder_arr = cp.asnumpy(encoded.compute().to_array())
+    encoder_arr = cp.asnumpy(encoded.compute().to_numpy())
     encoded_arr = _arr_to_similarity_mat(encoder_arr)
     assert ((encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)).all()
 
@@ -54,9 +54,9 @@ def test_labelencoder_transform(length, cardinality, client):
 
     encoded = le.transform(df)
 
-    df_arr = df.compute().to_array()
+    df_arr = df.compute().to_numpy()
     df_arr = _arr_to_similarity_mat(df_arr)
-    encoder_arr = cp.asnumpy(encoded.compute().to_array())
+    encoder_arr = cp.asnumpy(encoded.compute().to_numpy())
     encoded_arr = _arr_to_similarity_mat(encoder_arr)
     assert (
         (encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)
