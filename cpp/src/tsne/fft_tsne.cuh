@@ -42,21 +42,6 @@ const static int NTHREADS_1024 = 1024;
 const static int NTHREADS_128  = 128;
 const static int NTHREADS_32   = 32;
 
-struct FunctionalSqrt {
-  template <typename value_t>
-  __host__ __device__ float operator()(const value_t& x) const
-  {
-    return pow(x, 0.5);
-  }
-};
-struct FunctionalSquare {
-  template <typename value_t>
-  __host__ __device__ float operator()(const value_t& x) const
-  {
-    return x * x;
-  }
-};
-
 template <typename T>
 cufftResult CUFFTAPI cufft_MakePlanMany(cufftHandle plan,
                                         T rank,
@@ -546,34 +531,10 @@ value_t FFT_TSNE(value_t* VAL,
         n);
     }
 
-    auto att_forces_thrust = thrust::device_pointer_cast(attractive_forces_device.data());
-    auto old_forces_thrust = thrust::device_pointer_cast(old_forces_device.data());
-
-    thrust::transform(thrust_policy,
-                      old_forces_thrust,
-                      old_forces_thrust + n,
-                      att_forces_thrust,
-                      FunctionalSquare());
-
-    thrust::transform(thrust_policy,
-                      att_forces_thrust,
-                      att_forces_thrust + n,
-                      att_forces_thrust + n,
-                      att_forces_thrust,
-                      thrust::plus<value_t>());
-
-    thrust::transform(thrust_policy,
-                      att_forces_thrust,
-                      att_forces_thrust + attractive_forces_device.size(),
-                      att_forces_thrust,
-                      FunctionalSqrt());
-
-    value_t grad_norm = thrust::reduce(thrust_policy,
-                                       att_forces_thrust,
-                                       att_forces_thrust + attractive_forces_device.size(),
-                                       0.0f,
-                                       thrust::plus<value_t>()) /
-                        attractive_forces_device.size();
+    value_t grad_norm = compute_grad_norm(handle,
+                                          old_forces_device.data(),
+                                          attractive_forces_device.data(),
+                                          attractive_forces_device.size());
 
     if (grad_norm <= params.min_grad_norm) {
       CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);

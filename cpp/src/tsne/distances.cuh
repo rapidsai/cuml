@@ -39,6 +39,22 @@ namespace TSNE {
 
 auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
 
+struct FunctionalSqrt {
+  template <typename value_t>
+  __host__ __device__ float operator()(const value_t& x) const
+  {
+    return pow(x, 0.5);
+  }
+};
+
+struct FunctionalSquare {
+  template <typename value_t>
+  __host__ __device__ float operator()(const value_t& x) const
+  {
+    return x * x;
+  }
+};
+
 /**
  * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
  * @param[in] input: dense/sparse manifold input
@@ -172,6 +188,43 @@ void symmetrize_perplexity(float* P,
   // Symmetrize to form P + P.T
   raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
     indices, P, n, k, COO_Matrix, stream);
+}
+
+template <typename value_t>
+value_t compute_grad_norm(const raft::handle_t& handle,
+                          value_t* old_forces_device,
+                          value_t* attractive_forces_device,
+                          std::size_t n_pts)
+{
+  auto thrust_policy     = handle.get_thrust_policy();
+  auto att_forces_thrust = thrust::device_pointer_cast(attractive_forces_device);
+  auto old_forces_thrust = thrust::device_pointer_cast(old_forces_device);
+
+  thrust::transform(thrust_policy,
+                    old_forces_thrust,
+                    old_forces_thrust + n_pts,
+                    att_forces_thrust,
+                    FunctionalSquare());
+
+  thrust::transform(thrust_policy,
+                    att_forces_thrust,
+                    att_forces_thrust + n_pts,
+                    att_forces_thrust + n_pts,
+                    att_forces_thrust,
+                    thrust::plus<value_t>());
+
+  thrust::transform(thrust_policy,
+                    att_forces_thrust,
+                    att_forces_thrust + n_pts,
+                    att_forces_thrust,
+                    FunctionalSqrt());
+
+  value_t grad_norm =
+    thrust::reduce(
+      thrust_policy, att_forces_thrust, att_forces_thrust + n_pts, 0.0f, thrust::plus<value_t>()) /
+    n_pts;
+
+  return grad_norm;
 }
 
 }  // namespace TSNE
