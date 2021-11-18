@@ -106,7 +106,6 @@ def test_xgb_classifier(objective, n_classes):
                                    ref_explainer.expected_value)
 
 
-
 @pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
 def test_cuml_rf_regressor(input_type):
     n_samples = 100
@@ -136,6 +135,7 @@ def test_cuml_rf_regressor(input_type):
         shap_sum = shap_sum.get()
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
+
 @pytest.mark.parametrize('n_classes', [2, 5])
 def test_cuml_rf_classifier(n_classes):
     n_samples = 100
@@ -148,9 +148,8 @@ def test_cuml_rf_classifier(n_classes):
                        n_streams=1, n_estimators=10, max_leaves=-1,
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
-    pred = cuml_model.predict(X)
 
     with pytest.raises(RuntimeError):
         # cuML RF classifier is not supported yet
         explainer = TreeExplainer(model=cuml_model)
-        out = explainer.shap_values(X)
+        explainer.shap_values(X)
