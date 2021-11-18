@@ -64,7 +64,7 @@ cdef class TreeExplainer_impl():
         output_type = 'numpy' if X_type == 'numpy' else 'cupy'
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
-        # Storing a C-order 3D array in a CumlArray leds to cryptic error
+        # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))

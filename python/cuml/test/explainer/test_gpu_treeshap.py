@@ -22,6 +22,7 @@ import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost, has_shap
 from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.ensemble import RandomForestClassifier as curfc
 from sklearn.datasets import make_regression, make_classification
 
 if has_xgboost():
@@ -136,3 +137,23 @@ def test_cuml_rf_regressor(input_type):
         pred = pred.to_numpy()
         shap_sum = shap_sum.get()
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
+@pytest.mark.parametrize('n_classes', [2, 5])
+def test_cuml_rf_classifier(n_classes):
+    n_samples = 100
+    X, y = make_classification(n_samples=n_samples, n_features=8,
+                               n_informative=8, n_redundant=0, n_repeated=0,
+                               n_classes=n_classes, random_state=2021)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    cuml_model = curfc(max_features=1.0, max_samples=0.1, n_bins=128,
+                       min_samples_leaf=2, random_state=123,
+                       n_streams=1, n_estimators=10, max_leaves=-1,
+                       max_depth=16, accuracy_metric="mse")
+    cuml_model.fit(X, y)
+    pred = cuml_model.predict(X)
+    tl_model = cuml_model.convert_to_treelite_model()
+
+    with pytest.raises(RuntimeError):
+        # cuML RF classifier is not supported yet
+        explainer = TreeExplainer(model=tl_model)
+        out = explainer.shap_values(X)
