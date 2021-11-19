@@ -351,6 +351,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
 {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
+  // needed if the node is sparse, to place within memory for the FIL tree
   int sparse_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
   while (!stack.empty()) {
@@ -631,7 +632,7 @@ struct tl2fil_t {
   }
 
   /// initializes FIL forest object, to be ready to infer
-  void init_forest(const raft::handle_t& handle, forest_t* pforest, storage_type_t storage_type)
+  void init_forest(const raft::handle_t& handle, forest_t* pforest)
   {
     ML::fil::init(
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
@@ -639,22 +640,20 @@ struct tl2fil_t {
     // but destructed at the end of this function
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     if (tl_params_.pforest_shape_str) {
-      *tl_params_.pforest_shape_str =
-        sprintf_shape(model_, storage_type, nodes_, roots_, cat_sets_);
+      *tl_params_.pforest_shape_str = sprintf_shape(model_, nodes_, roots_, cat_sets_);
     }
   }
 };
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
-void convert(const tl::ModelImpl<threshold_t, leaf_t>& model,
-             const treelite_params_t& tl_params,
-             const raft::handle_t& handle,
+void convert(const raft::handle_t& handle,
              forest_t* pforest,
-             storage_type_t storage_type)
+             const tl::ModelImpl<threshold_t, leaf_t>& model,
+             const treelite_params_t& tl_params)
 {
   tl2fil_t<fil_node_t, threshold_t, leaf_t> tl2fil(model, tl_params);
   tl2fil.init();
-  tl2fil.init_forest(handle, pforest, storage_type);
+  tl2fil.init_forest(handle, pforest);
 }
 
 template <typename threshold_t, typename leaf_t>
@@ -695,15 +694,9 @@ void from_treelite(const raft::handle_t& handle,
   }
 
   switch (storage_type) {
-    case storage_type_t::DENSE:
-      convert<dense_node>(model, *tl_params, handle, pforest, storage_type);
-      break;
-    case storage_type_t::SPARSE:
-      convert<sparse_node16>(model, *tl_params, handle, pforest, storage_type);
-      break;
-    case storage_type_t::SPARSE8:
-      convert<sparse_node8>(model, *tl_params, handle, pforest, storage_type);
-      break;
+    case storage_type_t::DENSE: convert<dense_node>(handle, pforest, model, *tl_params); break;
+    case storage_type_t::SPARSE: convert<sparse_node16>(handle, pforest, model, *tl_params); break;
+    case storage_type_t::SPARSE8: convert<sparse_node8>(handle, pforest, model, *tl_params); break;
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
 }
@@ -723,7 +716,6 @@ void from_treelite(const raft::handle_t& handle,
 // allocates caller-owned char* using malloc()
 template <typename threshold_t, typename leaf_t, typename node_t>
 char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
-                    storage_type_t storage,
                     const std::vector<node_t>& nodes,
                     const std::vector<int>& trees,
                     const cat_sets_owner cat_sets)
@@ -732,8 +724,8 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
   double size_mb = (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) +
                     cat_sets.bits.size()) /
                    1e6;
-  forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
-               << " MB" << std::endl;
+  forest_shape << storage_type_repr[node_traits<node_t>::storage_type_enum] << " model size "
+               << std::setprecision(2) << size_mb << " MB" << std::endl;
   if (cat_sets.bits.size() > 0) {
     forest_shape << "number of categorical nodes for each feature id: {";
     std::size_t total_cat_nodes = 0;
