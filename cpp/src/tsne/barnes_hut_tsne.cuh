@@ -311,7 +311,7 @@ value_t Barnes_Hut(value_t* VAL,
     CUDA_CHECK(cudaPeekAtLastError());
 
     value_t grad_norm =
-      compute_grad_norm(handle, old_forces.data(), attr_forces.data(), attr_forces.size());
+      compute_grad_norm(handle, old_forces.data(), old_forces.size());
 
     if (grad_norm <= params.min_grad_norm) {
       CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);

@@ -533,8 +533,7 @@ value_t FFT_TSNE(value_t* VAL,
 
     value_t grad_norm = compute_grad_norm(handle,
                                           old_forces_device.data(),
-                                          attractive_forces_device.data(),
-                                          attractive_forces_device.size());
+                                          old_forces_device.size());
 
     if (grad_norm <= params.min_grad_norm) {
       CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);

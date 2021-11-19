@@ -39,14 +39,6 @@ namespace TSNE {
 
 auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
 
-struct FunctionalSqrt {
-  template <typename value_t>
-  __host__ __device__ float operator()(const value_t& x) const
-  {
-    return pow(x, 0.5);
-  }
-};
-
 struct FunctionalSquare {
   template <typename value_t>
   __host__ __device__ float operator()(const value_t& x) const
@@ -193,39 +185,18 @@ void symmetrize_perplexity(float* P,
 template <typename value_t>
 value_t compute_grad_norm(const raft::handle_t& handle,
                           value_t* old_forces_device,
-                          value_t* attractive_forces_device,
                           std::size_t n_pts)
 {
-  auto thrust_policy     = handle.get_thrust_policy();
-  auto att_forces_thrust = thrust::device_pointer_cast(attractive_forces_device);
-  auto old_forces_thrust = thrust::device_pointer_cast(old_forces_device);
+  value_t grad_norm = thrust::transform_reduce(handle.get_thrust_policy(),
+                                               old_forces_device,
+                                               old_forces_device + n_pts,
+                                               FunctionalSquare(),
+                                               0.0,
+                                               thrust::plus<value_t>());
 
-  int n = n_pts / 2;
-  thrust::transform(thrust_policy,
-                    old_forces_thrust,
-                    old_forces_thrust + n,
-                    att_forces_thrust,
-                    FunctionalSquare());
+  std::cout << "grad norm: " << std::sqrt(grad_norm) << std::endl;
 
-  thrust::transform(thrust_policy,
-                    att_forces_thrust,
-                    att_forces_thrust + n,
-                    att_forces_thrust + n,
-                    att_forces_thrust,
-                    thrust::plus<value_t>());
-
-  thrust::transform(thrust_policy,
-                    att_forces_thrust,
-                    att_forces_thrust + n_pts,
-                    att_forces_thrust,
-                    FunctionalSqrt());
-
-  value_t grad_norm =
-    thrust::reduce(
-      thrust_policy, att_forces_thrust, att_forces_thrust + n_pts, 0.0f, thrust::plus<value_t>()) /
-    n_pts;
-
-  return grad_norm;
+  return std::sqrt(grad_norm);
 }
 
 }  // namespace TSNE
