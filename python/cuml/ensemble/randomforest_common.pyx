@@ -26,6 +26,7 @@ from cuml.fil.fil import TreeliteModel
 from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.exceptions import NotFittedError
 import cuml.internals
 
 from cython.operator cimport dereference as deref
@@ -202,8 +203,9 @@ class BaseRandomForestModel(Base):
         return self.treelite_serialized_model
 
     def _obtain_treelite_handle(self):
-        assert self.treelite_serialized_model or self.rf_forest, \
-            "Attempting to create treelite from un-fit forest."
+        if (not self.treelite_serialized_model) and (not self.rf_forest):
+            raise NotFittedError(
+                    "Attempting to create treelite from un-fit forest.")
 
         cdef ModelHandle tl_handle = NULL
         if self.treelite_handle:
