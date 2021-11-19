@@ -129,7 +129,8 @@ struct node_traits {
   using storage                       = sparse_storage<node_t>;
   using forest                        = sparse_forest<node_t>;
   static const bool IS_DENSE          = false;
-  static const bool storage_type_enum = std::is_same<sparse_node16, node_t>() ? SPARSE : SPARSE8;
+  static const storage_type storage_type_enum =
+    std::is_same<sparse_node16, node_t>() ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
 };
@@ -139,7 +140,7 @@ struct node_traits<dense_node> {
   using storage                       = dense_storage;
   using forest                        = dense_forest;
   static const bool IS_DENSE          = true;
-  static const bool storage_type_enum = DENSE;
+  static const storage_type storage_type_enum = DENSE;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
   {
