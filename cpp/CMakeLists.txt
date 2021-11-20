@@ -197,6 +197,7 @@ rapids_cpm_package_override(${CMAKE_CURRENT_SOURCE_DIR}/cmake/override_cpm.json)
 
 include(cmake/thirdparty/get_raft.cmake)
 include(cmake/thirdparty/get_treelite.cmake)
+include(cmake/thirdparty/get_gputreeshap.cmake)
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
@@ -255,6 +256,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/decisiontree/decisiontree.cu
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
+        src/explainer/tree_shap.cu
         src/fil/fil.cu
         src/fil/infer.cu
         src/glm/glm.cu
@@ -375,6 +377,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE
       CUDA::cufft
       ${TREELITE_LIBS}
+      GPUTreeShap::GPUTreeShap
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
