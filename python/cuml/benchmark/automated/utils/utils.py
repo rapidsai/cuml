@@ -30,9 +30,13 @@ except ImportError:
 
 import os
 import json
+import time
 from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.nvtx_benchmark import Profiler
 import dask.array as da
+
+from sklearnex import patch_sklearn
+patch_sklearn()
 
 
 def generate_dataset(dataset_name, n_samples, n_features,
@@ -88,6 +92,20 @@ def nvtx_profiling(name, dataset_name, n_samples, n_features,
     print('=x'*48 + '\033[0m' + '\n')
 
 
+def sklearn_intelex_bench(algo, data, algo_args):
+    setup_overrides = algo.setup_cpu(data, **algo_args)
+
+    t = time.process_time()
+    algo.run_cpu(data, **algo_args, **setup_overrides)
+    elapsed_time = time.process_time() - t
+
+    print('\n' + '\033[33m' + '=x'*20 + ' SKLEARN-INTELEX ' + '=x'*20)
+    print(algo.name + ' : ' + str(algo.cpu_class))
+    print('\tbench_function: ' + str(algo.bench_func))
+    print('\truntime: ' + str(elapsed_time))
+    print('=x'*49 + '\033[0m' + '\n')
+
+
 def _benchmark_algo(
     benchmark,
     name,
@@ -119,3 +137,5 @@ def _benchmark_algo(
     if not multi_node:  # if SG => run NVTX benchmark
         nvtx_profiling(name, dataset_name, n_samples, n_features,
                        input_type, data_kwargs, algo_args)
+
+        sklearn_intelex_bench(algo, data, algo_args)
