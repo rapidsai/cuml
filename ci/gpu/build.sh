@@ -202,6 +202,7 @@ else
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
 
+    gpuci_logger "Debugging PR for pytests"
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
