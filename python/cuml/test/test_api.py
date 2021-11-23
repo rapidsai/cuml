@@ -231,6 +231,7 @@ def test_fit_function(dataset, model_name):
         "AutoARIMA",
         "MultinomialNB",
         "LabelEncoder",
+        "HDBSCAN"
     ]:
         pytest.xfail("These models are not tested yet")
 
