@@ -36,7 +36,6 @@ def fit(m, x, y=None):
 
 
 def fit_transform(m, x, y=None):
-    print('M:', type(m))
     if y is None:
         if hasattr(m, 'transform'):
             m.fit(x)

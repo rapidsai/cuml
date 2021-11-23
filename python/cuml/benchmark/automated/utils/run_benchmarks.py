@@ -57,7 +57,7 @@ parser.add_argument(
 parser.add_argument(
     '--input_type',
     type=str,
-    default='numpy',
+    default='cupy',
     help='Input type',
 )
 parser.add_argument(
