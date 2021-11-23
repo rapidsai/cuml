@@ -59,7 +59,7 @@ def nvtx_profiling(name, dataset_name, n_samples, n_features,
                    input_type, data_kwargs, algo_args):
     path = os.path.dirname(os.path.realpath(__file__))
     command = """
-    python {path}/run_benchmarks.py
+    python {path}/bench_nvtx.py
         --algo {algo}
         --dataset_type {dataset_type}
         --n_samples {n_samples}
