@@ -584,3 +584,8 @@ Linear Models
 -------------
 .. autoclass:: cuml.experimental.linear_model.Lars
    :members:
+
+Model Explainability
+--------------------
+.. autoclass:: cuml.experimental.explainer.TreeExplainer
+   :members:
