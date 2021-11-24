@@ -110,39 +110,17 @@ inline int max_depth(const tl::Tree<T, L>& tree)
 {
   // trees of this depth aren't used, so it most likely means bad input data,
   // e.g. cycles in the forest
-  const int DEPTH_LIMIT = 500;
-  int root_index        = tree_root(tree);
-  typedef std::pair<int, int> pair_t;
-  std::stack<pair_t> stack;
-  stack.push(pair_t(root_index, 0));
-  int max_depth = 0;
-  /// node visitor lambdas need this to visit the node
-  int lambda_max_depth = walk_tree(
+  return walk_tree(
     tree,
     tree_root(tree),
-    int(0),
-    int(0),
-    [=](int id, int node_depth, int tree_depth) {
+    int(0),  // descent accumulator (node depth) initial value
+    int(0),  // tree accumulator (max depth) initial value
+    [](int id, int node_depth, int tree_depth) {
+      const int DEPTH_LIMIT = 500;
       ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
       return std::tuple(node_depth + 1, node_depth + 1, tree_depth);
     },
-    [=](int id, int node_depth, int tree_depth) { return std::max(node_depth, tree_depth); });
-  while (!stack.empty()) {
-    const pair_t& pair = stack.top();
-    int node_id        = pair.first;
-    int depth          = pair.second;
-    stack.pop();
-    while (!tree.IsLeaf(node_id)) {
-      stack.push(pair_t(tree.LeftChild(node_id), depth + 1));
-      node_id = tree.RightChild(node_id);
-      depth++;
-      ASSERT(depth < DEPTH_LIMIT, "depth limit reached, might be a cycle in the tree");
-    }
-    // only need to update depth for leaves
-    max_depth = std::max(max_depth, depth);
-  }
-  ASSERT(lambda_max_depth == max_depth, "internal error: lambda walk wrong");
-  return max_depth;
+    [](int id, int node_depth, int tree_depth) { return std::max(node_depth, tree_depth); });
 }
 
 template <typename T, typename L>
