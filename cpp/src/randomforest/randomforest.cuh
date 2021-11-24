@@ -26,12 +26,12 @@
 #include <cuml/ensemble/randomforest.hpp>
 
 #include <metrics/scores.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <random/permute.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>

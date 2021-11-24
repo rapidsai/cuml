@@ -42,6 +42,7 @@ from cuml.internals import _deprecate_pos_args
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     cdef cppclass ARIMAParams[DataT]:
         DataT* mu
+        DataT* beta
         DataT* ar
         DataT* ma
         DataT* sar
@@ -76,37 +77,40 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
-        const double* y, int batch_size, int nobs, const ARIMAOrder& order,
-        const double* params, double* loglike, bool trans, bool host_loglike,
-        LoglikeMethod method, int truncate)
+        const double* y, const double* d_exog, int batch_size, int nobs,
+        const ARIMAOrder& order, const double* params, double* loglike,
+        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
-        const double* y, int batch_size, int n_obs, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* loglike, bool trans,
-        bool host_loglike, LoglikeMethod method, int truncate)
+        const double* y, const double* d_exog, int batch_size, int n_obs,
+        const ARIMAOrder& order, const ARIMAParams[double]& params,
+        double* loglike, bool trans, bool host_loglike, LoglikeMethod method,
+        int truncate)
 
     void batched_loglike_grad(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
-        const double* d_y, int batch_size, int nobs, const ARIMAOrder& order,
-        const double* d_x, double* d_grad, double h, bool trans,
-        LoglikeMethod method, int truncate)
+        const double* d_y, const double* d_exog, int batch_size, int nobs,
+        const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
+        bool trans, LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
-        const double* d_y, int batch_size, int nobs, int start, int end,
-        const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* d_y_p, bool pre_diff, double level, double* d_lower,
-        double* d_upper)
+        const double* d_y, const double* d_exog, const double* d_exog_fut,
+        int batch_size, int nobs, int start, int end, const ARIMAOrder& order,
+        const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
+        double level, double* d_lower, double* d_upper)
 
     void information_criterion(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
-        const double* d_y, int batch_size, int nobs, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* ic, int ic_type)
+        const double* d_y, const double* d_exog, int batch_size, int nobs,
+        const ARIMAOrder& order, const ARIMAParams[double]& params,
+        double* ic, int ic_type)
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
-        int batch_size, int nobs, const ARIMAOrder& order, bool missing)
+        const double* d_exog, int batch_size, int nobs,
+        const ARIMAOrder& order, bool missing)
 
 
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
@@ -126,6 +130,8 @@ cdef class ARIMAParamsWrapper:
 
         cdef uintptr_t d_mu_ptr = \
             model.mu_.ptr if order.k else <uintptr_t> NULL
+        cdef uintptr_t d_beta_ptr = \
+            model.beta_.ptr if order.n_exog else <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = \
             model.ar_.ptr if order.p else <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = \
@@ -137,6 +143,7 @@ cdef class ARIMAParamsWrapper:
         cdef uintptr_t d_sigma2_ptr = <uintptr_t> model.sigma2_.ptr
 
         self.params.mu = <double*> d_mu_ptr
+        self.params.beta = <double*> d_beta_ptr
         self.params.ar = <double*> d_ar_ptr
         self.params.ma = <double*> d_ma_ptr
         self.params.sar = <double*> d_sar_ptr
@@ -161,7 +168,7 @@ class ARIMA(Base):
     Parameters
     ----------
     endog : dataframe or array-like (device or host)
-        The time series data, assumed to have each time series in columns.
+        Endogenous variable, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
         Missing values are accepted, represented by NaN.
@@ -169,6 +176,13 @@ class ARIMA(Base):
         The ARIMA order (p, d, q) of the model
     seasonal_order: Tuple[int, int, int, int]
         The seasonal ARIMA order (P, D, Q, s) of the model
+    exog : dataframe or array-like (device or host)
+        Exogenous variables, assumed to have each time series in columns,
+        such that variables associated with a same batch member are adjacent
+        (number of columns: n_exog * batch_size)
+        Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
+        Numba device ndarray, cuda array interface compliant array like CuPy.
+        Missing values are not supported.
     fit_intercept : bool or int (default = True)
         Whether to include a constant trend mu in the model
     simple_differencing: bool or int (default = True)
@@ -199,7 +213,7 @@ class ARIMA(Base):
     Attributes
     ----------
     order : ARIMAOrder
-        The ARIMA order of the model (p, d, q, P, D, Q, s, k)
+        The ARIMA order of the model (p, d, q, P, D, Q, s, k, n_exog)
     d_y: device array
         Time series data on device
     n_obs: int
@@ -284,6 +298,7 @@ class ARIMA(Base):
     _temp_mem = CumlArrayDescriptor()
 
     mu_ = CumlArrayDescriptor()
+    beta_ = CumlArrayDescriptor()
     ar_ = CumlArrayDescriptor()
     ma_ = CumlArrayDescriptor()
     sar_ = CumlArrayDescriptor()
@@ -296,6 +311,7 @@ class ARIMA(Base):
                  *,
                  order: Tuple[int, int, int] = (1, 1, 1),
                  seasonal_order: Tuple[int, int, int, int] = (0, 0, 0, 0),
+                 exog=None,
                  fit_intercept=True,
                  simple_differencing=True,
                  handle=None,
@@ -313,13 +329,6 @@ class ARIMA(Base):
                          output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
-        # Set the ARIMA order
-        cdef ARIMAOrder cpp_order
-        cpp_order.p, cpp_order.d, cpp_order.q = order
-        cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
-        cpp_order.k = int(fit_intercept)
-        self.order = cpp_order
-
         # Check validity of the ARIMA order and seasonal order
         p, d, q = order
         P, D, Q, s = seasonal_order
@@ -330,7 +339,7 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. Required: d+D <= 2")
         if s != 0 and (p >= s or q >= s):
             raise ValueError("ERROR: Invalid order. Required: s > p, s > q")
-        if p + q + P + Q + cpp_order.k == 0:
+        if p + q + P + Q + int(fit_intercept) == 0:
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
@@ -340,7 +349,7 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. "
                              "Required: max(p+s*P, q+s*Q) <= 1024")
 
-        # Get device array. Float64 only for now.
+        # Endogenous variable. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(endog, check_dtype=np.float64)
 
@@ -348,10 +357,38 @@ class ARIMA(Base):
             raise ValueError("ERROR: Number of observations too small for the"
                              " given order")
 
+        # Exogenous variables
+        if exog is not None:
+            self.d_exog, n_obs_exog, n_cols_exog, _ \
+                = input_to_cuml_array(exog, check_dtype=np.float64)
+
+            if n_cols_exog % self.batch_size != 0:
+                raise ValueError("Number of columns in exog is not a multiple"
+                                 " of batch_size")
+            if n_obs_exog != self.n_obs:
+                raise ValueError("Number of observations mismatch between"
+                                 " endog and exog")
+
+            n_exog = n_cols_exog // self.batch_size
+        else:
+            n_exog = 0
+
+        # Set the ARIMA order
+        cdef ARIMAOrder cpp_order
+        cpp_order.p, cpp_order.d, cpp_order.q = order
+        cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
+        cpp_order.k = int(fit_intercept)
+        cpp_order.n_exog = n_exog
+        self.order = cpp_order
+
         self.simple_differencing = simple_differencing
 
         self._d_y_diff = CumlArray.empty(
             (self.n_obs - d - s * D, self.batch_size), self.dtype)
+        if n_exog > 0:
+            self._d_exog_diff = CumlArray.empty(
+                (self.n_obs - d - s * D, self.batch_size * n_exog),
+                self.dtype)
 
         self.n_obs_diff = self.n_obs - d - D * s
 
@@ -371,6 +408,8 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef uintptr_t d_exog_ptr
+        cdef uintptr_t d_exog_diff_ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef ARIMAOrder cpp_order_diff = self.order
 
@@ -391,6 +430,14 @@ class ARIMA(Base):
             cpp_order_diff.d = 0
             cpp_order_diff.D = 0
             self.order_diff = cpp_order_diff
+
+            if cpp_order_diff.n_exog > 0:
+                d_exog_ptr = self.d_exog.ptr
+                d_exog_diff_ptr = self._d_exog_diff.ptr
+                batched_diff(handle_[0], <double*> d_exog_diff_ptr,
+                             <double*> d_exog_ptr,
+                             <int> self.batch_size * cpp_order_diff.n_exog,
+                             <int> self.n_obs, self.order)
         else:
             self.order_diff = None
 
@@ -422,6 +469,11 @@ class ARIMA(Base):
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if self.simple_differencing else self.d_y.ptr
 
+        cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
+        if order.n_exog:
+            d_exog_kf_ptr = (self._d_exog_diff.ptr if self.simple_differencing
+                             else self.d_exog.ptr)
+
         n_obs_kf = (self.n_obs_diff if self.simple_differencing
                     else self.n_obs)
 
@@ -438,9 +490,10 @@ class ARIMA(Base):
             <char*> d_temp_mem)
 
         information_criterion(handle_[0], arima_mem_ptr[0],
-                              <double*> d_y_kf_ptr, <int> self.batch_size,
-                              <int> n_obs_kf, order_kf, cpp_params,
-                              <double*> d_ic_ptr, <int> ic_type_id)
+                              <double*> d_y_kf_ptr, <double*> d_exog_kf_ptr,
+                              <int> self.batch_size, <int> n_obs_kf, order_kf,
+                              cpp_params, <double*> d_ic_ptr,
+                              <int> ic_type_id)
 
         del arima_mem_ptr
 
@@ -465,7 +518,8 @@ class ARIMA(Base):
     def complexity(self):
         """Model complexity (number of parameters)"""
         cdef ARIMAOrder order = self.order
-        return order.p + order.P + order.q + order.Q + order.k + 1
+        return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
+                + 1)
 
     @cuml.internals.api_base_return_autoarray(input_arg=None)
     def get_fit_params(self) -> Dict[str, CumlArray]:
@@ -483,8 +537,9 @@ class ARIMA(Base):
         """
         cdef ARIMAOrder order = self.order
         params = dict()
-        names = ["mu", "ar", "ma", "sar", "sma", "sigma2"]
-        criteria = [order.k, order.p, order.q, order.P, order.Q, True]
+        names = ["mu", "beta", "ar", "ma", "sar", "sma", "sigma2"]
+        criteria = [order.k, order.n_exog, order.p, order.q, order.P, order.Q,
+                    True]
         for i in range(len(names)):
             if criteria[i] > 0:
                 params[names[i]] = getattr(self, "{}_".format(names[i]))
@@ -504,7 +559,7 @@ class ARIMA(Base):
             (n, batch_size) for any other type, where n is the corresponding
             number of parameters of this type.
         """
-        for param_name in ["mu", "ar", "ma", "sar", "sma", "sigma2"]:
+        for param_name in ["mu", "beta", "ar", "ma", "sar", "sma", "sigma2"]:
             if param_name in params:
                 array, *_ = input_to_cuml_array(params[param_name],
                                                 check_dtype=np.float64)
@@ -545,7 +600,8 @@ class ARIMA(Base):
         self,
         start=0,
         end=None,
-        level=None
+        level=None,
+        exog=None,
     ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
         """Compute in-sample and/or out-of-sample prediction for each series
 
@@ -559,6 +615,11 @@ class ARIMA(Base):
         level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. ``0 < level < 1``
+        exog : dataframe or array-like (device or host)
+            Future values for exogenous variables. Assumed to have each time
+            series in columns, such that variables associated with a same
+            batch member are adjacent.
+            Shape = (end - n_obs, n_exog * batch_size)
 
         Returns
         -------
@@ -607,8 +668,33 @@ class ARIMA(Base):
         if end is None:
             end = self.n_obs
 
+        if order.n_exog > 0 and end > self.n_obs and exog is None:
+            raise ValueError("The model was fit with a regression component,"
+                             " so future values must be provided via `exog`")
+        elif order.n_exog == 0 and exog is not None:
+            raise ValueError("A value was given for `exog` but the model was"
+                             " fit without any regression component")
+        elif end <= self.n_obs and exog is not None:
+            raise ValueError("A value was given for `exog` but only in-sample"
+                             " predictions were requested")
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         predict_size = end - start
+
+        # Future values of the exogenous variables
+        cdef uintptr_t d_exog_fut_ptr = <uintptr_t> NULL
+        if order.n_exog and end > self.n_obs:
+            d_exog_fut, n_obs_fut, n_cols_fut, _ \
+                = input_to_cuml_array(exog, check_dtype=np.float64)
+            if n_obs_fut != end - self.n_obs:
+                raise ValueError(
+                    "Dimensions mismatch: `exog` should contain {}"
+                    " observations per column".format(end - self.n_obs))
+            elif n_cols_fut != self.batch_size * order.n_exog:
+                raise ValueError(
+                    "Dimensions mismatch: `exog` should have {} columns"
+                    .format(self.batch_size * order.n_exog))
+            d_exog_fut_ptr = d_exog_fut.ptr
 
         # allocate predictions and intervals device memory
         cdef uintptr_t d_y_p_ptr = <uintptr_t> NULL
@@ -626,6 +712,9 @@ class ARIMA(Base):
             d_upper_ptr = d_upper.ptr
 
         cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
+        if order.n_exog:
+            d_exog_ptr = self.d_exog.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
@@ -633,6 +722,7 @@ class ARIMA(Base):
             <char*> d_temp_mem)
 
         cpp_predict(handle_[0], arima_mem_ptr[0], <double*>d_y_ptr,
+                    <double*>d_exog_ptr, <double*>d_exog_fut_ptr,
                     <int> self.batch_size, <int> self.n_obs, <int> start,
                     <int> end, order, cpp_params, <double*>d_y_p_ptr,
                     <bool> self.simple_differencing,
@@ -653,7 +743,8 @@ class ARIMA(Base):
     def forecast(
         self,
         nsteps: int,
-        level=None
+        level=None,
+        exog=None
     ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
         """Forecast the given model `nsteps` into the future.
 
@@ -664,6 +755,11 @@ class ARIMA(Base):
         level: float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
+        exog : dataframe or array-like (device or host)
+            Future values for exogenous variables. Assumed to have each time
+            series in columns, such that variables associated with a same
+            batch member are adjacent.
+            Shape = (nsteps, n_exog * batch_size)
 
         Returns
         -------
@@ -687,7 +783,7 @@ class ARIMA(Base):
             y_fc = model.forecast(10)
         """
 
-        return self.predict(self.n_obs, self.n_obs + nsteps, level)
+        return self.predict(self.n_obs, self.n_obs + nsteps, level, exog)
 
     @cuml.internals.api_base_return_any_skipall
     def _create_arrays(self):
@@ -696,6 +792,9 @@ class ARIMA(Base):
 
         if order.k and not hasattr(self, "mu_"):
             self.mu_ = CumlArray.empty(self.batch_size, np.float64)
+        if order.n_exog and not hasattr(self, "beta_"):
+            self.beta_ = CumlArray.empty((order.n_exog, self.batch_size),
+                                         np.float64)
         if order.p and not hasattr(self, "ar_"):
             self.ar_ = CumlArray.empty((order.p, self.batch_size),
                                        np.float64)
@@ -723,12 +822,15 @@ class ARIMA(Base):
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
         cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
+        if order.n_exog:
+            d_exog_ptr = self.d_exog.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Call C++ function
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
-                    <int> self.batch_size, <int> self.n_obs, order,
-                    <bool> self.missing)
+                    <double*> d_exog_ptr, <int> self.batch_size,
+                    <int> self.n_obs, order, <bool> self.missing)
 
     @cuml.internals.api_base_return_any_skipall
     def fit(self,
@@ -869,6 +971,10 @@ class ARIMA(Base):
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if diff else self.d_y.ptr
 
+        cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
+        if order.n_exog:
+            d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
@@ -879,9 +985,10 @@ class ARIMA(Base):
             <char*> d_temp_mem)
 
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
-                        <int> self.batch_size, <int> n_obs_kf, order_kf,
-                        <double*> d_x_ptr, <double*> vec_loglike.data(),
-                        <bool> trans, <bool> True, ll_method, <int> truncate)
+                        <double*> d_exog_kf_ptr, <int> self.batch_size,
+                        <int> n_obs_kf, order_kf, <double*> d_x_ptr,
+                        <double*> vec_loglike.data(), <bool> trans,
+                        <bool> True, ll_method, <int> truncate)
 
         del arima_mem_ptr
 
@@ -936,6 +1043,10 @@ class ARIMA(Base):
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if diff else self.d_y.ptr
 
+        cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
+        if order.n_exog:
+            d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
@@ -944,7 +1055,8 @@ class ARIMA(Base):
             <char*> d_temp_mem)
 
         batched_loglike_grad(handle_[0], arima_mem_ptr[0],
-                             <double*> d_y_kf_ptr, <int> self.batch_size,
+                             <double*> d_y_kf_ptr, <double*> d_exog_kf_ptr,
+                             <int> self.batch_size,
                              <int> (self.n_obs_diff if diff else self.n_obs),
                              order_kf, <double*> d_x_ptr, <double*> d_grad,
                              <double> h, <bool> trans, ll_method,
@@ -975,6 +1087,11 @@ class ARIMA(Base):
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if self.simple_differencing else self.d_y.ptr
 
+        cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
+        if order.n_exog:
+            d_exog_kf_ptr = (self._d_exog_diff.ptr if self.simple_differencing
+                             else self.d_exog.ptr)
+
         n_obs_kf = (self.n_obs_diff if self.simple_differencing
                     else self.n_obs)
 
@@ -987,9 +1104,10 @@ class ARIMA(Base):
             <char*> d_temp_mem)
 
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
-                        <int> self.batch_size, <int> n_obs_kf, order_kf,
-                        cpp_params, <double*> vec_loglike.data(),
-                        <bool> False, <bool> True, ll_method, <int> 0)
+                        <double*> d_exog_kf_ptr, <int> self.batch_size,
+                        <int> n_obs_kf, order_kf, cpp_params,
+                        <double*> vec_loglike.data(), <bool> False,
+                        <bool> True, ll_method, <int> 0)
 
         del arima_mem_ptr
 

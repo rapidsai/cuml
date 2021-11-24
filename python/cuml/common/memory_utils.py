@@ -526,7 +526,7 @@ def numba_row_matrix(df):
 
     """
 
-    col_major = df.as_gpu_matrix(order='F')
+    col_major = df.to_cupy()
 
     row_major = cp.array(col_major, order='C')
 

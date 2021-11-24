@@ -182,16 +182,21 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
-            X = input_to_cupy_array(X, order='K',
+            X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32])
+            index = X.index
+            # todo: improve index management for cupy based codebases
+            X = X.array.to_output('cupy')
 
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
+        y_hat = CumlArray(data=y_hat, index=index)
         return y_hat
 
     @generate_docstring(
@@ -220,11 +225,15 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
-            X = input_to_cupy_array(X, order='K',
+            X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32,
                                                  cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32])
+            index = X.index
+            # todo: improve index management for cupy based codebases
+            X = X.array.to_output('cupy')
 
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
@@ -246,6 +255,7 @@ class _BaseNB(Base, ClassifierMixin):
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
+        result = CumlArray(data=result, index=index)
         return result
 
     @generate_docstring(
@@ -1331,7 +1341,7 @@ class CategoricalNB(_BaseDiscreteNB):
         self.fit_prior = fit_prior
 
     def _check_X_y(self, X, y):
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
             X.data = X.data.astype(cp.int32)
@@ -1349,7 +1359,7 @@ class CategoricalNB(_BaseDiscreteNB):
         return X, y
 
     def _check_X(self, X):
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
             X.data = X.data.astype(cp.int32)
@@ -1460,7 +1470,7 @@ class CategoricalNB(_BaseDiscreteNB):
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
         # In case of a partial fit, pad the array to have the highest feature
-        if not cp.sparse.issparse(self.category_count_):
+        if not cupyx.scipy.sparse.issparse(self.category_count_):
             self.category_count_ = cupyx.scipy.sparse.coo_matrix(
                 (self.n_features_ * n_classes, highest_feature))
         elif feature_diff > 0:
@@ -1552,7 +1562,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _update_feature_log_prob(self, alpha):
         highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
-        if cp.sparse.issparse(self.category_count_):
+        if cupyx.scipy.sparse.issparse(self.category_count_):
             # For sparse data we avoid the creation of the dense matrix
             # feature_log_prob_. This can be created on the fly during
             # the prediction without using as much memory.
@@ -1587,7 +1597,7 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Expected input with %d features, got %d instead"
                              % (self.n_features_, X.shape[1]))
         n_rows = X.shape[0]
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             # For sparse data we assume that most categories will be zeros,
             # so we first compute the jll for categories 0
             features_zeros = self.smoothed_cat_count[:, 0].todense()

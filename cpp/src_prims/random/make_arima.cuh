@@ -23,7 +23,7 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace MLCommon {
