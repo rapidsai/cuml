@@ -202,6 +202,10 @@ else
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
 
+    gpuci_logger "Resetting LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+    export LD_LIBRARY_PATH_CACHED=""
+
     gpuci_logger "Debugging PR for pytests"
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
