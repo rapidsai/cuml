@@ -73,14 +73,12 @@ template <typename T,
           typename L,
           typename InnerFunc,
           typename LeafFunc,
-          typename DescentAccumulator,
-          typename TreeAccumulator>
-inline TreeAccumulator walk_tree(const tl::Tree<T, L>& tree,
-                                 int start,
-                                 DescentAccumulator desc_acc,
-                                 TreeAccumulator tree_acc,
-                                 InnerFunc inner_func,
-                                 LeafFunc leaf_func)
+          typename DescentAccumulator>
+inline void walk_tree(const tl::Tree<T, L>& tree,
+                      int start,
+                      DescentAccumulator desc_acc,
+                      InnerFunc inner_func,
+                      LeafFunc leaf_func)
 {
   // trees of this depth aren't used, so it most likely means bad input data,
   // e.g. cycles in the forest
@@ -94,33 +92,54 @@ inline TreeAccumulator walk_tree(const tl::Tree<T, L>& tree,
     stackable node = stack.top();
     stack.pop();
     while (!tree.IsLeaf(node.id)) {
-      DescentAccumulator left_acc, right_acc;
-      std::tie(left_acc, right_acc, tree_acc) = inner_func(node.id, node.desc_acc, tree_acc);
+      auto [left_acc, right_acc] = inner_func(node.id, node.desc_acc);
       stack.push(stackable{tree.LeftChild(node.id), left_acc});
       node.id       = tree.RightChild(node.id);
       node.desc_acc = right_acc;
     }
-    tree_acc = leaf_func(node.id, node.desc_acc, tree_acc);
+    leaf_func(node.id, node.desc_acc);
   }
-  return tree_acc;
+}
+
+template <typename T, typename L, typename InnerFunc, typename LeafFunc>
+inline void walk_tree(const tl::Tree<T, L>& tree,
+                      int start,
+                      InnerFunc inner_func,
+                      LeafFunc leaf_func)
+{
+  // trees of this depth aren't used, so it most likely means bad input data,
+  // e.g. cycles in the forest
+  std::stack<int> stack;
+  stack.push(start);
+  while (!stack.empty()) {
+    int node_id = stack.top();
+    stack.pop();
+    while (!tree.IsLeaf(node_id)) {
+      inner_func(node_id);
+      stack.push(tree.LeftChild(node_id));
+      node_id = tree.RightChild(node_id);
+    }
+    leaf_func(node_id);
+  }
 }
 
 template <typename T, typename L>
 inline int max_depth(const tl::Tree<T, L>& tree)
 {
-  // trees of this depth aren't used, so it most likely means bad input data,
-  // e.g. cycles in the forest
-  return walk_tree(
+  int tree_depth = 0;
+  walk_tree(
     tree,
     tree_root(tree),
     int(0),  // descent accumulator (node depth) initial value
-    int(0),  // tree accumulator (max depth) initial value
-    [](int id, int node_depth, int tree_depth) {
+    [](int node_id, int node_depth) {
+      // trees of this depth aren't used, so it most likely means bad input data,
+      // e.g. cycles in the forest
       const int DEPTH_LIMIT = 500;
       ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
-      return std::tuple(node_depth + 1, node_depth + 1, tree_depth);
+      return std::tuple(node_depth + 1, node_depth + 1);
     },
-    [](int id, int node_depth, int tree_depth) { return std::max(node_depth, tree_depth); });
+    [&](int node_id, int node_depth) { tree_depth = std::max(node_depth, tree_depth); });
+  return tree_depth;
 }
 
 template <typename T, typename L>
@@ -148,12 +167,10 @@ template <typename T, typename L>
 inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& tree, int n_cols)
 {
   std::vector<cat_feature_counters> res(n_cols);
-  std::stack<int> stack;
-  stack.push(tree_root(tree));
-  while (!stack.empty()) {
-    int node_id = stack.top();
-    stack.pop();
-    while (!tree.IsLeaf(node_id)) {
+  walk_tree(
+    tree,
+    tree_root(tree),
+    [&](int node_id) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
         std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
         int max_matching_cat;
@@ -173,10 +190,9 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
         counters =
           cat_feature_counters::combine(counters, cat_feature_counters{max_matching_cat, 1});
       }
-      stack.push(tree.LeftChild(node_id));
-      node_id = tree.RightChild(node_id);
-    }
-  }
+    },
+    [](int node_id) {});
+
   return res;
 }
 
