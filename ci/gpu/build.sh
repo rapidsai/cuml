@@ -202,6 +202,7 @@ else
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
 
+    export UCX_HANDLE_ERRORS=none
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
