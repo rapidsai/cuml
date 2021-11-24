@@ -137,9 +137,9 @@ struct node_traits {
 
 template <>
 struct node_traits<dense_node> {
-  using storage                               = dense_storage;
-  using forest                                = dense_forest;
-  static const bool IS_DENSE                  = true;
+  using storage                                 = dense_storage;
+  using forest                                  = dense_forest;
+  static const bool IS_DENSE                    = true;
   static const storage_type_t storage_type_enum = DENSE;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
