@@ -57,7 +57,7 @@ requirements:
     - treelite=2.1.0
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
-    - libcusolver>=11.2.1
+    - libcusolver>=11.3.2
 
 about:
   home: http://rapids.ai/
