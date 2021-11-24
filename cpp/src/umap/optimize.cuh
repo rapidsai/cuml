@@ -177,8 +177,10 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   float step = (spread * 3.0) / 300.0;
 
-  float* X = (float*)malloc(300 * sizeof(float));
-  float* y = (float*)malloc(300 * sizeof(float));
+  auto const X_uptr = std::make_unique<float[]>(300);
+  auto const y_uptr = std::make_unique<float[]>(300);
+  auto* const X = X_uptr.get();
+  auto* const y = y_uptr.get();
 
   for (int i = 0; i < 300; i++) {
     X[i] = i * step;
@@ -194,7 +196,8 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   rmm::device_uvector<float> y_d(300, stream);
   raft::update_device(y_d.data(), y, 300, stream);
-  float* coeffs_h = (float*)malloc(2 * sizeof(float));
+  auto const coeffs_h_uptr = std::make_unique<float[]>(2);
+  auto* const coeffs_h = coeffs_h_uptr.get();
   coeffs_h[0]     = 1.0;
   coeffs_h[1]     = 1.0;
 
@@ -211,8 +214,6 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   CUML_LOG_DEBUG("a=%f, b=%f", params->a, params->b);
-
-  delete coeffs_h;
 }
 }  // namespace Optimize
 }  // namespace UMAPAlgo
