@@ -334,8 +334,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
 template <typename fil_node_t>
 struct conversion_state {
   fil_node_t node;
-  int tl_left;
-  int tl_right;
+  bool swap_child_nodes;
 };
 
 // modifies cat_sets
@@ -351,16 +350,14 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   int feature_id      = tree.SplitIndex(tl_node_id);
   bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
                         tree.MatchingCategories(tl_node_id).size() > 0;
-  bool default_left = tree.DefaultLeft(tl_node_id);
+  // for FIL, the list of categories is always for the right child
+  bool swap_child_nodes = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
+                          !tree.CategoriesListRightChild(tl_node_id);
+  bool default_left = tree.DefaultLeft(tl_node_id) ^ swap_child_nodes;
   if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical) {
     split.f = static_cast<float>(tree.Threshold(tl_node_id));
     adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
-    // for FIL, the list of categories is always for the right child
-    if (!tree.CategoriesListRightChild(tl_node_id)) {
-      std::swap(tl_left, tl_right);
-      default_left = !default_left;
-    }
     if (tree.MatchingCategories(tl_node_id).size() > 0) {
       int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
       split.idx       = *bit_pool_offset;
@@ -378,7 +375,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
   fil_node_t node(val_t{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
-  return conversion_state<fil_node_t>{node, tl_left, tl_right};
+  return conversion_state<fil_node_t>{node, swap_child_nodes};
 }
 
 template <typename fil_node_t, typename T, typename L>
@@ -391,39 +388,34 @@ int tree2fil(std::vector<fil_node_t>& nodes,
              std::size_t* leaf_counter,
              cat_sets_owner* cat_sets)
 {
-  typedef std::pair<int, int> pair_t;
-  std::stack<pair_t> stack;
   // needed if the node is sparse, to place within memory for the FIL tree
-  int sparse_index = root + 1;
-  stack.push(pair_t(tree_root(tree), 0));
-  while (!stack.empty()) {
-    const pair_t& top = stack.top();
-    int node_id       = top.first;
-    int cur           = top.second;
-    stack.pop();
-
-    while (!tree.IsLeaf(node_id)) {
+  int sparse_index = 1;
+  walk_tree(
+    tree,
+    tree_root(tree),
+    int(0),  // descent accumulator (node depth) initial value
+    [&](int node_id, int fil_node_id) {
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
-      int left = node_traits<fil_node_t>::IS_DENSE ? 2 * cur + 1 : sparse_index - root;
+      int left = node_traits<fil_node_t>::IS_DENSE ? 2 * fil_node_id + 1 : sparse_index;
       sparse_index += 2;
       conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
         left, tree, node_id, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
-      nodes[root + cur] = cs.node;
-      // push child nodes into the stack
-      stack.push(pair_t(cs.tl_right, left + 1));
-      // stack.push(pair_t(tl_left, left));
-      node_id = cs.tl_left;
-      cur     = left;
-    }
+      nodes[root + fil_node_id] = cs.node;
 
-    // leaf node
-    nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
-    tl2fil_leaf_payload(
-      &nodes[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
-  }
-
+      return std::pair<int, int>(left + cs.swap_child_nodes, left + !cs.swap_child_nodes);
+    },
+    [&](int node_id, int fil_node_id) {
+      nodes[root + fil_node_id] = fil_node_t({}, {}, 0, false, true, false, 0);
+      tl2fil_leaf_payload(&nodes[root + fil_node_id],
+                          root + fil_node_id,
+                          tree,
+                          node_id,
+                          forest_params,
+                          vector_leaf,
+                          leaf_counter);
+    });
   return root;
 }
 
