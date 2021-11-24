@@ -69,30 +69,40 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
-template <typename T, typename L, typename InnerFunc, typename LeafFunc, typename A>
-inline void walk_tree(const tl::Tree<T, L>& tree,
-                      const A tree_accumulator,
-                      InnerFunc inner_func,
-                      LeafFunc leaf_func)
+template <typename T,
+          typename L,
+          typename InnerFunc,
+          typename LeafFunc,
+          typename DescentAccumulator,
+          typename TreeAccumulator>
+inline TreeAccumulator walk_tree(const tl::Tree<T, L>& tree,
+                                 int start,
+                                 DescentAccumulator desc_acc,
+                                 TreeAccumulator tree_acc,
+                                 InnerFunc inner_func,
+                                 LeafFunc leaf_func)
 {
   // trees of this depth aren't used, so it most likely means bad input data,
   // e.g. cycles in the forest
-  typedef std::pair<int, decltype(inner_func(tree, 0))> pair_t;
-  std::stack<pair_t> stack;
-  stack.push(pair_t(tree_root(tree), {}));
+  using stackable = struct {
+    int id;
+    DescentAccumulator desc_acc;
+  };
+  std::stack<stackable> stack;
+  stack.push(stackable{start, desc_acc});
   while (!stack.empty()) {
-    const pair_t& pair       = stack.top();
-    int node_id              = pair.first;
-    auto descent_accumulator = pair.second;
+    stackable node = stack.top();
     stack.pop();
-    while (!tree.IsLeaf(node_id)) {
-      auto [left_acc, right_acc] = inner_func({node_id, descent_accumulator, tree_accumulator});
-      stack.push(pair_t(tree.LeftChild(node_id), left_acc));
-      node_id             = tree.RightChild(node_id);
-      descent_accumulator = right_acc;
+    while (!tree.IsLeaf(node.id)) {
+      DescentAccumulator left_acc, right_acc;
+      std::tie(left_acc, right_acc, tree_acc) = inner_func(node.id, node.desc_acc, tree_acc);
+      stack.push(stackable{tree.LeftChild(node.id), left_acc});
+      node.id       = tree.RightChild(node.id);
+      node.desc_acc = right_acc;
     }
-    leaf_func({node_id, descent_accumulator, tree_accumulator});
+    tree_acc = leaf_func(node.id, node.desc_acc, tree_acc);
   }
+  return tree_acc;
 }
 
 template <typename T, typename L>
@@ -107,17 +117,16 @@ inline int max_depth(const tl::Tree<T, L>& tree)
   stack.push(pair_t(root_index, 0));
   int max_depth = 0;
   /// node visitor lambdas need this to visit the node
-  struct invitation {
-    int node_id, depth, max_depth;
-  };
   int lambda_max_depth = walk_tree(
     tree,
-    0,
-    [=](invitation inv) {
-      ASSERT(inv.depth < DEPTH_LIMIT, "depth limit reached, might be a cycle in the tree");
-      return std::pair(inv.depth + 1, inv.depth + 1);
+    tree_root(tree),
+    int(0),
+    int(0),
+    [=](int id, int node_depth, int tree_depth) {
+      ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
+      return std::tuple(node_depth + 1, node_depth + 1, tree_depth);
     },
-    [=](invitation inv) { inv.max_depth = std::max(inv.max_depth, inv.depth); });
+    [=](int id, int node_depth, int tree_depth) { return std::max(node_depth, tree_depth); });
   while (!stack.empty()) {
     const pair_t& pair = stack.top();
     int node_id        = pair.first;
