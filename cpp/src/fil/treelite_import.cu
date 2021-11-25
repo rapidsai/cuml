@@ -165,9 +165,8 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
         std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
         int max_matching_cat;
         if (mmv.size() > 0) {
-          // in `struct cat_feature_counters` and GPU structures, max matching category is
-          // an int cast is safe because all precise int floats fit into ints, which are
-          // asserted to be 32 bits
+          // in `struct cat_feature_counters` and GPU structures, int(max_matching_cat) is safe
+          // because all precise int floats fit into ints, which are asserted to be 32 bits
           max_matching_cat = mmv.back();
           ASSERT(max_matching_cat <= MAX_FIL_INT_FLOAT,
                  "FIL cannot infer on "
@@ -376,7 +375,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
   walk_tree(
     tree,
     tree_root(tree),
-    int(0),  // descent accumulator (node depth) initial value
+    int(0),  // descent accumulator (FIL node ID) initial value
     [&](int node_id, int fil_node_id) {
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
