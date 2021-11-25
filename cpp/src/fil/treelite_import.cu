@@ -242,16 +242,14 @@ cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
   return cat_sets;
 }
 
-void adjust_threshold(
-  float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
+void adjust_threshold(float* pthreshold, bool* swap_child_nodes, tl::Operator comparison_op)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
   if (isnan(*pthreshold)) {
-    std::swap(*tl_left, *tl_right);
-    *default_left = !*default_left;
+    *swap_child_nodes = !*swap_child_nodes;
     return;
   }
   switch (comparison_op) {
@@ -266,8 +264,7 @@ void adjust_threshold(
       *pthreshold = std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
     case tl::Operator::kGE:
       // swap left and right
-      std::swap(*tl_left, *tl_right);
-      *default_left = !*default_left;
+      *swap_child_nodes = !*swap_child_nodes;
       break;
     default: ASSERT(false, "only <, >, <= and >= comparisons are supported");
   }
@@ -350,14 +347,13 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   int feature_id      = tree.SplitIndex(tl_node_id);
   bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
                         tree.MatchingCategories(tl_node_id).size() > 0;
-  // for FIL, the list of categories is always for the right child
-  bool swap_child_nodes = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
-                          !tree.CategoriesListRightChild(tl_node_id);
-  bool default_left = tree.DefaultLeft(tl_node_id) ^ swap_child_nodes;
+  bool swap_child_nodes = false;
   if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical) {
     split.f = static_cast<float>(tree.Threshold(tl_node_id));
-    adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
+    adjust_threshold(&split.f, &swap_child_nodes, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
+    // for FIL, the list of categories is always for the right child
+    swap_child_nodes = !tree.CategoriesListRightChild(tl_node_id);
     if (tree.MatchingCategories(tl_node_id).size() > 0) {
       int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
       split.idx       = *bit_pool_offset;
@@ -374,6 +370,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
+  bool default_left = tree.DefaultLeft(tl_node_id) ^ swap_child_nodes;
   fil_node_t node(val_t{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   return conversion_state<fil_node_t>{node, swap_child_nodes};
 }
