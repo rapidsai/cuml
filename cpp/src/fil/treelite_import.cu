@@ -69,16 +69,20 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
+using empty = struct {
+};
+
 template <typename T,
           typename L,
           typename InnerFunc,
           typename LeafFunc,
           typename DescentAccumulator>
-inline void walk_tree(const tl::Tree<T, L>& tree,
-                      int start,
-                      DescentAccumulator desc_acc,
-                      InnerFunc inner_func,
-                      LeafFunc leaf_func)
+inline void walk_tree(
+  const tl::Tree<T, L>& tree,
+  int start,
+  DescentAccumulator desc_acc,
+  InnerFunc inner_func,
+  LeafFunc leaf_func = [](int node_id) {})
 {
   // trees of this depth aren't used, so it most likely means bad input data,
   // e.g. cycles in the forest
@@ -92,34 +96,20 @@ inline void walk_tree(const tl::Tree<T, L>& tree,
     stackable node = stack.top();
     stack.pop();
     while (!tree.IsLeaf(node.id)) {
-      auto [left_acc, right_acc] = inner_func(node.id, node.desc_acc);
+      DescentAccumulator left_acc, right_acc;
+      if constexpr (std::is_empty<DescentAccumulator>()) {
+        inner_func(node.id);
+      } else {
+        std::tie(left_acc, right_acc) = inner_func(node.id, node.desc_acc);
+      }
       stack.push(stackable{tree.LeftChild(node.id), left_acc});
-      node.id       = tree.RightChild(node.id);
-      node.desc_acc = right_acc;
+      node = stackable{tree.RightChild(node.id), right_acc};
     }
-    leaf_func(node.id, node.desc_acc);
-  }
-}
-
-template <typename T, typename L, typename InnerFunc, typename LeafFunc>
-inline void walk_tree(const tl::Tree<T, L>& tree,
-                      int start,
-                      InnerFunc inner_func,
-                      LeafFunc leaf_func)
-{
-  // trees of this depth aren't used, so it most likely means bad input data,
-  // e.g. cycles in the forest
-  std::stack<int> stack;
-  stack.push(start);
-  while (!stack.empty()) {
-    int node_id = stack.top();
-    stack.pop();
-    while (!tree.IsLeaf(node_id)) {
-      inner_func(node_id);
-      stack.push(tree.LeftChild(node_id));
-      node_id = tree.RightChild(node_id);
+    if constexpr (std::is_empty<DescentAccumulator>()) {
+      leaf_func(node.id);
+    } else {
+      leaf_func(node.id, node.desc_acc);
     }
-    leaf_func(node_id);
   }
 }
 
@@ -167,31 +157,30 @@ template <typename T, typename L>
 inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& tree, int n_cols)
 {
   std::vector<cat_feature_counters> res(n_cols);
-  walk_tree(
-    tree,
-    tree_root(tree),
-    [&](int node_id) {
-      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
-        std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
-        int max_matching_cat;
-        if (mmv.size() > 0) {
-          // in `struct cat_feature_counters` and GPU structures, max matching category is an int
-          // cast is safe because all precise int floats fit into ints, which are asserted to be 32
-          // bits
-          max_matching_cat = mmv.back();
-          ASSERT(max_matching_cat <= MAX_FIL_INT_FLOAT,
-                 "FIL cannot infer on "
-                 "more than %d matching categories",
-                 MAX_FIL_INT_FLOAT);
-        } else {
-          max_matching_cat = -1;
-        }
-        cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
-        counters =
-          cat_feature_counters::combine(counters, cat_feature_counters{max_matching_cat, 1});
-      }
-    },
-    [](int node_id) {});
+  walk_tree(tree,
+            tree_root(tree),
+            empty(),  // descent accumulator (ignored) initial value
+            [&](int node_id) {
+              if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
+                std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
+                int max_matching_cat;
+                if (mmv.size() > 0) {
+                  // in `struct cat_feature_counters` and GPU structures, max matching category is
+                  // an int cast is safe because all precise int floats fit into ints, which are
+                  // asserted to be 32 bits
+                  max_matching_cat = mmv.back();
+                  ASSERT(max_matching_cat <= MAX_FIL_INT_FLOAT,
+                         "FIL cannot infer on "
+                         "more than %d matching categories",
+                         MAX_FIL_INT_FLOAT);
+                } else {
+                  max_matching_cat = -1;
+                }
+                cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
+                counters                       = cat_feature_counters::combine(counters,
+                                                         cat_feature_counters{max_matching_cat, 1});
+              }
+            });
 
   return res;
 }
@@ -201,21 +190,16 @@ template <typename T, typename L>
 inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_sets& cat_sets)
 {
   std::size_t size = 0;
-  std::stack<int> stack;
-  stack.push(tree_root(tree));
-  while (!stack.empty()) {
-    int node_id = stack.top();
-    stack.pop();
-    while (!tree.IsLeaf(node_id)) {
-      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
-          tree.MatchingCategories(node_id).size() > 0) {
-        int fid = tree.SplitIndex(node_id);
-        size += cat_sets.sizeof_mask(fid);
-      }
-      stack.push(tree.LeftChild(node_id));
-      node_id = tree.RightChild(node_id);
-    }
-  }
+  walk_tree(tree,
+            tree_root(tree),
+            empty(),  // descent accumulator (ignored) initial value
+            [&](int node_id) {
+              if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
+                  tree.MatchingCategories(node_id).size() > 0) {
+                int fid = tree.SplitIndex(node_id);
+                size += cat_sets.sizeof_mask(fid);
+              }
+            });
   return size;
 }
 
