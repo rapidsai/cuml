@@ -405,30 +405,23 @@ int tree2fil(std::vector<fil_node_t>& nodes,
 struct level_entry {
   int n_branch_nodes, n_leaves;
 };
-typedef std::pair<int, int> pair_t;
 // hist has branch and leaf count given depth
 template <typename T, typename L>
 inline void tree_depth_hist(const tl::Tree<T, L>& tree, std::vector<level_entry>& hist)
 {
-  std::stack<pair_t> stack;  // {tl_id, depth}
-  stack.push({tree_root(tree), 0});
-  while (!stack.empty()) {
-    const pair_t& top = stack.top();
-    int node_id       = top.first;
-    int depth         = top.second;
-    stack.pop();
-
-    while (!tree.IsLeaf(node_id)) {
-      if (static_cast<std::size_t>(depth) >= hist.size()) hist.resize(depth + 1, {0, 0});
+  walk_tree(
+    tree,
+    tree_root(tree),
+    std::size_t(0),  // descent accumulator (node depth) initial value
+    [&](int node_id, std::size_t depth) {
+      if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
       hist[depth].n_branch_nodes++;
-      stack.push({tree.LeftChild(node_id), depth + 1});
-      node_id = tree.RightChild(node_id);
-      depth++;
-    }
-
-    if (static_cast<std::size_t>(depth) >= hist.size()) hist.resize(depth + 1, {0, 0});
-    hist[depth].n_leaves++;
-  }
+      return std::tuple(depth + 1, depth + 1);
+    },
+    [&](int node_id, std::size_t depth) {
+      if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
+      hist[depth].n_leaves++;
+    });
 }
 
 template <typename T, typename L>
