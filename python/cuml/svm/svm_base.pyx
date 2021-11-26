@@ -248,7 +248,9 @@ class SVMBase(Base,
         self._model = None  # structure of the model parameters
         self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
 
-        if kernel == 'linear' or (kernel == 'poly' and degree == 1):
+        if (kernel == 'linear' or (kernel == 'poly' and degree == 1)) \
+           and not getattr(type(self), "_linear_kernel_warned", False):
+            setattr(type(self), "_linear_kernel_warned", True)
             cname = type(self).__name__
             warn(f'{cname} with the linear kernel can be much faster using '
                  f'the specialized solver provided by Linear{cname}. Consider '
