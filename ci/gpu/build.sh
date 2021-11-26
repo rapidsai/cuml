@@ -181,11 +181,11 @@ else
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
-    gpuci_logger "GoogleTest for libcuml"
+    gpuci_logger "DEBUG: skipping GoogleTest for libcuml"
     cd $LIBCUML_BUILD_DIR
     chrpath -d ./test/ml
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    # GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -211,9 +211,11 @@ else
     # gpuci_logger "Building cuml"
     # "$WORKSPACE/build.sh" -v cuml --codecov
     
-    gpuci_logger "Debugging PR for pytests"
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
+    
+    # Removing all folders except cuml/test since we are not building cython extensions in place
+    find ./cuml -mindepth 1 ! -regex '^./cuml/test\(/.*\)?' -delete
 
     pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
