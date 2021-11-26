@@ -60,6 +60,13 @@ conda list --show-channel-urls
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
 
+# FIXME: for now, force the building of all packages so they are built on a
+# machine with a single CUDA version, then have the gpu/build.sh script simply
+# install. This should eliminate a mismatch between different CUDA versions on
+# cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
+BUILD_LIBCUML=1
+BUILD_CUML=1
+
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
@@ -85,6 +92,8 @@ if [ "$BUILD_CUML" == '1' ]; then
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
     gpuci_conda_retry build --croot ${CONDA_BLD_DIR} -c ci/artifacts/cuml/cpu/.conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
+    mkdir -p ${CONDA_BLD_DIR}/libcuml/work
+    cp -r ${CONDA_BLD_DIR}/work/* ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
 

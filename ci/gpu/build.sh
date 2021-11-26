@@ -192,6 +192,15 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    
+    # FIXME: also install the python package here (see FIXME in cpu build
+     # script, and below)
+     gpuci_logger "DEBUG: Attempt 1 to install cuml conda"
+     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
+     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
+     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
+     echo "Installing $CONDA_FILE"
+     gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
@@ -199,13 +208,9 @@ else
     pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
     set +x
 
-    gpuci_logger "Building cuml"
-    "$WORKSPACE/build.sh" -v cuml --codecov
-
-    gpuci_logger "Resetting LD_LIBRARY_PATH"
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-    export LD_LIBRARY_PATH_CACHED=""
-
+    # gpuci_logger "Building cuml"
+    # "$WORKSPACE/build.sh" -v cuml --codecov
+    
     gpuci_logger "Debugging PR for pytests"
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
