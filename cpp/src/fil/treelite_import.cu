@@ -78,7 +78,6 @@ template <typename T,
           typename InnerFunc,
           typename LeafFunc>
 inline void walk_tree(const tl::Tree<T, L>& tree,
-                      int start,
                       DescentAccumulator desc_acc,
                       InnerFunc inner_func,
                       LeafFunc leaf_func)
@@ -90,7 +89,7 @@ inline void walk_tree(const tl::Tree<T, L>& tree,
     DescentAccumulator desc_acc;
   };
   std::stack<stackable> stack;
-  stack.push(stackable{start, desc_acc});
+  stack.push(stackable{tree_root(tree), desc_acc});
   while (!stack.empty()) {
     stackable node = stack.top();
     stack.pop();
@@ -118,7 +117,6 @@ inline int max_depth(const tl::Tree<T, L>& tree)
   int tree_depth = 0;
   walk_tree(
     tree,
-    tree_root(tree),
     int(0),  // descent accumulator (node depth) initial value
     [](int node_id, int node_depth) {
       // trees of this depth aren't used, so it most likely means bad input data,
@@ -158,7 +156,6 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
   std::vector<cat_feature_counters> res(n_cols);
   walk_tree(
     tree,
-    tree_root(tree),
     empty(),  // descent accumulator (ignored) initial value
     [&](int node_id) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
@@ -192,7 +189,6 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_s
   std::size_t size = 0;
   walk_tree(
     tree,
-    tree_root(tree),
     empty(),  // descent accumulator (ignored) initial value
     [&](int node_id) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
@@ -374,7 +370,6 @@ int tree2fil(std::vector<fil_node_t>& nodes,
   int sparse_index = 1;
   walk_tree(
     tree,
-    tree_root(tree),
     int(0),  // descent accumulator (FIL node ID) initial value
     [&](int node_id, int fil_node_id) {
       // reserve space for child nodes
@@ -410,7 +405,6 @@ inline void tree_depth_hist(const tl::Tree<T, L>& tree, std::vector<level_entry>
 {
   walk_tree(
     tree,
-    tree_root(tree),
     std::size_t(0),  // descent accumulator (node depth) initial value
     [&](int node_id, std::size_t depth) {
       if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
