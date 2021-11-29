@@ -181,7 +181,6 @@ else
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
-    gpuci_logger "DEBUG: skipping GoogleTest for libcuml"
     cd $LIBCUML_BUILD_DIR
     chrpath -d ./test/ml
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
