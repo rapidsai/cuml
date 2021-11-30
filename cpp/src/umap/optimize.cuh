@@ -179,8 +179,8 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   auto const X_uptr = std::make_unique<float[]>(300);
   auto const y_uptr = std::make_unique<float[]>(300);
-  auto* const X = X_uptr.get();
-  auto* const y = y_uptr.get();
+  auto* const X     = X_uptr.get();
+  auto* const y     = y_uptr.get();
 
   for (int i = 0; i < 300; i++) {
     X[i] = i * step;
@@ -197,9 +197,9 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
   rmm::device_uvector<float> y_d(300, stream);
   raft::update_device(y_d.data(), y, 300, stream);
   auto const coeffs_h_uptr = std::make_unique<float[]>(2);
-  auto* const coeffs_h = coeffs_h_uptr.get();
-  coeffs_h[0]     = 1.0;
-  coeffs_h[1]     = 1.0;
+  auto* const coeffs_h     = coeffs_h_uptr.get();
+  coeffs_h[0]              = 1.0;
+  coeffs_h[1]              = 1.0;
 
   rmm::device_uvector<float> coeffs(2, stream);
   CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
