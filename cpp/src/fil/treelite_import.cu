@@ -69,45 +69,43 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
-using empty = struct {
+struct empty {
 };
 
-template <typename T,
-          typename L,
-          typename DescentAccumulator,
-          typename InnerFunc,
-          typename LeafFunc>
-inline void walk_tree(const tl::Tree<T, L>& tree,
-                      DescentAccumulator desc_acc,
-                      InnerFunc inner_func,
-                      LeafFunc leaf_func)
+/** walk a Treelite tree, visiting each inner node with inner_func and each leaf node with
+  leaf_func. See walk_tree::invitation::state documentation for how RootToLeafPathState is retained
+during traversal. Any per-tree state during traversal should be captured by the lambdas themselves.
+  inner_func(int node_id, RootToLeafPathState state) should return a pair of new states, one for
+each child node. leaf_func(int, RootToLeafPathState) returns nothing.
+**/
+template <typename RootToLeafPathState,
+          typename Threshold,
+          typename Leaf,
+          typename InnerNodeVisitFunc,
+          typename LeafNodeVisitFunc = decltype([](int, RootToLeafPathState) {})>
+inline void walk_tree(
+  const tl::Tree<Threshold, Leaf>& tree,
+  InnerNodeVisitFunc inner_func,
+  LeafNodeVisitFunc leaf_func = [](int, RootToLeafPathState) {})
 {
-  // trees of this depth aren't used, so it most likely means bad input data,
-  // e.g. cycles in the forest
-  using stackable = struct {
-    int id;
-    DescentAccumulator desc_acc;
+  /// needed to visit a node
+  struct invitation {
+    int tl_node_id;
+    /// Retained while visiting nodes on a single path from root to leaf.
+    /// This generalizes the node index that's carried over during inference tree traversal.
+    RootToLeafPathState state;
   };
-  std::stack<stackable> stack;
-  stack.push(stackable{tree_root(tree), desc_acc});
+  std::stack<invitation> stack;
+  stack.push(invitation{tree_root(tree), RootToLeafPathState()});
   while (!stack.empty()) {
-    stackable node = stack.top();
+    invitation i = stack.top();
     stack.pop();
-    while (!tree.IsLeaf(node.id)) {
-      DescentAccumulator left_acc, right_acc;
-      if constexpr (std::is_empty<DescentAccumulator>()) {
-        inner_func(node.id);
-      } else {
-        std::tie(left_acc, right_acc) = inner_func(node.id, node.desc_acc);
-      }
-      stack.push(stackable{tree.LeftChild(node.id), left_acc});
-      node = stackable{tree.RightChild(node.id), right_acc};
+    while (!tree.IsLeaf(i.tl_node_id)) {
+      auto [left_state, right_state] = inner_func(i.tl_node_id, i.state);
+      stack.push(invitation{tree.LeftChild(i.tl_node_id), left_state});
+      i = invitation{tree.RightChild(i.tl_node_id), right_state};
     }
-    if constexpr (std::is_empty<DescentAccumulator>()) {
-      leaf_func(node.id);
-    } else {
-      leaf_func(node.id, node.desc_acc);
-    }
+    leaf_func(i.tl_node_id, i.state);
   }
 }
 
@@ -115,9 +113,8 @@ template <typename T, typename L>
 inline int max_depth(const tl::Tree<T, L>& tree)
 {
   int tree_depth = 0;
-  walk_tree(
+  walk_tree<int>(
     tree,
-    int(0),  // descent accumulator (node depth) initial value
     [](int node_id, int node_depth) {
       // trees of this depth aren't used, so it most likely means bad input data,
       // e.g. cycles in the forest
@@ -154,30 +151,26 @@ template <typename T, typename L>
 inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& tree, int n_cols)
 {
   std::vector<cat_feature_counters> res(n_cols);
-  walk_tree(
-    tree,
-    empty(),  // descent accumulator (ignored) initial value
-    [&](int node_id) {
-      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
-        std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
-        int max_matching_cat;
-        if (mmv.size() > 0) {
-          // in `struct cat_feature_counters` and GPU structures, int(max_matching_cat) is safe
-          // because all precise int floats fit into ints, which are asserted to be 32 bits
-          max_matching_cat = mmv.back();
-          ASSERT(max_matching_cat <= MAX_FIL_INT_FLOAT,
-                 "FIL cannot infer on "
-                 "more than %d matching categories",
-                 MAX_FIL_INT_FLOAT);
-        } else {
-          max_matching_cat = -1;
-        }
-        cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
-        counters =
-          cat_feature_counters::combine(counters, cat_feature_counters{max_matching_cat, 1});
+  walk_tree<empty>(tree, [&](int node_id, empty val) {
+    if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
+      std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
+      int max_matching_cat;
+      if (mmv.size() > 0) {
+        // in `struct cat_feature_counters` and GPU structures, int(max_matching_cat) is safe
+        // because all precise int floats fit into ints, which are asserted to be 32 bits
+        max_matching_cat = mmv.back();
+        ASSERT(max_matching_cat <= MAX_FIL_INT_FLOAT,
+               "FIL cannot infer on "
+               "more than %d matching categories",
+               MAX_FIL_INT_FLOAT);
+      } else {
+        max_matching_cat = -1;
       }
-    },
-    [](...) {});
+      cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
+      counters = cat_feature_counters::combine(counters, cat_feature_counters{max_matching_cat, 1});
+      return std::pair<empty, empty>();
+    }
+  });
 
   return res;
 }
@@ -187,16 +180,13 @@ template <typename T, typename L>
 inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_sets& cat_sets)
 {
   std::size_t size = 0;
-  walk_tree(
-    tree,
-    empty(),  // descent accumulator (ignored) initial value
-    [&](int node_id) {
-      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
-          tree.MatchingCategories(node_id).size() > 0) {
-        size += cat_sets.sizeof_mask(tree.SplitIndex(node_id));
-      }
-    },
-    [](...) {});
+  walk_tree<empty>(tree, [&](int node_id, empty val) {
+    if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
+        tree.MatchingCategories(node_id).size() > 0) {
+      size += cat_sets.sizeof_mask(tree.SplitIndex(node_id));
+    }
+    return std::pair<empty, empty>();
+  });
   return size;
 }
 
@@ -368,9 +358,8 @@ int tree2fil(std::vector<fil_node_t>& nodes,
 {
   // needed if the node is sparse, to place within memory for the FIL tree
   int sparse_index = 1;
-  walk_tree(
+  walk_tree<int>(
     tree,
-    int(0),  // descent accumulator (FIL node ID) initial value
     [&](int node_id, int fil_node_id) {
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
@@ -381,7 +370,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
         left, tree, node_id, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
       nodes[root + fil_node_id] = cs.node;
 
-      return std::pair<int, int>(left + cs.swap_child_nodes, left + !cs.swap_child_nodes);
+      return cs.swap_child_nodes ? std::tuple(left + 1, left) : std::tuple(left, left + 1);
     },
     [&](int node_id, int fil_node_id) {
       nodes[root + fil_node_id] = fil_node_t({}, {}, 0, false, true, false, 0);
@@ -401,11 +390,10 @@ struct level_entry {
 };
 // hist has branch and leaf count given depth
 template <typename T, typename L>
-inline void tree_depth_hist(const tl::Tree<T, L>& tree, std::vector<level_entry>& hist)
+inline void node_depth_hist(const tl::Tree<T, L>& tree, std::vector<level_entry>& hist)
 {
-  walk_tree(
+  walk_tree<std::size_t>(
     tree,
-    std::size_t(0),  // descent accumulator (node depth) initial value
     [&](int node_id, std::size_t depth) {
       if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
       hist[depth].n_branch_nodes++;
@@ -423,7 +411,7 @@ std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model)
   using namespace std;
   vector<level_entry> hist;
   for (const auto& tree : model.trees)
-    tree_depth_hist(tree, hist);
+    node_depth_hist(tree, hist);
 
   int min_leaf_depth = -1, leaves_times_depth = 0, total_branches = 0, total_leaves = 0;
   stringstream forest_shape;
