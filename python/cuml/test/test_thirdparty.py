@@ -17,6 +17,7 @@ import pytest
 
 import numpy as np
 import cupy as cp
+import cupyx as cpx
 from cuml._thirdparty.sklearn.utils.validation import check_X_y
 
 from cuml._thirdparty.sklearn.utils.extmath import row_norms as cu_row_norms, \
@@ -55,9 +56,9 @@ def sparse_random_dataset(request, random_seed):
     random_loc = cp.random.choice(X.size, int(X.size * 0.3), replace=False)
     X.ravel()[random_loc] = 0
     if request.param == 'cupy-csr':
-        X_sparse = cp.sparse.csr_matrix(X)
+        X_sparse = cpx.scipy.sparse.csr_matrix(X)
     elif request.param == 'cupy-csc':
-        X_sparse = cp.sparse.csc_matrix(X)
+        X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
 
 
@@ -157,6 +158,8 @@ def test_mean_variance_axis(failure_logger, sparse_random_dataset, axis):
 
 @pytest.mark.parametrize("axis", [None, 0, 1])
 @pytest.mark.parametrize("ignore_nan", [False, True])
+# ignore warning about changing sparsity in both cupy and scipy
+@pytest.mark.filterwarnings("ignore:(.*)expensive(.*)::")
 def test_min_max_axis(failure_logger, sparse_random_dataset, axis, ignore_nan):
     _, X, X_sparse_np, X_sparse = sparse_random_dataset
     X_sparse[0, 0] = np.nan
@@ -191,14 +194,18 @@ def sparse_extremes(request, random_seed):
        [0.0, 0.0, cp.nan],
        [0.0, cp.nan, cp.nan]])
     if request.param == 'cupy-csr':
-        X_sparse = cp.sparse.csr_matrix(X)
+        X_sparse = cpx.scipy.sparse.csr_matrix(X)
     elif request.param == 'cupy-csc':
-        X_sparse = cp.sparse.csc_matrix(X)
+        X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X_sparse.get(), X_sparse
 
 
 @pytest.mark.parametrize("axis", [None, 0, 1])
 @pytest.mark.parametrize("ignore_nan", [False, True])
+# ignore warning about changing sparsity in both cupy and scipy
+@pytest.mark.filterwarnings("ignore:(.*)expensive(.*)::")
+# ignore warning about all nan row in sparse_extremes
+@pytest.mark.filterwarnings("ignore:All-NaN(.*)::")
 def test_min_max_axis_extremes(sparse_extremes, axis, ignore_nan):
     X_sparse_np, X_sparse = sparse_extremes
 

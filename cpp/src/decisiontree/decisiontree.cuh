@@ -207,6 +207,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
+      tl_tree.SetDataCount(tl_node_id, q_node.InstanceCount());
     }
 
     cur_level_queue.swap(next_level_queue);

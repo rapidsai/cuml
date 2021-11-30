@@ -1,0 +1,42 @@
+name: cuml_dev
+channels:
+- rapidsai
+- nvidia
+- rapidsai-nightly
+- conda-forge
+dependencies:
+- cudatoolkit=11.5
+- rapids-build-env=21.12.*
+- rapids-notebook-env=21.12.*
+- rapids-doc-env=21.12.*
+- cudf=21.12.*
+- rmm=21.12.*
+- libcumlprims=21.12.*
+- dask-cudf=21.12.*
+- dask-cuda=21.12.*
+- ucx-py=0.23
+- ucx-proc=*=gpu
+- dask-ml
+- doxygen>=1.8.20
+- libfaiss>=1.7.0
+- faiss-proc=*=cuda
+- umap-learn
+- scikit-learn=0.24
+- treelite=2.1.0
+- statsmodels
+- seaborn
+- hdbscan
+- nltk
+- pip
+- pip:
+    - sphinx_markdown_tables
+    - git+https://github.com/dask/dask.git@2021.11.2
+    - git+https://github.com/dask/distributed.git@2021.11.2
+
+# rapids-build-env, notebook-env and doc-env are defined in
+# https://docs.rapids.ai/maintainers/depmgmt/
+
+# To install different versions of packages contained in those meta packages,
+# it is recommended to remove those meta packages (without removing the actual
+# packages contained in the environment) first with:
+# conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env

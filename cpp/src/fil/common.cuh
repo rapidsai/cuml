@@ -130,12 +130,17 @@ struct shmem_size_params {
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
+  // are there categorical inner nodes? doesn't currently affect shared memory size,
+  // but participates in template dispatch and may affect it later
+  bool cats_present = false;
   /// log2_threads_per_tree determines how many threads work on a single tree
   /// at once inside a block (sharing trees means splitting input rows)
   int log2_threads_per_tree = 0;
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
-  /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()
+  /// choose the reasonable most (<= MAX_N_ITEMS) that fit into shared memory. See init_n_items()
   int n_items = 0;
+  // block_dim_x is the CUDA block size. Set by dispatch_on_leaf_algo(...)
+  int block_dim_x = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
 
@@ -147,9 +152,6 @@ struct shmem_size_params {
   {
     return cols_in_shmem ? sizeof(float) * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
-  void compute_smem_footprint();
-  template <int NITEMS>
-  size_t get_smem_footprint();
   template <int NITEMS, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
 };
@@ -174,6 +176,121 @@ struct predict_params : shmem_size_params {
   // number of blocks to launch
   int num_blocks;
 };
+
+constexpr leaf_algo_t next_leaf_algo(leaf_algo_t algo)
+{
+  return static_cast<leaf_algo_t>(algo + 1);
+}
+
+template <bool COLS_IN_SHMEM_    = false,
+          bool CATS_SUPPORTED_   = false,
+          leaf_algo_t LEAF_ALGO_ = MIN_LEAF_ALGO,
+          int N_ITEMS_           = 1>
+struct KernelTemplateParams {
+  static const bool COLS_IN_SHMEM    = COLS_IN_SHMEM_;
+  static const bool CATS_SUPPORTED   = CATS_SUPPORTED_;
+  static const leaf_algo_t LEAF_ALGO = LEAF_ALGO_;
+  static const int N_ITEMS           = N_ITEMS_;
+
+  template <bool _cats_supported>
+  using ReplaceCatsSupported =
+    KernelTemplateParams<COLS_IN_SHMEM, _cats_supported, LEAF_ALGO, N_ITEMS>;
+  using NextLeafAlgo =
+    KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, next_leaf_algo(LEAF_ALGO), N_ITEMS>;
+  template <leaf_algo_t NEW_LEAF_ALGO>
+  using ReplaceLeafAlgo =
+    KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, NEW_LEAF_ALGO, N_ITEMS>;
+  using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
+};
+
+// inherit from this struct to pass the functor to dispatch_on_fil_template_params()
+// compiler will prevent defining a .run() method with a different output type
+template <typename T>
+struct dispatch_functor {
+  typedef T return_t;
+  template <class KernelParams = KernelTemplateParams<>>
+  T run(predict_params);
+};
+
+namespace dispatch {
+
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_n_items(Func func, predict_params params)
+{
+  if (params.n_items == KernelParams::N_ITEMS) {
+    return func.template run<KernelParams>(params);
+  } else if constexpr (KernelParams::N_ITEMS < MAX_N_ITEMS) {
+    return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
+  } else {
+    ASSERT(false, "n_items > %d or < 1", MAX_N_ITEMS);
+  }
+  return T();  // appeasing the compiler
+}
+
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_leaf_algo(Func func, predict_params params)
+{
+  if (params.leaf_algo == KernelParams::LEAF_ALGO) {
+    if constexpr (KernelParams::LEAF_ALGO == GROVE_PER_CLASS) {
+      if (params.num_classes <= FIL_TPB) {
+        params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
+        using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_FEW_CLASSES>;
+        return dispatch_on_n_items<Next>(func, params);
+      } else {
+        params.block_dim_x = FIL_TPB;
+        using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_MANY_CLASSES>;
+        return dispatch_on_n_items<Next>(func, params);
+      }
+    } else {
+      params.block_dim_x = FIL_TPB;
+      return dispatch_on_n_items<KernelParams>(func, params);
+    }
+  } else if constexpr (next_leaf_algo(KernelParams::LEAF_ALGO) <= MAX_LEAF_ALGO) {
+    return dispatch_on_leaf_algo<class KernelParams::NextLeafAlgo>(func, params);
+  } else {
+    ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
+  }
+  return T();  // appeasing the compiler
+}
+
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_cats_supported(Func func, predict_params params)
+{
+  return params.cats_present
+           ? dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<true>>(func, params)
+           : dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<false>>(func,
+                                                                                       params);
+}
+
+template <class Func, class T = typename Func::return_t>
+T dispatch_on_cols_in_shmem(Func func, predict_params params)
+{
+  return params.cols_in_shmem
+           ? dispatch_on_cats_supported<KernelTemplateParams<true>>(func, params)
+           : dispatch_on_cats_supported<KernelTemplateParams<false>>(func, params);
+}
+
+}  // namespace dispatch
+
+template <class Func, class T = typename Func::return_t>
+T dispatch_on_fil_template_params(Func func, predict_params params)
+{
+  return dispatch::dispatch_on_cols_in_shmem(func, params);
+}
+
+// For an example of Func declaration, see this.
+// the .run(predict_params) method will be defined in infer.cu
+struct compute_smem_footprint : dispatch_functor<int> {
+  template <class KernelParams = KernelTemplateParams<>>
+  int run(predict_params);
+};
+
+template <int NITEMS,
+          leaf_algo_t leaf_algo,
+          bool cols_in_shmem,
+          bool CATS_SUPPORTED,
+          class storage_type>
+__global__ void infer_k(storage_type forest, predict_params params);
 
 // infer() calls the inference kernel with the parameters on the stream
 template <typename storage_type>

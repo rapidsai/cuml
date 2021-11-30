@@ -22,6 +22,7 @@
 #include <stdio.h>
 
 #include <cuml/common/logger.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/norm.cuh>
 
 #include <cuda_runtime.h>
@@ -31,8 +32,8 @@
 #include <thrust/transform.h>
 
 #include <sys/time.h>
-#include <raft/random/rng.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/random/rng.hpp>
+#include <raft/stats/sum.hpp>
 
 #include <unistd.h>
 #include <chrono>
@@ -175,4 +176,49 @@ __global__ void min_max_kernel(
     if (find_min) atomicMin(min, block_min);
     atomicMax(max, block_max);
   }
+}
+
+/**
+ * CUDA kernel to compute KL divergence
+ */
+template <typename value_idx, typename value_t>
+__global__ void compute_kl_div_k(const value_t* restrict Ps,
+                                 const value_t* Qs,
+                                 value_t* KL_divs,
+                                 const value_idx NNZ)
+{
+  const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (index >= NNZ) return;
+  const value_t P = Ps[index];
+  const value_t Q = max(Qs[index], FLT_EPSILON);
+
+  KL_divs[index] = P * __logf(__fdividef(max(P, FLT_EPSILON), Q));
+}
+
+/**
+ * Compute KL divergence
+ */
+template <typename value_t>
+value_t compute_kl_div(
+  value_t* restrict Ps, value_t* Qs, value_t* KL_divs, const size_t NNZ, cudaStream_t stream)
+{
+  value_t P_sum = thrust::reduce(rmm::exec_policy(stream), Ps, Ps + NNZ);
+  raft::linalg::scalarMultiply(Ps, Ps, 1.0f / P_sum, NNZ, stream);
+
+  value_t Q_sum = thrust::reduce(rmm::exec_policy(stream), Qs, Qs + NNZ);
+  raft::linalg::scalarMultiply(Qs, Qs, 1.0f / Q_sum, NNZ, stream);
+
+  const size_t block = 128;
+  const size_t grid  = raft::ceildiv(NNZ, block);
+  compute_kl_div_k<<<grid, block, 0, stream>>>(Ps, Qs, KL_divs, NNZ);
+
+  return thrust::reduce(rmm::exec_policy(stream), KL_divs, KL_divs + NNZ);
+}
+
+template <typename value_t>
+__device__ value_t compute_q(value_t dist, value_t dof)
+{
+  const value_t exponent = (dof + 1.0f) / 2.0f;
+  const value_t Q        = __powf(dof / (dof + dist), exponent);
+  return Q;
 }

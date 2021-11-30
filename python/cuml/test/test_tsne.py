@@ -27,6 +27,9 @@ from sklearn.manifold import trustworthiness
 from sklearn import datasets
 
 
+pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
+                                        "experimental::")
+
 DEFAULT_N_NEIGHBORS = 90
 DEFAULT_PERPLEXITY = 30
 

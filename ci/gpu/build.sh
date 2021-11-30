@@ -55,7 +55,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=0.23.*" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.4.2dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.5.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
@@ -122,8 +122,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -191,12 +191,12 @@ else
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
     set +x
 
     gpuci_logger "Building cuml"
