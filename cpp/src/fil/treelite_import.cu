@@ -79,7 +79,7 @@ template <typename TraversalState,
           typename Threshold,
           typename Leaf,
           typename InnerNodeVisitFunc,
-          typename LeafNodeVisitFunc = decltype([](int, TraversalState) {})>
+          typename LeafNodeVisitFunc = void(int, TraversalState)>
 inline void walk_tree(
   const tl::Tree<Threshold, Leaf>& tree,
   InnerNodeVisitFunc inner_func,
