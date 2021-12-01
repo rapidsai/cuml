@@ -28,6 +28,8 @@ function(find_and_configure_raft)
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
+            FIND_PACKAGE_ARGUMENTS
+                "COMPONENTS faiss"
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_USE_FAISS_STATIC ${USE_FAISS_STATIC}"
