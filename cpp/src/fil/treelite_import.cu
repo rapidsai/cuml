@@ -69,34 +69,31 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
-struct empty {
-};
-
 /** walk a Treelite tree, visiting each inner node with inner_func and each leaf node with
-  leaf_func. See walk_tree::invitation::state documentation for how RootToLeafPathState is retained
+  leaf_func. See walk_tree::invitation::state documentation for how TraversalState is retained
 during traversal. Any per-tree state during traversal should be captured by the lambdas themselves.
-  inner_func(int node_id, RootToLeafPathState state) should return a pair of new states, one for
-each child node. leaf_func(int, RootToLeafPathState) returns nothing.
+  inner_func(int node_id, TraversalState state) should return a pair of new states, one for
+each child node. leaf_func(int, TraversalState) returns nothing.
 **/
-template <typename RootToLeafPathState,
+template <typename TraversalState,
           typename Threshold,
           typename Leaf,
           typename InnerNodeVisitFunc,
-          typename LeafNodeVisitFunc = decltype([](int, RootToLeafPathState) {})>
+          typename LeafNodeVisitFunc = decltype([](int, TraversalState) {})>
 inline void walk_tree(
   const tl::Tree<Threshold, Leaf>& tree,
   InnerNodeVisitFunc inner_func,
-  LeafNodeVisitFunc leaf_func = [](int, RootToLeafPathState) {})
+  LeafNodeVisitFunc leaf_func = [](int, TraversalState) {})
 {
   /// needed to visit a node
   struct invitation {
     int tl_node_id;
     /// Retained while visiting nodes on a single path from root to leaf.
     /// This generalizes the node index that's carried over during inference tree traversal.
-    RootToLeafPathState state;
+    TraversalState state;
   };
   std::stack<invitation> stack;
-  stack.push(invitation{tree_root(tree), RootToLeafPathState()});
+  stack.push(invitation{tree_root(tree), TraversalState()});
   while (!stack.empty()) {
     invitation i = stack.top();
     stack.pop();
@@ -107,6 +104,27 @@ inline void walk_tree(
     }
     leaf_func(i.tl_node_id, i.state);
   }
+}
+
+/// wrapper for empty path state
+template <typename Threshold,
+          typename Leaf,
+          typename InnerNodeVisitFunc,
+          typename LeafNodeVisitFunc = decltype([](int) {})>
+inline void walk_tree(
+  const tl::Tree<Threshold, Leaf>& tree,
+  InnerNodeVisitFunc inner_func,
+  LeafNodeVisitFunc leaf_func = [](int) {})
+{
+  struct empty {
+  };
+  walk_tree<empty>(
+    tree,
+    [](int nid, empty val) {
+      inner_func(nid);
+      return std::pair<empty, empty>();
+    },
+    [](int nid, empty val) { leaf_func(nid); });
 }
 
 template <typename T, typename L>
@@ -120,7 +138,7 @@ inline int max_depth(const tl::Tree<T, L>& tree)
       // e.g. cycles in the forest
       const int DEPTH_LIMIT = 500;
       ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
-      return std::tuple(node_depth + 1, node_depth + 1);
+      return {node_depth + 1, node_depth + 1};
     },
     [&](int node_id, int node_depth) { tree_depth = std::max(node_depth, tree_depth); });
   return tree_depth;
@@ -151,7 +169,7 @@ template <typename T, typename L>
 inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& tree, int n_cols)
 {
   std::vector<cat_feature_counters> res(n_cols);
-  walk_tree<empty>(tree, [&](int node_id, empty val) {
+  walk_tree(tree, [&](int node_id) {
     if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
       std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
       int max_matching_cat;
@@ -168,7 +186,6 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
       }
       cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
       counters = cat_feature_counters::combine(counters, cat_feature_counters{max_matching_cat, 1});
-      return std::pair<empty, empty>();
     }
   });
 
@@ -180,12 +197,11 @@ template <typename T, typename L>
 inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_sets& cat_sets)
 {
   std::size_t size = 0;
-  walk_tree<empty>(tree, [&](int node_id, empty val) {
+  walk_tree(tree, [&](int node_id) {
     if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
         tree.MatchingCategories(node_id).size() > 0) {
       size += cat_sets.sizeof_mask(tree.SplitIndex(node_id));
     }
-    return std::pair<empty, empty>();
   });
   return size;
 }
@@ -370,7 +386,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
         left, tree, node_id, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
       nodes[root + fil_node_id] = cs.node;
 
-      return cs.swap_child_nodes ? std::tuple(left + 1, left) : std::tuple(left, left + 1);
+      return cs.swap_child_nodes ? {left + 1, left} : {left, left + 1};
     },
     [&](int node_id, int fil_node_id) {
       nodes[root + fil_node_id] = fil_node_t({}, {}, 0, false, true, false, 0);
