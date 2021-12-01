@@ -459,9 +459,9 @@ class NearestNeighbors(Base,
     @staticmethod
     def _build_metric_type(metric):
         if metric == "euclidean" or metric == "l2":
-            m = DistanceType.L2SqrtExpanded
+            m = DistanceType.L2SqrtUnexpanded
         elif metric == "sqeuclidean":
-            m = DistanceType.L2Expanded
+            m = DistanceType.L2Unexpanded
         elif metric in ["cityblock", "l1", "manhattan", 'taxicab']:
             m = DistanceType.L1
         elif metric == "braycurtis":
