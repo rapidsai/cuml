@@ -69,8 +69,15 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
+/// needed to have concurrent instantiations of walk_tree with an empty leaf_func
+/// empty lambdas collide in their internal name
+template <typename... Args>
+void lazy(Args... args)
+{
+}
+
 /** walk a Treelite tree, visiting each inner node with inner_func and each leaf node with
-  leaf_func. See walk_tree::invitation::state documentation for how TraversalState is retained
+  leaf_func. See walk_tree::element::state documentation for how TraversalState is retained
 during traversal. Any per-tree state during traversal should be captured by the lambdas themselves.
   inner_func(int node_id, TraversalState state) should return a pair of new states, one for
 each child node. leaf_func(int, TraversalState) returns nothing.
@@ -78,53 +85,48 @@ each child node. leaf_func(int, TraversalState) returns nothing.
 template <typename TraversalState,
           typename Threshold,
           typename Leaf,
-          typename InnerNodeVisitFunc,
-          typename LeafNodeVisitFunc = void(int, TraversalState)>
-inline void walk_tree(
-  const tl::Tree<Threshold, Leaf>& tree,
-  InnerNodeVisitFunc inner_func,
-  LeafNodeVisitFunc leaf_func = [](int, TraversalState) {})
+          typename InnerFunc,
+          typename LeafFunc = void(int, TraversalState)>
+inline void walk_tree(const tl::Tree<Threshold, Leaf>& tree,
+                      InnerFunc inner_func,
+                      LeafFunc leaf_func = lazy<int, TraversalState>)
 {
   /// needed to visit a node
-  struct invitation {
+  struct element {
     int tl_node_id;
     /// Retained while visiting nodes on a single path from root to leaf.
     /// This generalizes the node index that's carried over during inference tree traversal.
     TraversalState state;
   };
-  std::stack<invitation> stack;
-  stack.push(invitation{tree_root(tree), TraversalState()});
+  std::stack<element> stack;
+  stack.push(element{tree_root(tree), TraversalState()});
   while (!stack.empty()) {
-    invitation i = stack.top();
+    element i = stack.top();
     stack.pop();
     while (!tree.IsLeaf(i.tl_node_id)) {
       auto [left_state, right_state] = inner_func(i.tl_node_id, i.state);
-      stack.push(invitation{tree.LeftChild(i.tl_node_id), left_state});
-      i = invitation{tree.RightChild(i.tl_node_id), right_state};
+      stack.push(element{tree.LeftChild(i.tl_node_id), left_state});
+      i = element{tree.RightChild(i.tl_node_id), right_state};
     }
     leaf_func(i.tl_node_id, i.state);
   }
 }
 
 /// wrapper for empty path state
-template <typename Threshold,
-          typename Leaf,
-          typename InnerNodeVisitFunc,
-          typename LeafNodeVisitFunc = decltype([](int) {})>
-inline void walk_tree(
-  const tl::Tree<Threshold, Leaf>& tree,
-  InnerNodeVisitFunc inner_func,
-  LeafNodeVisitFunc leaf_func = [](int) {})
+template <typename Threshold, typename Leaf, typename InnerFunc, typename LeafFunc = void(int)>
+inline void walk_tree(const tl::Tree<Threshold, Leaf>& tree,
+                      InnerFunc inner_func,
+                      LeafFunc leaf_func = lazy<int>)
 {
   struct empty {
   };
   walk_tree<empty>(
     tree,
-    [](int nid, empty val) {
+    [&](int nid, empty val) {
       inner_func(nid);
       return std::pair<empty, empty>();
     },
-    [](int nid, empty val) { leaf_func(nid); });
+    [&](int nid, empty val) { leaf_func(nid); });
 }
 
 template <typename T, typename L>
@@ -138,7 +140,7 @@ inline int max_depth(const tl::Tree<T, L>& tree)
       // e.g. cycles in the forest
       const int DEPTH_LIMIT = 500;
       ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
-      return {node_depth + 1, node_depth + 1};
+      return std::tuple(node_depth + 1, node_depth + 1);
     },
     [&](int node_id, int node_depth) { tree_depth = std::max(node_depth, tree_depth); });
   return tree_depth;
@@ -386,7 +388,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
         left, tree, node_id, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
       nodes[root + fil_node_id] = cs.node;
 
-      return cs.swap_child_nodes ? {left + 1, left} : {left, left + 1};
+      return cs.swap_child_nodes ? std::tuple(left + 1, left) : std::tuple(left, left + 1);
     },
     [&](int node_id, int fil_node_id) {
       nodes[root + fil_node_id] = fil_node_t({}, {}, 0, false, true, false, 0);
