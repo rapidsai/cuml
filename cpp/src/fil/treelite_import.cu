@@ -69,13 +69,6 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
-/// needed to have concurrent instantiations of walk_tree with an empty visit_leaf
-/// empty lambdas collide in their internal name
-template <typename... Args>
-void lazy(Args... args)
-{
-}
-
 /** walk a Treelite tree, visiting each inner node with visit_inner and each leaf node with
   visit_leaf. See walk_tree::element::state documentation for how TraversalState is retained
 during traversal. Any per-tree state during traversal should be captured by the lambdas themselves.
