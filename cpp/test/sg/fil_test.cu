@@ -695,7 +695,6 @@ class BasePredictFilTest : public BaseFilTest {
       dense2sparse();
     } else {
       sparse_nodes = nodes;
-      // fil_params.num_nodes = forest_num_nodes();
     }
     ASSERT(sparse_nodes.size() < std::size_t(INT_MAX), "generated too many nodes");
 
