@@ -643,31 +643,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   FilTestParams ps;
 };
 
-class PredictDenseFilTest : public BaseFilTest {
- protected:
-  void init_forest(fil::forest_t* pforest) override
-  {
-    // init FIL model
-    fil::forest_params_t fil_ps;
-    fil_ps.depth            = ps.depth;
-    fil_ps.num_trees        = ps.num_trees;
-    fil_ps.num_cols         = ps.num_cols;
-    fil_ps.algo             = ps.algo;
-    fil_ps.output           = ps.output;
-    fil_ps.threshold        = ps.threshold;
-    fil_ps.global_bias      = ps.global_bias;
-    fil_ps.leaf_algo        = ps.leaf_algo;
-    fil_ps.num_classes      = ps.num_classes;
-    fil_ps.blocks_per_sm    = ps.blocks_per_sm;
-    fil_ps.threads_per_tree = ps.threads_per_tree;
-    fil_ps.n_items          = ps.n_items;
-
-    fil::init(handle, pforest, cat_sets_h.accessor(), vector_leaf, nullptr, nodes.data(), &fil_ps);
-  }
-};
-
 template <typename fil_node_t>
-class BasePredictSparseFilTest : public BaseFilTest {
+class BasePredictFilTest : public BaseFilTest {
  protected:
   void dense2sparse_node(const fil::dense_node* dense_root,
                          int i_dense,
@@ -714,22 +691,31 @@ class BasePredictSparseFilTest : public BaseFilTest {
 
   void init_forest(fil::forest_t* pforest) override
   {
-    // init FIL model
-    fil::forest_params_t fil_params;
-    fil_params.num_trees        = ps.num_trees;
-    fil_params.num_cols         = ps.num_cols;
-    fil_params.algo             = ps.algo;
-    fil_params.output           = ps.output;
-    fil_params.threshold        = ps.threshold;
-    fil_params.global_bias      = ps.global_bias;
-    fil_params.leaf_algo        = ps.leaf_algo;
-    fil_params.num_classes      = ps.num_classes;
-    fil_params.blocks_per_sm    = ps.blocks_per_sm;
-    fil_params.threads_per_tree = ps.threads_per_tree;
-    fil_params.n_items          = ps.n_items;
+    if constexpr (!node_traits<fil_node_t>::IS_DENSE) {
+      dense2sparse();
+    } else {
+      sparse_nodes = nodes;
+      // fil_params.num_nodes = forest_num_nodes();
+    }
+    ASSERT(sparse_nodes.size() < std::size_t(INT_MAX), "generated too many nodes");
 
-    dense2sparse();
-    fil_params.num_nodes = sparse_nodes.size();
+    // init FIL model
+    fil::forest_params_t fil_params = {
+      .num_nodes        = static_cast<int>(sparse_nodes.size()),
+      .depth            = ps.depth,
+      .num_trees        = ps.num_trees,
+      .num_cols         = ps.num_cols,
+      .leaf_algo        = ps.leaf_algo,
+      .algo             = ps.algo,
+      .output           = ps.output,
+      .threshold        = ps.threshold,
+      .global_bias      = ps.global_bias,
+      .num_classes      = ps.num_classes,
+      .blocks_per_sm    = ps.blocks_per_sm,
+      .threads_per_tree = ps.threads_per_tree,
+      .n_items          = ps.n_items,
+    };
+
     fil::init(handle,
               pforest,
               cat_sets_h.accessor(),
@@ -742,8 +728,9 @@ class BasePredictSparseFilTest : public BaseFilTest {
   std::vector<int> trees;
 };
 
-typedef BasePredictSparseFilTest<fil::sparse_node16> PredictSparse16FilTest;
-typedef BasePredictSparseFilTest<fil::sparse_node8> PredictSparse8FilTest;
+typedef BasePredictFilTest<fil::dense_node> PredictDenseFilTest;
+typedef BasePredictFilTest<fil::sparse_node16> PredictSparse16FilTest;
+typedef BasePredictFilTest<fil::sparse_node8> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
