@@ -49,6 +49,7 @@ using namespace MLCommon;
  * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
+ * @param sample_weights device pointer to sample weights vector of length n_rows
  */
 template <typename math_t>
 void olsFit(const raft::handle_t& handle,
@@ -61,7 +62,8 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             cudaStream_t stream,
-            int algo = 0)
+            int algo = 0,
+            math_t* sample_weights = nullptr)
 {
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
@@ -72,6 +74,14 @@ void olsFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> mu_input(0, stream);
   rmm::device_uvector<math_t> norm2_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
+
+  if (sample_weights != nullptr) {
+    LinAlg::sqrt(sample_weights, sample_weights, n_rows, stream);
+    raft::matrix::matrixVectorBinaryMult(input, sample_weights, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(label, n_rows,
+      [] __device__(math_t a, math_t b) { return a * b; },
+      stream, label, sample_weights);
+  }
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
@@ -122,6 +132,14 @@ void olsFit(const raft::handle_t& handle,
                     stream);
   } else {
     *intercept = math_t(0);
+  }
+
+  if (sample_weights != nullptr) {
+    raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weights, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(label, n_rows,
+      [] __device__(math_t a, math_t b) { return a / b; },
+      stream, label, sample_weights);
+    LinAlg::powerScalar(sample_weights, sample_weights, 2, n_rows, stream);
   }
 }
 
