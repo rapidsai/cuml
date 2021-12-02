@@ -69,78 +69,73 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
-/// needed to have concurrent instantiations of walk_tree with an empty leaf_func
+/// needed to have concurrent instantiations of walk_tree with an empty visit_leaf
 /// empty lambdas collide in their internal name
 template <typename... Args>
 void lazy(Args... args)
 {
 }
 
-/** walk a Treelite tree, visiting each inner node with inner_func and each leaf node with
-  leaf_func. See walk_tree::element::state documentation for how TraversalState is retained
+/** walk a Treelite tree, visiting each inner node with visit_inner and each leaf node with
+  visit_leaf. See walk_tree::element::state documentation for how TraversalState is retained
 during traversal. Any per-tree state during traversal should be captured by the lambdas themselves.
-  inner_func(int node_id, TraversalState state) should return a pair of new states, one for
-each child node. leaf_func(int, TraversalState) returns nothing.
+  visit_inner(int node_id, TraversalState state) should return a pair of new states, one for
+each child node. visit_leaf(int, TraversalState) returns nothing.
 **/
-template <typename TraversalState,
-          typename Threshold,
-          typename Leaf,
-          typename InnerFunc,
-          typename LeafFunc = void(int, TraversalState)>
-inline void walk_tree(const tl::Tree<Threshold, Leaf>& tree,
-                      InnerFunc inner_func,
-                      LeafFunc leaf_func = lazy<int, TraversalState>)
+template <typename T, typename L, typename InnerFunc, typename LeafFunc = bool>
+inline void walk_tree(const tl::Tree<T, L>& tree,
+                      InnerFunc visit_inner,
+                      LeafFunc visit_leaf = false)
 {
-  /// needed to visit a node
-  struct element {
-    int tl_node_id;
-    /// Retained while visiting nodes on a single path from root to leaf.
-    /// This generalizes the node index that's carried over during inference tree traversal.
-    TraversalState state;
-  };
-  std::stack<element> stack;
-  stack.push(element{tree_root(tree), TraversalState()});
-  while (!stack.empty()) {
-    element i = stack.top();
-    stack.pop();
-    while (!tree.IsLeaf(i.tl_node_id)) {
-      auto [left_state, right_state] = inner_func(i.tl_node_id, i.state);
-      stack.push(element{tree.LeftChild(i.tl_node_id), left_state});
-      i = element{tree.RightChild(i.tl_node_id), right_state};
+  if constexpr (std::is_invocable<InnerFunc, int>()) {
+    /// wrapper for empty path state
+    struct empty {
+    };
+    walk_tree(
+      tree,
+      [&](int nid, empty val) {
+        visit_inner(nid);
+        return std::pair<empty, empty>();
+      },
+      [&](int nid, empty val) {
+        if constexpr (!std::is_same<LeafFunc, bool>()) visit_leaf(nid);
+      });
+  } else {
+    using TraversalState = decltype(visit_inner({}, {}).first);
+    /// needed to visit a node
+    struct element {
+      int tl_node_id;
+      /// Retained while visiting nodes on a single path from root to leaf.
+      /// This generalizes the node index that's carried over during inference tree traversal.
+      TraversalState state;
+    };
+    std::stack<element> stack;
+    stack.push(element{tree_root(tree), TraversalState()});
+    while (!stack.empty()) {
+      element i = stack.top();
+      stack.pop();
+      while (!tree.IsLeaf(i.tl_node_id)) {
+        auto [left_state, right_state] = visit_inner(i.tl_node_id, i.state);
+        stack.push(element{tree.LeftChild(i.tl_node_id), left_state});
+        i = element{tree.RightChild(i.tl_node_id), right_state};
+      }
+      if constexpr (!std::is_same<LeafFunc, bool>()) visit_leaf(i.tl_node_id, i.state);
     }
-    leaf_func(i.tl_node_id, i.state);
   }
-}
-
-/// wrapper for empty path state
-template <typename Threshold, typename Leaf, typename InnerFunc, typename LeafFunc = void(int)>
-inline void walk_tree(const tl::Tree<Threshold, Leaf>& tree,
-                      InnerFunc inner_func,
-                      LeafFunc leaf_func = lazy<int>)
-{
-  struct empty {
-  };
-  walk_tree<empty>(
-    tree,
-    [&](int nid, empty val) {
-      inner_func(nid);
-      return std::pair<empty, empty>();
-    },
-    [&](int nid, empty val) { leaf_func(nid); });
 }
 
 template <typename T, typename L>
 inline int max_depth(const tl::Tree<T, L>& tree)
 {
   int tree_depth = 0;
-  walk_tree<int>(
+  walk_tree(
     tree,
     [](int node_id, int node_depth) {
       // trees of this depth aren't used, so it most likely means bad input data,
       // e.g. cycles in the forest
       const int DEPTH_LIMIT = 500;
       ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
-      return std::tuple(node_depth + 1, node_depth + 1);
+      return std::pair(node_depth + 1, node_depth + 1);
     },
     [&](int node_id, int node_depth) { tree_depth = std::max(node_depth, tree_depth); });
   return tree_depth;
@@ -376,7 +371,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
 {
   // needed if the node is sparse, to place within memory for the FIL tree
   int sparse_index = 1;
-  walk_tree<int>(
+  walk_tree(
     tree,
     [&](int node_id, int fil_node_id) {
       // reserve space for child nodes
@@ -388,7 +383,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
         left, tree, node_id, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
       nodes[root + fil_node_id] = cs.node;
 
-      return cs.swap_child_nodes ? std::tuple(left + 1, left) : std::tuple(left, left + 1);
+      return cs.swap_child_nodes ? std::pair(left + 1, left) : std::pair(left, left + 1);
     },
     [&](int node_id, int fil_node_id) {
       nodes[root + fil_node_id] = fil_node_t({}, {}, 0, false, true, false, 0);
@@ -410,12 +405,12 @@ struct level_entry {
 template <typename T, typename L>
 inline void node_depth_hist(const tl::Tree<T, L>& tree, std::vector<level_entry>& hist)
 {
-  walk_tree<std::size_t>(
+  walk_tree(
     tree,
     [&](int node_id, std::size_t depth) {
       if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
       hist[depth].n_branch_nodes++;
-      return std::tuple(depth + 1, depth + 1);
+      return std::pair(depth + 1, depth + 1);
     },
     [&](int node_id, std::size_t depth) {
       if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
