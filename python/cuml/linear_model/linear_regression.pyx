@@ -325,8 +325,7 @@ class LinearRegression(Base,
 
         del X_m
         del y_m
-        if sample_weights:
-            del sample_weights_ptr
+        del sample_weights_m
 
         return self
 

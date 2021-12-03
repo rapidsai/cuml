@@ -18,6 +18,9 @@
 
 #include <raft/linalg/gemv.h>
 #include <linalg/lstsq.cuh>
+#include <linalg/sqrt.cuh>
+#include <linalg/power.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
@@ -78,9 +81,9 @@ void olsFit(const raft::handle_t& handle,
   if (sample_weights != nullptr) {
     LinAlg::sqrt(sample_weights, sample_weights, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(input, sample_weights, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(label, n_rows,
+    raft::linalg::map(labels, n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
-      stream, label, sample_weights);
+      stream, labels, sample_weights);
   }
 
   if (fit_intercept) {
@@ -136,10 +139,10 @@ void olsFit(const raft::handle_t& handle,
 
   if (sample_weights != nullptr) {
     raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weights, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(label, n_rows,
+    raft::linalg::map(labels, n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },
-      stream, label, sample_weights);
-    LinAlg::powerScalar(sample_weights, sample_weights, 2, n_rows, stream);
+      stream, labels, sample_weights);
+    LinAlg::powerScalar(sample_weights, sample_weights, (math_t)2, n_rows, stream);
   }
 }
 
