@@ -77,6 +77,7 @@ if(BUILD_CUML_TESTS)
         sg/trustworthiness_test.cu
         sg/tsne_test.cu
         sg/tsvd_test.cu
+        sg/umap_parametrizable_test.cu
         $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:sg/handle_test.cu>
       )
   endif()
