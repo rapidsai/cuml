@@ -38,7 +38,7 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             int algo,
-            float *sample_weights)
+            float *sample_weight)
 {
   olsFit(handle,
          input,
@@ -51,7 +51,7 @@ void olsFit(const raft::handle_t& handle,
          normalize,
          handle.get_stream(),
          algo,
-         sample_weights);
+         sample_weight);
 }
 
 void olsFit(const raft::handle_t& handle,
@@ -64,7 +64,7 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             int algo,
-            double *sample_weights)
+            double *sample_weight)
 {
   olsFit(handle,
          input,
@@ -77,7 +77,7 @@ void olsFit(const raft::handle_t& handle,
          normalize,
          handle.get_stream(),
          algo,
-         sample_weights);
+         sample_weight);
 }
 
 void gemmPredict(const raft::handle_t& handle,

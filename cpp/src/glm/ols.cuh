@@ -52,7 +52,7 @@ using namespace MLCommon;
  * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
- * @param sample_weights device pointer to sample weights vector of length n_rows
+ * @param sample_weight device pointer to sample weight vector of length n_rows
  */
 template <typename math_t>
 void olsFit(const raft::handle_t& handle,
@@ -66,7 +66,7 @@ void olsFit(const raft::handle_t& handle,
             bool normalize,
             cudaStream_t stream,
             int algo = 0,
-            math_t* sample_weights = nullptr)
+            math_t* sample_weight = nullptr)
 {
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
@@ -78,12 +78,12 @@ void olsFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> norm2_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
 
-  if (sample_weights != nullptr) {
-    LinAlg::sqrt(sample_weights, sample_weights, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(input, sample_weights, n_rows, n_cols, false, false, stream);
+  if (sample_weight != nullptr) {
+    LinAlg::sqrt(sample_weight, sample_weight, n_rows, stream);
+    raft::matrix::matrixVectorBinaryMult(input, sample_weight, n_rows, n_cols, false, false, stream);
     raft::linalg::map(labels, n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
-      stream, labels, sample_weights);
+      stream, labels, sample_weight);
   }
 
   if (fit_intercept) {
@@ -137,12 +137,12 @@ void olsFit(const raft::handle_t& handle,
     *intercept = math_t(0);
   }
 
-  if (sample_weights != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weights, n_rows, n_cols, false, false, stream);
+  if (sample_weight != nullptr) {
+    raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weight, n_rows, n_cols, false, false, stream);
     raft::linalg::map(labels, n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },
-      stream, labels, sample_weights);
-    LinAlg::powerScalar(sample_weights, sample_weights, (math_t)2, n_rows, stream);
+      stream, labels, sample_weight);
+    LinAlg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
   }
 }
 
