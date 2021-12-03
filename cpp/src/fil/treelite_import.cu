@@ -69,32 +69,36 @@ int tree_root(const tl::Tree<T, L>& tree)
   return 0;  // Treelite format assumes that the root is 0
 }
 
+// a no-op placeholder for values and callables alike
+struct empty {
+  template <typename... Args>
+  void operator()(Args...)
+  {
+  }
+};
+
 /** walk a Treelite tree, visiting each inner node with visit_inner and each leaf node with
   visit_leaf. See walk_tree::element::state documentation for how TraversalState is retained
 during traversal. Any per-tree state during traversal should be captured by the lambdas themselves.
   visit_inner(int node_id, TraversalState state) should return a pair of new states, one for
 each child node. visit_leaf(int, TraversalState) returns nothing.
 **/
-template <typename T, typename L, typename InnerFunc, typename LeafFunc = bool>
+template <typename T, typename L, typename InnerFunc, typename LeafFunc = empty>
 inline void walk_tree(const tl::Tree<T, L>& tree,
                       InnerFunc visit_inner,
-                      LeafFunc visit_leaf = false)
+                      LeafFunc visit_leaf = empty())
 {
   if constexpr (std::is_invocable<InnerFunc, int>()) {
     /// wrapper for empty path state
-    struct empty {
-    };
     walk_tree(
       tree,
       [&](int nid, empty val) {
         visit_inner(nid);
         return std::pair<empty, empty>();
       },
-      [&](int nid, empty val) {
-        if constexpr (!std::is_same<LeafFunc, bool>()) visit_leaf(nid);
-      });
+      [&](int nid, empty val) { visit_leaf(nid); });
   } else {
-    using TraversalState = decltype(visit_inner({}, {}).first);
+    using TraversalState = decltype(visit_inner(int(), {}).first);
     /// needed to visit a node
     struct element {
       int tl_node_id;
@@ -112,7 +116,7 @@ inline void walk_tree(const tl::Tree<T, L>& tree,
         stack.push(element{tree.LeftChild(i.tl_node_id), left_state});
         i = element{tree.RightChild(i.tl_node_id), right_state};
       }
-      if constexpr (!std::is_same<LeafFunc, bool>()) visit_leaf(i.tl_node_id, i.state);
+      visit_leaf(i.tl_node_id, i.state);
     }
   }
 }
