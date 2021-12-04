@@ -172,12 +172,11 @@ namespace ML {
 namespace Explainer {
 
 template <typename ThresholdType, typename LeafType>
-void extract_path_info_from_tree(
-  const tl::Tree<ThresholdType, LeafType>& tree,
-  int num_groups,
-  int& tree_idx,
-  std::size_t& path_idx,
-  TreePathInfoImpl<ThresholdType>& path_info)
+void extract_path_info_from_tree(const tl::Tree<ThresholdType, LeafType>& tree,
+                                 int num_groups,
+                                 int& tree_idx,
+                                 std::size_t& path_idx,
+                                 TreePathInfoImpl<ThresholdType>& path_info)
 {
   int group_id = tree_idx % num_groups;
   std::vector<int> parent_id(tree.num_nodes, -1);
@@ -203,7 +202,7 @@ void extract_path_info_from_tree(
         double zero_fraction = 1.0;
         bool has_count_info  = false;
         if (tree.HasSumHess(parent_idx) && tree.HasSumHess(child_idx)) {
-          zero_fraction = static_cast<double>(tree.SumHess(child_idx) / tree.SumHess(parent_idx));
+          zero_fraction  = static_cast<double>(tree.SumHess(child_idx) / tree.SumHess(parent_idx));
           has_count_info = true;
         }
         if (tree.HasDataCount(parent_idx) && tree.HasDataCount(child_idx)) {
