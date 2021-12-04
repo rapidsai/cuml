@@ -33,8 +33,10 @@ from cuml.common.exceptions import NotFittedError
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.logger import warn
 from cuml.common.mixins import FMajorInputTagMixin
 from libcpp cimport bool
+
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -245,6 +247,14 @@ class SVMBase(Base,
         self.dtype = None
         self._model = None  # structure of the model parameters
         self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
+
+        if (kernel == 'linear' or (kernel == 'poly' and degree == 1)) \
+           and not getattr(type(self), "_linear_kernel_warned", False):
+            setattr(type(self), "_linear_kernel_warned", True)
+            cname = type(self).__name__
+            warn(f'{cname} with the linear kernel can be much faster using '
+                 f'the specialized solver provided by Linear{cname}. Consider '
+                 f'switching to Linear{cname} if tranining takes too long.')
 
     def __del__(self):
         self._dealloc()
