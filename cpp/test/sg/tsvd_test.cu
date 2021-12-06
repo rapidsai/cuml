@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <cuml/decomposition/params.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <tsvd/tsvd.cuh>
 #include <vector>
 

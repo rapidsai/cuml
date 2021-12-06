@@ -17,9 +17,10 @@
 #include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
 #include <limits>
-#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/distance/fused_l2_nn.hpp>
+#include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -43,13 +44,15 @@ struct FusedL2NN : public Fixture {
     alloc(out, params.m);
     alloc(workspace, params.m);
     raft::random::Rng r(123456ULL);
+    raft::handle_t handle;
+    handle.set_stream(stream);
+
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);
     raft::linalg::rowNorm(xn, x, params.k, params.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn, y, params.k, params.n, raft::linalg::L2Norm, true, stream);
-    auto blks = raft::ceildiv(params.m, 256);
-    raft::distance::initKernel<T, cub::KeyValuePair<int, T>, int>
-      <<<blks, 256, 0, stream>>>(out, params.m, std::numeric_limits<T>::max(), op);
+    raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
+      handle, out, params.m, std::numeric_limits<T>::max(), op);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override

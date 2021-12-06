@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/trustworthiness_score.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <vector>
 #include "test_utils.h"
 

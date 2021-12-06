@@ -135,9 +135,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                  handle=None, verbose=False, connectivity='knn',
                  n_neighbors=10, output_type=None):
 
-        super().__init__(handle,
-                         verbose,
-                         output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if linkage is not "single":
             raise ValueError("Only single linkage clustering is "

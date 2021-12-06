@@ -17,6 +17,7 @@
 import pytest
 
 import cupy as cp
+import cupyx as cpx
 import numpy as np
 from cupyx.scipy.sparse import coo_matrix
 from scipy import stats
@@ -68,9 +69,9 @@ def sparse_random_dataset(request, random_seed):
                                   replace=False)
     X.ravel()[random_loc] = 0
     if request.param == 'cupy-csr':
-        X_sparse = cp.sparse.csr_matrix(X)
+        X_sparse = cpx.scipy.sparse.csr_matrix(X)
     elif request.param == 'cupy-csc':
-        X_sparse = cp.sparse.csc_matrix(X)
+        X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
 
 

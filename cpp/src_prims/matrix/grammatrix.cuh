@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/linalg/cublas_wrappers.h>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/linalg/gemm.cuh>
 
 namespace MLCommon {
