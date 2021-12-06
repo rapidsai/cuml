@@ -103,24 +103,26 @@ DI void numerical_stability(double* A)
  * Kalman loop kernel. Each thread computes kalman filter for a single series
  * and stores relevant matrices in registers.
  *
- * @tparam     r           Dimension of the state vector
- * @param[in]  ys          Batched time series
- * @param[in]  nobs        Number of observation per series
- * @param[in]  T           Batched transition matrix.            (r x r)
- * @param[in]  Z           Batched "design" vector               (1 x r)
- * @param[in]  RQR         Batched R*Q*R'                        (r x r)
- * @param[in]  P           Batched P                             (r x r)
- * @param[in]  alpha       Batched state vector                  (r x 1)
- * @param[in]  intercept   Do we fit an intercept?
- * @param[in]  d_mu        Batched intercept                     (1)
- * @param[in]  batch_size  Batch size
- * @param[out] d_pred      Predictions                           (nobs)
- * @param[out] d_loglike   Log-likelihood                        (1)
- * @param[in]  n_diff      d + s*D
- * @param[in]  fc_steps    Number of steps to forecast
- * @param[out] d_fc        Array to store the forecast
- * @param[in]  conf_int    Whether to compute confidence intervals
- * @param[out] d_F_fc      Batched variance of forecast errors   (fc_steps)
+ * @tparam     rd              Dimension of the state vector
+ * @param[in]  ys              Batched time series
+ * @param[in]  nobs            Number of observation per series
+ * @param[in]  T               Batched transition matrix.            (r x r)
+ * @param[in]  Z               Batched "design" vector               (1 x r)
+ * @param[in]  RQR             Batched R*Q*R'                        (r x r)
+ * @param[in]  P               Batched P                             (r x r)
+ * @param[in]  alpha           Batched state vector                  (r x 1)
+ * @param[in]  intercept       Do we fit an intercept?
+ * @param[in]  d_mu            Batched intercept                     (1)
+ * @param[in]  batch_size      Batch size
+ * @param[in]  d_obs_inter     Observation intercept
+ * @param[in]  d_obs_inter_fut Observation intercept for forecasts
+ * @param[out] d_pred          Predictions                           (nobs)
+ * @param[out] d_loglike       Log-likelihood                        (1)
+ * @param[in]  n_diff          d + s*D
+ * @param[in]  fc_steps        Number of steps to forecast
+ * @param[out] d_fc            Array to store the forecast
+ * @param[in]  conf_int        Whether to compute confidence intervals
+ * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <int rd>
 __global__ void batched_kalman_loop_kernel(const double* ys,
@@ -133,6 +135,8 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
                                            bool intercept,
                                            const double* d_mu,
                                            int batch_size,
+                                           const double* d_obs_inter,
+                                           const double* d_obs_inter_fut,
                                            double* d_pred,
                                            double* d_loglike,
                                            int n_diff,
@@ -181,11 +185,11 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       bool missing;
       {
         // 1. v = y - Z*alpha
-        double pred;
+        double pred = 0.0;
+        if (d_obs_inter != nullptr) { pred += d_obs_inter[bid * nobs + it]; }
         if (n_diff == 0)
-          pred = l_alpha[0];
+          pred += l_alpha[0];
         else {
-          pred = 0.0;
           for (int i = 0; i < rd; i++) {
             pred += l_alpha[i] * l_Z[i];
           }
@@ -286,15 +290,16 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       double* b_fc   = fc_steps ? d_fc + bid * fc_steps : nullptr;
       double* b_F_fc = conf_int ? d_F_fc + bid * fc_steps : nullptr;
       for (int it = 0; it < fc_steps; it++) {
+        double pred = 0.0;
+        if (d_obs_inter_fut != nullptr) { pred += d_obs_inter_fut[bid * fc_steps + it]; }
         if (n_diff == 0)
-          b_fc[it] = l_alpha[0];
+          pred += l_alpha[0];
         else {
-          double pred = 0.0;
           for (int i = 0; i < rd; i++) {
             pred += l_alpha[i] * l_Z[i];
           }
-          b_fc[it] = pred;
         }
+        b_fc[it] = pred;
 
         // alpha = T*alpha + c
         Mv_l<rd>(l_T, l_alpha, l_tmp);
@@ -349,29 +354,31 @@ union KalmanLoopSharedMemory {
 /**
  * Kalman loop kernel. Each block computes kalman filter for a single series.
  *
- * @tparam     GemmPolicy  Execution policy for GEMM
- * @tparam     GemvPolicy  Execution policy for GEMV
- * @tparam     CovPolicy   Execution policy for the covariance stability operation
- * @param[in]  d_ys        Batched time series
- * @param[in]  batch_size  Batch size
- * @param[in]  n_obs       Number of observation per series
- * @param[in]  d_T         Batched transition matrix.            (r x r)
- * @param[in]  d_Z         Batched "design" vector               (1 x r)
- * @param[in]  d_RQR       Batched R*Q*R'                        (r x r)
- * @param[in]  d_P         Batched P                             (r x r)
- * @param[in]  d_alpha     Batched state vector                  (r x 1)
- * @param[in]  d_m_tmp     Batched temporary matrix              (r x r)
- * @param[in]  d_TP        Batched temporary matrix to store TP  (r x r)
- * @param[in]  intercept   Do we fit an intercept?
- * @param[in]  d_mu        Batched intercept                     (1)
- * @param[in]  rd          State vector dimension
- * @param[out] d_pred      Predictions                           (nobs)
- * @param[out] d_loglike   Log-likelihood                        (1)
- * @param[in]  n_diff      d + s*D
- * @param[in]  fc_steps    Number of steps to forecast
- * @param[out] d_fc        Array to store the forecast
- * @param[in]  conf_int    Whether to compute confidence intervals
- * @param[out] d_F_fc      Batched variance of forecast errors   (fc_steps)
+ * @tparam     GemmPolicy      Execution policy for GEMM
+ * @tparam     GemvPolicy      Execution policy for GEMV
+ * @tparam     CovPolicy       Execution policy for the covariance stability operation
+ * @param[in]  d_ys            Batched time series
+ * @param[in]  batch_size      Batch size
+ * @param[in]  n_obs           Number of observation per series
+ * @param[in]  d_T             Batched transition matrix.            (r x r)
+ * @param[in]  d_Z             Batched "design" vector               (1 x r)
+ * @param[in]  d_RQR           Batched R*Q*R'                        (r x r)
+ * @param[in]  d_P             Batched P                             (r x r)
+ * @param[in]  d_alpha         Batched state vector                  (r x 1)
+ * @param[in]  d_m_tmp         Batched temporary matrix              (r x r)
+ * @param[in]  d_TP            Batched temporary matrix to store TP  (r x r)
+ * @param[in]  intercept       Do we fit an intercept?
+ * @param[in]  d_mu            Batched intercept                     (1)
+ * @param[in]  rd              State vector dimension
+ * @param[in]  d_obs_inter     Observation intercept
+ * @param[in]  d_obs_inter_fut Observation intercept for forecasts
+ * @param[out] d_pred          Predictions                           (nobs)
+ * @param[out] d_loglike       Log-likelihood                        (1)
+ * @param[in]  n_diff          d + s*D
+ * @param[in]  fc_steps        Number of steps to forecast
+ * @param[out] d_fc            Array to store the forecast
+ * @param[in]  conf_int        Whether to compute confidence intervals
+ * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <typename GemmPolicy, typename GemvPolicy, typename CovPolicy>
 __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
@@ -387,6 +394,8 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
                                                          bool intercept,
                                                          const double* d_mu,
                                                          int rd,
+                                                         const double* d_obs_inter,
+                                                         const double* d_obs_inter_fut,
                                                          double* d_pred,
                                                          double* d_loglike,
                                                          int n_diff,
@@ -420,22 +429,24 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
     double sum_logFs = 0.0;
     double ll_s2     = 0.0;
     int n_obs_ll     = 0;
-    int it;
+    int it           = 0;
 
     /* Skip missing observations at the start */
-    {
-      double pred0;
-      if (n_diff == 0) {
-        pred0 = shared_alpha[0];
-      } else {
-        pred0 = 0.0;
-        pred0 += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
-          rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
-        __syncthreads();  // necessary to reuse shared memory
-      }
+    if (d_obs_inter == nullptr) {
+      {
+        double pred0;
+        if (n_diff == 0) {
+          pred0 = shared_alpha[0];
+        } else {
+          pred0 = 0.0;
+          pred0 += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
+            rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
+          __syncthreads();  // necessary to reuse shared memory
+        }
 
-      for (it = 0; it < n_obs && isnan(d_ys[bid * n_obs + it]); it++) {
-        if (threadIdx.x == 0) d_pred[bid * n_obs + it] = pred0;
+        for (; it < n_obs && isnan(d_ys[bid * n_obs + it]); it++) {
+          if (threadIdx.x == 0) d_pred[bid * n_obs + it] = pred0;
+        }
       }
     }
 
@@ -444,13 +455,13 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
       double vt, _F;
       bool missing;
       {
-        // 1. pred = Z*alpha
+        // 1. pred = Z*alpha + obs_intercept
         //    v = y - pred
-        double pred;
+        double pred = 0.0;
+        if (d_obs_inter != nullptr) { pred += d_obs_inter[bid * n_obs + it]; }
         if (n_diff == 0) {
-          pred = shared_alpha[0];
+          pred += shared_alpha[0];
         } else {
-          pred = 0.0;
           pred += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
             rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
           __syncthreads();  // necessary to reuse shared memory
@@ -561,12 +572,13 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
 
     /* Forecast */
     for (int it = 0; it < fc_steps; it++) {
-      // pred = Z * alpha
-      double pred;
+      // pred = Z * alpha + obs_intercept
+      double pred = 0.0;
+      if (d_obs_inter_fut != nullptr) { pred += d_obs_inter_fut[bid * fc_steps + it]; }
       if (n_diff == 0) {
-        pred = shared_alpha[0];
+        pred += shared_alpha[0];
       } else {
-        pred = MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, false>(
+        pred += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, false>(
           rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
@@ -647,24 +659,26 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
 /**
  * Kalman loop for large matrices (r > 8).
  *
- * @param[in]  arima_mem    Pre-allocated temporary memory
- * @param[in]  d_ys         Batched time series
- * @param[in]  nobs         Number of observation per series
- * @param[in]  T            Batched transition matrix.            (r x r)
- * @param[in]  Z            Batched "design" vector               (1 x r)
- * @param[in]  RQR          Batched R*Q*R'                        (r x r)
- * @param[in]  P            Batched P                             (r x r)
- * @param[in]  alpha        Batched state vector                  (r x 1)
- * @param[in]  intercept    Do we fit an intercept?
- * @param[in]  d_mu         Batched intercept                     (1)
- * @param[in]  rd           Dimension of the state vector
- * @param[out] d_pred       Predictions                           (nobs)
- * @param[out] d_loglike    Log-likelihood                        (1)
- * @param[in]  n_diff       d + s*D
- * @param[in]  fc_steps     Number of steps to forecast
- * @param[out] d_fc         Array to store the forecast
- * @param[in]  conf_int     Whether to compute confidence intervals
- * @param[out] d_F_fc       Batched variance of forecast errors   (fc_steps)
+ * @param[in]  arima_mem       Pre-allocated temporary memory
+ * @param[in]  d_ys            Batched time series
+ * @param[in]  nobs            Number of observation per series
+ * @param[in]  T               Batched transition matrix.            (r x r)
+ * @param[in]  Z               Batched "design" vector               (1 x r)
+ * @param[in]  RQR             Batched R*Q*R'                        (r x r)
+ * @param[in]  P               Batched P                             (r x r)
+ * @param[in]  alpha           Batched state vector                  (r x 1)
+ * @param[in]  intercept       Do we fit an intercept?
+ * @param[in]  d_mu            Batched intercept                     (1)
+ * @param[in]  rd              Dimension of the state vector
+ * @param[in]  d_obs_inter     Observation intercept
+ * @param[in]  d_obs_inter_fut Observation intercept for forecasts
+ * @param[out] d_pred          Predictions                           (nobs)
+ * @param[out] d_loglike       Log-likelihood                        (1)
+ * @param[in]  n_diff          d + s*D
+ * @param[in]  fc_steps        Number of steps to forecast
+ * @param[out] d_fc            Array to store the forecast
+ * @param[in]  conf_int        Whether to compute confidence intervals
+ * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <typename GemmPolicy, typename GemvPolicy, typename CovPolicy>
 void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
@@ -678,6 +692,8 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                        bool intercept,
                                        const double* d_mu,
                                        int rd,
+                                       const double* d_obs_inter,
+                                       const double* d_obs_inter_fut,
                                        double* d_pred,
                                        double* d_loglike,
                                        int n_diff,
@@ -723,6 +739,8 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                                                     intercept,
                                                                     d_mu,
                                                                     rd,
+                                                                    d_obs_inter,
+                                                                    d_obs_inter_fut,
                                                                     d_pred,
                                                                     d_loglike,
                                                                     n_diff,
@@ -745,6 +763,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                          bool intercept,
                          const double* d_mu,
                          const ARIMAOrder& order,
+                         const double* d_obs_inter,
+                         const double* d_obs_inter_fut,
                          double* d_pred,
                          double* d_loglike,
                          int fc_steps   = 0,
@@ -772,6 +792,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -792,6 +814,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -812,6 +836,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -832,6 +858,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -852,6 +880,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -872,6 +902,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -892,6 +924,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -912,6 +946,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
+                                                         d_obs_inter,
+                                                         d_obs_inter_fut,
                                                          d_pred,
                                                          d_loglike,
                                                          n_diff,
@@ -941,6 +977,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              intercept,
                                                                              d_mu,
                                                                              rd,
+                                                                             d_obs_inter,
+                                                                             d_obs_inter_fut,
                                                                              d_pred,
                                                                              d_loglike,
                                                                              n_diff,
@@ -963,6 +1001,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              intercept,
                                                                              d_mu,
                                                                              rd,
+                                                                             d_obs_inter,
+                                                                             d_obs_inter_fut,
                                                                              d_pred,
                                                                              d_loglike,
                                                                              n_diff,
@@ -987,6 +1027,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              intercept,
                                                                              d_mu,
                                                                              rd,
+                                                                             d_obs_inter,
+                                                                             d_obs_inter_fut,
                                                                              d_pred,
                                                                              d_loglike,
                                                                              n_diff,
@@ -1009,6 +1051,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              intercept,
                                                                              d_mu,
                                                                              rd,
+                                                                             d_obs_inter,
+                                                                             d_obs_inter_fut,
                                                                              d_pred,
                                                                              d_loglike,
                                                                              n_diff,
@@ -1032,6 +1076,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                            intercept,
                                                                            d_mu,
                                                                            rd,
+                                                                           d_obs_inter,
+                                                                           d_obs_inter_fut,
                                                                            d_pred,
                                                                            d_loglike,
                                                                            n_diff,
@@ -1054,6 +1100,8 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                            intercept,
                                                                            d_mu,
                                                                            rd,
+                                                                           d_obs_inter,
+                                                                           d_obs_inter_fut,
                                                                            d_pred,
                                                                            d_loglike,
                                                                            n_diff,
@@ -1135,6 +1183,7 @@ void _lyapunov_wrapper(raft::handle_t& handle,
 void _batched_kalman_filter(raft::handle_t& handle,
                             const ARIMAMemory<double>& arima_mem,
                             const double* d_ys,
+                            const double* d_exog,
                             int nobs,
                             const ARIMAOrder& order,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
@@ -1145,8 +1194,10 @@ void _batched_kalman_filter(raft::handle_t& handle,
                             const double* d_sigma2,
                             bool intercept,
                             const double* d_mu,
+                            const double* d_beta,
                             int fc_steps,
                             double* d_fc,
+                            const double* d_exog_fut,
                             double level,
                             double* d_lower,
                             double* d_upper)
@@ -1160,6 +1211,61 @@ void _batched_kalman_filter(raft::handle_t& handle,
   int n_diff = order.n_diff();
   int rd     = order.rd();
   int r      = order.r();
+
+  // Compute observation intercept (exogenous component).
+  // The observation intercept is a linear combination of the values of
+  // exogenous variables for this observation.
+  rmm::device_uvector<double> obs_intercept(0, stream);
+  rmm::device_uvector<double> obs_intercept_fut(0, stream);
+  if (order.n_exog > 0) {
+    obs_intercept.resize(nobs * batch_size, stream);
+
+    double alpha = 1.0;
+    double beta  = 0.0;
+    CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(cublasHandle,
+                                                        CUBLAS_OP_N,
+                                                        CUBLAS_OP_N,
+                                                        nobs,
+                                                        1,
+                                                        order.n_exog,
+                                                        &alpha,
+                                                        d_exog,
+                                                        nobs,
+                                                        nobs * order.n_exog,
+                                                        d_beta,
+                                                        order.n_exog,
+                                                        order.n_exog,
+                                                        &beta,
+                                                        obs_intercept.data(),
+                                                        nobs,
+                                                        nobs,
+                                                        batch_size,
+                                                        stream));
+
+    if (fc_steps > 0) {
+      obs_intercept_fut.resize(fc_steps * batch_size, stream);
+
+      CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(cublasHandle,
+                                                          CUBLAS_OP_N,
+                                                          CUBLAS_OP_N,
+                                                          fc_steps,
+                                                          1,
+                                                          order.n_exog,
+                                                          &alpha,
+                                                          d_exog_fut,
+                                                          fc_steps,
+                                                          fc_steps * order.n_exog,
+                                                          d_beta,
+                                                          order.n_exog,
+                                                          order.n_exog,
+                                                          &beta,
+                                                          obs_intercept_fut.data(),
+                                                          fc_steps,
+                                                          fc_steps,
+                                                          batch_size,
+                                                          stream));
+    }
+  }
 
   MLCommon::LinAlg::Batched::Matrix<double> RQb(
     rd, 1, batch_size, cublasHandle, arima_mem.RQ_batches, arima_mem.RQ_dense, stream, true);
@@ -1306,6 +1412,8 @@ void _batched_kalman_filter(raft::handle_t& handle,
                       intercept,
                       d_mu,
                       order,
+                      obs_intercept.data(),
+                      obs_intercept_fut.data(),
                       d_pred,
                       d_loglike,
                       fc_steps,
@@ -1434,6 +1542,7 @@ void init_batched_kalman_matrices(raft::handle_t& handle,
 void batched_kalman_filter(raft::handle_t& handle,
                            const ARIMAMemory<double>& arima_mem,
                            const double* d_ys,
+                           const double* d_exog,
                            int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order,
@@ -1442,6 +1551,7 @@ void batched_kalman_filter(raft::handle_t& handle,
                            double* d_pred,
                            int fc_steps,
                            double* d_fc,
+                           const double* d_exog_fut,
                            double level,
                            double* d_lower,
                            double* d_upper)
@@ -1479,6 +1589,7 @@ void batched_kalman_filter(raft::handle_t& handle,
   _batched_kalman_filter(handle,
                          arima_mem,
                          d_ys,
+                         d_exog,
                          nobs,
                          order,
                          Zb,
@@ -1489,8 +1600,10 @@ void batched_kalman_filter(raft::handle_t& handle,
                          params.sigma2,
                          static_cast<bool>(order.k),
                          params.mu,
+                         params.beta,
                          fc_steps,
                          d_fc,
+                         d_exog_fut,
                          level,
                          d_lower,
                          d_upper);
@@ -1511,12 +1624,14 @@ void batched_jones_transform(raft::handle_t& handle,
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
   ARIMAParams<double> params  = {arima_mem.params_mu,
+                                arima_mem.params_beta,
                                 arima_mem.params_ar,
                                 arima_mem.params_ma,
                                 arima_mem.params_sar,
                                 arima_mem.params_sma,
                                 arima_mem.params_sigma2};
-  ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
+  ARIMAParams<double> Tparams = {params.mu,
+                                 params.beta,
                                  arima_mem.Tparams_ar,
                                  arima_mem.Tparams_ma,
                                  arima_mem.Tparams_sar,
@@ -1528,7 +1643,6 @@ void batched_jones_transform(raft::handle_t& handle,
   params.unpack(order, batch_size, d_params, stream);
 
   MLCommon::TimeSeries::batched_jones_transform(order, batch_size, isInv, params, Tparams, stream);
-  Tparams.mu = params.mu;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 

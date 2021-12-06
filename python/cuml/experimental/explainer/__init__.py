@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,4 @@
 # limitations under the License.
 #
 
-cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
-    ctypedef struct ARIMAOrder:
-        int p       # Basic order
-        int d
-        int q
-        int P       # Seasonal order
-        int D
-        int Q
-        int s       # Seasonal period
-        int k       # Fit intercept?
-        int n_exog  # Number of exogenous regressors
+from cuml.experimental.explainer.tree_shap import TreeExplainer
