@@ -260,7 +260,7 @@ class LinearRegression(Base,
                                 check_rows=n_rows, check_cols=1)
         y_ptr = y_m.ptr
 
-        if sample_weight:
+        if sample_weight is not None:
             sample_weight_m, _, _, _ = \
                 input_to_cuml_array(sample_weight, check_dtype=self.dtype,
                                     convert_to_dtype=(self.dtype if convert_dtype
@@ -325,7 +325,7 @@ class LinearRegression(Base,
 
         del X_m
         del y_m
-        if sample_weight:
+        if sample_weight is not None:
             del sample_weight_m
 
         return self
