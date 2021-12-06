@@ -72,7 +72,38 @@ parser.add_argument(
     default={},
     help='Algorithm options',
 )
+parser.add_argument(
+    '--json',
+    type=str,
+    default='',
+    help='JSON file containing benchmark parameters',
+)
 args = parser.parse_args()
+
+
+def parse_json(args):
+    with open(args.json) as json_file:
+        params = json.load(json_file)
+
+    # Overwriting
+    if 'algo' in params:
+        args.algo = params['algo']
+    if 'dataset_type' in params:
+        args.dataset_type = params['dataset_type']
+    if 'n_samples' in params:
+        args.n_samples = params['n_samples']
+    if 'n_features' in params:
+        args.n_features = params['n_features']
+    if 'input_type' in params:
+        args.input_type = params['input_type']
+    if 'data_kwargs' in params:
+        args.data_kwargs = params['data_kwargs']
+    if 'algo_args' in params:
+        args.algo_args = params['algo_args']
+
+
+if len(args.json):
+    parse_json(args)
 
 algo = algorithms.algorithm_by_name(args.algo)
 data = datagen.gen_data(
