@@ -63,7 +63,7 @@ def nvtx_profiling(name, dataset_name, n_samples, n_features,
                    input_type, data_kwargs, algo_args):
     path = os.path.dirname(os.path.realpath(__file__))
     command = """
-    python {path}/bench_nvtx.py
+    python {path}/auto_nvtx_bench.py
         --algo {algo}
         --dataset_type {dataset_type}
         --n_samples {n_samples}
@@ -93,6 +93,9 @@ def nvtx_profiling(name, dataset_name, n_samples, n_features,
 
 
 def sklearn_intelex_bench(algo, data, algo_args):
+    if algo.cpu_class is None:
+        return
+
     setup_overrides = algo.setup_cpu(data, **algo_args)
 
     t = time.process_time()
@@ -134,7 +137,7 @@ def _benchmark_algo(
 
     benchmark(_benchmark_inner)
 
-    if not multi_node:  # if SG => run NVTX benchmark
+    if not multi_node:  # if SG => run NVTX benchmark and sklearn-intelex
         nvtx_profiling(name, dataset_name, n_samples, n_features,
                        input_type, data_kwargs, algo_args)
 
