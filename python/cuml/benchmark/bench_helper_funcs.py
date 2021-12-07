@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import sklearn.ensemble as skl_ensemble
 import cudf
 from numba import cuda
 from cuml.benchmark import datagen
+from cuml.manifold import UMAP
 
 
 def fit_kneighbors(m, x):
@@ -34,8 +35,38 @@ def fit(m, x, y=None):
     m.fit(x) if y is None else m.fit(x, y)
 
 
-def fit_transform(m, x):
-    m.fit_transform(x)
+def fit_transform(m, x, y=None):
+    if y is None:
+        if hasattr(m, 'transform'):
+            m.fit(x)
+            m.transform(x)
+        else:
+            m.fit_transform(x)
+    else:
+        if hasattr(m, 'transform'):
+            m.fit(x, y)
+            m.transform(x)
+        else:
+            m.fit_transform(x, y)
+
+
+def fit_predict(m, x, y=None):
+    if y is None:
+        if hasattr(m, 'predict'):
+            m.fit(x)
+            m.predict(x)
+        else:
+            m.fit_predict(x)
+    else:
+        if hasattr(m, 'predict'):
+            m.fit(x, y)
+            m.predict(x)
+        else:
+            m.fit_predict(x, y)
+
+
+def transform(m, x, y=None):
+    m.transform(x, y)
 
 
 def predict(m, x):
@@ -48,8 +79,8 @@ def _training_data_to_numpy(X, y):
         X_np = X
         y_np = y
     elif isinstance(X, cudf.DataFrame):
-        X_np = X.as_gpu_matrix().copy_to_host()
-        y_np = y.to_gpu_array().copy_to_host()
+        X_np = X.to_numpy()
+        y_np = y.to_numpy()
     elif cuda.devicearray.is_cuda_ndarray(X):
         X_np = X.copy_to_host()
         y_np = y.copy_to_host()
@@ -182,3 +213,20 @@ def _treelite_fil_accuracy_score(y_true, y_pred):
 
     y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
     return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
+
+
+def _build_mnmg_umap(m, data, args, tmpdir):
+    client = args['client']
+    del args['client']
+    local_model = UMAP(**args)
+
+    if isinstance(data, (tuple, list)):
+        data = [x for x in data if x is not None]
+    if len(data) == 2:
+        X, y = data
+        local_model.fit(X, y)
+    else:
+        X = data
+        local_model.fit(X)
+
+    return m(client=client, model=local_model, **args)

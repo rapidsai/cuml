@@ -18,7 +18,7 @@
  * fil.cu can make a `forest` object out of it. */
 
 #include "common.cuh"    // for num_trees, tree_num_nodes
-#include "internal.cuh"  // for MAX_PRECISE_INT_FLOAT, BITS_PER_BYTE, cat_feature_counters, cat_sets, cat_sets_owner, categorical_sets, leaf_algo_t
+#include "internal.cuh"  // for MAX_FIL_INT_FLOAT, BITS_PER_BYTE, cat_feature_counters, cat_sets, cat_sets_owner, categorical_sets, leaf_algo_t
 
 #include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
 #include <cuml/fil/fnv_hash.h>     // for fowler_noll_vo_fingerprint64_32
@@ -56,8 +56,8 @@ std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
     os << std::bitset<BITS_PER_BYTE>(b) << " ";
   }
   os << " }\nmax_matching {";
-  for (int mm : cso.max_matching) {
-    os << mm << " ";
+  for (float fid_num_cats : cso.fid_num_cats) {
+    os << static_cast<int>(fid_num_cats) - 1 << " ";
   }
   os << " }";
   return os;
@@ -136,10 +136,10 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
           // cast is safe because all precise int floats fit into ints, which are asserted to be 32
           // bits
           max_matching_cat = mmv.back();
-          ASSERT(max_matching_cat <= MAX_PRECISE_INT_FLOAT,
+          ASSERT(max_matching_cat <= MAX_FIL_INT_FLOAT,
                  "FIL cannot infer on "
                  "more than %d matching categories",
-                 MAX_PRECISE_INT_FLOAT);
+                 MAX_FIL_INT_FLOAT);
         } else {
           max_matching_cat = -1;
         }
@@ -165,7 +165,8 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_s
     int node_id = stack.top();
     stack.pop();
     while (!tree.IsLeaf(node_id)) {
-      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
+      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
+          tree.MatchingCategories(node_id).size() > 0) {
         int fid = tree.SplitIndex(node_id);
         size += cat_sets.sizeof_mask(fid);
       }
@@ -307,8 +308,9 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
   val_t split         = {.f = NAN};  // yes there's a default initializer already
   int feature_id      = tree.SplitIndex(tl_node_id);
-  bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical;
-  bool default_left   = tree.DefaultLeft(tl_node_id);
+  bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
+                        tree.MatchingCategories(tl_node_id).size() > 0;
+  bool default_left = tree.DefaultLeft(tl_node_id);
   if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical) {
     split.f = static_cast<float>(tree.Threshold(tl_node_id));
     adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
@@ -318,13 +320,18 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
       std::swap(tl_left, tl_right);
       default_left = !default_left;
     }
-    int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
-    split.idx       = *bit_pool_offset;
-    *bit_pool_offset += sizeof_mask;
-    // cat_sets->bits have been zero-initialized
-    uint8_t* bits = &cat_sets->bits[split.idx];
-    for (std::uint32_t category : tree.MatchingCategories(tl_node_id)) {
-      bits[category / BITS_PER_BYTE] |= 1 << (category % BITS_PER_BYTE);
+    if (tree.MatchingCategories(tl_node_id).size() > 0) {
+      int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
+      split.idx       = *bit_pool_offset;
+      *bit_pool_offset += sizeof_mask;
+      // cat_sets->bits have been zero-initialized
+      uint8_t* bits = &cat_sets->bits[split.idx];
+      for (std::uint32_t category : tree.MatchingCategories(tl_node_id)) {
+        bits[category / BITS_PER_BYTE] |= 1 << (category % BITS_PER_BYTE);
+      }
+    } else {
+      // always branch left in FIL. Already accounted for Treelite branching direction above.
+      split.f = NAN;
     }
   } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
@@ -852,8 +859,8 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
     }
     forest_shape << "}" << std::endl << "total categorical nodes: " << total_cat_nodes << std::endl;
     forest_shape << "maximum matching category for each feature id: {";
-    for (int mm : cat_sets.max_matching)
-      forest_shape << mm << " ";
+    for (float fid_num_cats : cat_sets.fid_num_cats)
+      forest_shape << static_cast<int>(fid_num_cats) - 1 << " ";
     forest_shape << "}" << std::endl;
   }
   // stream may be discontiguous

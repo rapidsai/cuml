@@ -26,8 +26,8 @@
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>
