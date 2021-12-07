@@ -26,7 +26,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>
 

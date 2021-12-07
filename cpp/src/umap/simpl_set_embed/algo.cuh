@@ -35,15 +35,14 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/random/rng_impl.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <string>
 #include "optimize_batch_kernel.cuh"
 
 #include <thrust/iterator/discard_iterator.h>
-#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/op/filter.hpp>
 #pragma once
 
 namespace UMAPAlgo {
@@ -336,7 +335,7 @@ void launcher(
     stream);
 
   raft::sparse::COO<T> out(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, stream);
+  raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
 
   rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
   CUDA_CHECK(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));

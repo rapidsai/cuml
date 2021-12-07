@@ -21,7 +21,7 @@
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 #include <vector>

@@ -20,7 +20,7 @@
 #include <test_utils.h>
 #include <iomanip>
 #include <raft/handle.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
 #include <sstream>

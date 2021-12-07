@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-21.12/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.02/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.12.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.02.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -201,6 +201,7 @@ if(LINK_FAISS)
 endif()
 
 include(cmake/thirdparty/get_treelite.cmake)
+include(cmake/thirdparty/get_gputreeshap.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
 if(NOT SINGLEGPU)
@@ -243,7 +244,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/common/logger.cpp
               src/common/nvtx.cu)
 
-
   # FIL components
   target_sources(${CUML_CPP_TARGET}
     PRIVATE
@@ -261,13 +261,28 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/datasets/make_blobs.cu
         src/datasets/make_regression.cu
         src/dbscan/dbscan.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
+        src/explainer/tree_shap.cu
         src/fil/fil.cu
         src/fil/infer.cu
         src/glm/glm.cu
         src/genetic/genetic.cu
+        src/genetic/program.cu
         src/genetic/node.cu
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu
@@ -309,6 +324,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/spectral/spectral.cu
         src/svm/svc.cu
         src/svm/svr.cu
+        src/svm/linear.cu
         src/svm/ws_util.cu
         src/tsa/auto_arima.cu
         src/tsa/stationarity.cu
@@ -388,6 +404,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
+      GPUTreeShap::GPUTreeShap
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>

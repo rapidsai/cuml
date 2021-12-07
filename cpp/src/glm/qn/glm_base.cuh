@@ -24,7 +24,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include <vector>
 #include "simple_mat.cuh"
 
@@ -128,6 +128,9 @@ struct GLMBase : GLMDims {
    * 2. loss_val <- sum loss(Z)
    *
    * Default: elementwise application of loss and its derivative
+   *
+   * NB: for this method to work, loss implementations must have two functor fields `lz` and `dlz`.
+   *     These two compute loss value and its derivative w.r.t. `z`.
    */
   inline void getLossAndDZ(T* loss_val,
                            SimpleDenseMat<T>& Z,
@@ -135,29 +138,45 @@ struct GLMBase : GLMDims {
                            cudaStream_t stream)
   {
     // Base impl assumes simple case C = 1
-    Loss* loss = static_cast<Loss*>(this);
-
     // TODO would be nice to have a kernel that fuses these two steps
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
+    auto lz_copy  = static_cast<Loss*>(this)->lz;
+    auto dlz_copy = static_cast<Loss*>(this)->dlz;
     if (this->sample_weights) {  // Sample weights are in use
       T normalization = 1.0 / this->weights_sum;
-      auto f_l        = [=] __device__(const T y, const T z, const T weight) {
-        return loss->lz(y, z) * (weight * normalization);
-      };
-      raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data, Z.data, sample_weights);
-
-      auto f_dl = [=] __device__(const T y, const T z, const T weight) {
-        return weight * loss->dlz(y, z);
-      };
-      raft::linalg::map(Z.data, y.len, f_dl, stream, y.data, Z.data, sample_weights);
+      raft::linalg::mapThenSumReduce(
+        loss_val,
+        y.len,
+        [lz_copy, normalization] __device__(const T y, const T z, const T weight) {
+          return lz_copy(y, z) * (weight * normalization);
+        },
+        stream,
+        y.data,
+        Z.data,
+        sample_weights);
+      raft::linalg::map(
+        Z.data,
+        y.len,
+        [dlz_copy] __device__(const T y, const T z, const T weight) {
+          return weight * dlz_copy(y, z);
+        },
+        stream,
+        y.data,
+        Z.data,
+        sample_weights);
     } else {  // Sample weights are not used
       T normalization = 1.0 / y.len;
-      auto f_l = [=] __device__(const T y, const T z) { return loss->lz(y, z) * normalization; };
-      raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data, Z.data);
-
-      auto f_dl = [=] __device__(const T y, const T z) { return loss->dlz(y, z); };
-      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
+      raft::linalg::mapThenSumReduce(
+        loss_val,
+        y.len,
+        [lz_copy, normalization] __device__(const T y, const T z) {
+          return lz_copy(y, z) * normalization;
+        },
+        stream,
+        y.data,
+        Z.data);
+      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, dlz_copy, stream);
     }
   }
 

@@ -455,7 +455,8 @@ TEST_F(QuasiNewtonTest, predict)
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, false, N, D, 2, false, w.data, 0, preds.data, stream);
+  qnPredict(
+    handle, Xdev->data, false, N, D, 2, false, w.data, QN_LOSS_LOGISTIC, preds.data, stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -463,7 +464,7 @@ TEST_F(QuasiNewtonTest, predict)
     ASSERT_TRUE(X[it][0] > 0 ? compApprox(preds_host[it], 1) : compApprox(preds_host[it], 0));
   }
 
-  qnPredict(handle, Xdev->data, false, N, D, 1, false, w.data, 1, preds.data, stream);
+  qnPredict(handle, Xdev->data, false, N, D, 1, false, w.data, QN_LOSS_SQUARED, preds.data, stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -486,7 +487,7 @@ TEST_F(QuasiNewtonTest, predict_softmax)
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, false, N, D, C, false, w.data, 2, preds.data, stream);
+  qnPredict(handle, Xdev->data, false, N, D, C, false, w.data, QN_LOSS_SOFTMAX, preds.data, stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -531,9 +532,9 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
   raft::update_device(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  int C         = 4;
-  int loss_type = 2;  // Softmax (loss_b, loss_no_b)
-  double alpha  = 0.016 * N;
+  int C                  = 4;
+  QN_LOSS_TYPE loss_type = QN_LOSS_SOFTMAX;  // Softmax (loss_b, loss_no_b)
+  double alpha           = 0.016 * N;
   Softmax<double> loss_b(handle, D, C, true);
   Softmax<double> loss_no_b(handle, D, C, false);
 

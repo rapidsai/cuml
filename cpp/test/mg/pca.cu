@@ -23,7 +23,7 @@
 #include <opg/linalg/gemm.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include "test_opg_utils.h"
 
 #include <raft/comms/mpi_comms.hpp>

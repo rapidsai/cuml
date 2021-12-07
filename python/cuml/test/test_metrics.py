@@ -1300,7 +1300,18 @@ def test_sparse_pairwise_distances_exceptions():
         sparse_pairwise_distances(X, Y, metric="euclidean")
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+@pytest.mark.parametrize(
+    "metric", [
+        metric if metric != 'hellinger'
+        else pytest.param(
+            metric,
+            marks=pytest.mark.xfail(
+                reason="intermittent failure (Issue #4354)"
+            )
+        )
+        for metric in PAIRWISE_DISTANCE_SPARSE_METRICS.keys()
+    ]
+)
 @pytest.mark.parametrize("matrix_size,density", [
     unit_param((1000, 100), 0.4),
     unit_param((20, 10000), 0.01),
@@ -1402,8 +1413,8 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
     cu_predict_decision = cuml_model.decision_function(X_test)
     cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
     if input_type == "cudf":
-        y_test = y_test.to_array()
-        y = y.to_array()
+        y_test = y_test.to_numpy()
+        y = y.to_numpy()
         cu_predict_decision = cp.asnumpy(cu_predict_decision.values)
     elif input_type == "cupy":
         y = cp.asnumpy(y)

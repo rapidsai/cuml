@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <matrix/gather.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 

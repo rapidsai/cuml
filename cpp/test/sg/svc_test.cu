@@ -35,7 +35,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <string>

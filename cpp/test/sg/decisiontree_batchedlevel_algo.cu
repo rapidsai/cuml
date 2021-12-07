@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>

@@ -21,7 +21,7 @@
 #include <cuml/decomposition/params.hpp>
 #include <pca/pca.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <vector>
 
 namespace ML {

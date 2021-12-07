@@ -172,7 +172,8 @@ class TSNE(Base,
         0.8. (Barnes-Hut only.)
     learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. 'adaptive' tunes the learning rate, early
-        exaggeration and perplexity automatically based on input size.
+        exaggeration, perplexity and n_neighbors automatically based on
+        input size.
     n_neighbors : int (default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
@@ -422,7 +423,6 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
-
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -451,7 +451,8 @@ class TSNE(Base,
         self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
             order="F",
-            dtype=np.float32)
+            dtype=np.float32,
+            index=self.X_m.index)
 
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
@@ -482,11 +483,6 @@ class TSNE(Base,
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
         elif self.method == 'fft':
-            warnings.warn("Method 'fft' is experimental and may be " +
-                          "unstable. If you find this implementation is not" +
-                          " behaving as intended, please consider using one" +
-                          " of the other methods, such as 'barnes_hut' or" +
-                          " 'exact'")
             algo = TSNE_ALGORITHM.FFT
         elif self.method == 'exact':
             algo = TSNE_ALGORITHM.EXACT
@@ -529,7 +525,7 @@ class TSNE(Base,
         free(params)
 
         self._kl_divergence_ = kl_divergence
-        logger.debug("[TSNE] KL Divergence: %f" % kl_divergence)
+        logger.debug("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
