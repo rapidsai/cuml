@@ -20,7 +20,6 @@ from cuml.common.import_utils import has_sklearn
 if has_sklearn():
     from sklearn.model_selection import GridSearchCV
 
-
     GridSearchCV.__doc__ = """
     This code is developed and maintained by scikit-learn and imported
     by cuML to maintain the familiar sklearn namespace structure.
