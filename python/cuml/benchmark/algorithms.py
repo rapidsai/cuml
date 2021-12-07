@@ -414,7 +414,7 @@ def all_algorithms():
         AlgorithmPair(
             treelite,
             cuml.ForestInference,
-            shared_args=dict(),
+            shared_args={},
             cuml_args=dict(
                 fil_algo="AUTO",
                 output_class=False,
