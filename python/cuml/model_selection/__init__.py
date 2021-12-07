@@ -15,7 +15,10 @@
 #
 
 from cuml.model_selection._split import train_test_split
-from sklearn.model_selection import GridSearchCV
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.model_selection import GridSearchCV
 
 
 GridSearchCV.__doc__ = """
