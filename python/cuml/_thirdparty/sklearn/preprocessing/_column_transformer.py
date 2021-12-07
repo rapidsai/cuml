@@ -15,8 +15,11 @@ from joblib import Parallel
 import functools
 import timeit
 import numbers
-from sklearn.base import clone
-from sklearn.utils import Bunch
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.base import clone
+    from sklearn.utils import Bunch
 from contextlib import contextmanager
 from collections import defaultdict
 import warnings
