@@ -31,7 +31,7 @@ function(find_and_configure_raft)
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
             GIT_REPOSITORY https://github.com/cjnolet/raft.git
-            GIT_TAG        imp-2112-ext_libs
+            GIT_TAG        fea-2202-distance_knn_specializations
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
