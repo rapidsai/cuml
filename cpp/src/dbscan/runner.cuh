@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <common/nvtx.hpp>
 #include <label/classlabels.cuh>
-#include <raft/sparse/csr.cuh>
+#include <raft/sparse/csr.hpp>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
@@ -236,7 +236,7 @@ std::size_t run(const raft::handle_t& handle,
 
     CUML_LOG_DEBUG("--> Computing connected components");
     ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
-    raft::sparse::weak_cc_batched<Index_, 1024>(
+    raft::sparse::weak_cc_batched<Index_>(
       i == 0 ? labels : labels_temp,
       ex_scan,
       adj_graph.data(),
