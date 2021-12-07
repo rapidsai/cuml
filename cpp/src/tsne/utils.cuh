@@ -182,9 +182,9 @@ __global__ void min_max_kernel(
  * CUDA kernel to compute KL divergence
  */
 template <typename value_idx, typename value_t>
-__global__ void compute_kl_div_k(const value_t* restrict Ps,
+__global__ void compute_kl_div_k(const value_t* Ps,
                                  const value_t* Qs,
-                                 value_t* KL_divs,
+                                 value_t* __restrict__ KL_divs,
                                  const value_idx NNZ)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -200,7 +200,7 @@ __global__ void compute_kl_div_k(const value_t* restrict Ps,
  */
 template <typename value_t>
 value_t compute_kl_div(
-  value_t* restrict Ps, value_t* Qs, value_t* KL_divs, const size_t NNZ, cudaStream_t stream)
+  value_t* __restrict__ Ps, value_t* Qs, value_t* KL_divs, const size_t NNZ, cudaStream_t stream)
 {
   value_t P_sum = thrust::reduce(rmm::exec_policy(stream), Ps, Ps + NNZ);
   raft::linalg::scalarMultiply(Ps, Ps, 1.0f / P_sum, NNZ, stream);

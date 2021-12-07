@@ -23,7 +23,7 @@
 #include "pack.h"
 
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
 
 using namespace thrust;
 
@@ -49,7 +49,7 @@ void launcher(const raft::handle_t& handle,
 
   exclusive_scan(handle.get_thrust_policy(), dev_vd, dev_vd + batch_size, dev_ex_scan);
 
-  raft::sparse::convert::csr_adj_graph_batched<Index_, TPB_X>(
+  raft::sparse::convert::csr_adj_graph_batched<Index_>(
     data.ex_scan, data.N, data.adjnnz, batch_size, data.adj, data.adj_graph, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
