@@ -217,8 +217,6 @@ int main(int argc, char* argv[])
   rmm::device_uvector<float> dy_pred(n_test_rows, stream);
   rmm::device_scalar<float> d_score{stream};
 
-  cg::program_t d_finalprogs;  // pointer to last generation ASTs on device
-
   CUDA_RT_CALL(cudaMemcpyAsync(dX_train.data(),
                                X_train.data(),
                                sizeof(float) * dX_train.size(),
@@ -247,7 +245,7 @@ int main(int argc, char* argv[])
     dw_test.data(), w_test.data(), sizeof(float) * n_test_rows, cudaMemcpyHostToDevice, stream));
 
   // Initialize AST
-  raft::allocate(d_finalprogs, params.population_size, stream);
+  rmm::device_uvector<ct::program> d_finalprogs(params.population_size, stream);
 
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
@@ -273,7 +271,7 @@ int main(int argc, char* argv[])
              n_train_rows,
              n_cols,
              params,
-             d_finalprogs,
+             d_finalprogs.data(),
              history);
 
   cudaEventRecord(stop, stream);
@@ -311,7 +309,7 @@ int main(int argc, char* argv[])
   std::cout << "Beginning Inference on test dataset " << std::endl;
   cudaEventRecord(start, stream);
   cuml::genetic::symRegPredict(
-    handle, dX_test.data(), n_test_rows, d_finalprogs + best_idx, dy_pred.data());
+    handle, dX_test.data(), n_test_rows, d_finalprogs.data() + best_idx, dy_pred.data());
 
   std::vector<float> hy_pred(n_test_rows, 0.0f);
   CUDA_RT_CALL(cudaMemcpy(
@@ -339,7 +337,6 @@ int main(int argc, char* argv[])
 
   /* ======================= Reset data ======================= */
 
-  raft::deallocate(d_finalprogs, stream);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   CUDA_RT_CALL(cudaStreamDestroy(stream));
