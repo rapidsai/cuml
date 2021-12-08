@@ -34,7 +34,7 @@ requirements:
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py 0.23
+    - ucx-py 0.24
     - ucx-proc=*=gpu
   run:
     - python x.x
@@ -45,7 +45,7 @@ requirements:
     - cupy>=7.8.0,<10.0.0a0
     - treelite=2.1.0
     - nccl>=2.9.9
-    - ucx-py 0.23
+    - ucx-py 0.24
     - ucx-proc=*=gpu
     - dask>=2021.11.1,<=2021.11.2
     - distributed>=2021.11.1,<=2021.11.2

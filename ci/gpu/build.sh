@@ -53,7 +53,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.23.*" \
+      "ucx-py=0.24.*" \
       "ucx-proc=*=gpu" \
       "xgboost=1.5.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
@@ -181,7 +181,6 @@ else
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
-    gpuci_logger "GoogleTest for libcuml"
     cd $LIBCUML_BUILD_DIR
     chrpath -d ./test/ml
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
@@ -192,18 +191,36 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    
+    # FIXME: Project FLASH only builds for python version 3.7 which is the one used in 
+    # the CUDA 11.0 job, need to change all versions to project flash 
+    if [ "$py_ver" == "3.7" ];then
+        gpuci_logger "Using Project FLASH to install cuml python"
+        CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
+        CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
+        CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
+        echo "Installing $CONDA_FILE"
+        gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
+    else
+        gpuci_logger "Building cuml python in gpu job"
+        "$WORKSPACE/build.sh" -v cuml --codecov   
+    fi
+    
     gpuci_logger "Install the main version of dask and distributed"
     set -x
     pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
     set +x
-
-    gpuci_logger "Building cuml"
-    "$WORKSPACE/build.sh" -v cuml --codecov
-
+    
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
+    
+    # When installing cuml with project flash, we need to delete all folders except
+    # cuml/test since we are not building cython extensions in place 
+    if [ "$py_ver" == "3.7" ];then
+        find ./cuml -mindepth 1 ! -regex '^./cuml/test\(/.*\)?' -delete
+    fi
 
     pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
