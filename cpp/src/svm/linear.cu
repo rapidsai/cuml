@@ -301,7 +301,7 @@ class WorkerHandle {
   }
 
   WorkerHandle(const raft::handle_t& h, int stream_id)
-    : handle_ptr(new raft::handle_t(h.get_next_usable_stream(stream_id)),
+    : handle_ptr{new raft::handle_t{h.get_next_usable_stream(stream_id)}},
       stream_id(stream_id),
       handle(*handle_ptr),
       stream(h.get_next_usable_stream(stream_id))
