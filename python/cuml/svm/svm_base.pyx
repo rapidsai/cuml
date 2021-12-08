@@ -341,6 +341,8 @@ class SVMBase(Base,
     @property
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
+        if self._intercept_ is None:
+            raise AttributeError("intercept_ called before fit.")
         return self._intercept_
 
     @intercept_.setter
@@ -552,7 +554,7 @@ class SVMBase(Base,
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef SvmModel[float]* model_f

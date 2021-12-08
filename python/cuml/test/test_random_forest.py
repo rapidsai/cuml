@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import pytest
+
 import warnings
 import cudf
 import numpy as np
-import pytest
 import random
 import json
 import os
@@ -32,13 +34,17 @@ import cuml.common.logger as logger
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score, mean_squared_error, \
-    mean_poisson_deviance
+    mean_tweedie_deviance
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression, load_iris, load_breast_cancer, \
     load_boston
 from sklearn.model_selection import train_test_split
 
 import treelite
+
+
+pytestmark = pytest.mark.filterwarnings("ignore: For reproducible results(.*)"
+                                        "::cuml[.*]")
 
 
 @pytest.fixture(
@@ -187,21 +193,34 @@ def special_reg(request):
     return X, y
 
 
-@pytest.mark.parametrize("lam", [0.01, 0.1])
 @pytest.mark.parametrize("max_depth", [2, 4])
-def test_poisson_convergence(lam, max_depth):
+@pytest.mark.parametrize("split_criterion",
+                         ["poisson", "gamma", "inverse_gaussian"])
+def test_tweedie_convergence(max_depth, split_criterion):
     np.random.seed(33)
     bootstrap = None
     max_features = 1.0
     n_estimators = 1
     min_impurity_decrease = 1e-5
-    n_datapoints = 100000
-    # generating random poisson dataset
+    n_datapoints = 1000
+    tweedie = {
+        "poisson":
+            {"power": 1,
+             "gen": np.random.poisson, "args": [0.01]},
+        "gamma":
+            {"power": 2,
+             "gen": np.random.gamma, "args": [2.0]},
+        "inverse_gaussian":
+            {"power": 3,
+             "gen": np.random.wald, "args": [0.1, 2.0]}
+    }
+    # generating random dataset with tweedie distribution
     X = np.random.random((n_datapoints, 4)).astype(np.float32)
-    y = np.random.poisson(lam=lam, size=n_datapoints).astype(np.float32)
+    y = tweedie[split_criterion]["gen"](*tweedie[split_criterion]["args"],
+                                        size=n_datapoints).astype(np.float32)
 
-    poisson_preds = curfr(
-        split_criterion=4,
+    tweedie_preds = curfr(
+        split_criterion=split_criterion,
         max_depth=max_depth,
         n_estimators=n_estimators,
         bootstrap=bootstrap,
@@ -216,12 +235,19 @@ def test_poisson_convergence(lam, max_depth):
         min_impurity_decrease=min_impurity_decrease).fit(X, y).predict(X)
     # y should not be non-positive for mean_poisson_deviance
     mask = mse_preds > 0
-    mse_mpd = mean_poisson_deviance(y[mask], mse_preds[mask])
-    poisson_mpd = mean_poisson_deviance(y, poisson_preds)
+    mse_tweedie_deviance = mean_tweedie_deviance(y[mask],
+                                                 mse_preds[mask],
+                                                 power=tweedie
+                                                 [split_criterion]["power"])
+    tweedie_tweedie_deviance = mean_tweedie_deviance(y[mask],
+                                                     tweedie_preds[mask],
+                                                     power=tweedie
+                                                     [split_criterion]["power"]
+                                                     )
 
-    # model trained on poisson data with
-    # poisson criterion must perform better on poisson loss
-    assert mse_mpd >= poisson_mpd
+    # model trained on tweedie data with
+    # tweedie criterion must perform better on tweedie loss
+    assert mse_tweedie_deviance >= tweedie_tweedie_deviance
 
 
 @pytest.mark.parametrize(
@@ -400,6 +426,7 @@ def test_rf_classification_seed(small_clf, datatype):
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
 @pytest.mark.parametrize("convert_dtype", [True, False])
+@pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
 def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 
     X, y = small_clf
@@ -456,6 +483,7 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 @pytest.mark.parametrize(
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
+@pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
 def test_rf_regression_float64(large_reg, datatype):
 
     X, y = large_reg
@@ -552,15 +580,13 @@ def rf_classification(
         y_train_df = cudf.Series(y_train)
         X_test_df = cudf.DataFrame(X_test)
         cuml_model.fit(X_train_df, y_train_df)
-        cu_proba_gpu = np.array(
-            cuml_model.predict_proba(X_test_df).as_gpu_matrix()
-        )
+        cu_proba_gpu = cuml_model.predict_proba(X_test_df).to_numpy()
         cu_preds_cpu = cuml_model.predict(
             X_test_df, predict_model="CPU"
-        ).to_array()
+        ).to_numpy()
         cu_preds_gpu = cuml_model.predict(
             X_test_df, predict_model="GPU"
-        ).to_array()
+        ).to_numpy()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)

@@ -15,13 +15,14 @@
  */
 
 #pragma once
-#include <raft/matrix/math.cuh>
+#include <raft/matrix/math.hpp>
 #include <rmm/device_uvector.hpp>
 #include "glm_base.cuh"
 #include "glm_linear.cuh"
 #include "glm_logistic.cuh"
 #include "glm_regularizer.cuh"
 #include "glm_softmax.cuh"
+#include "glm_svm.cuh"
 #include "qn_solvers.cuh"
 
 namespace ML {
@@ -89,9 +90,10 @@ inline void qn_fit_x(const raft::handle_t& handle,
                      T* w0_data,
                      T* f,
                      int* num_iters,
-                     int loss_type,
+                     QN_LOSS_TYPE loss_type,
                      cudaStream_t stream,
-                     T* sample_weight = nullptr)
+                     T* sample_weight = nullptr,
+                     T svr_eps        = 0)
 {
   /*
    NB:
@@ -113,7 +115,7 @@ inline void qn_fit_x(const raft::handle_t& handle,
   SimpleVec<T> y(y_data, N);
 
   switch (loss_type) {
-    case 0: {
+    case QN_LOSS_LOGISTIC: {
       ASSERT(C == 2, "qn.h: logistic loss invalid C");
       LogisticLoss<T> loss(handle, D, fit_intercept);
       if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
@@ -135,7 +137,7 @@ inline void qn_fit_x(const raft::handle_t& handle,
                                 num_iters,
                                 stream);
     } break;
-    case 1: {
+    case QN_LOSS_SQUARED: {
       ASSERT(C == 1, "qn.h: squared loss invalid C");
       SquaredLoss<T> loss(handle, D, fit_intercept);
       if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
@@ -157,7 +159,7 @@ inline void qn_fit_x(const raft::handle_t& handle,
                                 num_iters,
                                 stream);
     } break;
-    case 2: {
+    case QN_LOSS_SOFTMAX: {
       ASSERT(C > 2, "qn.h: softmax invalid C");
       Softmax<T> loss(handle, D, C, fit_intercept);
       if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
@@ -179,8 +181,118 @@ inline void qn_fit_x(const raft::handle_t& handle,
                                 num_iters,
                                 stream);
     } break;
+    case QN_LOSS_SVC_L1: {
+      ASSERT(C == 1, "qn.h: SVC-L1 loss invalid C");
+      SVCL1Loss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case QN_LOSS_SVC_L2: {
+      ASSERT(C == 1, "qn.h: SVC-L2 loss invalid C");
+      SVCL2Loss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case QN_LOSS_SVR_L1: {
+      ASSERT(C == 1, "qn.h: SVR-L1 loss invalid C");
+      SVRL1Loss<T> loss(handle, D, fit_intercept, svr_eps);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case QN_LOSS_SVR_L2: {
+      ASSERT(C == 1, "qn.h: SVR-L2 loss invalid C");
+      SVRL2Loss<T> loss(handle, D, fit_intercept, svr_eps);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case QN_LOSS_ABS: {
+      ASSERT(C == 1, "qn.h: abs loss (L1) invalid C");
+      AbsLoss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
     default: {
-      ASSERT(false, "qn.h: unknown loss function.");
+      ASSERT(false, "qn.h: unknown loss function type (id = %d).", loss_type);
     }
   }
 }
@@ -205,9 +317,10 @@ void qnFit(const raft::handle_t& handle,
            T* w0_data,
            T* f,
            int* num_iters,
-           int loss_type,
+           QN_LOSS_TYPE loss_type,
            cudaStream_t stream,
-           T* sample_weight = nullptr)
+           T* sample_weight = nullptr,
+           T svr_eps        = 0)
 {
   SimpleDenseMat<T> X(X_data, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
   qn_fit_x(handle,
@@ -228,7 +341,8 @@ void qnFit(const raft::handle_t& handle,
            num_iters,
            loss_type,
            stream,
-           sample_weight);
+           sample_weight,
+           svr_eps);
 }
 
 template <typename T>
@@ -253,9 +367,10 @@ void qnFitSparse(const raft::handle_t& handle,
                  T* w0_data,
                  T* f,
                  int* num_iters,
-                 int loss_type,
+                 QN_LOSS_TYPE loss_type,
                  cudaStream_t stream,
-                 T* sample_weight = nullptr)
+                 T* sample_weight = nullptr,
+                 T svr_eps        = 0)
 {
   SimpleSparseMat<T> X(X_values, X_cols, X_row_ids, X_nnz, N, D);
   qn_fit_x(handle,
@@ -276,7 +391,8 @@ void qnFitSparse(const raft::handle_t& handle,
            num_iters,
            loss_type,
            stream,
-           sample_weight);
+           sample_weight,
+           svr_eps);
 }
 
 template <typename T>
@@ -285,7 +401,7 @@ void qn_decision_function(const raft::handle_t& handle,
                           int C,
                           bool fit_intercept,
                           T* params,
-                          int loss_type,
+                          QN_LOSS_TYPE loss_type,
                           T* scores,
                           cudaStream_t stream)
 {
@@ -308,7 +424,7 @@ void qnDecisionFunction(const raft::handle_t& handle,
                         int C,
                         bool fit_intercept,
                         T* params,
-                        int loss_type,
+                        QN_LOSS_TYPE loss_type,
                         T* scores,
                         cudaStream_t stream)
 {
@@ -327,7 +443,7 @@ void qnDecisionFunctionSparse(const raft::handle_t& handle,
                               int C,
                               bool fit_intercept,
                               T* params,
-                              int loss_type,
+                              QN_LOSS_TYPE loss_type,
                               T* scores,
                               cudaStream_t stream)
 {
@@ -341,7 +457,7 @@ void qn_predict(const raft::handle_t& handle,
                 int C,
                 bool fit_intercept,
                 T* params,
-                int loss_type,
+                QN_LOSS_TYPE loss_type,
                 T* preds,
                 cudaStream_t stream)
 {
@@ -383,7 +499,7 @@ void qnPredict(const raft::handle_t& handle,
                int C,
                bool fit_intercept,
                T* params,
-               int loss_type,
+               QN_LOSS_TYPE loss_type,
                T* preds,
                cudaStream_t stream)
 {
@@ -402,7 +518,7 @@ void qnPredictSparse(const raft::handle_t& handle,
                      int C,
                      bool fit_intercept,
                      T* params,
-                     int loss_type,
+                     QN_LOSS_TYPE loss_type,
                      T* preds,
                      cudaStream_t stream)
 {

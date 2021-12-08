@@ -491,44 +491,51 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
-def to_categorical(features, n_categorical, invalid_pct, rng):
+def to_categorical(features, n_categorical, invalid_frac, random_state):
     """ returns data in two formats: pandas (for LightGBM) and numpy (for FIL)
+        LightGBM needs a DataFrame to recognize and fit on categorical columns.
+        Second fp32 output is to test invalid categories for prediction only.
     """
+    features = features.copy()  # avoid clobbering source matrix
+    rng = np.random.default_rng(hash(random_state))  # allow RandomState object
     # the main bottleneck (>80%) of to_categorical() is the pandas operations
     n_features = features.shape[1]
-    df_cols = {}
     # all categorical columns
     cat_cols = features[:, :n_categorical]
+    # axis=1 means 0th dimension remains. Row-major FIL means 0th dimension is
+    # the number of columns. We reduce within columns, across rows.
     cat_cols = cat_cols - cat_cols.min(axis=0, keepdims=True)  # range [0, ?]
     cat_cols /= cat_cols.max(axis=0, keepdims=True)  # range [0, 1]
     rough_n_categories = 100
     # round into rough_n_categories bins
     cat_cols = (cat_cols * rough_n_categories).astype(int)
-    # randomly inject invalid categories
+
+    # mix categorical and numerical columns
+    new_col_idx = \
+        rng.choice(n_features, n_features, replace=False, shuffle=True)
+    df_cols = {}
+    for icol in range(n_categorical):
+        col = cat_cols[:, icol]
+        df_cols[new_col_idx[icol]] = pd.Series(pd.Categorical(col,
+                                               categories=np.unique(col)))
+    # all numerical columns
+    for icol in range(n_categorical, n_features):
+        df_cols[new_col_idx[icol]] = pd.Series(features[:, icol])
+    fit_df = pd.DataFrame(df_cols)
+
+    # randomly inject invalid categories only into predict_matrix
     invalid_idx = rng.choice(
         a=cat_cols.size,
-        size=ceil(cat_cols.size * invalid_pct / 100),
+        size=ceil(cat_cols.size * invalid_frac),
         replace=False,
         shuffle=False)
     cat_cols.flat[invalid_idx] += rough_n_categories
+    # mix categorical and numerical columns
+    predict_matrix = np.concatenate([cat_cols, features[:, n_categorical:]],
+                                    axis=1)
+    predict_matrix[:, new_col_idx] = predict_matrix
 
-    new_features = features.copy()
-    new_features[:, :n_categorical] = cat_cols
-
-    # shuffle the columns around
-    new_idx = rng.choice(n_features, n_features, replace=False, shuffle=True)
-    new_matrix = new_features[:, new_idx]
-    for icol in range(n_categorical):
-        col = cat_cols[:, icol]
-        df_cols[icol] = pd.Series(pd.Categorical(col,
-                                                 categories=np.unique(col)))
-    # all numerical columns
-    for icol in range(n_categorical, n_features):
-        df_cols[icol] = pd.Series(features[:, icol])
-    # shuffle the columns around
-    df_cols = {i: df_cols[new_idx[i]] for i in range(n_features)}
-
-    return pd.DataFrame(df_cols), new_matrix
+    return fit_df, predict_matrix
 
 
 @pytest.mark.parametrize('num_classes', [2, 5])
@@ -546,18 +553,19 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         n_rows = 500
         n_informative = 'auto'
 
-    state = np.random.RandomState(43210)
     X, y = simulate_data(n_rows,
                          n_features,
                          num_classes,
                          n_informative=n_informative,
-                         random_state=state,
+                         random_state=43210,
                          classification=True)
-    rng = np.random.default_rng(hash(state))
     if n_categorical > 0:
-        X_fit, X = to_categorical(X, n_categorical, 10, rng)
+        X_fit, X_predict = to_categorical(X,
+                                          n_categorical=n_categorical,
+                                          invalid_frac=0.1,
+                                          random_state=43210)
     else:
-        X_fit = X
+        X_fit, X_predict = X, X
 
     train_data = lgb.Dataset(X_fit, label=y)
     num_round = 5
@@ -574,10 +582,10 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                                   output_class=True,
                                   model_type="lightgbm")
         # binary classification
-        gbm_proba = bst.predict(X)
-        fil_proba = fm.predict_proba(X)[:, 1]
-        gbm_preds = (gbm_proba > 0.5).astype(int)
-        fil_preds = fm.predict(X)
+        gbm_proba = bst.predict(X_predict)
+        fil_proba = fm.predict_proba(X_predict)[:, 1]
+        gbm_preds = (gbm_proba > 0.5).astype(float)
+        fil_preds = fm.predict(X_predict)
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(gbm_proba, fil_proba,
                                    atol=proba_atol[num_classes > 2])
@@ -588,13 +596,15 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                                  n_estimators=num_round)
         lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
-        lgm_preds = lgm.predict(X).astype(int)
+        lgm_preds = lgm.predict(X_predict).astype(int)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        assert array_equal(lgm.booster_.predict(X).argmax(axis=1), lgm_preds)
-        assert array_equal(lgm_preds, fm.predict(X))
+        assert array_equal(lgm.booster_.predict(X_predict).argmax(axis=1),
+                           lgm_preds)
+        assert array_equal(lgm_preds, fm.predict(X_predict))
         # lightgbm uses float64 thresholds, while FIL uses float32
-        np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
+        np.testing.assert_allclose(lgm.predict_proba(X_predict),
+                                   fm.predict_proba(X_predict),
                                    atol=proba_atol[num_classes > 2])

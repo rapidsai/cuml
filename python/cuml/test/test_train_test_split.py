@@ -386,8 +386,8 @@ def test_stratify_retain_index(test_size, train_size):
                                                         shuffle=True,
                                                         stratify=y,
                                                         random_state=15)
-    assert (X_train["x"].to_array() == X_train.index.to_array()).all()
-    assert (X_test["x"].to_array() == X_test.index.to_array()).all()
+    assert (X_train["x"].to_numpy() == X_train.index.to_numpy()).all()
+    assert (X_test["x"].to_numpy() == X_test.index.to_numpy()).all()
 
     if train_size is not None:
         assert X_train.shape[0] == (int)(X.shape[0] * train_size)
@@ -440,8 +440,8 @@ def test_stratify_any_input(test_size, train_size):
                                                         shuffle=True,
                                                         stratify=X['test_col'],
                                                         random_state=15)
-    assert (X_train["x"].to_array() == X_train.index.to_array()).all()
-    assert (X_test["x"].to_array() == X_test.index.to_array()).all()
+    assert (X_train["x"].to_numpy() == X_train.index.to_numpy()).all()
+    assert (X_test["x"].to_numpy() == X_test.index.to_numpy()).all()
 
     if train_size is not None:
         assert X_train.shape[0] == (int)(X.shape[0] * train_size)

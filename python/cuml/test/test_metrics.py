@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import pytest
+
 import random
 from itertools import chain, permutations
 from functools import partial
@@ -22,7 +25,6 @@ import cuml.common.logger as logger
 import cupy as cp
 import cupyx
 import numpy as np
-import pytest
 import cudf
 
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -188,9 +190,12 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
-                       n_bins=8, split_criterion=0,
+                       n_bins=8,
+                       split_criterion=0,
                        min_samples_leaf=2,
-                       n_estimators=40, handle=handle, max_leaves=-1,
+                       n_estimators=40,
+                       handle=handle,
+                       max_leaves=-1,
                        max_depth=16)
 
     cuml_model.fit(X_train, y_train)
@@ -466,7 +471,7 @@ def test_completeness_score_big_array(use_handle, input_range):
 
 
 def test_regression_metrics():
-    y_true = np.arange(50, dtype=np.int)
+    y_true = np.arange(50, dtype=int)
     y_pred = y_true + 1
     assert_almost_equal(mean_squared_error(y_true, y_pred), 1.)
     assert_almost_equal(mean_squared_log_error(y_true, y_pred),
@@ -499,8 +504,8 @@ def test_regression_metrics_random(n_samples, dtype, function):
 
 @pytest.mark.parametrize('function', ['mse', 'mse_not_squared', 'mae', 'msle'])
 def test_regression_metrics_at_limits(function):
-    y_true = np.array([0.], dtype=np.float)
-    y_pred = np.array([0.], dtype=np.float)
+    y_true = np.array([0.], dtype=float)
+    y_pred = np.array([0.], dtype=float)
 
     cuml_reg = {
         'mse': mean_squared_error,
@@ -540,8 +545,8 @@ def test_multioutput_regression():
 
 
 def test_regression_metrics_multioutput_array():
-    y_true = np.array([[1, 2], [2.5, -1], [4.5, 3], [5, 7]], dtype=np.float)
-    y_pred = np.array([[1, 1], [2, -1], [5, 4], [5, 6.5]], dtype=np.float)
+    y_true = np.array([[1, 2], [2.5, -1], [4.5, 3], [5, 7]], dtype=float)
+    y_pred = np.array([[1, 1], [2, -1], [5, 4], [5, 6.5]], dtype=float)
 
     mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
     mae = mean_absolute_error(y_true, y_pred, multioutput='raw_values')
@@ -549,15 +554,15 @@ def test_regression_metrics_multioutput_array():
     cp.testing.assert_array_almost_equal(mse, [0.125, 0.5625], decimal=2)
     cp.testing.assert_array_almost_equal(mae, [0.25, 0.625], decimal=2)
 
-    weights = np.array([0.4, 0.6], dtype=np.float)
+    weights = np.array([0.4, 0.6], dtype=float)
     msew = mean_squared_error(y_true, y_pred, multioutput=weights)
     rmsew = mean_squared_error(y_true, y_pred, multioutput=weights,
                                squared=False)
     assert_almost_equal(msew, 0.39, decimal=2)
     assert_almost_equal(rmsew, 0.62, decimal=2)
 
-    y_true = np.array([[0, 0]] * 4, dtype=np.int)
-    y_pred = np.array([[1, 1]] * 4, dtype=np.int)
+    y_true = np.array([[0, 0]] * 4, dtype=int)
+    y_pred = np.array([[1, 1]] * 4, dtype=int)
     mse = mean_squared_error(y_true, y_pred, multioutput='raw_values')
     mae = mean_absolute_error(y_true, y_pred, multioutput='raw_values')
     cp.testing.assert_array_almost_equal(mse, [1., 1.], decimal=2)
@@ -573,9 +578,9 @@ def test_regression_metrics_multioutput_array():
 
 @pytest.mark.parametrize('function', ['mse', 'mae'])
 def test_regression_metrics_custom_weights(function):
-    y_true = np.array([1, 2, 2.5, -1], dtype=np.float)
-    y_pred = np.array([1, 1, 2, -1], dtype=np.float)
-    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=np.float)
+    y_true = np.array([1, 2, 2.5, -1], dtype=float)
+    y_pred = np.array([1, 1, 2, -1], dtype=float)
+    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
 
     cuml_reg, sklearn_reg = {
         'mse': (mean_squared_error, sklearn_mse),
@@ -588,9 +593,9 @@ def test_regression_metrics_custom_weights(function):
 
 
 def test_mse_vs_msle_custom_weights():
-    y_true = np.array([0.5, 2, 7, 6], dtype=np.float)
-    y_pred = np.array([0.5, 1, 8, 8], dtype=np.float)
-    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=np.float)
+    y_true = np.array([0.5, 2, 7, 6], dtype=float)
+    y_pred = np.array([0.5, 1, 8, 8], dtype=float)
+    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
     msle = mean_squared_log_error(y_true, y_pred, sample_weight=weights)
     msle2 = mean_squared_error(np.log(1 + y_true), np.log(1 + y_pred),
                                sample_weight=weights)
@@ -743,8 +748,8 @@ def test_roc_auc_score_random(n_samples, dtype):
 
 
 def test_roc_auc_score_at_limits():
-    y_true = np.array([0., 0., 0.], dtype=np.float)
-    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+    y_true = np.array([0., 0., 0.], dtype=float)
+    y_pred = np.array([0., 0.5, 1.], dtype=float)
 
     err_msg = ("roc_auc_score cannot be used when "
                "only one class present in y_true. ROC AUC score "
@@ -753,8 +758,8 @@ def test_roc_auc_score_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
 
-    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
-    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+    y_true = np.array([0., 0.5, 1.0], dtype=float)
+    y_pred = np.array([0., 0.5, 1.], dtype=float)
 
     err_msg = ("Continuous format of y_true  "
                "is not supported.")
@@ -779,8 +784,8 @@ def test_precision_recall_curve():
 
 
 def test_precision_recall_curve_at_limits():
-    y_true = np.array([0., 0., 0.], dtype=np.float)
-    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+    y_true = np.array([0., 0., 0.], dtype=float)
+    y_pred = np.array([0., 0.5, 1.], dtype=float)
 
     err_msg = ("precision_recall_curve cannot be used when "
                "y_true is all zero.")
@@ -788,8 +793,8 @@ def test_precision_recall_curve_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         precision_recall_curve(y_true, y_pred)
 
-    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
-    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+    y_true = np.array([0., 0.5, 1.0], dtype=float)
+    y_pred = np.array([0., 0.5, 1.], dtype=float)
 
     err_msg = ("Continuous format of y_true  "
                "is not supported.")
@@ -847,8 +852,8 @@ def test_log_loss_random(n_samples, dtype):
 
 
 def test_log_loss_at_limits():
-    y_true = np.array([0., 1., 2.], dtype=np.float)
-    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+    y_true = np.array([0., 1., 2.], dtype=float)
+    y_pred = np.array([0., 0.5, 1.], dtype=float)
 
     err_msg = ("The shape of y_pred doesn't "
                "match the number of classes")
@@ -856,8 +861,8 @@ def test_log_loss_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         log_loss(y_true, y_pred)
 
-    y_true = np.array([0., 0.5, 1.0], dtype=np.float)
-    y_pred = np.array([0., 0.5, 1.], dtype=np.float)
+    y_true = np.array([0., 0.5, 1.0], dtype=float)
+    y_pred = np.array([0., 0.5, 1.], dtype=float)
 
     err_msg = ("'y_true' can only have integer values")
     with pytest.raises(ValueError, match=err_msg):
@@ -1193,6 +1198,8 @@ def ref_sparse_pairwise_dist(X, Y=None, metric=None):
 @pytest.mark.parametrize("matrix_size, density", [
     ((3, 3), 0.7),
     ((5, 40), 0.2)])
+# ignoring boolean conversion warning for both cuml and sklearn
+@pytest.mark.filterwarnings("ignore:(.*)converted(.*)::")
 def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
                                                 density: float):
     # Test the sparse_pairwise_distance helper function.
@@ -1257,7 +1264,7 @@ def test_sparse_pairwise_distances_exceptions():
     X_int = sparse.random(5, 4, dtype=np.float32,
                           random_state=123, density=0.3) * 10
     X_int.dtype = cp.int32
-    X_bool = sparse.random(5, 4, dtype=cp.bool,
+    X_bool = sparse.random(5, 4, dtype=bool,
                            random_state=123, density=0.3)
     X_double = cupyx.scipy.sparse.random(5, 4, dtype=cp.float64,
                                          random_state=123, density=0.3)
@@ -1310,6 +1317,8 @@ def test_sparse_pairwise_distances_exceptions():
     unit_param((20, 10000), 0.01),
     quality_param((2000, 1000), 0.05),
     stress_param((10000, 10000), 0.01)])
+# ignoring boolean conversion warning for both cuml and sklearn
+@pytest.mark.filterwarnings("ignore:(.*)converted(.*)::")
 def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
                                                       density: float):
     # Test larger sizes to sklearn
@@ -1404,8 +1413,8 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
     cu_predict_decision = cuml_model.decision_function(X_test)
     cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
     if input_type == "cudf":
-        y_test = y_test.to_array()
-        y = y.to_array()
+        y_test = y_test.to_numpy()
+        y = y.to_numpy()
         cu_predict_decision = cp.asnumpy(cu_predict_decision.values)
     elif input_type == "cupy":
         y = cp.asnumpy(y)
@@ -1457,3 +1466,11 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         cu_res = cu_kl_divergence(P, Q, convert_dtype=False)
 
     cp.testing.assert_array_almost_equal(cu_res, sk_res)
+
+
+def test_mean_squared_error():
+    y1 = np.array([[1], [2], [3]])
+    y2 = y1.squeeze()
+
+    assert mean_squared_error(y1, y2) == 0
+    assert mean_squared_error(y2, y1) == 0

@@ -37,15 +37,16 @@ struct ARIMAOrder {
   int P;  // Seasonal order
   int D;
   int Q;
-  int s;  // Seasonal period
-  int k;  // Fit intercept?
+  int s;       // Seasonal period
+  int k;       // Fit intercept?
+  int n_exog;  // Number of exogenous regressors
 
   inline int n_diff() const { return d + s * D; }
   inline int n_phi() const { return p + s * P; }
   inline int n_theta() const { return q + s * Q; }
   inline int r() const { return std::max(n_phi(), n_theta() + 1); }
   inline int rd() const { return n_diff() + r(); }
-  inline int complexity() const { return p + P + q + Q + k + 1; }
+  inline int complexity() const { return p + P + q + Q + k + n_exog + 1; }
   inline bool need_diff() const { return static_cast<bool>(d + D); }
 };
 
@@ -58,6 +59,7 @@ struct ARIMAOrder {
 template <typename DataT>
 struct ARIMAParams {
   DataT* mu     = nullptr;
+  DataT* beta   = nullptr;
   DataT* ar     = nullptr;
   DataT* ma     = nullptr;
   DataT* sar    = nullptr;
@@ -77,6 +79,8 @@ struct ARIMAParams {
   {
     rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
     if (order.k && !tr) mu = (DataT*)rmm_alloc->allocate(batch_size * sizeof(DataT), stream);
+    if (order.n_exog && !tr)
+      beta = (DataT*)rmm_alloc->allocate(order.n_exog * batch_size * sizeof(DataT), stream);
     if (order.p) ar = (DataT*)rmm_alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
     if (order.q) ma = (DataT*)rmm_alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
     if (order.P) sar = (DataT*)rmm_alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
@@ -97,6 +101,8 @@ struct ARIMAParams {
   {
     rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
     if (order.k && !tr) rmm_alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
+    if (order.n_exog && !tr)
+      rmm_alloc->deallocate(beta, order.n_exog * batch_size * sizeof(DataT), stream);
     if (order.p) rmm_alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
     if (order.q) rmm_alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
     if (order.P) rmm_alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
@@ -118,7 +124,8 @@ struct ARIMAParams {
     int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    const DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
+    const DataT *_mu = mu, *_beta = beta, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma,
+                *_sigma2 = sigma2;
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         DataT* param = param_vec + bid * N;
@@ -126,6 +133,10 @@ struct ARIMAParams {
           *param = _mu[bid];
           param++;
         }
+        for (int i = 0; i < order.n_exog; i++) {
+          param[i] = _beta[order.n_exog * bid + i];
+        }
+        param += order.n_exog;
         for (int ip = 0; ip < order.p; ip++) {
           param[ip] = _ar[order.p * bid + ip];
         }
@@ -160,7 +171,8 @@ struct ARIMAParams {
     int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
+    DataT *_mu = mu, *_beta = beta, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma,
+          *_sigma2 = sigma2;
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         const DataT* param = param_vec + bid * N;
@@ -168,6 +180,10 @@ struct ARIMAParams {
           _mu[bid] = *param;
           param++;
         }
+        for (int i = 0; i < order.n_exog; i++) {
+          _beta[order.n_exog * bid + i] = param[i];
+        }
+        param += order.n_exog;
         for (int ip = 0; ip < order.p; ip++) {
           _ar[order.p * bid + ip] = param[ip];
         }
@@ -197,12 +213,12 @@ struct ARIMAParams {
  */
 template <typename T, int ALIGN = 256>
 struct ARIMAMemory {
-  T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma, *params_sigma2, *Tparams_mu,
+  T *params_mu, *params_beta, *params_ar, *params_ma, *params_sar, *params_sma, *params_sigma2,
     *Tparams_ar, *Tparams_ma, *Tparams_sar, *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams,
     *Z_dense, *R_dense, *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
-    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *pred, *y_diff, *loglike,
-    *loglike_base, *loglike_pert, *x_pert, *sigma2_buffer, *I_m_AxA_dense, *I_m_AxA_inv_dense,
-    *Ts_dense, *RQRs_dense, *Ps_dense;
+    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *pred, *y_diff, *exog_diff,
+    *loglike, *loglike_base, *loglike_pert, *x_pert, *I_m_AxA_dense, *I_m_AxA_inv_dense, *Ts_dense,
+    *RQRs_dense, *Ps_dense;
   T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches, **P_batches,
     **alpha_batches, **ImT_batches, **ImT_inv_batches, **v_tmp_batches, **m_tmp_batches,
     **K_batches, **TP_batches, **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches,
@@ -236,13 +252,13 @@ struct ARIMAMemory {
     int n_diff = order.n_diff();
 
     append_buffer<assign>(params_mu, order.k * batch_size);
+    append_buffer<assign>(params_beta, order.n_exog * batch_size);
     append_buffer<assign>(params_ar, order.p * batch_size);
     append_buffer<assign>(params_ma, order.q * batch_size);
     append_buffer<assign>(params_sar, order.P * batch_size);
     append_buffer<assign>(params_sma, order.Q * batch_size);
     append_buffer<assign>(params_sigma2, batch_size);
 
-    append_buffer<assign>(Tparams_mu, order.k * batch_size);
     append_buffer<assign>(Tparams_ar, order.p * batch_size);
     append_buffer<assign>(Tparams_ma, order.q * batch_size);
     append_buffer<assign>(Tparams_sar, order.P * batch_size);
@@ -279,10 +295,10 @@ struct ARIMAMemory {
     append_buffer<assign>(K_batches, batch_size);
     append_buffer<assign>(TP_dense, rd * rd * batch_size);
     append_buffer<assign>(TP_batches, batch_size);
-    append_buffer<assign>(sigma2_buffer, batch_size);
 
     append_buffer<assign>(pred, n_obs * batch_size);
     append_buffer<assign>(y_diff, n_obs * batch_size);
+    append_buffer<assign>(exog_diff, n_obs * order.n_exog * batch_size);
     append_buffer<assign>(loglike, batch_size);
     append_buffer<assign>(loglike_base, batch_size);
     append_buffer<assign>(loglike_pert, batch_size);

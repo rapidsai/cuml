@@ -216,6 +216,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
+      tl_tree.SetDataCount(tl_node_id, q_node.InstanceCount());
     }
 
     cur_level_queue.swap(next_level_queue);
@@ -307,6 +308,34 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                     quantiles)
+        .train();
+    } else if (params.split_criterion == CRITERION::GAMMA) {
+      return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                  s,
+                                                                  treeid,
+                                                                  seed,
+                                                                  params,
+                                                                  data,
+                                                                  labels,
+                                                                  nrows,
+                                                                  ncols,
+                                                                  rowids,
+                                                                  unique_labels,
+                                                                  quantiles)
+        .train();
+    } else if (params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
+      return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                            s,
+                                                                            treeid,
+                                                                            seed,
+                                                                            params,
+                                                                            data,
+                                                                            labels,
+                                                                            nrows,
+                                                                            ncols,
+                                                                            rowids,
+                                                                            unique_labels,
+                                                                            quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

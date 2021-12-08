@@ -20,7 +20,7 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>
 #include <vector>

@@ -28,11 +28,11 @@ namespace DT {
 
 struct DecisionTreeParams {
   /**
-   * Maximum tree depth. Unlimited (e.g., until leaves are pure), if -1.
+   * Maximum tree depth. Unlimited (e.g., until leaves are pure), If `-1`.
    */
   int max_depth;
   /**
-   * Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+   * Maximum leaf nodes per tree. Soft constraint. Unlimited, If `-1`.
    */
   int max_leaves;
   /**

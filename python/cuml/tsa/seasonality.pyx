@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,7 @@
 
 # distutils: language = c++
 
-import ctypes
 import numpy as np
-from libc.stdint cimport uintptr_t
-from libcpp cimport bool
 
 import cuml.internals
 from cuml.common.array import CumlArray
@@ -84,5 +81,5 @@ def seas_test(y, s, handle=None) -> CumlArray:
 
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
-    d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=np.bool)
+    d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=bool)
     return d_res

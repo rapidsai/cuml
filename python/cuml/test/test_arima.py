@@ -55,13 +55,17 @@ from cuml.test.utils import stress_param
 class ARIMAData:
     """Contains a dataset name and associated metadata
     """
+
     def __init__(self, batch_size, n_obs, n_test, dataset,
-                 tolerance_integration):
+                 tolerance_integration, n_exog=0, dataset_exog=None):
         self.batch_size = batch_size
         self.n_obs = n_obs
         self.n_test = n_test
         self.dataset = dataset
         self.tolerance_integration = tolerance_integration
+
+        self.n_exog = n_exog
+        self.dataset_exog = dataset_exog
 
         self.n_train = n_obs - n_test
 
@@ -81,7 +85,7 @@ test_002c = ARIMAData(
     n_obs=20,
     n_test=2,
     dataset="net_migrations_auckland_by_age",
-    tolerance_integration=0.01
+    tolerance_integration=0.05
 )
 
 # ARIMA(0,1,0) with intercept
@@ -109,6 +113,17 @@ test_011c = ARIMAData(
     n_test=2,
     dataset="deaths_by_region",
     tolerance_integration=0.05
+)
+
+# ARIMA(0,1,1) with intercept (exogenous variables)
+test_011c_exog = ARIMAData(
+    batch_size=16,
+    n_obs=28,
+    n_test=2,
+    dataset="endog_deaths_by_region_exog",
+    tolerance_integration=0.05,
+    n_exog=2,
+    dataset_exog="exog_deaths_by_region_exog"
 )
 
 # ARIMA(1,2,1) with intercept
@@ -165,6 +180,18 @@ test_111_200_4c_missing = ARIMAData(
     tolerance_integration=0.01
 )
 
+# ARIMA(1,1,1)(2,0,0)_4 with intercept
+# (missing observations and exogenous variables)
+test_111_200_4c_missing_exog = ARIMAData(
+    batch_size=14,
+    n_obs=123,
+    n_test=10,
+    dataset="endog_hourly_earnings_by_industry_missing_exog",
+    tolerance_integration=0.01,
+    n_exog=2,
+    dataset_exog="exog_hourly_earnings_by_industry_missing_exog",
+)
+
 # ARIMA(1,1,2)(0,1,2)_4
 test_112_012_4 = ARIMAData(
     batch_size=2,
@@ -189,7 +216,18 @@ test_111_111_12_missing = ARIMAData(
     n_obs=279,
     n_test=20,
     dataset="guest_nights_by_region_missing",
-    tolerance_integration=0.001
+    tolerance_integration=0.03
+)
+
+# ARIMA(1,1,1)(1,1,1)_12 (missing obs, exogenous variables, intercept)
+test_111_111_12c_missing_exog = ARIMAData(
+    batch_size=12,
+    n_obs=279,
+    n_test=20,
+    dataset="endog_guest_nights_by_region_missing_exog",
+    tolerance_integration=0.001,
+    n_exog=2,
+    dataset_exog="exog_guest_nights_by_region_missing_exog",
 )
 
 # Dictionary matching a test case to a tuple of model parameters
@@ -201,15 +239,18 @@ test_data = [
     ((0, 1, 0, 0, 0, 0, 0, 1), test_010c),
     ((1, 1, 0, 0, 0, 0, 0, 0), test_110),
     ((0, 1, 1, 0, 0, 0, 0, 1), test_011c),
+    ((0, 1, 1, 0, 0, 0, 0, 1), test_011c_exog),
     ((1, 2, 1, 0, 0, 0, 0, 1), test_121c),
     ((1, 1, 1, 0, 0, 0, 0, 1), test_111c_missing),
     ((1, 0, 1, 1, 1, 1, 4, 0), test_101_111_4),
     ((5, 1, 0, 0, 0, 0, 0, 0), test_510),
     ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
     ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing),
+    ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing_exog),
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12_missing),
+    stress_param((1, 0, 1, 1, 1, 1, 12, 1), test_111_111_12c_missing_exog),
 ]
 
 # Dictionary for lazy-loading of datasets
@@ -243,7 +284,19 @@ def get_dataset(data, dtype):
                                            shuffle=False)
         y_train_cudf = cudf.from_pandas(y_train).fillna(np.nan)
         y_test_cudf = cudf.from_pandas(y_test)
-        lazy_data[key] = (y_train, y_train_cudf, y_test, y_test_cudf)
+        if data.dataset_exog is not None:
+            exog = pd.read_csv(
+                os.path.join(data_path, "{}.csv".format(data.dataset_exog)),
+                usecols=range(1, data.n_exog * data.batch_size + 1),
+                dtype=dtype)
+            exog_past, exog_fut = train_test_split(exog, test_size=data.n_test,
+                                                   shuffle=False)
+            exog_past_cudf = cudf.from_pandas(exog_past).fillna(np.nan)
+            exog_fut_cudf = cudf.from_pandas(exog_fut)
+        else:
+            exog_past, exog_past_cudf, exog_fut, exog_fut_cudf = [None]*4
+        lazy_data[key] = (y_train, y_train_cudf, y_test, y_test_cudf,
+                          exog_past, exog_past_cudf, exog_fut, exog_fut_cudf)
     return lazy_data[key]
 
 
@@ -251,14 +304,20 @@ def get_ref_fit(data, order, seasonal_order, intercept, dtype):
     """Compute a reference fit of a dataset with the given parameters and dtype
     or return a previously computed fit
     """
-    y_train, *_ = get_dataset(data, dtype)
+    y_train, _, _, _, exog_past, *_ = get_dataset(data, dtype)
     key = order + seasonal_order + \
         (intercept, data.dataset, np.dtype(dtype).name)
+    batch_size = y_train.shape[1]
     if key not in lazy_ref_fit:
-        ref_model = [sm.tsa.SARIMAX(y_train[col], order=order,
-                                    seasonal_order=seasonal_order,
-                                    trend='c' if intercept else 'n')
-                     for col in y_train.columns]
+        ref_model = [
+            sm.tsa.SARIMAX(endog=y_train[y_train.columns[i]],
+                           exog=exog_past[exog_past.columns[
+                               data.n_exog*i:data.n_exog*(i+1)]]
+                           if exog_past is not None else None,
+                           order=order,
+                           seasonal_order=seasonal_order,
+                           trend='c' if intercept else 'n')
+            for i in range(batch_size)]
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             lazy_ref_fit[key] = [model.fit(disp=0) for model in ref_model]
@@ -275,10 +334,7 @@ def mase(y_train, y_test, y_fc, s):
     y_fc_np = input_to_host_array(y_fc).array
 
     diff = np.abs(y_train_np[s:] - y_train_np[:-s])
-    scale = np.zeros(y_train_np.shape[1])
-    for ib in range(y_train_np.shape[1]):
-        scale[ib] = diff[~np.isnan(diff)].mean(axis=0)
-    scale = diff[~np.isnan(diff[:, ib]), ib].mean()
+    scale = np.nanmean(diff, axis=0)
 
     error = np.abs(y_fc_np - y_test_np).mean(axis=0)
     return np.mean(error / scale)
@@ -324,13 +380,15 @@ def test_integration(key, data, dtype):
     order, seasonal_order, intercept = extract_order(key)
     s = max(1, seasonal_order[3])
 
-    y_train, y_train_cudf, y_test, _ = get_dataset(data, dtype)
+    y_train, y_train_cudf, y_test, _, _, exog_past_cudf, exog_fut, \
+        exog_fut_cudf = get_dataset(data, dtype)
 
     # Get fit reference model
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(y_train_cudf,
+    cuml_model = arima.ARIMA(endog=y_train_cudf,
+                             exog=exog_past_cudf,
                              order=order,
                              seasonal_order=seasonal_order,
                              fit_intercept=intercept,
@@ -338,11 +396,14 @@ def test_integration(key, data, dtype):
     cuml_model.fit()
 
     # Predict
-    y_fc_cuml = cuml_model.forecast(data.n_test)
+    y_fc_cuml = cuml_model.forecast(data.n_test, exog=exog_fut)
     y_fc_ref = np.zeros((data.n_test, data.batch_size))
     for i in range(data.batch_size):
         y_fc_ref[:, i] = ref_fits[i].get_prediction(
-            data.n_train, data.n_obs - 1).predicted_mean
+            data.n_train, data.n_obs - 1,
+            exog=None if data.n_exog == 0 else
+            exog_fut[exog_fut.columns[data.n_exog*i:data.n_exog*(i+1)]]
+        ).predicted_mean
 
     # Compare results: MASE must be better or within the tolerance margin
     mase_ref = mase(y_train, y_test, y_fc_ref, s)
@@ -376,13 +437,15 @@ def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
     """
     order, seasonal_order, intercept = extract_order(key)
 
-    _, y_train_cudf, *_ = get_dataset(data, dtype)
+    _, y_train_cudf, _, _, _, exog_cudf, exog_fut, exog_fut_cudf \
+        = get_dataset(data, dtype)
 
     # Get fit reference model
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(y_train_cudf,
+    cuml_model = arima.ARIMA(endog=y_train_cudf,
+                             exog=exog_cudf,
                              order=order,
                              seasonal_order=seasonal_order,
                              fit_intercept=intercept,
@@ -398,31 +461,43 @@ def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
     ref_preds = np.zeros((end - start, data.batch_size))
     for i in range(data.batch_size):
         ref_preds[:, i] = ref_fits[i].get_prediction(
-            start, end - 1).predicted_mean
+            start, end - 1,
+            exog=(
+                None if data.n_exog == 0 or end <= data.n_train else
+                exog_fut[exog_fut.columns[data.n_exog*i:data.n_exog*(i+1)]])
+        ).predicted_mean
     if level is not None:
         ref_lower = np.zeros((end - start, data.batch_size))
         ref_upper = np.zeros((end - start, data.batch_size))
         for i in range(data.batch_size):
-            temp_pred = ref_fits[i].get_forecast(num_steps)
+            temp_pred = ref_fits[i].get_forecast(
+                num_steps,
+                exog=(
+                    None if data.n_exog == 0 else exog_fut[
+                        exog_fut.columns[data.n_exog*i:data.n_exog*(i+1)]])
+            )
             ci = temp_pred.summary_frame(alpha=1-level)
             ref_lower[:, i] = ci["mean_ci_lower"].to_numpy()
             ref_upper[:, i] = ci["mean_ci_upper"].to_numpy()
     # cuML
     if num_steps is None:
-        cuml_pred = cuml_model.predict(start, end)
+        cuml_pred = cuml_model.predict(
+            start, end,
+            exog=None if data.n_exog == 0 or end <= data.n_train
+            else exog_fut_cudf)
     elif level is not None:
         cuml_pred, cuml_lower, cuml_upper = \
-            cuml_model.forecast(num_steps, level)
+            cuml_model.forecast(num_steps, level, exog=exog_fut_cudf)
     else:
-        cuml_pred = cuml_model.forecast(num_steps)
+        cuml_pred = cuml_model.forecast(num_steps, exog=exog_fut_cudf)
 
     # Compare results
-    np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
+    np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.002, atol=0.01)
     if level is not None:
         np.testing.assert_allclose(
-            cuml_lower, ref_lower, rtol=0.03, atol=0.01)
+            cuml_lower, ref_lower, rtol=0.005, atol=0.01)
         np.testing.assert_allclose(
-            cuml_upper, ref_upper, rtol=0.03, atol=0.01)
+            cuml_upper, ref_upper, rtol=0.005, atol=0.01)
 
 
 @pytest.mark.parametrize('key, data', test_data)
@@ -478,13 +553,14 @@ def test_loglikelihood(key, data, dtype, simple_differencing):
     """
     order, seasonal_order, intercept = extract_order(key)
 
-    _, y_train_cudf, *_ = get_dataset(data, dtype)
+    _, y_train_cudf, _, _, _, exog_past_cudf, *_ = get_dataset(data, dtype)
 
     # Get fit reference model
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(y_train_cudf,
+    cuml_model = arima.ARIMA(endog=y_train_cudf,
+                             exog=exog_past_cudf,
                              order=order,
                              seasonal_order=seasonal_order,
                              fit_intercept=intercept,
@@ -514,16 +590,18 @@ def test_gradient(key, data, dtype):
     order, seasonal_order, intercept = extract_order(key)
     p, _, q = order
     P, _, Q, _ = seasonal_order
-    N = p + P + q + Q + intercept + 1
     h = 1e-8
 
-    _, y_train_cudf, *_ = get_dataset(data, dtype)
+    _, y_train_cudf, _, _, _, exog_past_cudf, *_ = get_dataset(data, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(y_train_cudf,
+    cuml_model = arima.ARIMA(endog=y_train_cudf,
+                             exog=exog_past_cudf,
                              order=order,
                              seasonal_order=seasonal_order,
                              fit_intercept=intercept)
+
+    N = cuml_model.complexity
 
     # Get an estimate of the parameters and pack them into a vector
     cuml_model._estimate_x0()
@@ -536,7 +614,10 @@ def test_gradient(key, data, dtype):
     scipy_grad = np.zeros(N * data.batch_size)
     for i in range(data.batch_size):
         # Create a model with only the current series
-        model_i = arima.ARIMA(y_train_cudf[y_train_cudf.columns[i]],
+        model_i = arima.ARIMA(endog=y_train_cudf[y_train_cudf.columns[i]],
+                              exog=None if exog_past_cudf is None
+                              else exog_past_cudf[exog_past_cudf.columns[
+                                  data.n_exog*i:data.n_exog*(i+1)]],
                               order=order,
                               seasonal_order=seasonal_order,
                               fit_intercept=intercept)
@@ -558,20 +639,30 @@ def test_start_params(key, data, dtype):
     """
     order, seasonal_order, intercept = extract_order(key)
 
-    y_train, y_train_cudf, *_ = get_dataset(data, dtype)
+    y_train, y_train_cudf, _, _, exog_past, exog_past_cudf, *_ \
+        = get_dataset(data, dtype)
 
     # fillna for reference to match cuML initial estimation strategy
     y_train_nona = fill_interpolation(y_train)
 
+    # Convert to numpy to avoid misaligned indices
+    if exog_past is not None:
+        exog_past_np = exog_past.to_numpy()
+
     # Create models
-    cuml_model = arima.ARIMA(y_train_cudf,
+    cuml_model = arima.ARIMA(endog=y_train_cudf,
+                             exog=exog_past_cudf,
                              order=order,
                              seasonal_order=seasonal_order,
                              fit_intercept=intercept)
-    ref_model = [sm.tsa.SARIMAX(y_train_nona[col], order=order,
+    ref_model = [sm.tsa.SARIMAX(endog=y_train_nona[y_train_nona.columns[i]],
+                                exog=exog_past_np[
+                                    :, i*data.n_exog:(i+1)*data.n_exog]
+                                if data.n_exog else None,
+                                order=order,
                                 seasonal_order=seasonal_order,
                                 trend='c' if intercept else 'n')
-                 for col in y_train_nona.columns]
+                 for i in range(data.batch_size)]
 
     # Estimate reference starting parameters
     N = cuml_model.complexity

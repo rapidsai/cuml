@@ -42,14 +42,14 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     distribution and additional input types. User-facing APIs are
     expected to change in upcoming versions.
 
-    The distributed algorithm uses an embarrassingly-parallel
-    approach. For a forest with N trees being built on w workers, each
-    worker simply builds N/w trees on the data it has available
+    The distributed algorithm uses an *embarrassingly-parallel*
+    approach. For a forest with `N` trees being built on `w` workers, each
+    worker simply builds `N/w` trees on the data it has available
     locally. In many cases, partitioning the data so that each worker
     builds trees on a subset of the total dataset works well, but
     it generally requires the data to be well-shuffled in advance.
     Alternatively, callers can replicate all of the data across
-    workers so that rf.fit receives w partitions, each containing the
+    workers so that ``rf.fit`` receives `w` partitions, each containing the
     same data. This would produce results approximately identical to
     single-GPU fitting.
 
@@ -58,7 +58,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
+    n_estimators : int (default = 100)
         total number of trees in the forest (not per-worker)
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -67,54 +67,60 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_criterion : int or string (default = 2 ('mse'))
-        The criterion used to split nodes.
-        0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
-        2 or 'mse' for MSE,
-        4 or 'poisson' for POISSON,
-        0, 'gini', 1, 'entropy' not valid for regression
+    split_criterion : int or string (default = ``2`` (``'mse'``))
+        The criterion used to split nodes.\n
+         * ``0`` or ``'gini'`` for gini impurity
+         * ``1`` or ``'entropy'`` for information gain (entropy)
+         * ``2`` or ``'mse'`` for mean squared error
+         * ``4`` or ``'poisson'`` for poisson half deviance
+         * ``5`` or ``'gamma'`` for gamma half deviance
+         * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+        ``0``, ``'gini'``, ``1``, ``'entropy'`` not valid for regression
     bootstrap : boolean (default = True)
-        Control bootstrapping.
-        If set, each tree in the forest is built
-        on a bootstrapped sample with replacement.
-        If False, the whole dataset is used to build each tree.
+        Control bootstrapping.\n
+         * If ``True``, each tree in the forest is built on a bootstrapped
+           sample with replacement.
+         * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
+        Maximum tree depth. Unlimited (i.e, until leaves are pure), If ``-1``.
     max_leaves : int (default = -1)
-        Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
-    max_features : int or float or string or None (default = 'auto')
+        Maximum leaf nodes per tree. Soft constraint. Unlimited, If ``-1``.
+    max_features : float (default = 'auto')
         Ratio of number of features (columns) to consider
-        per node split.
-        If int then max_features/n_features.
-        If float then max_features is a fraction.
-        If 'auto' then max_features=n_features which is 1.0.
-        If 'sqrt' then max_features=1/sqrt(n_features).
-        If 'log2' then max_features=log2(n_features)/n_features.
-        If None, then max_features=n_features which is 1.0.
-    n_bins : int (default = 8)
+        per node split.\n
+         * If type ``int`` then ``max_features`` is the absolute count of
+           features to be used.
+         * If type ``float`` then ``max_features`` is a fraction.
+         * If ``'auto'`` then ``max_features=n_features = 1.0``.
+         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+         * If ``None``, then ``max_features = 1.0``.
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
     min_samples_leaf : int or float (default = 1)
-        The minimum number of samples (rows) in each leaf node.
-        If int, then min_samples_leaf represents the minimum number.
-        If float, then min_samples_leaf represents a fraction and
-        ceil(min_samples_leaf * n_rows) is the minimum number of samples
-        for each leaf node.
+        The minimum number of samples (rows) in each leaf node.\n
+         * If type ``int``, then ``min_samples_leaf`` represents the minimum
+           number.
+         * If ``float``, then ``min_samples_leaf`` represents a fraction and
+           ``ceil(min_samples_leaf * n_rows)`` is the minimum number of
+           samples for each leaf node.
     min_samples_split : int or float (default = 2)
-        The minimum number of samples required to split an internal node.
-        If int, then min_samples_split represents the minimum number.
-        If float, then min_samples_split represents a fraction and
-        ceil(min_samples_split * n_rows) is the minimum number of samples
-        for each split.
+        The minimum number of samples required to split an internal node.\n
+         * If type ``int``, then ``min_samples_split`` represents the minimum
+           number.
+         * If type ``float``, then ``min_samples_split`` represents a fraction
+           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
+           samples for each split.
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
         In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.
-        for r-squared : 'r2'
-        for median of abs error : 'median_ae'
-        for mean of abs error : 'mean_ae'
-        for mean square error' : 'mse'
+        from mean squared error to r-squared.\n
+         * for r-squared : ``'r2'``
+         * for median of abs error : ``'median_ae'``
+         * for mean of abs error : ``'mean_ae'``
+         * for mean square error' : ``'mse'``
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
@@ -139,7 +145,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         workers=None,
         client=None,
         verbose=False,
-        n_estimators=10,
+        n_estimators=100,
         random_state=None,
         ignore_empty_partitions=False,
         **kwargs

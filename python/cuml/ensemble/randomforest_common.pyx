@@ -26,6 +26,7 @@ from cuml.fil.fil import TreeliteModel
 from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+from cuml.common.exceptions import NotFittedError
 import cuml.internals
 
 from cython.operator cimport dereference as deref
@@ -46,8 +47,8 @@ class BaseRandomForestModel(Base):
                     'bootstrap',
                     'verbose', 'max_samples',
                     'max_leaves',
-                    'accuracy_metric',
-                    'max_batch_size', 'n_streams', 'dtype',
+                    'accuracy_metric', 'max_batch_size',
+                    'n_streams', 'dtype',
                     'output_type', 'min_weight_fraction_leaf', 'n_jobs',
                     'max_leaf_nodes', 'min_impurity_split', 'oob_score',
                     'random_state', 'warm_start', 'class_weight',
@@ -58,7 +59,10 @@ class BaseRandomForestModel(Base):
                       '2': MSE, 'mse': MSE,
                       '3': MAE, 'mae': MAE,
                       '4': POISSON, 'poisson': POISSON,
-                      '5': CRITERION_END}
+                      '5': GAMMA, 'gamma': GAMMA,
+                      '6': INVERSE_GAUSSIAN,
+                      'inverse_gaussian': INVERSE_GAUSSIAN,
+                      '7': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 
@@ -103,7 +107,7 @@ class BaseRandomForestModel(Base):
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
-                          " in Random Forest Regressor, n_streams==1 is "
+                          " in Random Forest Regressor, n_streams=1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
@@ -199,8 +203,9 @@ class BaseRandomForestModel(Base):
         return self.treelite_serialized_model
 
     def _obtain_treelite_handle(self):
-        assert self.treelite_serialized_model or self.rf_forest, \
-            "Attempting to create treelite from un-fit forest."
+        if (not self.treelite_serialized_model) and (not self.rf_forest):
+            raise NotFittedError(
+                    "Attempting to create treelite from un-fit forest.")
 
         cdef ModelHandle tl_handle = NULL
         if self.treelite_handle:

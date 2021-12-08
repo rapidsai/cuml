@@ -22,6 +22,42 @@
 namespace ML {
 namespace GLM {
 
+/** Loss function types supported by the Quasi-Newton solvers. */
+enum QN_LOSS_TYPE : int {
+  /** Logistic classification.
+   *  Expected target: {0, 1}.
+   */
+  QN_LOSS_LOGISTIC = 0,
+  /** L2 regression.
+   *  Expected target: R.
+   */
+  QN_LOSS_SQUARED = 1,
+  /** Softmax classification..
+   *  Expected target: {0, 1, ...}.
+   */
+  QN_LOSS_SOFTMAX = 2,
+  /** Hinge.
+   *  Expected target: {0, 1}.
+   */
+  QN_LOSS_SVC_L1 = 3,
+  /** Squared-hinge.
+   *  Expected target: {0, 1}.
+   */
+  QN_LOSS_SVC_L2 = 4,
+  /** Epsilon-insensitive.
+   *  Expected target: R.
+   */
+  QN_LOSS_SVR_L1 = 5,
+  /** Epsilon-insensitive-squared.
+   *  Expected target: R.
+   */
+  QN_LOSS_SVR_L2 = 6,
+  /** L1 regression.
+   *  Expected target: R.
+   */
+  QN_LOSS_ABS = 7
+};
+
 enum LINE_SEARCH_ALGORITHM {
   LBFGS_LS_BT_ARMIJO       = 1,
   LBFGS_LS_BT              = 2,  // Default. Alias for Wolfe
