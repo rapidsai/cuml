@@ -87,8 +87,9 @@ if(BUILD_CUML_PRIMS_BENCH)
       cuml
       CUDA::cublas
       benchmark::benchmark
-      raft
-      raft_distance
+      raft::raft
+      raft::raft_nn
+      raft::raft_distance
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
   )
