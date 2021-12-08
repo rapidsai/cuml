@@ -53,8 +53,6 @@ class GeneticEvolutionTest : public ::testing::Test {
   void SetUp() override
   {
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
 
     // Set training param vals
     hyper_params.population_size       = 5000;
@@ -113,10 +111,7 @@ class GeneticEvolutionTest : public ::testing::Test {
                                stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   raft::handle_t handle;
-  cudaStream_t stream;
   param hyper_params;
 
   // Some mini-dataset constants
