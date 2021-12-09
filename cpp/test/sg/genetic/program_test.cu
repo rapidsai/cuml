@@ -42,7 +42,8 @@ class GeneticProgramTest : public ::testing::Test {
       dx2(0, cudaStream_t(0)),
       dy2(0, cudaStream_t(0)),
       dw2(0, cudaStream_t(0)),
-      dyp2(0, cudaStream_t(0))
+      dyp2(0, cudaStream_t(0)),
+      stream(handle.get_stream())
   {
   }
 
@@ -155,6 +156,7 @@ class GeneticProgramTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
+  cudaStream_t stream;
   const int n_cols      = 3;
   const int n_progs     = 2;
   const int n_samples   = 25;

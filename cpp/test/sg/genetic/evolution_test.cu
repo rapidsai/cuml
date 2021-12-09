@@ -45,7 +45,8 @@ class GeneticEvolutionTest : public ::testing::Test {
       d_test(0, cudaStream_t(0)),
       d_testlab(0, cudaStream_t(0)),
       d_trainwts(0, cudaStream_t(0)),
-      d_testwts(0, cudaStream_t(0))
+      d_testwts(0, cudaStream_t(0)),
+      stream(handle.get_stream())
   {
   }
 
@@ -112,6 +113,7 @@ class GeneticEvolutionTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
+  cudaStream_t stream;
   param hyper_params;
 
   // Some mini-dataset constants
