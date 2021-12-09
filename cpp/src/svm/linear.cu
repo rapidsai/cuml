@@ -362,6 +362,8 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                                          const T* y,
                                          const T* sampleWeight)
 {
+  CUML_USING_RANGE("ML::SVM::LinearSVMModel-%d-%d", nRows, nCols);
+
   cudaStream_t stream = handle.get_stream();
   rmm::device_uvector<T> classesBuf(0, stream);
   const std::size_t nClasses =
@@ -375,8 +377,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
 
   const int coefCols         = narrowDown(model.coefCols());
   const std::size_t coefRows = model.coefRows;
-
-  ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
 
   auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
   T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;
@@ -504,7 +504,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       raft::linalg::transpose(handle, ps1, model.probScale, 2, coefCols, stream);
   }
 
-  ML::POP_RANGE();
   return model;
 }
 

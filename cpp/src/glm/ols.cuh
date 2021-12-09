@@ -94,17 +94,18 @@ void olsFit(const raft::handle_t& handle,
   int selectedAlgo = algo;
   if (n_cols > n_rows || n_cols == 1) selectedAlgo = 0;
 
-  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::ols-lstsq*", stream);
-  switch (selectedAlgo) {
-    case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 2: LinAlg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 3: LinAlg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    default:
-      ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
-      break;
+  {
+    CUML_USING_RANGE(stream, "ML::GLM::olsFit::impl-%d", selectedAlgo);
+    switch (selectedAlgo) {
+      case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
+      case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
+      case 2: LinAlg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+      case 3: LinAlg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+      default:
+        ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
+        break;
+    }
   }
-  ML::POP_RANGE(stream);
 
   if (fit_intercept) {
     postProcessData(handle,

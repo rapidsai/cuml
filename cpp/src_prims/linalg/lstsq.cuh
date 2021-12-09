@@ -301,9 +301,10 @@ void lstsqEig(const raft::handle_t& handle,
   multAbDone.record(multAbStream);
 
   // Q S Q* <- covA
-  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", mainStream);
-  raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, mainStream);
-  ML::POP_RANGE(mainStream);
+  {
+    CUML_USING_RANGE("raft::linalg::eigDC", mainStream);
+    raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, mainStream);
+  }
 
   // QS  <- Q invS
   raft::linalg::matrixVectorOp(

@@ -42,4 +42,78 @@ void PUSH_RANGE(const char* name);
 /** Pop the latest range */
 void POP_RANGE();
 
+/** Push a named nvtx range that would be popped at the end of the object lifetime. */
+class AUTO_RANGE {
+ private:
+  std::optional<rmm::cuda_stream_view> stream;
+
+  template <typename... Args>
+  void init(const char* name, Args... args)
+  {
+    if constexpr (sizeof...(args) > 0) {
+      int length = std::snprintf(nullptr, 0, name, args...);
+      assert(length >= 0);
+      auto buf = std::make_unique<char[]>(length + 1);
+      std::snprintf(buf.get(), length + 1, name, args...);
+
+      if (stream.has_value())
+        PUSH_RANGE(buf.get(), stream.value());
+      else
+        PUSH_RANGE(buf.get());
+    } else {
+      if (stream.has_value())
+        PUSH_RANGE(name, stream.value());
+      else
+        PUSH_RANGE(name);
+    }
+  }
+
+ public:
+  /**
+   * Synchronize CUDA stream and push a named nvtx range
+   * At the end of the object lifetime, synchronize again and pop the range.
+   *
+   * @param stream stream to synchronize
+   * @param name range name (accepts printf-style arguments)
+   */
+  template <typename... Args>
+  AUTO_RANGE(rmm::cuda_stream_view stream, const char* name, Args... args)
+    : stream(std::make_optional(stream))
+  {
+    init(name, args...);
+  }
+
+  /**
+   * Push a named nvtx range.
+   * At the end of the object lifetime, pop the range back.
+   *
+   * @param name range name (accepts printf-style arguments)
+   */
+  template <typename... Args>
+  AUTO_RANGE(const char* name, Args... args) : stream(std::nullopt)
+  {
+    init(name, args...);
+  }
+
+  ~AUTO_RANGE()
+  {
+    if (stream.has_value())
+      POP_RANGE(stream.value());
+    else
+      POP_RANGE();
+  }
+};
+
+/*!
+  \def CUML_USING_RANGE(...)
+  When NVTX is enabled, push a named nvtx range now and pop it at the end of the code block.
+
+  This macro initializes a dummy AUTO_RANGE variable on the stack,
+*/
+#ifdef NVTX_ENABLED
+#define CUML_USING_RANGE(...) ML::AUTO_RANGE _AUTO_RANGE_##__LINE__(__VA_ARGS__)
+#else
+#define CUML_USING_RANGE(...) (void)0
+#endif
+
 }  // end namespace ML

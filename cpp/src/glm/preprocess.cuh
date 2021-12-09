@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <common/nvtx.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.hpp>
@@ -46,17 +47,22 @@ void preProcessData(const raft::handle_t& handle,
                     bool normalize,
                     cudaStream_t stream)
 {
+  CUML_USING_RANGE("ML::GLM::preProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
 
   if (fit_intercept) {
-    raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
-    raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
+    {
+      CUML_USING_RANGE(stream, "ML::GLM::preProcessData-mean");
+      raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+      raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
 
-    raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
-    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+      raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+      raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+    }
 
     if (normalize) {
+      CUML_USING_RANGE(stream, "ML::GLM::preProcessData-normalize");
       raft::linalg::colNorm(norm2_input,
                             input,
                             n_cols,
@@ -86,6 +92,7 @@ void postProcessData(const raft::handle_t& handle,
                      bool normalize,
                      cudaStream_t stream)
 {
+  CUML_USING_RANGE("ML::GLM::postProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
 
@@ -93,19 +100,31 @@ void postProcessData(const raft::handle_t& handle,
   rmm::device_scalar<math_t> d_intercept(stream);
 
   if (normalize) {
+    CUML_USING_RANGE(stream, "ML::GLM::postProcessData-denormalize");
     raft::matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true, stream);
     raft::matrix::matrixVectorBinaryDivSkipZero(
       coef, norm2_input, 1, n_cols, false, true, stream, true);
   }
 
-  raft::linalg::gemm(
-    handle, mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
+  {
+    CUML_USING_RANGE(stream, "ML::GLM::postProcessData-shift");
+    raft::linalg::gemm(handle,
+                       mu_input,
+                       1,
+                       n_cols,
+                       coef,
+                       d_intercept.data(),
+                       1,
+                       1,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_N,
+                       stream);
 
-  raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1, stream);
-  *intercept = d_intercept.value(stream);
-
-  raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
-  raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+    raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1, stream);
+    *intercept = d_intercept.value(stream);
+    raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
+    raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+  }
 }
 
 };  // namespace GLM
