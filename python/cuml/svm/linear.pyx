@@ -20,6 +20,9 @@ import inspect
 import typing
 import numpy as np
 import cuml
+
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+
 from collections import OrderedDict
 from cython.operator cimport dereference as deref
 from cuml.internals.base_helpers import BaseMetaClass
@@ -31,8 +34,6 @@ from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
 cimport rmm._lib.lib as rmm
-
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
 
