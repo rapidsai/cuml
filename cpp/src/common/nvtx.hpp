@@ -75,6 +75,7 @@ class AUTO_RANGE {
    *
    * @param stream stream to synchronize
    * @param name range name (accepts printf-style arguments)
+   * @param args the arguments for the printf-style formatting
    */
   template <typename... Args>
   AUTO_RANGE(rmm::cuda_stream_view stream, const char* name, Args... args)
@@ -88,6 +89,7 @@ class AUTO_RANGE {
    * At the end of the object lifetime, pop the range back.
    *
    * @param name range name (accepts printf-style arguments)
+   * @param args the arguments for the printf-style formatting
    */
   template <typename... Args>
   AUTO_RANGE(const char* name, Args... args) : stream(std::nullopt)
@@ -106,9 +108,10 @@ class AUTO_RANGE {
 
 /*!
   \def CUML_USING_RANGE(...)
-  When NVTX is enabled, push a named nvtx range now and pop it at the end of the code block.
+  When NVTX is enabled, push a named nvtx range and pop it at the end of the enclosing code block.
 
   This macro initializes a dummy AUTO_RANGE variable on the stack,
+  which pushes the range in its constructor and pops it in the destructor.
 */
 #ifdef NVTX_ENABLED
 #define CUML_USING_RANGE(...) ML::AUTO_RANGE _AUTO_RANGE_##__LINE__(__VA_ARGS__)
