@@ -31,6 +31,7 @@ from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
 cimport rmm._lib.lib as rmm
+
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
