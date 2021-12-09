@@ -22,7 +22,11 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/device_vector.hpp>
+#include <thrust/device_vector.h>
 #include <rmm/exec_policy.hpp>
+#include <iostream>
+#include <fstream>
 
 #include <common/nvtx.hpp>
 
@@ -36,10 +40,11 @@ __global__ void computeQuantilesSorted(T* quantiles,
                                        const int length);
 
 template <typename T>
-std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
+  auto computeQuantiles(
   int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
 {
   auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
+  auto q_offsets = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
   thrust::fill(rmm::exec_policy(handle.get_stream()),
                quantiles->begin(),
                quantiles->begin() + n_bins * n_cols,
@@ -84,7 +89,23 @@ std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
     CUDA_CHECK(cudaGetLastError());
   }
 
-  return quantiles;
+  // print the unique quantiles and store it in file
+  std::vector<int> h_q_offsets(n_cols, 0);
+  thrust::device_vector<T> d_q(n_bins, 0);
+  auto compacted_quantiles = std::make_shared<rmm::device_uvector<T>>(0, handle.get_stream());
+  for (int col=0; col < n_cols; ++col) {
+    auto first = quantiles->begin() + n_bins * col;
+    thrust::copy(thrust::device, first, first + n_bins, d_q.begin());
+    auto new_last = thrust::unique(thrust::device, d_q.begin(), d_q.begin()+n_bins);
+    int n_uniques = new_last - d_q.begin();
+    h_q_offsets[col] = h_q_offsets[col? col-1 : 0] + n_uniques;
+    int old_size = compacted_quantiles->size();
+    compacted_quantiles->resize(old_size + n_uniques, handle.get_stream());
+    thrust::copy(thrust::device, d_q.begin(), new_last, compacted_quantiles->begin() + old_size);
+    }
+  raft::update_device(q_offsets->data(), h_q_offsets.data(), n_cols, handle.get_stream());
+
+  return std::make_pair(compacted_quantiles, q_offsets);
 }
 
 }  // namespace DT

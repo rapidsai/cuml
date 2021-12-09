@@ -234,6 +234,7 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
+    std::shared_ptr<rmm::device_uvector<int>> q_offsets,
     int treeid)
   {
     if (params.split_criterion ==
@@ -256,7 +257,9 @@ class DecisionTree {
                                                                  ncols,
                                                                  rowids,
                                                                  unique_labels,
-                                                                 quantiles)
+                                                                 quantiles,
+                                                                 q_offsets
+                                                                 )
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::ENTROPY) {
@@ -271,7 +274,9 @@ class DecisionTree {
                                                                     ncols,
                                                                     rowids,
                                                                     unique_labels,
-                                                                    quantiles)
+                                                                 quantiles,
+                                                                 q_offsets
+                                                                 )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -285,7 +290,9 @@ class DecisionTree {
                                                                 ncols,
                                                                 rowids,
                                                                 unique_labels,
-                                                                quantiles)
+                                                                 quantiles,
+                                                                  q_offsets
+                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::POISSON) {
@@ -300,7 +307,9 @@ class DecisionTree {
                                                                     ncols,
                                                                     rowids,
                                                                     unique_labels,
-                                                                    quantiles)
+                                                                 quantiles,
+                                                                 q_offsets
+                                                                 )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -314,7 +323,9 @@ class DecisionTree {
                                                                   ncols,
                                                                   rowids,
                                                                   unique_labels,
-                                                                  quantiles)
+                                                                 quantiles,
+                                                                 q_offsets
+                                                                 )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
@@ -329,7 +340,9 @@ class DecisionTree {
                                                                             ncols,
                                                                             rowids,
                                                                             unique_labels,
-                                                                            quantiles)
+                                                                 quantiles,
+                                                                 q_offsets
+                                                                 )
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

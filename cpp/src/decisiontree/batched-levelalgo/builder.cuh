@@ -169,6 +169,9 @@ struct Builder {
   SplitT* splits;
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
+  /** quantile offsets */
+  std::shared_ptr<const rmm::device_uvector<int>> q_offsets;
+  /** compacted quantiles */
   std::shared_ptr<const rmm::device_uvector<DataT>> quantiles;
 
   WorkloadInfo<IdxT>* workload_info;
@@ -196,13 +199,16 @@ struct Builder {
           IdxT totalCols,
           rmm::device_uvector<IdxT>* rowids,
           IdxT nclasses,
-          std::shared_ptr<const rmm::device_uvector<DataT>> quantiles)
+          std::shared_ptr<const rmm::device_uvector<DataT>> quantiles,
+          std::shared_ptr<const rmm::device_uvector<int>> q_offsets
+          )
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
       seed(seed),
       params(p),
       quantiles(quantiles),
+      q_offsets(q_offsets),
       input{data,
             labels,
             totalRows,
@@ -211,12 +217,15 @@ struct Builder {
             max(1, IdxT(params.max_features * totalCols)),
             rowids->data(),
             nclasses,
-            quantiles->data()},
+            quantiles->data(),
+            q_offsets->data()},
       d_buff(0, builder_stream)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
     ASSERT(quantiles != nullptr, "Currently quantiles need to be computed before this call!");
     ASSERT(nclasses >= 1, "nclasses should be at least 1");
+
+
 
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
     d_buff.resize(device_workspace_size, builder_stream);

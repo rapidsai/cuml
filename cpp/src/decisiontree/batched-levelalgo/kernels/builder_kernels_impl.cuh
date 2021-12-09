@@ -225,7 +225,7 @@ template <typename DataT,
           typename ObjectiveT,
           typename BinT>
 __global__ void computeSplitKernel(BinT* hist,
-                                   IdxT nbins,
+                                   IdxT max_nbins,
                                    IdxT max_depth,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
@@ -252,13 +252,6 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT offset_blockid = workload_info_cta.offset_blockid;
   IdxT num_blocks     = workload_info_cta.num_blocks;
 
-  auto end                  = range_start + range_len;
-  auto shared_histogram_len = nbins * objective.NumClasses();
-  auto* shared_histogram    = alignPointer<BinT>(smem);
-  auto* sbins               = alignPointer<DataT>(shared_histogram + shared_histogram_len);
-  auto* sDone               = alignPointer<int>(sbins + nbins);
-  IdxT stride               = blockDim.x * num_blocks;
-  IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
 
   // obtaining the feature to test split on
   IdxT col;
@@ -269,11 +262,28 @@ __global__ void computeSplitKernel(BinT* hist,
     col           = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
 
+
+  // getting the n_bins for that feature
+  int q_offset = col ? input.q_offsets[col-1] : 0;
+  int nbins = input.q_offsets[col] - q_offset;
+
+  auto end                  = range_start + range_len;
+  auto shared_histogram_len = nbins * objective.NumClasses();
+  auto shared_histogram_ceil_len = max_nbins * objective.NumClasses();
+  auto* shared_histogram    = alignPointer<BinT>(smem);
+  auto* sbins               = alignPointer<DataT>(shared_histogram + shared_histogram_len);
+  auto* sDone               = alignPointer<int>(sbins + nbins);
+  IdxT stride               = blockDim.x * num_blocks;
+  IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
+
+
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();
-  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
-    sbins[b] = input.quantiles[col * nbins + b];
+  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x) {
+    sbins[b] = input.quantiles[q_offset + b];
+
+  }
 
   // synchronizing above changes across block
   __syncthreads();
@@ -294,7 +304,7 @@ __global__ void computeSplitKernel(BinT* hist,
   __syncthreads();
   if (num_blocks > 1) {
     // update the corresponding global location
-    auto histOffset = ((large_nid * gridDim.y) + blockIdx.y) * shared_histogram_len;
+    auto histOffset = ((large_nid * gridDim.y) + blockIdx.y) * shared_histogram_ceil_len;
     for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
       BinT::AtomicAdd(hist + histOffset + i, shared_histogram[i]);
     }
