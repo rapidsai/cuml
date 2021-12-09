@@ -17,10 +17,10 @@
 
 #include <cstdio>
 
-#include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
+#include <thrust/binary_search.h>
 
 #include "builder_kernels.cuh"
 

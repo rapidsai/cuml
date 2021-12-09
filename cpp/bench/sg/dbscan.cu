@@ -16,8 +16,8 @@
 
 #include <cuml/cluster/dbscan.hpp>
 
-#include <utility>
 #include "benchmark.cuh"
+#include <utility>
 
 namespace ML {
 namespace Bench {

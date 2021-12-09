@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
+#include <raft/cudart_utils.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

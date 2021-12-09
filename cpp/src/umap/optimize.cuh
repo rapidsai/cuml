@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 
-#include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eltwise.cuh>

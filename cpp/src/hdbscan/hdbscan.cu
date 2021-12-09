@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/hdbscan.hpp>
 #include "detail/condense.cuh"
+#include <cuml/cluster/hdbscan.hpp>
 
 #include <hdbscan/runner.h>
 

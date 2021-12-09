@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
-#include <random/make_blobs.cuh>
 #include "test_utils.h"
+#include <cub/cub.cuh>
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <random/make_blobs.cuh>
 
 namespace MLCommon {
 namespace Random {

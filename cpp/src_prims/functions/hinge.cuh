@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
+#include "penalty.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
@@ -31,7 +32,6 @@
 #include <raft/stats/mean.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
-#include "penalty.cuh"
 
 namespace MLCommon {
 namespace Functions {

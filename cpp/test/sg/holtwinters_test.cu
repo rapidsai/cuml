@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <cuml/tsa/holtwinters.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include "time_series_datasets.h"
 #include <algorithm>
 #include <cuml/common/logger.hpp>
+#include <cuml/tsa/holtwinters.h>
+#include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include "time_series_datasets.h"
+#include <test_utils.h>
 
 namespace ML {
 

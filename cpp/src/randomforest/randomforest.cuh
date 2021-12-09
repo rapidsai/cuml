@@ -18,9 +18,9 @@
 
 #include <common/nvtx.hpp>
 
-#include <decisiontree/treelite_util.h>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
+#include <decisiontree/treelite_util.h>
 
 #include <metrics/scores.cuh>
 #include <raft/random/rng.hpp>

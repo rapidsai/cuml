@@ -16,15 +16,16 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
+#include "shuffle.h"
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/multiply.cuh>
@@ -32,7 +33,6 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include "shuffle.h"
 
 namespace ML {
 namespace Solver {

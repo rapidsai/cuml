@@ -40,12 +40,12 @@
  *
  */
 
-#include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
 #include "qn_linesearch.cuh"
 #include "qn_util.cuh"
 #include "simple_mat.cuh"
+#include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace GLM {

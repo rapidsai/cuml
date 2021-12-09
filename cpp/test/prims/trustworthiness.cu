@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/trustworthiness_score.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Score {

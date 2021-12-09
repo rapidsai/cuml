@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -38,11 +38,11 @@
 #include <raft/sparse/coo.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <string>
 #include "optimize_batch_kernel.cuh"
+#include <string>
 
-#include <thrust/iterator/discard_iterator.h>
 #include <raft/sparse/op/filter.hpp>
+#include <thrust/iterator/discard_iterator.h>
 #pragma once
 
 namespace UMAPAlgo {

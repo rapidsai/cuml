@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <random/permute.cuh>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Random {

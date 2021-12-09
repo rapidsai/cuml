@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/solvers/lars.hpp>
 #include "lars_impl.cuh"
+#include <cuml/solvers/lars.hpp>
 
 namespace ML {
 namespace Solver {

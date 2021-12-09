@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/matrix/kernelparams.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <common/ml_benchmark.hpp>
+#include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>

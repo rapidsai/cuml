@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <stats/histogram.cuh>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Stats {

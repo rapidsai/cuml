@@ -12,13 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace TimeSeries {

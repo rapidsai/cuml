@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/hierarchy/common.h>
+#include "benchmark.cuh"
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/hierarchy/common.h>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

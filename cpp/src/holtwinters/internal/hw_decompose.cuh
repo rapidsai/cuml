@@ -15,10 +15,10 @@
  */
 
 #pragma once
+#include "hw_utils.cuh"
 #include <raft/cudart_utils.h>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
 // https://github.com/rapidsai/cuml/issues/891

@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <stddef.h>
 #include <cuml/ensemble/treelite_defs.hpp>
+#include <stddef.h>
 
 namespace raft {
 class handle_t;

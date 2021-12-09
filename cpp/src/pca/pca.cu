@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/decomposition/pca.hpp>
 #include "pca.cuh"
+#include <cuml/decomposition/pca.hpp>
 
 namespace ML {
 

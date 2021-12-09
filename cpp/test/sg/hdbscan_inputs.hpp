@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <datasets/digits.h>
 #include <cuml/cluster/hdbscan.hpp>
+#include <datasets/digits.h>
 
 #include <vector>
 

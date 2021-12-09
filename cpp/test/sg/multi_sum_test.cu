@@ -18,8 +18,8 @@
 
 #include <cuml/fil/multi_sum.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 
 #include <thrust/device_vector.h>

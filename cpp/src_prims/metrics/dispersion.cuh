@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <rmm/device_uvector.hpp>
 

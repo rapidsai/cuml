@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
+#include "runner.cuh"
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
-#include "runner.cuh"
+#include <cuml/manifold/umapparams.h>
 
 #include <raft/cuda_utils.cuh>
 

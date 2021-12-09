@@ -18,16 +18,16 @@
 #include <cuml/metrics/metrics.hpp>
 #include <raft/linalg/map.cuh>
 
+#include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
+#include <iostream>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuml/common/logger.hpp>
-#include <iostream>
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>

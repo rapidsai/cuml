@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <raft/cuda_utils.cuh>
+#include <stdint.h>
 
 namespace MLCommon {
 

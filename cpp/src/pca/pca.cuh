@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>

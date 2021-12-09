@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
 #include <glm/ols.cuh>
+#include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {

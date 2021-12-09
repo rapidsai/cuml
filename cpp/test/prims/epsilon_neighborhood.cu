@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <distance/epsilon_neighborhood.cuh>
+#include <gtest/gtest.h>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Distance {

@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <cuml/neighbors/knn_mg.hpp>
-#include <memory>
-#include <random/make_blobs.cuh>
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
+#include <cuml/neighbors/knn_mg.hpp>
+#include <gtest/gtest.h>
+#include <memory>
+#include <random/make_blobs.cuh>
 
 #include <raft/comms/mpi_comms.hpp>
 

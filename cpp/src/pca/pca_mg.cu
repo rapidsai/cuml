@@ -26,10 +26,10 @@
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean_center.hpp>
 

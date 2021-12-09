@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
+#include <stdio.h>
+#include <stdlib.h>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {

@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <raft/linalg/gemv.h>
+#include "preprocess.cuh"
 #include <linalg/lstsq.cuh>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/gemv.h>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.hpp>
@@ -28,7 +29,6 @@
 #include <raft/stats/stddev.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
-#include "preprocess.cuh"
 
 namespace ML {
 namespace GLM {

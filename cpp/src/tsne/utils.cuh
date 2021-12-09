@@ -31,13 +31,13 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <sys/time.h>
 #include <raft/random/rng.hpp>
 #include <raft/stats/sum.hpp>
+#include <sys/time.h>
 
-#include <unistd.h>
 #include <chrono>
 #include <iostream>
+#include <unistd.h>
 
 #include <raft/device_atomics.cuh>
 

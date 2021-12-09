@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include "pack.h"
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace Dbscan {

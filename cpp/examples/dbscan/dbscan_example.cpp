@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuda_runtime.h>
 #include <algorithm>
 #include <cmath>
+#include <cuda_runtime.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>

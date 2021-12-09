@@ -18,8 +18,8 @@
 
 #include "reachability_faiss.cuh"
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <raft/mr/device/buffer.hpp>
 

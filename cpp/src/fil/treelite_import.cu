@@ -20,9 +20,9 @@
 #include "common.cuh"    // for num_trees, tree_num_nodes
 #include "internal.cuh"  // for MAX_FIL_INT_FLOAT, BITS_PER_BYTE, cat_feature_counters, cat_sets, cat_sets_owner, categorical_sets, leaf_algo_t
 
-#include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
-#include <cuml/fil/fnv_hash.h>     // for fowler_noll_vo_fingerprint64_32
 #include <cuml/common/logger.hpp>  // for CUML_LOG_WARN
+#include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
+#include <cuml/fil/fnv_hash.h>  // for fowler_noll_vo_fingerprint64_32
 
 #include <raft/cudart_utils.h>  // for CUDA_CHECK
 #include <raft/error.hpp>       // for ASSERT

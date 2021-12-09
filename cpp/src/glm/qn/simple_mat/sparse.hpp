@@ -18,18 +18,18 @@
 #include <iostream>
 #include <vector>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
+#include "base.hpp"
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
-#include "base.hpp"
 
 namespace ML {
 

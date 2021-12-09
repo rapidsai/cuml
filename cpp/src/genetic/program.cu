@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 

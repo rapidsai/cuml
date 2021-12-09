@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/linalg/distance_type.h>
 #include <cuml/manifold/common.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
+#include <raft/linalg/distance_type.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.hpp>
 #include <selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
 
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
 namespace UMAPAlgo {
 namespace kNNGraph {

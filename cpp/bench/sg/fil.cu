@@ -16,13 +16,13 @@
 
 #include <cuml/fil/fil.h>
 
+#include "benchmark.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

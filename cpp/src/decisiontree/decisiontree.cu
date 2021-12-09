@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/flatnode.h>
 #include <raft/handle.hpp>
 
 #include "decisiontree.cuh"

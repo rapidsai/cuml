@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
 #include <cmath>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

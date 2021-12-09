@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <cuml/matrix/kernelparams.h>
-#include <cuml/common/logger.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
+#include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
 
 namespace raft {
 class handle_t;

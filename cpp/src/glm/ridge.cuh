@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "preprocess.cuh"
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -29,7 +30,6 @@
 #include <raft/stats/stddev.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
-#include "preprocess.cuh"
 
 namespace ML {
 namespace GLM {

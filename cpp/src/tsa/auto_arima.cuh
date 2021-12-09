@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 
+#include <cub/device/device_scan.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/functional.h>
@@ -25,10 +26,9 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 #include <thrust/transform.h>
-#include <cub/device/device_scan.cuh>
 
-#include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

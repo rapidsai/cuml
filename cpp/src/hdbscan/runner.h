@@ -27,10 +27,10 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
-#include <cuml/cluster/hdbscan.hpp>
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
+#include <cuml/cluster/hdbscan.hpp>
 
 namespace ML {
 namespace HDBSCAN {

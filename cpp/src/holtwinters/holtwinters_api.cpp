@@ -16,8 +16,8 @@
 
 #include <cuml/tsa/holtwinters_api.h>
 
-#include <cuml/tsa/holtwinters.h>
 #include <common/cumlHandle.hpp>
+#include <cuml/tsa/holtwinters.h>
 
 extern "C" {
 

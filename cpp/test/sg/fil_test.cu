@@ -20,13 +20,13 @@
 
 #include <cuml/fil/fil.h>
 
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 #include <test_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/transform.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>

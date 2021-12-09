@@ -20,11 +20,11 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <common/Timer.h>
-#include <cuml/tree/flatnode.h>
-#include <cuml/common/pinned_host_vector.hpp>
-#include <raft/cuda_utils.cuh>
 #include "kernels/builder_kernels.cuh"
+#include <common/Timer.h>
+#include <cuml/common/pinned_host_vector.hpp>
+#include <cuml/tree/flatnode.h>
+#include <raft/cuda_utils.cuh>
 
 #include <common/nvtx.hpp>
 #include <deque>

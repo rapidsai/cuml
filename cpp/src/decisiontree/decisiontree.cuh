@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/tree/flatnode.h>
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
+#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include "treelite_util.h"
 
 #include <algorithm>
 #include <climits>

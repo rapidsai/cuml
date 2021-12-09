@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <limits>
 #include "input.h"
 #include "split.cuh"
+#include <cub/cub.cuh>
+#include <limits>
 
 namespace ML {
 namespace DT {

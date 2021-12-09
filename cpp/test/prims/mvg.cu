@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <cmath>
+#include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <random/mvg.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)

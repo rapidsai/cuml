@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <cache/cache.cuh>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Cache {

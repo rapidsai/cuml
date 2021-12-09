@@ -17,27 +17,27 @@
 #include <random>
 #include <type_traits>
 
+#include <common/nvtx.hpp>
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+#include <label/classlabels.cuh>
+#include <matrix/kernelfactory.cuh>
 #include <omp.h>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/transpose.h>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.hpp>
+#include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/nvtx.hpp>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.hpp>
-#include <rmm/device_uvector.hpp>
 
 #include <glm/ols.cuh>
 #include <glm/qn/qn.cuh>

@@ -16,17 +16,19 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemv.h>
+#include "learning_rate.h"
+#include "shuffle.h"
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemv.h>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -35,8 +37,6 @@
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
-#include "learning_rate.h"
-#include "shuffle.h"
 
 namespace ML {
 namespace Solver {

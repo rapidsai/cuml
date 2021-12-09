@@ -21,9 +21,9 @@
 #include <opg/linalg/svd.hpp>
 #include <opg/stats/mean.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.hpp>

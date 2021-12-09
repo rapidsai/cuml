@@ -13,23 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <test_utils.h>
 #include <cuml/common/logger.hpp>
+#include <test_utils.h>
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 
-#include <cuml/fil/fil.h>
-#include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/fil/fil.h>
+#include <cuml/tree/algo_helper.h>
 
 #include <random/make_blobs.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/transpose.h>
 
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>

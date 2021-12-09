@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
 #include "exact_kernels.cuh"
 #include "utils.cuh"
+#include <cuml/common/logger.hpp>
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace TSNE {

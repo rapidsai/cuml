@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "constants.h"
+#include "node.cuh"
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
-#include <cuml/common/logger.hpp>
-#include "constants.h"
-#include "node.cuh"
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.hpp>

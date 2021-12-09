@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <linalg/ternary_op.cuh>
-#include <raft/random/rng.hpp>
 #include "test_utils.h"
+#include <gtest/gtest.h>
+#include <linalg/ternary_op.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace LinAlg {

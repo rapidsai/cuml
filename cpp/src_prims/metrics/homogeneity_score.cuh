@@ -20,9 +20,9 @@
  * contain only data points which are members of a single class.
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 

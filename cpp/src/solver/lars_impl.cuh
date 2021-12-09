@@ -21,24 +21,24 @@
 #include <numeric>
 #include <vector>
 
+#include <cache/cache_util.cuh>
+#include <cub/cub.cuh>
+#include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
-#include <cache/cache_util.cuh>
-#include <cub/cub.cuh>
-#include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <rmm/device_scalar.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace Solver {

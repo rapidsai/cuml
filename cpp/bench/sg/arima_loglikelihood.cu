@@ -24,8 +24,8 @@
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/cudart_utils.h>
 #include "benchmark.cuh"
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace Bench {

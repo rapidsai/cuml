@@ -18,11 +18,11 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <gtest/gtest.h>
 #include <algorithm>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
 #include <decisiontree/batched-levelalgo/builder_kernels.cuh>
+#include <gtest/gtest.h>
 // #include <decisiontree/batched-levelalgo/metrics.cuh>
 #include <functional>
 

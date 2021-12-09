@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "nvtx.hpp"
+#include <mutex>
 #include <stdint.h>
 #include <stdlib.h>
-#include <mutex>
 #include <string>
 #include <unordered_map>
-#include "nvtx.hpp"
 
 namespace ML {
 

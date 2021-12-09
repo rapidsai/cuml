@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/common/utils.hpp>
 #include "node.cuh"
+#include <cuml/common/utils.hpp>
 
 namespace cuml {
 namespace genetic {

@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/homogeneity_score.cuh>
+#include <raft/cudart_utils.h>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {

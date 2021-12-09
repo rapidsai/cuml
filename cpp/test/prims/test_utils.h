@@ -16,10 +16,10 @@
 
 #pragma once
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 namespace raft {
 

@@ -15,13 +15,13 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/manifold/common.hpp>
-#include <rmm/device_uvector.hpp>
 #include "distances.cuh"
 #include "exact_kernels.cuh"
 #include "utils.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/common.hpp>
+#include <raft/cudart_utils.h>
+#include <rmm/device_uvector.hpp>
 
 #include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"

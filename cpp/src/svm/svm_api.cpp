@@ -16,8 +16,8 @@
 
 #include <cuml/svm/svm_api.h>
 
-#include <cuml/matrix/kernelparams.h>
 #include <common/cumlHandle.hpp>
+#include <cuml/matrix/kernelparams.h>
 #include <cuml/svm/svc.hpp>
 #include <tuple>
 

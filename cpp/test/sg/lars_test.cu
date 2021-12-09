@@ -15,15 +15,15 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <test_utils.h>
 #include <iomanip>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
 #include <sstream>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {

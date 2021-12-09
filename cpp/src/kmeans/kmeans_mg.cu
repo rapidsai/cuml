@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/kmeans_mg.hpp>
 #include "kmeans_mg_impl.cuh"
+#include <cuml/cluster/kmeans_mg.hpp>
 
 namespace ML {
 namespace kmeans {

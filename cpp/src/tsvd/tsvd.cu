@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/decomposition/tsvd.hpp>
 #include "tsvd.cuh"
+#include <cuml/decomposition/tsvd.hpp>
 
 namespace ML {
 

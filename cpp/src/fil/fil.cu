@@ -23,10 +23,10 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 #include <cuml/fil/fil.h>  // for algo_t,
 
 #include <raft/cudart_utils.h>     // for CUDA_CHECK, cudaStream_t,
-#include <thrust/host_vector.h>    // for host_vector
 #include <raft/error.hpp>          // for ASSERT
 #include <raft/handle.hpp>         // for handle_t
 #include <rmm/device_uvector.hpp>  // for device_uvector
+#include <thrust/host_vector.h>    // for host_vector
 
 #include <cmath>    // for expf
 #include <cstddef>  // for size_t

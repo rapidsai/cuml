@@ -15,14 +15,14 @@
  */
 
 #include <GPUTreeShap/gpu_treeshap.h>
-#include <thrust/device_ptr.h>
-#include <treelite/tree.h>
 #include <cstddef>
 #include <cstdint>
 #include <cuml/explainer/tree_shap.hpp>
 #include <iostream>
 #include <memory>
 #include <raft/error.hpp>
+#include <thrust/device_ptr.h>
+#include <treelite/tree.h>
 #include <type_traits>
 #include <vector>
 

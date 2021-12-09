@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <cuml/matrix/kernelparams.h>
-#include <raft/cudart_utils.h>
 #include "grammatrix.cuh"
 #include "kernelmatrices.cuh"
+#include <cuml/matrix/kernelparams.h>
+#include <raft/cudart_utils.h>
 
 namespace MLCommon {
 namespace Matrix {

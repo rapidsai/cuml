@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <common/nvtx.hpp>
-#include <label/classlabels.cuh>
-#include <raft/sparse/csr.hpp>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
 #include "mergelabels/runner.cuh"
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
+#include <common/nvtx.hpp>
+#include <label/classlabels.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/sparse/csr.hpp>
 
 #include <cuml/common/logger.hpp>
 

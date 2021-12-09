@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include "common.cuh"
 #include <raft/cudart_utils.h>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "common.cuh"
 
 namespace ML {
 

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/tsne.h>
 #include "tsne_runner.cuh"
+#include <cuml/manifold/tsne.h>
 
 namespace ML {
 

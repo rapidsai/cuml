@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.hpp>

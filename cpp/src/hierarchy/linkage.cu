@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "pw_dist_graph.cuh"
 #include <cuml/cluster/linkage.hpp>
 #include <raft/sparse/hierarchy/single_linkage.hpp>
-#include "pw_dist_graph.cuh"
 
 namespace raft {
 class handle_t;

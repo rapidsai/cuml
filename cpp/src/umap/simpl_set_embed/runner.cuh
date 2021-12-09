@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "algo.cuh"
 #include <cuml/manifold/umapparams.h>
 #include <raft/mr/device/allocator.hpp>
-#include "algo.cuh"
 
 #include <raft/sparse/coo.hpp>
 

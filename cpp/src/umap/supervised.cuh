@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/neighbors/knn.hpp>
 #include "optimize.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
+#include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
+#include <raft/cudart_utils.h>
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>

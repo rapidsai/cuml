@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.hpp>
 #include <stats/weighted_mean.cuh>
-#include "test_utils.h"
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 namespace MLCommon {
 namespace Stats {

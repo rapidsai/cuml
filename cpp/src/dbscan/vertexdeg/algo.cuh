@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuda_runtime.h>
-#include <math.h>
 #include <distance/epsilon_neighborhood.cuh>
+#include <math.h>
 
 #include "pack.h"
 

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

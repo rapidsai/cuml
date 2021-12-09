@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
 #include <limits>
+#include <raft/cudart_utils.h>
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>

@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>

@@ -17,14 +17,14 @@
 #include "hdbscan_inputs.hpp"
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <vector>
 
-#include <hdbscan/detail/utils.h>
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/utils.h>
 
 #include <metrics/adjusted_rand_index.cuh>
 

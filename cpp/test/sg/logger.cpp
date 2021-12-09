@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <cuml/common/logger.hpp>
+#include <gtest/gtest.h>
 #include <string>
 
 namespace ML {

@@ -15,15 +15,15 @@
  */
 
 #pragma once
+#include "curand_wrappers.h"
+#include <cmath>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <stdio.h>
-#include <cmath>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include "curand_wrappers.h"
+#include <stdio.h>
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)

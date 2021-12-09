@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
+#include "benchmark.cuh"
 #include <cuml/manifold/umap.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <raft/cuda_utils.cuh>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

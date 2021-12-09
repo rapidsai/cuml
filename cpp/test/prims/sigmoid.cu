@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <functions/sigmoid.cuh>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
+#include <functions/sigmoid.cuh>
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace Functions {

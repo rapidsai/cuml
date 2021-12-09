@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include "cache_util.cuh"
+#include <cub/cub.cuh>
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

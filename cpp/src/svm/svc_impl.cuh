@@ -23,21 +23,21 @@
 
 #include <iostream>
 
+#include "kernelcache.cuh"
+#include "smosolver.cuh"
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <thrust/copy.h>
-#include <thrust/device_ptr.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <matrix/kernelfactory.cuh>
 #include <raft/label/classlabels.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include "kernelcache.cuh"
-#include "smosolver.cuh"
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace ML {
 namespace SVM {

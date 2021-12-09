@@ -20,10 +20,10 @@
 
 #include <common/fast_int_div.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 

@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <test_utils.h>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder.cuh>
+#include <gtest/gtest.h>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
+#include <test_utils.h>
 
 namespace ML {
 namespace DT {

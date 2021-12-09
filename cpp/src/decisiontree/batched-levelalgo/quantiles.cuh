@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <thrust/fill.h>
 #include <cub/cub.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/fill.h>
 
 #include <common/nvtx.hpp>
 

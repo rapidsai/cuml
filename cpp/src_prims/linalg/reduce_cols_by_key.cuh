@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <stdlib.h>
 #include <cub/cub.cuh>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace LinAlg {

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/manifold/common.hpp>
 #include "algo.cuh"
+#include <cuml/manifold/common.hpp>
 
 namespace UMAPAlgo {
 

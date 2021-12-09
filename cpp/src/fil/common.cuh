@@ -17,10 +17,10 @@
 /** @file common.cuh Common GPU functionality */
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <cub/cub.cuh>
 #include <stdexcept>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string>
 
 #include <cuml/fil/fil.h>

@@ -18,10 +18,10 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <sstream>
 #include <string>

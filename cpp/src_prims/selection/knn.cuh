@@ -23,10 +23,10 @@
 
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/distance_type.h>
 #include <raft/mr/device/allocator.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -36,10 +36,10 @@
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
+#include <cmath>
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <cmath>
-#include <cuml/svm/svc.hpp>
 #include <cuml/svm/svr.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

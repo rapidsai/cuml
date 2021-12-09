@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/manifold/common.hpp>
 #include "optimize.cuh"
 #include "supervised.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/common.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
@@ -44,8 +44,8 @@
 
 #include <raft/cuda_utils.cuh>
 
-#include <cuda_runtime.h>
 #include <common/nvtx.hpp>
+#include <cuda_runtime.h>
 
 namespace UMAPAlgo {
 

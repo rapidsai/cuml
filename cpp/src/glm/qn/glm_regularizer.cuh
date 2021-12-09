@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/stats/mean.hpp>
-#include "simple_mat.cuh"
 
 namespace ML {
 namespace GLM {

@@ -15,11 +15,6 @@
  * limitations under the License.
  */
 
-#include <raft/sparse/distance/common.h>
-#include <cuml/metrics/metrics.hpp>
-#include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
-#include <raft/sparse/distance/distance.hpp>
 #include "pairwise_distance_canberra.cuh"
 #include "pairwise_distance_chebyshev.cuh"
 #include "pairwise_distance_correlation.cuh"
@@ -32,6 +27,11 @@
 #include "pairwise_distance_l1.cuh"
 #include "pairwise_distance_minkowski.cuh"
 #include "pairwise_distance_russell_rao.cuh"
+#include <cuml/metrics/metrics.hpp>
+#include <raft/distance/distance.hpp>
+#include <raft/handle.hpp>
+#include <raft/sparse/distance/common.h>
+#include <raft/sparse/distance/distance.hpp>
 
 namespace ML {
 

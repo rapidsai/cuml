@@ -16,11 +16,9 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
 #include <linalg/power.cuh>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/subtract.cuh>
@@ -29,6 +27,8 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
+#include <thrust/device_ptr.h>
+#include <thrust/reduce.h>
 
 #define N_THREADS 512
 

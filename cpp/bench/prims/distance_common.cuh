@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 
 namespace MLCommon {

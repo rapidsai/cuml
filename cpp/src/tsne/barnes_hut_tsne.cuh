@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <raft/linalg/eltwise.cuh>
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
+#include <cuml/common/logger.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/eltwise.cuh>
 
 namespace ML {
 namespace TSNE {

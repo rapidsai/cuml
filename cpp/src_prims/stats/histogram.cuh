@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <stdint.h>
 #include <common/seive.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/vectorized.cuh>
+#include <stdint.h>
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets

@@ -19,10 +19,10 @@
  * calculations)
  */
 
-#include <math.h>
-#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
+#include <math.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <rmm/device_scalar.hpp>

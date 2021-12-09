@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include "naive.cuh"
+#include <cuml/manifold/umapparams.h>
 
 #include <raft/sparse/coo.hpp>
 

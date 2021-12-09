@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <limits.h>
 #include <cub/cub.cuh>
+#include <limits.h>
 #include <raft/cuda_utils.cuh>
 
 namespace ML {
