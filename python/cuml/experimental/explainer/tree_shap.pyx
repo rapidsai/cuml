@@ -105,16 +105,13 @@ class TreeExplainer:
             model = treelite.Model.from_xgboost(model)
             handle = model.handle.value
         # cuML RF model object
-        elif isinstance(model, curfr):
+        elif isinstance(model, (curfr, curfc)):
             try:
                 model = model.convert_to_treelite_model()
             except NotFittedError as e:
                 raise NotFittedError(
                         'Cannot compute SHAP for un-fitted model') from e
             handle = model.handle
-        elif isinstance(model, curfc):
-            raise NotImplementedError(
-                'cuML RF classifiers are not supported yet')
         elif isinstance(model, treelite.Model):
             handle = model.handle.value
         elif isinstance(model, TreeliteModel):

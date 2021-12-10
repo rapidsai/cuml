@@ -173,8 +173,11 @@ def test_cuml_rf_classifier(n_classes):
                        n_streams=1, n_estimators=10, max_leaves=-1,
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
+    pred = np.transpose(cuml_model.predict_proba(X), (1, 0))
 
-    with pytest.raises(RuntimeError):
-        # cuML RF classifier is not supported yet
-        explainer = TreeExplainer(model=cuml_model)
-        explainer.shap_values(X)
+    explainer = TreeExplainer(model=cuml_model)
+    out = explainer.shap_values(X)
+    print(out.shape)
+    # SHAP values should add up to predicted score
+    shap_sum = np.sum(out, axis=2) + np.tile(explainer.expected_value.reshape(-1, 1), (1, n_samples))
+    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
