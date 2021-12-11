@@ -427,7 +427,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                        size_t query_size)
 {
   std::vector<in_t*> ptrs(params.idx_data->size());
-  std::vector<std::size_t> sizes(params.idx_data->size());
+  std::vector<std::size_t> sizes{params.idx_data->size()};
 
   for (std::size_t cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
     ptrs[cur_idx]  = params.idx_data->at(cur_idx)->ptr;
