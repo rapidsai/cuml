@@ -495,8 +495,8 @@ install(TARGETS
           ${CUML_TARGETS}
           # Raft targets are temporary until public API is complete.
           # TODO: Remove these when libraft conda package is released.
-          "_deps/raft-build/libraft_nn.so"
-          "_deps/raft-build/libraft_distance.so"
+          raft::raft_distance
+          raft::raft_nn
         DESTINATION
           ${lib_dir}
         EXPORT
