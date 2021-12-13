@@ -16,13 +16,6 @@
 
 # distutils: language = c++
 
-import raft.common.cuda
-
-nvtx_range_push = raft.common.cuda.nvtx_range_push
-nvtx_range_pop = raft.common.cuda.nvtx_range_pop
-nvtx_range_wrap = raft.common.cuda.nvtx_range_wrap
-
-
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
         cdef _Error e = cudaGetLastError()
