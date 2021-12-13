@@ -28,7 +28,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/cuda_utils.cuh>
@@ -376,7 +376,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   const int coefCols         = narrowDown(model.coefCols());
   const std::size_t coefRows = model.coefRows;
 
-  ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
+  RAFT_USING_NVTX_RANGE("Trace::LinearSVMModel::fit");
 
   auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
   T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;
@@ -504,7 +504,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       raft::linalg::transpose(handle, ps1, model.probScale, 2, coefCols, stream);
   }
 
-  ML::POP_RANGE();
   return model;
 }
 

@@ -21,7 +21,7 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -301,9 +301,9 @@ void lstsqEig(const raft::handle_t& handle,
   multAbDone.record(multAbStream);
 
   // Q S Q* <- covA
-  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", mainStream);
+  raft::common::PUSH_NVTX_RANGE(mainStream, "raft::linalg::eigDC");
   raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, mainStream);
-  ML::POP_RANGE(mainStream);
+  raft::common::POP_NVTX_RANGE(mainStream);
 
   // QS  <- Q invS
   raft::linalg::matrixVectorOp(

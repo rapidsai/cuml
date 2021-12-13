@@ -18,7 +18,7 @@
 
 #include "runner.cuh"
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>
@@ -108,7 +108,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    cudaStream_t stream,
                    int verbosity)
 {
-  ML::PUSH_RANGE("ML::Dbscan::Fit");
+  RAFT_USING_NVTX_RANGE("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
   int algo_vd  = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;
@@ -201,7 +201,6 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               workspace.data(),
                               batch_size,
                               stream);
-  ML::POP_RANGE();
 }
 
 }  // namespace Dbscan

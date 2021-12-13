@@ -28,7 +28,7 @@
 
 #include <algorithm>
 #include <climits>
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>

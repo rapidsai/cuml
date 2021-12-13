@@ -35,6 +35,7 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
+              "NVTX ${NVTX}"
     )
 
     if(raft_ADDED)

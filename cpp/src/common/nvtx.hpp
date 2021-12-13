@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/common/nvtx.hpp>
 
 namespace ML {
 
@@ -25,21 +25,37 @@ namespace ML {
  * @param name range name
  * @param stream stream to synchronize
  */
-void PUSH_RANGE(const char* name, cudaStream_t stream);
+[[deprecated("Use new raft::common::PUSH_NVTX_RANGE from <raft/common/nvtx.hpp>")]] inline void
+PUSH_RANGE(const char* name, cudaStream_t stream)
+{
+  raft::common::PUSH_NVTX_RANGE(stream, name);
+}
 
 /**
  * @brief Synchronize CUDA stream and pop the latest nvtx range
  * @param stream stream to synchronize
  */
-void POP_RANGE(cudaStream_t stream);
+[[deprecated("Use new raft::common::POP_NVTX_RANGE from <raft/common/nvtx.hpp>")]] inline void
+POP_RANGE(cudaStream_t stream)
+{
+  raft::common::POP_NVTX_RANGE(stream);
+}
 
 /**
  * @brief Push a named nvtx range
  * @param name range name
  */
-void PUSH_RANGE(const char* name);
+[[deprecated("Use new raft::common::PUSH_NVTX_RANGE from <raft/common/nvtx.hpp>")]] inline void
+PUSH_RANGE(const char* name)
+{
+  raft::common::PUSH_NVTX_RANGE(name);
+}
 
 /** Pop the latest range */
-void POP_RANGE();
+[[deprecated("Use new raft::common::POP_NVTX_RANGE from <raft/common/nvtx.hpp>")]] inline void
+POP_RANGE()
+{
+  raft::common::POP_NVTX_RANGE();
+}
 
 }  // end namespace ML
