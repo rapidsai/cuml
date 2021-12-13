@@ -28,9 +28,9 @@
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <raft/common/nvtx.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/map.cuh>

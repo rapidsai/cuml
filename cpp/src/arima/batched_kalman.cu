@@ -30,9 +30,9 @@
 #include <raft/linalg/binary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <linalg/block.cuh>
+#include <raft/common/nvtx.hpp>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {

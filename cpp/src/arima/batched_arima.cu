@@ -29,9 +29,9 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>

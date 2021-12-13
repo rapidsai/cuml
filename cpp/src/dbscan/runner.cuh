@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/common/nvtx.hpp>
 #include <label/classlabels.cuh>
+#include <raft/common/nvtx.hpp>
 #include <raft/sparse/csr.hpp>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"

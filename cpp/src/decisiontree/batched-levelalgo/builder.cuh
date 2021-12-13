@@ -26,8 +26,8 @@
 #include <raft/cuda_utils.cuh>
 #include "kernels/builder_kernels.cuh"
 
-#include <raft/common/nvtx.hpp>
 #include <deque>
+#include <raft/common/nvtx.hpp>
 #include <utility>
 
 namespace ML {
