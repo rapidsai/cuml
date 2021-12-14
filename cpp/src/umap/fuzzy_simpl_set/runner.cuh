@@ -18,7 +18,7 @@
 #include <cuml/manifold/umapparams.h>
 #include "naive.cuh"
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
 namespace UMAPAlgo {
 

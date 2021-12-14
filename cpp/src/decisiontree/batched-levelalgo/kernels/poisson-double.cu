@@ -14,32 +14,21 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cuml/tree/flatnode.h>
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/mr/device/allocator.hpp>
-#include "algo.cuh"
+#include "../bins.cuh"
+#include "../objectives.cuh"
 
-#include <raft/sparse/coo.hpp>
+namespace ML {
+namespace DT {
+using _DataT      = double;
+using _LabelT     = double;
+using _IdxT       = int;
+using _ObjectiveT = PoissonObjectiveFunction<_DataT, _LabelT, _IdxT>;
+using _BinT       = AggregateBin;
+using _InputT     = Input<_DataT, _LabelT, _IdxT>;
+using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
+}  // namespace DT
+}  // namespace ML
 
-namespace UMAPAlgo {
-
-namespace SimplSetEmbed {
-
-using namespace ML;
-
-template <int TPB_X, typename T>
-void run(int m,
-         int n,
-         raft::sparse::COO<T>* coo,
-         UMAPParams* params,
-         T* embedding,
-         cudaStream_t stream,
-         int algorithm = 0)
-{
-  switch (algorithm) {
-    case 0: SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding, stream);
-  }
-}
-}  // namespace SimplSetEmbed
-}  // namespace UMAPAlgo
+#include "builder_kernels_impl.cuh"

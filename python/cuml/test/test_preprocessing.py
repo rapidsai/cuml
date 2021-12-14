@@ -160,8 +160,9 @@ def test_standard_scaler_sparse(failure_logger,
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("with_mean", [True, False])
 @pytest.mark.parametrize("with_std", [True, False])
-# FIXME: ignore warnings from cuml and sklearn about scaling issues
-# issue: https://github.com/rapidsai/cuml/issues/4203
+# The numerical warning is triggered when centering or scaling
+# cannot be done as single steps. Its display can be safely disabled.
+# For more information see : https://github.com/rapidsai/cuml/issues/4203
 @pytest.mark.filterwarnings("ignore:Numerical issues::")
 def test_scale(failure_logger, clf_dataset, axis,  # noqa: F811
                with_mean, with_std):
