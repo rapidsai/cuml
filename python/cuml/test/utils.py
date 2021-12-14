@@ -171,9 +171,8 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
-    h = cuml.Handle(n_streams)
     s = cuml.cuda.Stream()
-    h.setStream(s)
+    h = cuml.Handle(stream=s, n_streams=n_streams)
     return h, s
 
 
