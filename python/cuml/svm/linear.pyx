@@ -20,19 +20,25 @@ import inspect
 import typing
 import numpy as np
 import cuml
+
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+
 from collections import OrderedDict
 from cython.operator cimport dereference as deref
 from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t, _Stream
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
 cimport rmm._lib.lib as rmm
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
+
+cdef extern from * nogil:
+    ctypedef void* _Stream "cudaStream_t"
 
 cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
 
@@ -221,7 +227,7 @@ cdef class LinearSVMWrapper:
             self,
             target: CumlArray, source: CumlArray,
             synchronize: bool = True):
-        cdef _Stream stream = self.handle.get_stream()
+        cdef cuda_stream_view stream = self.handle.get_stream()
         if source.shape != target.shape:
             raise AttributeError(
                 f"Expected an array of shape {target.shape}, "
@@ -235,9 +241,9 @@ cdef class LinearSVMWrapper:
             <void*><uintptr_t>source.ptr,
             <size_t>(source.nbytes),
             rmm.cudaMemcpyDeviceToDevice,
-            stream)
+            <_Stream> stream)
         if synchronize:
-            rmm.cudaStreamSynchronize(stream)
+            self.handle.sync_stream()
 
     def __cinit__(
             self,
@@ -277,7 +283,7 @@ cdef class LinearSVMWrapper:
                     " estimator with fit_intercept enabled")
 
         self.dtype = X.dtype if do_training else coefs.dtype
-        cdef _Stream stream = self.handle.get_stream()
+        cdef cuda_stream_view stream = self.handle.get_stream()
         nClasses = 0
         nCols = 0
 
