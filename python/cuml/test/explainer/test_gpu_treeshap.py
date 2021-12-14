@@ -25,6 +25,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 from sklearn.datasets import make_regression, make_classification
+from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 if has_xgboost():
     import xgboost as xgb
@@ -200,4 +201,47 @@ def test_cuml_rf_classifier(n_classes, input_type):
     expected_value = expected_value.reshape(-1, 1)
     shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
     pred = np.transpose(pred, (1, 0))
+    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
+def test_sklearn_regressor():
+    n_samples = 100
+    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
+                           n_targets=1, random_state=2021)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    skl_model = sklrfr(max_features=1.0, max_samples=0.1,
+                       min_samples_leaf=2, random_state=123,
+                       n_estimators=10, max_depth=16)
+    skl_model.fit(X, y)
+    pred = skl_model.predict(X)
+
+    explainer = TreeExplainer(model=skl_model)
+    out = explainer.shap_values(X)
+    # SHAP values should add up to predicted score
+    shap_sum = np.sum(out, axis=1) + explainer.expected_value
+    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
+@pytest.mark.parametrize('n_classes', [2, 3, 5])
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_sklearn_rf_classifier(n_classes):
+    n_samples = 100
+    X, y = make_classification(n_samples=n_samples, n_features=8,
+                               n_informative=8, n_redundant=0, n_repeated=0,
+                               n_classes=n_classes, random_state=2021)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    skl_model = sklrfc(max_features=1.0, max_samples=0.1,
+                       min_samples_leaf=2, random_state=123,
+                       n_estimators=10, max_depth=16)
+    skl_model.fit(X, y)
+    pred = skl_model.predict_proba(X)
+
+    explainer = TreeExplainer(model=skl_model)
+    out = explainer.shap_values(X)
+    # SHAP values should add up to predicted score
+    if n_classes > 2:
+        expected_value = explainer.expected_value.reshape(-1, 1)
+        shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
+        pred = np.transpose(pred, (1, 0))
+    else:
+        shap_sum = np.sum(out, axis=1) + explainer.expected_value
+        pred = pred[:, 1]
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
