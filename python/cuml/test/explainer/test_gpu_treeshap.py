@@ -177,7 +177,6 @@ def test_cuml_rf_classifier(n_classes):
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
-    print(out.shape)
     # SHAP values should add up to predicted score
     expected_value = explainer.expected_value.reshape(-1, 1)
     shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
