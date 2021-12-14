@@ -150,34 +150,54 @@ def test_cuml_rf_regressor(input_type):
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
-    # SHAP values should add up to predicted score
-    shap_sum = np.sum(out, axis=1) + explainer.expected_value
     if input_type == 'cupy':
         pred = pred.get()
-        shap_sum = shap_sum.get()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
     elif input_type == 'cudf':
         pred = pred.to_numpy()
-        shap_sum = shap_sum.get()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
+    else:
+        expected_value = explainer.expected_value
+    # SHAP values should add up to predicted score
+    shap_sum = np.sum(out, axis=1) + expected_value
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
+@pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
 @pytest.mark.parametrize('n_classes', [2, 5])
-def test_cuml_rf_classifier(n_classes):
+def test_cuml_rf_classifier(n_classes, input_type):
     n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
                                n_informative=8, n_redundant=0, n_repeated=0,
                                n_classes=n_classes, random_state=2021)
     X, y = X.astype(np.float32), y.astype(np.float32)
+    if input_type == 'cupy':
+        X, y = cp.array(X), cp.array(y)
+    elif input_type == 'cudf':
+        X, y = cudf.DataFrame(X), cudf.Series(y)
     cuml_model = curfc(max_features=1.0, max_samples=0.1, n_bins=128,
                        min_samples_leaf=2, random_state=123,
                        n_streams=1, n_estimators=10, max_leaves=-1,
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
-    pred = np.transpose(cuml_model.predict_proba(X), (1, 0))
+    pred = cuml_model.predict_proba(X)
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
+    if input_type == 'cupy':
+        pred = pred.get()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
+    elif input_type == 'cudf':
+        pred = pred.to_numpy()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
+    else:
+        expected_value = explainer.expected_value
     # SHAP values should add up to predicted score
-    expected_value = explainer.expected_value.reshape(-1, 1)
+    expected_value = expected_value.reshape(-1, 1)
     shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
+    pred = np.transpose(pred, (1, 0))
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
