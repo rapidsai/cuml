@@ -49,17 +49,18 @@ template <typename T>
 
 template <typename T>
 class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
-  TsvdTest()
-    : params(::testing::TestWithParam<TsvdInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
-      components(0, stream),
-      components_ref(0, stream),
-      data2(0, stream),
-      data2_back(0, stream)
-  {
-    basicTest();
-    advancedTest();
-  }
+  public:
+    TsvdTest()
+      : params(::testing::TestWithParam<TsvdInputs<T>>::GetParam()),
+        stream(handle.get_stream()),
+        components(0, stream),
+        components_ref(0, stream),
+        data2(0, stream),
+        data2_back(0, stream)
+    {
+      basicTest();
+      advancedTest();
+    }
 
  protected:
   void basicTest()
@@ -113,7 +114,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
       prms.n_components = params.n_col2 - 15;
 
     data2.resize(len, stream);
-    r.uniform(data2, len, T(-1.0), T(1.0), stream);
+    r.uniform(data2.data(), len, T(-1.0), T(1.0), stream);
     rmm::device_uvector<T> data2_trans(prms.n_rows * prms.n_components, stream);
 
     int len_comp = params.n_col2 * prms.n_components;

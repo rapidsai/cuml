@@ -99,7 +99,7 @@ class RPROJTest : public ::testing::Test {
 
     RPROJfit(handle, &random_matrix2, &params2);
 
-    d_output2.resize(N * params2->n_components, stream);
+    d_output2.resize(N * params2.n_components, stream);
     RPROJtransform(handle, d_input.data(), &random_matrix2, d_output2.data(), &params2);
     raft::linalg::transpose(handle,
                             d_output2.data(),

@@ -98,8 +98,6 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> labels(params.rows, stream);
     rmm::device_uvector<T> stats(2 * params.n_clusters * params.cols, stream);
-    rmm::device_uvector<T> mean_var(2 * params.n_clusters * params.cols, stream);
-    rmm::device_uvector<T> mu_vec(params.cols * params.n_clusters, stream);
     rmm::device_uvector<int> lens(params.n_clusters, stream);
 
     CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, stats.size() * sizeof(T), stream));
