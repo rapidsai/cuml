@@ -264,8 +264,9 @@ __global__ void computeSplitKernel(BinT* hist,
 
 
   // getting the n_bins for that feature
-  int q_offset = col ? input.q_offsets[col-1] : 0;
-  int nbins = input.q_offsets[col] - q_offset;
+  // int q_offset = col ? input.useful_nbins[col-1] : 0;
+  // int nbins = input.useful_nbins[col] - q_offset;
+  int nbins = input.useful_nbins[col];
 
   auto end                  = range_start + range_len;
   auto shared_histogram_len = nbins * objective.NumClasses();
@@ -280,9 +281,9 @@ __global__ void computeSplitKernel(BinT* hist,
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();
-  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x) {
-    sbins[b] = input.quantiles[q_offset + b];
-
+  for (IdxT b = threadIdx.x; b < max_nbins; b += blockDim.x) {
+    if(b >= nbins) break;
+    sbins[b] = input.quantiles[max_nbins * col + b];
   }
 
   // synchronizing above changes across block

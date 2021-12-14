@@ -40,7 +40,7 @@ struct Input {
   /** quantiles/histogram computed on the dataset (col-major) */
   const DataT* quantiles;
   /** quantile offsets */
-  const int* q_offsets;
+  const int* useful_nbins;
 };
 
 }  // namespace DT

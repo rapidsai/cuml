@@ -152,7 +152,7 @@ class RandomForest {
       selected_rows.emplace_back(n_sampled_rows, handle.get_internal_stream(i));
     }
 
-    auto [compacted_quantiles, q_offsets] =
+    auto [quantiles, useful_nbins] =
     // auto global_quantiles =
       DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -184,8 +184,8 @@ class RandomForest {
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
                                               //  global_quantiles,
-                                               compacted_quantiles,
-                                               q_offsets,
+                                               quantiles,
+                                               useful_nbins,
                                                i);
     }
     // Cleanup

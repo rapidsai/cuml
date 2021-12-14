@@ -234,7 +234,7 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
-    std::shared_ptr<rmm::device_uvector<int>> q_offsets,
+    std::shared_ptr<rmm::device_uvector<int>> useful_nbins,
     int treeid)
   {
     if (params.split_criterion ==
@@ -258,7 +258,7 @@ class DecisionTree {
                                                                  rowids,
                                                                  unique_labels,
                                                                  quantiles,
-                                                                 q_offsets
+                                                                 useful_nbins
                                                                  )
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
@@ -275,7 +275,7 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                  quantiles,
-                                                                 q_offsets
+                                                                 useful_nbins
                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
@@ -291,7 +291,7 @@ class DecisionTree {
                                                                 rowids,
                                                                 unique_labels,
                                                                  quantiles,
-                                                                  q_offsets
+                                                                  useful_nbins
                                                                   )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
@@ -308,7 +308,7 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                  quantiles,
-                                                                 q_offsets
+                                                                 useful_nbins
                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
@@ -324,7 +324,7 @@ class DecisionTree {
                                                                   rowids,
                                                                   unique_labels,
                                                                  quantiles,
-                                                                 q_offsets
+                                                                 useful_nbins
                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
@@ -341,7 +341,7 @@ class DecisionTree {
                                                                             rowids,
                                                                             unique_labels,
                                                                  quantiles,
-                                                                 q_offsets
+                                                                 useful_nbins
                                                                  )
         .train();
     } else {

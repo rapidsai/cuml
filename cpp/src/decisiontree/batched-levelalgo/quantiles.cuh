@@ -30,8 +30,37 @@
 
 #include <common/nvtx.hpp>
 
+// #define KERNEL 0
+
 namespace ML {
 namespace DT {
+
+template <typename T>
+__global__ void batchUniqueKernel(T* quantiles, int* useful_nbins, const int n_bins){
+  extern __shared__ char smem[];
+  auto* feature_quantiles = (T*)smem;
+  int unq_nbins = 0;
+
+  for (int i = threadIdx.x; i < n_bins; i += blockDim.x){
+    feature_quantiles[i] = quantiles[blockIdx.x * n_bins + i];
+  }
+
+  __syncthreads();
+
+  if(threadIdx.x == 0) {
+    auto new_last = thrust::unique(thrust::device, feature_quantiles, feature_quantiles + n_bins);
+    useful_nbins[blockIdx.x] = unq_nbins = new_last - feature_quantiles;
+    printf("n_unique_bins: %d\n", unq_nbins);
+  }
+
+  __syncthreads();
+
+  for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+    if(i >= unq_nbins) break;
+    quantiles[blockIdx.x * n_bins + i] = feature_quantiles[i];
+  }
+
+}
 
 template <typename T>
 __global__ void computeQuantilesSorted(T* quantiles,
@@ -43,8 +72,9 @@ template <typename T>
   auto computeQuantiles(
   int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
 {
+  ML::PUSH_RANGE("computeQuantiles");
   auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
-  auto q_offsets = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
+  auto useful_nbins = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
   thrust::fill(rmm::exec_policy(handle.get_stream()),
                quantiles->begin(),
                quantiles->begin() + n_bins * n_cols,
@@ -88,24 +118,39 @@ template <typename T>
 
     CUDA_CHECK(cudaGetLastError());
   }
+  int USE_KERNEL = getenv("USE_KERNEL")[0] - 48;
+  if (USE_KERNEL == 1) {
+    ML::PUSH_RANGE("batchUniqueKernel @quantile.cuh");
+    size_t smemSize = n_bins * sizeof(T);
+    batchUniqueKernel<<<n_cols, 128, smemSize, handle.get_stream()>>>(
+      quantiles->data(), useful_nbins->data(), n_bins);
+    CUDA_CHECK(cudaGetLastError());
+    ML::POP_RANGE();
+  }
+  else {
+    ML::PUSH_RANGE("compact computed Quantiles [host] @quantile.cuh");
+    std::vector<int> h_useful_nbins(n_cols, 0);
+    // thrust::device_vector<T> d_q(n_bins, 0);
+    // auto compacted_quantiles = std::make_shared<rmm::device_uvector<T>>(0, handle.get_stream());
+    for (int col=0; col < n_cols; ++col) {
+      auto first = quantiles->begin() + n_bins * col;
+      auto last = first + n_bins;
+      // thrust::copy(thrust::device, first, first + n_bins, d_q.begin());
+      auto new_last = thrust::unique(thrust::device, first, last);
+      int n_uniques = new_last - first;
+      // h_useful_nbins[col] = h_useful_nbins[col? col-1 : 0] + n_uniques;
+      h_useful_nbins[col] = n_uniques;
+      // int old_size = compacted_quantiles->size();
+      // compacted_quantiles->resize(old_size + n_uniques, handle.get_stream());
+      // thrust::copy(thrust::device, d_q.begin(), new_last, compacted_quantiles->begin() + old_size);
+      }
+    raft::update_device(useful_nbins->data(), h_useful_nbins.data(), n_cols, handle.get_stream());
+    ML::POP_RANGE();
 
-  // print the unique quantiles and store it in file
-  std::vector<int> h_q_offsets(n_cols, 0);
-  thrust::device_vector<T> d_q(n_bins, 0);
-  auto compacted_quantiles = std::make_shared<rmm::device_uvector<T>>(0, handle.get_stream());
-  for (int col=0; col < n_cols; ++col) {
-    auto first = quantiles->begin() + n_bins * col;
-    thrust::copy(thrust::device, first, first + n_bins, d_q.begin());
-    auto new_last = thrust::unique(thrust::device, d_q.begin(), d_q.begin()+n_bins);
-    int n_uniques = new_last - d_q.begin();
-    h_q_offsets[col] = h_q_offsets[col? col-1 : 0] + n_uniques;
-    int old_size = compacted_quantiles->size();
-    compacted_quantiles->resize(old_size + n_uniques, handle.get_stream());
-    thrust::copy(thrust::device, d_q.begin(), new_last, compacted_quantiles->begin() + old_size);
-    }
-  raft::update_device(q_offsets->data(), h_q_offsets.data(), n_cols, handle.get_stream());
+  }
 
-  return std::make_pair(compacted_quantiles, q_offsets);
+  ML::POP_RANGE(); // computeQuantiles
+  return std::make_pair(quantiles, useful_nbins);
 }
 
 }  // namespace DT

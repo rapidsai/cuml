@@ -170,7 +170,7 @@ struct Builder {
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
   /** quantile offsets */
-  std::shared_ptr<const rmm::device_uvector<int>> q_offsets;
+  std::shared_ptr<const rmm::device_uvector<int>> useful_nbins;
   /** compacted quantiles */
   std::shared_ptr<const rmm::device_uvector<DataT>> quantiles;
 
@@ -200,7 +200,7 @@ struct Builder {
           rmm::device_uvector<IdxT>* rowids,
           IdxT nclasses,
           std::shared_ptr<const rmm::device_uvector<DataT>> quantiles,
-          std::shared_ptr<const rmm::device_uvector<int>> q_offsets
+          std::shared_ptr<const rmm::device_uvector<int>> useful_nbins
           )
     : handle(handle),
       builder_stream(s),
@@ -208,7 +208,7 @@ struct Builder {
       seed(seed),
       params(p),
       quantiles(quantiles),
-      q_offsets(q_offsets),
+      useful_nbins(useful_nbins),
       input{data,
             labels,
             totalRows,
@@ -218,7 +218,7 @@ struct Builder {
             rowids->data(),
             nclasses,
             quantiles->data(),
-            q_offsets->data()},
+            useful_nbins->data()},
       d_buff(0, builder_stream)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
