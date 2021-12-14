@@ -17,16 +17,16 @@
 #include <GPUTreeShap/gpu_treeshap.h>
 #include <thrust/device_ptr.h>
 #include <treelite/tree.h>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cuml/explainer/tree_shap.hpp>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <raft/error.hpp>
 #include <type_traits>
 #include <vector>
-#include <algorithm>
-#include <limits>
 
 namespace tl = treelite;
 
@@ -249,9 +249,7 @@ void extract_path_info_from_tree_with_leaf_vec(const tl::Tree<ThresholdType, Lea
                                                std::size_t& path_idx,
                                                TreePathInfoImpl<ThresholdType>& path_info)
 {
-  if (num_groups < 1) {
-    RAFT_FAIL("num_groups must be at least 1");
-  }
+  if (num_groups < 1) { RAFT_FAIL("num_groups must be at least 1"); }
 
   std::vector<int> parent_id(tree.num_nodes, -1);
   // Compute parent ID of each node
@@ -319,16 +317,17 @@ void extract_path_info_from_tree_with_leaf_vec(const tl::Tree<ThresholdType, Lea
 
       // Now duplicate tmp_paths N times, where N = num_groups
       // Then insert into path_info.paths
-      auto leaf_vector           = tree.LeafVector(i);
+      auto leaf_vector = tree.LeafVector(i);
       if (leaf_vector.size() != static_cast<std::size_t>(num_groups)) {
         RAFT_FAIL("Expected leaf vector of length %d but got %d instead",
-                  num_groups, static_cast<int>(leaf_vector.size()));
+                  num_groups,
+                  static_cast<int>(leaf_vector.size()));
       }
       for (int group_id = 0; group_id < num_groups; ++group_id) {
         for (auto& e : tmp_paths) {
           e.path_idx = path_idx;
-          e.v = static_cast<float>(leaf_vector[group_id]);
-          e.group = group_id;
+          e.v        = static_cast<float>(leaf_vector[group_id]);
+          e.group    = group_id;
         }
         path_info.paths.insert(path_info.paths.end(), tmp_paths.begin(), tmp_paths.end());
         path_idx++;
@@ -345,8 +344,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   if (!std::is_same<ThresholdType, LeafType>::value) {
     RAFT_FAIL("ThresholdType and LeafType must be identical");
   }
-  if (!std::is_same<ThresholdType, float>::value &&
-      !std::is_same<ThresholdType, double>::value) {
+  if (!std::is_same<ThresholdType, float>::value && !std::is_same<ThresholdType, double>::value) {
     RAFT_FAIL("ThresholdType must be either float32 or float64");
   }
   std::unique_ptr<TreePathInfo> path_info_ptr = std::make_unique<TreePathInfoImpl<ThresholdType>>();
@@ -355,9 +353,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   std::size_t path_idx = 0;
   int tree_idx         = 0;
   int num_groups       = 1;
-  if (model.task_param.num_class > 1) {
-    num_groups = model.task_param.num_class;
-  }
+  if (model.task_param.num_class > 1) { num_groups = model.task_param.num_class; }
   if (model.task_type == tl::TaskType::kBinaryClfRegr ||
       model.task_type == tl::TaskType::kMultiClfGrovePerClass) {
     for (const tl::Tree<ThresholdType, LeafType>& tree : model.trees) {

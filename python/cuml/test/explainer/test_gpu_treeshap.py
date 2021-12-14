@@ -179,5 +179,6 @@ def test_cuml_rf_classifier(n_classes):
     out = explainer.shap_values(X)
     print(out.shape)
     # SHAP values should add up to predicted score
-    shap_sum = np.sum(out, axis=2) + np.tile(explainer.expected_value.reshape(-1, 1), (1, n_samples))
+    expected_value = explainer.expected_value.reshape(-1, 1)
+    shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
