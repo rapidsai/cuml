@@ -1283,7 +1283,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
   MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, 1, 1.0, RQb, Rb, 0.0, RQR);
 
   // Durbin Koopman "Time Series Analysis" pg 138
-  raft::common::PUSH_NVTX_RANGE("Init P");
+  raft::common::push_nvtx_range("Init P");
   MLCommon::LinAlg::Batched::Matrix<double> P(
     rd, rd, batch_size, cublasHandle, arima_mem.P_batches, arima_mem.P_dense, stream, true);
   {
@@ -1326,7 +1326,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
       _lyapunov_wrapper(handle, arima_mem, Tb, RQR, P, rd);
     }
   }
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   // Initialize the state alpha by solving (I - T*) x* = c with:
   //     | mu |
@@ -1442,7 +1442,7 @@ void init_batched_kalman_matrices(raft::handle_t& handle,
                                   double* d_R_b,
                                   double* d_T_b)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
 
   auto stream = handle.get_stream();
 
@@ -1554,7 +1554,7 @@ void batched_kalman_filter(raft::handle_t& handle,
                            double* d_lower,
                            double* d_upper)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
 
   auto cublasHandle = handle.get_cublas_handle();
   auto stream       = handle.get_stream();

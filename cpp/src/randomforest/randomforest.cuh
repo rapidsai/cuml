@@ -52,7 +52,7 @@ class RandomForest {
                       rmm::device_uvector<int>* selected_rows,
                       const cudaStream_t stream)
   {
-    RAFT_USING_NVTX_RANGE("bootstrapping row IDs @randomforest.cuh");
+    raft::common::nvtx_range fun_scope("bootstrapping row IDs @randomforest.cuh");
 
     // Hash these together so they are uncorrelated
     auto rs = DT::fnv1a32_basis;
@@ -120,7 +120,7 @@ class RandomForest {
            int n_unique_labels,
            RandomForestMetaData<T, L>*& forest)
   {
-    RAFT_USING_NVTX_RANGE("RandomForest::fit @randomforest.cuh");
+    raft::common::nvtx_range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows           = 0;

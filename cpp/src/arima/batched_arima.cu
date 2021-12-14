@@ -104,7 +104,7 @@ void predict(raft::handle_t& handle,
              double* d_lower,
              double* d_upper)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
   const auto stream = handle.get_stream();
 
   bool diff     = order.need_diff() && pre_diff && level == 0;
@@ -358,7 +358,7 @@ void conditional_sum_of_squares(raft::handle_t& handle,
                                 double* d_loglike,
                                 int truncate)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
   auto stream = handle.get_stream();
 
   int n_phi     = order.n_phi();
@@ -413,7 +413,7 @@ void batched_loglike(raft::handle_t& handle,
                      double* d_lower,
                      double* d_upper)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
 
   auto stream = handle.get_stream();
 
@@ -485,7 +485,7 @@ void batched_loglike(raft::handle_t& handle,
                      LoglikeMethod method,
                      int truncate)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
 
   // unpack parameters
   auto stream = handle.get_stream();
@@ -529,7 +529,7 @@ void batched_loglike_grad(raft::handle_t& handle,
                           LoglikeMethod method,
                           int truncate)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
   auto stream   = handle.get_stream();
   auto counting = thrust::make_counting_iterator(0);
   int N         = order.complexity();
@@ -603,7 +603,7 @@ void information_criterion(raft::handle_t& handle,
                            double* d_ic,
                            int ic_type)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
   auto stream = handle.get_stream();
 
   /* Compute log-likelihood in d_ic */
@@ -951,7 +951,7 @@ void estimate_x0(raft::handle_t& handle,
                  const ARIMAOrder& order,
                  bool missing)
 {
-  RAFT_USING_NVTX_RANGE(__func__);
+  raft::common::nvtx_range fun_scope(__func__);
   const auto& handle_impl = handle;
   auto stream             = handle_impl.get_stream();
   auto cublas_handle      = handle_impl.get_cublas_handle();

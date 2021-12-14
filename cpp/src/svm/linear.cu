@@ -376,7 +376,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   const int coefCols         = narrowDown(model.coefCols());
   const std::size_t coefRows = model.coefRows;
 
-  RAFT_USING_NVTX_RANGE("Trace::LinearSVMModel::fit");
+  raft::common::nvtx_range fun_scope("Trace::LinearSVMModel::fit");
 
   auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
   T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;

@@ -243,7 +243,8 @@ struct Builder {
   auto workspaceSize() const
   {
     size_t d_wsize = 0, h_wsize = 0;
-    RAFT_USING_NVTX_RANGE("Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx_range fun_scope(
+      "Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
     auto max_batch   = params.max_batch_size;
     size_t nHistBins = max_batch * (params.n_bins) * n_blks_for_cols * input.numOutputs;
 
@@ -273,7 +274,8 @@ struct Builder {
    */
   void assignWorkspace(char* d_wspace, char* h_wspace)
   {
-    RAFT_USING_NVTX_RANGE("Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx_range fun_scope(
+      "Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
     auto max_batch   = params.max_batch_size;
     auto n_col_blks  = n_blks_for_cols;
     size_t nHistBins = max_batch * (params.n_bins) * n_blks_for_cols * input.numOutputs;
@@ -306,7 +308,7 @@ struct Builder {
 
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
-    RAFT_USING_NVTX_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
+    raft::common::nvtx_range fun_scope("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows, input.numOutputs);
     while (queue.HasWork()) {
@@ -346,7 +348,7 @@ struct Builder {
 
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
   {
-    RAFT_USING_NVTX_RANGE("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx_range fun_scope("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
     // start fresh on the number of *new* nodes created in this batch
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), builder_stream));
     initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
@@ -365,7 +367,7 @@ struct Builder {
 
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
-    raft::common::PUSH_NVTX_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
+    raft::common::push_nvtx_range("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
     nodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(params.max_depth,
                                                                      params.min_samples_leaf,
@@ -376,7 +378,7 @@ struct Builder {
                                                                      d_work_items,
                                                                      splits);
     CUDA_CHECK(cudaGetLastError());
-    raft::common::POP_NVTX_RANGE();
+    raft::common::pop_nvtx_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
     CUDA_CHECK(cudaStreamSynchronize(builder_stream));
     return std::make_tuple(h_splits, work_items.size());
@@ -402,7 +404,8 @@ struct Builder {
   void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks)
   {
     if (total_blocks == 0) return;
-    RAFT_USING_NVTX_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx_range fun_scope(
+      "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins    = params.n_bins;
     auto nclasses = input.numOutputs;
     auto colBlks  = std::min(n_blks_for_cols, input.nSampledCols - col);
@@ -411,7 +414,8 @@ struct Builder {
     dim3 grid(total_blocks, colBlks, 1);
     int nHistBins = large_blocks * nbins * colBlks * nclasses;
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, builder_stream));
-    RAFT_USING_NVTX_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx_range kernel_scope(
+      "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, builder_stream>>>(hist,

@@ -444,7 +444,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  RAFT_USING_NVTX_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx_range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -465,7 +465,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  RAFT_USING_NVTX_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx_range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -634,7 +634,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  RAFT_USING_NVTX_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx_range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -654,7 +654,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  RAFT_USING_NVTX_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx_range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);

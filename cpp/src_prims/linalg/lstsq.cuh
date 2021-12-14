@@ -301,9 +301,9 @@ void lstsqEig(const raft::handle_t& handle,
   multAbDone.record(multAbStream);
 
   // Q S Q* <- covA
-  raft::common::PUSH_NVTX_RANGE(mainStream, "raft::linalg::eigDC");
+  raft::common::push_nvtx_range(mainStream, "raft::linalg::eigDC");
   raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, mainStream);
-  raft::common::POP_NVTX_RANGE(mainStream);
+  raft::common::pop_nvtx_range(mainStream);
 
   // QS  <- Q invS
   raft::linalg::matrixVectorOp(

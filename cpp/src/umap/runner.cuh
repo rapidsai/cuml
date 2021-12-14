@@ -92,7 +92,7 @@ void _fit(const raft::handle_t& handle,
           UMAPParams* params,
           value_t* embeddings)
 {
-  RAFT_USING_NVTX_RANGE("umap::unsupervised::fit");
+  raft::common::nvtx_range fun_scope("umap::unsupervised::fit");
   cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
@@ -101,7 +101,7 @@ void _fit(const raft::handle_t& handle,
 
   CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
 
-  raft::common::PUSH_NVTX_RANGE("umap::knnGraph");
+  raft::common::push_nvtx_range("umap::knnGraph");
   std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
   std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
 
@@ -125,11 +125,11 @@ void _fit(const raft::handle_t& handle,
 
   kNNGraph::run<value_idx, value_t, umap_inputs>(
     handle, inputs, inputs, knn_graph, k, params, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
 
-  raft::common::PUSH_NVTX_RANGE("umap::simplicial_set");
+  raft::common::push_nvtx_range("umap::simplicial_set");
   raft::sparse::COO<value_t> rgraph_coo(stream);
   FuzzySimplSet::run<TPB_X, value_idx, value_t>(
     inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &rgraph_coo, params, stream);
@@ -140,12 +140,12 @@ void _fit(const raft::handle_t& handle,
    */
   raft::sparse::COO<value_t> cgraph_coo(stream);
   raft::sparse::op::coo_remove_zeros<value_t>(&rgraph_coo, &cgraph_coo, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   /**
    * Run initialization method
    */
-  raft::common::PUSH_NVTX_RANGE("umap::embedding");
+  raft::common::push_nvtx_range("umap::embedding");
   InitEmbed::run(handle, inputs.n, inputs.d, &cgraph_coo, params, embeddings, stream, params->init);
 
   if (params->callback) {
@@ -157,7 +157,7 @@ void _fit(const raft::handle_t& handle,
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &cgraph_coo, params, embeddings, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   if (params->callback) params->callback->on_train_end(embeddings);
 }
@@ -170,7 +170,7 @@ void _get_graph(const raft::handle_t& handle,
                                                         // second template argument for COO
 )
 {
-  RAFT_USING_NVTX_RANGE("umap::supervised::_get_graph");
+  raft::common::nvtx_range fun_scope("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
@@ -179,7 +179,7 @@ void _get_graph(const raft::handle_t& handle,
 
   CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
 
-  raft::common::PUSH_NVTX_RANGE("umap::knnGraph");
+  raft::common::push_nvtx_range("umap::knnGraph");
   std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
   std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
 
@@ -203,11 +203,11 @@ void _get_graph(const raft::handle_t& handle,
 
   kNNGraph::run<value_idx, value_t, umap_inputs>(
     handle, inputs, inputs, knn_graph, k, params, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
 
-  raft::common::PUSH_NVTX_RANGE("umap::simplicial_set");
+  raft::common::push_nvtx_range("umap::simplicial_set");
   raft::sparse::COO<value_t> rgraph_coo(stream);
   FuzzySimplSet::run<TPB_X, value_idx, value_t>(
     inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &rgraph_coo, params, stream);
@@ -218,7 +218,7 @@ void _get_graph(const raft::handle_t& handle,
    * Remove zeros from simplicial set
    */
   raft::sparse::op::coo_remove_zeros<value_t>(&rgraph_coo, cgraph_coo, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
@@ -230,7 +230,7 @@ void _get_graph_supervised(
                                           // second template argument for COO
 )
 {
-  RAFT_USING_NVTX_RANGE("umap::supervised::_get_graph_supervised");
+  raft::common::nvtx_range fun_scope("umap::supervised::_get_graph_supervised");
   cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
@@ -239,7 +239,7 @@ void _get_graph_supervised(
 
   if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
 
-  raft::common::PUSH_NVTX_RANGE("umap::knnGraph");
+  raft::common::push_nvtx_range("umap::knnGraph");
   std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
   std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
 
@@ -262,12 +262,12 @@ void _get_graph_supervised(
   kNNGraph::run<value_idx, value_t, umap_inputs>(
     handle, inputs, inputs, knn_graph, k, params, stream);
 
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   /**
    * Allocate workspace for fuzzy simplicial set.
    */
-  raft::common::PUSH_NVTX_RANGE("umap::simplicial_set");
+  raft::common::push_nvtx_range("umap::simplicial_set");
   raft::sparse::COO<value_t> rgraph_coo(stream);
   raft::sparse::COO<value_t> tmp_coo(stream);
 
@@ -311,7 +311,7 @@ void _get_graph_supervised(
 
   raft::sparse::COO<value_t> ocoo(stream);
   raft::sparse::op::coo_remove_zeros<value_t>(cgraph_coo, &ocoo, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
@@ -334,7 +334,7 @@ void _fit_supervised(const raft::handle_t& handle,
                      UMAPParams* params,
                      value_t* embeddings)
 {
-  RAFT_USING_NVTX_RANGE("umap::supervised::fit");
+  raft::common::nvtx_range fun_scope("umap::supervised::fit");
   cudaStream_t stream = handle.get_stream();
 
   int k = params->n_neighbors;
@@ -343,7 +343,7 @@ void _fit_supervised(const raft::handle_t& handle,
 
   if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
 
-  raft::common::PUSH_NVTX_RANGE("umap::knnGraph");
+  raft::common::push_nvtx_range("umap::knnGraph");
   std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
   std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
 
@@ -366,12 +366,12 @@ void _fit_supervised(const raft::handle_t& handle,
   kNNGraph::run<value_idx, value_t, umap_inputs>(
     handle, inputs, inputs, knn_graph, k, params, stream);
 
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   /**
    * Allocate workspace for fuzzy simplicial set.
    */
-  raft::common::PUSH_NVTX_RANGE("umap::simplicial_set");
+  raft::common::push_nvtx_range("umap::simplicial_set");
   raft::sparse::COO<value_t> rgraph_coo(stream);
   raft::sparse::COO<value_t> tmp_coo(stream);
 
@@ -417,12 +417,12 @@ void _fit_supervised(const raft::handle_t& handle,
 
   raft::sparse::COO<value_t> ocoo(stream);
   raft::sparse::op::coo_remove_zeros<value_t>(&final_coo, &ocoo, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   /**
    * Initialize embeddings
    */
-  raft::common::PUSH_NVTX_RANGE("umap::supervised::fit");
+  raft::common::push_nvtx_range("umap::supervised::fit");
   InitEmbed::run(handle, inputs.n, inputs.d, &ocoo, params, embeddings, stream, params->init);
 
   if (params->callback) {
@@ -434,7 +434,7 @@ void _fit_supervised(const raft::handle_t& handle,
    * Run simplicial set embedding to approximate low-dimensional representation
    */
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, &ocoo, params, embeddings, stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   if (params->callback) params->callback->on_train_end(embeddings);
 
@@ -453,7 +453,7 @@ void _transform(const raft::handle_t& handle,
                 UMAPParams* params,
                 value_t* transformed)
 {
-  RAFT_USING_NVTX_RANGE("umap::transform");
+  raft::common::nvtx_range fun_scope("umap::transform");
   cudaStream_t stream = handle.get_stream();
 
   ML::Logger::get().setLevel(params->verbosity);
@@ -462,7 +462,7 @@ void _transform(const raft::handle_t& handle,
 
   CUML_LOG_DEBUG("Building KNN Graph");
 
-  raft::common::PUSH_NVTX_RANGE("umap::knnGraph");
+  raft::common::push_nvtx_range("umap::knnGraph");
   std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
   std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
 
@@ -488,9 +488,9 @@ void _transform(const raft::handle_t& handle,
   kNNGraph::run<value_idx, value_t, umap_inputs>(
     handle, orig_x_inputs, inputs, knn_graph, k, params, stream);
 
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
-  raft::common::PUSH_NVTX_RANGE("umap::smooth_knn");
+  raft::common::push_nvtx_range("umap::smooth_knn");
   float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
 
   CUML_LOG_DEBUG("Smoothing KNN distances");
@@ -515,7 +515,7 @@ void _transform(const raft::handle_t& handle,
                                                                 params->n_neighbors,
                                                                 adjusted_local_connectivity,
                                                                 stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   /**
    * Compute graph of membership strengths
@@ -612,7 +612,7 @@ void _transform(const raft::handle_t& handle,
   raft::sparse::COO<value_t> comp_coo(stream);
   raft::sparse::op::coo_remove_zeros<value_t>(&graph_coo, &comp_coo, stream);
 
-  raft::common::PUSH_NVTX_RANGE("umap::optimization");
+  raft::common::push_nvtx_range("umap::optimization");
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");
 
   rmm::device_uvector<value_t> epochs_per_sample(nnz, stream);
@@ -641,7 +641,7 @@ void _transform(const raft::handle_t& handle,
                                                      params,
                                                      n_epochs,
                                                      stream);
-  raft::common::POP_NVTX_RANGE();
+  raft::common::pop_nvtx_range();
 
   if (params->callback) params->callback->on_train_end(transformed);
 }
