@@ -20,17 +20,19 @@ import numpy as np
 import cupy as cp
 import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost, has_shap
+from cuml.common.import_utils import has_xgboost, has_shap, has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
-from sklearn.datasets import make_regression, make_classification
-from sklearn.ensemble import RandomForestRegressor as sklrfr
 
 if has_xgboost():
     import xgboost as xgb
 if has_shap():
     import shap
+if has_sklearn():
+    from sklearn.datasets import make_regression, make_classification
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
+    from sklearn.ensemble import RandomForestClassifier as sklrfc
 
 
 @pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
@@ -38,6 +40,7 @@ if has_shap():
                                        'reg:pseudohubererror'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
@@ -81,6 +84,7 @@ def test_xgb_regressor(objective):
                               'multi:softmax', 'multi:softprob'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
     n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
@@ -133,6 +137,7 @@ def test_degenerate_cases():
 
 
 @pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_regressor(input_type):
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
@@ -168,6 +173,7 @@ def test_cuml_rf_regressor(input_type):
 
 @pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
 @pytest.mark.parametrize('n_classes', [2, 5])
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_classifier(n_classes, input_type):
     n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
@@ -203,6 +209,7 @@ def test_cuml_rf_classifier(n_classes, input_type):
     pred = np.transpose(pred, (1, 0))
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_regressor():
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,

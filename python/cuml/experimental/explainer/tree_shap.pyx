@@ -16,6 +16,7 @@
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
+from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import determine_array_type
 from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import TreeliteModel
@@ -27,6 +28,15 @@ from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move
 import numpy as np
 import treelite
+
+if has_sklearn():
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
+    from sklearn.ensemble import RandomForestClassifier as sklrfc
+else:
+    class PlaceHolder:
+        pass
+    sklrfr = PlaceHolder
+    sklrfc = PlaceHolder
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -112,6 +122,10 @@ class TreeExplainer:
                 raise NotFittedError(
                         'Cannot compute SHAP for un-fitted model') from e
             handle = model.handle
+        # scikit-learn RF model object
+        elif isinstance(model, (sklrfr, sklrfc)):
+            model = treelite.sklearn.import_model(model)
+            handle = model.handle.value
         elif isinstance(model, treelite.Model):
             handle = model.handle.value
         elif isinstance(model, TreeliteModel):
