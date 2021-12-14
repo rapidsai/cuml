@@ -143,8 +143,7 @@ class Base(TagsMixin,
         # stream and handle example:
 
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
-        handle.setStream(stream)
+        handle = cuml.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)

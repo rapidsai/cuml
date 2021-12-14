@@ -911,15 +911,8 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     y[o] = reinterpret_cast<out_t*>(labels) + (o * n_labels);
   }
 
-  MLCommon::Selection::knn_regress<float, 32, true>(outputs,
-                                                    nullptr,
-                                                    y,
-                                                    n_labels,
-                                                    batch_size,
-                                                    params.k,
-                                                    handle.get_stream(),
-                                                    handle.get_internal_streams().data(),
-                                                    handle.get_num_internal_streams());
+  MLCommon::Selection::knn_regress<float, 32, true>(
+    handle, outputs, nullptr, y, n_labels, batch_size, params.k);
 }
 
 /*!
@@ -953,30 +946,26 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
   switch (params.knn_op) {
     case knn_operation::classification:
-      MLCommon::Selection::knn_classify<32, true>(outputs,
+      MLCommon::Selection::knn_classify<32, true>(handle,
+                                                  outputs,
                                                   nullptr,
                                                   y,
                                                   n_labels,
                                                   batch_size,
                                                   params.k,
                                                   *(params.uniq_labels),
-                                                  *(params.n_unique),
-                                                  handle.get_stream(),
-                                                  handle.get_internal_streams().data(),
-                                                  handle.get_num_internal_streams());
+                                                  *(params.n_unique));
       break;
     case knn_operation::class_proba:
-      MLCommon::Selection::class_probs<32, true>(probas_with_offsets,
+      MLCommon::Selection::class_probs<32, true>(handle,
+                                                 probas_with_offsets,
                                                  nullptr,
                                                  y,
                                                  n_labels,
                                                  batch_size,
                                                  params.k,
                                                  *(params.uniq_labels),
-                                                 *(params.n_unique),
-                                                 handle.get_stream(),
-                                                 handle.get_internal_streams().data(),
-                                                 handle.get_num_internal_streams());
+                                                 *(params.n_unique));
       break;
     default: CUML_LOG_DEBUG("FAILURE!");
   }
