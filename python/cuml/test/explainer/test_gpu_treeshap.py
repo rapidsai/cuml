@@ -209,6 +209,7 @@ def test_cuml_rf_classifier(n_classes, input_type):
     pred = np.transpose(pred, (1, 0))
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
+
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_regressor():
     n_samples = 100
@@ -226,6 +227,7 @@ def test_sklearn_regressor():
     # SHAP values should add up to predicted score
     shap_sum = np.sum(out, axis=1) + explainer.expected_value
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
 
 @pytest.mark.parametrize('n_classes', [2, 3, 5])
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
@@ -246,7 +248,8 @@ def test_sklearn_rf_classifier(n_classes):
     # SHAP values should add up to predicted score
     if n_classes > 2:
         expected_value = explainer.expected_value.reshape(-1, 1)
-        shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
+        shap_sum = np.sum(out, axis=2) + np.tile(expected_value,
+                                                 (1, n_samples))
         pred = np.transpose(pred, (1, 0))
     else:
         shap_sum = np.sum(out, axis=1) + explainer.expected_value
