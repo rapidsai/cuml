@@ -186,7 +186,7 @@ else
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     cp _deps/raft-build/libraft_nn.so $PWD
     patchelf --replace-needed `patchelf --print-needed libraft_nn.so | grep faiss` libfaiss.so libraft_nn.so
-    cp _deps/raft-build/libraft_distances.so $PWD
+    cp _deps/raft-build/libraft_distance.so $PWD
 
     gpuci_logger "Running libcuml binaries"
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
