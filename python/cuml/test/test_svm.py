@@ -166,7 +166,13 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             print("Skipping decision function test due to low  accuracy",
                   accuracy2)
 
-    ## Compare support_ (dataset indicies of points that form the support vectors)
+    # Compare support_ (dataset indicies of points that form the support vectors)
+    # and ensure that some overlap (~1/8) between two exists
+    support1 = set(svm1.support_)
+    support2 = set(svm2.support_)
+    intersection_len = len(support1.intersection(support2))
+    average_len = (len(support1)+len(support2))/2
+    assert intersection_len > average_len/8
 
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
