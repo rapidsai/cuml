@@ -36,11 +36,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/norm.cuh>
-#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/norm.hpp>
+#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <raft/cuda_utils.cuh>
 
@@ -139,7 +139,7 @@ void _fit(const raft::handle_t& handle,
    * Remove zeros from simplicial set
    */
   raft::sparse::COO<value_t> cgraph_coo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&rgraph_coo, &cgraph_coo, stream);
   ML::POP_RANGE();
 
   /**
@@ -218,7 +218,7 @@ void _get_graph(const raft::handle_t& handle,
   /**
    * Remove zeros from simplicial set
    */
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, cgraph_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&rgraph_coo, cgraph_coo, stream);
   ML::POP_RANGE();
 }
 
@@ -285,7 +285,7 @@ void _get_graph_supervised(
                                                 stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&tmp_coo, &rgraph_coo, stream);
 
   /**
    * If target metric is 'categorical', perform
@@ -311,7 +311,7 @@ void _get_graph_supervised(
   raft::sparse::op::coo_sort<value_t>(cgraph_coo, stream);
 
   raft::sparse::COO<value_t> ocoo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(cgraph_coo, &ocoo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(cgraph_coo, &ocoo, stream);
   ML::POP_RANGE();
 }
 
@@ -389,7 +389,7 @@ void _fit_supervised(const raft::handle_t& handle,
                                                 stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&tmp_coo, &rgraph_coo, stream);
 
   raft::sparse::COO<value_t> final_coo(stream);
 
@@ -417,7 +417,7 @@ void _fit_supervised(const raft::handle_t& handle,
   raft::sparse::op::coo_sort<value_t>(&final_coo, stream);
 
   raft::sparse::COO<value_t> ocoo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&final_coo, &ocoo, stream);
   ML::POP_RANGE();
 
   /**
@@ -551,14 +551,14 @@ void _transform(const raft::handle_t& handle,
   rmm::device_uvector<int> ia(inputs.n, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(&graph_coo, row_ind.data(), stream);
-  raft::sparse::linalg::coo_degree<TPB_X>(&graph_coo, ia.data(), stream);
+  raft::sparse::linalg::coo_degree(&graph_coo, ia.data(), stream);
 
   rmm::device_uvector<value_t> vals_normed(graph_coo.nnz, stream);
   CUDA_CHECK(cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
-  raft::sparse::linalg::csr_row_normalize_l1<TPB_X, value_t>(
+  raft::sparse::linalg::csr_row_normalize_l1<value_t>(
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows, vals_normed.data(), stream);
 
   init_transform<TPB_X, value_t><<<grid_n, blk, 0, stream>>>(graph_coo.cols(),
@@ -612,7 +612,7 @@ void _transform(const raft::handle_t& handle,
    * Remove zeros
    */
   raft::sparse::COO<value_t> comp_coo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&graph_coo, &comp_coo, stream);
 
   ML::PUSH_RANGE("umap::optimization");
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");

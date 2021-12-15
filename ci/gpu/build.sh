@@ -31,6 +31,9 @@ cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
+# ucx-py version
+export UCX_PY_VERSION='0.24.*'
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -53,7 +56,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.23.*" \
+      "ucx-py=${UCX_PY_VERSION}" \
       "ucx-proc=*=gpu" \
       "xgboost=1.5.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \

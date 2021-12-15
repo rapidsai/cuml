@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
@@ -46,9 +45,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   void SetUp()
   {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
-    handle.reset(new raft::handle_t);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->set_stream(stream);
+    handle.reset(new raft::handle_t{stream});
     set_tree_params(params,
                     inparams.max_depth,
                     1 << inparams.max_depth,

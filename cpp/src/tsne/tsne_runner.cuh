@@ -161,8 +161,7 @@ class TSNE_runner {
     START_TIMER;
     //---------------------------------------------------
     // Normalize perplexity to prepare for symmetrization
-    value_t P_sum = thrust::reduce(rmm::exec_policy(stream), P.begin(), P.end());
-    raft::linalg::scalarMultiply(P.data(), P.data(), 1.0f / (2.0f * P_sum), P.size(), stream);
+    raft::linalg::scalarMultiply(P.data(), P.data(), 1.0f / (2.0f * n), P.size(), stream);
     //---------------------------------------------------
     END_TIMER(NormalizeTime);
 
