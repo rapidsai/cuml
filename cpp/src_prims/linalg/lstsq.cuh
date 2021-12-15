@@ -28,10 +28,10 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -255,15 +255,15 @@ void lstsqEig(const raft::handle_t& handle,
   rmm::cuda_stream_view multAbStream = mainStream;
   bool concurrent                    = false;
   {
-    int sp_size = handle.get_num_internal_streams();
+    int sp_size = handle.get_stream_pool_size();
     if (sp_size > 0) {
-      multAbStream = handle.get_internal_stream_view(0);
+      multAbStream = handle.get_stream_from_stream_pool(0);
       // check if the two streams can run concurrently
       if (!are_implicitly_synchronized(mainStream, multAbStream)) {
         concurrent = true;
       } else if (sp_size > 1) {
         mainStream   = multAbStream;
-        multAbStream = handle.get_internal_stream_view(1);
+        multAbStream = handle.get_stream_from_stream_pool(1);
         concurrent   = true;
       }
     }

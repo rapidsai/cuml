@@ -20,7 +20,7 @@
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -44,8 +44,7 @@ struct FusedL2NN : public Fixture {
     alloc(out, params.m);
     alloc(workspace, params.m);
     raft::random::Rng r(123456ULL);
-    raft::handle_t handle;
-    handle.set_stream(stream);
+    raft::handle_t handle{stream};
 
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);

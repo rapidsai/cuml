@@ -23,10 +23,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/op/sort.hpp>
+#include <raft/stats/mean.hpp>
 
 #include <cuda_runtime.h>
 
@@ -353,7 +353,7 @@ void launcher(int n,
    * one via a fuzzy union. (Symmetrize knn graph).
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
-  raft::sparse::linalg::coo_symmetrize<TPB_X, value_t>(
+  raft::sparse::linalg::coo_symmetrize<value_t>(
     &in,
     out,
     [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {

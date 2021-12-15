@@ -220,6 +220,8 @@ def test_mro(model):
 ###############################################################################
 
 @pytest.mark.parametrize("model_name", list(models.keys()))
+# ignore random forest float64 warnings
+@pytest.mark.filterwarnings("ignore:To use pickling or GPU-based")
 def test_fit_function(dataset, model_name):
     # This test ensures that our estimators return self after a call to fit
     if model_name in [

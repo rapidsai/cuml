@@ -78,6 +78,8 @@ from cuml.solvers.sgd import SGD
 from cuml.solvers.qn import QN
 from cuml.svm import SVC
 from cuml.svm import SVR
+from cuml.svm import LinearSVC
+from cuml.svm import LinearSVR
 
 from cuml.tsa import stationarity
 from cuml.tsa.arima import ARIMA

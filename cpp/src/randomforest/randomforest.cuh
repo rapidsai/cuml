@@ -19,19 +19,16 @@
 #include <common/nvtx.hpp>
 
 #include <decisiontree/treelite_util.h>
-#include <decisiontree/batched-levelalgo/quantile.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
 
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
-
 #include <metrics/scores.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <random/permute.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -140,10 +137,10 @@ class RandomForest {
       n_sampled_rows = n_rows;
     }
     int n_streams = this->rf_params.n_streams;
-    ASSERT(n_streams <= handle.get_num_internal_streams(),
-           "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
+    ASSERT(static_cast<std::size_t>(n_streams) <= handle.get_stream_pool_size(),
+           "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%lu)",
            n_streams,
-           handle.get_num_internal_streams());
+           handle.get_stream_pool_size());
 
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
@@ -152,7 +149,7 @@ class RandomForest {
     // constructor
     std::deque<rmm::device_uvector<int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
-      selected_rows.emplace_back(n_sampled_rows, handle.get_internal_stream(i));
+      selected_rows.emplace_back(n_sampled_rows, handle.get_stream_from_stream_pool(i));
     }
 
     auto global_quantiles =
@@ -162,7 +159,7 @@ class RandomForest {
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
-      auto s        = handle.get_internal_stream(stream_id);
+      auto s        = handle.get_stream_from_stream_pool(i);
 
       this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
@@ -189,10 +186,7 @@ class RandomForest {
                                                i);
     }
     // Cleanup
-    for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
-      CUDA_CHECK(cudaStreamSynchronize(s));
-    }
+    handle.sync_stream_pool();
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     ML::POP_RANGE();
   }

@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <cuml/decomposition/params.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <tsvd/tsvd.cuh>
 #include <vector>
 
@@ -50,7 +50,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
@@ -85,7 +86,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
 
   void advancedTest()
   {
-    params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len2;
 
@@ -126,8 +128,6 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     basicTest();
     advancedTest();
   }
@@ -145,7 +145,6 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     CUDA_CHECK(cudaFree(explained_vars2));
     CUDA_CHECK(cudaFree(explained_var_ratio2));
     CUDA_CHECK(cudaFree(singular_vals2));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -154,7 +153,6 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
     *singular_vals2;
   raft::handle_t handle;
-  cudaStream_t stream = 0;
 };
 
 const std::vector<TsvdInputs<float>> inputsf2 = {
@@ -175,7 +173,8 @@ TEST_P(TsvdTestLeftVecF, Result)
   ASSERT_TRUE(raft::devArrMatch(components,
                                 components_ref,
                                 (params.n_col * params.n_col),
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                handle.get_stream()));
 }
 
 typedef TsvdTest<double> TsvdTestLeftVecD;
@@ -184,7 +183,8 @@ TEST_P(TsvdTestLeftVecD, Result)
   ASSERT_TRUE(raft::devArrMatch(components,
                                 components_ref,
                                 (params.n_col * params.n_col),
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                handle.get_stream()));
 }
 
 typedef TsvdTest<float> TsvdTestDataVecF;
@@ -193,7 +193,8 @@ TEST_P(TsvdTestDataVecF, Result)
   ASSERT_TRUE(raft::devArrMatch(data2,
                                 data2_back,
                                 (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+                                raft::CompareApproxAbs<float>(params.tolerance),
+                                handle.get_stream()));
 }
 
 typedef TsvdTest<double> TsvdTestDataVecD;
@@ -202,7 +203,8 @@ TEST_P(TsvdTestDataVecD, Result)
   ASSERT_TRUE(raft::devArrMatch(data2,
                                 data2_back,
                                 (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                handle.get_stream()));
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF, ::testing::ValuesIn(inputsf2));

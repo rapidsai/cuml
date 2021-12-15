@@ -42,6 +42,10 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
 
 
+pytestmark = pytest.mark.filterwarnings("ignore: Regressors in active "
+                                        "set degenerate(.*)::sklearn[.*]")
+
+
 def _make_regression_dataset_uncached(nrows, ncols, n_info):
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
@@ -133,7 +137,8 @@ def test_linear_regression_single_column():
     '''Test that linear regression can be run on single column with more than
     46340 rows (a limitation on CUDA <11)'''
     model = cuLinearRegression()
-    model.fit(cp.random.rand(46341), cp.random.rand(46341))
+    with pytest.warns(UserWarning):
+        model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -239,6 +244,9 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 )
 @pytest.mark.parametrize("nrows", [unit_param(1000)])
 @pytest.mark.parametrize("column_info", [unit_param([20, 10])])
+# ignoring UserWarnings in sklearn about setting unused parameters
+# like l1 for none penalty
+@pytest.mark.filterwarnings("ignore::UserWarning:sklearn[.*]")
 def test_logistic_regression(
     num_classes, dtype, penalty, l1_ratio,
     fit_intercept, nrows, column_info, C, tol
@@ -257,9 +265,13 @@ def test_logistic_regression(
     )
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
+
     culog = cuLog(
-        penalty=penalty, l1_ratio=l1_ratio, C=C,
-        fit_intercept=fit_intercept, tol=tol
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        fit_intercept=fit_intercept,
+        tol=tol
     )
     culog.fit(X_train, y_train)
 
@@ -633,6 +645,8 @@ def test_logistic_regression_weighting(regression_dataset,
 
 
 @pytest.mark.parametrize('algo', [cuLog, cuRidge])
+# ignoring warning about change of solver
+@pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
 def test_linear_models_set_params(algo):
     x = np.linspace(0, 1, 50)
     y = 2 * x

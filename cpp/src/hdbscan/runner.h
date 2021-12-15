@@ -23,7 +23,7 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <limits.h>
 #include <cstdint>
 #include <numeric>
