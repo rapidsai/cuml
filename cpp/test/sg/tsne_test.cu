@@ -148,7 +148,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       n,
                       model_params.dim,
                       raft::distance::DistanceType::L2Expanded,
-                      stream);
+                      false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Compute theorical KL div

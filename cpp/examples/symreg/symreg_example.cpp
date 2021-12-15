@@ -198,12 +198,10 @@ int main(int argc, char* argv[])
 
   /* ======================= Begin GPU memory allocation ======================= */
   std::cout << "***************************************" << std::endl;
-  raft::handle_t handle;
   std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator());
 
   cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
-  handle.set_stream(stream);
+  raft::handle_t handle{stream};
 
   // Begin recording time
   cudaEventRecord(start, stream);
@@ -342,6 +340,5 @@ int main(int argc, char* argv[])
   raft::deallocate(d_finalprogs, stream);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
   return 0;
 }

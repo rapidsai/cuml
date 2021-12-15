@@ -48,14 +48,14 @@ template <typename T, typename ParamsReader>
 struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
   const LinearSVMTestParams params;
   const raft::handle_t handle;
-  rmm::cuda_stream_view stream;
+  cudaStream_t stream;
 
   LinearSVMTest()
     : testing::TestWithParam<typename ParamsReader::Params>(),
       params(
         ParamsReader::read(::testing::TestWithParam<typename ParamsReader::Params>::GetParam())),
-      handle(8),
-      stream(handle.get_stream_view())
+      handle(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(8)),
+      stream(handle.get_stream())
   {
   }
 

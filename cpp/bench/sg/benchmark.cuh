@@ -37,9 +37,9 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    handle.reset(new raft::handle_t(NumStreams));
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(NumStreams);
+    handle.reset(new raft::handle_t{stream, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
-    handle->set_stream(stream);
   }
 
   void TearDown(const ::benchmark::State& state) override

@@ -119,7 +119,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     std::vector<float*> y;
     y.push_back(train_labels);
 
-    knn_regress(pred_labels, knn_indices, y, params.rows, params.rows, params.k, stream);
+    knn_regress(handle, pred_labels, knn_indices, y, params.rows, params.rows, params.k);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

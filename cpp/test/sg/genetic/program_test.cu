@@ -42,16 +42,14 @@ class GeneticProgramTest : public ::testing::Test {
       dx2(0, cudaStream_t(0)),
       dy2(0, cudaStream_t(0)),
       dw2(0, cudaStream_t(0)),
-      dyp2(0, cudaStream_t(0))
+      dyp2(0, cudaStream_t(0)),
+      stream(handle.get_stream())
   {
   }
 
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-
     // Params
     hyper_params.population_size = 2;
     hyper_params.random_state    = 123;
@@ -155,7 +153,6 @@ class GeneticProgramTest : public ::testing::Test {
     rmm::mr::get_current_device_resource()->deallocate(d_nodes1, 7 * sizeof(node), stream);
     rmm::mr::get_current_device_resource()->deallocate(d_nodes2, 7 * sizeof(node), stream);
     rmm::mr::get_current_device_resource()->deallocate(d_progs, 2 * sizeof(program), stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   raft::handle_t handle;
