@@ -44,8 +44,9 @@ if(BUILD_CUML_BENCH)
     PUBLIC
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
-      raft
-      raft_distance
+      raft::raft
+      raft::raft_nn
+      raft::raft_distance
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
   )
