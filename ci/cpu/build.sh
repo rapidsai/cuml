@@ -31,6 +31,9 @@ if [ "${IS_STABLE_BUILD}" != "true" ] ; then
   export VERSION_SUFFIX=`date +%y%m%d`
 fi
 
+# ucx-py version
+export UCX_PY_VERSION='0.24.*'
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -60,6 +63,13 @@ conda list --show-channel-urls
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
 
+# FIXME: for now, force the building of all packages so they are built on a
+# machine with a single CUDA version, then have the gpu/build.sh script simply
+# install. This should eliminate a mismatch between different CUDA versions on
+# cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
+BUILD_LIBCUML=1
+BUILD_CUML=1
+
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
@@ -75,6 +85,7 @@ else
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
     mkdir -p ${CONDA_BLD_DIR}/libcuml/work
     cp -r ${CONDA_BLD_DIR}/work/* ${CONDA_BLD_DIR}/libcuml/work
+    rm -rf ${CONDA_BLD_DIR}/work
   fi
 fi
 
@@ -84,7 +95,10 @@ if [ "$BUILD_CUML" == '1' ]; then
     gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} -c ci/artifacts/cuml/cpu/.conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c $CONDA_BLD_DIR --dirty --no-remove-work-dir --python=${PYTHON}
+    mkdir -p ${CONDA_BLD_DIR}/cuml/work
+    cp -r ${CONDA_BLD_DIR}/work/* ${CONDA_BLD_DIR}/cuml/work
+    rm -rf ${CONDA_BLD_DIR}/work
   fi
 fi
 

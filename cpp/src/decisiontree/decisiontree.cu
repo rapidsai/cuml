@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <cuml/tree/flatnode.h>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/handle.hpp>
 
-#include <cuml/tree/flatnode.h>
 #include "decisiontree.cuh"
 
 namespace ML {

@@ -16,16 +16,14 @@
 
 #pragma once
 
+#include <raft/sparse/coo.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 
 namespace raft {
 class handle_t;
-namespace sparse {
-template <typename T, typename Index_Type>
-class COO;
-};
 }  // namespace raft
 
 namespace ML {

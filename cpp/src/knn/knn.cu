@@ -19,7 +19,9 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.hpp>
 #include <raft/spatial/knn/ball_cover.hpp>
+
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -49,20 +51,20 @@ void brute_force_knn(const raft::handle_t& handle,
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  raft::spatial::knn::brute_force_knn(handle,
-                                      input,
-                                      sizes,
-                                      D,
-                                      search_items,
-                                      n,
-                                      res_I,
-                                      res_D,
-                                      k,
-                                      rowMajorIndex,
-                                      rowMajorQuery,
-                                      nullptr,
-                                      metric,
-                                      metric_arg);
+  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
+                                                           input,
+                                                           sizes,
+                                                           D,
+                                                           search_items,
+                                                           n,
+                                                           res_I,
+                                                           res_D,
+                                                           k,
+                                                           rowMajorIndex,
+                                                           rowMajorQuery,
+                                                           nullptr,
+                                                           metric,
+                                                           metric_arg);
 }
 
 void rbc_build_index(const raft::handle_t& handle,
@@ -128,7 +130,7 @@ void knn_classify(raft::handle_t& handle,
   }
 
   MLCommon::Selection::knn_classify(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, stream);
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
 }
 
 void knn_regress(raft::handle_t& handle,
@@ -139,8 +141,7 @@ void knn_regress(raft::handle_t& handle,
                  size_t n_query_rows,
                  int k)
 {
-  MLCommon::Selection::knn_regress(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, handle.get_stream());
+  MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
 }
 
 void knn_class_proba(raft::handle_t& handle,
@@ -164,7 +165,7 @@ void knn_class_proba(raft::handle_t& handle,
   }
 
   MLCommon::Selection::class_probs(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, stream);
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
 }
 
 };  // END NAMESPACE ML
