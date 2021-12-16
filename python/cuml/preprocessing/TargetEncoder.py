@@ -96,9 +96,10 @@ class TargetEncoder:
         if not isinstance(seed, int):
             raise ValueError('seed {} is not an integer'.format(seed))
 
-        if split_method not in {'random', 'continuous', 'interleaved'}:
+        if split_method not in {'random', 'continuous', 'interleaved',
+                                'customize'}:
             msg = ("split_method should be either 'random'"
-                   " or 'continuous' or 'interleaved', "
+                   " or 'continuous' or 'interleaved', or 'customize'"
                    "got {0}.".format(self.split))
             raise ValueError(msg)
 
