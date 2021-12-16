@@ -235,7 +235,13 @@ class PermutationExplainer(SHAPBase):
             CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas
             DataFrame/Series.
         npermutations : int (default = 10)
-            The l1 regularization to use for feature selection.
+            Number of times to cycle through all the features, re-evaluating
+            the model at each step. Each cycle evaluates the model function
+            2 * (# features + 1) times on a data matrix of (# background
+            data samples) rows. An exception to this is when
+            PermutationExplainer can avoid evaluating the model because a
+            feature's value is the same in X and the background dataset
+            (which is common for example with sparse features).
         as_list : bool (default = True)
             Set to True to return a list of arrays for multi-dimensional
             models (like predict_proba functions) to match the SHAP package

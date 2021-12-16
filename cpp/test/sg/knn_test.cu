@@ -19,11 +19,12 @@
 #include <test_utils.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
 #include <cuml/datasets/make_blobs.hpp>
+
 #include <cuml/neighbors/knn.hpp>
 
 namespace ML {

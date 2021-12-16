@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,18 +51,21 @@ from numba import cuda
 from cuml.common.import_utils import has_scipy
 
 
-def _gen_data_regression(n_samples, n_features, random_state=42):
+def _gen_data_regression(n_samples, n_features, random_state=42,
+                         dtype=np.float32):
     """Wrapper for sklearn make_regression"""
     if n_samples == 0:
         n_samples = int(1e6)
     if n_features == 0:
         n_features = 100
     X_arr, y_arr = cuml.datasets.make_regression(
-        n_samples=n_samples, n_features=n_features, random_state=random_state)
+        n_samples=n_samples, n_features=n_features, random_state=random_state,
+        dtype=dtype)
     return cudf.DataFrame(X_arr), cudf.Series(y_arr)
 
 
-def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
+def _gen_data_blobs(n_samples, n_features, random_state=42, dtype=np.float32,
+                    centers=None):
     """Wrapper for sklearn make_blobs"""
     if n_samples == 0:
         n_samples = int(1e6)
@@ -70,23 +73,23 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
         n_samples = 100
     X_arr, y_arr = cuml.datasets.make_blobs(
         n_samples=n_samples, n_features=n_features, centers=centers,
-        random_state=random_state)
+        random_state=random_state, dtype=dtype)
     return (
-        cudf.DataFrame(X_arr.astype(np.float32)),
-        cudf.Series(y_arr.astype(np.float32)),
+        cudf.DataFrame(X_arr),
+        cudf.Series(y_arr),
     )
 
 
-def _gen_data_zeros(n_samples, n_features, random_state=42):
+def _gen_data_zeros(n_samples, n_features, random_state=42, dtype=np.float32):
     """Dummy generator for use in testing - returns all 0s"""
     return (
-        cudf.DataFrame(np.zeros((n_samples, n_features), dtype=np.float32)),
-        cudf.Series(np.zeros(n_samples, dtype=np.float32)),
+        cudf.DataFrame(np.zeros((n_samples, n_features), dtype=dtype)),
+        cudf.Series(np.zeros(n_samples, dtype=dtype)),
     )
 
 
 def _gen_data_classification(
-    n_samples, n_features, random_state=42, n_classes=2
+        n_samples, n_features, random_state=42, dtype=np.float32, n_classes=2
 ):
     """Wrapper for sklearn make_blobs"""
     if n_samples == 0:
@@ -96,15 +99,16 @@ def _gen_data_classification(
 
     X_arr, y_arr = cuml.datasets.make_classification(
         n_samples=n_samples, n_features=n_features, n_classes=n_classes,
-        random_state=random_state)
+        random_state=random_state, dtype=dtype)
 
     return (
-        cudf.DataFrame(X_arr.astype(np.float32)),
-        cudf.Series(y_arr.astype(np.float32)),
+        cudf.DataFrame(X_arr),
+        cudf.Series(y_arr),
     )
 
 
-def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
+def _gen_data_higgs(n_samples=None, n_features=None, random_state=42,
+                    dtype=np.float32):
     """Wrapper returning Higgs in Pandas format"""
     X_df, y_df = load_higgs()
     if n_samples == 0:
@@ -170,9 +174,9 @@ def _convert_to_numpy(data):
     elif isinstance(data, np.ndarray):
         return data
     elif isinstance(data, cudf.DataFrame):
-        return data.as_matrix()
+        return data.to_numpy()
     elif isinstance(data, cudf.Series):
-        return data.to_array()
+        return data.to_numpy()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data.to_numpy()
     else:
@@ -255,9 +259,9 @@ def _convert_to_scipy_sparse(data, input_type):
     elif isinstance(data, np.ndarray):
         return _sparsify_and_convert(data, input_type)
     elif isinstance(data, cudf.DataFrame):
-        return _sparsify_and_convert(data.as_matrix(), input_type)
+        return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, cudf.Series):
-        return _sparsify_and_convert(data.to_array(), input_type)
+        return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return _sparsify_and_convert(data.to_numpy(), input_type)
     else:
@@ -302,6 +306,7 @@ def gen_data(
     n_features=0,
     random_state=42,
     test_fraction=0.0,
+    dtype=np.float32,
     **kwargs
 ):
     """Returns a tuple of data from the specified generator.
@@ -331,6 +336,7 @@ def gen_data(
         int(n_samples / (1 - test_fraction)),
         n_features,
         random_state,
+        dtype,
         **kwargs
     )
     if test_fraction != 0.0:

@@ -476,7 +476,8 @@ class KMeans(Base,
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32,
+                                       index=X_m.index)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.

@@ -21,11 +21,11 @@
 #include <thrust/reduce.h>
 #include <linalg/power.cuh>
 #include <memory>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/spatial/knn/knn.hpp>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>

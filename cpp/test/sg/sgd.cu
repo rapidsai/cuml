@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <test_utils.h>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include <solver/sgd.cuh>
 
 namespace ML {
@@ -41,8 +41,9 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
  protected:
   void linearRegressionTest()
   {
-    params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
-    int len = params.n_row * params.n_col;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
+    int len     = params.n_row * params.n_col;
 
     raft::allocate(data, len, stream);
     raft::allocate(labels, params.n_row, stream);
@@ -126,8 +127,9 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void logisticRegressionTest()
   {
-    params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
-    int len = params.n_row2 * params.n_col2;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
+    int len     = params.n_row2 * params.n_col2;
 
     T* coef_class;
     raft::allocate(data_logreg, len, stream);
@@ -200,8 +202,9 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void svmTest()
   {
-    params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
-    int len = params.n_row2 * params.n_col2;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
+    int len     = params.n_row2 * params.n_col2;
 
     T* coef_class;
     raft::allocate(data_svmreg, len, stream);
@@ -274,8 +277,6 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     linearRegressionTest();
     logisticRegressionTest();
     svmTest();
@@ -299,7 +300,6 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     CUDA_CHECK(cudaFree(pred_svm_ref));
     CUDA_CHECK(cudaFree(pred_log));
     CUDA_CHECK(cudaFree(pred_log_ref));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -310,7 +310,6 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
   T *data_svmreg, *data_svmreg_test, *labels_svmreg;
   T *pred_svm, *pred_svm_ref, *pred_log, *pred_log_ref;
   T intercept, intercept2;
-  cudaStream_t stream = 0;
   raft::handle_t handle;
 };
 
@@ -321,33 +320,35 @@ const std::vector<SgdInputs<double>> inputsd2 = {{0.01, 4, 2, 4, 3, 2}};
 typedef SgdTest<float> SgdTestF;
 TEST_P(SgdTestF, Fit)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(
-    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  auto stream = handle.get_stream();
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol), stream));
 
   ASSERT_TRUE(raft::devArrMatch(
-    pred_log_ref, pred_log, params.n_row, raft::CompareApproxAbs<float>(params.tol)));
+    coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol), stream));
 
   ASSERT_TRUE(raft::devArrMatch(
-    pred_svm_ref, pred_svm, params.n_row, raft::CompareApproxAbs<float>(params.tol)));
+    pred_log_ref, pred_log, params.n_row, raft::CompareApproxAbs<float>(params.tol), stream));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    pred_svm_ref, pred_svm, params.n_row, raft::CompareApproxAbs<float>(params.tol), stream));
 }
 
 typedef SgdTest<double> SgdTestD;
 TEST_P(SgdTestD, Fit)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(
-    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  auto stream = handle.get_stream();
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol), stream));
 
   ASSERT_TRUE(raft::devArrMatch(
-    pred_log_ref, pred_log, params.n_row, raft::CompareApproxAbs<double>(params.tol)));
+    coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol), stream));
 
   ASSERT_TRUE(raft::devArrMatch(
-    pred_svm_ref, pred_svm, params.n_row, raft::CompareApproxAbs<double>(params.tol)));
+    pred_log_ref, pred_log, params.n_row, raft::CompareApproxAbs<double>(params.tol), stream));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    pred_svm_ref, pred_svm, params.n_row, raft::CompareApproxAbs<double>(params.tol), stream));
 }
 
 INSTANTIATE_TEST_CASE_P(SgdTests, SgdTestF, ::testing::ValuesIn(inputsf2));

@@ -48,11 +48,10 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from libc.stdint cimport uintptr_t, int64_t
+from libc.stdint cimport uintptr_t, int64_t, uint32_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
-
 
 from numba import cuda
 import rmm
@@ -62,6 +61,16 @@ cimport cuml.common.cuda
 
 if has_scipy():
     import scipy.sparse
+
+
+cdef extern from "raft/spatial/knn/ball_cover_common.h" \
+        namespace "raft::spatial::knn":
+    cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
+        BallCoverIndex(const handle_t &handle,
+                       float *X,
+                       uint32_t n_rows,
+                       uint32_t n_cols,
+                       DistanceType metric) except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     void brute_force_knn(
@@ -78,6 +87,21 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         bool rowMajorQuery,
         DistanceType metric,
         float metric_arg
+    ) except +
+
+    void rbc_build_index(
+        const handle_t &handle,
+        BallCoverIndex[int64_t, float, uint32_t] &index,
+    ) except +
+
+    void rbc_knn_query(
+        const handle_t &handle,
+        BallCoverIndex[int64_t, float, uint32_t] &index,
+        uint32_t k,
+        float *search_items,
+        uint32_t n_search_items,
+        int64_t *out_inds,
+        float *out_dists
     ) except +
 
     void approx_knn_build_index(
@@ -100,6 +124,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         const float *query_array,
         int n
     ) except +
+
 
 cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
     void brute_force_knn(handle_t &handle,
@@ -148,6 +173,12 @@ class NearestNeighbors(Base,
     algorithm : string (default='brute')
         The query algorithm to use. Valid options are:
 
+        - ``'auto'``: to automatically select brute-force or
+          random ball cover based on data shape and metric
+        - ``'rbc'``: for the random ball algorithm, which partitions
+          the data space and uses the triangle inequality to lower the
+          number of potential distances. Currently, this algorithm
+          supports 2d Euclidean and Haversine.
         - ``'brute'``: for brute-force, slow but produces exact results
         - ``'ivfflat'``: for inverted file, divide the dataset in partitions
           and perform search on relevant partitions only
@@ -281,6 +312,10 @@ class NearestNeighbors(Base,
     the FAISS release that this cuML version is linked to.
     (see cuML issue #4020)
 
+    Warning: For compatibility with libraries that rely on scikit-learn,
+    kwargs allows for passing of arguments that are not explicit in the
+    class constructor, such as 'n_jobs', but they have no effect on behavior.
+
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
 
@@ -295,12 +330,13 @@ class NearestNeighbors(Base,
                  n_neighbors=5,
                  verbose=False,
                  handle=None,
-                 algorithm="brute",
+                 algorithm="auto",
                  metric="euclidean",
                  p=2,
                  algo_params=None,
                  metric_params=None,
-                 output_type=None):
+                 output_type=None,
+                 **kwargs):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -313,8 +349,10 @@ class NearestNeighbors(Base,
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
+        self.working_algorithm_ = self.algorithm
+        self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
-        self.knn_index = <uintptr_t> 0
+        self.knn_index = None
 
     @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
@@ -327,29 +365,46 @@ class NearestNeighbors(Base,
 
         self.n_dims = X.shape[1]
 
+        if self.algorithm == "auto":
+            if self.n_dims == 2 and self.metric in \
+                    cuml.neighbors.VALID_METRICS["rbc"]:
+                self.working_algorithm_ = "rbc"
+            else:
+                self.working_algorithm_ = "brute"
+
+        if self.algorithm == "rbc" and self.n_dims > 2:
+            raise ValueError("The rbc algorithm is not supported for"
+                             " >2 dimensions currently.")
+
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
+            value_metric_str = "_SPARSE"
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
 
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
+            valid_metric_str = ""
             self.X_m, self.n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+        self._output_index = self.X_m.index
 
-        if self.metric not in valid_metrics[self.algorithm]:
+        if self.metric not in \
+                valid_metrics[self.working_algorithm_]:
             raise ValueError("Metric %s is not valid. "
-                             "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
+                             "Use sorted(cuml.neighbors.VALID_METRICS%s[%s]) "
                              "to get valid options." %
-                             (self.metric, self.algorithm))
+                             (valid_metric_str,
+                              self.metric,
+                              self.working_algorithm_))
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        if self.algorithm in ['ivfflat', 'ivfpq', 'ivfsq']:
+        if self.working_algorithm_ in ['ivfflat', 'ivfpq', 'ivfsq']:
             warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
                           "might be unstable in this version of cuML. "
                           "This is due to a known issue in the FAISS "
@@ -365,7 +420,7 @@ class NearestNeighbors(Base,
             knn_index = new knnIndex()
             self.knn_index = <uintptr_t> knn_index
             algo_params = <knnIndexParam*><uintptr_t> \
-                build_algo_params(self.algorithm, self.algo_params,
+                build_algo_params(self.working_algorithm_, self.algo_params,
                                   additional_info)
             metric = self._build_metric_type(self.metric)
 
@@ -382,6 +437,16 @@ class NearestNeighbors(Base,
             destroy_algo_params(<uintptr_t>algo_params)
 
             del self.X_m
+        elif self.working_algorithm_ == "rbc":
+            metric = self._build_metric_type(self.metric)
+
+            rbc_index = new BallCoverIndex[int64_t, float, uint32_t](
+                handle_[0], <float*><uintptr_t>self.X_m.ptr,
+                <uint32_t>self.n_rows, <uint32_t>n_cols,
+                <DistanceType>metric)
+            rbc_build_index(handle_[0],
+                            deref(rbc_index))
+            self.knn_index = <uintptr_t>rbc_index
 
         self.n_indices = 1
         return self
@@ -389,7 +454,7 @@ class NearestNeighbors(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params", "algo_params"]
+                "p", "metric_params", "algo_params", "n_jobs"]
 
     @staticmethod
     def _build_metric_type(metric):
@@ -590,6 +655,7 @@ class NearestNeighbors(Base,
             # expanded metrics. This code correct numerical instabilities
             # that could arise.
             if metric_is_l2_based:
+                index = I_ndarr.index
                 X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
@@ -606,7 +672,9 @@ class NearestNeighbors(Base,
                 I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
 
                 D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                D_ndarr.index = index
                 I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
+                I_ndarr.index = index
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
@@ -638,9 +706,11 @@ class NearestNeighbors(Base,
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
+        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C",
+                                  index=X_m.index)
         D_ndarr = CumlArray.zeros((N, n_neighbors),
-                                  dtype=np.float32, order="C")
+                                  dtype=np.float32, order="C",
+                                  index=X_m.index)
 
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr
@@ -649,8 +719,10 @@ class NearestNeighbors(Base,
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
         cdef knnIndex* knn_index = <knnIndex*> 0
+        cdef BallCoverIndex[int64_t, float, uint32_t]* rbc_index = \
+            <BallCoverIndex[int64_t, float, uint32_t]*> 0
 
-        if self.algorithm == 'brute':
+        if self.working_algorithm_ == 'brute':
             inputs.push_back(<float*><uintptr_t>self.X_m.ptr)
             sizes.push_back(<int>self.X_m.shape[0])
 
@@ -670,6 +742,16 @@ class NearestNeighbors(Base,
                 # minkowski order is currently the only metric argument.
                 <float>self.p
             )
+        elif self.working_algorithm_ == "rbc":
+            rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*>\
+                <uintptr_t>self.knn_index
+            rbc_knn_query(handle_[0],
+                          deref(rbc_index),
+                          <uint32_t> n_neighbors,
+                          <float*><uintptr_t>X_m.ptr,
+                          <uint32_t> N,
+                          <int64_t*>I_ptr,
+                          <float*>D_ptr)
         else:
             knn_index = <knnIndex*><uintptr_t> self.knn_index
             approx_knn_search(
@@ -821,9 +903,15 @@ class NearestNeighbors(Base,
         return sparse_csr
 
     def __del__(self):
-        cdef knnIndex* knn_index = <knnIndex*><uintptr_t>self.knn_index
-        if knn_index:
-            del knn_index
+        cdef knnIndex* knn_index = <knnIndex*>0
+        cdef BallCoverIndex* rbc_index = <BallCoverIndex*>0
+        if self.knn_index is not None:
+            if self.working_algorithm_ in ["ivfflat", "ivfpq", "ivfsq"]:
+                knn_index = <knnIndex*><uintptr_t>self.knn_index
+                del knn_index
+            else:
+                rbc_index = <BallCoverIndex*><uintptr_t>self.knn_index
+                del rbc_index
 
 
 @cuml.internals.api_return_sparse_array()

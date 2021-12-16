@@ -5,7 +5,9 @@
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
+{% set cuda_major=cuda_version.split('.')[0] %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
+{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 
 package:
   name: cuml
@@ -16,7 +18,7 @@ source:
 
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
-  string: cuda{{ cuda_version }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
     - CC
     - CXX
@@ -28,12 +30,12 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.20.1
-    - treelite=2.0.0
+    - treelite=2.1.0
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py 0.22
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
     - python x.x
@@ -42,14 +44,14 @@ requirements:
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cupy>=7.8.0,<10.0.0a0
-    - treelite=2.0.0
+    - treelite=2.1.0
     - nccl>=2.9.9
-    - ucx-py 0.22
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2021.6.0
-    - distributed>=2021.6.0
+    - dask>=2021.11.1,<=2021.11.2
+    - distributed>=2021.11.1,<=2021.11.2
     - joblib >=0.11
-    - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
+    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 about:
   home: http://rapids.ai/

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,29 +14,18 @@
  * limitations under the License.
  */
 
-#pragma once
+/** @file constants.h Common GPU functionality + constants for all operations */
 
-#include <cuml/genetic/genetic.h>
-#include <raft/cuda_utils.cuh>
+#pragma once
 
 namespace cuml {
 namespace genetic {
-namespace detail {
 
-HDI float p_reproduce(const param& p)
-{
-  auto sum = p.p_crossover + p.p_subtree_mutation + p.p_hoist_mutation + p.p_point_mutation;
-  auto ret = 1.f - sum;
-  return fmaxf(0.f, fminf(ret, 1.f));
-}
+// Max number of threads per block to use with tournament and evaluation kernels
+const int GENE_TPB = 256;
 
-HDI int max_programs(const param& p)
-{
-  // in the worst case every generation's top program ends up reproducing,
-  // thereby adding another program into the population
-  return p.population_size + p.generations;
-}
+// Max size of stack used for AST evaluation
+const int MAX_STACK_SIZE = 20;
 
-}  // namespace detail
 }  // namespace genetic
 }  // namespace cuml

@@ -32,9 +32,9 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/op/sort.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "../prims/test_utils.h"
@@ -94,7 +94,6 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
                                                  mst_weights.data());
 
     HDBSCAN::Common::HDBSCANParams hdbscan_params;
-    hdbscan_params.k                = params.k;
     hdbscan_params.min_cluster_size = params.min_cluster_size;
     hdbscan_params.min_samples      = params.min_pts;
 
@@ -116,7 +115,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
  protected:
   HDBSCANInputs<T, IdxT> params;
-  int k;
+  IdxT* labels_ref;
 
   double score;
 };
@@ -218,7 +217,6 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
 
  protected:
   ClusterCondensingInputs<T, IdxT> params;
-  int k;
 
   double score;
 };

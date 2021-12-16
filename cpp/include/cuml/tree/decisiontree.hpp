@@ -28,11 +28,11 @@ namespace DT {
 
 struct DecisionTreeParams {
   /**
-   * Maximum tree depth. Unlimited (e.g., until leaves are pure), if -1.
+   * Maximum tree depth. Unlimited (e.g., until leaves are pure), If `-1`.
    */
   int max_depth;
   /**
-   * Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+   * Maximum leaf nodes per tree. Soft constraint. Unlimited, If `-1`.
    */
   int max_leaves;
   /**
@@ -97,26 +97,15 @@ void set_tree_params(DecisionTreeParams& params,
                      CRITERION cfg_split_criterion   = CRITERION_END,
                      int cfg_max_batch_size          = 4096);
 
-/**
- * @brief Check validity of all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void validity_check(const DecisionTreeParams params);
-
-/**
- * @brief Print all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void print(const DecisionTreeParams params);
-
 template <class T, class L>
 struct TreeMetaDataNode {
   int treeid;
   int depth_counter;
   int leaf_counter;
-  double prepare_time;
   double train_time;
+  std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
+  int num_outputs;
 };
 
 /**

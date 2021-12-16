@@ -21,7 +21,7 @@
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
 #include <raft/handle.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/cudart_utils.h>
@@ -44,7 +44,6 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       order(p.order),
       param(0, rmm::cuda_stream_default),
       loglike(0, rmm::cuda_stream_default),
-      residual(0, rmm::cuda_stream_default),
       temp_mem(0, rmm::cuda_stream_default)
   {
   }
@@ -80,12 +79,12 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       batched_loglike(*this->handle,
                       arima_mem,
                       this->data.X.data(),
+                      nullptr,
                       this->params.batch_size,
                       this->params.n_obs,
                       order,
                       param.data(),
                       loglike.data(),
-                      residual.data(),
                       true,
                       false);
     });
@@ -101,9 +100,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     // Buffer for the model parameters
     param.resize(order.complexity() * this->params.batch_size, stream);
 
-    // Buffers for the log-likelihood and residuals
+    // Buffers for the log-likelihood
     loglike.resize(this->params.batch_size, stream);
-    residual.resize(this->params.batch_size * this->params.n_obs, stream);
 
     // Temporary memory
     size_t temp_buf_size =
@@ -117,7 +115,6 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
   ARIMAOrder order;
   rmm::device_uvector<DataT> param;
   rmm::device_uvector<DataT> loglike;
-  rmm::device_uvector<DataT> residual;
   rmm::device_uvector<char> temp_mem;
 };
 
@@ -126,11 +123,11 @@ std::vector<ArimaParams> getInputs()
   struct std::vector<ArimaParams> out;
   ArimaParams p;
   p.data.seed                        = 12345ULL;
-  std::vector<ARIMAOrder> list_order = {{1, 1, 1, 0, 0, 0, 0, 0},
-                                        {1, 1, 1, 1, 1, 1, 4, 0},
-                                        {1, 1, 1, 1, 1, 1, 12, 0},
-                                        {1, 1, 1, 1, 1, 1, 24, 0},
-                                        {1, 1, 1, 1, 1, 1, 52, 0}};
+  std::vector<ARIMAOrder> list_order = {{1, 1, 1, 0, 0, 0, 0, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 4, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 12, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 24, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 52, 0, 0}};
   std::vector<int> list_batch_size   = {10, 100, 1000, 10000};
   std::vector<int> list_n_obs        = {200, 500, 1000};
   for (auto& order : list_order) {

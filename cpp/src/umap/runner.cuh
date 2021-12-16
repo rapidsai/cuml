@@ -36,11 +36,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/norm.cuh>
-#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/norm.hpp>
+#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <raft/cuda_utils.cuh>
 
@@ -139,7 +139,7 @@ void _fit(const raft::handle_t& handle,
    * Remove zeros from simplicial set
    */
   raft::sparse::COO<value_t> cgraph_coo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, &cgraph_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&rgraph_coo, &cgraph_coo, stream);
   ML::POP_RANGE();
 
   /**
@@ -161,6 +161,172 @@ void _fit(const raft::handle_t& handle,
 
   if (params->callback) params->callback->on_train_end(embeddings);
   ML::POP_RANGE();
+}
+
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
+void _get_graph(const raft::handle_t& handle,
+                const umap_inputs& inputs,
+                UMAPParams* params,
+                raft::sparse::COO<value_t>* cgraph_coo  // assumes single-precision int as the
+                                                        // second template argument for COO
+)
+{
+  ML::PUSH_RANGE("umap::supervised::_get_graph");
+  cudaStream_t stream = handle.get_stream();
+
+  int k = params->n_neighbors;
+
+  ML::Logger::get().setLevel(params->verbosity);
+
+  CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
+
+  ML::PUSH_RANGE("umap::knnGraph");
+  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
+
+  knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
+
+  /**
+   * If not given precomputed knn graph, compute it
+   */
+  if (inputs.alloc_knn_graph()) {
+    /**
+     * Allocate workspace for kNN graph
+     */
+    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
+    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+
+    knn_graph.knn_indices = knn_indices_b->data();
+    knn_graph.knn_dists   = knn_dists_b->data();
+  }
+
+  CUML_LOG_DEBUG("Calling knn graph run");
+
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    handle, inputs, inputs, knn_graph, k, params, stream);
+  ML::POP_RANGE();
+
+  CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
+
+  ML::PUSH_RANGE("umap::simplicial_set");
+  raft::sparse::COO<value_t> rgraph_coo(stream);
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(
+    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &rgraph_coo, params, stream);
+
+  CUML_LOG_DEBUG("Done. Calling remove zeros");
+
+  /**
+   * Remove zeros from simplicial set
+   */
+  raft::sparse::op::coo_remove_zeros<value_t>(&rgraph_coo, cgraph_coo, stream);
+  ML::POP_RANGE();
+}
+
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
+void _get_graph_supervised(
+  const raft::handle_t& handle,
+  const umap_inputs& inputs,
+  UMAPParams* params,
+  raft::sparse::COO<value_t>* cgraph_coo  // assumes single-precision int as the
+                                          // second template argument for COO
+)
+{
+  ML::PUSH_RANGE("umap::supervised::_get_graph_supervised");
+  cudaStream_t stream = handle.get_stream();
+
+  int k = params->n_neighbors;
+
+  ML::Logger::get().setLevel(params->verbosity);
+
+  if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
+
+  ML::PUSH_RANGE("umap::knnGraph");
+  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
+
+  knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
+
+  /**
+   * If not given precomputed knn graph, compute it
+   */
+  if (inputs.alloc_knn_graph()) {
+    /**
+     * Allocate workspace for kNN graph
+     */
+    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
+    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+
+    knn_graph.knn_indices = knn_indices_b->data();
+    knn_graph.knn_dists   = knn_dists_b->data();
+  }
+
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    handle, inputs, inputs, knn_graph, k, params, stream);
+
+  ML::POP_RANGE();
+
+  /**
+   * Allocate workspace for fuzzy simplicial set.
+   */
+  ML::PUSH_RANGE("umap::simplicial_set");
+  raft::sparse::COO<value_t> rgraph_coo(stream);
+  raft::sparse::COO<value_t> tmp_coo(stream);
+
+  /**
+   * Run Fuzzy simplicial set
+   */
+  // int nnz = n*k*2;
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(inputs.n,
+                                                knn_graph.knn_indices,
+                                                knn_graph.knn_dists,
+                                                params->n_neighbors,
+                                                &tmp_coo,
+                                                params,
+                                                stream);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  raft::sparse::op::coo_remove_zeros<value_t>(&tmp_coo, &rgraph_coo, stream);
+
+  /**
+   * If target metric is 'categorical', perform
+   * categorical simplicial set intersection.
+   */
+  if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
+    CUML_LOG_DEBUG("Performing categorical intersection");
+    Supervised::perform_categorical_intersection<TPB_X, value_t>(
+      inputs.y, &rgraph_coo, cgraph_coo, params, stream);
+
+    /**
+     * Otherwise, perform general simplicial set intersection
+     */
+  } else {
+    CUML_LOG_DEBUG("Performing general intersection");
+    Supervised::perform_general_intersection<TPB_X, value_idx, value_t>(
+      handle, inputs.y, &rgraph_coo, cgraph_coo, params, stream);
+  }
+
+  /**
+   * Remove zeros
+   */
+  raft::sparse::op::coo_sort<value_t>(cgraph_coo, stream);
+
+  raft::sparse::COO<value_t> ocoo(stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(cgraph_coo, &ocoo, stream);
+  ML::POP_RANGE();
+}
+
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
+void _refine(const raft::handle_t& handle,
+             const umap_inputs& inputs,
+             UMAPParams* params,
+             raft::sparse::COO<value_t>* cgraph_coo,
+             value_t* embeddings)
+{
+  cudaStream_t stream = handle.get_stream();
+  /**
+   * Run simplicial set embedding to approximate low-dimensional representation
+   */
+  SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, cgraph_coo, params, embeddings, stream);
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
@@ -223,7 +389,7 @@ void _fit_supervised(const raft::handle_t& handle,
                                                 stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&tmp_coo, &rgraph_coo, stream);
 
   raft::sparse::COO<value_t> final_coo(stream);
 
@@ -251,7 +417,7 @@ void _fit_supervised(const raft::handle_t& handle,
   raft::sparse::op::coo_sort<value_t>(&final_coo, stream);
 
   raft::sparse::COO<value_t> ocoo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&final_coo, &ocoo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&final_coo, &ocoo, stream);
   ML::POP_RANGE();
 
   /**
@@ -385,14 +551,14 @@ void _transform(const raft::handle_t& handle,
   rmm::device_uvector<int> ia(inputs.n, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(&graph_coo, row_ind.data(), stream);
-  raft::sparse::linalg::coo_degree<TPB_X>(&graph_coo, ia.data(), stream);
+  raft::sparse::linalg::coo_degree(&graph_coo, ia.data(), stream);
 
   rmm::device_uvector<value_t> vals_normed(graph_coo.nnz, stream);
   CUDA_CHECK(cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
-  raft::sparse::linalg::csr_row_normalize_l1<TPB_X, value_t>(
+  raft::sparse::linalg::csr_row_normalize_l1<value_t>(
     row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows, vals_normed.data(), stream);
 
   init_transform<TPB_X, value_t><<<grid_n, blk, 0, stream>>>(graph_coo.cols(),
@@ -446,7 +612,7 @@ void _transform(const raft::handle_t& handle,
    * Remove zeros
    */
   raft::sparse::COO<value_t> comp_coo(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&graph_coo, &comp_coo, stream);
+  raft::sparse::op::coo_remove_zeros<value_t>(&graph_coo, &comp_coo, stream);
 
   ML::PUSH_RANGE("umap::optimization");
   CUML_LOG_DEBUG("Computing # of epochs for training each sample");

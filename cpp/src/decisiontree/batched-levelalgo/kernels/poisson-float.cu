@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cuml/tree/flatnode.h>
 
-#include <memory>
-#include <raft/mr/device/allocator.hpp>
+#include "../bins.cuh"
+#include "../objectives.cuh"
 
 namespace ML {
 namespace DT {
-
-template <typename T>
-void computeQuantiles(
-  T* quantiles, int n_bins, const T* data, int n_rows, int n_cols, cudaStream_t stream);
-
+using _DataT      = float;
+using _LabelT     = float;
+using _IdxT       = int;
+using _ObjectiveT = PoissonObjectiveFunction<_DataT, _LabelT, _IdxT>;
+using _BinT       = AggregateBin;
+using _InputT     = Input<_DataT, _LabelT, _IdxT>;
+using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML
+
+#include "builder_kernels_impl.cuh"

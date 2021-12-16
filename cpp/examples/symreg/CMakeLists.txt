@@ -1,4 +1,4 @@
-#
+#=============================================================================
 # Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+#=============================================================================
 
-
-from cuml.experimental.cluster.hdbscan import HDBSCAN
-from cuml.experimental.cluster.hdbscan import condense_hierarchy
+add_executable(symreg_example symreg_example.cpp)
+target_include_directories(symreg_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+target_link_libraries(symreg_example cuml++)

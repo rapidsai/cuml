@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <vector>
 #include "test_utils.h"
 

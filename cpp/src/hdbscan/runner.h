@@ -23,7 +23,7 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
@@ -125,13 +125,11 @@ void build_linkage(const raft::handle_t& handle,
 {
   auto stream = handle.get_stream();
 
-  int k = params.k + 1;
-
   /**
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, k * m * 2);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
   rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(handle,
@@ -139,7 +137,6 @@ void build_linkage(const raft::handle_t& handle,
                                                   (size_t)m,
                                                   (size_t)n,
                                                   metric,
-                                                  k,
                                                   params.min_samples,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),

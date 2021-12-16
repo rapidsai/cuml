@@ -15,14 +15,17 @@ from joblib import Parallel
 import functools
 import timeit
 import numbers
-from sklearn.base import clone
-from sklearn.utils import Bunch
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.base import clone
+    from sklearn.utils import Bunch
 from contextlib import contextmanager
 from collections import defaultdict
 import warnings
 
 from scipy import sparse as sp_sparse
-from cupy import sparse as cu_sparse
+from cupyx.scipy import sparse as cu_sparse
 import numpy as cpu_np
 import cupy as np
 import numba
@@ -30,6 +33,7 @@ import numba
 import cuml
 from cuml.internals.global_settings import _global_settings_data
 from cuml.common.array_sparse import SparseCumlArray
+from cuml.common.import_utils import has_sklearn
 from cuml.internals import _deprecate_pos_args
 from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
     BaseEstimator
@@ -549,6 +553,9 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                  n_jobs=None,
                  transformer_weights=None,
                  verbose=False):
+        if not has_sklearn():
+            raise ImportError("Scikit-learn is needed to use the "
+                              "Column Transformer")
         if not transformers:
             warnings.warn('Transformers are required')
         self.transformers = transformers

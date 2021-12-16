@@ -23,7 +23,7 @@
 #include <opg/linalg/gemm.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include "test_opg_utils.h"
 
 #include <raft/comms/mpi_comms.hpp>
@@ -79,7 +79,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     std::vector<Matrix::Data<T>*> inParts;
     Matrix::opg::allocate(handle, inParts, desc, myRank, stream);
     Matrix::opg::randomize(handle, r, inParts, desc, myRank, stream, T(10.0), T(20.0));
-    handle.wait_on_user_stream();
+    handle.sync_stream();
 
     prmsPCA.n_rows       = params.M;
     prmsPCA.n_cols       = params.N;

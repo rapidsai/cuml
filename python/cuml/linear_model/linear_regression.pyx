@@ -28,6 +28,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml import Handle
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
@@ -128,10 +129,22 @@ class LinearRegression(Base,
 
     Parameters
     -----------
-    algorithm : 'eig' or 'svd' (default = 'eig')
-        Eig uses a eigendecomposition of the covariance matrix, and is much
-        faster.
-        SVD is slower, but guaranteed to be stable.
+    algorithm : {'svd', 'eig', `qr`, 'svd-qr', 'svd-jacobi'}, (default = 'eig')
+        Choose an algorithm:
+
+          * 'svd' - alias for svd-jacobi;
+          * 'eig' - use an eigendecomposition of the covariance matrix;
+          * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
+          * 'svd-qr' - compute SVD decomposition using QR algorithm
+          * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations.
+
+        Among these algorithms, only 'svd-jacobi' supports the case when the
+        number of features is larger than the sample size; this algorithm
+        is force-selected automatically in such a case.
+
+        For the broad range of inputs, 'eig' and `qr` are usually the fastest,
+        followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
+        algorithms are more stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
@@ -193,6 +206,10 @@ class LinearRegression(Base,
 
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
+        if handle is None and algorithm == 'eig':
+            # if possible, create two streams, so that eigenvalue decomposition
+            # can benefit from running independent operations concurrently.
+            handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -203,7 +220,7 @@ class LinearRegression(Base,
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        if algorithm in ['svd', 'eig']:
+        if algorithm in ['svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi']:
             self.algorithm = algorithm
             self.algo = self._get_algorithm_int(algorithm)
         else:
@@ -215,7 +232,10 @@ class LinearRegression(Base,
     def _get_algorithm_int(self, algorithm):
         return {
             'svd': 0,
-            'eig': 1
+            'eig': 1,
+            'qr': 2,
+            'svd-qr': 3,
+            'svd-jacobi': 0
         }[algorithm]
 
     @generate_docstring()

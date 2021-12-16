@@ -17,16 +17,22 @@
 
 #include <raft/sparse/distance/common.h>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
 #include <raft/handle.hpp>
-#include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/distance/distance.hpp>
 #include "pairwise_distance_canberra.cuh"
 #include "pairwise_distance_chebyshev.cuh"
+#include "pairwise_distance_correlation.cuh"
 #include "pairwise_distance_cosine.cuh"
 #include "pairwise_distance_euclidean.cuh"
+#include "pairwise_distance_hamming.cuh"
 #include "pairwise_distance_hellinger.cuh"
+#include "pairwise_distance_jensen_shannon.cuh"
+#include "pairwise_distance_kl_divergence.cuh"
 #include "pairwise_distance_l1.cuh"
 #include "pairwise_distance_minkowski.cuh"
+#include "pairwise_distance_russell_rao.cuh"
 
 namespace ML {
 
@@ -50,22 +56,37 @@ void pairwise_distance(const raft::handle_t& handle,
       pairwise_distance_euclidean(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      pairwise_distance_cosine(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_cosine(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::L1:
-      pairwise_distance_l1(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_l1(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::Linf:
-      pairwise_distance_chebyshev(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_chebyshev(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      pairwise_distance_hellinger(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_hellinger(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
-      pairwise_distance_minkowski(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_minkowski(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::Canberra:
-      pairwise_distance_canberra(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_canberra(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      pairwise_distance_correlation(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HammingUnexpanded:
+      pairwise_distance_hamming(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      pairwise_distance_jensen_shannon(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      pairwise_distance_kl_divergence(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      pairwise_distance_russell_rao(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
@@ -90,22 +111,37 @@ void pairwise_distance(const raft::handle_t& handle,
       pairwise_distance_euclidean(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      pairwise_distance_cosine(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_cosine(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::L1:
-      pairwise_distance_l1(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_l1(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::Linf:
-      pairwise_distance_chebyshev(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_chebyshev(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
-      pairwise_distance_hellinger(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_hellinger(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
-      pairwise_distance_minkowski(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_minkowski(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::Canberra:
-      pairwise_distance_canberra(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      pairwise_distance_canberra(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      pairwise_distance_correlation(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HammingUnexpanded:
+      pairwise_distance_hamming(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      pairwise_distance_jensen_shannon(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      pairwise_distance_kl_divergence(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      pairwise_distance_russell_rao(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };

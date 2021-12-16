@@ -26,7 +26,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/mr/device/allocator.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -169,20 +169,18 @@ __global__ void regress_avg_kernel(LabelType* out,
  *        the user_stream is used.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
-void class_probs(std::vector<float*>& out,
+void class_probs(const raft::handle_t& handle,
+                 std::vector<float*>& out,
                  const int64_t* knn_indices,
                  std::vector<int*>& y,
                  std::size_t n_index_rows,
                  std::size_t n_query_rows,
                  int k,
                  std::vector<int*>& uniq_labels,
-                 std::vector<int>& n_unique,
-                 cudaStream_t user_stream,
-                 cudaStream_t* int_streams = nullptr,
-                 int n_int_streams         = 0)
+                 std::vector<int>& n_unique)
 {
   for (std::size_t i = 0; i < y.size(); i++) {
-    cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
+    cudaStream_t stream = handle.get_next_usable_stream();
 
     int n_unique_labels = n_unique[i];
     size_t cur_size     = n_query_rows * n_unique_labels;
@@ -246,17 +244,15 @@ void class_probs(std::vector<float*>& out,
  *        the user_stream is used.
  */
 template <int TPB_X = 32, bool precomp_lbls = false>
-void knn_classify(int* out,
+void knn_classify(const raft::handle_t& handle,
+                  int* out,
                   const int64_t* knn_indices,
                   std::vector<int*>& y,
                   std::size_t n_index_rows,
                   std::size_t n_query_rows,
                   int k,
                   std::vector<int*>& uniq_labels,
-                  std::vector<int>& n_unique,
-                  cudaStream_t user_stream,
-                  cudaStream_t* int_streams = nullptr,
-                  int n_int_streams         = 0)
+                  std::vector<int>& n_unique)
 {
   std::vector<float*> probs;
   std::vector<rmm::device_uvector<float>> tmp_probs;
@@ -265,7 +261,7 @@ void knn_classify(int* out,
   for (std::size_t i = 0; i < n_unique.size(); i++) {
     int size = n_unique[i];
 
-    cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
+    cudaStream_t stream = handle.get_next_usable_stream(i);
 
     tmp_probs.emplace_back(n_query_rows * size, stream);
     probs.push_back(tmp_probs.back().data());
@@ -277,23 +273,14 @@ void knn_classify(int* out,
    * Note: Since class_probs will use the same round robin strategy for distributing
    * work to the streams, we don't need to explicitly synchronize the streams here.
    */
-  class_probs<32, precomp_lbls>(probs,
-                                knn_indices,
-                                y,
-                                n_index_rows,
-                                n_query_rows,
-                                k,
-                                uniq_labels,
-                                n_unique,
-                                user_stream,
-                                int_streams,
-                                n_int_streams);
+  class_probs<32, precomp_lbls>(
+    handle, probs, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique);
 
   dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   for (std::size_t i = 0; i < y.size(); i++) {
-    cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
+    cudaStream_t stream = handle.get_next_usable_stream(i);
 
     int n_unique_labels = n_unique[i];
 
@@ -334,21 +321,19 @@ void knn_classify(int* out,
  */
 
 template <typename ValType, int TPB_X = 32, bool precomp_lbls = false>
-void knn_regress(ValType* out,
+void knn_regress(const raft::handle_t& handle,
+                 ValType* out,
                  const int64_t* knn_indices,
                  const std::vector<ValType*>& y,
                  size_t n_index_rows,
                  size_t n_query_rows,
-                 int k,
-                 cudaStream_t user_stream,
-                 cudaStream_t* int_streams = nullptr,
-                 int n_int_streams         = 0)
+                 int k)
 {
   /**
    * Vote average regression value
    */
   for (std::size_t i = 0; i < y.size(); i++) {
-    cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
+    cudaStream_t stream = handle.get_next_usable_stream();
 
     regress_avg_kernel<ValType, precomp_lbls>
       <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(

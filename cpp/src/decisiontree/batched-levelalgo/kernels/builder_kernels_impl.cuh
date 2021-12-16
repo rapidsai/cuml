@@ -13,53 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <cuml/tree/algo_helper.h>
+#include <cstdio>
+
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
-#include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include "input.cuh"
-#include "metrics.cuh"
-#include "node.cuh"
-#include "split.cuh"
+
+#include "builder_kernels.cuh"
 
 namespace ML {
 namespace DT {
 
-struct NodeWorkItem {
-  size_t idx;        // Index of the work item in the tree
-  size_t row_start;  // Start of the range of training instances belonging to this node
-  size_t row_count;  // Number of training instances belonging to this node
-  int depth;
-};
-
-/**
- * This struct has information about workload of a single threadblock of
- * computeSplit kernels of classification and regression
- */
-template <typename IdxT>
-struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
-  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
-                        // working on this node
-  IdxT num_blocks;      // Total number of blocks that are working on the node
-};
-
-template <typename SplitT, typename DataT, typename IdxT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
-                       IdxT num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (num_rows - split.nLeft) < min_samples_leaf;
-}
+static constexpr int TPB_DEFAULT = 128;
 
 /**
  * @brief Partition the samples to left/right nodes based on the best split
@@ -81,8 +49,8 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   size_t smemSize  = sizeof(IdxT) * TPB;
   auto* lcomp      = reinterpret_cast<IdxT*>(smem);
   auto* rcomp      = reinterpret_cast<IdxT*>(smem + smemSize);
-  auto range_start = work_item.row_start;
-  auto range_len   = work_item.row_count;
+  auto range_start = work_item.instances.begin;
+  auto range_len   = work_item.instances.count;
   auto* col        = input.data + split.colid * input.M;
   auto loffset = range_start, part = loffset + split.nLeft, roffset = part;
   auto end  = range_start + range_len;
@@ -117,8 +85,7 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
     }
   }
 }
-
-template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT, int TPB>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth,
                                 IdxT min_samples_leaf,
                                 IdxT min_samples_split,
@@ -131,33 +98,40 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   extern __shared__ char smem[];
   const auto work_item = work_items[blockIdx.x];
   const auto split     = splits[blockIdx.x];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.row_count))) {
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT>
+template <typename InputT, typename NodeT, typename ObjectiveT, typename DataT>
 __global__ void leafKernel(ObjectiveT objective,
-                           Input<DataT, LabelT, IdxT> input,
-                           Node<DataT, LabelT, IdxT>* tree)
+                           InputT input,
+                           const NodeT* tree,
+                           const InstanceRange* instance_ranges,
+                           DataT* leaves)
 {
   using BinT = typename ObjectiveT::BinT;
   extern __shared__ char shared_memory[];
   auto histogram = reinterpret_cast<BinT*>(shared_memory);
-  auto& node     = tree[blockIdx.x];
+  auto node_id   = blockIdx.x;
+  auto& node     = tree[node_id];
+  auto range     = instance_ranges[node_id];
   if (!node.IsLeaf()) return;
   auto tid = threadIdx.x;
   for (int i = tid; i < input.numOutputs; i += blockDim.x) {
     histogram[i] = BinT();
   }
   __syncthreads();
-  for (auto i = node.start + tid; i < node.start + node.count; i += blockDim.x) {
+  for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
     auto label = input.labels[input.rowids[i]];
     BinT::IncrementHistogram(histogram, 1, 0, label);
   }
   __syncthreads();
-  if (tid == 0) { node.makeLeaf(ObjectiveT::LeafPrediction(histogram, input.numOutputs)); }
+  if (tid == 0) {
+    ObjectiveT::SetLeafVector(histogram, input.numOutputs, leaves + input.numOutputs * node_id);
+  }
 }
 
 /* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */
@@ -165,24 +139,6 @@ template <typename OutT, typename InT>
 __device__ OutT* alignPointer(InT input)
 {
   return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
-}
-
-// 32-bit FNV1a hash
-// Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-const uint32_t fnv1a32_prime = uint32_t(16777619);
-const uint32_t fnv1a32_basis = uint32_t(2166136261);
-
-DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
-{
-  hash ^= (txt >> 0) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 8) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 16) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 24) & 0xFF;
-  hash *= fnv1a32_prime;
-  return hash;
 }
 
 /**
@@ -262,23 +218,6 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT nbins)
   return total_aggregate;
 }
 
-template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
-{
-  IdxT start = 0;
-  IdxT end   = nbins - 1;
-  IdxT mid;
-  while (start < end) {
-    mid = (start + end) / 2;
-    if (sbins[mid] < d) {
-      start = mid + 1;
-    } else {
-      end = mid;
-    }
-  }
-  return start;
-}
-
 template <typename DataT,
           typename LabelT,
           typename IdxT,
@@ -307,8 +246,8 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT nid                             = workload_info_cta.nodeid;
   IdxT large_nid                       = workload_info_cta.large_nodeid;
   const auto work_item                 = work_items[nid];
-  auto range_start                     = work_item.row_start;
-  auto range_len                       = work_item.row_count;
+  auto range_start                     = work_item.instances.begin;
+  auto range_len                       = work_item.instances.count;
 
   IdxT offset_blockid = workload_info_cta.offset_blockid;
   IdxT num_blocks     = workload_info_cta.num_blocks;
@@ -326,8 +265,8 @@ __global__ void computeSplitKernel(BinT* hist,
   if (input.nSampledCols == input.N) {
     col = colStart + blockIdx.y;
   } else {
-    int colIndex = colStart + blockIdx.y;
-    col          = select(colIndex, treeid, work_item.idx, seed, input.N);
+    IdxT colIndex = colStart + blockIdx.y;
+    col           = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
 
   // populating shared memory with initial values
@@ -401,5 +340,39 @@ __global__ void computeSplitKernel(BinT* hist,
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
+// "almost" instantiation templates to avoid code-duplication
+template __global__ void nodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
+  _IdxT max_depth,
+  _IdxT min_samples_leaf,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  _DataT min_impurity_decrease,
+  Input<_DataT, _LabelT, _IdxT> input,
+  NodeWorkItem* work_items,
+  const Split<_DataT, _IdxT>* splits);
+
+template __global__ void leafKernel<_InputT, _NodeT, _ObjectiveT, _DataT>(
+  _ObjectiveT objective,
+  _InputT input,
+  const _NodeT* tree,
+  const InstanceRange* instance_ranges,
+  _DataT* leaves);
+template __global__ void
+computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
+  _BinT* hist,
+  _IdxT nbins,
+  _IdxT max_depth,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  Input<_DataT, _LabelT, _IdxT> input,
+  const NodeWorkItem* work_items,
+  _IdxT colStart,
+  int* done_count,
+  int* mutex,
+  volatile Split<_DataT, _IdxT>* splits,
+  _ObjectiveT objective,
+  _IdxT treeid,
+  const WorkloadInfo<_IdxT>* workload_info,
+  uint64_t seed);
 }  // namespace DT
 }  // namespace ML

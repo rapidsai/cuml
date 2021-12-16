@@ -21,7 +21,7 @@
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 #include <vector>
@@ -119,7 +119,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     std::vector<float*> y;
     y.push_back(train_labels);
 
-    knn_regress(pred_labels, knn_indices, y, params.rows, params.rows, params.k, stream);
+    knn_regress(handle, pred_labels, knn_indices, y, params.rows, params.rows, params.k);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

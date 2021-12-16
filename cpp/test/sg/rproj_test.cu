@@ -22,7 +22,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <random>
 #include <vector>
 
@@ -125,7 +125,7 @@ class RPROJTest : public ::testing::Test {
 
   void random_matrix_check()
   {
-    size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
+    int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     ASSERT_TRUE(params1->n_components == D);
     ASSERT_TRUE(random_matrix1->dense_data.size() > 0);

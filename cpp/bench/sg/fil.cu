@@ -77,12 +77,11 @@ class FIL : public RegressionFixture<float> {
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr         = &rf_model;
-    mPtr->trees        = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    ML::build_treelite_forest(&model, &rf_model, params.ncols, params.nclasses > 1 ? 2 : 1);
+    ML::build_treelite_forest(&model, &rf_model, params.ncols);
     ML::fil::treelite_params_t tl_params = {
       .algo              = p_rest.algo,
       .output_class      = params.nclasses > 1,    // cuML RF forest

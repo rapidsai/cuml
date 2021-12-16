@@ -195,7 +195,7 @@ void qnFit(const raft::handle_t& cuml_handle,
         w0,
         f,
         num_iters,
-        loss_type,
+        (QN_LOSS_TYPE)loss_type,
         cuml_handle.get_stream(),
         sample_weight);
 }
@@ -241,7 +241,7 @@ void qnFit(const raft::handle_t& cuml_handle,
         w0,
         f,
         num_iters,
-        loss_type,
+        (QN_LOSS_TYPE)loss_type,
         cuml_handle.get_stream(),
         sample_weight);
 }
@@ -291,7 +291,7 @@ void qnFitSparse(const raft::handle_t& cuml_handle,
               w0,
               f,
               num_iters,
-              loss_type,
+              (QN_LOSS_TYPE)loss_type,
               cuml_handle.get_stream(),
               sample_weight);
 }
@@ -341,7 +341,7 @@ void qnFitSparse(const raft::handle_t& cuml_handle,
               w0,
               f,
               num_iters,
-              loss_type,
+              (QN_LOSS_TYPE)loss_type,
               cuml_handle.get_stream(),
               sample_weight);
 }
@@ -365,7 +365,7 @@ void qnDecisionFunction(const raft::handle_t& cuml_handle,
                      C,
                      fit_intercept,
                      params,
-                     loss_type,
+                     (QN_LOSS_TYPE)loss_type,
                      preds,
                      cuml_handle.get_stream());
 }
@@ -389,7 +389,7 @@ void qnDecisionFunction(const raft::handle_t& cuml_handle,
                      C,
                      fit_intercept,
                      params,
-                     loss_type,
+                     (QN_LOSS_TYPE)loss_type,
                      scores,
                      cuml_handle.get_stream());
 }
@@ -417,7 +417,7 @@ void qnDecisionFunctionSparse(const raft::handle_t& cuml_handle,
                            C,
                            fit_intercept,
                            params,
-                           loss_type,
+                           (QN_LOSS_TYPE)loss_type,
                            scores,
                            cuml_handle.get_stream());
 }
@@ -445,7 +445,7 @@ void qnDecisionFunctionSparse(const raft::handle_t& cuml_handle,
                            C,
                            fit_intercept,
                            params,
-                           loss_type,
+                           (QN_LOSS_TYPE)loss_type,
                            scores,
                            cuml_handle.get_stream());
 }
@@ -469,7 +469,7 @@ void qnPredict(const raft::handle_t& cuml_handle,
             C,
             fit_intercept,
             params,
-            loss_type,
+            (QN_LOSS_TYPE)loss_type,
             scores,
             cuml_handle.get_stream());
 }
@@ -493,7 +493,7 @@ void qnPredict(const raft::handle_t& cuml_handle,
             C,
             fit_intercept,
             params,
-            loss_type,
+            (QN_LOSS_TYPE)loss_type,
             preds,
             cuml_handle.get_stream());
 }
@@ -521,7 +521,7 @@ void qnPredictSparse(const raft::handle_t& cuml_handle,
                   C,
                   fit_intercept,
                   params,
-                  loss_type,
+                  (QN_LOSS_TYPE)loss_type,
                   preds,
                   cuml_handle.get_stream());
 }
@@ -549,7 +549,7 @@ void qnPredictSparse(const raft::handle_t& cuml_handle,
                   C,
                   fit_intercept,
                   params,
-                  loss_type,
+                  (QN_LOSS_TYPE)loss_type,
                   preds,
                   cuml_handle.get_stream());
 }

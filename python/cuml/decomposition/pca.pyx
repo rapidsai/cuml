@@ -693,7 +693,7 @@ class PCA(Base,
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype.type)
+                            dtype=dtype.type, index=X_m.index)
 
         cdef uintptr_t _trans_input_ptr = t_input_data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
