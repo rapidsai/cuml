@@ -509,8 +509,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
     stream = cuml.cuda.Stream()
-    handle = cuml.Handle()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
     # before the first call to get_memory_info.
@@ -559,8 +558,7 @@ def test_svm_memleak_on_exception(params, n_rows=1000, n_iter=10,
                                   random_state=137, centers=2)
     X_train = X_train.astype(np.float32)
     stream = cuml.cuda.Stream()
-    handle = cuml.Handle()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
 
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done

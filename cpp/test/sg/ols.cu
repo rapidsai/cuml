@@ -41,9 +41,10 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
  protected:
   void basicTest()
   {
-    params   = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
-    int len  = params.n_row * params.n_col;
-    int len2 = params.n_row_2 * params.n_col;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
+    int len     = params.n_row * params.n_col;
+    int len2    = params.n_row_2 * params.n_col;
 
     raft::allocate(data, len, stream);
     raft::allocate(labels, params.n_row, stream);
@@ -152,8 +153,9 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
   void basicTest2()
   {
-    params  = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
-    int len = params.n_row * params.n_col;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
+    int len     = params.n_row * params.n_col;
 
     raft::allocate(data_sc, len, stream);
     raft::allocate(labels_sc, len, stream);
@@ -180,8 +182,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     basicTest();
     basicTest2();
   }
@@ -208,7 +208,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     CUDA_CHECK(cudaFree(labels_sc));
     CUDA_CHECK(cudaFree(coef_sc));
     CUDA_CHECK(cudaFree(coef_sc_ref));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -219,7 +218,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
   T intercept, intercept2, intercept3;
   raft::handle_t handle;
-  cudaStream_t stream = 0;
 };
 
 const std::vector<OlsInputs<float>> inputsf2 = {
@@ -231,48 +229,53 @@ const std::vector<OlsInputs<double>> inputsd2 = {
 typedef OlsTest<float> OlsTestF;
 TEST_P(OlsTestF, Fit)
 {
-  ASSERT_TRUE(devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  auto stream = handle.get_stream();
+  ASSERT_TRUE(
+    devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol), stream));
 
   ASSERT_TRUE(
-    devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+    devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol), stream));
 
   ASSERT_TRUE(
-    devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+    devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<float>(params.tol), stream));
 
   ASSERT_TRUE(
-    devArrMatch(pred_ref, pred, params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+    devArrMatch(pred_ref, pred, params.n_row_2, raft::CompareApproxAbs<float>(params.tol), stream));
+
+  ASSERT_TRUE(devArrMatch(
+    pred2_ref, pred2, params.n_row_2, raft::CompareApproxAbs<float>(params.tol), stream));
+
+  ASSERT_TRUE(devArrMatch(
+    pred3_ref, pred3, params.n_row_2, raft::CompareApproxAbs<float>(params.tol), stream));
 
   ASSERT_TRUE(
-    devArrMatch(pred2_ref, pred2, params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(
-    devArrMatch(pred3_ref, pred3, params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
-
-  ASSERT_TRUE(devArrMatch(coef_sc_ref, coef_sc, 1, raft::CompareApproxAbs<float>(params.tol)));
+    devArrMatch(coef_sc_ref, coef_sc, 1, raft::CompareApproxAbs<float>(params.tol), stream));
 }
 
 typedef OlsTest<double> OlsTestD;
 TEST_P(OlsTestD, Fit)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(
-    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(
-    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(
-    raft::devArrMatch(pred_ref, pred, params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(
-    devArrMatch(pred2_ref, pred2, params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
+  auto stream = handle.get_stream();
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol), stream));
 
   ASSERT_TRUE(raft::devArrMatch(
-    pred3_ref, pred3, params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
+    coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol), stream));
 
-  ASSERT_TRUE(devArrMatch(coef_sc_ref, coef_sc, 1, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<double>(params.tol), stream));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    pred_ref, pred, params.n_row_2, raft::CompareApproxAbs<double>(params.tol), stream));
+
+  ASSERT_TRUE(devArrMatch(
+    pred2_ref, pred2, params.n_row_2, raft::CompareApproxAbs<double>(params.tol), stream));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    pred3_ref, pred3, params.n_row_2, raft::CompareApproxAbs<double>(params.tol), stream));
+
+  ASSERT_TRUE(
+    devArrMatch(coef_sc_ref, coef_sc, 1, raft::CompareApproxAbs<double>(params.tol), stream));
 }
 
 INSTANTIATE_TEST_CASE_P(OlsTests, OlsTestF, ::testing::ValuesIn(inputsf2));

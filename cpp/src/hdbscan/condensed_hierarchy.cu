@@ -24,8 +24,8 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>

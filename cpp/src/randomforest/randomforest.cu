@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "randomforest.cuh"
-
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
@@ -33,6 +31,8 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
+#include "randomforest.cuh"
 
 namespace ML {
 

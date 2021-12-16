@@ -20,20 +20,11 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "metrics.cuh"
-
 #include <common/Timer.h>
 #include <cuml/tree/flatnode.h>
-#include <common/grid_sync.cuh>
-#include <common/nvtx.hpp>
-#include <cuml/common/logger.hpp>
 #include <cuml/common/pinned_host_vector.hpp>
-#include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
-#include "input.cuh"
-#include "kernels.cuh"
-#include "metrics.cuh"
-#include "split.cuh"
+#include "kernels/builder_kernels.cuh"
 
 #include <common/nvtx.hpp>
 #include <deque>
@@ -378,7 +369,7 @@ struct Builder {
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
     ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
-    nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, TPB_DEFAULT>
+    nodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(params.max_depth,
                                                                      params.min_samples_leaf,
                                                                      params.min_samples_split,
