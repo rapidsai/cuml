@@ -53,6 +53,12 @@ requirements:
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
+tests:                                 # [linux64]
+  requirements:                        # [linux64]
+    - cudatoolkit {{ cuda_version }}.* # [linux64]
+  imports:                             # [linux64]
+    - cuml                             # [linux64]
+
 about:
   home: http://rapids.ai/
   license: Apache-2.0
