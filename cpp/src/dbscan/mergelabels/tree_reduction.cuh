@@ -76,7 +76,7 @@ void tree_reduction(const raft::handle_t& handle,
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");
-      raft::common::nvtx_range fun_scope("Trace::Dbscan::MergeLabels");
+      raft::common::nvtx::range fun_scope("Trace::Dbscan::MergeLabels");
       MergeLabels::run<Index_>(handle, labels, labels_temp, mask, work_buffer, m, N, stream);
     }
 

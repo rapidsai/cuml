@@ -108,7 +108,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    cudaStream_t stream,
                    int verbosity)
 {
-  raft::common::nvtx_range fun_scope("ML::Dbscan::Fit");
+  raft::common::nvtx::range fun_scope("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
   int algo_vd  = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;

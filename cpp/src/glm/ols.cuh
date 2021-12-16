@@ -94,7 +94,7 @@ void olsFit(const raft::handle_t& handle,
   int selectedAlgo = algo;
   if (n_cols > n_rows || n_cols == 1) selectedAlgo = 0;
 
-  raft::common::push_nvtx_range(stream, "ML::GLM::olsFit/algo-%d", selectedAlgo);
+  raft::common::nvtx::push_range("ML::GLM::olsFit/algo-%d", selectedAlgo);
   switch (selectedAlgo) {
     case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
     case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
@@ -104,7 +104,7 @@ void olsFit(const raft::handle_t& handle,
       ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
       break;
   }
-  raft::common::pop_nvtx_range(stream);
+  raft::common::nvtx::pop_range();
 
   if (fit_intercept) {
     postProcessData(handle,
