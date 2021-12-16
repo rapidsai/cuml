@@ -397,6 +397,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       rmm::rmm
       cuml::Thrust
       raft::raft
+      raft::raft_nn
+      raft::raft_distance
     PRIVATE
       CUDA::cublas
       CUDA::cufft
