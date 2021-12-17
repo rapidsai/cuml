@@ -33,6 +33,12 @@ namespace raft {
 class handle_t;
 }
 
+// needed for node_traits<...>
+namespace treelite {
+template <typename, typename>
+struct ModelImpl;
+}
+
 namespace ML {
 namespace fil {
 
@@ -213,6 +219,33 @@ struct alignas(8) sparse_node8 : base_node {
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
+};
+
+struct dense_forest;
+template <typename node_t>
+struct sparse_forest;
+
+template <typename node_t>
+struct node_traits {
+  using storage              = sparse_storage<node_t>;
+  using forest               = sparse_forest<node_t>;
+  static const bool IS_DENSE = false;
+  static const storage_type_t storage_type_enum =
+    std::is_same<sparse_node16, node_t>() ? SPARSE : SPARSE8;
+  template <typename threshold_t, typename leaf_t>
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
+};
+
+template <>
+struct node_traits<dense_node> {
+  using storage                                 = dense_storage;
+  using forest                                  = dense_forest;
+  static const bool IS_DENSE                    = true;
+  static const storage_type_t storage_type_enum = DENSE;
+  template <typename threshold_t, typename leaf_t>
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+  {
+  }
 };
 
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)

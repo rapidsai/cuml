@@ -694,16 +694,14 @@ class BasePredictFilTest : public BaseFilTest {
 
   void init_forest(fil::forest_t* pforest) override
   {
-    if constexpr (!node_traits<fil_node_t>::IS_DENSE) {
-      dense2sparse();
-    } else {
-      sparse_nodes = nodes;
-    }
-    ASSERT(sparse_nodes.size() < std::size_t(INT_MAX), "generated too many nodes");
+    constexpr bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
+    if constexpr (!IS_DENSE) dense2sparse();
+    std::vector<fil_node_t>& init_nodes = IS_DENSE ? nodes : sparse_nodes;
+    ASSERT(init_nodes.size() < std::size_t(INT_MAX), "generated too many nodes");
 
     // init FIL model
     fil::forest_params_t fil_params = {
-      .num_nodes        = static_cast<int>(sparse_nodes.size()),
+      .num_nodes        = static_cast<int>(init_nodes.size()),
       .depth            = ps.depth,
       .num_trees        = ps.num_trees,
       .num_cols         = ps.num_cols,
@@ -723,7 +721,7 @@ class BasePredictFilTest : public BaseFilTest {
               cat_sets_h.accessor(),
               vector_leaf,
               trees.data(),
-              sparse_nodes.data(),
+              init_nodes.data(),
               &fil_params);
   }
   std::vector<fil_node_t> sparse_nodes;
