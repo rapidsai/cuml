@@ -14,10 +14,10 @@
 #
 
 import cuml.internals
-import sklearn.multiclass
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.import_utils import has_sklearn
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
@@ -112,6 +112,10 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Fit a multiclass classifier.
         """
+        if not has_sklearn():
+            raise ImportError("Scikit-learn is needed to use "
+                              "MulticlassClassifier derived classes.")
+        import sklearn.multiclass
         if self.strategy == 'ovr':
             self.multiclass_estimator = sklearn.multiclass.\
                 OneVsRestClassifier(self.estimator, n_jobs=None)

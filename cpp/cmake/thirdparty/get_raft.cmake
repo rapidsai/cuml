@@ -18,33 +18,33 @@ function(find_and_configure_raft)
 
     set(oneValueArgs VERSION FORK PINNED_TAG)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
+            "${multiValueArgs}" ${ARGN} )
 
     if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
-      set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
-      set(CPM_DOWNLOAD_ALL ON)
+        set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
+        set(CPM_DOWNLOAD_ALL ON)
     endif()
 
     rapids_cpm_find(raft ${PKG_VERSION}
-      GLOBAL_TARGETS      raft::raft
-      BUILD_EXPORT_SET    cuml-exports
-      INSTALL_EXPORT_SET  cuml-exports
-        CPM_ARGS
+            GLOBAL_TARGETS      raft::raft
+            BUILD_EXPORT_SET    cuml-exports
+            INSTALL_EXPORT_SET  cuml-exports
+            CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        enh-faster-linewise-ops
             SOURCE_SUBDIR  cpp
             OPTIONS
-              "BUILD_TESTS OFF"
-    )
+            "BUILD_TESTS OFF"
+            )
 
     if(raft_ADDED)
-      message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
+        message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
     else()
-      message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
+        message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
     endif()
 
     if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
-      set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
+        set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
     endif()
 
 endfunction()
