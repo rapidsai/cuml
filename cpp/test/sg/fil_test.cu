@@ -695,7 +695,7 @@ class BasePredictFilTest : public BaseFilTest {
   void init_forest(fil::forest_t* pforest) override
   {
     constexpr bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
-    std::vector<fil_node_t>& init_nodes;
+    std::vector<fil_node_t> init_nodes;
     if constexpr (!IS_DENSE) {
       dense2sparse();
       init_nodes = sparse_nodes;
