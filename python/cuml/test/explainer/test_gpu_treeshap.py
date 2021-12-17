@@ -61,7 +61,7 @@ def test_xgb_regressor(objective):
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
 
-    ref_explainer = shap.TreeExplainer(model=xgb_model)
+    ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out)
     np.testing.assert_almost_equal(explainer.expected_value,
@@ -105,7 +105,7 @@ def test_xgb_classifier(objective, n_classes):
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
 
-    ref_explainer = shap.TreeExplainer(model=xgb_model)
+    ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out)
     np.testing.assert_almost_equal(explainer.expected_value,
