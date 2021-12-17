@@ -34,8 +34,9 @@ function(find_and_configure_raft)
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
             OPTIONS
-            "BUILD_TESTS OFF"
-            )
+              "BUILD_TESTS OFF"
+              "NVTX ${NVTX}"
+    )
 
     if(raft_ADDED)
         message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")

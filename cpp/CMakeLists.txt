@@ -241,8 +241,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # common components
   add_library(${CUML_CPP_TARGET} SHARED
-              src/common/logger.cpp
-              src/common/nvtx.cu)
+              src/common/logger.cpp)
 
   # FIL components
   target_sources(${CUML_CPP_TARGET}
@@ -367,7 +366,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
-      $<$<BOOL:${NVTX}>:NVTX_ENABLED>
       DISABLE_CUSPARSE_DEPRECATED
     PRIVATE
       CUML_CPP_API
@@ -407,7 +405,6 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cudart
       CUDA::cusparse
       GPUTreeShap::GPUTreeShap
-      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
