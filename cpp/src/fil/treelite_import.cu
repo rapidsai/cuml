@@ -588,25 +588,22 @@ struct tl2fil_t {
 
   void init()
   {
+    static const bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
     tl2fil_common(&params_, model_, &tl_params_);
     node_traits<fil_node_t>::check(model_);
 
-    size_t num_trees = model_.trees.size();
+    std::size_t num_trees = model_.trees.size();
 
-    roots_.reserve(num_trees + 1);
-    roots_.push_back(0);
-    for (size_t i = 0; i < num_trees; ++i) {
-      int num_nodes = node_traits<fil_node_t>::IS_DENSE ? tree_num_nodes(params_.depth)
-                                                        : model_.trees[i].num_nodes;
-      roots_.push_back(num_nodes + roots_.back());
+    std::size_t total_nodes = 0;
+    roots_.reserve(num_trees);
+    for (auto& tree : model_.trees) {
+      roots_.push_back(total_nodes);
+      total_nodes += IS_DENSE ? tree_num_nodes(params_.depth) : tree.num_nodes;
     }
-    size_t total_nodes = roots_.back();
-    roots_.pop_back();
 
     if (params_.leaf_algo == VECTOR_LEAF) {
-      size_t max_leaves = node_traits<fil_node_t>::IS_DENSE
-                            ? num_trees * (tree_num_nodes(params_.depth) + 1) / 2
-                            : (total_nodes + num_trees) / 2;
+      std::size_t max_leaves = IS_DENSE ? num_trees * (tree_num_nodes(params_.depth) + 1) / 2
+                                        : (total_nodes + num_trees) / 2;
       vector_leaf_.resize(max_leaves * params_.num_classes);
     }
 
