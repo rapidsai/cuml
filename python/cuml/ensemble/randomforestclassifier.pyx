@@ -17,6 +17,7 @@
 
 # distutils: language = c++
 import numpy as np
+import nvtx
 import rmm
 import warnings
 
@@ -46,7 +47,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -409,6 +409,9 @@ class RandomForestClassifier(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
+    @nvtx.annotate(
+        message="fit RF-Classifier @randomforestclassifier.pyx",
+        domain="cuml_python")
     @generate_docstring(skip_parameters_heading=True,
                         y='dense_intdtype',
                         convert_dtype_cast='np.float32')
@@ -426,7 +429,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -497,7 +499,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.handle.sync()
         del X_m
         del y_m
-        nvtx_range_pop()
         return self
 
     @cuml.internals.api_base_return_array(get_output_dtype=True)
@@ -547,6 +548,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         del(X_m)
         return preds
 
+    @nvtx.annotate(
+        message="predict RF-Classifier @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU", threshold=0.5,
@@ -599,7 +603,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         y : {}
         """
-        nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
@@ -622,7 +625,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
-        nvtx_range_pop()
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -687,6 +689,9 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         return preds_proba
 
+    @nvtx.annotate(
+        message="score RF-Classifier @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
     def score(self, X, y, threshold=0.5,
@@ -741,7 +746,6 @@ class RandomForestClassifier(BaseRandomForestModel,
            Accuracy of the model [0.0 - 1.0]
         """
 
-        nvtx_range_push("score RF-Classifier @randomforestclassifier.pyx")
         cdef uintptr_t X_ptr, y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -795,7 +799,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.handle.sync()
         del(y_m)
         del(preds_m)
-        nvtx_range_pop()
         return self.stats['accuracy']
 
     def get_summary_text(self):
