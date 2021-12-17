@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 import numpy as np
+import nvtx
 import rmm
 import warnings
 
@@ -47,7 +48,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -409,6 +409,9 @@ class RandomForestRegressor(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
+    @nvtx.annotate(
+        message="fit RF-Regressor @randomforestregressor.pyx",
+        domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
     def fit(self, X, y, convert_dtype=True):
@@ -416,7 +419,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         Perform Random Forest Regression on the input data
 
         """
-        nvtx_range_push("Fit RF-Regressor @randomforestregressor.pyx")
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -480,7 +482,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.handle.sync()
         del X_m
         del y_m
-        nvtx_range_pop()
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
@@ -530,6 +531,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         del(X_m)
         return preds
 
+    @nvtx.annotate(
+        message="predict RF-Regressor @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
@@ -578,7 +582,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         y : {}
 
         """
-        nvtx_range_push("predict RF-Regressor @randomforestregressor.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
         elif self.dtype == np.float64:
@@ -598,9 +601,11 @@ class RandomForestRegressor(BaseRandomForestModel,
                 convert_dtype=convert_dtype,
                 fil_sparse_format=fil_sparse_format)
 
-        nvtx_range_pop()
         return preds
 
+    @nvtx.annotate(
+        message="score RF-Regressor @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
     def score(self, X, y, algo='auto', convert_dtype=True,
@@ -650,7 +655,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         median_abs_error : float or
         mean_abs_error : float
         """
-        nvtx_range_push("score RF-Regressor @randomforestregressor.pyx")
         from cuml.metrics.regression import r2_score
 
         cdef uintptr_t y_ptr
@@ -716,7 +720,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.handle.sync()
         del(y_m)
         del(preds_m)
-        nvtx_range_pop()
         return stats
 
     def get_summary_text(self):

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,37 +15,6 @@
 #
 
 # distutils: language = c++
-
-import functools
-from libcpp.string cimport string
-
-cdef extern from "common/nvtx.hpp" namespace "ML":
-
-    void PUSH_RANGE(string msg)
-
-    void POP_RANGE()
-
-
-def nvtx_range_push(msg: str):
-    """Create a NVTX range with name `msg`"""
-    cdef string s = msg.encode("UTF-8")
-    PUSH_RANGE(s.c_str())
-
-
-def nvtx_range_pop():
-    """End a NVTX range"""
-    POP_RANGE()
-
-
-def nvtx_range_wrap(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        nvtx_range_push(func.__name__)
-        result = func(*args, **kwargs)
-        nvtx_range_pop()
-        return result
-    return wrapper
-
 
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):

@@ -24,7 +24,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 namespace ML {
 namespace DT {
