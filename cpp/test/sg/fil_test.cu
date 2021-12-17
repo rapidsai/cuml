@@ -695,8 +695,13 @@ class BasePredictFilTest : public BaseFilTest {
   void init_forest(fil::forest_t* pforest) override
   {
     constexpr bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
-    if constexpr (!IS_DENSE) dense2sparse();
-    std::vector<fil_node_t>& init_nodes = IS_DENSE ? nodes : sparse_nodes;
+    std::vector<fil_node_t>& init_nodes;
+    if constexpr (!IS_DENSE) {
+      dense2sparse();
+      init_nodes = sparse_nodes;
+    } else {
+      init_nodes = nodes;
+    }
     ASSERT(init_nodes.size() < std::size_t(INT_MAX), "generated too many nodes");
 
     // init FIL model

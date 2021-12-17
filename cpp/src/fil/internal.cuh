@@ -225,6 +225,10 @@ struct dense_forest;
 template <typename node_t>
 struct sparse_forest;
 
+struct dense_storage;
+template <typename node_t>
+struct sparse_storage;
+
 template <typename node_t>
 struct node_traits {
   using storage              = sparse_storage<node_t>;
