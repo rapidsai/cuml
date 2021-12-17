@@ -1,4 +1,4 @@
-# cuML 21.12.00 (17 Dec 2021)
+# cuML 21.12.00 (9 Dec 2021)
 
 ## 🚨 Breaking Changes
 
