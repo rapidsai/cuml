@@ -172,82 +172,12 @@ void gpu_treeshap_impl(const TreePathInfoImpl<ThresholdType>* path_info,
 namespace ML {
 namespace Explainer {
 
-template <typename ThresholdType, typename LeafType>
+template <bool use_vector_leaf, typename ThresholdType, typename LeafType>
 void extract_path_info_from_tree(const tl::Tree<ThresholdType, LeafType>& tree,
                                  int num_groups,
                                  int& tree_idx,
                                  std::size_t& path_idx,
                                  TreePathInfoImpl<ThresholdType>& path_info)
-{
-  std::vector<int> parent_id(tree.num_nodes, -1);
-  // Compute parent ID of each node
-  for (int i = 0; i < tree.num_nodes; i++) {
-    if (!tree.IsLeaf(i)) {
-      parent_id[tree.LeftChild(i)]  = i;
-      parent_id[tree.RightChild(i)] = i;
-    }
-  }
-
-  // Find leaf nodes
-  // Work backwards from leaf to root, order does not matter
-  // It's also possible to work from root to leaf
-  int group_id = tree_idx % num_groups;
-  for (int i = 0; i < tree.num_nodes; i++) {
-    if (tree.IsLeaf(i)) {
-      auto v                     = static_cast<float>(tree.LeafValue(i));
-      int child_idx              = i;
-      int parent_idx             = parent_id[child_idx];
-      constexpr auto inf         = std::numeric_limits<ThresholdType>::infinity();
-      tl::Operator comparison_op = tl::Operator::kNone;
-      while (parent_idx != -1) {
-        double zero_fraction = 1.0;
-        bool has_count_info  = false;
-        if (tree.HasSumHess(parent_idx) && tree.HasSumHess(child_idx)) {
-          zero_fraction  = static_cast<double>(tree.SumHess(child_idx) / tree.SumHess(parent_idx));
-          has_count_info = true;
-        }
-        if (tree.HasDataCount(parent_idx) && tree.HasDataCount(child_idx)) {
-          zero_fraction =
-            static_cast<double>(tree.DataCount(child_idx)) / tree.DataCount(parent_idx);
-          has_count_info = true;
-        }
-        if (!has_count_info) { RAFT_FAIL("Tree model doesn't have data count information"); }
-        // Encode the range of feature values that flow down this path
-        bool is_left_path = tree.LeftChild(parent_idx) == child_idx;
-        if (tree.SplitType(parent_idx) == tl::SplitFeatureType::kCategorical) {
-          RAFT_FAIL(
-            "Only trees with numerical splits are supported. "
-            "Trees with categorical splits are not supported yet.");
-        }
-        ThresholdType lower_bound = is_left_path ? -inf : tree.Threshold(parent_idx);
-        ThresholdType upper_bound = is_left_path ? tree.Threshold(parent_idx) : inf;
-        comparison_op             = tree.ComparisonOp(parent_idx);
-        path_info.paths.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
-          path_idx,
-          tree.SplitIndex(parent_idx),
-          group_id,
-          SplitCondition{lower_bound, upper_bound, comparison_op},
-          zero_fraction,
-          v});
-        child_idx  = parent_idx;
-        parent_idx = parent_id[child_idx];
-      }
-      // Root node has feature -1
-      comparison_op = tree.ComparisonOp(child_idx);
-      path_info.paths.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
-        path_idx, -1, group_id, SplitCondition{-inf, inf, comparison_op}, 1.0, v});
-      path_idx++;
-    }
-  }
-  tree_idx++;
-}
-
-template <typename ThresholdType, typename LeafType>
-void extract_path_info_from_tree_with_leaf_vec(const tl::Tree<ThresholdType, LeafType>& tree,
-                                               int num_groups,
-                                               int& tree_idx,
-                                               std::size_t& path_idx,
-                                               TreePathInfoImpl<ThresholdType>& path_info)
 {
   if (num_groups < 1) { RAFT_FAIL("num_groups must be at least 1"); }
 
@@ -263,10 +193,10 @@ void extract_path_info_from_tree_with_leaf_vec(const tl::Tree<ThresholdType, Lea
   // Find leaf nodes
   // Work backwards from leaf to root, order does not matter
   // It's also possible to work from root to leaf
-  for (int i = 0; i < tree.num_nodes; i++) {
-    if (tree.IsLeaf(i)) {
+  for (int nid = 0; nid < tree.num_nodes; nid++) {
+    if (tree.IsLeaf(nid)) {
       std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> tmp_paths;
-      int child_idx              = i;
+      int child_idx              = nid;
       int parent_idx             = parent_id[child_idx];
       constexpr auto inf         = std::numeric_limits<ThresholdType>::infinity();
       tl::Operator comparison_op = tl::Operator::kNone;
@@ -315,21 +245,35 @@ void extract_path_info_from_tree_with_leaf_vec(const tl::Tree<ThresholdType, Lea
         1.0,
         std::numeric_limits<float>::quiet_NaN()});
 
-      // Now duplicate tmp_paths N times, where N = num_groups
-      // Then insert into path_info.paths
-      auto leaf_vector = tree.LeafVector(i);
-      if (leaf_vector.size() != static_cast<std::size_t>(num_groups)) {
-        RAFT_FAIL("Expected leaf vector of length %d but got %d instead",
-                  num_groups,
-                  static_cast<int>(leaf_vector.size()));
-      }
-      for (int group_id = 0; group_id < num_groups; ++group_id) {
+      // If use_vector_leaf=True:
+      // * Duplicate tmp_paths N times, where N = num_groups
+      // * Insert into path_info.paths
+      // If use_vector_leaf=False:
+      // * Insert tmp_paths into path_info.paths
+      auto path_insertor = [&tmp_paths, &path_info](
+          auto leaf_value, auto path_idx, int group_id) {
         for (auto& e : tmp_paths) {
           e.path_idx = path_idx;
-          e.v        = static_cast<float>(leaf_vector[group_id]);
+          e.v        = static_cast<float>(leaf_value);
           e.group    = group_id;
         }
         path_info.paths.insert(path_info.paths.end(), tmp_paths.begin(), tmp_paths.end());
+      };
+      if constexpr (use_vector_leaf) {
+        auto leaf_vector = tree.LeafVector(nid);
+        if (leaf_vector.size() != static_cast<std::size_t>(num_groups)) {
+          RAFT_FAIL("Expected leaf vector of length %d but got %d instead",
+                    num_groups,
+                    static_cast<int>(leaf_vector.size()));
+        }
+        for (int group_id = 0; group_id < num_groups; ++group_id) {
+          path_insertor(leaf_vector[group_id], path_idx, group_id);
+          path_idx++;
+        }
+      } else {
+        auto leaf_value = tree.LeafValue(nid);
+        int group_id = tree_idx % num_groups;
+        path_insertor(leaf_value, path_idx, group_id);
         path_idx++;
       }
     }
@@ -357,11 +301,11 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   if (model.task_type == tl::TaskType::kBinaryClfRegr ||
       model.task_type == tl::TaskType::kMultiClfGrovePerClass) {
     for (const tl::Tree<ThresholdType, LeafType>& tree : model.trees) {
-      extract_path_info_from_tree(tree, num_groups, tree_idx, path_idx, *path_info);
+      extract_path_info_from_tree<false>(tree, num_groups, tree_idx, path_idx, *path_info);
     }
   } else if (model.task_type == tl::TaskType::kMultiClfProbDistLeaf) {
     for (const tl::Tree<ThresholdType, LeafType>& tree : model.trees) {
-      extract_path_info_from_tree_with_leaf_vec(tree, num_groups, tree_idx, path_idx, *path_info);
+      extract_path_info_from_tree<true>(tree, num_groups, tree_idx, path_idx, *path_info);
     }
   }
   path_info->global_bias         = model.param.global_bias;
