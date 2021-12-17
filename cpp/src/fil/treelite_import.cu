@@ -130,7 +130,7 @@ inline int max_depth(const tl::Tree<T, L>& tree)
     [](int node_id, int node_depth) {
       // trees of this depth aren't used, so it most likely means bad input data,
       // e.g. cycles in the forest
-      const int DEPTH_LIMIT = 500;
+      constexpr int DEPTH_LIMIT = 500;
       ASSERT(node_depth < DEPTH_LIMIT, "node_depth limit reached, might be a cycle in the tree");
       return std::pair(node_depth + 1, node_depth + 1);
     },
