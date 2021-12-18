@@ -250,8 +250,7 @@ void extract_path_info_from_tree(const tl::Tree<ThresholdType, LeafType>& tree,
       // * Insert into path_info.paths
       // If use_vector_leaf=False:
       // * Insert tmp_paths into path_info.paths
-      auto path_insertor = [&tmp_paths, &path_info](
-          auto leaf_value, auto path_idx, int group_id) {
+      auto path_insertor = [&tmp_paths, &path_info](auto leaf_value, auto path_idx, int group_id) {
         for (auto& e : tmp_paths) {
           e.path_idx = path_idx;
           e.v        = static_cast<float>(leaf_value);
@@ -272,7 +271,7 @@ void extract_path_info_from_tree(const tl::Tree<ThresholdType, LeafType>& tree,
         }
       } else {
         auto leaf_value = tree.LeafValue(nid);
-        int group_id = tree_idx % num_groups;
+        int group_id    = tree_idx % num_groups;
         path_insertor(leaf_value, path_idx, group_id);
         path_idx++;
       }
