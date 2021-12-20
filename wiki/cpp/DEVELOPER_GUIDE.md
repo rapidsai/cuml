@@ -353,11 +353,9 @@ When multiple streams are needed, e.g. to manage a pipeline, use the internal st
 ```cpp
 void foo(const double* const srcdata, double* const result)
 {
-    raft::handle_t raftHandle;
-
     cudaStream_t stream;
     CUDA_RT_CALL( cudaStreamCreate( &stream ) );
-    raftHandle.set_stream( stream );
+    raft::handle_t raftHandle( stream );
 
     ...
 

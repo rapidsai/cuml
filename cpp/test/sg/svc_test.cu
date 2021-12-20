@@ -61,14 +61,15 @@ void init_C(math_t C, math_t* C_vec, int n, cudaStream_t stream)
 
 template <typename math_t>
 class WorkingSetTest : public ::testing::Test {
-  public:
-    WorkingSetTest()
-      : stream(handle.get_stream()),
-        f_dev(10, stream),
-        y_dev(10, stream),
-        C_dev(10, stream),
-        alpha_dev(10, stream)
-    {}
+ public:
+  WorkingSetTest()
+    : stream(handle.get_stream()),
+      f_dev(10, stream),
+      y_dev(10, stream),
+      C_dev(10, stream),
+      alpha_dev(10, stream)
+  {
+  }
 
  protected:
   void SetUp() override
@@ -106,30 +107,38 @@ TYPED_TEST_CASE(WorkingSetTest, FloatTypes);
 
 TYPED_TEST(WorkingSetTest, Init)
 {
-  this->ws = new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 10);
+  auto stream = this->handle.get_stream();
+  this->ws    = new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 10);
   EXPECT_EQ(this->ws->GetSize(), 10);
   delete this->ws;
 
-  this->ws = new WorkingSet<TypeParam>(this->handle, this->stream, 100000);
+  this->ws = new WorkingSet<TypeParam>(this->handle, stream, 100000);
   EXPECT_EQ(this->ws->GetSize(), 1024);
   delete this->ws;
 }
 
 TYPED_TEST(WorkingSetTest, Select)
 {
-  this->ws = new WorkingSet<TypeParam>(this->handle, this->stream, 10, 4);
+  auto stream = this->handle.get_stream();
+  this->ws    = new WorkingSet<TypeParam>(this->handle, stream, 10, 4);
   EXPECT_EQ(this->ws->GetSize(), 4);
-  this->ws->SimpleSelect(this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
+  this->ws->SimpleSelect(
+    this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
+  ASSERT_TRUE(devArrMatchHost(
+    this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), raft::Compare<int>(), stream));
+
+  this->ws->Select(
+    this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
   ASSERT_TRUE(devArrMatchHost(
     this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), raft::Compare<int>()));
+  this->ws->Select(
+    this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
 
-  this->ws->Select(this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
-  ASSERT_TRUE(devArrMatchHost(
-    this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), raft::Compare<int>()));
-  this->ws->Select(this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
-
-  ASSERT_TRUE(devArrMatchHost(
-    this->expected_idx2, this->ws->GetIndices(), this->ws->GetSize(), raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatchHost(this->expected_idx2,
+                              this->ws->GetIndices(),
+                              this->ws->GetSize(),
+                              raft::Compare<int>(),
+                              stream));
   delete this->ws;
 }
 
@@ -139,7 +148,7 @@ TYPED_TEST(WorkingSetTest, Select)
 
 template <typename math_t>
 class KernelCacheTest : public ::testing::Test {
-  public:
+ public:
   KernelCacheTest()
     : stream(handle.get_stream()),
       cublas_handle(handle.get_cublas_handle()),
@@ -189,6 +198,7 @@ class KernelCacheTest : public ::testing::Test {
 
   void check(const math_t* tile_dev, int n_ws, int n_rows, const int* ws_idx, const int* kColIdx)
   {
+    auto stream = this->handle.get_stream();
     std::vector<int> ws_idx_h(n_ws);
     raft::update_host(ws_idx_h.data(), ws_idx, n_ws, stream);
     std::vector<int> kidx_h(n_ws);
@@ -202,7 +212,8 @@ class KernelCacheTest : public ::testing::Test {
       int kidx                = kidx_h[i];
       const math_t* cache_row = tile_dev + kidx * n_rows;
       const math_t* row_exp   = tile_host_all + widx * n_rows;
-      EXPECT_TRUE(devArrMatchHost(row_exp, cache_row, n_rows, raft::CompareApprox<math_t>(1e-6f)));
+      EXPECT_TRUE(
+        devArrMatchHost(row_exp, cache_row, n_rows, raft::CompareApprox<math_t>(1e-6f), stream));
     }
   }
 
@@ -227,6 +238,7 @@ TYPED_TEST_CASE_P(KernelCacheTest);
 
 TYPED_TEST_P(KernelCacheTest, EvalTest)
 {
+  auto stream = this->handle.get_stream();
   std::vector<Matrix::KernelParams> param_vec{Matrix::KernelParams{Matrix::LINEAR, 3, 1, 0},
                                               Matrix::KernelParams{Matrix::POLYNOMIAL, 2, 1.3, 1},
                                               Matrix::KernelParams{Matrix::TANH, 2, 0.5, 2.4},
@@ -236,15 +248,22 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
   for (auto params : param_vec) {
     Matrix::GramMatrixBase<TypeParam>* kernel =
       Matrix::KernelFactory<TypeParam>::create(params, this->handle.get_cublas_handle());
-    KernelCache<TypeParam> cache(
-      this->handle, this->x_dev.data(), this->n_rows, this->n_cols, this->n_ws, kernel, cache_size, C_SVC);
+    KernelCache<TypeParam> cache(this->handle,
+                                 this->x_dev.data(),
+                                 this->n_rows,
+                                 this->n_cols,
+                                 this->n_ws,
+                                 kernel,
+                                 cache_size,
+                                 C_SVC);
     TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
     ASSERT_TRUE(devArrMatchHost(this->tile_host_expected,
                                 tile_dev,
                                 this->n_rows * this->n_ws,
-                                raft::CompareApprox<TypeParam>(1e-6f)));
+                                raft::CompareApprox<TypeParam>(1e-6f),
+                                stream));
     delete kernel;
   }
 }
@@ -256,8 +275,14 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
 
   Matrix::GramMatrixBase<TypeParam>* kernel =
     Matrix::KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
-  KernelCache<TypeParam> cache(
-    this->handle, this->x_dev.data(), this->n_rows, this->n_cols, this->n_ws, kernel, cache_size, C_SVC);
+  KernelCache<TypeParam> cache(this->handle,
+                               this->x_dev.data(),
+                               this->n_rows,
+                               this->n_cols,
+                               this->n_ws,
+                               kernel,
+                               cache_size,
+                               C_SVC);
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
     TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
@@ -299,14 +324,13 @@ INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 
 template <typename math_t>
 class GetResultsTest : public ::testing::Test {
-  public:
-  GetResultsTest()
-  : stream(handle.get_stream())
-  {}
+ public:
+  GetResultsTest() : stream(handle.get_stream()) {}
 
  protected:
   void TestResults()
   {
+    auto stream = this->handle.get_stream();
     rmm::device_uvector<math_t> x_dev(n_rows * n_cols, stream);
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     rmm::device_uvector<math_t> f_dev(n_rows, stream);
@@ -323,15 +347,15 @@ class GetResultsTest : public ::testing::Test {
     ASSERT_EQ(n_coefs, 7);
 
     math_t dual_coefs_exp[] = {-0.1, -0.2, -1.5, 0.2, 0.4, 1.5, 1.5};
-    EXPECT_TRUE(
-      devArrMatchHost(dual_coefs_exp, dual_coefs, n_coefs, raft::CompareApprox<math_t>(1e-6f)));
+    EXPECT_TRUE(devArrMatchHost(
+      dual_coefs_exp, dual_coefs, n_coefs, raft::CompareApprox<math_t>(1e-6f), stream));
 
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
-    EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, raft::Compare<int>()));
+    EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, raft::Compare<int>(), stream));
 
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
     EXPECT_TRUE(devArrMatchHost(
-      x_support_exp, x_support, n_coefs * n_cols, raft::CompareApprox<math_t>(1e-6f)));
+      x_support_exp, x_support, n_coefs * n_cols, raft::CompareApprox<math_t>(1e-6f), stream));
 
     EXPECT_FLOAT_EQ(b, -6.25f);
 
@@ -381,7 +405,7 @@ SvmParameter getDefaultSvmParameter()
 
 template <typename math_t>
 class SmoUpdateTest : public ::testing::Test {
-  public:
+ public:
   SmoUpdateTest()
     : stream(handle.get_stream()),
       n_rows(6),
@@ -423,8 +447,8 @@ TYPED_TEST(SmoUpdateTest, Update) { this->RunTest(); }
 
 template <typename math_t>
 class SmoBlockSolverTest : public ::testing::Test {
-  public:
-    SmoBlockSolverTest()
+ public:
+  SmoBlockSolverTest()
     : stream(handle.get_stream()),
       cublas_handle(handle.get_cublas_handle()),
       n_rows(4),
@@ -440,7 +464,8 @@ class SmoBlockSolverTest : public ::testing::Test {
       return_buff_dev(2, stream)
   {
     CUDA_CHECK(cudaMemsetAsync(alpha_dev.data(), 0, alpha_dev.size() * sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(delta_alpha_dev.data(), 0, delta_alpha_dev.size() * sizeof(math_t), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(delta_alpha_dev.data(), 0, delta_alpha_dev.size() * sizeof(math_t), stream));
     init_C(C, C_dev.data(), n_rows, stream);
     raft::update_device(ws_idx_dev.data(), ws_idx_host, n_ws, stream);
     raft::update_device(y_dev.data(), y_host, n_rows, stream);
@@ -466,7 +491,8 @@ class SmoBlockSolverTest : public ::testing::Test {
     CUDA_CHECK(cudaPeekAtLastError());
 
     math_t return_buff_exp[2] = {0.2, 1};
-    devArrMatchHost(return_buff_exp, return_buff_dev.data(), 2, raft::CompareApprox<math_t>(1e-6));
+    devArrMatchHost(
+      return_buff_exp, return_buff_dev.data(), 2, raft::CompareApprox<math_t>(1e-6), stream);
 
     rmm::device_uvector<math_t> delta_alpha_calc(n_rows, stream);
     raft::linalg::binaryOp(
@@ -476,16 +502,20 @@ class SmoBlockSolverTest : public ::testing::Test {
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
       stream);
-    raft::devArrMatch(
-      delta_alpha_dev.data(), delta_alpha_calc.data(), n_rows, raft::CompareApprox<math_t>(1e-6));
+    raft::devArrMatch(delta_alpha_dev.data(),
+                      delta_alpha_calc.data(),
+                      n_rows,
+                      raft::CompareApprox<math_t>(1e-6),
+                      stream);
     math_t alpha_expected[] = {0, 0.1f, 0.1f, 0};
-    raft::devArrMatch(alpha_expected, alpha_dev.data(), n_rows, raft::CompareApprox<math_t>(1e-6));
+    raft::devArrMatch(
+      alpha_expected, alpha_dev.data(), n_rows, raft::CompareApprox<math_t>(1e-6), stream);
   }
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream = 0;
   cublasHandle_t cublas_handle;
+  cudaStream_t stream = 0;
 
   int n_rows;
   int n_cols;
@@ -605,11 +635,13 @@ void checkResults(SvmModel<math_t> model,
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
                                 model.x_support,
                                 model.n_support * model.n_cols,
-                                raft::CompareApprox<math_t>(1e-6f)));
+                                raft::CompareApprox<math_t>(1e-6f),
+                                stream));
   }
 
   if (idx_exp) {
-    EXPECT_TRUE(devArrMatchHost(idx_exp, model.support_idx, model.n_support, raft::Compare<int>()));
+    EXPECT_TRUE(
+      devArrMatchHost(idx_exp, model.support_idx, model.n_support, raft::Compare<int>(), stream));
   }
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
@@ -660,7 +692,8 @@ class SmoSolverTest : public ::testing::Test {
       sample_weights_dev(n_rows, stream)
   {
     CUDA_CHECK(cudaMemsetAsync(alpha_dev.data(), 0, alpha_dev.size() * sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(delta_alpha_dev.data(), 0, delta_alpha_dev.size() * sizeof(math_t), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(delta_alpha_dev.data(), 0, delta_alpha_dev.size() * sizeof(math_t), stream));
   }
 
  protected:
@@ -738,8 +771,9 @@ class SmoSolverTest : public ::testing::Test {
 
   void svrBlockSolveTest()
   {
-    int n_ws   = 4;
-    int n_rows = 2;
+    auto stream = this->handle.get_stream();
+    int n_ws    = 4;
+    int n_rows  = 2;
     // int n_cols = 1;
     // math_t x[2] = {1, 2};
     // yr = {2, 3}
@@ -834,6 +868,7 @@ std::ostream& operator<<(std::ostream& os, const smoInput<math_t>& b)
 
 TYPED_TEST(SmoSolverTest, SmoSolveTest)
 {
+  auto stream = this->handle.get_stream();
   std::vector<std::pair<smoInput<TypeParam>, smoOutput<TypeParam>>> data{
     {smoInput<TypeParam>{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
      smoOutput<TypeParam>{4,                         // n_sv
@@ -872,13 +907,14 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
               &model.b,
               p.max_iter,
               p.max_inner_iter);
-    checkResults(model, exp, this->stream);
+    checkResults(model, exp, stream);
     svmFreeBuffers(this->handle, model);
   }
 }
 
 TYPED_TEST(SmoSolverTest, SvcTest)
 {
+  auto stream = this->handle.get_stream();
   std::vector<std::pair<svcInput<TypeParam>, smoOutput2<TypeParam>>> data{
     {svcInput<TypeParam>{1,
                          0.001,
@@ -966,9 +1002,11 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     SCOPED_TRACE(kernelName(p.kernel_params));
     if (p.C == 0) { p.C = 1; }
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-    svc.fit(p.x_dev, p.n_rows, p.n_cols, p.y_dev,
-      this->sample_weights_dev.size() > 0 ?
-      this->sample_weights_dev.data() : nullptr );
+    svc.fit(p.x_dev,
+            p.n_rows,
+            p.n_cols,
+            p.y_dev,
+            this->sample_weights_dev.size() > 0 ? this->sample_weights_dev.data() : nullptr);
     checkResults(svc.model, toSmoOutput(exp), this->stream);
     rmm::device_uvector<TypeParam> y_pred(p.n_rows, this->stream);
     if (p.predict) {
@@ -981,7 +1019,8 @@ TYPED_TEST(SmoSolverTest, SvcTest)
       EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(),
                                   y_pred.data(),
                                   p.n_rows,
-                                  raft::CompareApprox<TypeParam>(1e-3f)));
+                                  raft::CompareApprox<TypeParam>(1e-3f),
+                                  stream));
     }
   }
 }
@@ -1062,6 +1101,7 @@ struct is_same_functor {
 
 TYPED_TEST(SmoSolverTest, BlobPredict)
 {
+  auto stream = this->handle.get_stream();
   // Pair.second is the expected accuracy. It might change if the Rng changes.
   std::vector<std::pair<blobInput, TypeParam>> data{
     {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 200, 10}, 98},
@@ -1076,16 +1116,16 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
     auto p = d.first;
     SCOPED_TRACE(p);
     // explicit centers for the blobs
-    rmm::device_uvector<float> centers(2 * p.n_cols, this->stream);
+    rmm::device_uvector<float> centers(2 * p.n_cols, stream);
     thrust::device_ptr<float> thrust_ptr(centers.data());
-    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
+    thrust::fill(thrust::cuda::par.on(stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
     thrust::fill(
-      thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
+      thrust::cuda::par.on(stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
 
-    rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, this->stream);
-    rmm::device_uvector<TypeParam> y(p.n_rows, this->stream);
-    rmm::device_uvector<TypeParam> x_pred(n_pred * p.n_cols, this->stream);
-    rmm::device_uvector<TypeParam> y_pred(n_pred, this->stream);
+    rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, stream);
+    rmm::device_uvector<TypeParam> y(p.n_rows, stream);
+    rmm::device_uvector<TypeParam> x_pred(n_pred * p.n_cols, stream);
+    rmm::device_uvector<TypeParam> y_pred(n_pred, stream);
 
     make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, -1, 50, CUML_LEVEL_INFO);
@@ -1093,18 +1133,18 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
 
     // Create a different dataset for prediction
     make_blobs(this->handle, x_pred.data(), y_pred.data(), n_pred, p.n_cols, 2, centers.data());
-    rmm::device_uvector<TypeParam> y_pred2(n_pred, this->stream);
+    rmm::device_uvector<TypeParam> y_pred2(n_pred, stream);
     svc.predict(x_pred.data(), n_pred, p.n_cols, y_pred2.data());
 
     // Count the number of correct predictions
-    rmm::device_uvector<int> is_correct(n_pred, this->stream);
+    rmm::device_uvector<int> is_correct(n_pred, stream);
     thrust::device_ptr<TypeParam> ptr1(y_pred.data());
     thrust::device_ptr<TypeParam> ptr2(y_pred2.data());
     thrust::device_ptr<int> ptr3(is_correct.data());
     auto first = thrust::make_zip_iterator(thrust::make_tuple(ptr1, ptr2));
     auto last  = thrust::make_zip_iterator(thrust::make_tuple(ptr1 + n_pred, ptr2 + n_pred));
-    thrust::transform(thrust::cuda::par.on(this->stream), first, last, ptr3, is_same_functor());
-    int n_correct = thrust::reduce(thrust::cuda::par.on(this->stream), ptr3, ptr3 + n_pred);
+    thrust::transform(thrust::cuda::par.on(stream), first, last, ptr3, is_same_functor());
+    int n_correct = thrust::reduce(thrust::cuda::par.on(stream), ptr3, ptr3 + n_pred);
 
     TypeParam accuracy     = 100 * n_correct / n_pred;
     TypeParam accuracy_exp = d.second;
@@ -1114,6 +1154,7 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
 
 TYPED_TEST(SmoSolverTest, MemoryLeak)
 {
+  auto stream = this->handle.get_stream();
   // We measure that we have the same amount of free memory available on the GPU
   // before and after we call SVM. This can help catch memory leaks, but it is
   // not 100% sure. Small allocations might be pooled together by cudaMalloc,
@@ -1132,8 +1173,8 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
     auto p = d.first;
     SCOPED_TRACE(p);
 
-    rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, this->stream);
-    rmm::device_uvector<TypeParam> y(p.n_rows, this->stream);
+    rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, stream);
+    rmm::device_uvector<TypeParam> y(p.n_rows, stream);
     make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2);
 
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
@@ -1143,8 +1184,8 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()), raft::exception);
     } else {
       svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-      rmm::device_uvector<TypeParam> y_pred(p.n_rows, this->stream);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
       CUDA_CHECK(cudaMemGetInfo(&free2, &total));
       float delta = (free1 - free2);
       // Just to make sure that we measure any mem consumption at all:
@@ -1153,7 +1194,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       // it (one could additionally control the exec time by the max_iter arg to
       // SVC).
       EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      CUDA_CHECK(cudaStreamSynchronize(stream));
       svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
     }
   }
@@ -1164,6 +1205,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
 
 TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 {
+  auto stream = this->handle.get_stream();
   if (sizeof(TypeParam) == 8) {
     GTEST_SKIP();  // Skip the test for double imput
   } else {
@@ -1182,17 +1224,15 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
       auto p = d.first;
       SCOPED_TRACE(p);
       // explicit centers for the blobs
-      rmm::device_uvector<float> centers(2 * p.n_cols, this->stream);
+      rmm::device_uvector<float> centers(2 * p.n_cols, stream);
       thrust::device_ptr<float> thrust_ptr(centers.data());
-      thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
-      thrust::fill(thrust::cuda::par.on(this->stream),
-                   thrust_ptr + p.n_cols,
-                   thrust_ptr + 2 * p.n_cols,
-                   +5.0f);
+      thrust::fill(thrust::cuda::par.on(stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
+      thrust::fill(
+        thrust::cuda::par.on(stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
 
-      rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, this->stream);
-      rmm::device_uvector<TypeParam> y(p.n_rows, this->stream);
-      rmm::device_uvector<TypeParam> y_pred(p.n_rows, this->stream);
+      rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, stream);
+      rmm::device_uvector<TypeParam> y(p.n_rows, stream);
+      rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
       make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
       const int max_iter = 2;
       SVC<TypeParam> svc(
@@ -1225,7 +1265,7 @@ std::ostream& operator<<(std::ostream& os, const SvrInput<math_t>& b)
 
 template <typename math_t>
 class SvrTest : public ::testing::Test {
-  public:
+ public:
   SvrTest()
     : stream(handle.get_stream()),
       x_dev(n_rows * n_cols, stream),
@@ -1256,13 +1296,15 @@ class SvrTest : public ::testing::Test {
  public:
   void TestSvrInit()
   {
+    auto stream        = this->handle.get_stream();
     SvmParameter param = getDefaultSvmParameter();
     param.svmType      = EPSILON_SVR;
     SmoSolver<math_t> smo(handle, param, nullptr);
     smo.SvrInit(y_dev.data(), n_rows, yc.data(), f.data());
 
-    EXPECT_TRUE(devArrMatchHost(yc_exp, yc.data(), n_train, raft::CompareApprox<math_t>(1.0e-9)));
-    EXPECT_TRUE(devArrMatchHost(f_exp, f.data(), n_train, raft::Compare<math_t>()));
+    EXPECT_TRUE(
+      devArrMatchHost(yc_exp, yc.data(), n_train, raft::CompareApprox<math_t>(1.0e-9), stream));
+    EXPECT_TRUE(devArrMatchHost(f_exp, f.data(), n_train, raft::Compare<math_t>(), stream));
   }
 
   void TestSvrWorkingSet()
@@ -1278,7 +1320,8 @@ class SvrTest : public ::testing::Test {
 
     ws->Select(f.data(), alpha.data(), yc.data(), C_dev.data());
     int exp_idx[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
-    ASSERT_TRUE(devArrMatchHost(exp_idx, ws->GetIndices(), ws->GetSize(), raft::Compare<int>()));
+    ASSERT_TRUE(
+      devArrMatchHost(exp_idx, ws->GetIndices(), ws->GetSize(), raft::Compare<int>(), stream));
 
     delete ws;
 
@@ -1286,7 +1329,8 @@ class SvrTest : public ::testing::Test {
     EXPECT_EQ(ws->GetSize(), 10);
     ws->Select(f.data(), alpha.data(), yc.data(), C_dev.data());
     int exp_idx2[] = {6, 12, 5, 11, 3, 9, 8, 1, 7, 0};
-    ASSERT_TRUE(devArrMatchHost(exp_idx2, ws->GetIndices(), ws->GetSize(), raft::Compare<int>()));
+    ASSERT_TRUE(
+      devArrMatchHost(exp_idx2, ws->GetIndices(), ws->GetSize(), raft::Compare<int>(), stream));
     delete ws;
   }
 
@@ -1294,8 +1338,7 @@ class SvrTest : public ::testing::Test {
   {
     raft::update_device(yc.data(), yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev.data(), n_rows * 2, stream);
-    Results<math_t> res(
-      handle, x_dev.data(), yc.data(), n_rows, n_cols, C_dev.data(), EPSILON_SVR);
+    Results<math_t> res(handle, x_dev.data(), yc.data(), n_rows, n_cols, C_dev.data(), EPSILON_SVR);
     model.n_cols = n_cols;
     raft::update_device(alpha.data(), alpha_host, n_train, stream);
     raft::update_device(f.data(), f_exp, n_train, stream);
@@ -1310,21 +1353,23 @@ class SvrTest : public ::testing::Test {
     ASSERT_EQ(model.n_support, 5);
     math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
     EXPECT_TRUE(devArrMatchHost(
-      dc_exp, model.dual_coefs, model.n_support, raft::CompareApprox<math_t>(1.0e-6)));
+      dc_exp, model.dual_coefs, model.n_support, raft::CompareApprox<math_t>(1.0e-6), stream));
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(x_exp,
                                 model.x_support,
                                 model.n_support * n_cols,
-                                raft::CompareApprox<math_t>(1.0e-6)));
+                                raft::CompareApprox<math_t>(1.0e-6),
+                                stream));
 
     int idx_exp[] = {0, 1, 2, 4, 5};
     EXPECT_TRUE(devArrMatchHost(
-      idx_exp, model.support_idx, model.n_support, raft::CompareApprox<math_t>(1.0e-6)));
+      idx_exp, model.support_idx, model.n_support, raft::CompareApprox<math_t>(1.0e-6), stream));
   }
 
   void TestSvrFitPredict()
   {
+    auto stream = this->handle.get_stream();
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
          SvmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
@@ -1429,7 +1474,8 @@ class SvrTest : public ::testing::Test {
         EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(),
                                     preds.data(),
                                     p.n_rows,
-                                    raft::CompareApprox<math_t>(1.0e-5)));
+                                    raft::CompareApprox<math_t>(1.0e-5),
+                                    stream));
       }
     }
   }

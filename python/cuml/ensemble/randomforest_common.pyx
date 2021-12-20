@@ -112,7 +112,7 @@ class BaseRandomForestModel(Base):
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
         if handle is None:
-            handle = Handle(n_streams)
+            handle = Handle(n_streams=n_streams)
 
         super(BaseRandomForestModel, self).__init__(
             handle=handle,
@@ -146,7 +146,7 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.max_batch_size = max_batch_size
-        self.n_streams = handle.getNumInternalStreams()
+        self.n_streams = n_streams
         self.random_state = random_state
         self.rf_forest = 0
         self.rf_forest64 = 0

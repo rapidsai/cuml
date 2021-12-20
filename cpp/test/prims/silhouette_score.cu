@@ -42,7 +42,12 @@ struct silhouetteScoreParam {
 template <typename LabelT, typename DataT>
 class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
-  silhouetteScoreTest() : d_X(0, stream), sampleSilScore(0, stream), d_labels(0, stream) {}
+  silhouetteScoreTest()
+    : d_X(0, handle.get_stream()),
+      sampleSilScore(0, handle.get_stream()),
+      d_labels(0, handle.get_stream())
+  {
+  }
 
   void host_silhouette_score()
   {
@@ -58,7 +63,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     std::generate(h_labels.begin(), h_labels.end(), [&]() { return intGenerator(dre); });
 
     // allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
     d_X.resize(nElements, stream);
     d_labels.resize(nElements, stream);
     CUDA_CHECK(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
@@ -172,7 +177,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
                                                                   d_labels.data(),
                                                                   nLabels,
                                                                   sampleSilScore.data(),
-                                                                  stream,
+                                                                  handle.get_stream(),
                                                                   params.metric);
 
     batchedSilhouetteScore = Batched::silhouette_score(handle,
@@ -186,9 +191,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
                                                        params.metric);
   }
 
-  // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   // declaring the data values
   silhouetteScoreParam params;
   int nLabels;
@@ -201,7 +203,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   double truthSilhouetteScore    = 0;
   double computedSilhouetteScore = 0;
   double batchedSilhouetteScore  = 0;
-  cudaStream_t stream            = 0;
   raft::handle_t handle;
   int chunk;
 };

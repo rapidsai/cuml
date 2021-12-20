@@ -115,7 +115,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     y.push_back(train_labels.data());
 
     knn_regress(
-      pred_labels.data(), knn_indices.data(), y, params.rows, params.rows, params.k, stream);
+      handle, pred_labels.data(), knn_indices.data(), y, params.rows, params.rows, params.k);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
