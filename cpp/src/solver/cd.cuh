@@ -24,7 +24,7 @@
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
-// #include <raft/common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -51,11 +51,19 @@ struct ConvState {
   math_t diffMax;
 };
 
+/**
+ * Update a single CD coefficient and the corresponding convergence criteria.
+ *
+ * @param[inout] coefLoc pointer to the coefficient (arr ptr + column index offset)
+ * @param[in] squaredLoc pointer to the precomputed data - L2 norm of input for across rows
+ * @param[inout] convStateLoc pointer to the structure holding the convergence state
+ * @param[in] l1_alpha L1 regularization coef
+ */
 template <typename math_t>
-__global__ void __launch_bounds__(1, 1) updateCoefKernel(math_t* coefLoc,
-                                                         const math_t* squaredLoc,
-                                                         ConvState<math_t>* convStateLoc,
-                                                         const math_t l1_alpha)
+__global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
+                                                           const math_t* squaredLoc,
+                                                           ConvState<math_t>* convStateLoc,
+                                                           const math_t l1_alpha)
 {
   auto coef    = *coefLoc;
   auto r       = coef > l1_alpha ? coef - l1_alpha : (coef < -l1_alpha ? coef + l1_alpha : 0);
@@ -127,7 +135,7 @@ void cdFit(const raft::handle_t& handle,
            math_t tol,
            cudaStream_t stream)
 {
-  // RAFT_USING_NVTX_RANGE("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
+  raft::common::nvtx::range fun_scope("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
@@ -188,13 +196,13 @@ void cdFit(const raft::handle_t& handle,
   rmm::device_scalar<math_t> cublas_beta(0.0, stream);
 
   for (int i = 0; i < epochs; i++) {
-    // RAFT_USING_NVTX_RANGE(stream, "ML::Solver::cdFit::epoch-%d", i);
+    raft::common::nvtx::range epoch_scope("ML::Solver::cdFit::epoch-%d", i);
     if (i > 0 && shuffle) { Solver::shuffle(ri, g); }
 
-    CUDA_CHECK(cudaMemsetAsync(convStateLoc, 0, sizeof(ConvState<math_t>), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(convStateLoc, 0, sizeof(ConvState<math_t>), stream));
 
     for (int j = 0; j < n_cols; j++) {
-      // RAFT_USING_NVTX_RANGE(stream, "ML::Solver::cdFit::col-%d", j);
+      raft::common::nvtx::range iter_scope("ML::Solver::cdFit::col-%d", j);
       int ci                = ri[j];
       math_t* coef_loc      = coef + ci;
       math_t* squared_loc   = squared.data() + ci;
@@ -218,9 +226,9 @@ void cdFit(const raft::handle_t& handle,
                                1,
                                stream);
 
-      updateCoefKernel<math_t><<<dim3(1, 1, 1), dim3(1, 1, 1), 0, stream>>>(
+      cdUpdateCoefKernel<math_t><<<dim3(1, 1, 1), dim3(1, 1, 1), 0, stream>>>(
         coef_loc, squared_loc, convStateLoc, l1_alpha);
-      CUDA_CHECK(cudaGetLastError());
+      RAFT_CUDA_TRY(cudaGetLastError());
 
       CUBLAS_CHECK(raft::linalg::cublasaxpy(cublas_handle,
                                             n_rows,
@@ -232,7 +240,7 @@ void cdFit(const raft::handle_t& handle,
                                             stream));
     }
     raft::update_host(&h_convState, convStateLoc, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
   }
