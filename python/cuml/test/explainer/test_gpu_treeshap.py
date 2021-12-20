@@ -210,6 +210,7 @@ def test_cuml_rf_classifier(n_classes, input_type):
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_regressor():
     n_samples = 100
@@ -233,6 +234,7 @@ def test_sklearn_rf_regressor():
 
 
 @pytest.mark.parametrize('n_classes', [2, 3, 5])
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_classifier(n_classes):
     n_samples = 100
