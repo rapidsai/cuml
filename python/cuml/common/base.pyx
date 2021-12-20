@@ -143,8 +143,7 @@ class Base(TagsMixin,
         # stream and handle example:
 
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
-        handle.setStream(stream)
+        handle = cuml.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -267,7 +266,7 @@ class Base(TagsMixin,
         if "solver_model" in self.__dict__.keys():
             return getattr(self.solver_model, attr)
         else:
-            raise AttributeError
+            raise AttributeError(attr)
 
     def _set_base_attributes(self,
                              output_type=None,

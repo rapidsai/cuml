@@ -79,8 +79,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     raft::allocate(data, batch_size * n, stream);
     raft::update_device(data, dataset_h, batch_size * n, stream);
 
-    raft::handle_t handle;
-    handle.set_stream(stream);
+    raft::handle_t handle{stream};
 
     ML::HoltWinters::fit(handle,
                          n,
