@@ -207,7 +207,7 @@ void extract_path_info_from_tree(const tl::Tree<ThresholdType, LeafType>& tree,
           zero_fraction  = static_cast<double>(tree.SumHess(child_idx) / tree.SumHess(parent_idx));
           has_count_info = true;
         }
-        if (tree.HasDataCount(parent_idx) && tree.HasDataCount(child_idx)) {
+        if (!has_count_info && tree.HasDataCount(parent_idx) && tree.HasDataCount(child_idx)) {
           zero_fraction =
             static_cast<double>(tree.DataCount(child_idx)) / tree.DataCount(parent_idx);
           has_count_info = true;
@@ -256,7 +256,7 @@ void extract_path_info_from_tree(const tl::Tree<ThresholdType, LeafType>& tree,
           e.v        = static_cast<float>(leaf_value);
           e.group    = group_id;
         }
-        path_info.paths.insert(path_info.paths.end(), tmp_paths.begin(), tmp_paths.end());
+        path_info.paths.insert(path_info.paths.end(), tmp_paths.cbegin(), tmp_paths.cend());
       };
       if constexpr (use_vector_leaf) {
         auto leaf_vector = tree.LeafVector(nid);
@@ -290,6 +290,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   if (!std::is_same<ThresholdType, float>::value && !std::is_same<ThresholdType, double>::value) {
     RAFT_FAIL("ThresholdType must be either float32 or float64");
   }
+
   std::unique_ptr<TreePathInfo> path_info_ptr = std::make_unique<TreePathInfoImpl<ThresholdType>>();
   auto* path_info = dynamic_cast<TreePathInfoImpl<ThresholdType>*>(path_info_ptr.get());
 

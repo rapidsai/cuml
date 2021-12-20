@@ -211,7 +211,7 @@ def test_cuml_rf_classifier(n_classes, input_type):
 
 
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
-def test_sklearn_regressor():
+def test_sklearn_rf_regressor():
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
                            n_targets=1, random_state=2021)
@@ -224,9 +224,12 @@ def test_sklearn_regressor():
 
     explainer = TreeExplainer(model=skl_model)
     out = explainer.shap_values(X)
-    # SHAP values should add up to predicted score
-    shap_sum = np.sum(out, axis=1) + explainer.expected_value
-    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
+    ref_explainer = shap.explainers.Tree(model=skl_model)
+    correct_out = ref_explainer.shap_values(X)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_explainer.expected_value, decimal=5)
 
 
 @pytest.mark.parametrize('n_classes', [2, 3, 5])
@@ -245,13 +248,13 @@ def test_sklearn_rf_classifier(n_classes):
 
     explainer = TreeExplainer(model=skl_model)
     out = explainer.shap_values(X)
-    # SHAP values should add up to predicted score
-    if n_classes > 2:
-        expected_value = explainer.expected_value.reshape(-1, 1)
-        shap_sum = np.sum(out, axis=2) + np.tile(expected_value,
-                                                 (1, n_samples))
-        pred = np.transpose(pred, (1, 0))
-    else:
-        shap_sum = np.sum(out, axis=1) + explainer.expected_value
-        pred = pred[:, 1]
-    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
+    ref_explainer = shap.explainers.Tree(model=skl_model)
+    correct_out = np.array(ref_explainer.shap_values(X))
+    expected_value = ref_explainer.expected_value
+    if n_classes == 2:
+        correct_out = correct_out[1, :, :]
+        expected_value = expected_value[1:]
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   expected_value, decimal=5)
