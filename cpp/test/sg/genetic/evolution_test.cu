@@ -45,7 +45,8 @@ class GeneticEvolutionTest : public ::testing::Test {
       d_test(0, cudaStream_t(0)),
       d_testlab(0, cudaStream_t(0)),
       d_trainwts(0, cudaStream_t(0)),
-      d_testwts(0, cudaStream_t(0))
+      d_testwts(0, cudaStream_t(0)),
+      stream(handle.get_stream())
   {
   }
 
@@ -53,8 +54,6 @@ class GeneticEvolutionTest : public ::testing::Test {
   void SetUp() override
   {
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
 
     // Set training param vals
     hyper_params.population_size       = 5000;
@@ -112,8 +111,6 @@ class GeneticEvolutionTest : public ::testing::Test {
                                cudaMemcpyHostToDevice,
                                stream));
   }
-
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   raft::handle_t handle;
   cudaStream_t stream;

@@ -53,23 +53,16 @@ const char* cumlGetErrorString(cumlError_t error);
  * @brief Creates a cumlHandle_t
  *
  * @param[inout] handle     pointer to the handle to create.
+ * @param[in] stream        the stream to which cuML work should be ordered.
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
-cumlError_t cumlCreate(cumlHandle_t* handle);
+cumlError_t cumlCreate(cumlHandle_t* handle, cudaStream_t stream);
 
 /**
  * @brief sets the stream to which all cuML work issued via the passed handle should be ordered.
  *
  * @param[inout] handle     handle to set the stream for.
  * @param[in] stream        the stream to which cuML work should be ordered.
- * @return CUML_SUCCESS on success, @todo: add more error codes
- */
-cumlError_t cumlSetStream(cumlHandle_t handle, cudaStream_t stream);
-/**
- * @brief gets the stream to which all cuML work issued via the passed handle should be ordered.
- *
- * @param[inout] handle     handle to get the stream of.
- * @param[out] stream       pointer to the stream to which cuML work should be ordered.
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
 cumlError_t cumlGetStream(cumlHandle_t handle, cudaStream_t* stream);

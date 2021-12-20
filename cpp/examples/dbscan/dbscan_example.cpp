@@ -136,8 +136,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  raft::handle_t handle;
-
   std::vector<float> h_inputData;
 
   if (input == "") {
@@ -177,7 +175,7 @@ int main(int argc, char* argv[])
 
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
-  handle.set_stream(stream);
+  raft::handle_t handle{stream};
 
   std::vector<int> h_labels(nRows);
   int* d_labels      = nullptr;

@@ -33,6 +33,12 @@ namespace raft {
 class handle_t;
 }
 
+// needed for node_traits<...>
+namespace treelite {
+template <typename, typename>
+struct ModelImpl;
+}
+
 namespace ML {
 namespace fil {
 
@@ -149,7 +155,14 @@ __host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
-  dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  /// ignoring left_index, this is useful to unify import from treelite
+  dense_node(val_t output,
+             val_t split,
+             int fid,
+             bool def_left,
+             bool is_leaf,
+             bool is_categorical,
+             int left_index = -1)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
   }
@@ -206,6 +219,37 @@ struct alignas(8) sparse_node8 : base_node {
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
+};
+
+struct dense_forest;
+template <typename node_t>
+struct sparse_forest;
+
+struct dense_storage;
+template <typename node_t>
+struct sparse_storage;
+
+template <typename node_t>
+struct node_traits {
+  using storage              = sparse_storage<node_t>;
+  using forest               = sparse_forest<node_t>;
+  static const bool IS_DENSE = false;
+  static const storage_type_t storage_type_enum =
+    std::is_same<sparse_node16, node_t>() ? SPARSE : SPARSE8;
+  template <typename threshold_t, typename leaf_t>
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
+};
+
+template <>
+struct node_traits<dense_node> {
+  using storage                                 = dense_storage;
+  using forest                                  = dense_forest;
+  static const bool IS_DENSE                    = true;
+  static const storage_type_t storage_type_enum = DENSE;
+  template <typename threshold_t, typename leaf_t>
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+  {
+  }
 };
 
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)
@@ -492,40 +536,27 @@ struct cat_sets_device_owner {
   }
 };
 
-/** init_dense uses params and nodes to initialize the dense forest stored in pf
+/** init uses params, trees and nodes to initialize the forest
+ *  with nodes stored in pf
+ *  @tparam fil_node_t node type to use with the forest;
+ *    must be sparse_node16, sparse_node8 or dense_node
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
- *  @param nodes nodes for the forest, of length
-      (2**(params->depth + 1) - 1) * params->ntrees
- *  @param params pointer to parameters used to initialize the forest
- *  @param vector_leaf optional vector leaves
- */
-void init_dense(const raft::handle_t& h,
-                forest_t* pf,
-                const categorical_sets& cat_sets,
-                const std::vector<float>& vector_leaf,
-                const dense_node* nodes,
-                const forest_params_t* params);
-
-/** init_sparse uses params, trees and nodes to initialize the sparse forest
- *  with sparse nodes stored in pf
- *  @tparam fil_node_t node type to use with the sparse forest;
- *    must be sparse_node16 or sparse_node8
- *  @param h cuML handle used by this function
- *  @param pf pointer to where to store the newly created forest
- *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
- *  @param nodes nodes for the forest, of length params->num_nodes
+ *  @param trees for sparse forests, indices of tree roots in the nodes arrray, of length
+ params->ntrees; ignored for dense forests
+ *  @param nodes nodes for the forest, of length params->num_nodes for sparse
+      or (2**(params->depth + 1) - 1) * params->ntrees for dense forests
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
 template <typename fil_node_t>
-void init_sparse(const raft::handle_t& h,
-                 forest_t* pf,
-                 const categorical_sets& cat_sets,
-                 const std::vector<float>& vector_leaf,
-                 const int* trees,
-                 const fil_node_t* nodes,
-                 const forest_params_t* params);
+void init(const raft::handle_t& h,
+          forest_t* pf,
+          const categorical_sets& cat_sets,
+          const std::vector<float>& vector_leaf,
+          const int* trees,
+          const fil_node_t* nodes,
+          const forest_params_t* params);
 
 struct predict_params;
 
