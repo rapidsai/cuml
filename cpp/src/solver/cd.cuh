@@ -190,7 +190,7 @@ void cdFit(const raft::handle_t& handle,
   rmm::device_uvector<ConvState<math_t>> convStateBuf(1, stream);
   auto convStateLoc = convStateBuf.data();
 
-  CUBLAS_CHECK(
+  RAFT_CUBLAS_TRY(
     raft::linalg::cublassetpointermode(cublas_handle, CUBLAS_POINTER_MODE_DEVICE, stream));
   rmm::device_scalar<math_t> cublas_alpha(1.0, stream);
   rmm::device_scalar<math_t> cublas_beta(0.0, stream);
@@ -209,7 +209,7 @@ void cdFit(const raft::handle_t& handle,
       math_t* input_col_loc = input + (ci * n_rows);
 
       raft::copy(&(convStateLoc->coef), coef_loc, 1, stream);
-      CUBLAS_CHECK(raft::linalg::cublasaxpy(
+      RAFT_CUBLAS_TRY(raft::linalg::cublasaxpy(
         cublas_handle, n_rows, coef_loc, input_col_loc, 1, residual.data(), 1, stream));
 
       raft::linalg::cublasgemv(cublas_handle,
@@ -230,14 +230,14 @@ void cdFit(const raft::handle_t& handle,
         coef_loc, squared_loc, convStateLoc, l1_alpha);
       RAFT_CUDA_TRY(cudaGetLastError());
 
-      CUBLAS_CHECK(raft::linalg::cublasaxpy(cublas_handle,
-                                            n_rows,
-                                            &(convStateLoc->coef),
-                                            input_col_loc,
-                                            1,
-                                            residual.data(),
-                                            1,
-                                            stream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasaxpy(cublas_handle,
+                                               n_rows,
+                                               &(convStateLoc->coef),
+                                               input_col_loc,
+                                               1,
+                                               residual.data(),
+                                               1,
+                                               stream));
     }
     raft::update_host(&h_convState, convStateLoc, 1, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
@@ -245,7 +245,8 @@ void cdFit(const raft::handle_t& handle,
     if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
   }
 
-  CUBLAS_CHECK(raft::linalg::cublassetpointermode(cublas_handle, CUBLAS_POINTER_MODE_HOST, stream));
+  RAFT_CUBLAS_TRY(
+    raft::linalg::cublassetpointermode(cublas_handle, CUBLAS_POINTER_MODE_HOST, stream));
 
   if (fit_intercept) {
     GLM::postProcessData(handle,
