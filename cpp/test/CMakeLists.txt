@@ -22,9 +22,9 @@ set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cusparse
   CUDA::cufft
   rmm::rmm
-  raft::raft
-  raft::raft_nn
-  raft::raft_distance
+  raft
+  raft_nn
+  raft_distance
   $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
   GTest::gtest
   GTest::gtest_main
