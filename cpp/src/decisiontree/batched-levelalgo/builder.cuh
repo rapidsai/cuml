@@ -170,9 +170,9 @@ struct Builder {
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
   /** quantile offsets */
-  std::shared_ptr<const rmm::device_uvector<int>> useful_nbins;
+  // std::shared_ptr<const rmm::device_uvector<int>> useful_nbins;
   /** compacted quantiles */
-  std::shared_ptr<const rmm::device_uvector<DataT>> quantiles;
+  // std::shared_ptr<const rmm::device_uvector<DataT>> quantiles;
 
   WorkloadInfo<IdxT>* workload_info;
   WorkloadInfo<IdxT>* h_workload_info;
@@ -200,15 +200,17 @@ struct Builder {
           rmm::device_uvector<IdxT>* rowids,
           IdxT nclasses,
           std::shared_ptr<const rmm::device_uvector<DataT>> quantiles,
-          std::shared_ptr<const rmm::device_uvector<int>> useful_nbins
+          // std::shared_ptr<const rmm::device_uvector<int>> useful_nbins
+          // const DataT* c_quantiles,
+          const int* c_useful_nbins
           )
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
       seed(seed),
       params(p),
-      quantiles(quantiles),
-      useful_nbins(useful_nbins),
+      // quantiles(quantiles),
+      // useful_nbins(useful_nbins),
       input{data,
             labels,
             totalRows,
@@ -218,7 +220,10 @@ struct Builder {
             rowids->data(),
             nclasses,
             quantiles->data(),
-            useful_nbins->data()},
+            // useful_nbins->data()},
+            // c_quantiles,
+            c_useful_nbins
+      },
       d_buff(0, builder_stream)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
@@ -442,6 +447,8 @@ struct Builder {
                                                         treeid,
                                                         workload_info,
                                                         seed);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaGetLastError());
     ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }

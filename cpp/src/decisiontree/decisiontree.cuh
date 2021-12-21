@@ -52,6 +52,8 @@ namespace tl = treelite;
 
 namespace DT {
 
+__constant__ int constMemPool[16000];
+
 inline bool is_dev_ptr(const void* p)
 {
   cudaPointerAttributes pointer_attr;
@@ -237,6 +239,13 @@ class DecisionTree {
     std::shared_ptr<rmm::device_uvector<int>> useful_nbins,
     int treeid)
   {
+    // using constant memory for quantiles and usefule_bins
+    CUDA_CHECK(cudaMemcpyToSymbol(constMemPool, useful_nbins->data(), useful_nbins->size()*sizeof(int), 0, cudaMemcpyDefault));
+    printf("\nall good!\n");
+    CUDA_CHECK(cudaDeviceSynchronize());
+    // CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    // int* c_useful_nbins = reinterpret_cast<int*>(constMemPool); // making it constant to reduce register pressure
+
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
       CRITERION default_criterion =
@@ -258,7 +267,7 @@ class DecisionTree {
                                                                  rowids,
                                                                  unique_labels,
                                                                  quantiles,
-                                                                 useful_nbins
+                                                                 constMemPool
                                                                  )
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
@@ -275,7 +284,7 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                  quantiles,
-                                                                 useful_nbins
+                                                                 constMemPool
                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
@@ -291,7 +300,7 @@ class DecisionTree {
                                                                 rowids,
                                                                 unique_labels,
                                                                  quantiles,
-                                                                  useful_nbins
+                                                                  constMemPool
                                                                   )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
@@ -308,7 +317,7 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                  quantiles,
-                                                                 useful_nbins
+                                                                 constMemPool
                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
@@ -324,7 +333,7 @@ class DecisionTree {
                                                                   rowids,
                                                                   unique_labels,
                                                                  quantiles,
-                                                                 useful_nbins
+                                                                 constMemPool
                                                                  )
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
@@ -341,7 +350,7 @@ class DecisionTree {
                                                                             rowids,
                                                                             unique_labels,
                                                                  quantiles,
-                                                                 useful_nbins
+                                                                 constMemPool
                                                                  )
         .train();
     } else {

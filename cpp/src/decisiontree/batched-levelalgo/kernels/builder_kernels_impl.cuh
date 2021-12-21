@@ -229,7 +229,7 @@ __global__ void computeSplitKernel(BinT* hist,
                                    IdxT max_depth,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
-                                   Input<DataT, LabelT, IdxT> input,
+                                   const Input<DataT, LabelT, IdxT> input,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
                                    int* done_count,
@@ -266,7 +266,9 @@ __global__ void computeSplitKernel(BinT* hist,
   // getting the n_bins for that feature
   // int q_offset = col ? input.useful_nbins[col-1] : 0;
   // int nbins = input.useful_nbins[col] - q_offset;
+  printf("%d ", __LINE__);
   int nbins = input.useful_nbins[col];
+  printf("%d ", __LINE__);
 
   auto end                  = range_start + range_len;
   auto shared_histogram_len = nbins * objective.NumClasses();
@@ -375,7 +377,7 @@ computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   _IdxT max_depth,
   _IdxT min_samples_split,
   _IdxT max_leaves,
-  Input<_DataT, _LabelT, _IdxT> input,
+  const Input<_DataT, _LabelT, _IdxT> input,
   const NodeWorkItem* work_items,
   _IdxT colStart,
   int* done_count,
