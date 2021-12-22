@@ -89,7 +89,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
     cdef void svmFreeBuffers[math_t](const handle_t &handle,
                                      SvmModel[math_t] &m) except +
 
-cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
     cdef void svrFit[math_t](const handle_t &handle, math_t *X,
                              int n_rows, int n_cols, math_t *y,

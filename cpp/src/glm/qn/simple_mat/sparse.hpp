@@ -145,7 +145,7 @@ struct SimpleSparseMat : SimpleMat<T> {
                                                          &bufferSize,
                                                          stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
     rmm::device_uvector<T> tmp(bufferSize, stream);
 
     CUSPARSE_CHECK(raft::sparse::cusparsespmm(handle.get_cusparse_handle(),
@@ -171,7 +171,7 @@ inline void check_csr(const SimpleSparseMat<T>& mat, cudaStream_t stream)
 {
   int row_ids_nnz;
   raft::update_host(&row_ids_nnz, &mat.row_ids[mat.m], 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   ASSERT(row_ids_nnz == mat.nnz,
          "SimpleSparseMat: the size of CSR row_ids array must be `m + 1`, and "
          "the last element must be equal nnz.");
@@ -189,7 +189,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleSparseMat<T>& mat)
   raft::update_host(&values[0], mat.values, mat.nnz, rmm::cuda_stream_default);
   raft::update_host(&cols[0], mat.cols, mat.nnz, rmm::cuda_stream_default);
   raft::update_host(&row_ids[0], mat.row_ids, mat.m + 1, rmm::cuda_stream_default);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  raft::interruptible::synchronize(rmm::cuda_stream_view());
 
   int i, row_end = 0;
   for (int row = 0; row < mat.m; row++) {
