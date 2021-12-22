@@ -292,7 +292,8 @@ cdef class LinearSVMWrapper:
 
         cdef uintptr_t Xptr = <uintptr_t>X.ptr
         cdef uintptr_t yptr = <uintptr_t>y.ptr
-        cdef uintptr_t swptr = <uintptr_t>sampleWeight.ptr if sampleWeight is not None else 0
+        cdef uintptr_t swptr = <uintptr_t>sampleWeight.ptr \
+            if sampleWeight is not None else 0
         cdef size_t nCols = 0
         cdef size_t nRows = 0
         if do_training:
