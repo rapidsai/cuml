@@ -17,18 +17,18 @@
 #pragma once
 
 #include <omp.h>
+#include <thrust/device_vector.h>
 #include <thrust/fill.h>
+#include <thrust/host_vector.h>
 #include <cub/cub.cuh>
+#include <fstream>
+#include <iostream>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
 #include <rmm/exec_policy.hpp>
-#include <iostream>
-#include <fstream>
 
 #include <common/nvtx.hpp>
 
@@ -36,21 +36,18 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesBatchSorted(T* quantiles,
-                                       int* useful_nbins,
-                                       const T* sorted_data,
-                                       const int n_bins,
-                                       const int length);
+__global__ void computeQuantilesBatchSorted(
+  T* quantiles, int* useful_nbins, const T* sorted_data, const int n_bins, const int length);
 
 template <typename T>
-  auto computeQuantiles(
+auto computeQuantiles(
   int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
 {
   ML::PUSH_RANGE("computeQuantiles");
   auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
   auto useful_nbins = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
 
-  int prllsm = 2; // the parallism to be used stream-wise and omp-thread-wise
+  int prllsm                = 2;  // the parallism to be used stream-wise and omp-thread-wise
   size_t temp_storage_bytes = 0;
   rmm::device_uvector<T> all_column_sorted(n_cols * n_rows, handle.get_stream());
 
@@ -66,34 +63,37 @@ template <typename T>
                                             handle.get_stream()));
   // allocate total memory needed for parallelized sorting
   rmm::device_uvector<char> d_temp_storage(prllsm * temp_storage_bytes, handle.get_stream());
-  auto sorting_handle = raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
-  #pragma omp parallel for num_threads(prllsm)
+  auto sorting_handle =
+    raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
+#pragma omp parallel for num_threads(prllsm)
   for (int parcol = 0; parcol < n_cols; parcol++) {
-    int thread_id = omp_get_thread_num();
-    auto s = sorting_handle.get_stream_from_stream_pool(thread_id);
-    int col_offset      = parcol * n_rows;
-    CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)(d_temp_storage.data() + temp_storage_bytes*thread_id),
-                                              temp_storage_bytes,
-                                              data + col_offset,
-                                              all_column_sorted.data() + col_offset,
-                                              n_rows,
-                                              0,
-                                              8 * sizeof(T),
-                                              s));
+    int thread_id  = omp_get_thread_num();
+    auto s         = sorting_handle.get_stream_from_stream_pool(thread_id);
+    int col_offset = parcol * n_rows;
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
+      (void*)(d_temp_storage.data() + temp_storage_bytes * thread_id),
+      temp_storage_bytes,
+      data + col_offset,
+      all_column_sorted.data() + col_offset,
+      n_rows,
+      0,
+      8 * sizeof(T),
+      s));
     s.synchronize();
   }
-  ML::POP_RANGE(); // sorting columns
+  ML::POP_RANGE();  // sorting columns
 
   // do the quantile computation parallelizing across cols too across CTAs
-  int blocks = n_cols;
+  int blocks      = n_cols;
   size_t smemsize = n_bins * sizeof(T);
-  // raft::print_device_vector("all_columns_sorted: ", all_column_sorted.begin()+n_rows, n_rows, std::cout);
+  // raft::print_device_vector("all_columns_sorted: ", all_column_sorted.begin()+n_rows, n_rows,
+  // std::cout);
   ML::PUSH_RANGE("computeQuantilesBatchSorted @quantile.cuh");
   computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
     quantiles->data(), useful_nbins->data(), all_column_sorted.data(), n_bins, n_rows);
   CUDA_CHECK(cudaGetLastError());
-  ML::POP_RANGE(); // computeQuatilesBatchSorted
-  ML::POP_RANGE(); // computeQuantiles
+  ML::POP_RANGE();  // computeQuatilesBatchSorted
+  ML::POP_RANGE();  // computeQuantiles
   return std::make_pair(quantiles, useful_nbins);
 }
 

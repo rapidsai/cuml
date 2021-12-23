@@ -201,36 +201,29 @@ struct Builder {
           IdxT nclasses,
           std::shared_ptr<const rmm::device_uvector<DataT>> quantiles,
           std::shared_ptr<const rmm::device_uvector<int>> useful_nbins
-          // const DataT* c_quantiles,
-          // const int* c_useful_nbins
           )
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
       seed(seed),
       params(p),
-      // quantiles(quantiles),
-      // useful_nbins(useful_nbins),
-      input{data,
-            labels,
-            totalRows,
-            totalCols,
-            int(rowids->size()),
-            max(1, IdxT(params.max_features * totalCols)),
-            rowids->data(),
-            nclasses,
-            quantiles->data(),
-            useful_nbins->data()
-            // c_quantiles,
-            // c_useful_nbins
+      input{
+        data,
+        labels,
+        totalRows,
+        totalCols,
+        int(rowids->size()),
+        max(1, IdxT(params.max_features * totalCols)),
+        rowids->data(),
+        nclasses,
+        quantiles->data(),
+        useful_nbins->data()
       },
       d_buff(0, builder_stream)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
     ASSERT(quantiles != nullptr, "Currently quantiles need to be computed before this call!");
     ASSERT(nclasses >= 1, "nclasses should be at least 1");
-
-
 
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
     d_buff.resize(device_workspace_size, builder_stream);

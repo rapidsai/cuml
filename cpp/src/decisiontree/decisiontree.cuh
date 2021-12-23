@@ -239,8 +239,8 @@ class DecisionTree {
     std::shared_ptr<rmm::device_uvector<int>> useful_nbins,
     int treeid)
   {
-    // CUDA_CHECK(cudaMemcpyToSymbol(constMemPool, useful_nbins->data(), useful_nbins->size()*sizeof(int), 0, cudaMemcpyDefault));
-    // printf("\nall good!\n");
+    // CUDA_CHECK(cudaMemcpyToSymbol(constMemPool, useful_nbins->data(),
+    // useful_nbins->size()*sizeof(int), 0, cudaMemcpyDefault)); printf("\nall good!\n");
     // CUDA_CHECK(cudaDeviceSynchronize());
 
     if (params.split_criterion ==
@@ -264,9 +264,8 @@ class DecisionTree {
                                                                  rowids,
                                                                  unique_labels,
                                                                  quantiles,
-                                                                //  constMemPool
-                                                                useful_nbins
-                                                                 )
+                                                                 //  constMemPool
+                                                                 useful_nbins)
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::ENTROPY) {
@@ -281,10 +280,9 @@ class DecisionTree {
                                                                     ncols,
                                                                     rowids,
                                                                     unique_labels,
-                                                                 quantiles,
-                                                                //  constMemPool
-                                                                useful_nbins
-                                                                 )
+                                                                    quantiles,
+                                                                    //  constMemPool
+                                                                    useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -298,10 +296,9 @@ class DecisionTree {
                                                                 ncols,
                                                                 rowids,
                                                                 unique_labels,
-                                                                 quantiles,
+                                                                quantiles,
                                                                 //  constMemPool
-                                                                useful_nbins
-                                                                  )
+                                                                useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::POISSON) {
@@ -316,10 +313,9 @@ class DecisionTree {
                                                                     ncols,
                                                                     rowids,
                                                                     unique_labels,
-                                                                 quantiles,
-                                                                //  constMemPool
-                                                                useful_nbins
-                                                                 )
+                                                                    quantiles,
+                                                                    //  constMemPool
+                                                                    useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -333,10 +329,9 @@ class DecisionTree {
                                                                   ncols,
                                                                   rowids,
                                                                   unique_labels,
-                                                                 quantiles,
-                                                                //  constMemPool
-                                                                useful_nbins
-                                                                 )
+                                                                  quantiles,
+                                                                  //  constMemPool
+                                                                  useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
@@ -351,10 +346,9 @@ class DecisionTree {
                                                                             ncols,
                                                                             rowids,
                                                                             unique_labels,
-                                                                 quantiles,
-                                                                //  constMemPool
-                                                                useful_nbins
-                                                                 )
+                                                                            quantiles,
+                                                                            //  constMemPool
+                                                                            useful_nbins)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

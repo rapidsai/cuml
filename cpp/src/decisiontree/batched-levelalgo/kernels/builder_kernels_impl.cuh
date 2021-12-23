@@ -252,7 +252,6 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT offset_blockid = workload_info_cta.offset_blockid;
   IdxT num_blocks     = workload_info_cta.num_blocks;
 
-
   // obtaining the feature to test split on
   IdxT col;
   if (input.nSampledCols == input.N) {
@@ -262,25 +261,23 @@ __global__ void computeSplitKernel(BinT* hist,
     col           = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
 
-
   // getting the n_bins for that feature
   int nbins = input.useful_nbins[col];
 
-  auto end                  = range_start + range_len;
-  auto shared_histogram_len = nbins * objective.NumClasses();
+  auto end                       = range_start + range_len;
+  auto shared_histogram_len      = nbins * objective.NumClasses();
   auto shared_histogram_ceil_len = max_nbins * objective.NumClasses();
-  auto* shared_histogram    = alignPointer<BinT>(smem);
-  auto* sbins               = alignPointer<DataT>(shared_histogram + shared_histogram_len);
-  auto* sDone               = alignPointer<int>(sbins + nbins);
-  IdxT stride               = blockDim.x * num_blocks;
-  IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
-
+  auto* shared_histogram         = alignPointer<BinT>(smem);
+  auto* sbins                    = alignPointer<DataT>(shared_histogram + shared_histogram_len);
+  auto* sDone                    = alignPointer<int>(sbins + nbins);
+  IdxT stride                    = blockDim.x * num_blocks;
+  IdxT tid                       = threadIdx.x + offset_blockid * blockDim.x;
 
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();
   for (IdxT b = threadIdx.x; b < max_nbins; b += blockDim.x) {
-    if(b >= nbins) break;
+    if (b >= nbins) break;
     sbins[b] = input.quantiles[max_nbins * col + b];
   }
 
