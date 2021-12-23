@@ -200,9 +200,9 @@ struct Builder {
           rmm::device_uvector<IdxT>* rowids,
           IdxT nclasses,
           std::shared_ptr<const rmm::device_uvector<DataT>> quantiles,
-          // std::shared_ptr<const rmm::device_uvector<int>> useful_nbins
+          std::shared_ptr<const rmm::device_uvector<int>> useful_nbins
           // const DataT* c_quantiles,
-          const int* c_useful_nbins
+          // const int* c_useful_nbins
           )
     : handle(handle),
       builder_stream(s),
@@ -220,9 +220,9 @@ struct Builder {
             rowids->data(),
             nclasses,
             quantiles->data(),
-            // useful_nbins->data()},
+            useful_nbins->data()
             // c_quantiles,
-            c_useful_nbins
+            // c_useful_nbins
       },
       d_buff(0, builder_stream)
   {
@@ -447,7 +447,7 @@ struct Builder {
                                                         treeid,
                                                         workload_info,
                                                         seed);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    // CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaGetLastError());
     ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit

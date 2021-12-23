@@ -264,11 +264,7 @@ __global__ void computeSplitKernel(BinT* hist,
 
 
   // getting the n_bins for that feature
-  // int q_offset = col ? input.useful_nbins[col-1] : 0;
-  // int nbins = input.useful_nbins[col] - q_offset;
-  printf("%d ", __LINE__);
   int nbins = input.useful_nbins[col];
-  printf("%d ", __LINE__);
 
   auto end                  = range_start + range_len;
   auto shared_histogram_len = nbins * objective.NumClasses();

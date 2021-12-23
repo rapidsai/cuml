@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <omp.h>
 #include <thrust/fill.h>
 #include <cub/cub.cuh>
 #include <memory>
@@ -107,6 +108,64 @@ __global__ void computeQuantilesSorted(T* quantiles,
                                        const int length);
 
 template <typename T>
+void computeQuantilesHelperV5(
+  const T* data, std::shared_ptr<rmm::device_uvector<T>>& quantiles, std::shared_ptr<rmm::device_uvector<int>>& useful_nbins, int n_bins, int n_rows, int n_cols, const raft::handle_t& handle)
+{
+  ML::PUSH_RANGE("version 5");
+
+  int prllsm = 2; // the parallism to be used stream-wise and omp-thread-wise
+  size_t temp_storage_bytes = 0;
+  rmm::device_uvector<T> all_column_sorted(n_cols * n_rows, handle.get_stream());
+
+  ML::PUSH_RANGE("sorting columns");
+  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
+                                            temp_storage_bytes,
+                                            data,
+                                            all_column_sorted.data(),
+                                            n_rows,
+                                            0,
+                                            8 * sizeof(T),
+                                            handle.get_stream()));
+  rmm::device_uvector<char> d_temp_storage(prllsm * temp_storage_bytes, handle.get_stream());
+  auto sorting_handle = raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
+  // printf("handle.stream_pool_size:%d, sorting_handle.stream_pool_size:%d\n", (int)handle.get_stream_pool_size(), (int)sorting_handle.get_stream_pool_size());
+  #pragma omp parallel for num_threads(prllsm)
+  for (int parcol = 0; parcol < n_cols; parcol++) {
+    // if(parcol >= n_cols) continue;
+    int thread_id = omp_get_thread_num();
+    // auto s        = handle.get_stream_from_stream_pool(parcol);
+    auto s = sorting_handle.get_stream_from_stream_pool(thread_id);
+    int col_offset      = parcol * n_rows;
+    // Allocate temporary storage for sorting
+    // printf("col:%d, thread_id:%d, col_offset:%d\n", parcol, thread_id, col_offset);
+
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)(d_temp_storage.data() + temp_storage_bytes*thread_id),
+                                              temp_storage_bytes,
+                                              data + col_offset,
+                                              all_column_sorted.data() + col_offset,
+                                              n_rows,
+                                              0,
+                                              8 * sizeof(T),
+                                              s));
+    s.synchronize();
+}
+  // sorting_handle.sync_stream_pool();
+  // CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  ML::POP_RANGE(); // sorting columns
+
+  // do the quantile computation parallelizing across cols too across CTAs
+  int blocks = n_cols;
+  size_t smemsize = n_bins * sizeof(T);
+  // raft::print_device_vector("all_columns_sorted: ", all_column_sorted.begin()+n_rows, n_rows, std::cout);
+  ML::PUSH_RANGE("computeQuantilesBatchSorted @quantile.cuh");
+  computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
+    quantiles->data(), useful_nbins->data(), all_column_sorted.data(), n_bins, n_rows);
+  CUDA_CHECK(cudaGetLastError());
+  ML::POP_RANGE(); // computeQuatilesBatchSorted
+  ML::POP_RANGE(); // version 5
+}
+
+template <typename T>
 void computeQuantilesHelperV4(
   const T* data, std::shared_ptr<rmm::device_uvector<T>>& quantiles, std::shared_ptr<rmm::device_uvector<int>>& useful_nbins, int n_bins, int n_rows, int n_cols, const raft::handle_t& handle)
 {
@@ -170,31 +229,11 @@ void computeQuantilesHelperV3(
   const T* data, std::shared_ptr<rmm::device_uvector<T>>& quantiles, std::shared_ptr<rmm::device_uvector<int>>& useful_nbins, int n_bins, int n_rows, int n_cols, const raft::handle_t& handle)
 {
   ML::PUSH_RANGE("version 3");
+  ML::PUSH_RANGE("sorting columns");
   // Determine temporary device storage requirements
   size_t temp_storage_bytes = 0;
-
   rmm::device_uvector<T> all_column_sorted(n_cols * n_rows, handle.get_stream());
 
-  // std::vector<int> h_offsets(n_cols+1, 0);
-  // int i = 0;
-  // std::generate(h_offsets.begin(), h_offsets.end(), [&](){
-  //   return n_rows * (i++);
-  // });
-  // rmm::device_uvector<int> d_offsets(n_cols+1, handle.get_stream());
-  // raft::update_device(d_offsets.data(), h_offsets.data(), n_cols+1, handle.get_stream());
-  // raft::print_device_vector("offsets: ", d_offsets.data(), n_cols+1, std::cout);
-
-  // CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(nullptr,
-  //                                           temp_storage_bytes,
-  //                                           data,
-  //                                           all_column_sorted.data(),
-  //                                           n_rows * n_cols,
-  //                                           n_cols,
-  //                                           d_offsets.data(),
-  //                                           d_offsets.data()+1,
-  //                                           0,
-  //                                           sizeof(T)*8,
-  //                                           handle.get_stream()));
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
                                             temp_storage_bytes,
                                             data,
@@ -210,7 +249,6 @@ void computeQuantilesHelperV3(
   // auto* d_temp_storage = (char*)
 
   // Compute quantiles column by column
-  ML::PUSH_RANGE("sorting columns");
   for (int col = 0; col < n_cols; col++) {
     int col_offset      = col * n_rows;
 
@@ -240,6 +278,7 @@ void computeQuantilesHelperV3(
   int blocks = n_cols;
   auto s = handle.get_stream();
   size_t smemsize = n_bins * sizeof(T);
+  // raft::print_device_vector("all_columns_sorted: ", all_column_sorted.begin()+n_rows, n_rows, std::cout);
   ML::PUSH_RANGE("computeQuantilesBatchSorted @quantile.cuh");
   computeQuantilesBatchSorted<<<blocks, 128, smemsize, s>>>(
     quantiles->data(), useful_nbins->data(), all_column_sorted.data(), n_bins, n_rows);
@@ -398,10 +437,6 @@ template <typename T>
   ML::PUSH_RANGE("computeQuantiles");
   auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
   auto useful_nbins = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
-  // thrust::fill(rmm::exec_policy(handle.get_stream()),
-  //              quantiles->begin(),
-  //              quantiles->begin() + n_bins * n_cols,
-  //              0.0);
   int STRATEGY = getenv("STRATEGY")[0] - 48;
   switch(STRATEGY) {
     case 1:
@@ -419,6 +454,10 @@ template <typename T>
     case 4:
     printf("calling computeQuantilesHelperV4\n");
     computeQuantilesHelperV4(data, quantiles, useful_nbins, n_bins, n_rows, n_cols, handle);
+    break;
+    case 5:
+    printf("calling computeQuantilesHelperV5\n");
+    computeQuantilesHelperV5(data, quantiles, useful_nbins, n_bins, n_rows, n_cols, handle);
     break;
     default: printf("wrong STRATEGY!\n");
     break;
