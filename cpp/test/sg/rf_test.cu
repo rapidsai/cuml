@@ -542,7 +542,7 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    auto quantiles =
+    auto [quantiles, useful_nbins] =
       DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
     raft::update_host(
       h_quantiles.data(), quantiles->data(), quantiles->size(), handle.get_stream());
@@ -575,7 +575,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    std::shared_ptr<rmm::device_uvector<T>> quantiles =
+    auto [quantiles, useful_nbins] =
       DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
 
     auto d_quantiles = quantiles->data();

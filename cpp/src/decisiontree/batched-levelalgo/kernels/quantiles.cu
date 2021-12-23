@@ -20,28 +20,52 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesSorted(T* quantiles,
-                                       const int n_bins,
+__global__ void computeQuantilesBatchSorted(T* quantiles,
+                                       int* useful_nbins,
                                        const T* sorted_data,
-                                       const int length)
+                                       const int n_bins,
+                                       const int n_rows)
 {
-  int tid          = threadIdx.x + blockIdx.x * blockDim.x;
-  double bin_width = static_cast<double>(length) / n_bins;
-  int index        = int(round((tid + 1) * bin_width)) - 1;
-  index            = min(max(0, index), length - 1);
-  if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
+  extern __shared__ char smem[];
+  auto* feature_quantiles = (T*)smem;
+  __shared__ int unq_nbins;
+  int col = blockIdx.x; // each col per block
+  int data_base = col * n_rows;
+  double bin_width = static_cast<double>(n_rows) / n_bins;
+
+  for (int bin = threadIdx.x; bin < n_bins; bin += blockDim.x) {
+    int data_offst        = int(round((bin + 1) * bin_width)) - 1;
+    data_offst            = min(max(0, data_offst), n_rows - 1);
+    feature_quantiles[bin] = sorted_data[data_base + data_offst];
+  }
+
+  __syncthreads();
+
+  if(threadIdx.x == 0) {
+    auto new_last = thrust::unique(thrust::device, feature_quantiles, feature_quantiles + n_bins);
+    useful_nbins[blockIdx.x] = unq_nbins = new_last - feature_quantiles;
+  }
+
+  __syncthreads();
+
+  for (int bin = threadIdx.x; bin < n_bins; bin += blockDim.x) {
+    if(bin >= unq_nbins) break;
+    quantiles[col * n_bins + bin] = feature_quantiles[bin];
+  }
 
   return;
 }
 
 // instantiation
-template __global__ void computeQuantilesSorted<float>(float* quantiles,
-                                                       const int n_bins,
+template __global__ void computeQuantilesBatchSorted<float>(float* quantiles,
+                                                        int* useful_nbins,
                                                        const float* sorted_data,
+                                                       const int n_bins,
                                                        const int length);
-template __global__ void computeQuantilesSorted<double>(double* quantiles,
-                                                        const int n_bins,
+template __global__ void computeQuantilesBatchSorted<double>(double* quantiles,
+                                                        int* useful_nbins,
                                                         const double* sorted_data,
+                                                        const int n_bins,
                                                         const int length);
 
 }  // end namespace DT

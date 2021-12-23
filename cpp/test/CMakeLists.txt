@@ -68,7 +68,7 @@ if(BUILD_CUML_TESTS)
         sg/ols.cu
         sg/pca_test.cu
         sg/quasi_newton.cu
-        # sg/rf_test.cu
+        sg/rf_test.cu
         sg/ridge.cu
         sg/rproj_test.cu
         sg/sgd.cu
