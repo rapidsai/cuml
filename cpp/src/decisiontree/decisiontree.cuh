@@ -28,11 +28,11 @@
 
 #include <algorithm>
 #include <climits>
-#include <common/nvtx.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>
 #include <numeric>
+#include <raft/common/nvtx.hpp>
 #include <random>
 #include <vector>
 
