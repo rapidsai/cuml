@@ -221,7 +221,6 @@ def test_sklearn_rf_regressor():
                        min_samples_leaf=2, random_state=123,
                        n_estimators=10, max_depth=16)
     skl_model.fit(X, y)
-    pred = skl_model.predict(X)
 
     explainer = TreeExplainer(model=skl_model)
     out = explainer.shap_values(X)
@@ -246,7 +245,6 @@ def test_sklearn_rf_classifier(n_classes):
                        min_samples_leaf=2, random_state=123,
                        n_estimators=10, max_depth=16)
     skl_model.fit(X, y)
-    pred = skl_model.predict_proba(X)
 
     explainer = TreeExplainer(model=skl_model)
     out = explainer.shap_values(X)
