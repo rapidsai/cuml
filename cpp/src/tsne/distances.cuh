@@ -66,19 +66,27 @@ void get_distances(const raft::handle_t& handle,
   std::vector<float*> input_vec = {input.X};
   std::vector<int> sizes_vec    = {input.n};
 
-  raft::spatial::knn::brute_force_knn(handle,
-                                      input_vec,
-                                      sizes_vec,
-                                      input.d,
-                                      input.X,
-                                      input.n,
-                                      k_graph.knn_indices,
-                                      k_graph.knn_dists,
-                                      k_graph.n_neighbors,
-                                      true,
-                                      true,
-                                      nullptr,
-                                      DEFAULT_DISTANCE_METRIC);
+  /**
+ * std::vector<float *> &input, std::vector<int> &sizes,
+                     IntType D, float *search_items, IntType n, int64_t *res_I,
+                     float *res_D, IntType k,
+                     std::shared_ptr<deviceAllocator> allocator,
+                     cudaStream_t userStream,
+ */
+
+  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
+                                                           input_vec,
+                                                           sizes_vec,
+                                                           input.d,
+                                                           input.X,
+                                                           input.n,
+                                                           k_graph.knn_indices,
+                                                           k_graph.knn_dists,
+                                                           k_graph.n_neighbors,
+                                                           true,
+                                                           true,
+                                                           nullptr,
+                                                           DEFAULT_DISTANCE_METRIC);
 }
 
 // dense, int32 indices

@@ -24,6 +24,7 @@
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <omp.h>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemm.cuh>
@@ -376,7 +377,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   const int coefCols         = narrowDown(model.coefCols());
   const std::size_t coefRows = model.coefRows;
 
-  ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
+  raft::common::nvtx::range fun_scope("Trace::LinearSVMModel::fit");
 
   auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
   T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;
@@ -504,7 +505,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       raft::linalg::transpose(handle, ps1, model.probScale, 2, coefCols, stream);
   }
 
-  ML::POP_RANGE();
   return model;
 }
 
