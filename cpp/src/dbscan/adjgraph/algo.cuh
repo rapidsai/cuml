@@ -25,8 +25,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/sparse/convert/csr.hpp>
 
-using namespace thrust;
-
 namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
@@ -44,6 +42,8 @@ void launcher(const raft::handle_t& handle,
               Index_ batch_size,
               cudaStream_t stream)
 {
+  using namespace thrust;
+
   device_ptr<Index_> dev_vd      = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 

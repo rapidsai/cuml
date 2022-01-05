@@ -102,7 +102,7 @@ void compute_stabilities(const raft::handle_t& handle,
     n_clusters - 1,
     sorted_parents_offsets.data() + 1,
     stream,
-    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*>);
+    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*,const value_idx*>);
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their childrens
   auto births_zip =
