@@ -47,12 +47,12 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
   HoltWintersTest()
     : params(::testing::TestWithParam<HoltWintersInputs<T>>::GetParam()),
       stream(handle.get_stream()),
-      level_ptr(components_len, stream),
-      trend_ptr(components_len, stream),
-      season_ptr(components_len, stream),
-      SSE_error_ptr(batch_size, stream),
-      forecast_ptr(batch_size * h, stream),
-      data(batch_size * n, stream)
+      level_ptr(0, stream),
+      trend_ptr(0, stream),
+      season_ptr(0, stream),
+      SSE_error_ptr(0, stream),
+      forecast_ptr(0, stream),
+      data(0, stream)
   {
   }
 
@@ -80,6 +80,12 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
       &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
       &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
+    level_ptr.resize(components_len, stream);
+    trend_ptr.resize(components_len, stream);
+    season_ptr.resize(components_len, stream);
+    SSE_error_ptr.resize(batch_size, stream);
+    forecast_ptr.resize(batch_size * h, stream);
+    data.resize(batch_size * n, stream);
     raft::update_device(data.data(), dataset_h, batch_size * n, stream);
 
     raft::handle_t handle{stream};

@@ -42,27 +42,14 @@ template
     : params(::testing::TestWithParam<JonesTransParam>::GetParam()),
       stream(handle.get_stream()),
       nElements(params.batchSize * params.pValue),
-      d_golden_ar_trans(nElements, stream),
-      d_computed_ar_trans(nElements, stream),
-      d_params(nElements, stream),
-      d_golden_ma_trans(nElements, stream),
-      d_computed_ma_trans(nElements, stream),
-      d_computed_ar_invtrans(nElements, stream),
-      d_computed_ma_invtrans(nElements, stream)
+      d_golden_ar_trans(0, stream),
+      d_computed_ar_trans(0, stream),
+      d_params(0, stream),
+      d_golden_ma_trans(0, stream),
+      d_computed_ma_trans(0, stream),
+      d_computed_ar_invtrans(0, stream),
+      d_computed_ma_invtrans(0, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(
-      d_golden_ar_trans.data(), 0, d_golden_ar_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
-      d_computed_ar_trans.data(), 0, d_computed_ar_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(d_params.data(), 0, d_params.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
-      d_golden_ma_trans.data(), 0, d_golden_ma_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
-      d_computed_ma_trans.data(), 0, d_computed_ma_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
-      d_computed_ar_invtrans.data(), 0, d_computed_ar_invtrans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
-      d_computed_ma_invtrans.data(), 0, d_computed_ma_invtrans.size() * sizeof(DataT), stream));
   }
 
  protected:
@@ -116,6 +103,14 @@ template
     }
 
     // allocating and initializing device memory
+    d_golden_ar_trans.resize(nElements, stream);
+    d_computed_ar_trans.resize(nElements, stream);
+    d_params.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(
+      d_golden_ar_trans.data(), 0, d_golden_ar_trans.size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(
+      d_computed_ar_trans.data(), 0, d_computed_ar_trans.size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_params.data(), 0, d_params.size() * sizeof(DataT), stream));
 
     raft::update_device(d_params.data(), &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans.data(), newParams, (size_t)nElements, stream);
@@ -165,6 +160,13 @@ template
       }
     }
 
+    d_golden_ma_trans.resize(nElements, stream);
+    d_computed_ma_trans.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(
+      d_golden_ma_trans.data(), 0, d_golden_ma_trans.size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(
+      d_computed_ma_trans.data(), 0, d_computed_ma_trans.size() * sizeof(DataT), stream));
+
     raft::update_device(d_golden_ma_trans.data(), newParams, (size_t)nElements, stream);
 
     // calling the ma_param_transform CUDA implementation
@@ -179,6 +181,10 @@ template
 
     //>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
+    d_computed_ar_invtrans.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(
+      d_computed_ar_invtrans.data(), 0, d_computed_ar_invtrans.size() * sizeof(DataT), stream));
+
     // calling the ar_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ar_trans.data(),
                                           params.batchSize,
@@ -189,6 +195,10 @@ template
                                           stream);
 
     //>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    d_computed_ma_invtrans.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(
+      d_computed_ma_invtrans.data(), 0, d_computed_ma_invtrans.size() * sizeof(DataT), stream));
 
     // calling the ma_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ma_trans.data(),

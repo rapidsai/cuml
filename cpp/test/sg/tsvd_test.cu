@@ -75,14 +75,14 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     raft::update_device(data.data(), data_h.data(), len, stream);
 
     int len_comp = params.n_col * params.n_col;
-    rmm::device_uvector<T> components(len_comp, stream);
+    components.resize(len_comp, stream);
     rmm::device_uvector<T> singular_vals(params.n_col, stream);
 
     std::vector<T> components_ref_h = {
       -0.3951, 0.1532, 0.9058, -0.7111, -0.6752, -0.1959, -0.5816, 0.7215, -0.3757};
     components_ref_h.resize(len_comp);
 
-    rmm::device_uvector<T> components_ref(len_comp, stream);
+    components_ref.resize(len_comp, stream);
     raft::update_device(components_ref.data(), components_ref_h.data(), len_comp, stream);
 
     paramsTSVD prms;

@@ -69,17 +69,13 @@ class WorkingSetTest : public ::testing::Test {
       C_dev(10, stream),
       alpha_dev(10, stream)
   {
-  }
-
- protected:
-  void SetUp() override
-  {
     init_C(C, C_dev.data(), 10, stream);
     raft::update_device(f_dev.data(), f_host, 10, stream);
     raft::update_device(y_dev.data(), y_host, 10, stream);
     raft::update_device(alpha_dev.data(), alpha_host, 10, stream);
   }
 
+ protected:
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
@@ -130,7 +126,7 @@ TYPED_TEST(WorkingSetTest, Select)
   this->ws->Select(
     this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
   ASSERT_TRUE(devArrMatchHost(
-    this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), raft::Compare<int>()));
+    this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), raft::Compare<int>(), stream));
   this->ws->Select(
     this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
 
@@ -743,12 +739,16 @@ class SmoSolverTest : public ::testing::Test {
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
       stream);
-    raft::devArrMatch(
-      delta_alpha_dev.data(), delta_alpha_calc.data(), n_rows, raft::CompareApprox<math_t>(1e-6));
+    raft::devArrMatch(delta_alpha_dev.data(),
+                      delta_alpha_calc.data(),
+                      n_rows,
+                      raft::CompareApprox<math_t>(1e-6),
+                      stream);
 
     math_t alpha_expected[] = {0.6f, 0, 1, 1, 0, 0.6f};
     // for C=10: {0.25f, 0, 2.25f, 3.75f, 0, 1.75f};
-    raft::devArrMatch(alpha_expected, alpha_dev.data(), n_rows, raft::CompareApprox<math_t>(1e-6));
+    raft::devArrMatch(
+      alpha_expected, alpha_dev.data(), n_rows, raft::CompareApprox<math_t>(1e-6), stream);
 
     math_t host_alpha[6];
     raft::update_host(host_alpha, alpha_dev.data(), n_rows, stream);
@@ -807,10 +807,11 @@ class SmoSolverTest : public ::testing::Test {
     EXPECT_LT(return_buff[1], 10) << return_buff[1];
 
     math_t alpha_exp[] = {0, 0.8, 0.8, 0};
-    raft::devArrMatch(alpha_exp, alpha_dev.data(), 4, raft::CompareApprox<math_t>(1e-6));
+    raft::devArrMatch(alpha_exp, alpha_dev.data(), 4, raft::CompareApprox<math_t>(1e-6), stream);
 
     math_t dalpha_exp[] = {-0.8, 0.8};
-    raft::devArrMatch(dalpha_exp, delta_alpha_dev.data(), 2, raft::CompareApprox<math_t>(1e-6));
+    raft::devArrMatch(
+      dalpha_exp, delta_alpha_dev.data(), 2, raft::CompareApprox<math_t>(1e-6), stream);
   }
 
  protected:
@@ -1000,19 +1001,22 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     auto p   = d.first;
     auto exp = d.second;
     SCOPED_TRACE(kernelName(p.kernel_params));
-    if (p.C == 0) { p.C = 1; }
+    TypeParam* sample_weights = nullptr;
+    if (p.C == 0) {
+      p.C            = 1;
+      sample_weights = this->sample_weights_dev.data();
+    }
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-    svc.fit(p.x_dev,
-            p.n_rows,
-            p.n_cols,
-            p.y_dev,
-            this->sample_weights_dev.size() > 0 ? this->sample_weights_dev.data() : nullptr);
-    checkResults(svc.model, toSmoOutput(exp), this->stream);
-    rmm::device_uvector<TypeParam> y_pred(p.n_rows, this->stream);
+    svc.fit(p.x_dev, p.n_rows, p.n_cols, p.y_dev, sample_weights);
+    checkResults(svc.model, toSmoOutput(exp), stream);
+    rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
     if (p.predict) {
       svc.predict(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
-      EXPECT_TRUE(raft::devArrMatch(
-        this->y_dev.data(), y_pred.data(), p.n_rows, raft::CompareApprox<TypeParam>(1e-6f)));
+      EXPECT_TRUE(raft::devArrMatch(this->y_dev.data(),
+                                    y_pred.data(),
+                                    p.n_rows,
+                                    raft::CompareApprox<TypeParam>(1e-6f),
+                                    stream));
     }
     if (exp.decision_function.size() > 0) {
       svc.decisionFunction(p.x_dev, p.n_rows, p.n_cols, y_pred.data());

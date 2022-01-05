@@ -74,14 +74,19 @@ class RPROJTest : public ::testing::Test {
     };
 
     RPROJfit(handle, &random_matrix1, &params1);
+
     d_output1.resize(N * params1.n_components, stream);
-    RPROJtransform(handle, d_input.data(), &random_matrix1, d_output1.data(), &params1);
+    rmm::device_uvector<T> tmp(d_output1.size(), stream);
+    RPROJtransform(handle, d_input.data(), &random_matrix1, tmp.data(), &params1);
+
     raft::linalg::transpose(handle,
-                            d_output1.data(),
+                            tmp.data(),
                             d_output1.data(),
                             N,
                             params1.n_components,
                             stream);  // From column major to row major
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void sparseTest()
@@ -100,13 +105,17 @@ class RPROJTest : public ::testing::Test {
     RPROJfit(handle, &random_matrix2, &params2);
 
     d_output2.resize(N * params2.n_components, stream);
-    RPROJtransform(handle, d_input.data(), &random_matrix2, d_output2.data(), &params2);
+    rmm::device_uvector<T> tmp(d_output2.size(), stream);
+    RPROJtransform(handle, d_input.data(), &random_matrix2, tmp.data(), &params2);
+
     raft::linalg::transpose(handle,
-                            d_output2.data(),
+                            tmp.data(),
                             d_output2.data(),
                             N,
                             params2.n_components,
                             stream);  // From column major to row major
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override
@@ -185,12 +194,12 @@ class RPROJTest : public ::testing::Test {
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  paramsRPROJ params1;
   T epsilon;
 
   std::vector<T> h_input;
   rmm::device_uvector<T> d_input;
 
+  paramsRPROJ params1;
   rand_mat<T> random_matrix1;
   rmm::device_uvector<T> d_output1;
 

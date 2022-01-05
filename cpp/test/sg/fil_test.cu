@@ -244,6 +244,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     predict_on_cpu();
     predict_on_gpu();
   }
+
+  void SetUp() override { setup_helper(); }
+
   void generate_forest()
   {
     auto stream = handle.get_stream();

@@ -147,8 +147,8 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     rmm::device_uvector<T> data_logreg_test(len, stream);
     rmm::device_uvector<T> labels_logreg(params.n_row2, stream);
     rmm::device_uvector<T> coef_class(params.n_row2, stream);
-    rmm::device_uvector<T> pred_log(params.n_row2, stream);
-    rmm::device_uvector<T> pred_log_ref(params.n_row2, stream);
+    pred_log.resize(params.n_row2, stream);
+    pred_log_ref.resize(params.n_row2, stream);
     CUDA_CHECK(cudaMemsetAsync(coef_class.data(), 0, coef_class.size() * sizeof(T), stream));
 
     T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
@@ -218,8 +218,8 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     rmm::device_uvector<T> data_svmreg_test(len, stream);
     rmm::device_uvector<T> labels_svmreg(params.n_row2, stream);
     rmm::device_uvector<T> coef_class(params.n_row2, stream);
-    rmm::device_uvector<T> pred_svm(params.n_row2, stream);
-    rmm::device_uvector<T> pred_svm_ref(params.n_row2, stream);
+    pred_svm.resize(params.n_row2, stream);
+    pred_svm_ref.resize(params.n_row2, stream);
     CUDA_CHECK(cudaMemsetAsync(coef_class.data(), 0, coef_class.size() * sizeof(T), stream));
 
     T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
