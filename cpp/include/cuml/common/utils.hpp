@@ -16,12 +16,15 @@
 
 #pragma once
 
-#include "logger.hpp"
-#include <cstdio>
 #include <cuda_runtime.h>
 #include <execinfo.h>
 #include <raft/cudart_utils.h>
+
+#include <cstdio>
+
 #include <raft/error.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+
+#include "logger.hpp"

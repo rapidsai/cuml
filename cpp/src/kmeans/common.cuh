@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>

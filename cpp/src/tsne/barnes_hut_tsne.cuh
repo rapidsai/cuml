@@ -18,6 +18,7 @@
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/tsne.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 

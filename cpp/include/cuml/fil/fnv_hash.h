@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <cstdint>
 #include <limits.h>
+
+#include <cstdint>
 #include <numeric>
 
 // Implements https://tools.ietf.org/html/draft-eastlake-fnv-17.html

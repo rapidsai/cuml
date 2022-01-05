@@ -16,9 +16,11 @@
 
 #pragma once
 
-#include "pca.hpp"
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
+
+#include "pca.hpp"
+
 namespace ML {
 
 enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };

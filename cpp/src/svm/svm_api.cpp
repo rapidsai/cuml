@@ -67,7 +67,15 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
+      ML::SVM::svcFit(*handle_ptr,
+                      input,
+                      n_rows,
+                      n_cols,
+                      labels,
+                      param,
+                      kernel_param,
+                      model,
+                      static_cast<float*>(nullptr));
       *n_support     = model.n_support;
       *b             = model.b;
       *dual_coefs    = model.dual_coefs;
@@ -133,7 +141,15 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
+      ML::SVM::svcFit(*handle_ptr,
+                      input,
+                      n_rows,
+                      n_cols,
+                      labels,
+                      param,
+                      kernel_param,
+                      model,
+                      static_cast<double*>(nullptr));
       *n_support     = model.n_support;
       *b             = model.b;
       *dual_coefs    = model.dual_coefs;

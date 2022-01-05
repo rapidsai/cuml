@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <cuml/common/log_levels.hpp>
 #include <raft/linalg/distance_type.h>
+
+#include <cuml/common/log_levels.hpp>
 
 namespace raft {
 class handle_t;

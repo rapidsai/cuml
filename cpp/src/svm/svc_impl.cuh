@@ -28,6 +28,7 @@
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+#include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/cublas_wrappers.h>

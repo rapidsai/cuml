@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include "common.h"
 #include <raft/handle.hpp>
 #include <random>
+
+#include "common.h"
 
 namespace cuml {
 namespace genetic {

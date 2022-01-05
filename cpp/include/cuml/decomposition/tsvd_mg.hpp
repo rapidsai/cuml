@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include "tsvd.hpp"
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
+
+#include "tsvd.hpp"
 
 namespace ML {
 namespace TSVD {

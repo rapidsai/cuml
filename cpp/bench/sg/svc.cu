@@ -66,7 +66,8 @@ class SVC : public BlobsFixture<D, D> {
                       this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      this->model);
+                      this->model,
+                      nullptr);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
       ML::SVM::svmFreeBuffers(*this->handle, this->model);
     });

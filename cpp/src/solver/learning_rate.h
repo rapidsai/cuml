@@ -22,8 +22,6 @@
 namespace ML {
 namespace Solver {
 
-using namespace MLCommon;
-
 template <typename math_t>
 math_t max(math_t a, math_t b)
 {

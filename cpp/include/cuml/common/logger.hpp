@@ -15,10 +15,11 @@
  */
 #pragma once
 
+#include <stdarg.h>
+
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <stdarg.h>
 #include <string>
 
 #include <cuml/common/log_levels.hpp>
