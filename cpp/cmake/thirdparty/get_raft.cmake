@@ -18,13 +18,13 @@ function(find_and_configure_raft)
 
     set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
+            "${multiValueArgs}" ${ARGN} )
 
     rapids_cpm_find(raft ${PKG_VERSION}
-      GLOBAL_TARGETS      raft::raft
-      BUILD_EXPORT_SET    cuml-exports
-      INSTALL_EXPORT_SET  cuml-exports
-        CPM_ARGS
+            GLOBAL_TARGETS      raft::raft
+            BUILD_EXPORT_SET    cuml-exports
+            INSTALL_EXPORT_SET  cuml-exports
+            CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
@@ -33,12 +33,13 @@ function(find_and_configure_raft)
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_USE_FAISS_STATIC ${USE_FAISS_STATIC}"
+              "NVTX ${NVTX}"
     )
 
     if(raft_ADDED)
-      message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
+        message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
     else()
-      message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
+        message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
     endif()
 
 endfunction()

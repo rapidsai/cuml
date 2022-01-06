@@ -45,6 +45,9 @@ if(BUILD_CUML_BENCH)
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
       ${TREELITE_LIBS}
+      raft::raft
+      raft::raft_nn
+      raft::raft_distance
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
@@ -83,7 +86,15 @@ if(BUILD_CUML_PRIMS_BENCH)
     PUBLIC
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
+<<<<<<< HEAD
       ${TREELITE_LIBS}
+=======
+      raft::raft
+      raft::raft_nn
+      raft::raft_distance
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+>>>>>>> 03132e81185074c318fba92375e6da7232f5dd52
   )
 
   target_include_directories(${PRIMS_BENCH_TARGET}

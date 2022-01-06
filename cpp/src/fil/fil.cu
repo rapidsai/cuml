@@ -379,9 +379,12 @@ struct dense_forest : forest {
     }
   }
 
+  /// const int* trees is ignored and only provided for compatibility with
+  /// sparse_forest<node_t>::init()
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
             const std::vector<float>& vector_leaf,
+            const int* trees,
             const dense_node* nodes,
             const forest_params_t* params)
   {
@@ -560,50 +563,49 @@ void check_params(const forest_params_t* params, bool dense)
          FIL_TPB);
 }
 
-void init_dense(const raft::handle_t& h,
-                forest_t* pf,
-                const categorical_sets& cat_sets,
-                const std::vector<float>& vector_leaf,
-                const dense_node* nodes,
-                const forest_params_t* params)
-{
-  check_params(params, true);
-  dense_forest* f = new dense_forest(h);
-  f->init(h, cat_sets, vector_leaf, nodes, params);
-  *pf = f;
-}
-
+/** initializes a forest of any type
+ * When fil_node_t == dense_node, const int* trees is ignored
+ */
 template <typename fil_node_t>
-void init_sparse(const raft::handle_t& h,
-                 forest_t* pf,
-                 const categorical_sets& cat_sets,
-                 const std::vector<float>& vector_leaf,
-                 const int* trees,
-                 const fil_node_t* nodes,
-                 const forest_params_t* params)
+void init(const raft::handle_t& h,
+          forest_t* pf,
+          const categorical_sets& cat_sets,
+          const std::vector<float>& vector_leaf,
+          const int* trees,
+          const fil_node_t* nodes,
+          const forest_params_t* params)
 {
-  check_params(params, false);
-  sparse_forest<fil_node_t>* f = new sparse_forest<fil_node_t>(h);
+  check_params(params, node_traits<fil_node_t>::IS_DENSE);
+  using forest_type = typename node_traits<fil_node_t>::forest;
+  forest_type* f    = new forest_type(h);
   f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
 
 // explicit instantiations for init_sparse()
-template void init_sparse<sparse_node16>(const raft::handle_t& h,
-                                         forest_t* pf,
-                                         const categorical_sets& cat_sets,
-                                         const std::vector<float>& vector_leaf,
-                                         const int* trees,
-                                         const sparse_node16* nodes,
-                                         const forest_params_t* params);
+template void init<sparse_node16>(const raft::handle_t& h,
+                                  forest_t* pf,
+                                  const categorical_sets& cat_sets,
+                                  const std::vector<float>& vector_leaf,
+                                  const int* trees,
+                                  const sparse_node16* nodes,
+                                  const forest_params_t* params);
 
-template void init_sparse<sparse_node8>(const raft::handle_t& h,
-                                        forest_t* pf,
-                                        const categorical_sets& cat_sets,
-                                        const std::vector<float>& vector_leaf,
-                                        const int* trees,
-                                        const sparse_node8* nodes,
-                                        const forest_params_t* params);
+template void init<sparse_node8>(const raft::handle_t& h,
+                                 forest_t* pf,
+                                 const categorical_sets& cat_sets,
+                                 const std::vector<float>& vector_leaf,
+                                 const int* trees,
+                                 const sparse_node8* nodes,
+                                 const forest_params_t* params);
+
+template void init<dense_node>(const raft::handle_t& h,
+                               forest_t* pf,
+                               const categorical_sets& cat_sets,
+                               const std::vector<float>& vector_leaf,
+                               const int* trees,
+                               const dense_node* nodes,
+                               const forest_params_t* params);
 
 void free(const raft::handle_t& h, forest_t f)
 {

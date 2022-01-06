@@ -32,9 +32,9 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/op/sort.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "../prims/test_utils.h"

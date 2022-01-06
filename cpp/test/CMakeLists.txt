@@ -16,6 +16,10 @@
 
 set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cufft
+  rmm::rmm
+  raft::raft
+  raft::raft_nn
+  raft::raft_distance
   $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
   GTest::gtest
   GTest::gtest_main
@@ -56,7 +60,6 @@ if(BUILD_CUML_TESTS)
         sg/linkage_test.cu
         sg/logger.cpp
         sg/multi_sum_test.cu
-        sg/nvtx_test.cpp
         sg/ols.cu
         sg/pca_test.cu
         sg/quasi_newton.cu

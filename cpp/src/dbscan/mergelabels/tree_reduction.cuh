@@ -18,7 +18,7 @@
 
 #include "runner.cuh"
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 #include <cuml/common/logger.hpp>
 
@@ -76,9 +76,8 @@ void tree_reduction(const raft::handle_t& handle,
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");
-      ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
+      raft::common::nvtx::range fun_scope("Trace::Dbscan::MergeLabels");
       MergeLabels::run<Index_>(handle, labels, labels_temp, mask, work_buffer, m, N, stream);
-      ML::POP_RANGE();
     }
 
     s *= 2;

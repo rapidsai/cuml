@@ -228,9 +228,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # common components
   add_library(${CUML_CPP_TARGET} SHARED
-              src/common/logger.cpp
-              src/common/nvtx.cu)
-
+              src/common/logger.cpp)
 
   # FIL components
   target_sources(${CUML_CPP_TARGET}
@@ -249,6 +247,19 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/datasets/make_blobs.cu
         src/datasets/make_regression.cu
         src/dbscan/dbscan.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
@@ -342,7 +353,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
-      $<$<BOOL:${NVTX}>:NVTX_ENABLED>
       DISABLE_CUSPARSE_DEPRECATED
     PRIVATE
       CUML_CPP_API
@@ -370,11 +380,12 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
       raft::raft
+      raft::raft_nn
+      raft::raft_distance
     PRIVATE
       CUDA::cufft
       ${TREELITE_LIBS}
       GPUTreeShap::GPUTreeShap
-      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
