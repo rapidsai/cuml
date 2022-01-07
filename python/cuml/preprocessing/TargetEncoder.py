@@ -19,6 +19,7 @@ import pandas
 import cupy as cp
 import numpy as np
 from cuml.common.exceptions import NotFittedError
+import warnings
 
 
 class TargetEncoder:
@@ -47,6 +48,8 @@ class TargetEncoder:
         'random': random split.
         'continuous': consecutive samples are grouped into one folds.
         'interleaved': samples are assign to each fold in a round robin way.
+        'customize': customize splitting by providing a `fold_ids` array
+                     in `fit()` or `fit_transform()` functions.
     output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
 
@@ -115,7 +118,7 @@ class TargetEncoder:
         self.train = None
         self.output_type = output_type
 
-    def fit(self, x, y):
+    def fit(self, x, y, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
 
@@ -132,20 +135,33 @@ class TargetEncoder:
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-        res, train = self._fit_transform(x, y)
+        if self.split == 'customize' and fold_ids is None:
+            raise ValueError("`fold_ids` is required "
+                             "since split_method is set to"
+                             "'customize'.")
+        if fold_ids is not None and self.split != 'customize':
+            self.split == 'customize'
+            warnings.warn("split_method is set to 'customize'"
+                          "since `fold_ids` are provided.")
+        if fold_ids is not None and len(fold_ids) != len(x):
+            raise ValueError(f"`fold_ids` length {len(fold_ids)}"
+                             "is different from input data length"
+                             f"{len(x)}")
+
+        res, train = self._fit_transform(x, y, fold_ids=fold_ids)
         self.train_encode = res
         self.train = train
         self._fitted = True
         return self
 
-    def fit_transform(self, x, y):
+    def fit_transform(self, x, y, fold_ids=None):
         """
         Simultaneously fit and transform an input
 
         This is functionally equivalent to (but faster than)
         `TargetEncoder().fit(y).transform(y)`
         """
-        self.fit(x, y)
+        self.fit(x, y, fold_ids=fold_ids)
         return self.train_encode
 
     def transform(self, x):
@@ -175,7 +191,7 @@ class TargetEncoder:
         test = test.merge(self.encode_all, on=x_cols, how='left')
         return self._impute_and_sort(test)
 
-    def _fit_transform(self, x, y):
+    def _fit_transform(self, x, y, fold_ids):
         """
         Core function of target encoding
         """
@@ -186,7 +202,7 @@ class TargetEncoder:
         train[self.y_col] = self._make_y_column(y)
 
         self.n_folds = min(self.n_folds, len(train))
-        train[self.fold_col] = self._make_fold_column(len(train))
+        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
         self.mean = train[self.y_col].mean()
 
@@ -238,10 +254,11 @@ class TargetEncoder:
                 "or numpy.ndarray"
                 "or cupy.ndarray")
 
-    def _make_fold_column(self, len_train):
+    def _make_fold_column(self, len_train, fold_ids):
         """
         Create a fold id column for each split_method
         """
+
         if self.split == 'random':
             return cp.random.randint(0, self.n_folds, len_train)
         elif self.split == 'continuous':
@@ -249,6 +266,12 @@ class TargetEncoder:
                     (len_train/self.n_folds)) % self.n_folds
         elif self.split == 'interleaved':
             return cp.arange(len_train) % self.n_folds
+        elif self.split == 'customize':
+            if fold_ids is None:
+                raise ValueError("fold_ids can't be None"
+                                 "since split_method is set to"
+                                 "'customize'.")
+            return fold_ids
         else:
             msg = ("split should be either 'random'"
                    " or 'continuous' or 'interleaved', "
