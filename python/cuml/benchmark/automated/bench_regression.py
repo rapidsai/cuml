@@ -97,8 +97,8 @@ def bench_svr_rbf(gpubenchmark, n_rows, n_features):
 
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
-@pytest.mark.parametrize('n_features', [5, 500])
+@pytest.mark.parametrize('n_rows', [500, 4000])
+@pytest.mark.parametrize('n_features', [5, 400])
 @pytest.mark.ML
 def bench_svr_linear(gpubenchmark, n_rows, n_features):
     _benchmark_algo(gpubenchmark, 'SVR-Linear',
