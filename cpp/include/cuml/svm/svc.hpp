@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <cuml/matrix/kernelparams.h>
-#include <cuml/common/logger.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
+#include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
+#include <raft/handle.hpp>
 
-namespace raft {
-class handle_t;
-}
+// namespace raft {
+// class handle_t;
+// }
 
 namespace ML {
 namespace SVM {
@@ -58,7 +59,7 @@ void svcFit(const raft::handle_t& handle,
             const SvmParameter& param,
             MLCommon::Matrix::KernelParams& kernel_params,
             SvmModel<math_t>& model,
-            const math_t* sample_weight = nullptr);
+            const math_t* sample_weight);
 
 /**
  * @brief Predict classes or decision function value for samples in input.
@@ -98,7 +99,7 @@ void svcPredict(const raft::handle_t& handle,
                 const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
-                bool predict_class = true);
+                bool predict_class);
 
 /**
  * Deallocate device buffers in the SvmModel struct.

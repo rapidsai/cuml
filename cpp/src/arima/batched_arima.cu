@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
-#include <raft/cudart_utils.h>
+#include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <rmm/device_uvector.hpp>

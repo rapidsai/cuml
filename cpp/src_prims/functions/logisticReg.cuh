@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,21 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
+#include "penalty.cuh"
+#include "sigmoid.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
-#include "penalty.cuh"
-#include "sigmoid.cuh"
 
 namespace MLCommon {
 namespace Functions {

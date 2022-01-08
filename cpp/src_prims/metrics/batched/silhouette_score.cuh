@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <cuml/metrics/metrics.hpp>
 #include "../silhouette_score.cuh"
+#include <cuml/metrics/metrics.hpp>
 
-#include <thrust/device_vector.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/device_vector.h>
 
 namespace MLCommon {
 namespace Metrics {

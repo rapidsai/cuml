@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/common/device_loads_stores.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 // Anonymous namespace for internal auxiliary functions
 namespace {
