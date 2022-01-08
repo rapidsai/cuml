@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <common/Timer.h>
-#include <cuml/tree/flatnode.h>
-#include <cuml/common/pinned_host_vector.hpp>
-#include <raft/cuda_utils.cuh>
 #include "kernels/builder_kernels.cuh"
+#include <common/Timer.h>
+#include <cuml/common/pinned_host_vector.hpp>
+#include <cuml/tree/flatnode.h>
+#include <raft/cuda_utils.cuh>
 
 #include <deque>
 #include <raft/common/nvtx.hpp>

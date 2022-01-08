@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,22 @@
  * limitations under the License.
  */
 
-#include <cuml/svm/svm_model.h>
-#include <cuml/svm/svm_parameter.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <test_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/fill.h>
-#include <thrust/iterator/zip_iterator.h>
-#include <thrust/transform.h>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
+#include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 #include <cuml/svm/svr.hpp>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelmatrices.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/random/rng.hpp>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
@@ -42,6 +37,11 @@
 #include <svm/smoblocksolve.cuh>
 #include <svm/smosolver.cuh>
 #include <svm/workingset.cuh>
+#include <test_utils.h>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/transform.h>
 #include <type_traits>
 #include <vector>
 

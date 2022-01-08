@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <cmath>
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <algorithm>
-#include <cmath>
-#include <cuml/common/logger.hpp>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 #include <vector>
 
 namespace cuml {

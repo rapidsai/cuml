@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -38,11 +38,11 @@
 #include <raft/sparse/coo.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <string>
 #include "optimize_batch_kernel.cuh"
+#include <string>
 
-#include <thrust/iterator/discard_iterator.h>
 #include <raft/sparse/op/filter.hpp>
+#include <thrust/iterator/discard_iterator.h>
 #pragma once
 
 namespace UMAPAlgo {

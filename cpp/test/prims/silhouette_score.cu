@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
+#include "test_utils.h"
 #include <algorithm>
 #include <cuml/metrics/metrics.hpp>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {

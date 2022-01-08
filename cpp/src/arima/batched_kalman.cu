@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,15 @@
 
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
 #include <linalg/batched/matrix.cuh>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,14 @@
  *   on the same dataset when the real ground truth is not known.
  */
 
-#include <math.h>
-#include <raft/cudart_utils.h>
+#include "contingencyMatrix.cuh"
 #include <cub/cub.cuh>
+#include <math.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/reduce.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "contingencyMatrix.cuh"
 
 namespace MLCommon {
 
