@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.interruptible import interruptibleCpp
+from cuml.raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
@@ -301,7 +301,7 @@ cdef class LinearSVMWrapper:
             nRows = X.shape[0]
             sw_ptr = sampleWeight.ptr if sampleWeight is not None else 0
             if self.dtype == np.float32:
-                with interruptibleCpp():
+                with cuda_interruptible():
                     with nogil:
                         self.model.float32 = LinearSVMModel[float].fit(
                             deref(self.handle), self.params,
@@ -311,7 +311,7 @@ cdef class LinearSVMWrapper:
                             <const float*>swptr)
                 nClasses = self.model.float32.nClasses
             elif self.dtype == np.float64:
-                with interruptibleCpp():
+                with cuda_interruptible():
                     with nogil:
                         self.model.float64 = LinearSVMModel[double].fit(
                             deref(self.handle), self.params,

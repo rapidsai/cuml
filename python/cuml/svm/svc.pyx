@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.interruptible import interruptibleCpp
+from cuml.raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
@@ -452,7 +452,7 @@ class SVC(SVMBase,
         cdef int n_cols = self.n_cols
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            with interruptibleCpp():
+            with cuda_interruptible():
                 with nogil:
                     svcFit(
                         deref(handle_), <float*>X_ptr, n_rows,
@@ -461,7 +461,7 @@ class SVC(SVMBase,
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            with interruptibleCpp():
+            with cuda_interruptible():
                 with nogil:
                     svcFit(
                         deref(handle_), <double*>X_ptr, n_rows,
