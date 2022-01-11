@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 
 #include <cuml/svm/svm_parameter.h>
 
-#include <linalg/init.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
+#include <linalg/init.h>
 #include <matrix/grammatrix.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>

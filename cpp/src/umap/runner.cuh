@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/manifold/common.hpp>
 #include "optimize.cuh"
 #include "supervised.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/common.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
@@ -44,6 +44,7 @@
 
 #include <raft/cuda_utils.cuh>
 
+#include <common/nvtx.hpp>
 #include <cuda_runtime.h>
 #include <raft/common/nvtx.hpp>
 

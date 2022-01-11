@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.hpp>

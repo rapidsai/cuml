@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean_center.hpp>
 
