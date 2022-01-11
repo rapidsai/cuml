@@ -155,6 +155,7 @@ endif()
 if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
   set(LINK_FAISS ON)
 elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
+elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
   set(SINGLEGPU ON)
   set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_EXAMPLES OFF)
@@ -395,8 +396,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       rmm::rmm
       cuml::Thrust
       raft::raft
-      raft::raft_nn
-      raft::raft_distance
+      raft::nn
+      raft::distance
     PRIVATE
       CUDA::cublas
       CUDA::cufft
