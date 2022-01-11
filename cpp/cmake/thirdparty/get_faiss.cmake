@@ -19,13 +19,13 @@ function(find_and_configure_faiss)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    rapids_find_generate_module(FAISS
+    rapids_find_generate_module(faiss
         HEADER_NAMES  faiss/IndexFlat.h
         LIBRARY_NAMES faiss
     )
 
-    rapids_cpm_find(FAISS ${PKG_VERSION}
-        GLOBAL_TARGETS  faiss
+    rapids_cpm_find(faiss ${PKG_VERSION}
+        GLOBAL_TARGETS  faiss::faiss
         CPM_ARGS
           GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
           GIT_TAG         ${PKG_PINNED_TAG}
@@ -42,8 +42,8 @@ function(find_and_configure_faiss)
       target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
     endif()
 
-    if(TARGET faiss AND NOT TARGET FAISS::FAISS)
-        add_library(FAISS::FAISS ALIAS faiss)
+    if(TARGET faiss AND NOT TARGET faiss::faiss)
+        add_library(faiss::faiss ALIAS faiss)
     endif()
 
 endfunction()

@@ -405,7 +405,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cudart
       CUDA::cusparse
       GPUTreeShap::GPUTreeShap
-      $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
+      $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
@@ -453,7 +453,7 @@ if(BUILD_CUML_C_LIBRARY)
     PUBLIC
       ${CUML_CPP_TARGET}
     PRIVATE
-      FAISS::FAISS
+      faiss::faiss
   )
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries

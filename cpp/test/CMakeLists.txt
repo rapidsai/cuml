@@ -25,7 +25,7 @@ set(COMMON_TEST_LINK_LIBRARIES
   raft::raft
   raft::nn
   raft::distance
-  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
+  $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX
