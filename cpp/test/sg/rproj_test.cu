@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
+#include <cuml/metrics/metrics.hpp>
 #include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <test_utils.h>
-#include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/transpose.h>
 #include <random>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {

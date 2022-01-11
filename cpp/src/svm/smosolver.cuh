@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuml/matrix/kernelparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
 
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -26,27 +26,27 @@
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/unary_op.cuh>
 
-#include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/fill.h>
 #include <iostream>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <string>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
 #include <type_traits>
 
-#include <cuml/matrix/kernelparams.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemv.h>
-#include <cuml/common/logger.hpp>
-#include <matrix/grammatrix.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include "kernelcache.cuh"
 #include "smo_sets.cuh"
 #include "smoblocksolve.cuh"
 #include "workingset.cuh"
 #include "ws_util.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/unary_op.cuh>
 
 #include "results.cuh"
 

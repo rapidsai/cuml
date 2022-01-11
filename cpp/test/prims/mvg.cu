@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <cmath>
+#include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <random/mvg.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)

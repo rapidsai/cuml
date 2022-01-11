@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
 
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/distance_type.h>
 #include <raft/mr/device/allocator.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -36,10 +36,10 @@
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>

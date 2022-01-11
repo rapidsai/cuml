@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
  * contain only data points which are members of a single class.
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
