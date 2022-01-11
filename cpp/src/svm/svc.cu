@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #include <iostream>
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <cuml/svm/svc.hpp>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
+#include <cuml/svm/svc.hpp>
+#include <label/classlabels.cuh>
+#include <matrix/kernelfactory.cuh>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/unary_op.cuh>
 
 namespace ML {
 namespace SVM {
