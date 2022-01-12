@@ -52,7 +52,8 @@ def distribute(client, array):
     if array is not None:
         n_rows = array.shape[0]
         n_workers = len(client.scheduler_info()['workers'])
-        dask_array = da.from_array(array, chunks=n_rows // n_workers)
+        dask_array = da.from_array(x=array,
+                                   chunks={0: n_rows // n_workers, 1: -1})
         return dask_array
 
 
