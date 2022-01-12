@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Selection {
@@ -92,15 +92,15 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     std::vector<int> n_unique;
     n_unique.push_back(n_classes);
 
-    knn_classify(pred_labels,
+    knn_classify(handle,
+                 pred_labels,
                  knn_indices,
                  y,
                  params.rows,
                  params.rows,
                  params.k,
                  uniq_labels,
-                 n_unique,
-                 stream);
+                 n_unique);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

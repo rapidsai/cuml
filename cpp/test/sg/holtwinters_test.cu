@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <cuml/tsa/holtwinters.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
+#include "time_series_datasets.h"
 #include <algorithm>
 #include <cuml/common/logger.hpp>
+#include <cuml/tsa/holtwinters.h>
+#include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include "time_series_datasets.h"
+#include <test_utils.h>
 
 namespace ML {
 
@@ -79,8 +79,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     raft::allocate(data, batch_size * n, stream);
     raft::update_device(data, dataset_h, batch_size * n, stream);
 
-    raft::handle_t handle;
-    handle.set_stream(stream);
+    raft::handle_t handle{stream};
 
     ML::HoltWinters::fit(handle,
                          n,

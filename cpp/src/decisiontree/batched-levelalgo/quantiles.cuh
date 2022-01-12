@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
  */
 
 #pragma once
-#include <thrust/fill.h>
+
 #include <cub/cub.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/fill.h>
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 namespace ML {
 namespace DT {
@@ -32,16 +33,7 @@ template <typename T>
 __global__ void computeQuantilesSorted(T* quantiles,
                                        const int n_bins,
                                        const T* sorted_data,
-                                       const int length)
-{
-  int tid          = threadIdx.x + blockIdx.x * blockDim.x;
-  double bin_width = static_cast<double>(length) / n_bins;
-  int index        = int(round((tid + 1) * bin_width)) - 1;
-  index            = min(max(0, index), length - 1);
-  if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
-
-  return;
-}
+                                       const int length);
 
 template <typename T>
 std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(

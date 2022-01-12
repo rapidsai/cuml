@@ -31,6 +31,9 @@ if [ "${IS_STABLE_BUILD}" != "true" ] ; then
   export VERSION_SUFFIX=`date +%y%m%d`
 fi
 
+# ucx-py version
+export UCX_PY_VERSION='0.24.*'
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################

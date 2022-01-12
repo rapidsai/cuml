@@ -220,6 +220,10 @@ class cuml_build_ext(cython_build_ext, object):
                     pass
         # Full optimization
         self.compiler.compiler_so.append("-O3")
+
+        # Ignore deprecation declaraction warnings
+        self.compiler.compiler_so.append("-Wno-deprecated-declarations")
+
         # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
         remove_flags(
             self.compiler, "-g", "-G", "-O1", "-O2", "-Wstrict-prototypes"

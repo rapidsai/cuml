@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 #include "hdbscan_inputs.hpp"
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <vector>
 
-#include <hdbscan/detail/utils.h>
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/utils.h>
 
 #include <metrics/adjusted_rand_index.cuh>
 
@@ -32,9 +32,9 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/op/sort.h>
 #include <raft/mr/device/allocator.hpp>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "../prims/test_utils.h"

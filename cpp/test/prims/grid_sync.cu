@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
+#include <common/grid_sync.cuh>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <common/grid_sync.cuh>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 
