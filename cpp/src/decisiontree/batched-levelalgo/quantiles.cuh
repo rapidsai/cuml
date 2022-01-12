@@ -43,7 +43,7 @@ template <typename T>
 auto computeQuantiles(
   int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
 {
-  ML::PUSH_RANGE("computeQuantiles");
+  raft::common::nvtx::push_range("computeQuantiles");
   auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
   auto useful_nbins = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
 
@@ -51,7 +51,7 @@ auto computeQuantiles(
   size_t temp_storage_bytes = 0;
   rmm::device_uvector<T> all_column_sorted(n_cols * n_rows, handle.get_stream());
 
-  ML::PUSH_RANGE("sorting columns");
+  raft::common::nvtx::push_range("sorting columns");
   // get temp_storage_bytes for sorting
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
                                             temp_storage_bytes,
@@ -63,6 +63,7 @@ auto computeQuantiles(
                                             handle.get_stream()));
   // allocate total memory needed for parallelized sorting
   rmm::device_uvector<char> d_temp_storage(prllsm * temp_storage_bytes, handle.get_stream());
+  // handle for sorting across multiple streams
   auto sorting_handle =
     raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
 #pragma omp parallel for num_threads(prllsm)
@@ -81,19 +82,19 @@ auto computeQuantiles(
       s));
     s.synchronize();
   }
-  ML::POP_RANGE();  // sorting columns
+  raft::common::nvtx::pop_range();  // sorting columns
 
   // do the quantile computation parallelizing across cols too across CTAs
   int blocks      = n_cols;
   size_t smemsize = n_bins * sizeof(T);
   // raft::print_device_vector("all_columns_sorted: ", all_column_sorted.begin()+n_rows, n_rows,
   // std::cout);
-  ML::PUSH_RANGE("computeQuantilesBatchSorted @quantile.cuh");
+  raft::common::nvtx::push_range("computeQuantilesBatchSorted @quantile.cuh");
   computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
     quantiles->data(), useful_nbins->data(), all_column_sorted.data(), n_bins, n_rows);
   CUDA_CHECK(cudaGetLastError());
-  ML::POP_RANGE();  // computeQuatilesBatchSorted
-  ML::POP_RANGE();  // computeQuantiles
+  raft::common::nvtx::pop_range();  // computeQuatilesBatchSorted
+  raft::common::nvtx::pop_range();  // computeQuantiles
   return std::make_pair(quantiles, useful_nbins);
 }
 
