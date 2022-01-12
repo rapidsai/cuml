@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -188,10 +188,6 @@ endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
-
-message(STATUS "CUML: Overriding thrust settings to set alwas_download.")
-include(${rapids-cmake-dir}/cpm/package_override.cmake)
-rapids_cpm_package_override(${CMAKE_CURRENT_SOURCE_DIR}/cmake/override_cpm.json)
 
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
