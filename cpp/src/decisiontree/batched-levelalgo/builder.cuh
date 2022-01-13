@@ -169,10 +169,6 @@ struct Builder {
   SplitT* splits;
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
-  /** quantile offsets */
-  // std::shared_ptr<const rmm::device_uvector<int>> useful_nbins;
-  /** compacted quantiles */
-  // std::shared_ptr<const rmm::device_uvector<DataT>> quantiles;
 
   WorkloadInfo<IdxT>* workload_info;
   WorkloadInfo<IdxT>* h_workload_info;

@@ -52,8 +52,6 @@ namespace tl = treelite;
 
 namespace DT {
 
-// __constant__ int constMemPool[16000];
-
 inline bool is_dev_ptr(const void* p)
 {
   cudaPointerAttributes pointer_attr;
@@ -239,10 +237,6 @@ class DecisionTree {
     std::shared_ptr<rmm::device_uvector<int>> useful_nbins,
     int treeid)
   {
-    // CUDA_CHECK(cudaMemcpyToSymbol(constMemPool, useful_nbins->data(),
-    // useful_nbins->size()*sizeof(int), 0, cudaMemcpyDefault)); printf("\nall good!\n");
-    // CUDA_CHECK(cudaDeviceSynchronize());
-
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
       CRITERION default_criterion =
@@ -264,7 +258,6 @@ class DecisionTree {
                                                                  rowids,
                                                                  unique_labels,
                                                                  quantiles,
-                                                                 //  constMemPool
                                                                  useful_nbins)
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
@@ -281,7 +274,6 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                     quantiles,
-                                                                    //  constMemPool
                                                                     useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
@@ -297,7 +289,6 @@ class DecisionTree {
                                                                 rowids,
                                                                 unique_labels,
                                                                 quantiles,
-                                                                //  constMemPool
                                                                 useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
@@ -314,7 +305,6 @@ class DecisionTree {
                                                                     rowids,
                                                                     unique_labels,
                                                                     quantiles,
-                                                                    //  constMemPool
                                                                     useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
@@ -330,7 +320,6 @@ class DecisionTree {
                                                                   rowids,
                                                                   unique_labels,
                                                                   quantiles,
-                                                                  //  constMemPool
                                                                   useful_nbins)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
@@ -347,7 +336,6 @@ class DecisionTree {
                                                                             rowids,
                                                                             unique_labels,
                                                                             quantiles,
-                                                                            //  constMemPool
                                                                             useful_nbins)
         .train();
     } else {

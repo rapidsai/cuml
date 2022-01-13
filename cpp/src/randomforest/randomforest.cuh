@@ -152,7 +152,6 @@ class RandomForest {
     }
 
     auto [quantiles, useful_nbins] =
-      // auto global_quantiles =
       DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -182,7 +181,6 @@ class RandomForest {
                                                n_unique_labels,
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
-                                               //  global_quantiles,
                                                quantiles,
                                                useful_nbins,
                                                i);

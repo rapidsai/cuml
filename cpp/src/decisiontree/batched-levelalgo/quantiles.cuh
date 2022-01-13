@@ -87,8 +87,6 @@ auto computeQuantiles(
   // do the quantile computation parallelizing across cols too across CTAs
   int blocks      = n_cols;
   size_t smemsize = n_bins * sizeof(T);
-  // raft::print_device_vector("all_columns_sorted: ", all_column_sorted.begin()+n_rows, n_rows,
-  // std::cout);
   raft::common::nvtx::push_range("computeQuantilesBatchSorted @quantile.cuh");
   computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
     quantiles->data(), useful_nbins->data(), all_column_sorted.data(), n_bins, n_rows);
