@@ -371,10 +371,12 @@ def gen_data(
     if test_fraction != 0.0:
         if n_samples == 0:
             n_samples = int(data[0].shape[0] * (1 - test_fraction))
+        random_state_dict = ({'random_state': kwargs['random_state']}
+                             if 'random_state' in kwargs else {})
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(
                 *data, train_size=n_samples,
-                random_state=kwargs['random_state']
+                **random_state_dict
             )
         )
         data = (X_train, y_train, X_test, y_test)
