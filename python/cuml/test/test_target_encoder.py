@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -204,6 +204,7 @@ def test_targetencoder_smooth():
         train_encoded = encoder.transform(train.category)
 
         assert array_equal(train_encoded, answer)
+
 
 def test_targetencoder_var():
     train = cudf.DataFrame({'category': ['a', 'b', 'b', 'b'],

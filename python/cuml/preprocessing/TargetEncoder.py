@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -93,9 +93,9 @@ class TargetEncoder:
                    " or 'numpy' or 'auto', "
                    "got {0}.".format(output_type))
             raise ValueError(msg)
-        if stat not in {'mean','var'}:
+        if stat not in {'mean', 'var'}:
             msg = ("stat should be either 'mean' or 'var'."
-                  f"got {stat}.")
+                   f"got {stat}.")
             raise ValueError(msg)
 
         if not isinstance(seed, int):
@@ -196,9 +196,9 @@ class TargetEncoder:
         train[self.fold_col] = self._make_fold_column(len(train))
 
         self.mean = train[self.y_col].mean()
-        
+
         if self.stat == 'var':
-            y_cols = [self.y_col,self.y_col2]
+            y_cols = [self.y_col, self.y_col2]
             train[self.y_col2] = self._make_y_column(y*y)
             self.mean2 = train[self.y_col2].mean()
         else:
