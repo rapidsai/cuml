@@ -20,6 +20,11 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
+    set(RAFT_FIND_PACKAGE_ARGUMENTS "")
+    if(LINK_FAISS)
+        set(RAFT_FIND_PACKAGE_ARGUMENTS "COMPONENTS faiss")
+    endif()
+
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    cuml-exports
@@ -28,8 +33,7 @@ function(find_and_configure_raft)
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
-            FIND_PACKAGE_ARGUMENTS
-                "COMPONENTS faiss"
+            FIND_PACKAGE_ARGUMENTS ${RAFT_FIND_PACKAGE_ARGUMENTS}
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_USE_FAISS_STATIC ${USE_FAISS_STATIC}"
