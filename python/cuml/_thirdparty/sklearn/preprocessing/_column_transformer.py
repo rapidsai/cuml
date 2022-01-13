@@ -30,7 +30,7 @@ import numpy as cpu_np
 import cupy as np
 import numba
 
-import pandas
+import pandas as pd
 import cudf
 
 import cuml
@@ -223,7 +223,7 @@ def _safe_indexing(X, indices, *, axis=0):
             " column). Got {} instead.".format(axis)
         )
 
-    if isinstance(indices, (pandas.Index, cudf.Index)):
+    if isinstance(indices, (pd.Index, cudf.Index)):
         indices = list(indices)
 
     indices_dtype = _determine_key_type(indices)
