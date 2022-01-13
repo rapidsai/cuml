@@ -204,3 +204,17 @@ def test_targetencoder_smooth():
         train_encoded = encoder.transform(train.category)
 
         assert array_equal(train_encoded, answer)
+
+def test_targetencoder_var():
+    train = cudf.DataFrame({'category': ['a', 'b', 'b', 'b'],
+                            'label': [1, 0, 1, 1]})
+    encoder = TargetEncoder(stat='var')
+    train_encoded = encoder.fit_transform(train.category, train.label)
+    answer = np.array([.1875, 0., .25, .25])
+    assert array_equal(train_encoded, answer)
+
+    encoder = TargetEncoder(stat='var')
+    encoder.fit(train.category, train.label)
+    train_encoded = encoder.transform(train.category)
+
+    assert array_equal(train_encoded, answer)

@@ -223,11 +223,13 @@ class TargetEncoder:
         encode_each_fold = self._compute_output(y_sum_each_fold,
                                                 y_count_each_fold,
                                                 cols,
-                                                f'{self.y_col}_x')
+                                                f'{self.y_col}_x',
+                                                f'{self.y_col2}_x')
         encode_all = self._compute_output(y_sum_all,
                                           y_count_all,
                                           x_cols,
-                                          self.y_col)
+                                          self.y_col,
+                                          self.y_col2)
 
         self.encode_all = encode_all
 
@@ -273,7 +275,7 @@ class TargetEncoder:
                    "got {0}.".format(self.split))
             raise ValueError(msg)
 
-    def _compute_output(self, df_sum, df_count, cols, y_col):
+    def _compute_output(self, df_sum, df_count, cols, y_col, y_col2=None):
         """
         Compute the output encoding based on aggregated sum and count
         """
@@ -284,9 +286,9 @@ class TargetEncoder:
                                (df_sum[f'{y_col}_y'] +
                                 smooth)
         if self.stat == 'var':
-            df_sum[self.out_col2] = (df_sum[f'{y_col}2_x'] +
+            df_sum[self.out_col2] = (df_sum[f'{y_col2}_x'] +
                                      smooth*self.mean2) / \
-                                    (df_sum[f'{y_col}2_y'] +
+                                    (df_sum[f'{y_col2}_y'] +
                                      smooth)
             df_sum[self.out_col] = df_sum[self.out_col2] - \
                 df_sum[self.out_col]**2
@@ -335,8 +337,11 @@ class TargetEncoder:
         """
         Impute and sort the result encoding in the same row order as input
         """
+        impute_val = self.mean
+        if self.stat == 'var':
+            impute_val = self.mean2 - self.mean**2
         df[self.out_col] = df[self.out_col].nans_to_nulls()
-        df[self.out_col] = df[self.out_col].fillna(self.mean)
+        df[self.out_col] = df[self.out_col].fillna(impute_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
         if self.output_type == 'numpy':
