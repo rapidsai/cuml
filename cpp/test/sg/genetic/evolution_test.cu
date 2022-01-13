@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <cmath>
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <algorithm>
-#include <cmath>
-#include <cuml/common/logger.hpp>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 #include <vector>
 
 namespace cuml {
@@ -45,7 +45,8 @@ class GeneticEvolutionTest : public ::testing::Test {
       d_test(0, cudaStream_t(0)),
       d_testlab(0, cudaStream_t(0)),
       d_trainwts(0, cudaStream_t(0)),
-      d_testwts(0, cudaStream_t(0))
+      d_testwts(0, cudaStream_t(0)),
+      stream(handle.get_stream())
   {
   }
 
@@ -53,8 +54,6 @@ class GeneticEvolutionTest : public ::testing::Test {
   void SetUp() override
   {
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
 
     // Set training param vals
     hyper_params.population_size       = 5000;
@@ -112,8 +111,6 @@ class GeneticEvolutionTest : public ::testing::Test {
                                cudaMemcpyHostToDevice,
                                stream));
   }
-
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   raft::handle_t handle;
   cudaStream_t stream;

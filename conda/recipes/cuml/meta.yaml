@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
@@ -7,6 +7,7 @@
 {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0] %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
+{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 
 package:
   name: cuml
@@ -34,7 +35,7 @@ requirements:
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py 0.24
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
     - python x.x
@@ -45,12 +46,18 @@ requirements:
     - cupy>=7.8.0,<10.0.0a0
     - treelite=2.1.0
     - nccl>=2.9.9
-    - ucx-py 0.24
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2021.11.1,<=2021.11.2
-    - distributed>=2021.11.1,<=2021.11.2
+    - dask>=2021.11.1
+    - distributed>=2021.11.1
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+
+tests:                                 # [linux64]
+  requirements:                        # [linux64]
+    - cudatoolkit {{ cuda_version }}.* # [linux64]
+  imports:                             # [linux64]
+    - cuml                             # [linux64]
 
 about:
   home: http://rapids.ai/

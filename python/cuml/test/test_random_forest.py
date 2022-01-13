@@ -560,7 +560,8 @@ def rf_classification(
     )
     X_test = X_test.astype(datatype[1])
 
-    handle, stream = get_handle(True, n_streams=1)
+    n_streams = 1
+    handle, stream = get_handle(True, n_streams=n_streams)
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(
@@ -574,6 +575,7 @@ def rf_classification(
         handle=handle,
         max_leaves=-1,
         max_depth=16,
+        n_streams=n_streams,
     )
     if array_type == "dataframe":
         X_train_df = cudf.DataFrame(X_train)

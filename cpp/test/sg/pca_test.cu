@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <test_utils.h>
 #include <cuml/decomposition/params.hpp>
+#include <gtest/gtest.h>
 #include <pca/pca.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/random/rng.hpp>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {
@@ -52,7 +52,8 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
@@ -115,7 +116,8 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
   void advancedTest()
   {
-    params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len2;
 
@@ -160,8 +162,6 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     basicTest();
     advancedTest();
   }
@@ -189,7 +189,6 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     CUDA_CHECK(cudaFree(singular_vals2));
     CUDA_CHECK(cudaFree(mean2));
     CUDA_CHECK(cudaFree(noise_vars2));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -200,7 +199,6 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
     *singular_vals2, *mean2, *noise_vars2;
   raft::handle_t handle;
-  cudaStream_t stream = 0;
 };
 
 const std::vector<PcaInputs<float>> inputsf2 = {
@@ -217,7 +215,8 @@ TEST_P(PcaTestValF, Result)
   ASSERT_TRUE(devArrMatch(explained_vars,
                           explained_vars_ref,
                           params.n_col,
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<double> PcaTestValD;
@@ -226,7 +225,8 @@ TEST_P(PcaTestValD, Result)
   ASSERT_TRUE(devArrMatch(explained_vars,
                           explained_vars_ref,
                           params.n_col,
-                          raft::CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<float> PcaTestLeftVecF;
@@ -235,7 +235,8 @@ TEST_P(PcaTestLeftVecF, Result)
   ASSERT_TRUE(devArrMatch(components,
                           components_ref,
                           (params.n_col * params.n_col),
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<double> PcaTestLeftVecD;
@@ -244,7 +245,8 @@ TEST_P(PcaTestLeftVecD, Result)
   ASSERT_TRUE(devArrMatch(components,
                           components_ref,
                           (params.n_col * params.n_col),
-                          raft::CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<float> PcaTestTransDataF;
@@ -253,7 +255,8 @@ TEST_P(PcaTestTransDataF, Result)
   ASSERT_TRUE(devArrMatch(trans_data,
                           trans_data_ref,
                           (params.n_row * params.n_col),
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<double> PcaTestTransDataD;
@@ -262,7 +265,8 @@ TEST_P(PcaTestTransDataD, Result)
   ASSERT_TRUE(devArrMatch(trans_data,
                           trans_data_ref,
                           (params.n_row * params.n_col),
-                          raft::CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<float> PcaTestDataVecSmallF;
@@ -271,7 +275,8 @@ TEST_P(PcaTestDataVecSmallF, Result)
   ASSERT_TRUE(devArrMatch(data,
                           data_back,
                           (params.n_col * params.n_col),
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<double> PcaTestDataVecSmallD;
@@ -280,7 +285,8 @@ TEST_P(PcaTestDataVecSmallD, Result)
   ASSERT_TRUE(devArrMatch(data,
                           data_back,
                           (params.n_col * params.n_col),
-                          raft::CompareApproxAbs<double>(params.tolerance)));
+                          raft::CompareApproxAbs<double>(params.tolerance),
+                          handle.get_stream()));
 }
 
 // FIXME: These tests are disabled due to driver 418+ making them fail:
@@ -291,7 +297,8 @@ TEST_P(PcaTestDataVecF, Result)
   ASSERT_TRUE(devArrMatch(data2,
                           data2_back,
                           (params.n_col2 * params.n_col2),
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+                          raft::CompareApproxAbs<float>(params.tolerance),
+                          handle.get_stream()));
 }
 
 typedef PcaTest<double> PcaTestDataVecD;
@@ -300,7 +307,8 @@ TEST_P(PcaTestDataVecD, Result)
   ASSERT_TRUE(raft::devArrMatch(data2,
                                 data2_back,
                                 (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                raft::CompareApproxAbs<double>(params.tolerance),
+                                handle.get_stream()));
 }
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF, ::testing::ValuesIn(inputsf2));

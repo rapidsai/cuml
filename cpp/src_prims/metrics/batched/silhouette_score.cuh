@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <cuml/metrics/metrics.hpp>
 #include "../silhouette_score.cuh"
+#include <cuml/metrics/metrics.hpp>
 
-#include <thrust/device_vector.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/device_vector.h>
 
 namespace MLCommon {
 namespace Metrics {
@@ -214,7 +214,7 @@ value_t silhouette_score(
   detail::fill_b_kernel<<<grid_size, block_size, 0, stream>>>(
     b_ptr, y, n_rows, n_labels, cluster_counts.data());
 
-  handle.wait_on_user_stream();
+  handle.wait_stream_pool_on_stream();
 
   auto n_iters = 0;
 
@@ -222,10 +222,7 @@ value_t silhouette_score(
     for (value_idx j = 0; j < n_rows; j += chunk) {
       ++n_iters;
 
-      auto chunk_stream = raft::select_stream(stream,
-                                              handle.get_internal_streams().data(),
-                                              handle.get_num_internal_streams(),
-                                              i + chunk * j);
+      auto chunk_stream = handle.get_next_usable_stream(i + chunk * j);
 
       auto* left_begin  = X + (i * n_cols);
       auto* right_begin = X + (j * n_cols);
@@ -251,7 +248,7 @@ value_t silhouette_score(
     }
   }
 
-  handle.wait_on_internal_streams();
+  handle.sync_stream_pool();
 
   // calculating row-wise minimum in b
   // this prim only supports int indices for now
