@@ -81,7 +81,8 @@ class TargetEncoder:
 
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
-                 split_method='interleaved', output_type='auto'):
+                 split_method='interleaved', output_type='auto'
+                 stat='mean'):
         if smooth < 0:
             raise ValueError(f'smooth {smooth} is not zero or positive')
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -91,6 +92,10 @@ class TargetEncoder:
             msg = ("output_type should be either 'cupy'"
                    " or 'numpy' or 'auto', "
                    "got {0}.".format(output_type))
+            raise ValueError(msg)
+        if stat not in {'mean','var'}:
+            msg = "stat should be either 'mean' or 'var'."
+                  f"got {stat}."
             raise ValueError(msg)
 
         if not isinstance(seed, int):
@@ -107,12 +112,15 @@ class TargetEncoder:
         self.smooth = smooth
         self.split = split_method
         self.y_col = '__TARGET__'
+        self.y_col2 = '__TARGET__SQUARE__'
         self.x_col = '__FEA__'
         self.out_col = '__TARGET_ENCODE__'
+        self.out_col2 = '__TARGET_ENCODE__SQUARE__'
         self.fold_col = '__FOLD__'
         self.id_col = '__INDEX__'
         self.train = None
         self.output_type = output_type
+        self.stat = stat
 
     def fit(self, x, y):
         """
@@ -188,14 +196,24 @@ class TargetEncoder:
         train[self.fold_col] = self._make_fold_column(len(train))
 
         self.mean = train[self.y_col].mean()
+        
+        if self.stat == 'var':
+            y_cols = [self.y_col,self.y_col2]
+            train[self.y_col2] = self._make_y_column(y*y)
+            self.mean2 = train[self.y_col2].mean()
+        else:
+            y_cols = [self.y_col]
 
         y_count_each_fold, y_count_all = self._groupby_agg(train,
                                                            x_cols,
-                                                           op='count')
+                                                           op='count',
+                                                           y_cols=y_cols)
 
         y_sum_each_fold, y_sum_all = self._groupby_agg(train,
                                                        x_cols,
-                                                       op='sum')
+                                                       op='sum',
+                                                       y_cols=y_cols)
+        
         """
         Note:
             encode_each_fold is used to encode train data.
@@ -210,6 +228,7 @@ class TargetEncoder:
                                           y_count_all,
                                           x_cols,
                                           self.y_col)
+        
         self.encode_all = encode_all
 
         train = train.merge(encode_each_fold, on=cols, how='left')
@@ -264,22 +283,30 @@ class TargetEncoder:
                                 smooth*self.mean) / \
                                (df_sum[f'{y_col}_y'] +
                                 smooth)
+        if self.stat == 'var':
+            df_sum[self.out_col2] = (df_sum[f'{y_col}2_x'] +
+                                     smooth*self.mean2) / \
+                                    (df_sum[f'{y_col}2_y'] +
+                                     smooth)
+            df_sum[self.out_col] = df_sum[self.out_col2] - \
+                                   df_sum[self.out_col]**2
         return df_sum
 
-    def _groupby_agg(self, train, x_cols, op):
+    def _groupby_agg(self, train, x_cols, op, y_cols):
         """
         Compute aggregated value of each fold and overall dataframe
         grouped by `x_cols` and agg by `op`
         """
         cols = [self.fold_col]+x_cols
         df_each_fold = train.groupby(cols, as_index=False)\
-            .agg({self.y_col: op})
+            .agg({y_col: op for y_col in y_cols})
         df_all = df_each_fold.groupby(x_cols, as_index=False)\
-            .agg({self.y_col: 'sum'})
+            .agg({y_col: 'sum' for y_col in y_cols})
 
         df_each_fold = df_each_fold.merge(df_all, on=x_cols, how='left')
-        df_each_fold[f'{self.y_col}_x'] = df_each_fold[f'{self.y_col}_y'] -\
-            df_each_fold[f'{self.y_col}_x']
+        for y_col in y_cols:
+            df_each_fold[f'{y_col}_x'] = df_each_fold[f'{y_col}_y'] -\
+                df_each_fold[f'{y_col}_x']
         return df_each_fold, df_all
 
     def _check_is_fitted(self):
