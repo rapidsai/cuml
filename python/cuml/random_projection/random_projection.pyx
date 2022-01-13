@@ -29,6 +29,8 @@ from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
 
@@ -47,7 +49,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat(_Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(cuda_stream_view stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -162,7 +164,7 @@ cdef class BaseRandomProjection():
                  random_state=None):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef _Stream stream = handle_.get_stream()
+        cdef cuda_stream_view stream = handle_.get_stream()
         self.rand_matS = new rand_mat[float](stream)
         self.rand_matD = new rand_mat[double](stream)
 

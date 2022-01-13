@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 #include <cuml/metrics/metrics.hpp>
 #include <raft/linalg/map.cuh>
 
+#include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
+#include <iostream>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuml/common/logger.hpp>
-#include <iostream>
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
@@ -148,7 +148,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       n,
                       model_params.dim,
                       raft::distance::DistanceType::L2Expanded,
-                      stream);
+                      false);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Compute theorical KL div

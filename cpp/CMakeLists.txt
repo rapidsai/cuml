@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -189,10 +189,6 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-message(STATUS "CUML: Overriding thrust settings to set alwas_download.")
-include(${rapids-cmake-dir}/cpm/package_override.cmake)
-rapids_cpm_package_override(${CMAKE_CURRENT_SOURCE_DIR}/cmake/override_cpm.json)
-
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 
@@ -241,9 +237,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # common components
   add_library(${CUML_CPP_TARGET} SHARED
-              src/common/logger.cpp
-              src/common/nvtx.cu)
-
+              src/common/logger.cpp)
 
   # FIL components
   target_sources(${CUML_CPP_TARGET}
@@ -262,6 +256,19 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/datasets/make_blobs.cu
         src/datasets/make_regression.cu
         src/dbscan/dbscan.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
@@ -355,7 +362,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
-      $<$<BOOL:${NVTX}>:NVTX_ENABLED>
       DISABLE_CUSPARSE_DEPRECATED
     PRIVATE
       CUML_CPP_API
@@ -385,6 +391,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       rmm::rmm
       cuml::Thrust
       raft::raft
+      raft::raft_nn
+      raft::raft_distance
     PRIVATE
       CUDA::cublas
       CUDA::cufft
@@ -393,7 +401,6 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cudart
       CUDA::cusparse
       GPUTreeShap::GPUTreeShap
-      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>

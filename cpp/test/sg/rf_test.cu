@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,24 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <test_utils.h>
 #include <cuml/common/logger.hpp>
+#include <test_utils.h>
 
-#include <decisiontree/batched-levelalgo/kernels.cuh>
-#include <decisiontree/batched-levelalgo/quantile.cuh>
+#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 
-#include <cuml/fil/fil.h>
-#include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/fil/fil.h>
+#include <cuml/tree/algo_helper.h>
 
 #include <random/make_blobs.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/transpose.h>
 
+#include <thrust/binary_search.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/logical.h>
@@ -235,7 +236,8 @@ class RfSpecialisedTest {
  public:
   RfSpecialisedTest(RfTestParams params) : params(params)
   {
-    raft::handle_t handle(params.n_streams);
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     X.resize(params.n_rows * params.n_cols);
     X_transpose.resize(params.n_rows * params.n_cols);
     y.resize(params.n_rows);
@@ -294,7 +296,8 @@ class RfSpecialisedTest {
     if (params.n_trees > 1) { return; }
     // accuracy is not guaranteed to improve with bootstrapping
     if (params.bootstrap) { return; }
-    raft::handle_t handle(params.n_streams);
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
     auto [alt_forest, alt_predictions, alt_metrics] =
@@ -349,7 +352,8 @@ class RfSpecialisedTest {
     if (is_regression) return;
 
     // Repeat training
-    raft::handle_t handle(params.n_streams);
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     auto [alt_forest, alt_predictions, alt_metrics] =
       TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
 
@@ -399,7 +403,8 @@ class RfSpecialisedTest {
     if constexpr (std::is_same_v<DataT, double>) {
       return;
     } else {
-      raft::handle_t handle(params.n_streams);
+      auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
+      raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
       auto fil_pred = FilPredict(handle, params, X_transpose.data().get(), forest.get());
 
       thrust::host_vector<float> h_fil_pred(*fil_pred);
@@ -638,7 +643,8 @@ TEST(RfTest, TextDump)
   std::vector<int> y_host        = {0, 0, 1, 1, 1, 0};
   thrust::device_vector<int> y   = y_host;
 
-  raft::handle_t handle(1);
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
   auto forest_ptr = forest.get();
   fit(handle, forest_ptr, X.data().get(), y.size(), 1, y.data().get(), 2, rf_params);
 

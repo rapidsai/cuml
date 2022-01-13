@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+#include <cmath>
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <cmath>
-#include <cuml/common/logger.hpp>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 #include <vector>
 
 namespace cuml {
@@ -42,16 +42,14 @@ class GeneticProgramTest : public ::testing::Test {
       dx2(0, cudaStream_t(0)),
       dy2(0, cudaStream_t(0)),
       dw2(0, cudaStream_t(0)),
-      dyp2(0, cudaStream_t(0))
+      dyp2(0, cudaStream_t(0)),
+      stream(handle.get_stream())
   {
   }
 
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-
     // Params
     hyper_params.population_size = 2;
     hyper_params.random_state    = 123;
@@ -155,7 +153,6 @@ class GeneticProgramTest : public ::testing::Test {
     rmm::mr::get_current_device_resource()->deallocate(d_nodes1, 7 * sizeof(node), stream);
     rmm::mr::get_current_device_resource()->deallocate(d_nodes2, 7 * sizeof(node), stream);
     rmm::mr::get_current_device_resource()->deallocate(d_progs, 2 * sizeof(program), stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   raft::handle_t handle;

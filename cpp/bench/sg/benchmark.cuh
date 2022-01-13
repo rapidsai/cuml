@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <benchmark/benchmark.h>
-#include <cuda_runtime.h>
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
 #include "dataset_ts.cuh"
+#include <benchmark/benchmark.h>
+#include <cuda_runtime.h>
+#include <cuml/common/logger.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace Bench {
@@ -37,9 +37,9 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    handle.reset(new raft::handle_t(NumStreams));
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(NumStreams);
+    handle.reset(new raft::handle_t{stream, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
-    handle->set_stream(stream);
   }
 
   void TearDown(const ::benchmark::State& state) override

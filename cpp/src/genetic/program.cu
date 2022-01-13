@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 

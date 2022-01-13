@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/linalg/transpose.h>
-#include <test_utils.h>
 #include <cmath>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
+#include <gtest/gtest.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 
 namespace ML {
 namespace SVM {
@@ -48,14 +48,14 @@ template <typename T, typename ParamsReader>
 struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
   const LinearSVMTestParams params;
   const raft::handle_t handle;
-  rmm::cuda_stream_view stream;
+  cudaStream_t stream;
 
   LinearSVMTest()
     : testing::TestWithParam<typename ParamsReader::Params>(),
       params(
         ParamsReader::read(::testing::TestWithParam<typename ParamsReader::Params>::GetParam())),
-      handle(8),
-      stream(handle.get_stream_view())
+      handle(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(8)),
+      stream(handle.get_stream())
   {
   }
 
