@@ -46,8 +46,8 @@ if(BUILD_CUML_BENCH)
       benchmark::benchmark
       ${TREELITE_LIBS}
       raft::raft
-      raft::raft_nn
-      raft::raft_distance
+      raft::nn
+      raft::distance
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
@@ -88,8 +88,8 @@ if(BUILD_CUML_PRIMS_BENCH)
       benchmark::benchmark
       ${TREELITE_LIBS}
       raft::raft
-      raft::raft_nn
-      raft::raft_distance
+      raft::nn
+      raft::distance
   )
 
   target_include_directories(${PRIMS_BENCH_TARGET}

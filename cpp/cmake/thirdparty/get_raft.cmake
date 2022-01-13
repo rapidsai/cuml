@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@
 
 function(find_and_configure_raft)
 
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_FAISS_STATIC)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    set(RAFT_FIND_PACKAGE_ARGUMENTS "")
-    if(LINK_FAISS)
-        set(RAFT_FIND_PACKAGE_ARGUMENTS "COMPONENTS faiss")
+    string(APPEND RAFT_COMPONENTS "distance")
+    if(PKG_USE_RAFT_NN)
+        string(APPEND RAFT_COMPONENTS " nn")
     endif()
+
+    message("CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
@@ -33,10 +35,10 @@ function(find_and_configure_raft)
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
-            FIND_PACKAGE_ARGUMENTS ${RAFT_FIND_PACKAGE_ARGUMENTS}
+            FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
-              "RAFT_USE_FAISS_STATIC ${USE_FAISS_STATIC}"
+              "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
               "NVTX ${NVTX}"
     )
 
@@ -57,7 +59,8 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         # FORK       rapidsai
                         # PINNED_TAG branch-${CUML_BRANCH_VERSION_raft}
-                        FORK       trxcllnt
-                        PINNED_TAG fix/build-shared-faiss
+                        FORK             robertmaynard
+                        PINNED_TAG       refactor_cmake_raft_target_logic
+                        USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )

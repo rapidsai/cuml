@@ -57,7 +57,6 @@ option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
-option(DISABLE_FORCE_CLONE_RAFT "By default, CPM will clone RAFT even if it's already in the environment. Set to disable that behavior." OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
@@ -155,12 +154,12 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
 endif()
 
 if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
-  set(LINK_FAISS ON)
+  set(CUML_USE_RAFT_NN ON)
 elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
   set(SINGLEGPU ON)
   set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_EXAMPLES OFF)
-  set(LINK_FAISS OFF)
+  set(CUML_USE_RAFT_NN OFF)
 endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
@@ -380,13 +379,12 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
       raft::raft
-      raft::raft_nn
-      raft::raft_distance
+      raft::nn
+      raft::distance
     PRIVATE
       CUDA::cufft
       ${TREELITE_LIBS}
       GPUTreeShap::GPUTreeShap
-      $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
@@ -431,8 +429,6 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
-    PRIVATE
-      faiss::faiss
   )
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
