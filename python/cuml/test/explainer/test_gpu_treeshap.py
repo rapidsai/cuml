@@ -59,9 +59,9 @@ def test_xgb_regressor(objective):
 
     ref_explainer = shap.TreeExplainer(model=xgb_model)
     correct_out = ref_explainer.shap_values(X)
-    np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value)
+                                   ref_explainer.expected_value, decimal=5)
 
 
 @pytest.mark.parametrize('objective,n_classes',
@@ -102,9 +102,9 @@ def test_xgb_classifier(objective, n_classes):
 
     ref_explainer = shap.TreeExplainer(model=xgb_model)
     correct_out = ref_explainer.shap_values(X)
-    np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value)
+                                   ref_explainer.expected_value, decimal=5)
 
 
 def test_degenerate_cases():
