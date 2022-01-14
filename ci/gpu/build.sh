@@ -64,7 +64,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "rapids-doc-env=${MINOR_VERSION}.*" \
       "shap>=0.37,<=0.39"
 
-gpuci_mamba_retry remove -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_conda_retry remove -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       --force rapids-build-env rapids-notebook-env
 gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       treelite=2.2.0
