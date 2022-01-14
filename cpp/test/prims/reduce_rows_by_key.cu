@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <linalg/reduce_rows_by_key.cuh>
-#include <raft/handle.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,24 +21,24 @@
 #include <numeric>
 #include <vector>
 
+#include <cache/cache_util.cuh>
+#include <cub/cub.cuh>
+#include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
-#include <cache/cache_util.cuh>
-#include <cub/cub.cuh>
-#include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <rmm/device_scalar.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace Solver {
@@ -863,13 +863,13 @@ void larsFit(const raft::handle_t& handle,
              idx_t* active_idx,
              math_t* alphas,
              idx_t* n_active,
-             math_t* Gram,
-             int max_iter,
-             math_t* coef_path,
-             int verbosity,
-             idx_t ld_X,
-             idx_t ld_G,
-             math_t eps)
+             math_t* Gram      = nullptr,
+             int max_iter      = 500,
+             math_t* coef_path = nullptr,
+             int verbosity     = 0,
+             idx_t ld_X        = 0,
+             idx_t ld_G        = 0,
+             math_t eps        = -1)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");

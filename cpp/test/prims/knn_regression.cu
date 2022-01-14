@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include <iostream>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
-#include "test_utils.h"
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>

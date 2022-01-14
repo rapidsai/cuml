@@ -18,15 +18,13 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
+#include "test_utils.h"
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
 #include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.h>
 #include <random/make_regression.cuh>
-#include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Random {

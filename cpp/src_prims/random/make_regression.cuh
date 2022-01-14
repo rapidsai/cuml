@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,18 +22,18 @@
 
 #include <algorithm>
 
+#include "permute.cuh"
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/qr.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "permute.cuh"
 
 namespace MLCommon {
 namespace Random {

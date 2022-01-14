@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
-#include <cuml/cluster/hdbscan.hpp>
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
+#include <cuml/cluster/hdbscan.hpp>
 
 namespace ML {
 namespace HDBSCAN {
