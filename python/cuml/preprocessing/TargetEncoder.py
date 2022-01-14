@@ -129,7 +129,11 @@ class TargetEncoder:
            not be unique
         y : cudf.Series or cupy.ndarray
             Series containing the target variable.
-
+        fold_ids: cudf.Series or cupy.ndarray
+            Series containing the indices of the customized
+            folds. Its values should be integers in range
+            `[0, N-1]` to split data into `N` folds. If None,
+            fold_ids is generated based on `split_method`.
         Returns
         -------
         self : TargetEncoder
@@ -160,6 +164,25 @@ class TargetEncoder:
 
         This is functionally equivalent to (but faster than)
         `TargetEncoder().fit(y).transform(y)`
+
+        Parameters
+        ----------
+        x: cudf.Series or cudf.DataFrame or cupy.ndarray
+           categories to be encoded. It's elements may or may
+           not be unique
+        y : cudf.Series or cupy.ndarray
+            Series containing the target variable.
+        fold_ids: cudf.Series or cupy.ndarray
+            Series containing the indices of the customized
+            folds. Its values should be integers in range
+            `[0, N-1]` to split data into `N` folds. If None,
+            fold_ids is generated based on `split_method`.
+
+        Returns
+        -------
+        encoded : cupy.ndarray
+            The ordinally encoded input series
+
         """
         self.fit(x, y, fold_ids=fold_ids)
         return self.train_encode
