@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <stats/minmax.cuh>
-#include "test_utils.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Stats {

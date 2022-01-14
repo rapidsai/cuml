@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft/linalg/distance_type.h>
-#include <raft/sparse/hierarchy/common.h>
+#include "benchmark.cuh"
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/linalg/distance_type.h>
+#include <raft/sparse/hierarchy/common.h>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {

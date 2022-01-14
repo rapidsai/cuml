@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,21 @@
 
 #include <umap/runner.cuh>
 
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/metrics/metrics.hpp>
+#include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuml/datasets/make_blobs.hpp>
-#include <cuml/manifold/umap.hpp>
-#include <cuml/metrics/metrics.hpp>
-#include <cuml/neighbors/knn.hpp>
 
 #include <datasets/digits.h>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>

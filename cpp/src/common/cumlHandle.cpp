@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #include "cumlHandle.hpp"
 
+#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <cuml/common/logger.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
 namespace ML {
 
