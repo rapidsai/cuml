@@ -203,6 +203,10 @@ if(ENABLE_CUMLPRIMS_MG)
   include(cmake/thirdparty/get_cumlprims_mg.cmake)
 endif()
 
+if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+  include(cmake/thirdparty/get_gtest.cmake)
+endif()
+
 if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   include(cmake/thirdparty/get_gbench.cmake)
 endif()
