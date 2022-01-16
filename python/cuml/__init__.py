@@ -45,6 +45,8 @@ from cuml.fil import fil
 from cuml.internals.global_settings import (
     GlobalSettings, _global_settings_data)
 
+from cuml.kernel_ridge.kernel_ridge import KernelRidge
+
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
