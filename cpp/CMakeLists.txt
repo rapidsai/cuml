@@ -518,7 +518,7 @@ endif()
 
 rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
-    GLOBAL_TARGETS cuml
+    GLOBAL_TARGETS ${CUML_C_TARGET} ${CUML_CPP_TARGET}
     NAMESPACE cuml::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -529,7 +529,7 @@ rapids_export(INSTALL cuml
 
 rapids_export(BUILD cuml
     EXPORT_SET cuml-exports
-    GLOBAL_TARGETS cuml
+    GLOBAL_TARGETS ${CUML_C_TARGET} ${CUML_CPP_TARGET}
     NAMESPACE cuml::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
