@@ -27,12 +27,12 @@ __global__ void computeQuantilesBatchSorted(
   auto* feature_quantiles = (T*)smem;
   __shared__ int n_unique_bins;
   int col          = blockIdx.x;  // each col per block
-  int base    = col * n_rows;
+  int base         = col * n_rows;
   double bin_width = static_cast<double>(n_rows) / n_bins;
 
   for (int bin = threadIdx.x; bin < n_bins; bin += blockDim.x) {
-    int offset         = int(round((bin + 1) * bin_width)) - 1;
-    offset             = min(max(0, offset), n_rows - 1);
+    int offset             = int(round((bin + 1) * bin_width)) - 1;
+    offset                 = min(max(0, offset), n_rows - 1);
     feature_quantiles[bin] = sorted_data[base + offset];
   }
 

@@ -234,7 +234,7 @@ class DecisionTree {
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    const Quantiles<DataT, int> &quantiles,
+    const Quantiles<DataT, int>& quantiles,
     int treeid)
   {
     if (params.split_criterion ==
@@ -286,7 +286,7 @@ class DecisionTree {
                                                                 ncols,
                                                                 rowids,
                                                                 unique_labels,
-                                                                    quantiles)
+                                                                quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::POISSON) {

@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <omp.h>
 #include <cub/cub.cuh>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <omp.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
@@ -40,12 +40,18 @@ __global__ void computeQuantilesBatchSorted(
   T* quantiles, int* useful_nbins, const T* sorted_data, const int n_bins, const int length);
 
 template <typename T>
-void computeQuantiles(
-  Quantiles<T, int>& quantiles, int n_bins, const T* data, int n_rows, int n_cols, int n_streams, const raft::handle_t& handle)
+void computeQuantiles(Quantiles<T, int>& quantiles,
+                      int n_bins,
+                      const T* data,
+                      int n_rows,
+                      int n_cols,
+                      int n_streams,
+                      const raft::handle_t& handle)
 {
   raft::common::nvtx::push_range("computeQuantiles");
-  // auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
-  // auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
+  // auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols,
+  // handle.get_stream()); auto n_uniquebins_array =
+  // std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
 
   int prllsm = n_streams;  // the parallism to be used stream-wise and omp-thread-wise
   size_t temp_storage_bytes = 0;
@@ -91,7 +97,11 @@ void computeQuantiles(
   size_t smemsize = n_bins * sizeof(T);
   raft::common::nvtx::push_range("computeQuantilesBatchSorted @quantile.cuh");
   computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
-    quantiles.quantiles_array, quantiles.n_uniquebins_array, all_column_sorted.data(), n_bins, n_rows);
+    quantiles.quantiles_array,
+    quantiles.n_uniquebins_array,
+    all_column_sorted.data(),
+    n_bins,
+    n_rows);
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   CUDA_CHECK(cudaGetLastError());
   raft::common::nvtx::pop_range();  // computeQuatilesBatchSorted

@@ -22,13 +22,12 @@ namespace DT {
 template <typename DataT, typename IdxT>
 struct Quantiles {
   /** quantiles/histogram computed on the dataset (col-major) */
-//   std::shared_ptr<rmm::device_uvector<DataT>> quantiles_array;
-DataT* quantiles_array;
+  //   std::shared_ptr<rmm::device_uvector<DataT>> quantiles_array;
+  DataT* quantiles_array;
   /** quantile offsets */
-//   std::shared_ptr<rmm::device_uvector<IdxT>> n_uniquebins_array;
-IdxT* n_uniquebins_array;
+  //   std::shared_ptr<rmm::device_uvector<IdxT>> n_uniquebins_array;
+  IdxT* n_uniquebins_array;
 };
-
 
 }  // namespace DT
 }  // namespace ML

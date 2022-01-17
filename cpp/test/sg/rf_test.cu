@@ -545,23 +545,21 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // allocating memory for quantile structure storing device pointers
-    auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(
-      params.n_bins * 1, handle.get_stream());
-    auto n_uniquebins_array =
-      std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
+    auto quantiles_array =
+      std::make_shared<rmm::device_uvector<T>>(params.n_bins * 1, handle.get_stream());
+    auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
     // creating quantile structure storing device pointers
     DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
     // computing the quantiles
-    DT::computeQuantiles(
-      quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+    DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
 
     raft::update_host(
       h_quantiles.data(), quantiles.quantiles_array, params.n_bins, handle.get_stream());
 
     int n_uniquebins;
     raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());
-    if(n_uniquebins < params.n_bins) {
-      return; // almost impossible that this happens, skip if so
+    if (n_uniquebins < params.n_bins) {
+      return;  // almost impossible that this happens, skip if so
     }
 
     h_data = data;
@@ -596,20 +594,18 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // allocating memory for quantile structure storing device pointers
-    auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(
-      params.n_bins * 1, handle.get_stream());
-    auto n_uniquebins_array =
-      std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
+    auto quantiles_array =
+      std::make_shared<rmm::device_uvector<T>>(params.n_bins * 1, handle.get_stream());
+    auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
     // creating quantile structure storing device pointers
     DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
     // computing the quantiles
-    DT::computeQuantiles(
-      quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+    DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
 
     int n_uniquebins;
     raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());
-    if(n_uniquebins < params.n_bins) {
-      return; // almost impossible that this happens, skip if so
+    if (n_uniquebins < params.n_bins) {
+      return;  // almost impossible that this happens, skip if so
     }
 
     auto d_quantiles = quantiles.quantiles_array;

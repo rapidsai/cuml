@@ -153,8 +153,7 @@ class RandomForest {
       quantiles, this->rf_params.tree_params.n_bins, input, n_rows, n_cols, n_streams, handle);
 
     // n_streams should not be less than n_trees
-    if (this->rf_params.n_trees < n_streams)
-      n_streams = this->rf_params.n_trees;
+    if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;
 
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device

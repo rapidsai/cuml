@@ -20,8 +20,8 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "quantiles.cuh"
 #include "kernels/builder_kernels.cuh"
+#include "quantiles.cuh"
 
 #include <common/Timer.h>
 #include <cuml/common/pinned_host_vector.hpp>
@@ -217,7 +217,8 @@ struct Builder {
       d_buff(0, builder_stream)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
-    ASSERT(q.quantiles_array != nullptr, "Currently quantiles need to be computed before this call!");
+    ASSERT(q.quantiles_array != nullptr,
+           "Currently quantiles need to be computed before this call!");
     ASSERT(nclasses >= 1, "nclasses should be at least 1");
 
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
