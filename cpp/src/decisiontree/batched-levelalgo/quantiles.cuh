@@ -30,6 +30,8 @@
 
 #include <raft/common/nvtx.hpp>
 
+#include "quantiles.h"
+
 namespace ML {
 namespace DT {
 
@@ -38,12 +40,12 @@ __global__ void computeQuantilesBatchSorted(
   T* quantiles, int* useful_nbins, const T* sorted_data, const int n_bins, const int length);
 
 template <typename T>
-auto computeQuantiles(
-  int n_bins, const T* data, int n_rows, int n_cols, int n_streams, const raft::handle_t& handle)
+void computeQuantiles(
+  Quantiles<T, int>& quantiles, int n_bins, const T* data, int n_rows, int n_cols, int n_streams, const raft::handle_t& handle)
 {
   raft::common::nvtx::push_range("computeQuantiles");
-  auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
-  auto useful_nbins = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
+  // auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
+  // auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
 
   int prllsm = n_streams;  // the parallism to be used stream-wise and omp-thread-wise
   size_t temp_storage_bytes = 0;
@@ -89,11 +91,14 @@ auto computeQuantiles(
   size_t smemsize = n_bins * sizeof(T);
   raft::common::nvtx::push_range("computeQuantilesBatchSorted @quantile.cuh");
   computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
-    quantiles->data(), useful_nbins->data(), all_column_sorted.data(), n_bins, n_rows);
+    quantiles.quantiles_array, quantiles.n_uniquebins_array, all_column_sorted.data(), n_bins, n_rows);
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   CUDA_CHECK(cudaGetLastError());
   raft::common::nvtx::pop_range();  // computeQuatilesBatchSorted
   raft::common::nvtx::pop_range();  // computeQuantiles
-  return std::make_pair(quantiles, useful_nbins);
+  // Quantiles<T, int> q = {quantiles_array, n_uniquebins_array};
+  // return q;
+  // return {quantiles_array->data(), n_uniquebins_array->data()};
 }
 
 }  // namespace DT

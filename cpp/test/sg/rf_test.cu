@@ -541,11 +541,29 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     thrust::host_vector<T> h_quantiles(params.n_bins);
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
-    raft::handle_t handle;
-    auto [quantiles, useful_nbins] =
-      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+    // allocating memory for quantile structure storing device pointers
+    auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(
+      params.n_bins * 1, handle.get_stream());
+    auto n_uniquebins_array =
+      std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
+    // creating quantile structure storing device pointers
+    DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
+    // computing the quantiles
+    DT::computeQuantiles(
+      quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+
     raft::update_host(
-      h_quantiles.data(), quantiles->data(), quantiles->size(), handle.get_stream());
+      h_quantiles.data(), quantiles.quantiles_array, params.n_bins, handle.get_stream());
+
+    int n_uniquebins;
+    raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());
+    if(n_uniquebins < params.n_bins) {
+      return; // almost impossible that this happens, skip if so
+    }
+
     h_data = data;
     for (std::size_t i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
@@ -574,12 +592,29 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
 
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
-    raft::handle_t handle;
-    auto [quantiles, useful_nbins] =
-      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
-    auto d_quantiles = quantiles->data();
+    // allocating memory for quantile structure storing device pointers
+    auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(
+      params.n_bins * 1, handle.get_stream());
+    auto n_uniquebins_array =
+      std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
+    // creating quantile structure storing device pointers
+    DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
+    // computing the quantiles
+    DT::computeQuantiles(
+      quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+
+    int n_uniquebins;
+    raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());
+    if(n_uniquebins < params.n_bins) {
+      return; // almost impossible that this happens, skip if so
+    }
+
+    auto d_quantiles = quantiles.quantiles_array;
     auto d_histogram = histogram.data().get();
+
     thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
       for (int j = 0; j < params.n_bins; j++) {
         if (x <= d_quantiles[j]) {

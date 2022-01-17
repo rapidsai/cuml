@@ -20,7 +20,9 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include "quantiles.cuh"
 #include "kernels/builder_kernels.cuh"
+
 #include <common/Timer.h>
 #include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/flatnode.h>
@@ -143,6 +145,7 @@ struct Builder {
   typedef SparseTreeNode<DataT, LabelT, IdxT> NodeT;
   typedef Split<DataT, IdxT> SplitT;
   typedef Input<DataT, LabelT, IdxT> InputT;
+  typedef Quantiles<DataT, IdxT> QuantilesT;
 
   /** default threads per block for most kernels in here */
   static constexpr int TPB_DEFAULT = 128;
@@ -152,7 +155,8 @@ struct Builder {
   DecisionTreeParams params;
   /** input dataset */
   InputT input;
-
+  /** quantiles */
+  QuantilesT quantiles;
   /** Tree index */
   IdxT treeid;
   /** Seed used for randomization */
@@ -195,8 +199,7 @@ struct Builder {
           IdxT totalCols,
           rmm::device_uvector<IdxT>* rowids,
           IdxT nclasses,
-          std::shared_ptr<const rmm::device_uvector<DataT>> quantiles,
-          std::shared_ptr<const rmm::device_uvector<int>> useful_nbins)
+          const QuantilesT& q)
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
@@ -209,13 +212,12 @@ struct Builder {
             int(rowids->size()),
             max(1, IdxT(params.max_features * totalCols)),
             rowids->data(),
-            nclasses,
-            quantiles->data(),
-            useful_nbins->data()},
+            nclasses},
+      quantiles(q),
       d_buff(0, builder_stream)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
-    ASSERT(quantiles != nullptr, "Currently quantiles need to be computed before this call!");
+    ASSERT(q.quantiles_array != nullptr, "Currently quantiles need to be computed before this call!");
     ASSERT(nclasses >= 1, "nclasses should be at least 1");
 
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
@@ -424,6 +426,7 @@ struct Builder {
                                                         params.min_samples_split,
                                                         params.max_leaves,
                                                         input,
+                                                        quantiles,
                                                         d_work_items,
                                                         col,
                                                         done_count,

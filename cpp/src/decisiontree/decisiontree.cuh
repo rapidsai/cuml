@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
 
@@ -233,8 +234,7 @@ class DecisionTree {
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
-    std::shared_ptr<rmm::device_uvector<int>> useful_nbins,
+    const Quantiles<DataT, int> &quantiles,
     int treeid)
   {
     if (params.split_criterion ==
@@ -257,8 +257,7 @@ class DecisionTree {
                                                                  ncols,
                                                                  rowids,
                                                                  unique_labels,
-                                                                 quantiles,
-                                                                 useful_nbins)
+                                                                 quantiles)
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::ENTROPY) {
@@ -273,8 +272,7 @@ class DecisionTree {
                                                                     ncols,
                                                                     rowids,
                                                                     unique_labels,
-                                                                    quantiles,
-                                                                    useful_nbins)
+                                                                    quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -288,8 +286,7 @@ class DecisionTree {
                                                                 ncols,
                                                                 rowids,
                                                                 unique_labels,
-                                                                quantiles,
-                                                                useful_nbins)
+                                                                    quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::POISSON) {
@@ -304,8 +301,7 @@ class DecisionTree {
                                                                     ncols,
                                                                     rowids,
                                                                     unique_labels,
-                                                                    quantiles,
-                                                                    useful_nbins)
+                                                                    quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -319,8 +315,7 @@ class DecisionTree {
                                                                   ncols,
                                                                   rowids,
                                                                   unique_labels,
-                                                                  quantiles,
-                                                                  useful_nbins)
+                                                                  quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
@@ -335,8 +330,7 @@ class DecisionTree {
                                                                             ncols,
                                                                             rowids,
                                                                             unique_labels,
-                                                                            quantiles,
-                                                                            useful_nbins)
+                                                                            quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

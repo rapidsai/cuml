@@ -141,11 +141,20 @@ class RandomForest {
            n_streams,
            handle.get_stream_pool_size());
 
-    auto [quantiles, useful_nbins] = DT::computeQuantiles(
-      this->rf_params.tree_params.n_bins, input, n_rows, n_cols, n_streams, handle);
+    // allocating memory for quantile structure storing device pointers
+    auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(
+      this->rf_params.tree_params.n_bins * n_cols, handle.get_stream());
+    auto n_uniquebins_array =
+      std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
+    // creating quantile structure storing device pointers
+    DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
+    // computing the quantiles
+    DT::computeQuantiles(
+      quantiles, this->rf_params.tree_params.n_bins, input, n_rows, n_cols, n_streams, handle);
 
+    // n_streams should not be less than n_trees
     if (this->rf_params.n_trees < n_streams)
-      n_streams = this->rf_params.n_trees;  // n_streams should not be less than n_trees
+      n_streams = this->rf_params.n_trees;
 
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
@@ -184,7 +193,6 @@ class RandomForest {
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
                                                quantiles,
-                                               useful_nbins,
                                                i);
     }
     // Cleanup

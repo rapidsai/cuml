@@ -19,25 +19,16 @@
 namespace ML {
 namespace DT {
 
-template <typename DataT, typename LabelT, typename IdxT>
-struct Input {
-  /** input dataset (assumed to be col-major) */
-  const DataT* data;
-  /** input labels */
-  const LabelT* labels;
-  /** total rows in dataset */
-  IdxT M;
-  /** total cols in dataset */
-  IdxT N;
-  /** total sampled rows in dataset */
-  IdxT nSampledRows;
-  /** total sampled cols in dataset */
-  IdxT nSampledCols;
-  /** indices of sampled rows */
-  IdxT* rowids;
-  /** Number of classes or regression outputs*/
-  IdxT numOutputs;
+template <typename DataT, typename IdxT>
+struct Quantiles {
+  /** quantiles/histogram computed on the dataset (col-major) */
+//   std::shared_ptr<rmm::device_uvector<DataT>> quantiles_array;
+DataT* quantiles_array;
+  /** quantile offsets */
+//   std::shared_ptr<rmm::device_uvector<IdxT>> n_uniquebins_array;
+IdxT* n_uniquebins_array;
 };
+
 
 }  // namespace DT
 }  // namespace ML

@@ -230,6 +230,7 @@ __global__ void computeSplitKernel(BinT* hist,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
                                    const Input<DataT, LabelT, IdxT> input,
+                                   const Quantiles<DataT, IdxT> quantiles,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
                                    int* done_count,
@@ -262,7 +263,7 @@ __global__ void computeSplitKernel(BinT* hist,
   }
 
   // getting the n_bins for that feature
-  int nbins = input.useful_nbins[col];
+  int nbins = quantiles.n_uniquebins_array[col];
 
   auto end                       = range_start + range_len;
   auto shared_histogram_len      = nbins * objective.NumClasses();
@@ -278,7 +279,7 @@ __global__ void computeSplitKernel(BinT* hist,
     shared_histogram[i] = BinT();
   for (IdxT b = threadIdx.x; b < max_nbins; b += blockDim.x) {
     if (b >= nbins) break;
-    sbins[b] = input.quantiles[max_nbins * col + b];
+    sbins[b] = quantiles.quantiles_array[max_nbins * col + b];
   }
 
   // synchronizing above changes across block
@@ -371,6 +372,7 @@ computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   _IdxT min_samples_split,
   _IdxT max_leaves,
   const Input<_DataT, _LabelT, _IdxT> input,
+  const Quantiles<_DataT, _IdxT> quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,
   int* done_count,

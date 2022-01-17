@@ -25,28 +25,27 @@ __global__ void computeQuantilesBatchSorted(
 {
   extern __shared__ char smem[];
   auto* feature_quantiles = (T*)smem;
-  __shared__ int unq_nbins;
+  __shared__ int n_unique_bins;
   int col          = blockIdx.x;  // each col per block
-  int data_base    = col * n_rows;
+  int base    = col * n_rows;
   double bin_width = static_cast<double>(n_rows) / n_bins;
 
   for (int bin = threadIdx.x; bin < n_bins; bin += blockDim.x) {
-    int data_offst         = int(round((bin + 1) * bin_width)) - 1;
-    data_offst             = min(max(0, data_offst), n_rows - 1);
-    feature_quantiles[bin] = sorted_data[data_base + data_offst];
+    int offset         = int(round((bin + 1) * bin_width)) - 1;
+    offset             = min(max(0, offset), n_rows - 1);
+    feature_quantiles[bin] = sorted_data[base + offset];
   }
 
   __syncthreads();
 
   if (threadIdx.x == 0) {
     auto new_last = thrust::unique(thrust::device, feature_quantiles, feature_quantiles + n_bins);
-    useful_nbins[blockIdx.x] = unq_nbins = new_last - feature_quantiles;
+    useful_nbins[blockIdx.x] = n_unique_bins = new_last - feature_quantiles;
   }
 
   __syncthreads();
 
-  for (int bin = threadIdx.x; bin < n_bins; bin += blockDim.x) {
-    if (bin >= unq_nbins) break;
+  for (int bin = threadIdx.x; bin < n_unique_bins; bin += blockDim.x) {
     quantiles[col * n_bins + bin] = feature_quantiles[bin];
   }
 

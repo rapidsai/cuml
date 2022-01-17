@@ -18,6 +18,7 @@
 
 #include "../bins.cuh"
 #include "../objectives.cuh"
+#include "../quantiles.h"
 
 namespace ML {
 namespace DT {
@@ -121,6 +122,7 @@ __global__ void computeSplitKernel(BinT* hist,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
                                    const Input<DataT, LabelT, IdxT> input,
+                                   const Quantiles<DataT, IdxT> quantiles,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
                                    int* done_count,
