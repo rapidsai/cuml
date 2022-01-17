@@ -85,6 +85,11 @@ struct RegularizedGLM : GLMDims {
 
     lossVal.fill(loss_host + reg_host, stream);
   }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return loss->gradNorm(grad, dev_scalar, stream);
+  }
 };
 };  // namespace GLM
 };  // namespace ML

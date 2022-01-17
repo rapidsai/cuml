@@ -188,6 +188,11 @@ struct Softmax : GLMBase<T, Softmax<T>> {
   {
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return nrmMax(grad, dev_scalar, stream);
+  }
 };
 
 };  // namespace GLM

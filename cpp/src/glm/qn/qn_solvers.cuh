@@ -75,6 +75,7 @@ inline bool update_and_check(const char* solver,
                              LINE_SEARCH_RETCODE lsret,
                              T& fx,
                              T& fxp,
+                             const T& gnorm,
                              ML::SimpleVec<T>& x,
                              ML::SimpleVec<T>& xp,
                              ML::SimpleVec<T>& grad,
@@ -100,8 +101,7 @@ inline bool update_and_check(const char* solver,
   CUML_LOG_TRACE("%s iteration %d, fx=%f", solver, iter, fx);
 
   // if the target is at least finite, we can check the convergence
-  if (isLsValid)
-    converged = check_convergence(param, iter, fx, x, grad, fx_hist, dev_scalar, stream);
+  if (isLsValid) converged = check_convergence(param, iter, fx, gnorm, fx_hist);
 
   if (!isLsSuccess && !converged) {
     CUML_LOG_WARN(
@@ -179,12 +179,13 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
   CUML_LOG_DEBUG("Running L-BFGS");
 
   // Evaluate function and compute gradient
-  fx = f(x, grad, dev_scalar, stream);
+  fx      = f(x, grad, dev_scalar, stream);
+  T gnorm = f.gradNorm(grad, dev_scalar, stream);
 
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
+  if (check_convergence(param, *k, fx, gnorm, fx_hist)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
@@ -209,6 +210,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
 
     // Line search to update x, fx and gradient
     lsret = ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
+    gnorm = f.gradNorm(grad, dev_scalar, stream);
 
     if (update_and_check("L-BFGS",
                          param,
@@ -216,6 +218,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
                          lsret,
                          fx,
                          fxp,
+                         gnorm,
                          x,
                          xp,
                          grad,
@@ -321,8 +324,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
   // op to compute the pseudo gradients
   op_pseudo_grad<T> pseudo_grad(l1_penalty);
 
-  fx = f_wrap(x, grad, dev_scalar,
+  fx      = f_wrap(x, grad, dev_scalar,
               stream);  // fx is loss+regularizer, grad is grad of loss only
+  T gnorm = f.gradNorm(grad, dev_scalar, stream);
 
   // compute pseudo grad, but don't overwrite grad: used to build H
   // pseudo.assign_binary(x, grad, pseudo_grad);
@@ -331,7 +335,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
+  if (check_convergence(param, *k, fx, gnorm, fx_hist)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
@@ -358,6 +362,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
     // Projected line search to update x, fx and gradient
     lsret = ls_backtrack_projected(
       param, f_wrap, fx, x, grad, pseudo, step, drt, xp, l1_penalty, dev_scalar, stream);
+    gnorm = f.gradNorm(grad, dev_scalar, stream);
 
     if (update_and_check("QWL-QN",
                          param,
@@ -365,6 +370,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
                          lsret,
                          fx,
                          fxp,
+                         gnorm,
                          x,
                          xp,
                          grad,

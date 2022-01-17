@@ -57,6 +57,11 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
     : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
   }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return nrmMax(grad, dev_scalar, stream);
+  }
 };
 };  // namespace GLM
 };  // namespace ML
