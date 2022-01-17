@@ -49,9 +49,6 @@ void computeQuantiles(Quantiles<T, int>& quantiles,
                       const raft::handle_t& handle)
 {
   raft::common::nvtx::push_range("computeQuantiles");
-  // auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols,
-  // handle.get_stream()); auto n_uniquebins_array =
-  // std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
 
   int prllsm = n_streams;  // the parallism to be used stream-wise and omp-thread-wise
   size_t temp_storage_bytes = 0;
@@ -69,9 +66,6 @@ void computeQuantiles(Quantiles<T, int>& quantiles,
                                             handle.get_stream()));
   // allocate total memory needed for parallelized sorting
   rmm::device_uvector<char> d_temp_storage(prllsm * temp_storage_bytes, handle.get_stream());
-  // handle for sorting across multiple streams
-  // auto sorting_handle =
-  //   raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
 #pragma omp parallel for num_threads(prllsm)
   for (int parcol = 0; parcol < n_cols; parcol++) {
     int thread_id  = omp_get_thread_num();
@@ -106,9 +100,6 @@ void computeQuantiles(Quantiles<T, int>& quantiles,
   CUDA_CHECK(cudaGetLastError());
   raft::common::nvtx::pop_range();  // computeQuatilesBatchSorted
   raft::common::nvtx::pop_range();  // computeQuantiles
-  // Quantiles<T, int> q = {quantiles_array, n_uniquebins_array};
-  // return q;
-  // return {quantiles_array->data(), n_uniquebins_array->data()};
 }
 
 }  // namespace DT
