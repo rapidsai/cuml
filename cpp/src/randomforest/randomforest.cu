@@ -602,7 +602,6 @@ RF_params set_rf_params(int max_depth,
   rf_params.max_samples = max_samples;
   rf_params.seed        = seed;
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
-  if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
   rf_params.tree_params = tree_params;
   validity_check(rf_params);
   return rf_params;

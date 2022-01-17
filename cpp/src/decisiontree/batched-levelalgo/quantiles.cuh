@@ -41,13 +41,13 @@ __global__ void computeQuantilesBatchSorted(
 
 template <typename T>
 auto computeQuantiles(
-  int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
+  int n_bins, const T* data, int n_rows, int n_cols, int n_streams, const raft::handle_t& handle)
 {
   raft::common::nvtx::push_range("computeQuantiles");
   auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
   auto useful_nbins = std::make_shared<rmm::device_uvector<int>>(n_cols, handle.get_stream());
 
-  int prllsm                = 2;  // the parallism to be used stream-wise and omp-thread-wise
+  int prllsm = n_streams;  // the parallism to be used stream-wise and omp-thread-wise
   size_t temp_storage_bytes = 0;
   rmm::device_uvector<T> all_column_sorted(n_cols * n_rows, handle.get_stream());
 
@@ -64,12 +64,12 @@ auto computeQuantiles(
   // allocate total memory needed for parallelized sorting
   rmm::device_uvector<char> d_temp_storage(prllsm * temp_storage_bytes, handle.get_stream());
   // handle for sorting across multiple streams
-  auto sorting_handle =
-    raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
+  // auto sorting_handle =
+  //   raft::handle_t(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(prllsm));
 #pragma omp parallel for num_threads(prllsm)
   for (int parcol = 0; parcol < n_cols; parcol++) {
     int thread_id  = omp_get_thread_num();
-    auto s         = sorting_handle.get_stream_from_stream_pool(thread_id);
+    auto s         = handle.get_stream_from_stream_pool(thread_id);
     int col_offset = parcol * n_rows;
     CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
       (void*)(d_temp_storage.data() + temp_storage_bytes * thread_id),
@@ -82,6 +82,8 @@ auto computeQuantiles(
       s));
     s.synchronize();
   }
+  handle.sync_stream_pool();
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   raft::common::nvtx::pop_range();  // sorting columns
 
   // do the quantile computation parallelizing across cols too across CTAs
