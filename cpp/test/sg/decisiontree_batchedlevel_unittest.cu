@@ -46,7 +46,7 @@ class BatchedLevelAlgoUnitTestFixture {
   using IdxT       = int;
   using NodeT      = Node<DataT, LabelT, IdxT>;
   using SplitT     = Split<DataT, IdxT>;
-  using InputT     = Input<DataT, LabelT, IdxT>;
+  using DatasetT   = Dataset<DataT, LabelT, IdxT>;
   using ObjectiveT = MSEObjectiveFunction<DataT, LabelT, IdxT>;
 
   const int n_bins                 = 5;
@@ -134,7 +134,7 @@ class BatchedLevelAlgoUnitTestFixture {
 
   std::unique_ptr<raft::handle_t> raft_handle;
   cudaStream_t stream = 0;
-  InputT input;
+  DatasetT input;
 
   std::vector<DataT> h_data;
   std::vector<LabelT> h_labels;

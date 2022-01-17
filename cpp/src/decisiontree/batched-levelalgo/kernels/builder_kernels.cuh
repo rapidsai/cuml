@@ -24,7 +24,7 @@ namespace ML {
 namespace DT {
 
 // The range of instances belonging to a particular node
-// This structure refers to a range in the device array input.rowids
+// This structure refers to a range in the device array dataset.rowids
 struct InstanceRange {
   std::size_t begin;
   std::size_t count;
@@ -66,13 +66,13 @@ __global__ void nodeSplitKernel(IdxT max_depth,
                                 IdxT min_samples_split,
                                 IdxT max_leaves,
                                 DataT min_impurity_decrease,
-                                Input<DataT, LabelT, IdxT> input,
+                                Dataset<DataT, LabelT, IdxT> dataset,
                                 NodeWorkItem* work_items,
                                 const Split<DataT, IdxT>* splits);
 
-template <typename InputT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 __global__ void leafKernel(ObjectiveT objective,
-                           InputT input,
+                           DatasetT dataset,
                            const NodeT* tree,
                            const InstanceRange* instance_ranges,
                            DataT* leaves);
@@ -121,7 +121,7 @@ __global__ void computeSplitKernel(BinT* hist,
                                    IdxT max_depth,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
-                                   const Input<DataT, LabelT, IdxT> input,
+                                   const Dataset<DataT, LabelT, IdxT> dataset,
                                    const Quantiles<DataT, IdxT> quantiles,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,

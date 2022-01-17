@@ -37,21 +37,21 @@ static constexpr int TPB_DEFAULT = 128;
  *       'smem' should be atleast of size `sizeof(IdxT) * TPB * 2`
  */
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
+DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
                          const Split<DataT, IdxT>& split,
                          const NodeWorkItem& work_item,
                          char* smem)
 {
   typedef cub::BlockScan<int, TPB> BlockScanT;
   __shared__ typename BlockScanT::TempStorage temp1, temp2;
-  volatile auto* rowids = reinterpret_cast<volatile IdxT*>(input.rowids);
+  volatile auto* rowids = reinterpret_cast<volatile IdxT*>(dataset.rowids);
   // for compaction
   size_t smemSize  = sizeof(IdxT) * TPB;
   auto* lcomp      = reinterpret_cast<IdxT*>(smem);
   auto* rcomp      = reinterpret_cast<IdxT*>(smem + smemSize);
   auto range_start = work_item.instances.begin;
   auto range_len   = work_item.instances.count;
-  auto* col        = input.data + split.colid * input.M;
+  auto* col        = dataset.data + split.colid * dataset.M;
   auto loffset = range_start, part = loffset + split.nLeft, roffset = part;
   auto end  = range_start + range_len;
   int lflag = 0, rflag = 0, llen = 0, rlen = 0, minlen = 0;
@@ -91,7 +91,7 @@ __global__ void nodeSplitKernel(IdxT max_depth,
                                 IdxT min_samples_split,
                                 IdxT max_leaves,
                                 DataT min_impurity_decrease,
-                                Input<DataT, LabelT, IdxT> input,
+                                Dataset<DataT, LabelT, IdxT> dataset,
                                 NodeWorkItem* work_items,
                                 const Split<DataT, IdxT>* splits)
 {
@@ -102,12 +102,12 @@ __global__ void nodeSplitKernel(IdxT max_depth,
         split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
     return;
   }
-  partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
+  partitionSamples<DataT, LabelT, IdxT, TPB>(dataset, split, work_item, (char*)smem);
 }
 
-template <typename InputT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 __global__ void leafKernel(ObjectiveT objective,
-                           InputT input,
+                           DatasetT dataset,
                            const NodeT* tree,
                            const InstanceRange* instance_ranges,
                            DataT* leaves)
@@ -120,25 +120,25 @@ __global__ void leafKernel(ObjectiveT objective,
   auto range     = instance_ranges[node_id];
   if (!node.IsLeaf()) return;
   auto tid = threadIdx.x;
-  for (int i = tid; i < input.numOutputs; i += blockDim.x) {
+  for (int i = tid; i < dataset.numOutputs; i += blockDim.x) {
     histogram[i] = BinT();
   }
   __syncthreads();
   for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
-    auto label = input.labels[input.rowids[i]];
+    auto label = dataset.labels[dataset.rowids[i]];
     BinT::IncrementHistogram(histogram, 1, 0, label);
   }
   __syncthreads();
   if (tid == 0) {
-    ObjectiveT::SetLeafVector(histogram, input.numOutputs, leaves + input.numOutputs * node_id);
+    ObjectiveT::SetLeafVector(histogram, dataset.numOutputs, leaves + dataset.numOutputs * node_id);
   }
 }
 
-/* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */
+/* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
-__device__ OutT* alignPointer(InT input)
+__device__ OutT* alignPointer(InT dataset)
 {
-  return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
+  return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(dataset), sizeof(OutT)));
 }
 
 /**
@@ -229,7 +229,7 @@ __global__ void computeSplitKernel(BinT* hist,
                                    IdxT max_depth,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
-                                   const Input<DataT, LabelT, IdxT> input,
+                                   const Dataset<DataT, LabelT, IdxT> dataset,
                                    const Quantiles<DataT, IdxT> quantiles,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
@@ -255,11 +255,11 @@ __global__ void computeSplitKernel(BinT* hist,
 
   // obtaining the feature to test split on
   IdxT col;
-  if (input.nSampledCols == input.N) {
+  if (dataset.nSampledCols == dataset.N) {
     col = colStart + blockIdx.y;
   } else {
     IdxT colIndex = colStart + blockIdx.y;
-    col           = select(colIndex, treeid, work_item.idx, seed, input.N);
+    col           = select(colIndex, treeid, work_item.idx, seed, dataset.N);
   }
 
   // getting the n_bins for that feature
@@ -286,12 +286,12 @@ __global__ void computeSplitKernel(BinT* hist,
   __syncthreads();
 
   // compute pdf shared histogram for all bins for all classes in shared mem
-  auto coloffset = col * input.M;
+  auto coloffset = col * dataset.M;
   for (auto i = range_start + tid; i < end; i += stride) {
     // each thread works over a data point and strides to the next
-    auto row   = input.rowids[i];
-    auto d     = input.data[row + coloffset];
-    auto label = input.labels[row];
+    auto row   = dataset.rowids[i];
+    auto d     = dataset.data[row + coloffset];
+    auto label = dataset.labels[row];
 
     IdxT start = lower_bound(sbins, nbins, d);
     BinT::IncrementHistogram(shared_histogram, nbins, start, label);
@@ -354,13 +354,13 @@ template __global__ void nodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   _IdxT min_samples_split,
   _IdxT max_leaves,
   _DataT min_impurity_decrease,
-  Input<_DataT, _LabelT, _IdxT> input,
+  Dataset<_DataT, _LabelT, _IdxT> dataset,
   NodeWorkItem* work_items,
   const Split<_DataT, _IdxT>* splits);
 
-template __global__ void leafKernel<_InputT, _NodeT, _ObjectiveT, _DataT>(
+template __global__ void leafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
   _ObjectiveT objective,
-  _InputT input,
+  _DatasetT dataset,
   const _NodeT* tree,
   const InstanceRange* instance_ranges,
   _DataT* leaves);
@@ -371,7 +371,7 @@ computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   _IdxT max_depth,
   _IdxT min_samples_split,
   _IdxT max_leaves,
-  const Input<_DataT, _LabelT, _IdxT> input,
+  const Dataset<_DataT, _LabelT, _IdxT> dataset,
   const Quantiles<_DataT, _IdxT> quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,

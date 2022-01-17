@@ -26,7 +26,7 @@ using _LabelT     = float;
 using _IdxT       = int;
 using _ObjectiveT = InverseGaussianObjectiveFunction<_DataT, _LabelT, _IdxT>;
 using _BinT       = AggregateBin;
-using _InputT     = Input<_DataT, _LabelT, _IdxT>;
+using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML

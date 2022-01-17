@@ -26,7 +26,7 @@ using _LabelT     = int;
 using _IdxT       = int;
 using _ObjectiveT = EntropyObjectiveFunction<_DataT, _LabelT, _IdxT>;
 using _BinT       = CountBin;
-using _InputT     = Input<_DataT, _LabelT, _IdxT>;
+using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "input.h"
+#include "dataset.h"
 #include "split.cuh"
 #include <cub/cub.cuh>
 #include <limits>
