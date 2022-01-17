@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,13 +31,13 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <sys/time.h>
 #include <raft/random/rng.hpp>
 #include <raft/stats/sum.hpp>
+#include <sys/time.h>
 
-#include <unistd.h>
 #include <chrono>
 #include <iostream>
+#include <unistd.h>
 
 #include <raft/device_atomics.cuh>
 

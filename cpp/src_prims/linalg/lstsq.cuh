@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 
 #pragma once
 
+#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/transpose.h>
-#include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemv.h>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,6 @@
 #pragma once
 
 #include <omp.h>
-#include <thrust/device_vector.h>
-#include <thrust/fill.h>
-#include <thrust/host_vector.h>
 #include <cub/cub.cuh>
 #include <fstream>
 #include <iostream>
@@ -29,6 +26,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/fill.h>
 
 #include <raft/common/nvtx.hpp>
 

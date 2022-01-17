@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 
-#include <cuml/svm/svm_parameter.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/svm/svm_parameter.h>
 
 #include <linalg/init.h>
 
-#include <thrust/device_ptr.h>
-#include <thrust/iterator/permutation_iterator.h>
+#include "smo_sets.cuh"
+#include "ws_util.cuh"
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -33,8 +33,8 @@
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "smo_sets.cuh"
-#include "ws_util.cuh"
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/permutation_iterator.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>

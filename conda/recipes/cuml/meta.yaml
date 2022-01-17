@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
@@ -43,13 +43,13 @@ requirements:
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - cupy>=7.8.0,<10.0.0a0
+    - cupy>=7.8.0,<11.0.0a0
     - treelite=2.1.0
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2021.11.1,<=2021.11.2
-    - distributed>=2021.11.1,<=2021.11.2
+    - dask>=2021.11.1
+    - distributed>=2021.11.1
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 

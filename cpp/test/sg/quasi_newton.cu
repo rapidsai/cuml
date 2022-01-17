@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <test_utils.h>
 #include <cuml/linear_model/glm.hpp>
 #include <glm/qn/glm_linear.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
+#include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/transpose.h>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {
