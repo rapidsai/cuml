@@ -19,6 +19,7 @@
 import numpy as np
 import warnings
 import math
+import inspect
 
 from numba import cuda
 from cupy import linalg
@@ -61,8 +62,8 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
         try:
             # we need to set tthe error mode of cupy to raise
             # otherwise we silently get an array of NaNs
-            err_mode = geterr()['linalg']
-            seterr(linalg='raise')
+            err_mode = geterr()["linalg"]
+            seterr(linalg="raise")
             dual_coef = lapack.posv(K, y)
             seterr(linalg=err_mode)
         except Exception as err:
@@ -70,7 +71,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
                 "Singular matrix in solving dual problem. Using "
                 "least-squares solution instead."
             )
-            dual_coef = linalg.lstsq(K, y,rcond=None)[0]
+            dual_coef = linalg.lstsq(K, y, rcond=None)[0]
 
         # K is expensive to compute and store in memory so change it back in
         # case it was user-given.
@@ -120,11 +121,10 @@ def additive_chi2_kernel(x, y):
 
 @cuda.jit(device=True)
 def chi2_kernel(x, y, gamma=1.0):
-    gamma_ = 1.0
-    if gamma is not None:
-        gamma_ = gamma
+    if gamma is None:
+        gamma = 1.0
     k = additive_chi2_kernel(x, y)
-    k *= gamma_
+    k *= gamma
     return math.exp(k)
 
 
@@ -197,10 +197,35 @@ KERNEL_PARAMS = {
     "sigmoid": ["gamma", "coef0"],
 }
 
+# Check if we have a valid kernel function correctly specified arguments
+# Returns keyword arguments formed as a tuple (numba kernels cannot deal with kwargs as a dict)
+def _validate_kernel_function(func, filter_params=False, **kwds):
+    if not hasattr(func, "py_func"):
+        raise TypeError("Kernel function should be a numba device function.")
 
-def pairwise_kernels(
-    X, Y=None, metric="linear", *, filter_params=False, **kwds
-):
+    # get all the possible extra function arguments, excluding x, y
+    all_func_kwargs = list(inspect.signature(func.py_func).parameters.values())
+    if len(all_func_kwargs) < 2:
+        raise ValueError("Expected at least two arguments to kernel function.")
+
+    all_func_kwargs = all_func_kwargs[2:]
+    if any(p.default is inspect.Parameter.empty for p in all_func_kwargs):
+        raise ValueError("Extra kernel parameters must be passed as keyword arguments.")
+    all_func_kwargs = [(k.name, k.default) for k in all_func_kwargs]
+    if all_func_kwargs and not filter_params:
+        # kwds must occur in the function signature
+        available_kwds = set(list(zip(*all_func_kwargs))[0])
+        # is kwds a subset of the valid func keyword arguments?
+        if not set(kwds.keys()) <= available_kwds:
+            raise ValueError("kwds contains arguments not used by kernel function")
+
+    filtered_kwds_tuple = tuple(
+        kwds[k] if k in kwds.keys() else v for (k, v) in all_func_kwargs
+    )
+    return filtered_kwds_tuple
+
+
+def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds):
     """Compute the kernel between arrays X and optional array Y.
     This method takes either a vector array or a kernel matrix, and returns
     a kernel matrix. If the input is a vector array, the kernels are
@@ -249,11 +274,13 @@ def pairwise_kernels(
     if metric == "precomputed":
         return X
     elif metric in PAIRWISE_KERNEL_FUNCTIONS:
-        if filter_params:
-            kwds = tuple(kwds[k] for k in kwds.keys() if k in KERNEL_PARAMS[metric])
         func = PAIRWISE_KERNEL_FUNCTIONS[metric]
-    else:
+    elif isinstance(metric, str):
         raise ValueError("Unknown kernel %r" % metric)
+    else:
+        func = metric
+
+    filtered_kwds_tuple = _validate_kernel_function(func, filter_params, **kwds)
 
     @cuda.jit
     def evaluate_pairwise_kernels(X, K):
@@ -263,7 +290,7 @@ def pairwise_kernels(
         col = idx % n
         if idx < n * n and col <= row:
             # matrix is symmetric, reuse half the evaluations
-            k = func(X[row], X[col], *kwds)
+            k = func(X[row], X[col], *filtered_kwds_tuple)
             K[row, col] = k
             K[col, row] = k
 
@@ -298,11 +325,6 @@ class KernelRidge(Base, RegressorMixin):
         self.degree = degree
         self.coef0 = coef0
         self.kernel_params = kernel_params
-
-    def _get_kernel_skl(self, X, Y=None):
-        params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
-        K = pairwise_kernels(X, None, metric=self.kernel, filter_params=True, **params)
-        return cp.array(K)
 
     def _get_kernel(self, X, Y=None):
         if callable(self.kernel):
