@@ -48,6 +48,11 @@ struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
     : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
   }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return nrm1(grad, dev_scalar, stream);
+  }
 };
 
 template <typename T>
@@ -74,6 +79,11 @@ struct SVCL2Loss : GLMBase<T, SVCL2Loss<T>> {
   SVCL2Loss(const raft::handle_t& handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
+  }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return squaredNorm(grad, dev_scalar, stream) * 0.5;
   }
 };
 
@@ -140,7 +150,7 @@ struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
 
   inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
   {
-    return nrm2(grad, dev_scalar, stream);
+    return squaredNorm(grad, dev_scalar, stream) * 0.5;
   }
 };
 

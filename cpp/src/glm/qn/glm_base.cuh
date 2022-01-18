@@ -196,11 +196,6 @@ struct GLMBase : GLMDims {
     linearBwd(handle, G, Xb, Zb, initGradZero,
               stream);  // linear part: backward pass
   }
-
-  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
-  {
-    return nrm2(grad, dev_scalar, stream);
-  }
 };
 
 template <typename T, class GLMObjective>

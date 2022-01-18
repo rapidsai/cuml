@@ -47,7 +47,7 @@ struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
 
   inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
   {
-    return nrm2(grad, dev_scalar, stream);
+    return squaredNorm(grad, dev_scalar, stream) * 0.5;
   }
 };
 
