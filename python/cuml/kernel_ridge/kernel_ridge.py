@@ -36,8 +36,6 @@ from cuml.common import input_to_cuml_array
 from sklearn.metrics.pairwise import pairwise_kernels
 
 
-
-
 @cuda.jit(device=True)
 def linear_kernel(x, y):
     sum = 0.0
@@ -123,6 +121,7 @@ PAIRWISE_KERNEL_FUNCTIONS = {
     "sigmoid": sigmoid_kernel,
 }
 
+
 def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
     # dual_coef = inv(X X^t + alpha*Id) y
     n_samples = K.shape[0]
@@ -186,6 +185,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
 
         return dual_coefs.T
 
+
 # Check if we have a valid kernel function correctly specified arguments
 # Returns keyword arguments formed as a tuple (numba kernels cannot deal with kwargs as a dict)
 def _validate_kernel_function(func, filter_params=False, **kwds):
@@ -212,6 +212,9 @@ def _validate_kernel_function(func, filter_params=False, **kwds):
         kwds[k] if k in kwds.keys() else v for (k, v) in all_func_kwargs
     )
     return filtered_kwds_tuple
+
+
+_kernel_cache = {}
 
 
 def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds):
@@ -271,7 +274,6 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
 
     filtered_kwds_tuple = _validate_kernel_function(func, filter_params, **kwds)
 
-    @cuda.jit
     def evaluate_pairwise_kernels(X, Y, K):
         idx = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
         X_m = X.shape[0]
@@ -296,7 +298,13 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
     threadsperblock = 256
     blockspergrid = (X.shape[0] * Y.shape[0] + (threadsperblock - 1)) // threadsperblock
     K = cp.zeros((X.shape[0], Y.shape[0]), dtype=X.dtype)
-    evaluate_pairwise_kernels[blockspergrid, threadsperblock](X, Y, K)
+    key = (metric, filtered_kwds_tuple,X.dtype, Y.dtype)
+    if key in _kernel_cache:
+        compiled_kernel = _kernel_cache[key]
+    else:
+        compiled_kernel = cuda.jit(evaluate_pairwise_kernels)
+        _kernel_cache[key] = compiled_kernel
+    compiled_kernel[blockspergrid, threadsperblock](X, Y, K)
     return K
 
 
@@ -371,7 +379,7 @@ class KernelRidge(Base, RegressorMixin):
         return self
 
     def predict(self, X):
-            """Predict using the kernel ridge model.
+        """Predict using the kernel ridge model.
             Parameters
             ----------
             X : {array-like, sparse matrix} of shape (n_samples, n_features)
@@ -384,5 +392,6 @@ class KernelRidge(Base, RegressorMixin):
             C : array of shape (n_samples,) or (n_samples, n_targets)
                 Returns predicted values.
             """
-            K = self._get_kernel(X, self.X_fit_)
-            return cp.dot(K, self.dual_coef_)
+        K = self._get_kernel(X, self.X_fit_)
+        return cp.dot(K, self.dual_coef_)
+

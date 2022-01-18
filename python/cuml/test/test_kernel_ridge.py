@@ -144,9 +144,11 @@ def kernel_arg_strategy(draw):
 def array_strategy(draw):
     X_m = draw(st.integers(1, 20))
     X_n = draw(st.integers(1, 10))
+    dtype = draw(st.sampled_from([np.float64
+            , np.float32]))
     X = draw(
         arrays(
-            st.sampled_from([np.float64, np.float32]),
+            dtype=dtype,
             shape=(X_m, X_n),
             elements=st.floats(0, 5, width=32),
         )
@@ -155,7 +157,7 @@ def array_strategy(draw):
         Y_m = draw(st.integers(1, 20))
         Y = draw(
             arrays(
-                st.sampled_from([np.float64, np.float32]),
+            dtype=dtype,
                 shape=(Y_m, X_n),
                 elements=st.floats(0, 5, width=32),
             )
@@ -166,13 +168,13 @@ def array_strategy(draw):
 
 
 @given(kernel_arg_strategy(), array_strategy())
-@settings(deadline=5000, max_examples=10)
+@settings(deadline=5000, max_examples=20)
 def test_pairwise_kernels(kernel_arg, XY):
     X, Y = XY
     kernel, args = kernel_arg
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
-    K_sklearn = pairwise.pairwise_kernels(X, Y, metric=skl_kernel, n_jobs=-1, **args)
+    K_sklearn = pairwise.pairwise_kernels(X, Y, metric=skl_kernel,**args)
     assert np.allclose(K, K_sklearn, rtol=0.01)
 
 
