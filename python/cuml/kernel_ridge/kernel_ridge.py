@@ -36,68 +36,6 @@ from cuml.common import input_to_cuml_array
 from sklearn.metrics.pairwise import pairwise_kernels
 
 
-def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
-    # dual_coef = inv(X X^t + alpha*Id) y
-    n_samples = K.shape[0]
-    n_targets = y.shape[1]
-
-    if copy:
-        K = K.copy()
-
-    alpha = cp.atleast_1d(alpha)
-    one_alpha = (alpha == alpha[0]).all()
-    has_sw = sample_weight not in [1.0, None]
-
-    if has_sw:
-        # Unlike other solvers, we need to support sample_weight directly
-        # because K might be a pre-computed kernel.
-        sw = cp.sqrt(cp.atleast_1d(sample_weight))
-        y = y * sw[:, cp.newaxis]
-        K *= cp.outer(sw, sw)
-
-    if one_alpha:
-        # Only one penalty, we can solve multi-target problems in one time.
-        K.flat[:: n_samples + 1] += alpha[0]
-
-        try:
-            # we need to set tthe error mode of cupy to raise
-            # otherwise we silently get an array of NaNs
-            err_mode = geterr()["linalg"]
-            seterr(linalg="raise")
-            dual_coef = lapack.posv(K, y)
-            seterr(linalg=err_mode)
-        except Exception as err:
-            warnings.warn(
-                "Singular matrix in solving dual problem. Using "
-                "least-squares solution instead."
-            )
-            dual_coef = linalg.lstsq(K, y, rcond=None)[0]
-
-        # K is expensive to compute and store in memory so change it back in
-        # case it was user-given.
-        K.flat[:: n_samples + 1] -= alpha[0]
-
-        if has_sw:
-            dual_coef *= sw[:, np.newaxis]
-
-        return dual_coef
-    else:
-        # One penalty per target. We need to solve each target separately.
-        dual_coefs = np.empty([n_targets, n_samples], K.dtype)
-
-        for dual_coef, target, current_alpha in zip(dual_coefs, y.T, alpha):
-            K.flat[:: n_samples + 1] += current_alpha
-
-            dual_coef[:] = linalg.solve(
-                K, target, sym_pos=True, overwrite_a=False
-            ).ravel()
-
-            K.flat[:: n_samples + 1] -= current_alpha
-
-        if has_sw:
-            dual_coefs *= sw[np.newaxis, :]
-
-        return dual_coefs.T
 
 
 @cuda.jit(device=True)
@@ -185,17 +123,68 @@ PAIRWISE_KERNEL_FUNCTIONS = {
     "sigmoid": sigmoid_kernel,
 }
 
-KERNEL_PARAMS = {
-    "linear": [],
-    "additive_chi2": [],
-    "chi2": ["gamma"],
-    "cosine": [],
-    "laplacian": ["gamma"],
-    "polynomial": ["degree", "gamma", "coef0"],
-    "poly": ["degree", "gamma", "coef0"],
-    "rbf": ["gamma"],
-    "sigmoid": ["gamma", "coef0"],
-}
+def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
+    # dual_coef = inv(X X^t + alpha*Id) y
+    n_samples = K.shape[0]
+    n_targets = y.shape[1]
+
+    if copy:
+        K = K.copy()
+
+    alpha = cp.atleast_1d(alpha)
+    one_alpha = (alpha == alpha[0]).all()
+    has_sw = sample_weight not in [1.0, None]
+
+    if has_sw:
+        # Unlike other solvers, we need to support sample_weight directly
+        # because K might be a pre-computed kernel.
+        sw = cp.sqrt(cp.atleast_1d(sample_weight))
+        y = y * sw[:, cp.newaxis]
+        K *= cp.outer(sw, sw)
+
+    if one_alpha:
+        # Only one penalty, we can solve multi-target problems in one time.
+        K.flat[:: n_samples + 1] += alpha[0]
+
+        try:
+            # we need to set tthe error mode of cupy to raise
+            # otherwise we silently get an array of NaNs
+            err_mode = geterr()["linalg"]
+            seterr(linalg="raise")
+            dual_coef = lapack.posv(K, y)
+            seterr(linalg=err_mode)
+        except Exception as err:
+            warnings.warn(
+                "Singular matrix in solving dual problem. Using "
+                "least-squares solution instead."
+            )
+            dual_coef = linalg.lstsq(K, y, rcond=None)[0]
+
+        # K is expensive to compute and store in memory so change it back in
+        # case it was user-given.
+        K.flat[:: n_samples + 1] -= alpha[0]
+
+        if has_sw:
+            dual_coef *= sw[:, np.newaxis]
+
+        return dual_coef
+    else:
+        # One penalty per target. We need to solve each target separately.
+        dual_coefs = np.empty([n_targets, n_samples], K.dtype)
+
+        for dual_coef, target, current_alpha in zip(dual_coefs, y.T, alpha):
+            K.flat[:: n_samples + 1] += current_alpha
+
+            dual_coef[:] = linalg.solve(
+                K, target, sym_pos=True, overwrite_a=False
+            ).ravel()
+
+            K.flat[:: n_samples + 1] -= current_alpha
+
+        if has_sw:
+            dual_coefs *= sw[np.newaxis, :]
+
+        return dual_coefs.T
 
 # Check if we have a valid kernel function correctly specified arguments
 # Returns keyword arguments formed as a tuple (numba kernels cannot deal with kwargs as a dict)
@@ -283,21 +272,31 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
     filtered_kwds_tuple = _validate_kernel_function(func, filter_params, **kwds)
 
     @cuda.jit
-    def evaluate_pairwise_kernels(X, K):
+    def evaluate_pairwise_kernels(X, Y, K):
         idx = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-        n = X.shape[0]
-        row = idx // n
-        col = idx % n
-        if idx < n * n and col <= row:
-            # matrix is symmetric, reuse half the evaluations
-            k = func(X[row], X[col], *filtered_kwds_tuple)
-            K[row, col] = k
-            K[col, row] = k
+        X_m = X.shape[0]
+        Y_m = Y.shape[0]
+        row = idx // Y_m
+        col = idx % Y_m
+        if idx < X_m * Y_m:
+            if X is Y and row <= col:
+                # matrix is symmetric, reuse half the evaluations
+                k = func(X[row], Y[col], *filtered_kwds_tuple)
+                K[row, col] = k
+                K[col, row] = k
+            else:
+                k = func(X[row], Y[col], *filtered_kwds_tuple)
+                K[row, col] = k
+
+    if Y is None:
+        Y = X
+    if X.shape[1] != Y.shape[1]:
+        raise ValueError("X and Y have different dimensions.")
 
     threadsperblock = 256
-    blockspergrid = (X.shape[0] ** 2 + (threadsperblock - 1)) // threadsperblock
-    K = cp.zeros((X.shape[0], X.shape[0]), dtype=X.dtype)
-    evaluate_pairwise_kernels[blockspergrid, threadsperblock](X, K)
+    blockspergrid = (X.shape[0] * Y.shape[0] + (threadsperblock - 1)) // threadsperblock
+    K = cp.zeros((X.shape[0], Y.shape[0]), dtype=X.dtype)
+    evaluate_pairwise_kernels[blockspergrid, threadsperblock](X, Y, K)
     return K
 
 
@@ -371,3 +370,19 @@ class KernelRidge(Base, RegressorMixin):
         self.X_fit_ = X
         return self
 
+    def predict(self, X):
+            """Predict using the kernel ridge model.
+            Parameters
+            ----------
+            X : {array-like, sparse matrix} of shape (n_samples, n_features)
+                Samples. If kernel == "precomputed" this is instead a
+                precomputed kernel matrix, shape = [n_samples,
+                n_samples_fitted], where n_samples_fitted is the number of
+                samples used in the fitting for this estimator.
+            Returns
+            -------
+            C : array of shape (n_samples,) or (n_samples, n_targets)
+                Returns predicted values.
+            """
+            K = self._get_kernel(X, self.X_fit_)
+            return cp.dot(K, self.dual_coef_)

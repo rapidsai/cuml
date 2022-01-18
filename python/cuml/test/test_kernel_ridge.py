@@ -16,8 +16,14 @@ import cupy as cp
 from cupy import linalg
 import numpy as np
 from numba import cuda
-from cuml import KernelRidge as cuKernelRidge, pairwise_kernels
+from cuml import (
+    KernelRidge as cuKernelRidge,
+    pairwise_kernels,
+    PAIRWISE_KERNEL_FUNCTIONS,
+)
 import pytest
+import math
+import inspect
 from cuml.test.utils import (
     array_equal,
     small_regression_dataset,
@@ -27,10 +33,10 @@ from cuml.test.utils import (
     stress_param,
 )
 from scipy.sparse.construct import rand
-from sklearn.metrics import pairwise
+from sklearn.metrics import pairwise, mean_squared_error as mse
 from sklearn.datasets import make_regression
-from sklearn.kernel_ridge import KernelRidge as skKernelRidge
 from hypothesis import note, given, settings, strategies as st
+from hypothesis.extra.numpy import arrays
 
 
 def gradient_norm(X, y, model):
@@ -42,9 +48,6 @@ def gradient_norm(X, y, model):
     grad += cp.dot(cp.dot(K, K), w)
     grad += cp.dot(K * model.alpha, w)
     return linalg.norm(grad)
-
-
-standard_kernels = sorted(pairwise.PAIRWISE_KERNEL_FUNCTIONS.keys())
 
 
 def test_pairwise_kernels_basic():
@@ -99,23 +102,85 @@ def test_pairwise_kernels_basic():
     ):
         pairwise_kernels(X, metric=bad_numba_kernel2)
 
-
-@given(st.sampled_from(standard_kernels))
-@settings(deadline=5000)
-def test_pairwise_kernels(kernel):
-    m = 10
-    n = 5
-    X = np.random.uniform(1.0, 2.0, (m, n))
-    K = pairwise_kernels(X, metric=kernel)
-    K_sklearn = pairwise.pairwise_kernels(X, metric=kernel, n_jobs=-1)
-    assert array_equal(K, K_sklearn)
+    # Precomputed
+    assert array_equal(X, pairwise_kernels(X, metric="precomputed"))
 
 
-@given(st.sampled_from(standard_kernels))
-@settings(deadline=5000)
-def test_kernel_ridge(kernel):
-    model = cuKernelRidge(kernel=kernel, gamma=1.0)
-    skl_model = skKernelRidge(kernel=kernel, gamma=1.0)
+@cuda.jit(device=True)
+def custom_kernel(x, y, custom_arg=5.0):
+    sum = 0.0
+    for i in range(len(x)):
+        sum += (x[i] - y[i]) ** 2
+    return math.exp(-custom_arg * sum) + 0.1
+
+
+test_kernels = sorted(pairwise.PAIRWISE_KERNEL_FUNCTIONS.keys()) + [custom_kernel]
+
+
+@st.composite
+def kernel_arg_strategy(draw):
+    kernel = draw(st.sampled_from(test_kernels))
+    kernel_func = (
+        PAIRWISE_KERNEL_FUNCTIONS[kernel] if isinstance(kernel, str) else kernel
+    )
+    # Inspect the function and generate some arguments
+    all_func_kwargs = list(inspect.signature(kernel_func.py_func).parameters.values())[
+        2:
+    ]
+    param = {}
+    for arg in all_func_kwargs:
+        # 50% chance we generate this parameter or leave it as default
+        if draw(st.booleans()):
+            continue
+        if isinstance(arg.default, float) or arg.default is None:
+            param[arg.name] = draw(st.floats(0.0, 5.0))
+        if isinstance(arg.default, int):
+            param[arg.name] = draw(st.integers(0, 5))
+
+    return (kernel, param)
+
+
+@st.composite
+def array_strategy(draw):
+    X_m = draw(st.integers(1, 20))
+    X_n = draw(st.integers(1, 10))
+    X = draw(
+        arrays(
+            st.sampled_from([np.float64, np.float32]),
+            shape=(X_m, X_n),
+            elements=st.floats(0, 5, width=32),
+        )
+    )
+    if draw(st.booleans()):
+        Y_m = draw(st.integers(1, 20))
+        Y = draw(
+            arrays(
+                st.sampled_from([np.float64, np.float32]),
+                shape=(Y_m, X_n),
+                elements=st.floats(0, 5, width=32),
+            )
+        )
+    else:
+        Y = None
+    return (X, Y)
+
+
+@given(kernel_arg_strategy(), array_strategy())
+@settings(deadline=5000, max_examples=10)
+def test_pairwise_kernels(kernel_arg, XY):
+    X, Y = XY
+    kernel, args = kernel_arg
+    K = pairwise_kernels(X, Y, metric=kernel, **args)
+    skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
+    K_sklearn = pairwise.pairwise_kernels(X, Y, metric=skl_kernel, n_jobs=-1, **args)
+    assert np.allclose(K, K_sklearn, rtol=0.01)
+
+
+@given(kernel_arg_strategy())
+@settings(deadline=5000, max_examples=100)
+def test_estimator(kernel_arg):
+    kernel, args = kernel_arg
+    model = cuKernelRidge(kernel=kernel, kernel_params=args)
     X, y = make_regression(20, random_state=2)
 
     if kernel == "chi2" or kernel == "additive_chi2":
@@ -123,8 +188,11 @@ def test_kernel_ridge(kernel):
         X = X + abs(X.min()) + 1.0
 
     model.fit(X, y)
-    skl_model.fit(X, y)
     # For a convex optimisation problem we should arrive at gradient norm 0
     # If the solution has converged correctly
-    assert gradient_norm(X, y, skl_model) < 1e-5
     assert gradient_norm(X, y, model) < 1e-5
+
+    # model should do better than predicting average
+    pred = model.predict(X).get()
+    baseline_pred = np.full_like(pred, y.mean())
+    assert mse(y,pred) < mse(y, baseline_pred)
