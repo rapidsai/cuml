@@ -222,12 +222,21 @@ void adjust_threshold_to_treelite(
 }
 
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
+ public:
+  BaseFilTest()
+    : ps(::testing::TestWithParam<FilTestParams>::GetParam()),
+      stream(handle.get_stream()),
+      preds_d(0, stream),
+      want_preds_d(0, stream),
+      want_proba_d(0, stream),
+      data_d(ps.num_rows * ps.num_cols, stream),
+      proba_d(0, stream)
+  {
+  }
+
  protected:
   void setup_helper()
   {
-    // setup
-    ps = testing::TestWithParam<FilTestParams>::GetParam();
-
     generate_forest();
     generate_data();
     predict_on_cpu();
@@ -235,15 +244,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void SetUp() override { setup_helper(); }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(preds_d));
-    CUDA_CHECK(cudaFree(want_preds_d));
-    CUDA_CHECK(cudaFree(data_d));
-    CUDA_CHECK(cudaFree(want_proba_d));
-    CUDA_CHECK(cudaFree(proba_d));
-  }
 
   void generate_forest()
   {
@@ -253,20 +253,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // helper data
     /// weights, used as float* or int*
-    int* weights_d      = nullptr;
-    float* thresholds_d = nullptr;
-    bool* def_lefts_d   = nullptr;
-    bool* is_leafs_d    = nullptr;
-    bool* def_lefts_h   = nullptr;
-    bool* is_leafs_h    = nullptr;
+    rmm::device_uvector<int> weights_d(num_nodes, stream);
+    rmm::device_uvector<float> thresholds_d(num_nodes, stream);
+    rmm::device_uvector<bool> def_lefts_d(num_nodes, stream);
+    rmm::device_uvector<bool> is_leafs_d(num_nodes, stream);
     rmm::device_uvector<float> is_categoricals_d(num_nodes, stream);
 
-    // allocate GPU data
-    raft::allocate(weights_d, num_nodes, stream);
-    // sizeof(float) == sizeof(int)
-    raft::allocate(thresholds_d, num_nodes, stream);
-    raft::allocate(def_lefts_d, num_nodes, stream);
-    raft::allocate(is_leafs_d, num_nodes, stream);
     fids_d.resize(num_nodes, stream);
     fid_num_cats_d.resize(ps.num_cols, stream);
 
@@ -274,7 +266,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::random::Rng r(ps.seed);
     if (ps.leaf_algo == fil::leaf_algo_t::CATEGORICAL_LEAF) {
       // [0..num_classes)
-      r.uniformInt((int*)weights_d, num_nodes, 0, ps.num_classes, stream);
+      r.uniformInt((int*)weights_d.data(), num_nodes, 0, ps.num_classes, stream);
     } else if (ps.leaf_algo == fil::leaf_algo_t::VECTOR_LEAF) {
       std::mt19937 gen(3);
       std::uniform_real_distribution<> dist(0, 1);
@@ -290,12 +282,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         }
       }
     } else {
-      r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
+      r.uniform((float*)weights_d.data(), num_nodes, -1.0f, 1.0f, stream);
     }
-    r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
+    r.uniform(thresholds_d.data(), num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d.data(), num_nodes, 0, ps.num_cols, stream);
-    r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
-    r.bernoulli(is_leafs_d, num_nodes, 1.0f - ps.leaf_prob, stream);
+    r.bernoulli(def_lefts_d.data(), num_nodes, 0.5f, stream);
+    r.bernoulli(is_leafs_d.data(), num_nodes, 1.0f - ps.leaf_prob, stream);
     hard_clipped_bernoulli(
       r, is_categoricals_d.data(), num_nodes, 1.0f - ps.node_categorical_prob, stream);
 
@@ -305,8 +297,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> fid_num_cats_h(ps.num_cols);
     std::vector<bool> feature_categorical(ps.num_cols);
     // bool vectors are not guaranteed to be stored byte-per-value
-    def_lefts_h = new bool[num_nodes];
-    is_leafs_h  = new bool[num_nodes];
+    bool* def_lefts_h = new bool[num_nodes];
+    bool* is_leafs_h  = new bool[num_nodes];
 
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
@@ -328,11 +320,11 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         cat_sets_h.fid_num_cats[fid] = 0.0f;
       }
     }
-    raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
-    raft::update_host(thresholds_h.data(), thresholds_d, num_nodes, stream);
+    raft::update_host(weights_h.data(), (int*)weights_d.data(), num_nodes, stream);
+    raft::update_host(thresholds_h.data(), thresholds_d.data(), num_nodes, stream);
     raft::update_host(fids_h.data(), fids_d.data(), num_nodes, stream);
-    raft::update_host(def_lefts_h, def_lefts_d, num_nodes, stream);
-    raft::update_host(is_leafs_h, is_leafs_d, num_nodes, stream);
+    raft::update_host(def_lefts_h, def_lefts_d.data(), num_nodes, stream);
+    raft::update_host(is_leafs_h, is_leafs_d.data(), num_nodes, stream);
     raft::update_host(is_categoricals_h.data(), is_categoricals_d.data(), num_nodes, stream);
     handle.sync_stream();
 
@@ -412,10 +404,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // clean up
     delete[] def_lefts_h;
     delete[] is_leafs_h;
-    CUDA_CHECK(cudaFree(is_leafs_d));
-    CUDA_CHECK(cudaFree(def_lefts_d));
-    CUDA_CHECK(cudaFree(thresholds_d));
-    CUDA_CHECK(cudaFree(weights_d));
     // cat_sets_h.bits and fid_num_cats_d are now visible to host
   }
 
@@ -424,32 +412,27 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     auto stream = handle.get_stream();
     // allocate arrays
     size_t num_data = ps.num_rows * ps.num_cols;
-    raft::allocate(data_d, num_data, stream);
-    bool* mask_d = nullptr;
-    raft::allocate(mask_d, num_data, stream);
+    rmm::device_uvector<bool> mask_d(num_data, stream);
 
     // generate random data
     raft::random::Rng r(ps.seed);
-    r.uniform(data_d, num_data, -1.0f, 1.0f, stream);
+    r.uniform(data_d.data(), num_data, -1.0f, 1.0f, stream);
     thrust::transform(thrust::cuda::par.on(stream),
-                      data_d,
-                      data_d + num_data,
+                      data_d.data(),
+                      data_d.data() + num_data,
                       thrust::counting_iterator(0),
-                      data_d,
+                      data_d.data(),
                       replace_some_floating_with_categorical{fid_num_cats_d.data(), ps.num_cols});
-    r.bernoulli(mask_d, num_data, ps.nan_prob, stream);
+    r.bernoulli(mask_d.data(), num_data, ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
-      data_d, mask_d, num_data, std::numeric_limits<float>::quiet_NaN());
+      data_d.data(), mask_d.data(), num_data, std::numeric_limits<float>::quiet_NaN());
     CUDA_CHECK(cudaPeekAtLastError());
 
     // copy to host
     data_h.resize(num_data);
-    raft::update_host(data_h.data(), data_d, num_data, stream);
+    raft::update_host(data_h.data(), data_d.data(), num_data, stream);
     handle.sync_stream();
-
-    // clean up
-    CUDA_CHECK(cudaFree(mask_d));
   }
 
   void apply_softmax(float* class_scores)
@@ -563,10 +546,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
 
     // copy to GPU
-    raft::allocate(want_preds_d, ps.num_preds_outputs(), stream);
-    raft::allocate(want_proba_d, ps.num_proba_outputs(), stream);
-    raft::update_device(want_preds_d, want_preds_h.data(), ps.num_preds_outputs(), stream);
-    raft::update_device(want_proba_d, want_proba_h.data(), ps.num_proba_outputs(), stream);
+    want_preds_d.resize(ps.num_preds_outputs(), stream);
+    want_proba_d.resize(ps.num_proba_outputs(), stream);
+    raft::update_device(want_preds_d.data(), want_preds_h.data(), ps.num_preds_outputs(), stream);
+    raft::update_device(want_proba_d.data(), want_proba_h.data(), ps.num_proba_outputs(), stream);
     handle.sync_stream();
   }
 
@@ -579,10 +562,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     init_forest(&forest);
 
     // predict
-    raft::allocate(preds_d, ps.num_preds_outputs(), stream);
-    raft::allocate(proba_d, ps.num_proba_outputs(), stream);
-    fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
+    preds_d.resize(ps.num_preds_outputs(), stream);
+    proba_d.resize(ps.num_proba_outputs(), stream);
+    fil::predict(handle, forest, preds_d.data(), data_d.data(), ps.num_rows);
+    fil::predict(handle, forest, proba_d.data(), data_d.data(), ps.num_rows, true);
     handle.sync_stream();
 
     // cleanup
@@ -591,9 +574,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void compare()
   {
-    auto stream = handle.get_stream();
-    ASSERT_TRUE(raft::devArrMatch(want_proba_d,
-                                  proba_d,
+    ASSERT_TRUE(raft::devArrMatch(want_proba_d.data(),
+                                  proba_d.data(),
                                   ps.num_proba_outputs(),
                                   raft::CompareApprox<float>(ps.tolerance),
                                   stream));
@@ -602,8 +584,11 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                         : std::numeric_limits<float>::epsilon();
     // in multi-class prediction, floats represent the most likely class
     // and would be generated by converting an int to float
-    ASSERT_TRUE(raft::devArrMatch(
-      want_preds_d, preds_d, ps.num_rows, raft::CompareApprox<float>(tolerance), stream));
+    ASSERT_TRUE(raft::devArrMatch(want_preds_d.data(),
+                                  preds_d.data(),
+                                  ps.num_rows,
+                                  raft::CompareApprox<float>(tolerance),
+                                  stream));
   }
 
   fil::val_t infer_one_tree(fil::dense_node* root, float* data, const tree_base& tree)
@@ -623,14 +608,19 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   int forest_num_nodes() { return tree_num_nodes() * ps.num_trees; }
 
+  // parameters
+  FilTestParams ps;
+  raft::handle_t handle;
+  cudaStream_t stream = 0;
+
   // predictions
-  float* preds_d      = nullptr;
-  float* proba_d      = nullptr;
-  float* want_preds_d = nullptr;
-  float* want_proba_d = nullptr;
+  rmm::device_uvector<float> preds_d;
+  rmm::device_uvector<float> proba_d;
+  rmm::device_uvector<float> want_preds_d;
+  rmm::device_uvector<float> want_proba_d;
 
   // input data
-  float* data_d = nullptr;
+  rmm::device_uvector<float> data_d;
   std::vector<float> data_h;
   std::vector<float> want_proba_h;
 
@@ -640,10 +630,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   cat_sets_owner cat_sets_h;
   rmm::device_uvector<int> fids_d           = rmm::device_uvector<int>(0, cudaStream_t());
   rmm::device_uvector<float> fid_num_cats_d = rmm::device_uvector<float>(0, cudaStream_t());
-
-  // parameters
-  raft::handle_t handle;
-  FilTestParams ps;
 };
 
 template <typename fil_node_t>
