@@ -551,7 +551,8 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     // creating quantile structure storing device pointers
     DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
     // computing the quantiles
-    DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+    quantiles =
+      DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, handle);
 
     raft::update_host(
       h_quantiles.data(), quantiles.quantiles_array, params.n_bins, handle.get_stream());
@@ -600,7 +601,8 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     // creating quantile structure storing device pointers
     DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
     // computing the quantiles
-    DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, 1, handle);
+    quantiles =
+      DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, handle);
 
     int n_uniquebins;
     raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());

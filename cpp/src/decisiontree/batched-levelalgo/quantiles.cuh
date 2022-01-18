@@ -24,7 +24,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/device_vector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/fill.h>
 
@@ -36,70 +35,59 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesBatchSorted(
-  T* quantiles, int* useful_nbins, const T* sorted_data, const int n_bins, const int length);
+__global__ void computeQuantilesKernel(
+  T* quantiles, int* n_bins_unique, const T* sorted_data, const int n_bins_max, const int n_rows);
 
 template <typename T>
-void computeQuantiles(Quantiles<T, int>& quantiles,
-                      int n_bins,
-                      const T* data,
-                      int n_rows,
-                      int n_cols,
-                      int n_streams,
-                      const raft::handle_t& handle)
+Quantiles<T, int>& computeQuantiles(Quantiles<T, int>& quantiles,
+                                    int n_bins_max,
+                                    const T* data,
+                                    int n_rows,
+                                    int n_cols,
+                                    const raft::handle_t& handle)
 {
   raft::common::nvtx::push_range("computeQuantiles");
-
-  int prllsm = n_streams;  // the parallism to be used stream-wise and omp-thread-wise
+  auto stream               = handle.get_stream();
   size_t temp_storage_bytes = 0;
-  rmm::device_uvector<T> all_column_sorted(n_cols * n_rows, handle.get_stream());
+  rmm::device_uvector<T> sorted_column(n_rows, stream);
 
-  raft::common::nvtx::push_range("sorting columns");
   // get temp_storage_bytes for sorting
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
-                                            temp_storage_bytes,
-                                            data,
-                                            all_column_sorted.data(),
-                                            n_rows,
-                                            0,
-                                            8 * sizeof(T),
-                                            handle.get_stream()));
+  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
+    nullptr, temp_storage_bytes, data, sorted_column.data(), n_rows, 0, 8 * sizeof(T), stream));
   // allocate total memory needed for parallelized sorting
-  rmm::device_uvector<char> d_temp_storage(prllsm * temp_storage_bytes, handle.get_stream());
-#pragma omp parallel for num_threads(prllsm)
-  for (int parcol = 0; parcol < n_cols; parcol++) {
-    int thread_id  = omp_get_thread_num();
-    auto s         = handle.get_stream_from_stream_pool(thread_id);
-    int col_offset = parcol * n_rows;
-    CUDA_CHECK(cub::DeviceRadixSort::SortKeys(
-      (void*)(d_temp_storage.data() + temp_storage_bytes * thread_id),
-      temp_storage_bytes,
-      data + col_offset,
-      all_column_sorted.data() + col_offset,
-      n_rows,
-      0,
-      8 * sizeof(T),
-      s));
-    s.synchronize();
-  }
-  handle.sync_stream_pool();
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  raft::common::nvtx::pop_range();  // sorting columns
+  rmm::device_uvector<char> d_temp_storage(temp_storage_bytes, stream);
+  for (int col = 0; col < n_cols; col++) {
+    raft::common::nvtx::push_range("sorting columns");
+    int col_offset = col * n_rows;
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)(d_temp_storage.data()),
+                                              temp_storage_bytes,
+                                              data + col_offset,
+                                              sorted_column.data(),
+                                              n_rows,
+                                              0,
+                                              8 * sizeof(T),
+                                              stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::common::nvtx::pop_range();  // sorting columns
 
-  // do the quantile computation parallelizing across cols too across CTAs
-  int blocks      = n_cols;
-  size_t smemsize = n_bins * sizeof(T);
-  raft::common::nvtx::push_range("computeQuantilesBatchSorted @quantile.cuh");
-  computeQuantilesBatchSorted<<<blocks, 128, smemsize, handle.get_stream()>>>(
-    quantiles.quantiles_array,
-    quantiles.n_uniquebins_array,
-    all_column_sorted.data(),
-    n_bins,
-    n_rows);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  CUDA_CHECK(cudaGetLastError());
-  raft::common::nvtx::pop_range();  // computeQuatilesBatchSorted
+    // do the quantile computation parallelizing across cols too across CTAs
+    int n_blocks        = 1;
+    int n_threads       = min(1024, n_bins_max);
+    int quantile_offset = col * n_bins_max;
+    int bins_offset     = col;
+    raft::common::nvtx::push_range("computeQuantilesKernel @quantile.cuh");
+    computeQuantilesKernel<<<n_blocks, n_threads, 0, stream>>>(
+      quantiles.quantiles_array + quantile_offset,
+      quantiles.n_uniquebins_array + bins_offset,
+      sorted_column.data(),
+      n_bins_max,
+      n_rows);
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaGetLastError());
+    raft::common::nvtx::pop_range();  // computeQuatilesKernel
+  }
   raft::common::nvtx::pop_range();  // computeQuantiles
+  return quantiles;
 }
 
 }  // namespace DT
