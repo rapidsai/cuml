@@ -16,29 +16,40 @@
 
 import pytest
 from .utils.utils import _benchmark_algo
-from cuml.common.import_utils import has_pytest_benchmark
+from .utils.utils import bench_step  # noqa: F401
+from .. import datagen
 
 #
 # Core tests
 #
 
 
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.ML
-def bench_standardscaler(gpubenchmark):
-    _benchmark_algo(gpubenchmark, 'StandardScaler', 'regression')
+@pytest.fixture(scope='session')
+def regression(request):
+    dataset_kwargs = {
+        'dataset_type': 'regression',
+        'n_samples': 10000,
+        'n_features': 100
+    }
+    dataset = datagen.gen_data(
+        dataset_kwargs['dataset_type'],
+        'cupy',
+        n_samples=dataset_kwargs['n_samples'],
+        n_features=dataset_kwargs['n_features']
+    )
+    return dataset, dataset_kwargs
 
 
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.ML
-def bench_maxabsscaler(gpubenchmark):
-    _benchmark_algo(gpubenchmark, 'MaxAbsScaler', 'regression')
+def bench_standardscaler(gpubenchmark, bench_step, regression):  # noqa: F811
+    _benchmark_algo(gpubenchmark, 'StandardScaler',
+                    bench_step, regression)
 
 
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.ML
-def bench_normalizer(gpubenchmark):
-    _benchmark_algo(gpubenchmark, 'Normalizer', 'regression')
+def bench_maxabsscaler(gpubenchmark, bench_step, regression):  # noqa: F811
+    _benchmark_algo(gpubenchmark, 'MaxAbsScaler',
+                    bench_step, regression)
+
+
+def bench_normalizer(gpubenchmark, bench_step, regression):  # noqa: F811
+    _benchmark_algo(gpubenchmark, 'Normalizer',
+                    bench_step, regression)

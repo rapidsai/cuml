@@ -15,39 +15,61 @@
 #
 
 import pytest
-from .utils.utils import _benchmark_algo
-from cuml.common.import_utils import has_pytest_benchmark
+from .utils.utils import _benchmark_algo, fixture_generation_helper
+from .utils.utils import bench_step  # noqa: F401
+from .. import datagen
 
 #
 # Core tests
 #
 
+
+@pytest.fixture(**fixture_generation_helper({
+                    'n_samples': [1000, 10000],
+                    'n_features': [5, 500]
+                }))
+def classification(request):
+    data = datagen.gen_data(
+        'classification',
+        'cupy',
+        n_samples=request.param['n_samples'],
+        n_features=request.param['n_features']
+    )
+    return data, {
+                    'dataset_type': 'classification',
+                    **request.param
+                 }
+
+
+@pytest.fixture(**fixture_generation_helper({
+                    'n_samples': [1000, 10000],
+                    'n_features': [5, 500]
+                }))
+def regression(request):
+    data = datagen.gen_data(
+        'regression',
+        'cupy',
+        n_samples=request.param['n_samples'],
+        n_features=request.param['n_features']
+    )
+    return data, {
+                    'dataset_type': 'regression',
+                    **request.param
+                 }
+
+
 """
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
-@pytest.mark.parametrize('n_features', [5, 500])
-@pytest.mark.ML
-def bench_fil(gpubenchmark, n_rows, n_features):
-    _benchmark_algo(gpubenchmark, 'FIL', 'classification', n_rows, n_features)
+def bench_fil(gpubenchmark, bench_step, classification):
+    _benchmark_algo(gpubenchmark, 'FIL',
+                    bench_step, classification)
 """
 
 
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
-@pytest.mark.parametrize('n_features', [5, 500])
-@pytest.mark.ML
-def bench_rfc(gpubenchmark, n_rows, n_features):
+def bench_rfc(gpubenchmark, bench_step, classification):  # noqa: F811
     _benchmark_algo(gpubenchmark, 'RandomForestClassifier',
-                    'classification', n_rows, n_features)
+                    bench_step, classification)
 
 
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
-@pytest.mark.parametrize('n_features', [5, 500])
-@pytest.mark.ML
-def bench_rfr(gpubenchmark, n_rows, n_features):
+def bench_rfr(gpubenchmark, bench_step, regression):  # noqa: F811
     _benchmark_algo(gpubenchmark, 'RandomForestRegressor',
-                    'regression', n_rows, n_features)
+                    bench_step, regression)

@@ -186,9 +186,19 @@ def _convert_to_cupy(data):
     if data is None:
         return None
     elif isinstance(data, tuple):
-        return tuple([_convert_to_numpy(d) for d in data])
+        return tuple([_convert_to_cupy(d) for d in data])
+    elif isinstance(data, np.ndarray):
+        return cp.asarray(data)
     elif isinstance(data, cp.ndarray):
         return data
+    elif isinstance(data, cudf.DataFrame):
+        return data.values
+    elif isinstance(data, cudf.Series):
+        return data.values
+    elif isinstance(data, (pd.DataFrame, pd.Series)):
+        return cp.asarray(data.to_numpy())
+    else:
+        raise Exception("Unsupported type %s" % str(type(data)))
 
 
 def _convert_to_cudf(data):

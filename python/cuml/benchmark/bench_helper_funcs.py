@@ -26,51 +26,65 @@ from cuml.benchmark import datagen
 from cuml.manifold import UMAP
 
 
-def fit_kneighbors(m, x):
-    m.fit(x)
-    m.kneighbors(x)
+def call(m, func_name, x, y=None):
+    def unwrap_and_get_args(func):
+        if hasattr(func, '__wrapped__'):
+            return unwrap_and_get_args(func.__wrapped__)
+        else:
+            return func.__code__.co_varnames
+
+    if not hasattr(m, func_name):
+        raise ValueError('Model does not have function ' + func_name)
+    func = getattr(m, func_name)
+    argnames = unwrap_and_get_args(func)
+    if y is not None and 'y' in argnames:
+        func(X=x, y=y)
+    else:
+        func(X=x)
+
+
+def pass_func(m, x, y=None):
+    pass
 
 
 def fit(m, x, y=None):
-    m.fit(x) if y is None else m.fit(x, y)
+    call(m, 'fit', x, y)
 
 
-def fit_transform(m, x, y=None):
-    if y is None:
-        if hasattr(m, 'transform'):
-            m.fit(x)
-            m.transform(x)
-        else:
-            m.fit_transform(x)
-    else:
-        if hasattr(m, 'transform'):
-            m.fit(x, y)
-            m.transform(x)
-        else:
-            m.fit_transform(x, y)
-
-
-def fit_predict(m, x, y=None):
-    if y is None:
-        if hasattr(m, 'predict'):
-            m.fit(x)
-            m.predict(x)
-        else:
-            m.fit_predict(x)
-    else:
-        if hasattr(m, 'predict'):
-            m.fit(x, y)
-            m.predict(x)
-        else:
-            m.fit_predict(x, y)
+def predict(m, x, y=None):
+    call(m, 'predict', x)
 
 
 def transform(m, x, y=None):
-    m.transform(x, y)
+    call(m, 'transform', x)
 
 
-def predict(m, x):
-    m.predict(x)
+def kneighbors(m, x, y=None):
+    call(m, 'kneighbors', x)
+
+
+def fit_predict(m, x, y=None):
+    if hasattr(m, 'predict'):
+        fit(m, x, y)
+        predict(m, x)
+    else:
+        call(m, 'fit_predict', x, y)
+
+
+def fit_transform(m, x, y=None):
+    if hasattr(m, 'transform'):
+        fit(m, x, y)
+        transform(m, x)
+    else:
+        call(m, 'fit_transform', x, y)
+
+
+def fit_kneighbors(m, x, y=None):
+    if hasattr(m, 'kneighbors'):
+        fit(m, x, y)
+        kneighbors(m, x)
+    else:
+        call(m, 'fit_kneighbors', x, y)
 
 
 def _training_data_to_numpy(X, y):
@@ -221,12 +235,12 @@ def _build_mnmg_umap(m, data, args, tmpdir):
     local_model = UMAP(**args)
 
     if isinstance(data, (tuple, list)):
-        data = [x for x in data if x is not None]
-    if len(data) == 2:
-        X, y = data
+        local_data = [x.compute() for x in data if x is not None]
+    if len(local_data) == 2:
+        X, y = local_data
         local_model.fit(X, y)
     else:
-        X = data
+        X = local_data
         local_model.fit(X)
 
     return m(client=client, model=local_model, **args)

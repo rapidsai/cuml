@@ -17,6 +17,7 @@
 import argparse
 import json
 from cuml.benchmark import datagen, algorithms
+from cuml.benchmark.automated.utils.utils import setup_bench
 
 parser = argparse.ArgumentParser(
     prog='launch-benchmark',
@@ -25,13 +26,13 @@ parser = argparse.ArgumentParser(
 
     Examples:
         python run_benchmarks.py \
-            --algo LinearRegression \
+            --algo_name LinearRegression \
             --dataset_type regression
     ''',
     formatter_class=argparse.RawTextHelpFormatter,
 )
 parser.add_argument(
-    '--algo',
+    '--algo_name',
     type=str,
     default='',
     help='Algorithm name',
@@ -55,10 +56,10 @@ parser.add_argument(
     help='Number of features',
 )
 parser.add_argument(
-    '--input_type',
+    '--dataset_format',
     type=str,
     default='cupy',
-    help='Input type',
+    help='Dataset format',
 )
 parser.add_argument(
     '--data_kwargs',
@@ -67,10 +68,22 @@ parser.add_argument(
     help='Data generation options',
 )
 parser.add_argument(
-    '--algo_args',
+    '--setup_kwargs',
     type=json.loads,
     default={},
-    help='Algorithm options',
+    help='Algorithm setup options',
+)
+parser.add_argument(
+    '--training_kwargs',
+    type=json.loads,
+    default={},
+    help='Algorithm training options',
+)
+parser.add_argument(
+    '--inference_kwargs',
+    type=json.loads,
+    default={},
+    help='Algorithm inference options',
 )
 parser.add_argument(
     '--json',
@@ -86,31 +99,38 @@ def parse_json(args):
         params = json.load(json_file)
 
     # Overwriting
-    if 'algo' in params:
-        args.algo = params['algo']
+    if 'algo_name' in params:
+        args.algo_name = params['algo_name']
     if 'dataset_type' in params:
         args.dataset_type = params['dataset_type']
     if 'n_samples' in params:
         args.n_samples = params['n_samples']
     if 'n_features' in params:
         args.n_features = params['n_features']
-    if 'input_type' in params:
-        args.input_type = params['input_type']
+    if 'dataset_format' in params:
+        args.dataset_format = params['dataset_format']
     if 'data_kwargs' in params:
         args.data_kwargs = params['data_kwargs']
-    if 'algo_args' in params:
-        args.algo_args = params['algo_args']
+    if 'setup_kwargs' in params:
+        args.setup_kwargs = params['setup_kwargs']
+    if 'training_kwargs' in params:
+        args.training_kwargs = params['training_kwargs']
+    if 'inference_kwargs' in params:
+        args.inference_kwargs = params['inference_kwargs']
 
 
 if len(args.json):
     parse_json(args)
 
-algo = algorithms.algorithm_by_name(args.algo)
-data = datagen.gen_data(
+dataset = datagen.gen_data(
     args.dataset_type,
-    args.input_type,
+    args.dataset_format,
     n_samples=args.n_samples,
     n_features=args.n_features,
     **args.data_kwargs
 )
-algo.run_cuml(data, **args.algo_args)
+
+algo = algorithms.algorithm_by_name(args.algo_name)
+cuml_setup = setup_bench('cuml', algo, 'inference', dataset,
+                         args.setup_kwargs, args.training_kwargs)
+algo.run_cuml(dataset, **args.inference_kwargs, **cuml_setup)

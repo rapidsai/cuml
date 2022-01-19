@@ -15,19 +15,30 @@
 #
 
 import pytest
-from ..utils.utils import _benchmark_algo
-from cuml.common.import_utils import has_pytest_benchmark
+from ..utils.utils import _benchmark_algo, fixture_generation_helper
+from ..utils.utils import bench_step  # noqa: F401
+from .. import datagen
 
 #
 # Core tests
 #
 
 
-@pytest.mark.skipif(not has_pytest_benchmark(),
-                    reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
-@pytest.mark.parametrize('n_features', [5, 500])
-@pytest.mark.ML
-def bench_mnmg_knnclassifier(gpubenchmark, n_rows, n_features, client):
+@pytest.fixture(**fixture_generation_helper({
+                    'n_samples': [1000, 10000],
+                    'n_features': [5, 500]
+                }))
+def classification(request):
+    data = datagen.gen_data(
+        'classification',
+        'cudf',
+        n_samples=request.param['n_samples'],
+        n_features=request.param['n_features']
+    )
+    return data, None
+
+
+def bench_mnmg_knnclassifier(gpubenchmark, bench_step,  # noqa: F811
+                             classification, client):
     _benchmark_algo(gpubenchmark, 'MNMG.KNeighborsClassifier',
-                    'classification', n_rows, n_features, client=client)
+                    bench_step, classification, client=client)
