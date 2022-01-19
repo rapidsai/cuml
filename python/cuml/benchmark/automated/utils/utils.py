@@ -135,18 +135,42 @@ def cpu_bench(algo, bench_step, dataset, inference_args, cpu_setup):
 
 def setup_bench(platform, algo, bench_step, dataset,
                 setup_kwargs, training_kwargs):
+    """
+    Will setup the AlgorithmPair and the model to be ready for benchmark
+
+    Parameters
+    ----------
+    platform :
+       Either 'cpu' or 'cuml'
+    algo_name :
+       Algorithm/model name, can be found in the algorithms.py file
+    bench_step :
+        Either 'training' or 'inference', describe the algorithm/model
+        step to be benchmarked
+    dataset :
+        Dataset data
+    setup_kwargs :
+        Algorithm/model setup kwargs
+    training_kwargs :
+        Algorithm/model training kwargs
+    """
+
+    # Generate the model
     if platform == 'cuml':
         setup = algo.setup_cuml(dataset, **setup_kwargs)
     elif platform == 'cpu':
         setup = algo.setup_cpu(dataset, **setup_kwargs)
 
+    # Set the bench_func to perform training
     if bench_step == 'training':
         if hasattr(algo.cuml_class, 'fit'):
             algo.bench_func = fit
+        # The training can be done
         elif algo.setup_cuml_func:
             algo.bench_func = pass_func
         else:
             raise ValueError('Training function not found')
+    # Train the model and then set the bench_func to perform inference
     elif bench_step == 'inference':
         if hasattr(algo.cuml_class, 'fit'):
             algo.bench_func = fit
@@ -185,34 +209,77 @@ def _benchmark_algo(
     inference_kwargs={},
     client=None
 ):
-    """Simplest benchmark wrapper to time algorithm 'name' on dataset"""
+    """
+    Benchmark utility
 
+    Parameters
+    ----------
+    benchmarker :
+       Pytest benchmark function, allows to enclose the code
+       that should be benchmarked
+    algo_name :
+       Algorithm/model name, can be found in the algorithms.py file
+    bench_step :
+        Either 'training' or 'inference', describe the algorithm/model
+        step to be benchmarked
+    dataset :
+        Tuple with the data and a dictionnary that describes how it was built.
+        The dictionnary can be later used during the NVTX benchmark.
+    setup_kwargs :
+        Algorithm/model setup kwargs
+    training_kwargs :
+        Algorithm/model training kwargs
+    inference_kwargs :
+        Algorithm/model inference kwargs
+    client :
+        Dask client used in MNMG settings
+    """
+
+    # Get data and dict describing how it was built
     dataset, data_kwargs = dataset
 
+    # The presence of a Dask client signifies MNMG mode
     MNMG_mode = client is not None
-    if MNMG_mode:  # if MNMG => scatter data
+
+    # Distribute data in MNMG settings
+    if MNMG_mode:
+        # Add the client to the setup kwargs used by model instantiation
         setup_kwargs['client'] = client
-        if algo_name != 'MNMG.DBSCAN':  # exception with MNMG DBSCAN
+        # Exception : data is scattered by the MNMG DBSCAN model itself
+        if algo_name != 'MNMG.DBSCAN':
+            # Distribute data
             dataset = [distribute(client, d) for d in dataset]
 
+    # Search AlgorithmPair instance by name
     algo = algorithms.algorithm_by_name(algo_name)
+    # Setup the AlgorithmPair and the model to be ready for benchmark on GPU
     cuml_setup = setup_bench('cuml', algo, bench_step, dataset,
                              setup_kwargs, training_kwargs)
 
+    # Pytest benchmark
     if bench_step == 'training':
         benchmarker(algo.run_cuml, dataset, **training_kwargs, **cuml_setup)
     elif bench_step == 'inference':
         benchmarker(algo.run_cuml, dataset, **inference_kwargs, **cuml_setup)
 
-    if not MNMG_mode:  # if SG => run NVTX benchmark and CPU bench
+    # CPU benchmark and NVTX benchmark (only in SG mode)
+    if not MNMG_mode:
+        # Check that the cuML model has a CPU equivalency
         if algo.cpu_class:
+            # Convert sataset to a Numpy array
             cpu_dataset = datagen._convert_to_numpy(dataset)
+            # Setup the AlgorithmPair and the model
+            # to be ready for benchmark on CPU
             cpu_setup = setup_bench('cpu', algo, bench_step, cpu_dataset,
                                     setup_kwargs, training_kwargs)
+            # CPU benchmark
             cpu_bench(algo, bench_step, cpu_dataset, inference_kwargs,
                       cpu_setup)
 
+        # NVTX benchmark performs both the training and inference at once
+        # but only when bench_step == 'inference'
         if bench_step == 'inference':
+            # NVTX benchmark
             nvtx_profiling(algo_name, data_kwargs, setup_kwargs,
                            training_kwargs, inference_kwargs)
 
