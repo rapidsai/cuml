@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import json
 import pytest
 import treelite
 import numpy as np
@@ -34,6 +35,48 @@ if has_sklearn():
     from sklearn.datasets import make_regression, make_classification
     from sklearn.ensemble import RandomForestRegressor as sklrfr
     from sklearn.ensemble import RandomForestClassifier as sklrfc
+
+
+def make_classification_with_categorical(*, n_samples, n_features,
+        n_categorical, n_informative, n_redundant, n_repeated, n_classes,
+        random_state):
+    X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                               n_informative=n_informative,
+                               n_redundant=n_redundant, n_repeated=n_repeated,
+                               n_classes=n_classes, random_state=random_state)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+
+    # Turn some columns into categorical, by taking quartiles
+    X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
+    for i in range(n_categorical):
+        column = f'f{i}'
+        X[column] = pd.qcut(X[column], 4, labels=range(4))
+    return X, y
+
+
+def make_regression_with_categorical(*, n_samples, n_features, n_categorical,
+        n_informative, random_state):
+    X, y = make_regression(n_samples=n_samples, n_features=n_features,
+                           n_informative=n_informative, n_targets=1,
+                           random_state=random_state)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+
+    # Turn some columns into categorical, by taking quartiles
+    X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
+    for i in range(n_categorical):
+        column = f'f{i}'
+        X[column] = pd.qcut(X[column], 4, labels=range(4))
+    return X, y
+
+
+def count_categorical_splits(tl_model):
+    model_dump = json.loads(tl_model.dump_as_json(pretty_print=False))
+    count = 0
+    for tree in model_dump["trees"]:
+        for node in tree["nodes"]:
+            if "split_type" in node and node["split_type"] == "categorical":
+                count += 1
+    return count
 
 
 @pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
@@ -285,20 +328,13 @@ def test_xgb_toy_categorical():
 @pytest.mark.parametrize('n_classes', [2, 3])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
-def test_xgb_categorical(n_classes):
+def test_xgb_classifier_with_categorical(n_classes):
     n_samples = 100
     n_features = 8
-    X, y = make_classification(n_samples=n_samples, n_features=n_features,
-                               n_informative=n_features, n_redundant=0,
-                               n_repeated=0, n_classes=n_classes,
-                               random_state=2021)
-    X, y = X.astype(np.float32), y.astype(np.float32)
-
-    # Turn the first 4 columns into categorical columns
-    X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
-    for i in range(4):
-        column = f'f{i}'
-        X[column] = pd.qcut(X[column], 4, labels=range(4))
+    X, y = make_classification_with_categorical(n_samples=n_samples,
+            n_features=n_features, n_categorical=4, n_informative=n_features,
+            n_redundant=0, n_repeated=0, n_classes=n_classes,
+            random_state=2022)
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {"tree_method": "gpu_hist", "max_depth": 6,
@@ -312,6 +348,8 @@ def test_xgb_categorical(n_classes):
         params["num_class"] = n_classes
     xgb_model = xgb.train(params, dtrain, num_boost_round=10,
                           evals=[(dtrain, 'train')])
+    assert count_categorical_splits(treelite.Model.from_xgboost(xgb_model)) > 0
+
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
 
@@ -321,6 +359,33 @@ def test_xgb_categorical(n_classes):
     else:
         ref_out = ref_out.transpose((1, 0, 2))
         ref_out, ref_expected_value = ref_out[:, :, :-1], ref_out[:, 0, -1]
+    np.testing.assert_almost_equal(out, ref_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_expected_value, decimal=5)
+
+
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_xgb_regressor_with_categorical():
+    n_samples = 100
+    n_features = 8
+    X, y = make_regression_with_categorical(n_samples=n_samples,
+            n_features=n_features, n_categorical=4, n_informative=n_features,
+            random_state=2022)
+
+    dtrain = xgb.DMatrix(X, y, enable_categorical=True)
+    params = {"tree_method": "gpu_hist", "max_depth": 6,
+              "base_score": 0.5, "seed": 0, "predictor": "gpu_predictor",
+              "objective": "reg:squarederror", "eval_metric": "rmse"}
+    xgb_model = xgb.train(params, dtrain, num_boost_round=10,
+                          evals=[(dtrain, 'train')])
+    assert count_categorical_splits(treelite.Model.from_xgboost(xgb_model)) > 0
+
+    explainer = TreeExplainer(model=xgb_model)
+    out = explainer.shap_values(X)
+
+    ref_out = xgb_model.predict(dtrain, pred_contribs=True)
+    ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
                                    ref_expected_value, decimal=5)
