@@ -175,6 +175,70 @@ struct SplitCondition {
                 "ThresholdType must be a float or double");
 };
 
+template <typename ThresholdType, typename LeafType>
+struct PathSegmentExtractor {
+  using PathElementT = gpu_treeshap::PathElement<SplitCondition<ThresholdType>>;
+  std::vector<PathElementT>& path_segments;
+  std::size_t& path_idx;
+
+  static constexpr ThresholdType inf{std::numeric_limits<ThresholdType>::infinity()};
+
+  PathSegmentExtractor(std::vector<PathElementT>& path_segments, std::size_t& path_idx)
+    : path_segments(path_segments), path_idx(path_idx)
+  {
+  }
+
+  void node_handler(const tl::Tree<ThresholdType, LeafType>& tree,
+                    int child_idx,
+                    int parent_idx,
+                    int group_id,
+                    float v)
+  {
+    constexpr auto inf   = std::numeric_limits<ThresholdType>::infinity();
+    double zero_fraction = 1.0;
+    bool has_count_info  = false;
+    if (tree.HasSumHess(parent_idx) && tree.HasSumHess(child_idx)) {
+      zero_fraction  = static_cast<double>(tree.SumHess(child_idx) / tree.SumHess(parent_idx));
+      has_count_info = true;
+    }
+    if (!has_count_info && tree.HasDataCount(parent_idx) && tree.HasDataCount(child_idx)) {
+      zero_fraction  = static_cast<double>(tree.DataCount(child_idx)) / tree.DataCount(parent_idx);
+      has_count_info = true;
+    }
+    if (!has_count_info) { RAFT_FAIL("Tree model doesn't have data count information"); }
+    // Encode the range of feature values that flow down this path
+    bool is_left_path = tree.LeftChild(parent_idx) == child_idx;
+    if (tree.SplitType(parent_idx) == tl::SplitFeatureType::kCategorical) {
+      RAFT_FAIL(
+        "Only trees with numerical splits are supported. "
+        "Trees with categorical splits are not supported yet.");
+    }
+    ThresholdType lower_bound = is_left_path ? -inf : tree.Threshold(parent_idx);
+    ThresholdType upper_bound = is_left_path ? tree.Threshold(parent_idx) : inf;
+    auto comparison_op        = tree.ComparisonOp(parent_idx);
+    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+      path_idx,
+      tree.SplitIndex(parent_idx),
+      group_id,
+      SplitCondition{lower_bound, upper_bound, comparison_op},
+      zero_fraction,
+      v});
+  }
+
+  void root_handler(const tl::Tree<ThresholdType, LeafType>& tree,
+                    int child_idx,
+                    int group_id,
+                    float v)
+  {
+    // Root node has feature -1
+    auto comparison_op = tree.ComparisonOp(child_idx);
+    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+      path_idx, -1, group_id, SplitCondition{-inf, inf, comparison_op}, 1.0, v});
+  }
+
+  void new_path_handler() { ++path_idx; }
+};
+
 template <typename ThresholdType>
 class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
  public:
@@ -266,76 +330,33 @@ void gpu_treeshap_impl(const TreePathInfoImpl<ThresholdType>* path_info,
 
 namespace ML {
 namespace Explainer {
-
-// Traverse a path from the root node to a leaf node and return the list of the path segments
-// Note: the path segments will have missing values in path_idx, group_id and v (leaf value).
-//       The callser is responsible for filling in these fields.
-template <typename ThresholdType, typename LeafType>
-std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_towards_leaf_node(
-  const tl::Tree<ThresholdType, LeafType>& tree,
-  int leaf_node_id,
-  const std::vector<int>& parent_id)
+// Traverse a path from the root node to a leaf node and call the handler functions for each node.
+// The fields group_id and v (leaf value) will be passed to the handler.
+template <typename ThresholdType, typename LeafType, typename PathHandler>
+void traverse_towards_leaf_node(const tl::Tree<ThresholdType, LeafType>& tree,
+                                int leaf_node_id,
+                                int group_id,
+                                float v,
+                                const std::vector<int>& parent_id,
+                                PathHandler& path_handler)
 {
-  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
-  int child_idx              = leaf_node_id;
-  int parent_idx             = parent_id[child_idx];
-  constexpr auto inf         = std::numeric_limits<ThresholdType>::infinity();
-  tl::Operator comparison_op = tl::Operator::kNone;
+  int child_idx  = leaf_node_id;
+  int parent_idx = parent_id[child_idx];
   while (parent_idx != -1) {
-    double zero_fraction = 1.0;
-    bool has_count_info  = false;
-    if (tree.HasSumHess(parent_idx) && tree.HasSumHess(child_idx)) {
-      zero_fraction  = static_cast<double>(tree.SumHess(child_idx) / tree.SumHess(parent_idx));
-      has_count_info = true;
-    }
-    if (!has_count_info && tree.HasDataCount(parent_idx) && tree.HasDataCount(child_idx)) {
-      zero_fraction  = static_cast<double>(tree.DataCount(child_idx)) / tree.DataCount(parent_idx);
-      has_count_info = true;
-    }
-    if (!has_count_info) { RAFT_FAIL("Tree model doesn't have data count information"); }
-    // Encode the range of feature values that flow down this path
-    bool is_left_path = tree.LeftChild(parent_idx) == child_idx;
-    if (tree.SplitType(parent_idx) == tl::SplitFeatureType::kCategorical) {
-      RAFT_FAIL(
-        "Only trees with numerical splits are supported. "
-        "Trees with categorical splits are not supported yet.");
-    }
-    ThresholdType lower_bound = is_left_path ? -inf : tree.Threshold(parent_idx);
-    ThresholdType upper_bound = is_left_path ? tree.Threshold(parent_idx) : inf;
-    comparison_op             = tree.ComparisonOp(parent_idx);
-    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
-      ~std::size_t(0),
-      tree.SplitIndex(parent_idx),
-      -1,
-      SplitCondition{lower_bound, upper_bound, comparison_op},
-      zero_fraction,
-      std::numeric_limits<float>::quiet_NaN()});
+    path_handler.node_handler(tree, child_idx, parent_idx, group_id, v);
     child_idx  = parent_idx;
     parent_idx = parent_id[child_idx];
   }
-  // Root node has feature -1
-  comparison_op = tree.ComparisonOp(child_idx);
-  // Build temporary path segments with unknown path_idx, group_id and leaf value
-  path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
-    ~std::size_t(0),
-    -1,
-    -1,
-    SplitCondition{-inf, inf, comparison_op},
-    1.0,
-    std::numeric_limits<float>::quiet_NaN()});
-  return path_segments;
+  path_handler.root_handler(tree, child_idx, group_id, v);
 }
 
-// Extract the path segments from a single tree. Each path segment will have path_idx field, which
-// uniquely identifies the path to which the segment belongs. The path_idx_offset parameter sets
-// the path_idx field of the first path segment.
-template <typename ThresholdType, typename LeafType>
-std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>>
-extract_path_segments_from_tree(const std::vector<tl::Tree<ThresholdType, LeafType>>& tree_list,
-                                std::size_t tree_idx,
-                                bool use_vector_leaf,
-                                int num_groups,
-                                std::size_t path_idx_offset)
+// Visit every path segments in a single tree and call handler functions for each segment.
+template <typename ThresholdType, typename LeafType, typename PathHandler>
+void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdType, LeafType>>& tree_list,
+                                 std::size_t tree_idx,
+                                 bool use_vector_leaf,
+                                 int num_groups,
+                                 PathHandler& path_handler)
 {
   if (num_groups < 1) { RAFT_FAIL("num_groups must be at least 1"); }
 
@@ -350,27 +371,10 @@ extract_path_segments_from_tree(const std::vector<tl::Tree<ThresholdType, LeafTy
     }
   }
 
-  std::size_t path_idx = path_idx_offset;
-  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
-
   for (int nid = 0; nid < tree.num_nodes; nid++) {
     if (tree.IsLeaf(nid)) {  // For each leaf node...
       // Extract path segments by traversing the path from the leaf node to the root node
-      auto path_to_leaf = traverse_towards_leaf_node(tree, nid, parent_id);
-      // If use_vector_leaf=True:
-      // * Duplicate the path segments N times, where N = num_groups
-      // * Insert the duplicated path segments into path_segments
-      // If use_vector_leaf=False:
-      // * Insert the path segments into path_segments
-      auto path_insertor = [&path_to_leaf, &path_segments](
-                             auto leaf_value, auto path_idx, int group_id) {
-        for (auto& e : path_to_leaf) {
-          e.path_idx = path_idx;
-          e.v        = static_cast<float>(leaf_value);
-          e.group    = group_id;
-        }
-        path_segments.insert(path_segments.end(), path_to_leaf.cbegin(), path_to_leaf.cend());
-      };
+      // If use_vector_leaf=True, repeat the path segments N times, where N = num_groups
       if (use_vector_leaf) {
         auto leaf_vector = tree.LeafVector(nid);
         if (leaf_vector.size() != static_cast<std::size_t>(num_groups)) {
@@ -379,18 +383,40 @@ extract_path_segments_from_tree(const std::vector<tl::Tree<ThresholdType, LeafTy
                     static_cast<int>(leaf_vector.size()));
         }
         for (int group_id = 0; group_id < num_groups; ++group_id) {
-          path_insertor(leaf_vector[group_id], path_idx, group_id);
-          path_idx++;
+          traverse_towards_leaf_node(
+            tree, nid, group_id, leaf_vector[group_id], parent_id, path_handler);
+          path_handler.new_path_handler();
         }
       } else {
-        auto leaf_value = tree.LeafValue(nid);
         int group_id    = static_cast<int>(tree_idx) % num_groups;
-        path_insertor(leaf_value, path_idx, group_id);
-        path_idx++;
+        auto leaf_value = tree.LeafValue(nid);
+        traverse_towards_leaf_node(tree, nid, group_id, leaf_value, parent_id, path_handler);
+        path_handler.new_path_handler();
       }
     }
   }
-  return path_segments;
+}
+
+// Visit every path segments in the whole tree ensemble model
+template <typename ThresholdType, typename LeafType, typename PathHandler>
+void visit_path_segments_in_model(const tl::ModelImpl<ThresholdType, LeafType>& model,
+                                  PathHandler& path_handler)
+{
+  int num_groups = 1;
+  bool use_vector_leaf;
+  if (model.task_param.num_class > 1) { num_groups = model.task_param.num_class; }
+  if (model.task_type == tl::TaskType::kBinaryClfRegr ||
+      model.task_type == tl::TaskType::kMultiClfGrovePerClass) {
+    use_vector_leaf = false;
+  } else if (model.task_type == tl::TaskType::kMultiClfProbDistLeaf) {
+    use_vector_leaf = true;
+  } else {
+    RAFT_FAIL("Unsupported task_type: %d", static_cast<int>(model.task_type));
+  }
+
+  for (std::size_t tree_idx = 0; tree_idx < model.trees.size(); ++tree_idx) {
+    visit_path_segments_in_tree(model.trees, tree_idx, use_vector_leaf, num_groups, path_handler);
+  }
 }
 
 template <typename ThresholdType, typename LeafType>
@@ -407,24 +433,12 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   std::unique_ptr<TreePathInfo> path_info_ptr = std::make_unique<TreePathInfoImpl<ThresholdType>>();
   auto* path_info = dynamic_cast<TreePathInfoImpl<ThresholdType>*>(path_info_ptr.get());
 
-  int num_groups = 1;
-  bool use_vector_leaf;
-  if (model.task_param.num_class > 1) { num_groups = model.task_param.num_class; }
-  if (model.task_type == tl::TaskType::kBinaryClfRegr ||
-      model.task_type == tl::TaskType::kMultiClfGrovePerClass) {
-    use_vector_leaf = false;
-  } else if (model.task_type == tl::TaskType::kMultiClfProbDistLeaf) {
-    use_vector_leaf = true;
-  } else {
-    RAFT_FAIL("Unsupported task_type: %d", static_cast<int>(model.task_type));
-  }
+  // Each path segment will have path_idx field, which uniquely identifies the path to which the
+  // segment belongs.
   std::size_t path_idx = 0;
-  for (std::size_t tree_idx = 0; tree_idx < model.trees.size(); ++tree_idx) {
-    auto path_segments =
-      extract_path_segments_from_tree(model.trees, tree_idx, use_vector_leaf, num_groups, path_idx);
-    path_info->paths.insert(path_info->paths.end(), path_segments.cbegin(), path_segments.cend());
-    if (!path_segments.empty()) { path_idx = path_segments.back().path_idx + 1; }
-  }
+  PathSegmentExtractor<ThresholdType, LeafType> path_extractor{path_info->paths, path_idx};
+  visit_path_segments_in_model(model, path_extractor);
+
   path_info->global_bias         = model.param.global_bias;
   path_info->task_type           = model.task_type;
   path_info->task_param          = model.task_param;
