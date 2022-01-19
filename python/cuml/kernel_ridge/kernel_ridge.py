@@ -146,7 +146,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
         K.flat[:: n_samples + 1] += alpha[0]
 
         try:
-            # we need to set tthe error mode of cupy to raise
+            # we need to set the error mode of cupy to raise
             # otherwise we silently get an array of NaNs
             err_mode = geterr()["linalg"]
             seterr(linalg="raise")
@@ -297,7 +297,11 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
 
     threadsperblock = 256
     blockspergrid = (X.shape[0] * Y.shape[0] + (threadsperblock - 1)) // threadsperblock
-    K = cp.zeros((X.shape[0], Y.shape[0]), dtype=X.dtype)
+
+    # Here we force K to use 64 bit, even if the input is 32 bit
+    # 32 bit K results in serious numerical stability problems
+    K = cp.zeros((X.shape[0], Y.shape[0]), dtype=np.float64)
+
     key = (metric, filtered_kwds_tuple,X.dtype, Y.dtype)
     if key in _kernel_cache:
         compiled_kernel = _kernel_cache[key]
@@ -334,10 +338,10 @@ class KernelRidge(Base, RegressorMixin):
         self.kernel_params = kernel_params
 
     def _get_kernel(self, X, Y=None):
-        if callable(self.kernel):
-            params = self.kernel_params or {}
-        else:
+        if isinstance(self.kernel,str):
             params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
+        else:
+            params = self.kernel_params or {}
         return pairwise_kernels(X, metric=self.kernel, filter_params=True, **params)
 
     @generate_docstring()
@@ -367,7 +371,7 @@ class KernelRidge(Base, RegressorMixin):
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
-        K = self._get_kernel(X, self.kernel)
+        K = self._get_kernel(X_m, self.kernel)
         copy = self.kernel == "precomputed"
         self.dual_coef_ = _solve_cholesky_kernel(
             K, cp.asarray(y_m), self.alpha, sample_weight, copy
@@ -375,7 +379,7 @@ class KernelRidge(Base, RegressorMixin):
 
         if ravel:
             self.dual_coef_ = self.dual_coef_.ravel()
-        self.X_fit_ = X
+        self.X_fit_ = X_m
         return self
 
     def predict(self, X):
@@ -392,6 +396,10 @@ class KernelRidge(Base, RegressorMixin):
             C : array of shape (n_samples,) or (n_samples, n_targets)
                 Returns predicted values.
             """
-        K = self._get_kernel(X, self.X_fit_)
+        X_m, _, _, _ = input_to_cuml_array(
+            X, check_dtype=[np.float32, np.float64]
+        )
+
+        K = self._get_kernel(X_m, self.X_fit_)
         return cp.dot(K, self.dual_coef_)
 

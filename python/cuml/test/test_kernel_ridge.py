@@ -35,15 +35,16 @@ from cuml.test.utils import (
 from scipy.sparse.construct import rand
 from sklearn.metrics import pairwise, mean_squared_error as mse
 from sklearn.datasets import make_regression
-from hypothesis import note, given, settings, strategies as st
+from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
+from hypothesis import note, given, settings, assume, strategies as st
 from hypothesis.extra.numpy import arrays
 
 
-def gradient_norm(X, y, model):
-    X = cp.array(X)
-    y = cp.array(y)
-    K = cp.array(model._get_kernel(X.get()))
-    w = cp.array(model.dual_coef_).reshape(y.shape)
+def gradient_norm(X, y, model, K):
+    X = cp.array(X, dtype=np.float64)
+    y = cp.array(y, dtype=np.float64)
+    K = cp.array(K, dtype=np.float64)
+    w = cp.array(model.dual_coef_, dtype=np.float64).reshape(y.shape)
     grad = -cp.dot(K, y)
     grad += cp.dot(cp.dot(K, K), w)
     grad += cp.dot(K * model.alpha, w)
@@ -144,23 +145,12 @@ def kernel_arg_strategy(draw):
 def array_strategy(draw):
     X_m = draw(st.integers(1, 20))
     X_n = draw(st.integers(1, 10))
-    dtype = draw(st.sampled_from([np.float64
-            , np.float32]))
-    X = draw(
-        arrays(
-            dtype=dtype,
-            shape=(X_m, X_n),
-            elements=st.floats(0, 5, width=32),
-        )
-    )
+    dtype = draw(st.sampled_from([np.float64, np.float32]))
+    X = draw(arrays(dtype=dtype, shape=(X_m, X_n), elements=st.floats(0, 5, width=32),))
     if draw(st.booleans()):
         Y_m = draw(st.integers(1, 20))
         Y = draw(
-            arrays(
-            dtype=dtype,
-                shape=(Y_m, X_n),
-                elements=st.floats(0, 5, width=32),
-            )
+            arrays(dtype=dtype, shape=(Y_m, X_n), elements=st.floats(0, 5, width=32),)
         )
     else:
         Y = None
@@ -174,17 +164,52 @@ def test_pairwise_kernels(kernel_arg, XY):
     kernel, args = kernel_arg
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
-    K_sklearn = pairwise.pairwise_kernels(X, Y, metric=skl_kernel,**args)
+    K_sklearn = pairwise.pairwise_kernels(X, Y, metric=skl_kernel, **args)
     assert np.allclose(K, K_sklearn, rtol=0.01)
 
 
-@given(kernel_arg_strategy())
-@settings(deadline=5000, max_examples=100)
-def test_estimator(kernel_arg):
-    kernel, args = kernel_arg
-    model = cuKernelRidge(kernel=kernel, kernel_params=args)
-    X, y = make_regression(20, random_state=2)
+@st.composite
+def Xy_strategy(draw):
+    X_m = draw(st.integers(5, 20))
+    X_n = draw(st.integers(2, 10))
+    dtype = draw(st.sampled_from([np.float64, np.float32]))
+    rs = np.random.RandomState(draw(st.integers(1, 10)))
+    X = rs.rand(X_m, X_n).astype(dtype)
 
+    a = draw(arrays(dtype=dtype, shape=X_n, elements=st.floats(0, 5, width=32),))
+    y = X.dot(a)
+    return (X, y)
+
+
+@given(
+    kernel_arg_strategy(),
+    Xy_strategy(),
+    st.floats(0.0, 5.0),
+    st.floats(1.0, 5.0),
+    st.integers(1, 5),
+    st.floats(1.0, 5.0),
+)
+@settings(deadline=5000, max_examples=100)
+def test_estimator(kernel_arg, Xy, alpha, gamma, degree, coef0):
+    kernel, args = kernel_arg
+    model = cuKernelRidge(
+        kernel=kernel,
+        alpha=alpha,
+        gamma=gamma,
+        degree=degree,
+        coef0=coef0,
+        kernel_params=args,
+    )
+    skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
+    skl_model = sklKernelRidge(
+        kernel=skl_kernel,
+        alpha=alpha,
+        gamma=gamma,
+        degree=degree,
+        coef0=coef0,
+        kernel_params=args,
+    )
+    X, y = Xy
     if kernel == "chi2" or kernel == "additive_chi2":
         # X must be positive
         X = X + abs(X.min()) + 1.0
@@ -192,9 +217,12 @@ def test_estimator(kernel_arg):
     model.fit(X, y)
     # For a convex optimisation problem we should arrive at gradient norm 0
     # If the solution has converged correctly
-    assert gradient_norm(X, y, model) < 1e-5
+    K = model._get_kernel(X)
+    grad_norm = gradient_norm(X, y, model, K)
 
-    # model should do better than predicting average
+    assert grad_norm < 1e-2
     pred = model.predict(X).get()
-    baseline_pred = np.full_like(pred, y.mean())
-    assert mse(y,pred) < mse(y, baseline_pred)
+    if X.dtype == np.float64:
+        skl_model.fit(X, y)
+        skl_pred = skl_model.predict(X)
+        assert np.allclose(pred, skl_pred, atol=1e-3, rtol=1e-3)
