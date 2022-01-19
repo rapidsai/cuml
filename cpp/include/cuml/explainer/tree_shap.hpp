@@ -34,7 +34,7 @@ class TreePathInfo {
 };
 
 std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
-void gpu_treeshap(const TreePathInfo* path_info,
+void gpu_treeshap(TreePathInfo* path_info,
                   const float* data,
                   std::size_t n_rows,
                   std::size_t n_cols,

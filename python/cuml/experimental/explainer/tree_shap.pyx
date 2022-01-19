@@ -50,7 +50,7 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
         pass
 
     cdef unique_ptr[TreePathInfo] extract_path_info(ModelHandle model) except +
-    cdef void gpu_treeshap(const TreePathInfo* path_info,
+    cdef void gpu_treeshap(TreePathInfo* path_info,
                            const float* data,
                            size_t n_rows,
                            size_t n_cols,
