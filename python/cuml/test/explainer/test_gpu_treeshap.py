@@ -22,7 +22,8 @@ import pandas as pd
 import cupy as cp
 import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap, has_sklearn
+from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap
+from cuml.common.import_utils import has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -39,9 +40,9 @@ if has_sklearn():
     from sklearn.ensemble import RandomForestClassifier as sklrfc
 
 
-def make_classification_with_categorical(*, n_samples, n_features,
-        n_categorical, n_informative, n_redundant, n_repeated, n_classes,
-        random_state):
+def make_classification_with_categorical(
+        *, n_samples, n_features, n_categorical, n_informative, n_redundant,
+        n_repeated, n_classes, random_state):
     X, y = make_classification(n_samples=n_samples, n_features=n_features,
                                n_informative=n_informative,
                                n_redundant=n_redundant, n_repeated=n_repeated,
@@ -56,8 +57,8 @@ def make_classification_with_categorical(*, n_samples, n_features,
     return X, y
 
 
-def make_regression_with_categorical(*, n_samples, n_features, n_categorical,
-        n_informative, random_state):
+def make_regression_with_categorical(
+        *, n_samples, n_features, n_categorical, n_informative, random_state):
     X, y = make_regression(n_samples=n_samples, n_features=n_features,
                            n_informative=n_informative, n_targets=1,
                            random_state=random_state)
@@ -333,10 +334,10 @@ def test_xgb_toy_categorical():
 def test_xgb_classifier_with_categorical(n_classes):
     n_samples = 100
     n_features = 8
-    X, y = make_classification_with_categorical(n_samples=n_samples,
-            n_features=n_features, n_categorical=4, n_informative=n_features,
-            n_redundant=0, n_repeated=0, n_classes=n_classes,
-            random_state=2022)
+    X, y = make_classification_with_categorical(
+            n_samples=n_samples, n_features=n_features, n_categorical=4,
+            n_informative=n_features, n_redundant=0, n_repeated=0,
+            n_classes=n_classes, random_state=2022)
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {"tree_method": "gpu_hist", "max_depth": 6,
@@ -371,9 +372,9 @@ def test_xgb_classifier_with_categorical(n_classes):
 def test_xgb_regressor_with_categorical():
     n_samples = 100
     n_features = 8
-    X, y = make_regression_with_categorical(n_samples=n_samples,
-            n_features=n_features, n_categorical=4, n_informative=n_features,
-            random_state=2022)
+    X, y = make_regression_with_categorical(
+            n_samples=n_samples, n_features=n_features, n_categorical=4,
+            n_informative=n_features, random_state=2022)
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {"tree_method": "gpu_hist", "max_depth": 6,
@@ -399,9 +400,10 @@ def test_lightgbm_regressor_with_categorical():
     n_samples = 100
     n_features = 8
     n_categorical = 8
-    X, y = make_regression_with_categorical(n_samples=n_samples,
-            n_features=n_features, n_categorical=n_categorical,
-            n_informative=n_features, random_state=2022)
+    X, y = make_regression_with_categorical(
+            n_samples=n_samples, n_features=n_features,
+            n_categorical=n_categorical, n_informative=n_features,
+            random_state=2022)
 
     dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
     params = {"num_leaves": 64, "seed": 0, "objective": "regression",
@@ -427,10 +429,11 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     n_samples = 100
     n_features = 8
     n_categorical = 8
-    X, y = make_classification_with_categorical(n_samples=n_samples,
-            n_features=n_features, n_categorical=n_categorical,
-            n_informative=n_features, n_redundant=0, n_repeated=0,
-            n_classes=n_classes, random_state=2022)
+    X, y = make_classification_with_categorical(
+            n_samples=n_samples, n_features=n_features,
+            n_categorical=n_categorical, n_informative=n_features,
+            n_redundant=0, n_repeated=0, n_classes=n_classes,
+            random_state=2022)
 
     dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
     params = {"num_leaves": 64, "seed": 0, "min_data_per_group": 1}

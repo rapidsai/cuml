@@ -111,12 +111,13 @@ class TreeExplainer:
     def __init__(self, *, model):
         # Handle various kinds of tree model objects
         cls = model.__class__
+        cls_module, cls_name = cls.__module__, cls.__name__
         # XGBoost model object
-        if re.match(r'xgboost.*$', cls.__module__) and cls.__name__ == 'Booster':
+        if re.match(r'xgboost.*$', cls_module) and cls_name == 'Booster':
             model = treelite.Model.from_xgboost(model)
             handle = model.handle.value
         # LightGBM model object
-        if re.match(r'lightgbm.*$', cls.__module__) and cls.__name__ == 'Booster':
+        if re.match(r'lightgbm.*$', cls_module) and cls_name == 'Booster':
             model = treelite.Model.from_lightgbm(model)
             handle = model.handle.value
         # cuML RF model object
