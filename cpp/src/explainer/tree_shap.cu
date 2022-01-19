@@ -24,6 +24,7 @@
 #include <memory>
 #include <raft/error.hpp>
 #include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
 #include <treelite/tree.h>
 #include <type_traits>
 #include <vector>
@@ -33,6 +34,100 @@ namespace tl = treelite;
 /* All functions and classes defined in this anonymous namespace are strictly
  * for internal use by GPUTreeSHAP. */
 namespace {
+
+// A poor man's Span class.
+// TODO(hcho3): Remove this class once RAFT implements a span abstraction.
+template <typename T>
+class Span {
+ private:
+  T* ptr_{nullptr};
+  std::size_t size_{0};
+
+ public:
+  Span() = default;
+  __host__ __device__ Span(T* ptr, std::size_t size) : ptr_(ptr), size_(size) {}
+  __host__ explicit Span(std::vector<T>& vec) : ptr_(vec.data()), size_(vec.size()) {}
+  __host__ explicit Span(thrust::device_vector<T>& vec)
+    : ptr_(thrust::raw_pointer_cast(vec.data())), size_(vec.size())
+  {
+  }
+  __host__ __device__ Span(const Span& other) : ptr_(other.ptr_), size_(other.size_) {}
+  __host__ __device__ Span(Span&& other) : ptr_(other.ptr_), size_(other.size_)
+  {
+    other.ptr_  = nullptr;
+    other.size_ = 0;
+  }
+  __host__ __device__ ~Span() {}
+  __host__ __device__ Span& operator=(const Span& other)
+  {
+    ptr_  = other.ptr_;
+    size_ = other.size_;
+    return *this;
+  }
+  __host__ __device__ Span& operator=(Span&& other)
+  {
+    ptr_        = other.ptr_;
+    size_       = other.size_;
+    other.ptr_  = nullptr;
+    other.size_ = 0;
+    return *this;
+  }
+  __host__ __device__ std::size_t Size() const { return size_; }
+  __host__ __device__ T* Data() const { return ptr_; }
+  __host__ __device__ T& operator[](std::size_t offset) const { return *(ptr_ + offset); }
+  __host__ __device__ Span<T> Subspan(std::size_t offset, std::size_t count)
+  {
+    return Span{ptr_ + offset, count};
+  }
+};
+
+// A poor man's bit field, to be used to account for categorical splits in SHAP computation
+// Inspired by xgboost::BitFieldContainer
+template <typename T>
+class BitField {
+ private:
+  static std::size_t constexpr kValueSize = sizeof(T) * 8;
+  static std::size_t constexpr kOne       = 1;  // force correct data type
+
+  Span<T> bits_;
+
+ public:
+  BitField() = default;
+  __host__ __device__ explicit BitField(Span<T> bits) : bits_(bits) {}
+  __host__ __device__ BitField(const BitField& other) : bits_(other.bits_) {}
+  BitField& operator=(const BitField& other) = default;
+  BitField& operator=(BitField&& other) = default;
+  __host__ __device__ bool Check(std::size_t pos) const
+  {
+    T bitmask = kOne << (pos % kValueSize);
+    return static_cast<bool>(bits_[pos / kValueSize] & bitmask);
+  }
+  __host__ __device__ void Set(std::size_t pos)
+  {
+    T bitmask = kOne << (pos % kValueSize);
+    bits_[pos / kValueSize] |= bitmask;
+  }
+  __host__ __device__ void Intersect(const BitField other)
+  {
+    if (bits_.Data() == other.bits_.Data()) { return; }
+    std::size_t size = min(bits_.Size(), other.bits_.Size());
+    for (std::size_t i = 0; i < size; ++i) {
+      bits_[i] &= other.bits_[i];
+    }
+    if (bits_.Size() > size) {
+      for (std::size_t i = size; i < bits_.Size(); ++i) {
+        bits_[i] = 0;
+      }
+    }
+  }
+  __host__ __device__ std::size_t Size() const { return kValueSize * bits_.Size(); }
+  __host__ static std::size_t ComputeStorageSize(std::size_t n_cat)
+  {
+    return n_cat / kValueSize + (n_cat % kValueSize != 0);
+  }
+
+  static_assert(!std::is_signed<T>::value, "Must use unsiged type as underlying storage.");
+};
 
 template <typename ThresholdType>
 struct SplitCondition {
