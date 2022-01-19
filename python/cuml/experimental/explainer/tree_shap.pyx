@@ -26,6 +26,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move
+import re
 import numpy as np
 import treelite
 
@@ -111,8 +112,12 @@ class TreeExplainer:
         # Handle various kinds of tree model objects
         cls = model.__class__
         # XGBoost model object
-        if cls.__module__ == 'xgboost.core' and cls.__name__ == 'Booster':
+        if re.match(r'xgboost.*$', cls.__module__) and cls.__name__ == 'Booster':
             model = treelite.Model.from_xgboost(model)
+            handle = model.handle.value
+        # LightGBM model object
+        if re.match(r'lightgbm.*$', cls.__module__) and cls.__name__ == 'Booster':
+            model = treelite.Model.from_lightgbm(model)
             handle = model.handle.value
         # cuML RF model object
         elif isinstance(model, (curfr, curfc)):

@@ -302,7 +302,8 @@ struct PathSegmentExtractor {
       for (CatT cat : tree.MatchingCategories(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
-      if (is_left_path) {
+      bool use_right = tree.CategoriesListRightChild(parent_idx);
+      if ((use_right && is_left_path) || (!use_right && !is_left_path)) {
         for (std::size_t i = bitfield_segments[path_segment_idx];
              i < bitfield_segments[path_segment_idx + 1];
              ++i) {

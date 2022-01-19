@@ -22,13 +22,15 @@ import pandas as pd
 import cupy as cp
 import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost, has_shap, has_sklearn
+from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap, has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 
 if has_xgboost():
     import xgboost as xgb
+if has_lightgbm():
+    import lightgbm as lgb
 if has_shap():
     import shap
 if has_sklearn():
@@ -69,7 +71,7 @@ def make_regression_with_categorical(*, n_samples, n_features, n_categorical,
     return X, y
 
 
-def count_categorical_splits(tl_model):
+def count_categorical_split(tl_model):
     model_dump = json.loads(tl_model.dump_as_json(pretty_print=False))
     count = 0
     for tree in model_dump["trees"]:
@@ -109,7 +111,7 @@ def test_xgb_regressor(objective):
     correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value)
+                                   ref_explainer.expected_value, decimal=5)
 
 
 @pytest.mark.parametrize('objective,n_classes',
@@ -153,7 +155,7 @@ def test_xgb_classifier(objective, n_classes):
     correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value)
+                                   ref_explainer.expected_value, decimal=5)
 
 
 def test_degenerate_cases():
@@ -348,7 +350,7 @@ def test_xgb_classifier_with_categorical(n_classes):
         params["num_class"] = n_classes
     xgb_model = xgb.train(params, dtrain, num_boost_round=10,
                           evals=[(dtrain, 'train')])
-    assert count_categorical_splits(treelite.Model.from_xgboost(xgb_model)) > 0
+    assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
 
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
@@ -379,13 +381,80 @@ def test_xgb_regressor_with_categorical():
               "objective": "reg:squarederror", "eval_metric": "rmse"}
     xgb_model = xgb.train(params, dtrain, num_boost_round=10,
                           evals=[(dtrain, 'train')])
-    assert count_categorical_splits(treelite.Model.from_xgboost(xgb_model)) > 0
+    assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
 
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
+    np.testing.assert_almost_equal(out, ref_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_expected_value, decimal=5)
+
+
+@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_lightgbm_regressor_with_categorical():
+    n_samples = 100
+    n_features = 8
+    n_categorical = 8
+    X, y = make_regression_with_categorical(n_samples=n_samples,
+            n_features=n_features, n_categorical=n_categorical,
+            n_informative=n_features, random_state=2022)
+
+    dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
+    params = {"num_leaves": 64, "seed": 0, "objective": "regression",
+              "metric": "rmse", "min_data_per_group": 1}
+    lgb_model = lgb.train(params, dtrain, num_boost_round=10,
+                          valid_sets=[dtrain], valid_names=['train'])
+    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
+
+    explainer = TreeExplainer(model=lgb_model)
+    out = explainer.shap_values(X)
+
+    ref_explainer = shap.explainers.Tree(model=lgb_model)
+    ref_out = ref_explainer.shap_values(X)
+    np.testing.assert_almost_equal(out, ref_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_explainer.expected_value, decimal=5)
+
+
+@pytest.mark.parametrize('n_classes', [2, 3])
+@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_lightgbm_classifier_with_categorical(n_classes):
+    n_samples = 100
+    n_features = 8
+    n_categorical = 8
+    X, y = make_classification_with_categorical(n_samples=n_samples,
+            n_features=n_features, n_categorical=n_categorical,
+            n_informative=n_features, n_redundant=0, n_repeated=0,
+            n_classes=n_classes, random_state=2022)
+
+    dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
+    params = {"num_leaves": 64, "seed": 0, "min_data_per_group": 1}
+    if n_classes == 2:
+        params["objective"] = "binary"
+        params["metric"] = "binary_logloss"
+    else:
+        params["objective"] = "multiclass"
+        params["metric"] = "multi_logloss"
+        params["num_class"] = n_classes
+    lgb_model = lgb.train(params, dtrain, num_boost_round=10,
+                          valid_sets=[dtrain], valid_names=['train'])
+    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
+
+    explainer = TreeExplainer(model=lgb_model)
+    out = explainer.shap_values(X)
+
+    ref_explainer = shap.explainers.Tree(model=lgb_model)
+    ref_out = np.array(ref_explainer.shap_values(X))
+    if n_classes == 2:
+        ref_out = ref_out[1, :, :]
+        ref_expected_value = ref_explainer.expected_value[1]
+    else:
+        ref_expected_value = ref_explainer.expected_value
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
                                    ref_expected_value, decimal=5)
