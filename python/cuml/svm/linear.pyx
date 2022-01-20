@@ -33,12 +33,13 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
+from cuda.ccudart cimport cudaMemcpyKind, cudaMemcpyDeviceToDevice
+
 cimport rmm._lib.lib as rmm
+
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
 
-cdef extern from * nogil:
-    ctypedef void* _Stream "cudaStream_t"
 
 cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
 
@@ -236,12 +237,12 @@ cdef class LinearSVMWrapper:
             raise AttributeError(
                 f"Expected an array of type {target.dtype}, "
                 f"but got {source.dtype}")
-        rmm.cudaMemcpyAsync(
+        cudaMemcpyAsync(
             <void*><uintptr_t>target.ptr,
             <void*><uintptr_t>source.ptr,
             <size_t>(source.nbytes),
-            rmm.cudaMemcpyDeviceToDevice,
-            <_Stream> stream)
+            cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+            stream.value())
         if synchronize:
             self.handle.sync_stream()
 
