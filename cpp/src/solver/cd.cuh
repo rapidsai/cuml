@@ -26,7 +26,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/axpy.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.h>
@@ -141,8 +141,6 @@ void cdFit(const raft::handle_t& handle,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
-
   rmm::device_uvector<math_t> residual(n_rows, stream);
   rmm::device_uvector<math_t> squared(n_cols, stream);
   rmm::device_uvector<math_t> mu_input(0, stream);
@@ -190,8 +188,6 @@ void cdFit(const raft::handle_t& handle,
   rmm::device_uvector<ConvState<math_t>> convStateBuf(1, stream);
   auto convStateLoc = convStateBuf.data();
 
-  RAFT_CUBLAS_TRY(
-    raft::linalg::cublassetpointermode(cublas_handle, CUBLAS_POINTER_MODE_DEVICE, stream));
   rmm::device_scalar<math_t> cublas_alpha(1.0, stream);
   rmm::device_scalar<math_t> cublas_beta(0.0, stream);
 
@@ -209,44 +205,35 @@ void cdFit(const raft::handle_t& handle,
       math_t* input_col_loc = input + (ci * n_rows);
 
       raft::copy(&(convStateLoc->coef), coef_loc, 1, stream);
-      RAFT_CUBLAS_TRY(raft::linalg::cublasaxpy(
-        cublas_handle, n_rows, coef_loc, input_col_loc, 1, residual.data(), 1, stream));
+      raft::linalg::axpy<math_t, true>(
+        handle, n_rows, coef_loc, input_col_loc, 1, residual.data(), 1, stream);
 
-      raft::linalg::cublasgemv(cublas_handle,
-                               CUBLAS_OP_N,
-                               1,
-                               n_rows,
-                               cublas_alpha.data(),
-                               input_col_loc,
-                               1,
-                               residual.data(),
-                               1,
-                               cublas_beta.data(),
-                               coef_loc,
-                               1,
-                               stream);
+      raft::linalg::gemv<math_t, true>(handle,
+                                       false,
+                                       1,
+                                       n_rows,
+                                       cublas_alpha.data(),
+                                       input_col_loc,
+                                       1,
+                                       residual.data(),
+                                       1,
+                                       cublas_beta.data(),
+                                       coef_loc,
+                                       1,
+                                       stream);
 
       cdUpdateCoefKernel<math_t><<<dim3(1, 1, 1), dim3(1, 1, 1), 0, stream>>>(
         coef_loc, squared_loc, convStateLoc, l1_alpha);
       RAFT_CUDA_TRY(cudaGetLastError());
 
-      RAFT_CUBLAS_TRY(raft::linalg::cublasaxpy(cublas_handle,
-                                               n_rows,
-                                               &(convStateLoc->coef),
-                                               input_col_loc,
-                                               1,
-                                               residual.data(),
-                                               1,
-                                               stream));
+      raft::linalg::axpy<math_t, true>(
+        handle, n_rows, &(convStateLoc->coef), input_col_loc, 1, residual.data(), 1, stream);
     }
     raft::update_host(&h_convState, convStateLoc, 1, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
   }
-
-  RAFT_CUBLAS_TRY(
-    raft::linalg::cublassetpointermode(cublas_handle, CUBLAS_POINTER_MODE_HOST, stream));
 
   if (fit_intercept) {
     GLM::postProcessData(handle,
