@@ -67,7 +67,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
     params = ::testing::TestWithParam<BatchedICInputs<T>>::GetParam();
 
     // Create stream and allocator
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Create arrays
@@ -109,7 +109,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   void TearDown() override
   {
     allocator->deallocate(res_d, sizeof(T) * params.batch_size, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

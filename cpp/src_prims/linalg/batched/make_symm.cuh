@@ -83,7 +83,7 @@ void make_symm(DataT* out,
   auto nblks = raft::ceildiv<int>(n, TileDim);
   dim3 grid(nblks, nblks, batchSize);
   symmKernel<DataT, IdxT, EpilogueOp><<<grid, blk, 0, stream>>>(out, in, batchSize, n, op);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // end namespace Batched

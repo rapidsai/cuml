@@ -90,7 +90,7 @@ void launcher(const raft::handle_t& handle,
 
   raft::linalg::add(embedding, embedding, tmp_storage.data(), n * params->n_components, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace SpectralInit
 }  // namespace InitEmbed

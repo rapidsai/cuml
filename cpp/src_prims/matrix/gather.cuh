@@ -151,7 +151,7 @@ void gatherImpl(MatrixIteratorT in,
                  MapTransformOp>
       <<<map_length, 256, 0, stream>>>(in, D, N, map, stencil, out, pred_op, transform_op);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

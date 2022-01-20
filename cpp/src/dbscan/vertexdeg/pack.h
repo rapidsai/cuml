@@ -46,7 +46,7 @@ struct Pack {
    */
   void resetArray(cudaStream_t stream, Index_ vdlen)
   {
-    CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));
   }
 };
 

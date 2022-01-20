@@ -140,7 +140,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
   if (max_mbytes_per_batch == 0) {
     // Query memory information to get the total memory on the device
     size_t free_memory, total_memory;
-    CUDA_CHECK(cudaMemGetInfo(&free_memory, &total_memory));
+    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
 
     // X can either be a feature matrix or distance matrix
     size_t dataset_memory = (metric == raft::distance::Precomputed)

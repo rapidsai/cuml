@@ -101,7 +101,7 @@ void reverseImpl(math_t* out,
   const int nblks = raft::ceildiv(veclen_ ? len / veclen_ : len, TPB);
   reverseKernel<math_t, veclen_, Lambda>
     <<<nblks, TPB, 0, stream>>>(out, in, nrows, ncols, rowMajor, alongRows, len, op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

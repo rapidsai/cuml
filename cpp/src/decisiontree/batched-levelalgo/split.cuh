@@ -182,7 +182,7 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
            ptr->nLeft);
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
-  CUDA_CHECK(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 
 }  // namespace DT

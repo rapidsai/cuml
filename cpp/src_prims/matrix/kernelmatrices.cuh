@@ -126,7 +126,7 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
                           0,
                           stream>>>(inout, ld, n1, n2, exponent, gain, offset);
     }
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
  public:
@@ -206,7 +206,7 @@ class TanhKernel : public GramMatrixBase<math_t> {
                     0,
                     stream>>>(inout, ld, n1, n2, gain, offset);
     }
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
  public:

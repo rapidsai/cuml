@@ -43,7 +43,7 @@ void iota(DataT* out, DataT start, DataT step, IdxT len, cudaStream_t stream)
   static const int TPB = 512;
   IdxT nblks           = raft::ceildiv<IdxT>(len, TPB);
   iotaKernel<DataT, IdxT><<<nblks, TPB, 0, stream>>>(out, start, step, len);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // namespace MLCommon

@@ -41,12 +41,12 @@ class MPIEnvironment : public ::testing::Environment {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     int nGpus;
-    CUDA_CHECK(cudaGetDeviceCount(&nGpus));
+    RAFT_CUDA_TRY(cudaGetDeviceCount(&nGpus));
 
     ASSERT(
       nGpus >= size, "Number of GPUs are lesser than MPI ranks! ngpus=%d, nranks=%d", nGpus, size);
 
-    CUDA_CHECK(cudaSetDevice(rank));
+    RAFT_CUDA_TRY(cudaSetDevice(rank));
   }
 
   void TearDown() { MPI_Finalize(); }

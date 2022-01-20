@@ -68,7 +68,7 @@ __global__ void fastIntDivTestKernel(
 TEST(FastIntDiv, GpuTest)
 {
   cudaStream_t stream = 0;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   static const int len = 100000;
   static const int TPB = 128;
@@ -91,7 +91,7 @@ TEST(FastIntDiv, GpuTest)
     int nblks = raft::ceildiv(len, TPB);
     fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(
       computed.data(), correct.data(), in.data(), fid, divisor, len);
-    CUDA_CHECK(cudaStreamSynchronize(0));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(0));
     ASSERT_TRUE(devArrMatch(correct.data(), computed.data(), len * 2, raft::Compare<int>()))
       << " divisor=" << divisor;
   }

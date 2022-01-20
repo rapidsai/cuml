@@ -103,7 +103,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  uniq_labels,
                  n_unique);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

@@ -192,7 +192,7 @@ double trustworthiness_score(const raft::handle_t& h,
     build_lookup_table<<<n_blocks, N_THREADS, 0, stream>>>(
       lookup_table.data(), X_ind.data(), n, work);
 
-    CUDA_CHECK(cudaMemsetAsync(t_dbuf.data(), 0, sizeof(double), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(t_dbuf.data(), 0, sizeof(double), stream));
 
     work     = curBatchSize * (n_neighbors + 1);
     n_blocks = raft::ceildiv(work, N_THREADS);
@@ -203,7 +203,7 @@ double trustworthiness_score(const raft::handle_t& h,
       n,
       n_neighbors + 1,
       work);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     t += t_dbuf.value(stream);
 

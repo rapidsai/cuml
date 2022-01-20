@@ -71,7 +71,7 @@ void range(T* out, int n, cudaStream_t stream)
 template <typename T>
 void zero(T* out, int n, cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
 }
 
 }  // unnamed namespace

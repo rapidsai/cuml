@@ -136,7 +136,7 @@ void fit_impl(raft::handle_t& handle,
   int n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   fit_impl(handle,
@@ -153,11 +153,11 @@ void fit_impl(raft::handle_t& handle,
            verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 
@@ -220,18 +220,18 @@ void predict_impl(raft::handle_t& handle,
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   predict_impl(
     handle, input_data, input_desc, coef, intercept, preds_data, streams, n_streams, verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 
