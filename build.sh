@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 
 # cuml build script
 
