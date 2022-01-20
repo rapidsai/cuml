@@ -33,9 +33,11 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
-from cuda.ccudart cimport cudaMemcpyAsync, cudaMemcpyKind, cudaMemcpyDeviceToDevice
-
-cimport rmm._lib.lib as rmm
+from cuda.ccudart cimport(
+    cudaMemcpyAsync,
+    cudaMemcpyKind,
+    cudaMemcpyDeviceToDevice
+)
 
 
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
