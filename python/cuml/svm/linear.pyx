@@ -241,7 +241,7 @@ cdef class LinearSVMWrapper:
             <void*><uintptr_t>target.ptr,
             <void*><uintptr_t>source.ptr,
             <size_t>(source.nbytes),
-            cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
+            cudaMemcpyKind.cudaMemcpyDeviceToDevice,
             stream.value())
         if synchronize:
             self.handle.sync_stream()
