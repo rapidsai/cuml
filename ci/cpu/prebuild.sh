@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2022, NVIDIA CORPORATION.
 
 export UPLOAD_CUML=1
 
