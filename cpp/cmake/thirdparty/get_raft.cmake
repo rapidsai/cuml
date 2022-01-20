@@ -30,10 +30,8 @@ function(find_and_configure_raft)
             BUILD_EXPORT_SET    cuml-exports
             INSTALL_EXPORT_SET  cuml-exports
             CPM_ARGS
-            GIT_REPOSITORY https://github.com/vinaydes/raft.git
-            GIT_TAG        ${88269120e1fef1d8526da201a6e15c1daf83a7dc}
-#            GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
-#            GIT_TAG        ${PKG_PINNED_TAG}
+            GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
+            GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
@@ -59,6 +57,6 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
-        FORK       rapidsai
-        PINNED_TAG branch-${CUML_BRANCH_VERSION_raft}
+        FORK       vinaydes
+        PINNED_TAG 88269120e1fef1d8526da201a6e15c1daf83a7dc
         )
