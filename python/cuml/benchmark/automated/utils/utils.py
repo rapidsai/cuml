@@ -32,6 +32,7 @@ import os
 import json
 import time
 import itertools as it
+import warnings
 import numpy as np
 import cupy as cp
 import cudf
@@ -44,7 +45,9 @@ import dask.dataframe as df
 from copy import copy
 
 from cuml.benchmark.bench_helper_funcs import pass_func, fit, predict, \
-                                              transform, kneighbors
+                                              transform, kneighbors, \
+                                              fit_predict, fit_transform, \
+                                              fit_kneighbors
 
 
 def distribute(client, data):
@@ -165,15 +168,16 @@ def setup_bench(platform, algo, bench_step, dataset,
     if bench_step == 'training':
         if hasattr(algo.cuml_class, 'fit'):
             algo.bench_func = fit
-        # The training can be done
+        # Model cannot be trained (special construction)
         elif algo.setup_cuml_func:
-            algo.bench_func = pass_func
+            pytest.skip('Model cannot be trained (special construction)')
         else:
             raise ValueError('Training function not found')
     # Train the model and then set the bench_func to perform inference
     elif bench_step == 'inference':
         if hasattr(algo.cuml_class, 'fit'):
             algo.bench_func = fit
+        # Model cannot be trained (special construction)
         elif algo.setup_cuml_func:
             algo.bench_func = pass_func
         else:
@@ -181,10 +185,10 @@ def setup_bench(platform, algo, bench_step, dataset,
 
         if platform == 'cuml':
             setup['cuml_setup_result'] = \
-                algo.run_cuml(dataset, **training_kwargs, **setup)
+                algo.run_cuml(dataset, bench_args=training_kwargs, **setup)
         elif platform == 'cpu':
             setup['cpu_setup_result'] = \
-                algo.run_cpu(dataset, **training_kwargs, **setup)
+                algo.run_cpu(dataset, bench_args=training_kwargs, **setup)
 
         if hasattr(algo.cuml_class, 'predict'):
             algo.bench_func = predict
@@ -192,8 +196,18 @@ def setup_bench(platform, algo, bench_step, dataset,
             algo.bench_func = transform
         elif hasattr(algo.cuml_class, 'kneighbors'):
             algo.bench_func = kneighbors
+        elif any(hasattr(algo.cuml_class, attr) for attr in
+                 ['fit_predict', 'fit_transform', 'fit_kneighbors']):
+            warnings.warn('Inference cannot be done separately, '
+                          'doing both training and inference')
+            if hasattr(algo.cuml_class, 'fit_predict'):
+                algo.bench_func = fit_predict
+            elif hasattr(algo.cuml_class, 'fit_transform'):
+                algo.bench_func = fit_transform
+            elif hasattr(algo.cuml_class, 'fit_kneighbors'):
+                algo.bench_func = fit_kneighbors
         else:
-            pytest.xfail('Inference function not found')
+            raise ValueError('Inference function not found')
     else:
         raise ValueError('bench_func should be either training or inference')
     return setup
@@ -258,9 +272,11 @@ def _benchmark_algo(
 
     # Pytest benchmark
     if bench_step == 'training':
-        benchmarker(algo.run_cuml, dataset, **training_kwargs, **cuml_setup)
+        benchmarker(algo.run_cuml, dataset, bench_args=training_kwargs,
+                    **cuml_setup)
     elif bench_step == 'inference':
-        benchmarker(algo.run_cuml, dataset, **inference_kwargs, **cuml_setup)
+        benchmarker(algo.run_cuml, dataset, bench_args=inference_kwargs,
+                    **cuml_setup)
 
     # CPU benchmark and NVTX benchmark (only in SG mode)
     if not MNMG_mode:

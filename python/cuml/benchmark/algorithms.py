@@ -127,13 +127,13 @@ class AlgorithmPair:
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
 
-    def run_cpu(self, data, **override_args):
+    def run_cpu(self, data, bench_args={}, **override_setup_args):
         """Runs the cpu-based algorithm's fit method on specified data"""
         if self.cpu_class is None:
             raise ValueError("No CPU implementation for %s" % self.name)
 
         all_args = {**self.shared_args, **self.cpu_args}
-        all_args = {**all_args, **override_args}
+        all_args = {**all_args, **override_setup_args}
 
         if "cpu_setup_result" not in all_args:
             cpu_obj = self.cpu_class(**all_args)
@@ -142,16 +142,16 @@ class AlgorithmPair:
         if self.cpu_data_prep_hook:
             data = self.cpu_data_prep_hook(data)
         if self.accepts_labels:
-            self.bench_func(cpu_obj, data[0], data[1])
+            self.bench_func(cpu_obj, data[0], data[1], **bench_args)
         else:
-            self.bench_func(cpu_obj, data[0])
+            self.bench_func(cpu_obj, data[0], **bench_args)
 
         return cpu_obj
 
-    def run_cuml(self, data, **override_args):
+    def run_cuml(self, data, bench_args={}, **override_setup_args):
         """Runs the cuml-based algorithm's fit method on specified data"""
         all_args = {**self.shared_args, **self.cuml_args}
-        all_args = {**all_args, **override_args}
+        all_args = {**all_args, **override_setup_args}
 
         if "cuml_setup_result" not in all_args:
             cuml_obj = self.cuml_class(**all_args)
@@ -160,35 +160,35 @@ class AlgorithmPair:
         if self.cuml_data_prep_hook:
             data = self.cuml_data_prep_hook(data)
         if self.accepts_labels:
-            self.bench_func(cuml_obj, data[0], data[1])
+            self.bench_func(cuml_obj, data[0], data[1], **bench_args)
         else:
-            self.bench_func(cuml_obj, data[0])
+            self.bench_func(cuml_obj, data[0], **bench_args)
 
         return cuml_obj
 
     def setup_cpu(self, data, **override_args):
+        all_args = {**self.shared_args, **self.cpu_args}
+        all_args = {**all_args, **override_args}
         if self.setup_cpu_func is not None:
-            all_args = {**self.shared_args, **self.cpu_args}
-            all_args = {**all_args, **override_args}
             return {
                 "cpu_setup_result": self.setup_cpu_func(
                     self.cpu_class, data, all_args, self.tmpdir
                 )
             }
         else:
-            return {}
+            return all_args
 
     def setup_cuml(self, data, **override_args):
+        all_args = {**self.shared_args, **self.cuml_args}
+        all_args = {**all_args, **override_args}
         if self.setup_cuml_func is not None:
-            all_args = {**self.shared_args, **self.cuml_args}
-            all_args = {**all_args, **override_args}
             return {
                 "cuml_setup_result": self.setup_cuml_func(
                     self.cuml_class, data, all_args, self.tmpdir
                 )
             }
         else:
-            return {}
+            return all_args
 
 
 def _labels_to_int_hook(data):

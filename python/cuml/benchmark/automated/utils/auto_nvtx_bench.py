@@ -133,4 +133,4 @@ dataset = datagen.gen_data(
 algo = algorithms.algorithm_by_name(args.algo_name)
 cuml_setup = setup_bench('cuml', algo, 'inference', dataset,
                          args.setup_kwargs, args.training_kwargs)
-algo.run_cuml(dataset, **args.inference_kwargs, **cuml_setup)
+algo.run_cuml(dataset, bench_args=args.inference_kwargs, **cuml_setup)
