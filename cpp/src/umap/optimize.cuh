@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 
-#include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>
@@ -177,8 +177,10 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   float step = (spread * 3.0) / 300.0;
 
-  float* X = (float*)malloc(300 * sizeof(float));
-  float* y = (float*)malloc(300 * sizeof(float));
+  auto const X_uptr = std::make_unique<float[]>(300);
+  auto const y_uptr = std::make_unique<float[]>(300);
+  auto* const X     = X_uptr.get();
+  auto* const y     = y_uptr.get();
 
   for (int i = 0; i < 300; i++) {
     X[i] = i * step;
@@ -194,9 +196,10 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   rmm::device_uvector<float> y_d(300, stream);
   raft::update_device(y_d.data(), y, 300, stream);
-  float* coeffs_h = (float*)malloc(2 * sizeof(float));
-  coeffs_h[0]     = 1.0;
-  coeffs_h[1]     = 1.0;
+  auto const coeffs_h_uptr = std::make_unique<float[]>(2);
+  auto* const coeffs_h     = coeffs_h_uptr.get();
+  coeffs_h[0]              = 1.0;
+  coeffs_h[1]              = 1.0;
 
   rmm::device_uvector<float> coeffs(2, stream);
   CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
@@ -211,8 +214,6 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   CUML_LOG_DEBUG("a=%f, b=%f", params->a, params->b);
-
-  delete coeffs_h;
 }
 }  // namespace Optimize
 }  // namespace UMAPAlgo

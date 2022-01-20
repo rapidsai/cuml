@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
 #include <linalg/power.cuh>
 #include <memory>
-#include <raft/distance/distance.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/distance/distance.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/spatial/knn/knn.hpp>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
+#include <thrust/device_ptr.h>
+#include <thrust/reduce.h>
 
 #define N_THREADS 512
 

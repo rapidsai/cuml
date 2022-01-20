@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
 
-#include <raft/cudart_utils.h>
+#include "shuffle.h"
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include "shuffle.h"
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
 
 #include <cstddef>
 

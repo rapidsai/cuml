@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,13 @@
 #include <thrust/scan.h>
 #include <vector>
 
+#include "arima_helpers.cuh"
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
-#include "arima_helpers.cuh"
 
 namespace MLCommon {
 

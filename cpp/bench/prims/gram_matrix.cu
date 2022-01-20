@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <cuml/matrix/kernelparams.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <common/ml_benchmark.hpp>
+#include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/random/rng.cuh>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>
 #include <vector>

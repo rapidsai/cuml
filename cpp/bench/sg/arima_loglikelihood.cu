@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
 #include <raft/handle.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/cudart_utils.h>
 #include "benchmark.cuh"
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace Bench {
@@ -79,6 +79,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       batched_loglike(*this->handle,
                       arima_mem,
                       this->data.X.data(),
+                      nullptr,
                       this->params.batch_size,
                       this->params.n_obs,
                       order,
@@ -122,11 +123,11 @@ std::vector<ArimaParams> getInputs()
   struct std::vector<ArimaParams> out;
   ArimaParams p;
   p.data.seed                        = 12345ULL;
-  std::vector<ARIMAOrder> list_order = {{1, 1, 1, 0, 0, 0, 0, 0},
-                                        {1, 1, 1, 1, 1, 1, 4, 0},
-                                        {1, 1, 1, 1, 1, 1, 12, 0},
-                                        {1, 1, 1, 1, 1, 1, 24, 0},
-                                        {1, 1, 1, 1, 1, 1, 52, 0}};
+  std::vector<ARIMAOrder> list_order = {{1, 1, 1, 0, 0, 0, 0, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 4, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 12, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 24, 0, 0},
+                                        {1, 1, 1, 1, 1, 1, 52, 0, 0}};
   std::vector<int> list_batch_size   = {10, 100, 1000, 10000};
   std::vector<int> list_n_obs        = {200, 500, 1000};
   for (auto& order : list_order) {

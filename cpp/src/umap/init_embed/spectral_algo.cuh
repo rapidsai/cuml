@@ -18,12 +18,11 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/sparse/coo.cuh>
-
 #include <raft/linalg/add.cuh>
+#include <raft/sparse/coo.hpp>
 
 #include <raft/linalg/transpose.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>

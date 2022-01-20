@@ -23,6 +23,8 @@ set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cufft
   rmm::rmm
   raft::raft
+  raft::raft_nn
+  raft::raft_distance
   $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
   GTest::gtest
   GTest::gtest_main
@@ -53,15 +55,17 @@ if(BUILD_CUML_TESTS)
         sg/fnv_hash_test.cpp
         sg/genetic/node_test.cpp
         sg/genetic/param_test.cu
+        sg/genetic/program_test.cu
+        sg/genetic/evolution_test.cu
         sg/hdbscan_test.cu
         sg/holtwinters_test.cu
         sg/kmeans_test.cu
         sg/knn_test.cu
         sg/lars_test.cu
+        sg/linear_svm_test.cu
         sg/linkage_test.cu
         sg/logger.cpp
         sg/multi_sum_test.cu
-        sg/nvtx_test.cpp
         sg/ols.cu
         sg/pca_test.cu
         sg/quasi_newton.cu

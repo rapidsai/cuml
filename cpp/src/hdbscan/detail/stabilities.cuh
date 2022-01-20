@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@
 
 #include <raft/cudart_utils.h>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <cuml/cluster/hdbscan.hpp>
 
@@ -102,7 +102,7 @@ void compute_stabilities(const raft::handle_t& handle,
     n_clusters - 1,
     sorted_parents_offsets.data() + 1,
     stream,
-    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*>);
+    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>);
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their childrens
   auto births_zip =

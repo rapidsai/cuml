@@ -251,11 +251,16 @@ class DBSCAN(Base,
             input_to_cuml_array(X, order='C',
                                 check_dtype=[np.float32, np.float64])
 
+        if n_rows == 0:
+            raise ValueError("No rows in the input array. DBScan cannot be "
+                             "fitted!")
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
+                                       index=X_m.index)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL

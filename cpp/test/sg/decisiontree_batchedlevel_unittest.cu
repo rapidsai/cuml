@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <decisiontree/quantile/quantile.h>
-#include <gtest/gtest.h>
 #include <algorithm>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
-#include <decisiontree/batched-levelalgo/kernels.cuh>
-#include <decisiontree/batched-levelalgo/metrics.cuh>
+#include <decisiontree/batched-levelalgo/builder_kernels.cuh>
+#include <gtest/gtest.h>
+// #include <decisiontree/batched-levelalgo/metrics.cuh>
 #include <functional>
 
 namespace ML {
@@ -105,7 +104,7 @@ class BatchedLevelAlgoUnitTestFixture {
     // New depth reached by the invocation of nodeSplitKernel()
     new_depth.resize(1, stream);
 
-    raft::allocate(splits, max_batch, stream);
+    rmm::device_uvector<SplitT> splits(max_batch, stream);
 
     raft::update_device(data.data(), h_data.data(), n_row * n_col, stream);
     raft::update_device(labels.data(), h_labels.data(), n_row, stream);
@@ -143,7 +142,6 @@ class BatchedLevelAlgoUnitTestFixture {
   rmm::device_uvector<DataT> data, d_quantiles, labels;
   rmm::device_uvector<IdxT> n_new_nodes, n_new_leaves, new_depth, row_ids;
   rmm::device_uvector<NodeT> curr_nodes, new_nodes;
-  SplitT* splits;
 };
 
 class TestNodeSplitKernel : public ::testing::TestWithParam<NodeSplitKernelTestParams>,
@@ -190,13 +188,13 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
   CUDA_CHECK(cudaMemsetAsync(n_new_nodes.data(), 0, sizeof(IdxT), stream));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
   CUDA_CHECK(cudaMemsetAsync(new_depth.data(), 0, sizeof(IdxT), stream));
-  initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits, batchSize, stream);
+  initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits.data(), batchSize, stream);
 
   /* { quesval, colid, best_metric_val, nLeft } */
   std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1}, {2.0f, 1, 3.555556f, 2}};
-  raft::update_device(splits, h_splits.data(), 2, stream);
+  raft::update_device(splits.data(), h_splits.data(), 2, stream);
 
-  nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, builder.TPB_SPLIT>
+  nodeSplitKernel<DataT, LabelT, IdxT, builder.TPB_SPLIT>
     <<<batchSize, builder.TPB_SPLIT, smemSize, 0>>>(params.max_depth,
                                                     test_params.min_samples_leaf,
                                                     test_params.min_samples_split,
@@ -206,7 +204,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
                                                     curr_nodes.data(),
                                                     new_nodes.data(),
                                                     n_new_nodes.data(),
-                                                    splits,
+                                                    splits.data(),
                                                     n_new_leaves.data(),
                                                     h_n_total_nodes,
                                                     new_depth.data());
@@ -273,7 +271,7 @@ TEST_P(TestMetric, RegressionMetricGain)
   CUDA_CHECK(cudaMemsetAsync(done_count.data(), 0, sizeof(int) * max_batch * n_col_blks, stream));
   CUDA_CHECK(cudaMemsetAsync(hist.data(), 0, 2 * sizeof(DataT) * nPredCounts, stream));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
-  initSplit<DataT, IdxT, TPB_DEFAULT>(splits, batchSize, stream);
+  initSplit<DataT, IdxT, TPB_DEFAULT>(splits.data(), batchSize, stream);
 
   std::vector<SplitT> h_splits(1);
 
@@ -303,13 +301,13 @@ TEST_P(TestMetric, RegressionMetricGain)
                                      0,
                                      done_count.data(),
                                      mutex.data(),
-                                     splits,
+                                     splits.data(),
                                      obj,
                                      0,
                                      workload_info.data(),
                                      1234ULL);
 
-  raft::update_host(h_splits.data(), splits, 1, stream);
+  raft::update_host(h_splits.data(), splits.data(), 1, stream);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
