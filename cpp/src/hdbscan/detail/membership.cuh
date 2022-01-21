@@ -19,8 +19,8 @@
 #include "kernels/membership.cuh"
 #include "utils.h"
 
-// #include <cub/cub.cuh>
-#include <thrust/../dependencies/cub/cub/device/device_segmented_reduce.cuh>
+#include <cub/cub.cuh>
+//#include <cub/device/device_segmented_reduce.cuh>
 
 #include <raft/cudart_utils.h>
 
