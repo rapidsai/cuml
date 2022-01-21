@@ -19,7 +19,8 @@
 #include "kernels/membership.cuh"
 #include "utils.h"
 
-#include <cub/cub.cuh>
+// #include <cub/cub.cuh>
+#include <thrust/../dependencies/cub/cub/device/device_segmented_reduce.cuh>
 
 #include <raft/cudart_utils.h>
 
@@ -80,7 +81,7 @@ void get_probabilities(const raft::handle_t& handle,
     n_clusters,
     sorted_parents_offsets.data(),
     stream,
-    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*>);
+    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>);
 
   // Calculate probability per point
   thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);
