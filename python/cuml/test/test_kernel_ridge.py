@@ -24,31 +24,29 @@ from cuml import (
 import pytest
 import math
 import inspect
-from cuml.test.utils import (
-    array_equal,
-    small_regression_dataset,
-    small_classification_dataset,
-    unit_param,
-    quality_param,
-    stress_param,
-)
-from scipy.sparse.construct import rand
 from sklearn.metrics import pairwise, mean_squared_error as mse
-from sklearn.datasets import make_regression
 from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
 from hypothesis import note, given, settings, assume, strategies as st
 from hypothesis.extra.numpy import arrays
 
 
-def gradient_norm(X, y, model, K):
+def gradient_norm(X, y, model, K, sw=None):
+    if sw is None:
+        sw = cp.ones(X.shape[0])
+    else:
+        sw = cp.atleast_1d(cp.array(sw, dtype=np.float64))
+
     X = cp.array(X, dtype=np.float64)
     y = cp.array(y, dtype=np.float64)
     K = cp.array(K, dtype=np.float64)
-    w = cp.array(model.dual_coef_, dtype=np.float64).reshape(y.shape)
-    grad = -cp.dot(K, y)
-    grad += cp.dot(cp.dot(K, K), w)
-    grad += cp.dot(K * model.alpha, w)
-    return linalg.norm(grad)
+    betas = cp.array(model.dual_coef_, dtype=np.float64).reshape(y.shape)
+
+    grads = cp.zeros_like(y)
+    for i, (beta, target, current_alpha) in enumerate(zip(betas.T, y.T, model.alpha)):
+        grads[:, i] = -cp.dot(K * sw, target)
+        grads[:, i] += cp.dot(cp.dot(K * sw, K), beta)
+        grads[:, i] += cp.dot(K * current_alpha, beta)
+    return linalg.norm(grads)
 
 
 def test_pairwise_kernels_basic():
@@ -104,7 +102,7 @@ def test_pairwise_kernels_basic():
         pairwise_kernels(X, metric=bad_numba_kernel2)
 
     # Precomputed
-    assert array_equal(X, pairwise_kernels(X, metric="precomputed"))
+    assert np.allclose(X, pairwise_kernels(X, metric="precomputed"))
 
 
 @cuda.jit(device=True)
@@ -169,29 +167,46 @@ def test_pairwise_kernels(kernel_arg, XY):
 
 
 @st.composite
-def Xy_strategy(draw):
+def X_y_alpha_strategy(draw):
     X_m = draw(st.integers(5, 20))
     X_n = draw(st.integers(2, 10))
     dtype = draw(st.sampled_from([np.float64, np.float32]))
     rs = np.random.RandomState(draw(st.integers(1, 10)))
     X = rs.rand(X_m, X_n).astype(dtype)
 
-    a = draw(arrays(dtype=dtype, shape=X_n, elements=st.floats(0, 5, width=32),))
+    n_targets = draw(st.integers(1, 3))
+    a = draw(
+        arrays(dtype=dtype, shape=(X_n, n_targets), elements=st.floats(0, 5, width=32),)
+    )
     y = X.dot(a)
-    return (X, y)
+
+    alpha = draw(
+        arrays(dtype=dtype, shape=(n_targets), elements=st.floats(0, 5, width=32))
+    )
+
+    sample_weight = draw(
+        st.one_of(
+            [
+                st.just(None),
+                st.floats(0.1, 1.5),
+                arrays(dtype=np.float64, shape=X_m, elements=st.floats(0.1, 5)),
+            ]
+        )
+    )
+    return (X, y, alpha, sample_weight)
 
 
 @given(
     kernel_arg_strategy(),
-    Xy_strategy(),
-    st.floats(0.0, 5.0),
+    X_y_alpha_strategy(),
     st.floats(1.0, 5.0),
     st.integers(1, 5),
     st.floats(1.0, 5.0),
 )
 @settings(deadline=5000, max_examples=100)
-def test_estimator(kernel_arg, Xy, alpha, gamma, degree, coef0):
+def test_estimator(kernel_arg, X_y_alpha, gamma, degree, coef0):
     kernel, args = kernel_arg
+    X, y, alpha, sample_weight = X_y_alpha
     model = cuKernelRidge(
         kernel=kernel,
         alpha=alpha,
@@ -209,20 +224,40 @@ def test_estimator(kernel_arg, Xy, alpha, gamma, degree, coef0):
         coef0=coef0,
         kernel_params=args,
     )
-    X, y = Xy
     if kernel == "chi2" or kernel == "additive_chi2":
         # X must be positive
         X = X + abs(X.min()) + 1.0
 
-    model.fit(X, y)
+    model.fit(X, y, sample_weight)
     # For a convex optimisation problem we should arrive at gradient norm 0
     # If the solution has converged correctly
     K = model._get_kernel(X)
-    grad_norm = gradient_norm(X, y, model, K)
+    grad_norm = gradient_norm(X, y, model, K, sample_weight)
 
     assert grad_norm < 1e-2
     pred = model.predict(X).get()
     if X.dtype == np.float64:
-        skl_model.fit(X, y)
+        try:
+            skl_model.fit(X, y, sample_weight)
+        except np.linalg.LinAlgError:
+            # sklearn can fail to fit multiclass models with singular kernel matrices
+            assume(False)
+
         skl_pred = skl_model.predict(X)
         assert np.allclose(pred, skl_pred, atol=1e-3, rtol=1e-3)
+
+
+def test_precomputed():
+    rs = np.random.RandomState(23)
+    X = rs.normal(size=(10, 10))
+    y = rs.normal(size=10)
+    K = pairwise_kernels(X)
+    precomputed_model = cuKernelRidge(kernel="precomputed")
+    precomputed_model.fit(K.get(), y)
+    model = cuKernelRidge()
+    model.fit(X, y)
+    assert np.array_equal(precomputed_model.dual_coef_, model.dual_coef_)
+    assert np.allclose(
+        precomputed_model.predict(K), model.predict(X), atol=1e-5, rtol=1e-5
+    )
+

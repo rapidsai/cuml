@@ -121,18 +121,33 @@ PAIRWISE_KERNEL_FUNCTIONS = {
     "sigmoid": sigmoid_kernel,
 }
 
+# cholesky solve with fallback to least squares for singular problems
+def _safe_solve(K,y):
+    try:
+        # we need to set the error mode of cupy to raise
+        # otherwise we silently get an array of NaNs
+        err_mode = geterr()["linalg"]
+        seterr(linalg="raise")
+        dual_coef = lapack.posv(K, y)
+        seterr(linalg=err_mode)
+    except np.linalg.LinAlgError:
+        warnings.warn(
+            "Singular matrix in solving dual problem. Using "
+            "least-squares solution instead."
+        )
+        dual_coef = linalg.lstsq(K, y, rcond=None)[0]
+    return dual_coef
 
-def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
+def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
     # dual_coef = inv(X X^t + alpha*Id) y
     n_samples = K.shape[0]
     n_targets = y.shape[1]
 
-    if copy:
-        K = K.copy()
+    K = cp.array(K, dtype=np.float64)
 
     alpha = cp.atleast_1d(alpha)
     one_alpha = (alpha == alpha[0]).all()
-    has_sw = sample_weight not in [1.0, None]
+    has_sw = sample_weight is not None
 
     if has_sw:
         # Unlike other solvers, we need to support sample_weight directly
@@ -145,43 +160,25 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None, copy=False):
         # Only one penalty, we can solve multi-target problems in one time.
         K.flat[:: n_samples + 1] += alpha[0]
 
-        try:
-            # we need to set the error mode of cupy to raise
-            # otherwise we silently get an array of NaNs
-            err_mode = geterr()["linalg"]
-            seterr(linalg="raise")
-            dual_coef = lapack.posv(K, y)
-            seterr(linalg=err_mode)
-        except Exception as err:
-            warnings.warn(
-                "Singular matrix in solving dual problem. Using "
-                "least-squares solution instead."
-            )
-            dual_coef = linalg.lstsq(K, y, rcond=None)[0]
-
-        # K is expensive to compute and store in memory so change it back in
-        # case it was user-given.
-        K.flat[:: n_samples + 1] -= alpha[0]
+        dual_coef = _safe_solve(K,y)
 
         if has_sw:
-            dual_coef *= sw[:, np.newaxis]
+            dual_coef *= sw[:, cp.newaxis]
 
         return dual_coef
     else:
         # One penalty per target. We need to solve each target separately.
-        dual_coefs = np.empty([n_targets, n_samples], K.dtype)
+        dual_coefs = cp.empty([n_targets, n_samples], K.dtype)
 
         for dual_coef, target, current_alpha in zip(dual_coefs, y.T, alpha):
             K.flat[:: n_samples + 1] += current_alpha
 
-            dual_coef[:] = linalg.solve(
-                K, target, sym_pos=True, overwrite_a=False
-            ).ravel()
+            dual_coef[:] = _safe_solve(K,target).ravel()        
 
             K.flat[:: n_samples + 1] -= current_alpha
 
         if has_sw:
-            dual_coefs *= sw[np.newaxis, :]
+            dual_coefs *= sw[cp.newaxis, :]
 
         return dual_coefs.T
 
@@ -313,9 +310,6 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
 
 
 class KernelRidge(Base, RegressorMixin):
-    dual_coef_ = CumlArrayDescriptor()
-    X_fit_ = CumlArrayDescriptor()
-
     def __init__(
         self,
         *,
@@ -330,7 +324,7 @@ class KernelRidge(Base, RegressorMixin):
         verbose=False
     ):
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
-        self.alpha = alpha
+        self.alpha = cp.asarray(alpha)
         self.kernel = kernel
         self.gamma = gamma
         self.degree = degree
@@ -372,9 +366,8 @@ class KernelRidge(Base, RegressorMixin):
             raise TypeError(msg)
 
         K = self._get_kernel(X_m, self.kernel)
-        copy = self.kernel == "precomputed"
         self.dual_coef_ = _solve_cholesky_kernel(
-            K, cp.asarray(y_m), self.alpha, sample_weight, copy
+            K, cp.asarray(y_m), self.alpha, sample_weight
         )
 
         if ravel:
@@ -401,5 +394,5 @@ class KernelRidge(Base, RegressorMixin):
         )
 
         K = self._get_kernel(X_m, self.X_fit_)
-        return cp.dot(K, self.dual_coef_)
+        return cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_))
 
