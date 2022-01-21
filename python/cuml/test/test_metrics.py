@@ -1381,8 +1381,6 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
             assert isinstance(S, cp.ndarray)
 
 
-@pytest.mark.xfail(reason='Temporarily disabling this test. '
-                          'See rapidsai/cuml#3569')
 @pytest.mark.parametrize("nrows, ncols, n_info",
                          [
                              unit_param(30, 10, 7),
