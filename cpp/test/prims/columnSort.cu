@@ -68,7 +68,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
   {
     params  = ::testing::TestWithParam<columnSort<T>>::GetParam();
     int len = params.n_row * params.n_col;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     keyIn.resize(len, stream);
     valueOut.resize(len, stream);
     goldenValOut.resize(len, stream);
@@ -126,7 +126,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
                         stream,
                         keySorted.data());
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
