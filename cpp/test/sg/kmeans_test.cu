@@ -100,7 +100,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     T inertia  = 0;
     int n_iter = 0;
@@ -116,7 +116,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         inertia,
                         n_iter);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 

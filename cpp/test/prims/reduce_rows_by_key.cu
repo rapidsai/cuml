@@ -141,7 +141,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
       reduce_rows_by_key(
         in.data(), cols, keys.data(), scratch_buf.data(), nobs, cols, nkeys, out.data(), stream);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:

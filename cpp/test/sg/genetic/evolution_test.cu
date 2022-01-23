@@ -80,36 +80,36 @@ class GeneticEvolutionTest : public ::testing::Test {
     d_testwts.resize(n_tst_rows, stream);
 
     // Memcpy HtoD
-    CUDA_CHECK(cudaMemcpyAsync(d_train.data(),
-                               h_train.data(),
-                               n_cols * n_tr_rows * sizeof(float),
-                               cudaMemcpyHostToDevice,
-                               stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_trainlab.data(),
-                               h_trainlab.data(),
-                               n_tr_rows * sizeof(float),
-                               cudaMemcpyHostToDevice,
-                               stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_test.data(),
-                               h_test.data(),
-                               n_cols * n_tst_rows * sizeof(float),
-                               cudaMemcpyHostToDevice,
-                               stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_testlab.data(),
-                               h_testlab.data(),
-                               n_tst_rows * sizeof(float),
-                               cudaMemcpyHostToDevice,
-                               stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_trainwts.data(),
-                               h_trainwts.data(),
-                               n_tr_rows * sizeof(float),
-                               cudaMemcpyHostToDevice,
-                               stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_testwts.data(),
-                               h_testwts.data(),
-                               n_tst_rows * sizeof(float),
-                               cudaMemcpyHostToDevice,
-                               stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_train.data(),
+                                  h_train.data(),
+                                  n_cols * n_tr_rows * sizeof(float),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_trainlab.data(),
+                                  h_trainlab.data(),
+                                  n_tr_rows * sizeof(float),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_test.data(),
+                                  h_test.data(),
+                                  n_cols * n_tst_rows * sizeof(float),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_testlab.data(),
+                                  h_testlab.data(),
+                                  n_tst_rows * sizeof(float),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_trainwts.data(),
+                                  h_trainwts.data(),
+                                  n_tr_rows * sizeof(float),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_testwts.data(),
+                                  h_testwts.data(),
+                                  n_tst_rows * sizeof(float),
+                                  cudaMemcpyHostToDevice,
+                                  stream));
   }
 
   raft::handle_t handle;
@@ -270,8 +270,8 @@ TEST_F(GeneticEvolutionTest, SymReg)
   history.reserve(hyper_params.generations);
 
   cudaEvent_t start, stop;
-  CUDA_CHECK(cudaEventCreate(&start));
-  CUDA_CHECK(cudaEventCreate(&stop));
+  RAFT_CUDA_TRY(cudaEventCreate(&start));
+  RAFT_CUDA_TRY(cudaEventCreate(&stop));
 
   cudaEventRecord(start, stream);
 
@@ -320,7 +320,7 @@ TEST_F(GeneticEvolutionTest, SymReg)
     handle, d_test.data(), n_tst_rows, final_progs + best_idx, d_predlabels.data());
 
   std::vector<float> h_predlabels(n_tst_rows, 0.0f);
-  CUDA_CHECK(cudaMemcpy(
+  RAFT_CUDA_TRY(cudaMemcpy(
     h_predlabels.data(), d_predlabels.data(), n_tst_rows * sizeof(float), cudaMemcpyDeviceToHost));
 
   cudaEventRecord(stop, stream);

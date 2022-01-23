@@ -162,21 +162,21 @@ void RPROJtransform(const raft::handle_t& handle,
     auto& ldb = k;
     auto& ldc = m;
 
-    CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
-                                          CUBLAS_OP_N,
-                                          CUBLAS_OP_N,
-                                          params->n_samples,
-                                          n,
-                                          k,
-                                          &alfa,
-                                          input,
-                                          lda,
-                                          random_matrix->dense_data.data(),
-                                          ldb,
-                                          &beta,
-                                          output,
-                                          ldc,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
+                                             CUBLAS_OP_N,
+                                             CUBLAS_OP_N,
+                                             params->n_samples,
+                                             n,
+                                             k,
+                                             &alfa,
+                                             input,
+                                             lda,
+                                             random_matrix->dense_data.data(),
+                                             ldb,
+                                             &beta,
+                                             output,
+                                             ldc,
+                                             stream));
 
   } else if (random_matrix->type == sparse) {
     cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
@@ -192,21 +192,21 @@ void RPROJtransform(const raft::handle_t& handle,
     auto& lda = m;
     auto& ldc = m;
 
-    CUSPARSE_CHECK(raft::sparse::cusparsegemmi(cusparse_handle,
-                                               m,
-                                               n,
-                                               k,
-                                               nnz,
-                                               &alfa,
-                                               input,
-                                               lda,
-                                               random_matrix->sparse_data.data(),
-                                               random_matrix->indptr.data(),
-                                               random_matrix->indices.data(),
-                                               &beta,
-                                               output,
-                                               ldc,
-                                               stream));
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsegemmi(cusparse_handle,
+                                                  m,
+                                                  n,
+                                                  k,
+                                                  nnz,
+                                                  &alfa,
+                                                  input,
+                                                  lda,
+                                                  random_matrix->sparse_data.data(),
+                                                  random_matrix->indptr.data(),
+                                                  random_matrix->indices.data(),
+                                                  &beta,
+                                                  output,
+                                                  ldc,
+                                                  stream));
   } else {
     ASSERT(false,
            "Could not find a random matrix. Please perform a fit operation "

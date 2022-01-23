@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ void perplexity_search(const value_t* restrict distances,
   else
     sigmas_kernel<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, epochs, tol, n, dim);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
 }
 
@@ -257,7 +257,7 @@ void attractive_forces(const value_t* restrict VAL,
                        const value_t dof,
                        cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(attract, 0, sizeof(value_t) * n * dim, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(attract, 0, sizeof(value_t) * n * dim, stream));
 
   // TODO: Calculate Kullback-Leibler divergence
   // #863
@@ -271,7 +271,7 @@ void attractive_forces(const value_t* restrict VAL,
     attractive_kernel_2d<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
       VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, Qs, NNZ, dof);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /****************************************/
@@ -371,8 +371,8 @@ value_t repulsive_forces(const value_t* restrict Y,
                          const value_t recp_df,
                          cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(Z_sum, 0, sizeof(value_t) * 2 * n, stream));
-  CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(value_t) * n * dim, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(Z_sum, 0, sizeof(value_t) * 2 * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(repel, 0, sizeof(value_t) * n * dim, stream));
 
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(raft::ceildiv(n, (value_idx)TPB_X), raft::ceildiv(n, (value_idx)TPB_Y));
@@ -387,7 +387,7 @@ value_t repulsive_forces(const value_t* restrict Y,
     repulsive_kernel_2d<<<numBlocks, threadsPerBlock, 0, stream>>>(
       Y, Y + n, repel, repel + n, norm, Z_sum, Z_sum + n, n);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Find sum(Z_sum)
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(Z_sum);
@@ -461,7 +461,7 @@ value_t apply_forces(value_t* restrict Y,
 {
   // cudaMemset(means, 0, sizeof(float) * dim);
   if (check_convergence)
-    CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(value_t) * n * dim, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gradient, 0, sizeof(value_t) * n * dim, stream));
 
   apply_kernel<<<raft::ceildiv(n * dim, (value_idx)1024), 1024, 0, stream>>>(Y,
                                                                              velocity,
@@ -479,7 +479,7 @@ value_t apply_forces(value_t* restrict Y,
                                                                              min_gain,
                                                                              gradient,
                                                                              check_convergence);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Find sum of gradient norms
   float gradient_norm = INFINITY;

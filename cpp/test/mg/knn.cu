@@ -148,7 +148,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     Matrix::PartDescriptor query_desc(
       params.min_rows * params.n_query_parts, params.n_cols, queryPartsToRanks, comm.get_rank());
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     /**
      * Execute brute_force_knn()
@@ -164,7 +164,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
                     params.batch_size,
                     true);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream) << std::endl;
     std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream) << std::endl;
