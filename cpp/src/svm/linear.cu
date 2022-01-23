@@ -419,7 +419,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       ps1 = psBuf.data();
     }
   }
-  CUDA_CHECK(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
   if (params.probability) {
     thrust::device_ptr<thrust::tuple<T, T>> p((thrust::tuple<T, T>*)ps1);
     thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, thrust::make_tuple(T(1), T(0)));

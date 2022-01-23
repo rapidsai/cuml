@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -193,7 +193,7 @@ void epsUnexpL2SqNeighImpl(bool* adj,
   dim3 blk(Policy::Nthreads);
   epsUnexpL2SqNeighKernel<DataT, IdxT, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(adj, vd, x, y, m, n, k, eps);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 /**

@@ -98,9 +98,9 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     rmm::device_uvector<T> stats(2 * params.n_clusters * params.cols, stream);
     rmm::device_uvector<int> lens(params.n_clusters, stream);
 
-    CUDA_CHECK(cudaMemsetAsync(stats.data(), 0, stats.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(lens.data(), 0, lens.size() * sizeof(int), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.size() * sizeof(int), stream));
 
     r.uniform(mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0), stream);
     T* sigma_vec = nullptr;

@@ -52,8 +52,8 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
       pred_svm(0, stream),
       pred_svm_ref(0, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
     linearRegressionTest();
     logisticRegressionTest();
     svmTest();
@@ -148,7 +148,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     rmm::device_uvector<T> coef_class(params.n_row2, stream);
     pred_log.resize(params.n_row2, stream);
     pred_log_ref.resize(params.n_row2, stream);
-    CUDA_CHECK(cudaMemsetAsync(coef_class.data(), 0, coef_class.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef_class.data(), 0, coef_class.size() * sizeof(T), stream));
 
     T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
     raft::update_device(data_logreg.data(), data_h, len, stream);
@@ -219,7 +219,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     rmm::device_uvector<T> coef_class(params.n_row2, stream);
     pred_svm.resize(params.n_row2, stream);
     pred_svm_ref.resize(params.n_row2, stream);
-    CUDA_CHECK(cudaMemsetAsync(coef_class.data(), 0, coef_class.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef_class.data(), 0, coef_class.size() * sizeof(T), stream));
 
     T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
     raft::update_device(data_svmreg.data(), data_h, len, stream);

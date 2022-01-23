@@ -54,12 +54,12 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
       h_candidatePDF.begin(), h_candidatePDF.end(), [&]() { return realGenerator(dre); });
 
     // allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<DataT> d_modelPDF(nElements, stream);
     rmm::device_uvector<DataT> d_candidatePDF(nElements, stream);
-    CUDA_CHECK(cudaMemset(d_modelPDF.data(), 0, d_modelPDF.size() * sizeof(DataT)));
-    CUDA_CHECK(cudaMemset(d_candidatePDF.data(), 0, d_candidatePDF.size() * sizeof(DataT)));
+    RAFT_CUDA_TRY(cudaMemset(d_modelPDF.data(), 0, d_modelPDF.size() * sizeof(DataT)));
+    RAFT_CUDA_TRY(cudaMemset(d_candidatePDF.data(), 0, d_candidatePDF.size() * sizeof(DataT)));
 
     raft::update_device(d_modelPDF.data(), &h_modelPDF[0], (int)nElements, stream);
     raft::update_device(d_candidatePDF.data(), &h_candidatePDF[0], (int)nElements, stream);
@@ -76,7 +76,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     // calling the kl_divergence CUDA implementation
     computedklDivergence =
       MLCommon::Metrics::kl_divergence(d_modelPDF.data(), d_candidatePDF.data(), nElements, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   // declaring the data values
