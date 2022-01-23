@@ -23,33 +23,35 @@ from cuml.preprocessing import text
 from cuml._thirdparty.sklearn.preprocessing import StandardScaler, \
     MinMaxScaler, MaxAbsScaler, Normalizer, Binarizer, PolynomialFeatures, \
     SimpleImputer, RobustScaler, KBinsDiscretizer, MissingIndicator
+
 from cuml._thirdparty.sklearn.preprocessing import scale, minmax_scale, \
     maxabs_scale, normalize, add_dummy_feature, binarize, robust_scale
+
 
 __all__ = [
     # Classes
     'Binarizer',
     'KBinsDiscretizer',
+    'LabelBinarizer',
+    'LabelEncoder',
     'MaxAbsScaler',
     'MinMaxScaler',
+    'MissingIndicator',
     'Normalizer',
+    'OneHotEncoder',
     'PolynomialFeatures',
     'RobustScaler',
     'SimpleImputer',
-    'MissingIndicator',
     'StandardScaler',
-    'LabelEncoder',
-    'LabelBinarizer',
-    'OneHotEncoder',
-    'TargetEncoder',
+    'TargetEncoder'
     # Functions
     'add_dummy_feature',
     'binarize',
-    'minmax_scale',
+    'label_binarize',
     'maxabs_scale',
+    'minmax_scale',
     'normalize',
     'robust_scale',
     'scale',
-    'label_binarize',
     'train_test_split'
 ]

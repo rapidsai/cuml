@@ -82,6 +82,17 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
+Preprocessing (Single-GPU)
+-------------
+.. automodule:: cuml.preprocessing
+   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, MissingIndicator,
+             Normalizer, PolynomialFeatures, RobustScaler, SimpleImputer,
+             StandardScaler, add_dummy_feature,binarize, maxabs_scale,
+             minmax_scale,normalize, robust_scale, scale
+
+.. automodule:: cuml.compose
+   :members: ColumnTransformer, FunctionTransformer, make_column_transformer,
+             make_column_selector
 
 Text Preprocessing (Single-GPU)
 ---------------------------------------
@@ -571,14 +582,6 @@ Experimental
 .. note:: Due to the nature of this module, it is not imported by default by
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
-
-Preprocessing
--------------
-.. automodule:: cuml.experimental.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
-      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
-      add_dummy_feature, binarize, minmax_scale, normalize,
-      PolynomialFeatures, robust_scale, scale
 
 Linear Models
 -------------
