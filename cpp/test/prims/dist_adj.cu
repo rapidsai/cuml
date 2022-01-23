@@ -61,7 +61,7 @@ void naiveDistanceAdj(bool* dist,
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
   naiveDistanceAdjKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, eps, isRowMajor);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename DataType>
@@ -92,7 +92,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     auto k              = params.k;
     bool isRowMajor     = params.isRowMajor;
     cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     x        = rmm::device_scalar<DataType>(m * k, stream);
     y        = rmm::device_scalar<DataType>(n * k, stream);
     dist_ref = rmm::device_scalar<bool>(m * n, stream);
@@ -123,7 +123,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                                                                                  fin_op,
                                                                                  stream,
                                                                                  isRowMajor);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

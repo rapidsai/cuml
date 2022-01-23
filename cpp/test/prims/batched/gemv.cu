@@ -57,7 +57,7 @@ void naiveBatchGemv(
   static int TPB = raft::ceildiv(n, raft::WarpSize) * raft::WarpSize;
   dim3 nblks(m, batchSize);
   naiveBatchGemvKernel<Type><<<nblks, TPB, 0, stream>>>(y, A, x, m, n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -72,7 +72,7 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
     int len     = params.batchSize * params.m * params.n;
     int vecleny = params.batchSize * params.m;
     int veclenx = params.batchSize * params.n;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> A(len, stream);
     rmm::device_uvector<T> x(veclenx, stream);
@@ -81,7 +81,7 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
 
     r.uniform(A.data(), len, T(-1.0), T(1.0), stream);
     r.uniform(x.data(), veclenx, T(-1.0), T(1.0), stream);
-    CUDA_CHECK(cudaMemsetAsync(out_ref.data(), 0, sizeof(T) * vecleny, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(out_ref.data(), 0, sizeof(T) * vecleny, stream));
     naiveBatchGemv(
       out_ref.data(), A.data(), x.data(), params.m, params.n, params.batchSize, stream);
     gemv<T, int>(out.data(),
@@ -96,7 +96,7 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
                  stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   cudaStream_t stream = 0;

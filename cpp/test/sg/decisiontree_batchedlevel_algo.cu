@@ -45,7 +45,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   void SetUp()
   {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t{stream});
     set_tree_params(params,
                     inparams.max_depth,
@@ -63,21 +63,21 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     prepareDataset(tmp.data());
     auto alpha = T(1.0) auto beta = T(0.0);
     auto cublas                   = handle->get_cublas_handle();
-    CUBLAS_CHECK(raft::linalg::cublasgeam(cublas,
-                                          CUBLAS_OP_T,
-                                          CUBLAS_OP_N,
-                                          inparams.M,
-                                          inparams.N,
-                                          &alpha,
-                                          tmp.data(),
-                                          inparams.N,
-                                          &beta,
-                                          tmp.data(),
-                                          inparams.M,
-                                          data.data(),
-                                          inparams.M,
-                                          stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublas,
+                                             CUBLAS_OP_T,
+                                             CUBLAS_OP_N,
+                                             inparams.M,
+                                             inparams.N,
+                                             &alpha,
+                                             tmp.data(),
+                                             inparams.N,
+                                             &beta,
+                                             tmp.data(),
+                                             inparams.M,
+                                             data.data(),
+                                             inparams.M,
+                                             stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     rowids.resize(inparams.M, stream);
     MLCommon::iota(rowids.data(), 0, 1, inparams.M, stream);
     quantiles.resize(inparams.nbins * inparams.N, stream);
@@ -87,7 +87,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       quantiles, inparams.nbins, data.data(), inparams.M, inparams.N, allocator, stream);
   }
 
-  void TearDown() { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   cudaStream_t stream = 0;
   std::shared_ptr<raft::handle_t> handle;
