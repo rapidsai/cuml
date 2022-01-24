@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <stats/minmax.cuh>
-#include "test_utils.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Stats {
@@ -73,10 +73,10 @@ void naiveMinMax(
   int nblks     = raft::ceildiv(ncols, TPB);
   T init_val    = std::numeric_limits<T>::max();
   naiveMinMaxInitKernel<<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   nblks = raft::ceildiv(nrows * ncols, TPB);
   naiveMinMaxKernel<<<nblks, TPB, 0, stream>>>(data, nrows, ncols, globalmin, globalmax);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename T>
@@ -97,7 +97,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.rows * params.cols;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<bool> mask(len, stream);
@@ -110,7 +110,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     const int TPB = 256;
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     naiveMinMax(data.data(),
                 params.rows,
                 params.cols,

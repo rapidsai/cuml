@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <cuml/decomposition/sign_flip_mg.hpp>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
-#include <cuml/decomposition/sign_flip_mg.hpp>
 
 #include <common/allocatorAdapter.hpp>
 
@@ -148,7 +148,7 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_stream; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   findMaxAbsOfColumns(
@@ -166,7 +166,7 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_stream; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   flip(components, input_desc.N, n_components, max_vals.data(), streams[0]);

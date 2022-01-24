@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@
 
 #include <common/fast_int_div.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -146,14 +146,14 @@ class Matrix {
   {
     // Fill with zeros if requested
     if (setZero)
-      CUDA_CHECK(cudaMemsetAsync(
+      RAFT_CUDA_TRY(cudaMemsetAsync(
         raw_data(), 0, sizeof(T) * m_shape.first * m_shape.second * m_batch_size, m_stream));
 
     // Fill array of pointers to each batch matrix.
     constexpr int TPB = 256;
     fill_strided_pointers_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB, 0, m_stream>>>(
       raw_data(), data(), m_batch_size, m_shape.first, m_shape.second);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
  public:
@@ -372,7 +372,7 @@ class Matrix {
     const int TPB = (len - period) > 512 ? 256 : 128;  // quick heuristics
     batched_diff_kernel<<<m_batch_size, TPB, 0, m_stream>>>(
       raw_data(), out.raw_data(), len, period);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     return out;
   }
@@ -389,9 +389,9 @@ class Matrix {
   {
     int n = A.m_shape.first;
 
-    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgetrfBatched(
       A.m_cublasHandle, n, A.data(), n, d_P, d_info, A.m_batch_size, A.m_stream));
-    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgetriBatched(
       A.m_cublasHandle, n, A.data(), n, d_P, Ainv.data(), n, d_info, A.m_batch_size, A.m_stream));
   }
 
@@ -468,7 +468,7 @@ class Matrix {
 
     identity_matrix_kernel<T>
       <<<batch_size, std::min(std::size_t{256}, m), 0, stream>>>(I.raw_data(), m);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     return I;
   }
 
@@ -579,25 +579,25 @@ void b_gemm(bool aT,
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Call cuBLAS
-  CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(A.cublasHandle(),
-                                                      opA,
-                                                      opB,
-                                                      m,
-                                                      n,
-                                                      k,
-                                                      &alpha,
-                                                      A.raw_data(),
-                                                      A.shape().first,
-                                                      A.shape().first * A.shape().second,
-                                                      B.raw_data(),
-                                                      B.shape().first,
-                                                      B.shape().first * B.shape().second,
-                                                      &beta,
-                                                      C.raw_data(),
-                                                      C.shape().first,
-                                                      C.shape().first * C.shape().second,
-                                                      A.batches(),
-                                                      A.stream()));
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgemmStridedBatched(A.cublasHandle(),
+                                                         opA,
+                                                         opB,
+                                                         m,
+                                                         n,
+                                                         k,
+                                                         &alpha,
+                                                         A.raw_data(),
+                                                         A.shape().first,
+                                                         A.shape().first * A.shape().second,
+                                                         B.raw_data(),
+                                                         B.shape().first,
+                                                         B.shape().first * B.shape().second,
+                                                         &beta,
+                                                         C.raw_data(),
+                                                         C.shape().first,
+                                                         C.shape().first * C.shape().second,
+                                                         A.batches(),
+                                                         A.stream()));
 }
 
 /**
@@ -658,19 +658,19 @@ void b_gels(const Matrix<T>& A, Matrix<T>& C, int* devInfoArray = nullptr)
   Matrix<T> Acopy(A);
 
   int info;
-  CUBLAS_CHECK(raft::linalg::cublasgelsBatched(A.cublasHandle(),
-                                               CUBLAS_OP_N,
-                                               m,
-                                               n,
-                                               nrhs,
-                                               Acopy.data(),
-                                               m,
-                                               C.data(),
-                                               m,
-                                               &info,
-                                               devInfoArray,
-                                               A.batches(),
-                                               A.stream()));
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgelsBatched(A.cublasHandle(),
+                                                  CUBLAS_OP_N,
+                                                  m,
+                                                  n,
+                                                  nrhs,
+                                                  Acopy.data(),
+                                                  m,
+                                                  C.data(),
+                                                  m,
+                                                  &info,
+                                                  devInfoArray,
+                                                  A.batches(),
+                                                  A.stream()));
 }
 
 /**
@@ -833,7 +833,7 @@ void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T
   dim3 threads(std::min(p, std::size_t{32}), std::min(q, std::size_t{32}));
   kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -947,7 +947,7 @@ void b_lagged_mat(const Matrix<T>& vec,
                                                              mat_offset,
                                                              mat_batch_stride,
                                                              s);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -1068,7 +1068,7 @@ void b_2dcopy(const Matrix<T>& in,
                                                                out_starting_col,
                                                                out.shape().first,
                                                                out.shape().second);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -1302,9 +1302,9 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
   raft::copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
 
   // Initialize U with the identity
-  CUDA_CHECK(cudaMemsetAsync(U.raw_data(), 0, sizeof(T) * n2 * batch_size, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(U.raw_data(), 0, sizeof(T) * n2 * batch_size, stream));
   identity_matrix_kernel<T><<<batch_size, std::min(256, n), 0, stream>>>(U.raw_data(), n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Create a temporary buffer to store the Householder vectors
   int hh_size = (n * (n - 1)) / 2 - 1;
@@ -1314,7 +1314,7 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
   int shared_mem_size = n * sizeof(T);
   hessenberg_reduction_kernel<<<batch_size, n, shared_mem_size, stream>>>(
     U.raw_data(), H.raw_data(), hh_buffer.data(), n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -1581,7 +1581,7 @@ void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S, int max_iter_per_st
 
   // Use the Francis QR algorithm to complete to a real Schur decomposition
   francis_qr_algorithm_kernel<<<batch_size, n, 0, stream>>>(U.raw_data(), S.raw_data(), n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -1838,7 +1838,7 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S, const Matrix<T>& 
                                                                Y.raw_data(),
                                                                scratch_buffer.data(),
                                                                n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   return Y;
 }

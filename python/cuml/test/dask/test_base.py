@@ -55,8 +55,9 @@ def test_get_combined_model(datatype, keys, data_size, fit_intercept,
     X_train, y_train, X_test = make_dataset(datatype, nrows,
                                             ncols, n_info)
     model = LinearRegression(fit_intercept=fit_intercept,
-                             client=client)
+                             client=client, verbose=True)
     model.fit(X_train, y_train)
+    print("Fit done")
 
     combined_model = model.get_combined_model()
     assert combined_model.coef_ is not None

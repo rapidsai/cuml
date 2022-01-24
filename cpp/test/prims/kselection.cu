@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <stdlib.h>
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <limits>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <selection/kselection.cuh>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Selection {
@@ -47,7 +47,7 @@ void sortTest(TypeK* key)
 {
   rmm::device_uvector<TypeK> dkey(TPB * N);
   sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   raft::update_host<TypeK>(key, dkey.data(), TPB * N, 0);
 }
 
@@ -140,7 +140,7 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
   {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     arr.resize(params.rows * params.cols, stream);
     outk.resize(params.rows * params.k, stream);
     outv.resize(params.rows * params.k, stream);
@@ -150,7 +150,7 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
     static const bool Greater = true;
     warpTopK<T, int, Greater, Sort>(
       outv.data(), outk.data(), arr.data(), params.k, params.rows, params.cols, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

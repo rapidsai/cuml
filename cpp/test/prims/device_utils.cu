@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
+#include <common/device_utils.cuh>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <common/device_utils.cuh>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 
@@ -57,7 +57,7 @@ void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param, cud
 {
   size_t smemSize = sizeof(int) * (param.blkDim / raft::WarpSize) * NThreads;
   batchedBlockReduceTestKernel<NThreads><<<1, param.blkDim, smemSize, stream>>>(out);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 ::std::ostream& operator<<(::std::ostream& os, const BatchedBlockReduceInputs& dims) { return os; }
@@ -70,16 +70,16 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
   void SetUp() override
   {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     out.resize(NThreads, stream);
     refOut.resize(NThreads, stream);
-    CUDA_CHECK(cudaMemset(out.data(), 0, out.size() * sizeof(int)));
-    CUDA_CHECK(cudaMemset(refOut.data(), 0, refOut.size() * sizeof(int)));
+    RAFT_CUDA_TRY(cudaMemset(out.data(), 0, out.size() * sizeof(int)));
+    RAFT_CUDA_TRY(cudaMemset(refOut.data(), 0, refOut.size() * sizeof(int)));
     computeRef();
     batchedBlockReduceTest<NThreads>(out.data(), params, stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void computeRef()
   {
@@ -92,7 +92,7 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
       }
     }
     raft::update_device(refOut.data(), ref, NThreads, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     delete[] ref;
   }
 

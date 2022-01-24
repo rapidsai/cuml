@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 #include <cuml/metrics/metrics.hpp>
 #include <raft/linalg/map.cuh>
 
+#include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
+#include <iostream>
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuml/common/logger.hpp>
-#include <iostream>
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
@@ -134,7 +134,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
       k_graph.knn_dists   = input_dists.data();
       TSNE::get_distances(handle, input, k_graph, stream);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     TSNE_runner<manifold_dense_inputs_t<float>, knn_indices_dense_t, float> runner(
       handle, input, k_graph, model_params);
     results.kl_div = runner.run();
@@ -148,8 +148,8 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       n,
                       model_params.dim,
                       raft::distance::DistanceType::L2Expanded,
-                      stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+                      false);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Compute theorical KL div
     results.kl_div_ref =
@@ -159,7 +159,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     float* embeddings_h = (float*)malloc(sizeof(float) * n * model_params.dim);
     assert(embeddings_h != NULL);
     raft::update_host(embeddings_h, Y_d.data(), n * model_params.dim, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     // Move embeddings to host.
     // This can be used for printing if needed.
     int k = 0;
@@ -170,7 +170,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     }
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
     raft::update_device(Y_d.data(), C_contiguous_embedding, n * model_params.dim, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     free(embeddings_h);
 
     // Produce trustworthiness score

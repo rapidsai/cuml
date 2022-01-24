@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/coo.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/op/sort.hpp>
 #include <raft/stats/mean.hpp>
 
 #include <cuda_runtime.h>
@@ -253,18 +253,18 @@ void smooth_knn_dist(int n,
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
   raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n, false, false, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;
   raft::update_host(&mean_dist, dist_means_dev.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   /**
    * Smooth kNN distances to be continuous
    */
   smooth_knn_dist_kernel<TPB_X><<<grid, blk, 0, stream>>>(
     knn_dists, n, mean_dist, sigmas, rhos, n_neighbors, local_connectivity);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -297,8 +297,8 @@ void launcher(int n,
    */
   rmm::device_uvector<value_t> sigmas(n, stream);
   rmm::device_uvector<value_t> rhos(n, stream);
-  CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
-  CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
 
   smooth_knn_dist<TPB_X, value_idx, value_t>(n,
                                              knn_indices,
@@ -321,7 +321,7 @@ void launcher(int n,
     CUML_LOG_DEBUG("%s", str.c_str());
   }
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /**
    * Compute graph of membership strengths
@@ -339,7 +339,7 @@ void launcher(int n,
                                                                               in.cols(),
                                                                               in.n_rows,
                                                                               n_neighbors);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Compute Membership Strength");
@@ -353,7 +353,7 @@ void launcher(int n,
    * one via a fuzzy union. (Symmetrize knn graph).
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
-  raft::sparse::linalg::coo_symmetrize<TPB_X, value_t>(
+  raft::sparse::linalg::coo_symmetrize<value_t>(
     &in,
     out,
     [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {

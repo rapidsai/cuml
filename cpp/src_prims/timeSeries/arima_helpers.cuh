@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 
 #include <cuda_runtime.h>
 
+#include "jones_transform.cuh"
 #include <cuml/tsa/arima_common.h>
-#include <raft/cudart_utils.h>
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include "jones_transform.cuh"
 
 // Private helper functions and kernels in the anonymous namespace
 namespace {
@@ -230,7 +230,7 @@ void prepare_data(DataT* d_out,
     int tpb    = (n_obs - period) > 512 ? 256 : 128;  // quick heuristics
     MLCommon::LinAlg::Batched::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
       d_in, d_out, n_obs, period);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   // Two differences (simple or seasonal or both)
   else if (d + D == 2) {
@@ -239,7 +239,7 @@ void prepare_data(DataT* d_out,
     int tpb     = (n_obs - period1 - period2) > 512 ? 256 : 128;
     MLCommon::LinAlg::Batched::batched_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
       d_in, d_out, n_obs, period1, period2);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   // If no difference and the pointers are different, copy in to out
   else if (d + D == 0 && d_in != d_out) {
@@ -285,7 +285,7 @@ void prepare_future_data(DataT* d_out,
     int tpb    = n_fut > 128 ? 64 : 32;  // quick heuristics
     _future_diff_kernel<<<batch_size, tpb, 0, stream>>>(
       d_in_past, d_in_fut, d_out, n_past, n_fut, period);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   // Two differences (simple or seasonal or both)
   else if (d + D == 2) {
@@ -294,7 +294,7 @@ void prepare_future_data(DataT* d_out,
     int tpb     = n_fut > 128 ? 64 : 32;
     _future_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
       d_in_past, d_in_fut, d_out, n_past, n_fut, period1, period2);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   // If no difference and the pointers are different, copy in to out
   else if (d + D == 0 && d_in_fut != d_out) {
@@ -343,11 +343,11 @@ void finalize_forecast(DataT* d_fc,
   if (d + D == 1) {
     _undiff_kernel<false><<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
       d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   } else if (d + D == 2) {
     _undiff_kernel<true><<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
       d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s, d == 2 ? 1 : s);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 

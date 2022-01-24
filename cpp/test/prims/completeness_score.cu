@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/completeness_score.cuh>
+#include <raft/cudart_utils.h>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -63,7 +63,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
 
     // allocating and initializing memory to the GPU
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
@@ -99,7 +99,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
   }
 
   // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   completenessParam params;

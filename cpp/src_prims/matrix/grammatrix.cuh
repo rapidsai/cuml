@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemm.cuh>
 
 namespace MLCommon {
@@ -146,37 +146,37 @@ class GramMatrixBase {
     math_t alpha = 1.0;
     math_t beta  = 0.0;
     if (is_row_major) {
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
-                                            CUBLAS_OP_T,
-                                            CUBLAS_OP_N,
-                                            n2,
-                                            n1,
-                                            n_cols,
-                                            &alpha,
-                                            x2,
-                                            ld2,
-                                            x1,
-                                            ld1,
-                                            &beta,
-                                            out,
-                                            ld_out,
-                                            stream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
+                                               CUBLAS_OP_T,
+                                               CUBLAS_OP_N,
+                                               n2,
+                                               n1,
+                                               n_cols,
+                                               &alpha,
+                                               x2,
+                                               ld2,
+                                               x1,
+                                               ld1,
+                                               &beta,
+                                               out,
+                                               ld_out,
+                                               stream));
     } else {
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
-                                            CUBLAS_OP_N,
-                                            CUBLAS_OP_T,
-                                            n1,
-                                            n2,
-                                            n_cols,
-                                            &alpha,
-                                            x1,
-                                            ld1,
-                                            x2,
-                                            ld2,
-                                            &beta,
-                                            out,
-                                            ld_out,
-                                            stream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
+                                               CUBLAS_OP_N,
+                                               CUBLAS_OP_T,
+                                               n1,
+                                               n2,
+                                               n_cols,
+                                               &alpha,
+                                               x1,
+                                               ld1,
+                                               x2,
+                                               ld2,
+                                               &beta,
+                                               out,
+                                               ld_out,
+                                               stream));
     }
   }
 

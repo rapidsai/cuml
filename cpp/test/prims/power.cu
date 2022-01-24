@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <linalg/power.cuh>
-#include <raft/random/rng.hpp>
 #include "test_utils.h"
+#include <gtest/gtest.h>
+#include <linalg/power.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -36,7 +36,7 @@ void naivePowerElem(Type* out, const Type* in1, const Type* in2, int len, cudaSt
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naivePowerElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type>
@@ -52,7 +52,7 @@ void naivePowerScalar(Type* out, const Type* in1, const Type in2, int len, cudaS
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naivePowerScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -78,7 +78,7 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     in1.resize(len, stream);
     in2.resize(len, stream);
@@ -94,7 +94,7 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     powerScalar(out.data(), out.data(), T(2), len, stream);
     power(in1.data(), in1.data(), in2.data(), len, stream);
     powerScalar(in1.data(), in1.data(), T(2), len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

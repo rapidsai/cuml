@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@
 
 #include <cuml/common/utils.hpp>
 
+#include <linalg/batched/matrix.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <linalg/batched/matrix.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -330,7 +330,7 @@ class CSR {
       shape.first,
       shape.second,
       nnz);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     return out;
   }
@@ -356,7 +356,7 @@ class CSR {
       m_shape.first,
       m_shape.second,
       m_nnz);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     return dense;
   }
@@ -510,7 +510,7 @@ void b_spmv(T alpha,
     m,
     n,
     A.batches());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -687,7 +687,7 @@ void b_spmm(T alpha,
                                                                            k,
                                                                            n,
                                                                            nnz);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   } else {  // No shared memory (small matrices)
     constexpr int TPB   = 256;
     int threads_per_bid = nb <= 1024 ? 8 : (nb <= 2048 ? 4 : (nb <= 4096 ? 2 : 1));
@@ -704,7 +704,7 @@ void b_spmm(T alpha,
       n,
       nb,
       threads_per_bid);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 

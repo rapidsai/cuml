@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #include <label/classlabels.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <rmm/device_uvector.hpp>
 
 #include <iostream>
 #include <vector>
@@ -39,16 +39,16 @@ typedef LabelTest MakeMonotonicTest;
 TEST_F(MakeMonotonicTest, Result)
 {
   cudaStream_t stream = 0;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   int m = 12;
 
   rmm::device_uvector<float> data(m, stream);
   rmm::device_uvector<float> actual(m, stream);
   rmm::device_uvector<float> expected(m, stream);
-  CUDA_CHECK(cudaMemset(data.data(), 0, data.size() * sizeof(float)));
-  CUDA_CHECK(cudaMemset(actual.data(), 0, actual.size() * sizeof(float)));
-  CUDA_CHECK(cudaMemset(expected.data(), 0, expected.size() * sizeof(float)));
+  RAFT_CUDA_TRY(cudaMemset(data.data(), 0, data.size() * sizeof(float)));
+  RAFT_CUDA_TRY(cudaMemset(actual.data(), 0, actual.size() * sizeof(float)));
+  RAFT_CUDA_TRY(cudaMemset(expected.data(), 0, expected.size() * sizeof(float)));
 
   float* data_h = new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
 
@@ -59,11 +59,11 @@ TEST_F(MakeMonotonicTest, Result)
 
   make_monotonic(actual.data(), data.data(), m, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   ASSERT_TRUE(devArrMatch(actual.data(), expected.data(), m, raft::Compare<bool>(), stream));
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 
   delete data_h;
   delete expected_h;
@@ -72,7 +72,7 @@ TEST_F(MakeMonotonicTest, Result)
 TEST(LabelTest, ClassLabels)
 {
   cudaStream_t stream = 0;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   int n_rows = 6;
   rmm::device_uvector<float> y_d(n_rows, stream);
@@ -98,7 +98,7 @@ TEST(LabelTest, ClassLabels)
   EXPECT_TRUE(
     devArrMatchHost(y_relabeled_exp, y_relabeled_d.data(), n_rows, raft::Compare<float>(), stream));
 
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 };  // namespace Label
 };  // namespace MLCommon

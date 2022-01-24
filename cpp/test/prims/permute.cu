@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <random/permute.cuh>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Random {
@@ -45,7 +45,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
@@ -54,7 +54,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     int D               = params.D;
     int len             = N * D;
     cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     if (params.needPerms) {
       outPerms.resize(N, stream);
       outPerms_ptr = outPerms.data();
@@ -67,10 +67,10 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       r.uniform(in_ptr, len, T(-1.0), T(1.0), stream);
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   PermInputs<T> params;
@@ -88,7 +88,7 @@ template <typename T, typename L>
 {
   std::vector<T> act_h(size);
   raft::update_host<T>(&(act_h[0]), actual, size, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   if (doSort) std::sort(act_h.begin(), act_h.end());
   for (size_t i(0); i < size; ++i) {
     auto act      = act_h[i];
@@ -116,7 +116,7 @@ template <typename T, typename L>
   std::vector<T> h_out(N * D), h_in(N * D);
   raft::update_host<T>(&(h_out[0]), out, N * D, stream);
   raft::update_host<T>(&(h_in[0]), in, N * D, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < D; ++j) {
       int outPos    = rowMajor ? i * D + j : j * N + i;

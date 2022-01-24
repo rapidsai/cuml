@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include <iostream>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
-#include "test_utils.h"
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
@@ -77,82 +78,69 @@ void generate_data(
 }
 
 class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
+ public:
+  KNNRegressionTest()
+    : params(::testing::TestWithParam<KNNRegressionInputs>::GetParam()),
+      stream(handle.get_stream()),
+      train_samples(params.rows * params.cols, stream),
+      train_labels(params.rows, stream),
+      pred_labels(params.rows, stream),
+      knn_indices(params.rows * params.k, stream),
+      knn_dists(params.rows * params.k, stream)
+  {
+  }
+
  protected:
   void basicTest()
   {
-    raft::handle_t handle;
-    cudaStream_t stream = handle.get_stream();
-
-    cublasHandle_t cublas_handle;
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-    cusolverDnHandle_t cusolverDn_handle;
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolverDn_handle));
-
-    params = ::testing::TestWithParam<KNNRegressionInputs>::GetParam();
-
-    raft::allocate(train_samples, params.rows * params.cols, stream);
-    raft::allocate(train_labels, params.rows, stream);
-
-    raft::allocate(pred_labels, params.rows, stream);
-
-    raft::allocate(knn_indices, params.rows * params.k, stream);
-    raft::allocate(knn_dists, params.rows * params.k, stream);
-
-    generate_data(train_samples, train_labels, params.rows, params.cols, stream);
+    generate_data(train_samples.data(), train_labels.data(), params.rows, params.cols, stream);
 
     std::vector<float*> ptrs(1);
     std::vector<int> sizes(1);
-    ptrs[0]  = train_samples;
+    ptrs[0]  = train_samples.data();
     sizes[0] = params.rows;
 
     raft::spatial::knn::brute_force_knn(handle,
                                         ptrs,
                                         sizes,
                                         params.cols,
-                                        train_samples,
+                                        train_samples.data(),
                                         params.rows,
-                                        knn_indices,
-                                        knn_dists,
+                                        knn_indices.data(),
+                                        knn_dists.data(),
                                         params.k);
 
     std::vector<float*> y;
-    y.push_back(train_labels);
+    y.push_back(train_labels.data());
 
-    knn_regress(pred_labels, knn_indices, y, params.rows, params.rows, params.k, stream);
+    knn_regress(
+      handle, pred_labels.data(), knn_indices.data(), y, params.rows, params.rows, params.k);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(train_samples));
-    CUDA_CHECK(cudaFree(train_labels));
-
-    CUDA_CHECK(cudaFree(pred_labels));
-
-    CUDA_CHECK(cudaFree(knn_indices));
-    CUDA_CHECK(cudaFree(knn_dists));
-  }
-
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
   KNNRegressionInputs params;
 
-  float* train_samples;
-  float* train_labels;
+  rmm::device_uvector<float> train_samples;
+  rmm::device_uvector<float> train_labels;
 
-  float* pred_labels;
+  rmm::device_uvector<float> pred_labels;
 
-  int64_t* knn_indices;
-  float* knn_dists;
+  rmm::device_uvector<int64_t> knn_indices;
+  rmm::device_uvector<float> knn_dists;
 };
 
 typedef KNNRegressionTest KNNRegressionTestF;
 TEST_P(KNNRegressionTestF, Fit)
 {
-  ASSERT_TRUE(devArrMatch(train_labels, pred_labels, params.rows, raft::CompareApprox<float>(0.3)));
+  ASSERT_TRUE(devArrMatch(
+    train_labels.data(), pred_labels.data(), params.rows, raft::CompareApprox<float>(0.3)));
 }
 
 const std::vector<KNNRegressionInputs> inputsf = {{100, 10, 2, 0.01f, 2},

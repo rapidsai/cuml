@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <test_utils.h>
 #include <iomanip>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
 #include <sstream>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {
@@ -41,18 +41,16 @@ class LarsTest : public ::testing::Test {
       ws(n_cols, handle.get_stream()),
       A(1, handle.get_stream())
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream = handle.get_stream();
     raft::update_device(cor.data(), cor_host, n_cols, stream);
     raft::update_device(X.data(), X_host, n_cols * n_rows, stream);
     raft::update_device(G.data(), G_host, n_cols * n_cols, stream);
     raft::update_device(sign.data(), sign_host, n_cols, stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   void testSelectMostCorrelated()
   {
+    auto stream = handle.get_stream();
     math_t cj;
     int idx;
     rmm::device_uvector<math_t> workspace(n_cols, stream);
@@ -64,6 +62,7 @@ class LarsTest : public ::testing::Test {
 
   void testMoveToActive()
   {
+    auto stream = handle.get_stream();
     ML::Solver::Lars::moveToActive(handle.get_cublas_handle(),
                                    &n_active,
                                    3,
@@ -79,10 +78,12 @@ class LarsTest : public ::testing::Test {
                                    stream);
     EXPECT_EQ(n_active, 3);
 
-    EXPECT_TRUE(raft::devArrMatchHost(cor_exp, cor.data(), n_cols, raft::Compare<math_t>()));
-    EXPECT_TRUE(raft::devArrMatchHost(G_exp, G.data(), n_cols * n_cols, raft::Compare<math_t>()));
     EXPECT_TRUE(
-      raft::devArrMatch((math_t)1.0, sign.data() + n_active - 1, 1, raft::Compare<math_t>()));
+      raft::devArrMatchHost(cor_exp, cor.data(), n_cols, raft::Compare<math_t>(), stream));
+    EXPECT_TRUE(
+      raft::devArrMatchHost(G_exp, G.data(), n_cols * n_cols, raft::Compare<math_t>(), stream));
+    EXPECT_TRUE(raft::devArrMatch(
+      (math_t)1.0, sign.data() + n_active - 1, 1, raft::Compare<math_t>(), stream));
 
     // Do it again with G == nullptr to test if X is properly changed
     n_active = 2;
@@ -99,34 +100,37 @@ class LarsTest : public ::testing::Test {
                                    n_cols,
                                    sign.data(),
                                    stream);
-    EXPECT_TRUE(raft::devArrMatchHost(X_exp, X.data(), n_rows * n_cols, raft::Compare<math_t>()));
+    EXPECT_TRUE(
+      raft::devArrMatchHost(X_exp, X.data(), n_rows * n_cols, raft::Compare<math_t>(), stream));
   }
 
   void calcUExp(math_t* G, int n_cols, math_t* U_dev_exp)
   {
+    auto stream = handle.get_stream();
     rmm::device_scalar<int> devInfo(stream);
     rmm::device_uvector<math_t> workspace(0, stream);
     int n_work;
     const int ld_U = n_cols;
-    CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(
+    RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf_bufferSize(
       handle.get_cusolver_dn_handle(), CUBLAS_FILL_MODE_UPPER, n_cols, U_dev_exp, ld_U, &n_work));
     workspace.resize(n_work, stream);
     // Expected solution using Cholesky factorization from scratch
     raft::copy(U_dev_exp, G, n_cols * ld_U, stream);
-    CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
-                                                 CUBLAS_FILL_MODE_UPPER,
-                                                 n_cols,
-                                                 U_dev_exp,
-                                                 ld_U,
-                                                 workspace.data(),
-                                                 n_work,
-                                                 devInfo.data(),
-                                                 stream));
+    RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
+                                                    CUBLAS_FILL_MODE_UPPER,
+                                                    n_cols,
+                                                    U_dev_exp,
+                                                    ld_U,
+                                                    workspace.data(),
+                                                    n_work,
+                                                    devInfo.data(),
+                                                    stream));
   }
 
   // Initialize a mix of G and U matrices to test updateCholesky
   void initGU(math_t* GU, math_t* G, math_t* U, int n_active, bool copy_G)
   {
+    auto stream    = handle.get_stream();
     const int ld_U = n_cols;
     // First we copy over all elements, because the factorization only replaces
     // the upper triangular part. This way it will be easier to compare to the
@@ -134,7 +138,8 @@ class LarsTest : public ::testing::Test {
     raft::copy(GU, G, n_cols * n_cols, stream);
     if (!copy_G) {
       // zero the new colum of G
-      CUDA_CHECK(cudaMemsetAsync(GU + (n_active - 1) * n_cols, 0, n_cols * sizeof(math_t), stream));
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(GU + (n_active - 1) * n_cols, 0, n_cols * sizeof(math_t), stream));
     }
     for (int i = 0; i < n_active - 1; i++) {
       raft::copy(GU + i * ld_U, U + i * ld_U, i + 1, stream);
@@ -143,6 +148,7 @@ class LarsTest : public ::testing::Test {
 
   void testUpdateCholesky()
   {
+    auto stream    = handle.get_stream();
     const int ld_X = n_rows;
     const int ld_G = n_cols;
     const int ld_U = ld_G;
@@ -170,7 +176,7 @@ class LarsTest : public ::testing::Test {
                                      eps,
                                      stream);
     EXPECT_TRUE(raft::devArrMatch(
-      U_dev_exp.data(), U.data(), n_cols * n_cols, raft::CompareApprox<math_t>(1e-5)));
+      U_dev_exp.data(), U.data(), n_cols * n_cols, raft::CompareApprox<math_t>(1e-5), stream));
 
     // Next test where G and U are separate arrays
     initGU(U.data(), G.data(), U_dev_exp.data(), n_active, false);
@@ -188,7 +194,7 @@ class LarsTest : public ::testing::Test {
                                      eps,
                                      stream);
     EXPECT_TRUE(raft::devArrMatch(
-      U_dev_exp.data(), U.data(), n_cols * n_cols, raft::CompareApprox<math_t>(1e-5)));
+      U_dev_exp.data(), U.data(), n_cols * n_cols, raft::CompareApprox<math_t>(1e-5), stream));
 
     // Third test without Gram matrix.
     initGU(U.data(), G.data(), U_dev_exp.data(), n_active, false);
@@ -206,11 +212,12 @@ class LarsTest : public ::testing::Test {
                                      eps,
                                      stream);
     EXPECT_TRUE(raft::devArrMatch(
-      U_dev_exp.data(), U.data(), n_cols * n_cols, raft::CompareApprox<math_t>(1e-4)));
+      U_dev_exp.data(), U.data(), n_cols * n_cols, raft::CompareApprox<math_t>(1e-4), stream));
   }
 
   void testCalcW0()
   {
+    auto stream    = handle.get_stream();
     n_active       = 4;
     const int ld_U = n_cols;
     rmm::device_uvector<math_t> ws(n_active, stream);
@@ -219,24 +226,26 @@ class LarsTest : public ::testing::Test {
 
     ML::Solver::Lars::calcW0(
       handle, n_active, n_cols, sign.data(), U.data(), ld_U, ws.data(), stream);
-    EXPECT_TRUE(
-      raft::devArrMatchHost(ws0_exp, ws.data(), n_active, raft::CompareApprox<math_t>(1e-3)));
+    EXPECT_TRUE(raft::devArrMatchHost(
+      ws0_exp, ws.data(), n_active, raft::CompareApprox<math_t>(1e-3), stream));
   }
 
   void testCalcA()
   {
-    n_active = 4;
+    auto stream = handle.get_stream();
+    n_active    = 4;
     rmm::device_uvector<math_t> ws(n_active, stream);
     raft::update_device(ws.data(), ws0_exp, n_active, stream);
 
     ML::Solver::Lars::calcA(handle, A.data(), n_active, sign.data(), ws.data(), stream);
     EXPECT_TRUE(raft::devArrMatch(
-      (math_t)0.20070615686577709, A.data(), 1, raft::CompareApprox<math_t>(1e-6)));
+      (math_t)0.20070615686577709, A.data(), 1, raft::CompareApprox<math_t>(1e-6), stream));
   }
 
   void testEquiangular()
   {
-    n_active = 4;
+    auto stream = handle.get_stream();
+    n_active    = 4;
     rmm::device_uvector<math_t> workspace(0, stream);
     rmm::device_uvector<math_t> u_eq(n_rows, stream);
     rmm::device_uvector<math_t> U(n_cols * n_cols, stream);
@@ -263,11 +272,11 @@ class LarsTest : public ::testing::Test {
                                          (math_t)-1,
                                          stream);
 
-    EXPECT_TRUE(
-      raft::devArrMatchHost(ws_exp, ws.data(), n_active, raft::CompareApprox<math_t>(1e-3)));
+    EXPECT_TRUE(raft::devArrMatchHost(
+      ws_exp, ws.data(), n_active, raft::CompareApprox<math_t>(1e-3), stream));
 
     EXPECT_TRUE(raft::devArrMatch(
-      (math_t)0.20070615686577709, A.data(), 1, raft::CompareApprox<math_t>(1e-4)));
+      (math_t)0.20070615686577709, A.data(), 1, raft::CompareApprox<math_t>(1e-4), stream));
 
     // Now test without Gram matrix, u should be calculated in this case
     initGU(G.data(), G.data(), U.data(), n_active, false);
@@ -289,11 +298,13 @@ class LarsTest : public ::testing::Test {
                                          (math_t)-1,
                                          stream);
 
-    EXPECT_TRUE(raft::devArrMatchHost(u_eq_exp, u_eq.data(), 1, raft::CompareApprox<math_t>(1e-3)));
+    EXPECT_TRUE(
+      raft::devArrMatchHost(u_eq_exp, u_eq.data(), 1, raft::CompareApprox<math_t>(1e-3), stream));
   }
 
   void testCalcMaxStep()
   {
+    auto stream        = handle.get_stream();
     n_active           = 2;
     math_t A_host      = 3.6534305290498055;
     math_t ws_host[2]  = {0.25662594, -0.01708941};
@@ -331,14 +342,15 @@ class LarsTest : public ::testing::Test {
                                   a_vec.data(),
                                   stream);
     math_t gamma_exp = 0.20095407186830386;
-    EXPECT_TRUE(raft::devArrMatch(gamma_exp, gamma.data(), 1, raft::CompareApprox<math_t>(1e-6)));
+    EXPECT_TRUE(
+      raft::devArrMatch(gamma_exp, gamma.data(), 1, raft::CompareApprox<math_t>(1e-6), stream));
     math_t a_vec_exp[2] = {24.69447886, -139.66289908};
     EXPECT_TRUE(raft::devArrMatchHost(
-      a_vec_exp, a_vec.data(), a_vec.size(), raft::CompareApprox<math_t>(1e-4)));
+      a_vec_exp, a_vec.data(), a_vec.size(), raft::CompareApprox<math_t>(1e-4), stream));
 
     // test without G matrix, we use U as input in this case
-    CUDA_CHECK(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(a_vec.data(), 0, a_vec.size() * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(a_vec.data(), 0, a_vec.size() * sizeof(math_t), stream));
     ML::Solver::Lars::calcMaxStep(handle,
                                   max_iter,
                                   n_rows,
@@ -356,13 +368,14 @@ class LarsTest : public ::testing::Test {
                                   gamma.data(),
                                   a_vec.data(),
                                   stream);
-    EXPECT_TRUE(raft::devArrMatch(gamma_exp, gamma.data(), 1, raft::CompareApprox<math_t>(1e-6)));
+    EXPECT_TRUE(
+      raft::devArrMatch(gamma_exp, gamma.data(), 1, raft::CompareApprox<math_t>(1e-6), stream));
     EXPECT_TRUE(raft::devArrMatchHost(
-      a_vec_exp, a_vec.data(), a_vec.size(), raft::CompareApprox<math_t>(1e-4)));
+      a_vec_exp, a_vec.data(), a_vec.size(), raft::CompareApprox<math_t>(1e-4), stream));
 
     // Last iteration
     n_active = max_iter;
-    CUDA_CHECK(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
     ML::Solver::Lars::calcMaxStep(handle,
                                   max_iter,
                                   n_rows,
@@ -381,11 +394,11 @@ class LarsTest : public ::testing::Test {
                                   a_vec.data(),
                                   stream);
     gamma_exp = 11.496044516528272;
-    EXPECT_TRUE(raft::devArrMatch(gamma_exp, gamma.data(), 1, raft::CompareApprox<math_t>(1e-6)));
+    EXPECT_TRUE(
+      raft::devArrMatch(gamma_exp, gamma.data(), 1, raft::CompareApprox<math_t>(1e-6), stream));
   }
 
   raft::handle_t handle;
-  cudaStream_t stream = 0;
 
   const int n_rows = 4;
   const int n_cols = 4;
@@ -452,17 +465,15 @@ class LarsTestFitPredict : public ::testing::Test {
       alphas(n_cols + 1, handle.get_stream()),
       active_idx(n_cols, handle.get_stream())
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream = handle.get_stream();
     raft::update_device(X.data(), X_host, n_cols * n_rows, stream);
     raft::update_device(y.data(), y_host, n_rows, stream);
     raft::update_device(G.data(), G_host, n_cols * n_cols, stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   void testFitGram()
   {
+    auto stream   = handle.get_stream();
     int max_iter  = 10;
     int verbosity = 0;
     int n_active;
@@ -483,16 +494,17 @@ class LarsTestFitPredict : public ::testing::Test {
                               n_cols,
                               (math_t)-1);
     EXPECT_EQ(n_cols, n_active);
-    EXPECT_TRUE(
-      raft::devArrMatchHost(beta_exp, beta.data(), n_cols, raft::CompareApprox<math_t>(1e-5)));
     EXPECT_TRUE(raft::devArrMatchHost(
-      alphas_exp, alphas.data(), n_cols + 1, raft::CompareApprox<math_t>(1e-4)));
+      beta_exp, beta.data(), n_cols, raft::CompareApprox<math_t>(1e-5), stream));
+    EXPECT_TRUE(raft::devArrMatchHost(
+      alphas_exp, alphas.data(), n_cols + 1, raft::CompareApprox<math_t>(1e-4), stream));
     EXPECT_TRUE(
-      raft::devArrMatchHost(indices_exp, active_idx.data(), n_cols, raft::Compare<int>()));
+      raft::devArrMatchHost(indices_exp, active_idx.data(), n_cols, raft::Compare<int>(), stream));
   }
 
   void testFitX()
   {
+    auto stream   = handle.get_stream();
     int max_iter  = 10;
     int verbosity = 0;
     int n_active;
@@ -513,21 +525,22 @@ class LarsTestFitPredict : public ::testing::Test {
                               n_cols,
                               (math_t)-1);
     EXPECT_EQ(n_cols, n_active);
-    EXPECT_TRUE(
-      raft::devArrMatchHost(beta_exp, beta.data(), n_cols, raft::CompareApprox<math_t>(2e-4)));
     EXPECT_TRUE(raft::devArrMatchHost(
-      alphas_exp, alphas.data(), n_cols + 1, raft::CompareApprox<math_t>(1e-4)));
+      beta_exp, beta.data(), n_cols, raft::CompareApprox<math_t>(2e-4), stream));
+    EXPECT_TRUE(raft::devArrMatchHost(
+      alphas_exp, alphas.data(), n_cols + 1, raft::CompareApprox<math_t>(1e-4), stream));
     EXPECT_TRUE(
-      raft::devArrMatchHost(indices_exp, active_idx.data(), n_cols, raft::Compare<int>()));
+      raft::devArrMatchHost(indices_exp, active_idx.data(), n_cols, raft::Compare<int>(), stream));
   }
 
   void testPredictV1()
   {
+    auto stream  = handle.get_stream();
     int ld_X     = n_rows;
     int n_active = n_cols;
     raft::update_device(beta.data(), beta_exp, n_active, stream);
     raft::update_device(active_idx.data(), indices_exp, n_active, stream);
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
     math_t intercept = 0;
     ML::Solver::Lars::larsPredict(handle,
                                   X.data(),
@@ -540,11 +553,12 @@ class LarsTestFitPredict : public ::testing::Test {
                                   intercept,
                                   y.data());
     EXPECT_TRUE(
-      raft::devArrMatchHost(pred_exp, y.data(), n_rows, raft::CompareApprox<math_t>(1e-5)));
+      raft::devArrMatchHost(pred_exp, y.data(), n_rows, raft::CompareApprox<math_t>(1e-5), stream));
   }
 
   void testPredictV2()
   {
+    auto stream  = handle.get_stream();
     int ld_X     = n_rows;
     int n_active = n_cols;
 
@@ -553,7 +567,7 @@ class LarsTestFitPredict : public ::testing::Test {
     int n_cols_loc = n_cols + 1;
     raft::update_device(beta.data(), beta_exp, n_active, stream);
     raft::update_device(active_idx.data(), indices_exp, n_active, stream);
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
     math_t intercept = 0;
     ML::Solver::Lars::larsPredict(handle,
                                   X.data(),
@@ -566,11 +580,12 @@ class LarsTestFitPredict : public ::testing::Test {
                                   intercept,
                                   y.data());
     EXPECT_TRUE(
-      raft::devArrMatchHost(pred_exp, y.data(), n_rows, raft::CompareApprox<math_t>(1e-5)));
+      raft::devArrMatchHost(pred_exp, y.data(), n_rows, raft::CompareApprox<math_t>(1e-5), stream));
   }
 
   void testFitLarge()
   {
+    auto stream   = handle.get_stream();
     int n_rows    = 65536;
     int n_cols    = 10;
     int max_iter  = n_cols;
@@ -606,7 +621,6 @@ class LarsTestFitPredict : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream = 0;
 
   const int n_rows = 10;
   const int n_cols = 5;

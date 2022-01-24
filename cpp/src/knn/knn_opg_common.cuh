@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/spatial/knn/knn.hpp>
 
@@ -427,7 +427,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                        size_t query_size)
 {
   std::vector<in_t*> ptrs(params.idx_data->size());
-  std::vector<int> sizes(params.idx_data->size());
+  std::vector<std::size_t> sizes(params.idx_data->size());
 
   for (std::size_t cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
     ptrs[cur_idx]  = params.idx_data->at(cur_idx)->ptr;
@@ -444,21 +444,22 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
   // ID ranges need to be offset by each local partition's
   // starting indices.
-  raft::spatial::knn::brute_force_knn(handle,
-                                      ptrs,
-                                      sizes,
-                                      params.idx_desc->N,
-                                      query,
-                                      query_size,
-                                      work.res_I.data(),
-                                      work.res_D.data(),
-                                      params.k,
-                                      params.rowMajorIndex,
-                                      params.rowMajorQuery,
-                                      &start_indices_long,
-                                      raft::distance::DistanceType::L2SqrtExpanded);
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  CUDA_CHECK(cudaPeekAtLastError());
+  raft::spatial::knn::brute_force_knn<std::int64_t, float, std::size_t>(
+    handle,
+    ptrs,
+    sizes,
+    params.idx_desc->N,
+    query,
+    query_size,
+    work.res_I.data(),
+    work.res_D.data(),
+    params.k,
+    params.rowMajorIndex,
+    params.rowMajorQuery,
+    &start_indices_long,
+    raft::distance::DistanceType::L2SqrtExpanded);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -537,8 +538,8 @@ void copy_label_outputs_from_index_parts(opg_knn_param<in_t, ind_t, dist_t, out_
                                               n_parts,
                                               n_labels);
   }
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /*!
@@ -628,7 +629,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                 handle.get_stream());
             }
           }
-          CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+          RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
           break;
         }
         i++;
@@ -701,7 +702,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
             size_t batch_size)
 {
   rmm::device_uvector<trans_t> trans(work.idxRanks.size(), handle.get_stream());
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemsetAsync(trans.data(), 0, work.idxRanks.size() * sizeof(trans_t), handle.get_stream()));
 
   size_t batch_offset = processed_in_part * params.k;
@@ -732,8 +733,8 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                                       params.k,
                                       handle.get_stream(),
                                       trans.data());
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (params.knn_op != knn_operation::knn) {
     rmm::device_uvector<out_t> merged_outputs_b(params.n_outputs * batch_size * params.k,
@@ -766,8 +767,8 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     perform_local_operation(
       params, work, handle, outputs, probas_with_offsets, merged_outputs_b.data(), batch_size);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -910,15 +911,8 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     y[o] = reinterpret_cast<out_t*>(labels) + (o * n_labels);
   }
 
-  MLCommon::Selection::knn_regress<float, 32, true>(outputs,
-                                                    nullptr,
-                                                    y,
-                                                    n_labels,
-                                                    batch_size,
-                                                    params.k,
-                                                    handle.get_stream(),
-                                                    handle.get_internal_streams().data(),
-                                                    handle.get_num_internal_streams());
+  MLCommon::Selection::knn_regress<float, 32, true>(
+    handle, outputs, nullptr, y, n_labels, batch_size, params.k);
 }
 
 /*!
@@ -952,30 +946,26 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
   switch (params.knn_op) {
     case knn_operation::classification:
-      MLCommon::Selection::knn_classify<32, true>(outputs,
+      MLCommon::Selection::knn_classify<32, true>(handle,
+                                                  outputs,
                                                   nullptr,
                                                   y,
                                                   n_labels,
                                                   batch_size,
                                                   params.k,
                                                   *(params.uniq_labels),
-                                                  *(params.n_unique),
-                                                  handle.get_stream(),
-                                                  handle.get_internal_streams().data(),
-                                                  handle.get_num_internal_streams());
+                                                  *(params.n_unique));
       break;
     case knn_operation::class_proba:
-      MLCommon::Selection::class_probs<32, true>(probas_with_offsets,
+      MLCommon::Selection::class_probs<32, true>(handle,
+                                                 probas_with_offsets,
                                                  nullptr,
                                                  y,
                                                  n_labels,
                                                  batch_size,
                                                  params.k,
                                                  *(params.uniq_labels),
-                                                 *(params.n_unique),
-                                                 handle.get_stream(),
-                                                 handle.get_internal_streams().data(),
-                                                 handle.get_num_internal_streams());
+                                                 *(params.n_unique));
       break;
     default: CUML_LOG_DEBUG("FAILURE!");
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <stdlib.h>
 #include <cub/cub.cuh>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -71,11 +71,11 @@ void reduce_cols_by_key(const T* data,
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
-  CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
   constexpr int TPB = 256;
   int nblks         = (int)raft::ceildiv<IdxType>(nrows * ncols, TPB);
   reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows, ncols, nkeys);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace LinAlg

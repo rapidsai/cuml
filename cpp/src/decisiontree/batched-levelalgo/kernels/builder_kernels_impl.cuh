@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,59 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <cuml/tree/algo_helper.h>
-#include <cuml/tree/flatnode.h>
-#include <thrust/binary_search.h>
-#include <common/grid_sync.cuh>
 #include <cstdio>
+
+#include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include "input.cuh"
-#include "metrics.cuh"
-#include "split.cuh"
+#include <thrust/binary_search.h>
+
+#include "builder_kernels.cuh"
 
 namespace ML {
 namespace DT {
 
-// The range of instances belonging to a particular node
-// This structure refers to a range in the device array input.rowids
-struct InstanceRange {
-  std::size_t begin;
-  std::size_t count;
-};
-
-struct NodeWorkItem {
-  size_t idx;  // Index of the work item in the tree
-  int depth;
-  InstanceRange instances;
-};
-
-/**
- * This struct has information about workload of a single threadblock of
- * computeSplit kernels of classification and regression
- */
-template <typename IdxT>
-struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
-  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
-                        // working on this node
-  IdxT num_blocks;      // Total number of blocks that are working on the node
-};
-
-template <typename SplitT, typename DataT, typename IdxT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
-                       std::size_t num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
-}
+static constexpr int TPB_DEFAULT = 128;
 
 /**
  * @brief Partition the samples to left/right nodes based on the best split
@@ -123,7 +85,7 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
     }
   }
 }
-template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT, int TPB>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth,
                                 IdxT min_samples_leaf,
                                 IdxT min_samples_split,
@@ -177,24 +139,6 @@ template <typename OutT, typename InT>
 __device__ OutT* alignPointer(InT input)
 {
   return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
-}
-
-// 32-bit FNV1a hash
-// Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-const uint32_t fnv1a32_prime = uint32_t(16777619);
-const uint32_t fnv1a32_basis = uint32_t(2166136261);
-
-HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
-{
-  hash ^= (txt >> 0) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 8) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 16) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 24) & 0xFF;
-  hash *= fnv1a32_prime;
-  return hash;
 }
 
 /**
@@ -272,23 +216,6 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT nbins)
   }
   // return the total sum
   return total_aggregate;
-}
-
-template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
-{
-  IdxT start = 0;
-  IdxT end   = nbins - 1;
-  IdxT mid;
-  while (start < end) {
-    mid = (start + end) / 2;
-    if (sbins[mid] < d) {
-      start = mid + 1;
-    } else {
-      end = mid;
-    }
-  }
-  return start;
 }
 
 template <typename DataT,
@@ -413,5 +340,39 @@ __global__ void computeSplitKernel(BinT* hist,
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
+// "almost" instantiation templates to avoid code-duplication
+template __global__ void nodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
+  _IdxT max_depth,
+  _IdxT min_samples_leaf,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  _DataT min_impurity_decrease,
+  Input<_DataT, _LabelT, _IdxT> input,
+  NodeWorkItem* work_items,
+  const Split<_DataT, _IdxT>* splits);
+
+template __global__ void leafKernel<_InputT, _NodeT, _ObjectiveT, _DataT>(
+  _ObjectiveT objective,
+  _InputT input,
+  const _NodeT* tree,
+  const InstanceRange* instance_ranges,
+  _DataT* leaves);
+template __global__ void
+computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
+  _BinT* hist,
+  _IdxT nbins,
+  _IdxT max_depth,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  Input<_DataT, _LabelT, _IdxT> input,
+  const NodeWorkItem* work_items,
+  _IdxT colStart,
+  int* done_count,
+  int* mutex,
+  volatile Split<_DataT, _IdxT>* splits,
+  _ObjectiveT objective,
+  _IdxT treeid,
+  const WorkloadInfo<_IdxT>* workload_info,
+  uint64_t seed);
 }  // namespace DT
 }  // namespace ML

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,9 +40,8 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    handle = cuml.Handle()
-    stream = cuml.cuda.Stream()
-    handle.setStream(stream)
+    stream = cuml.raft.common.cuda.Stream()
+    handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()
     del base

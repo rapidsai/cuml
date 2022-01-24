@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. *
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,13 +12,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <algorithm>
-#include <iostream>
-#include <random>
-#include <timeSeries/jones_transform.cuh>
 #include "test_utils.h"
+#include <algorithm>
+#include <gtest/gtest.h>
+#include <iostream>
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <random>
+#include <rmm/device_uvector.hpp>
+#include <timeSeries/jones_transform.cuh>
 
 namespace MLCommon {
 namespace TimeSeries {
@@ -35,15 +37,25 @@ template
 
   <typename DataT>
   class JonesTransTest : public ::testing::TestWithParam<JonesTransParam> {
+ public:
+  JonesTransTest()
+    : params(::testing::TestWithParam<JonesTransParam>::GetParam()),
+      stream(handle.get_stream()),
+      nElements(params.batchSize * params.pValue),
+      d_golden_ar_trans(0, stream),
+      d_computed_ar_trans(0, stream),
+      d_params(0, stream),
+      d_golden_ma_trans(0, stream),
+      d_computed_ma_trans(0, stream),
+      d_computed_ar_invtrans(0, stream),
+      d_computed_ma_invtrans(0, stream)
+  {
+  }
+
  protected:
   // the constructor
   void SetUp() override
   {
-    // getting the parameters
-    params = ::testing::TestWithParam<JonesTransParam>::GetParam();
-
-    nElements = params.batchSize * params.pValue;
-
     // generating random value test input that is stored in row major
     std::vector<double> arr1(nElements, 0);
     std::random_device rd;
@@ -91,17 +103,27 @@ template
     }
 
     // allocating and initializing device memory
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_golden_ar_trans, nElements, stream, true);
-    raft::allocate(d_computed_ar_trans, nElements, stream, true);
-    raft::allocate(d_params, nElements, stream, true);
+    d_golden_ar_trans.resize(nElements, stream);
+    d_computed_ar_trans.resize(nElements, stream);
+    d_params.resize(nElements, stream);
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_golden_ar_trans.data(), 0, d_golden_ar_trans.size() * sizeof(DataT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_computed_ar_trans.data(), 0, d_computed_ar_trans.size() * sizeof(DataT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_params.data(), 0, d_params.size() * sizeof(DataT), stream));
 
-    raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
-    raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements, stream);
+    raft::update_device(d_params.data(), &arr1[0], (size_t)nElements, stream);
+    raft::update_device(d_golden_ar_trans.data(), newParams, (size_t)nElements, stream);
 
     // calling the ar_trans_param CUDA implementation
-    MLCommon::TimeSeries::jones_transform(
-      d_params, params.batchSize, params.pValue, d_computed_ar_trans, true, false, stream, false);
+    MLCommon::TimeSeries::jones_transform(d_params.data(),
+                                          params.batchSize,
+                                          params.pValue,
+                                          d_computed_ar_trans.data(),
+                                          true,
+                                          false,
+                                          stream,
+                                          false);
 
     //>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -138,68 +160,64 @@ template
       }
     }
 
-    // allocating and initializing device memory
-    raft::allocate(d_golden_ma_trans, nElements, stream, true);
-    raft::allocate(d_computed_ma_trans, nElements, stream, true);
+    d_golden_ma_trans.resize(nElements, stream);
+    d_computed_ma_trans.resize(nElements, stream);
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_golden_ma_trans.data(), 0, d_golden_ma_trans.size() * sizeof(DataT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_computed_ma_trans.data(), 0, d_computed_ma_trans.size() * sizeof(DataT), stream));
 
-    raft::update_device(d_golden_ma_trans, newParams, (size_t)nElements, stream);
+    raft::update_device(d_golden_ma_trans.data(), newParams, (size_t)nElements, stream);
 
     // calling the ma_param_transform CUDA implementation
-    MLCommon::TimeSeries::jones_transform(
-      d_params, params.batchSize, params.pValue, d_computed_ma_trans, false, false, stream, false);
+    MLCommon::TimeSeries::jones_transform(d_params.data(),
+                                          params.batchSize,
+                                          params.pValue,
+                                          d_computed_ma_trans.data(),
+                                          false,
+                                          false,
+                                          stream,
+                                          false);
 
     //>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    // allocating and initializing device memory
-    raft::allocate(d_computed_ar_invtrans, nElements, stream, true);
+    d_computed_ar_invtrans.resize(nElements, stream);
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_computed_ar_invtrans.data(), 0, d_computed_ar_invtrans.size() * sizeof(DataT), stream));
 
     // calling the ar_param_inverse_transform CUDA implementation
-    MLCommon::TimeSeries::jones_transform(d_computed_ar_trans,
+    MLCommon::TimeSeries::jones_transform(d_computed_ar_trans.data(),
                                           params.batchSize,
                                           params.pValue,
-                                          d_computed_ar_invtrans,
+                                          d_computed_ar_invtrans.data(),
                                           true,
                                           true,
                                           stream);
 
     //>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    raft::allocate(d_computed_ma_invtrans, nElements, stream, true);
+    d_computed_ma_invtrans.resize(nElements, stream);
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_computed_ma_invtrans.data(), 0, d_computed_ma_invtrans.size() * sizeof(DataT), stream));
 
     // calling the ma_param_inverse_transform CUDA implementation
-    MLCommon::TimeSeries::jones_transform(d_computed_ma_trans,
+    MLCommon::TimeSeries::jones_transform(d_computed_ma_trans.data(),
                                           params.batchSize,
                                           params.pValue,
-                                          d_computed_ma_invtrans,
+                                          d_computed_ma_invtrans.data(),
                                           false,
                                           true,
                                           stream);
   }
 
-  // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_computed_ar_trans));
-    CUDA_CHECK(cudaFree(d_computed_ma_trans));
-    CUDA_CHECK(cudaFree(d_computed_ar_invtrans));
-    CUDA_CHECK(cudaFree(d_computed_ma_invtrans));
-    CUDA_CHECK(cudaFree(d_golden_ar_trans));
-    CUDA_CHECK(cudaFree(d_golden_ma_trans));
-    CUDA_CHECK(cudaFree(d_params));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  raft::handle_t handle;
+  cudaStream_t stream = 0;
 
   // declaring the data values
   JonesTransParam params;
-  DataT* d_golden_ar_trans      = nullptr;
-  DataT* d_golden_ma_trans      = nullptr;
-  DataT* d_computed_ar_trans    = nullptr;
-  DataT* d_computed_ma_trans    = nullptr;
-  DataT* d_computed_ar_invtrans = nullptr;
-  DataT* d_computed_ma_invtrans = nullptr;
-  DataT* d_params               = nullptr;
-  cudaStream_t stream           = 0;
-  int nElements                 = -1;
+  rmm::device_uvector<DataT> d_golden_ar_trans, d_golden_ma_trans, d_computed_ar_trans,
+    d_computed_ma_trans, d_computed_ar_invtrans, d_computed_ma_invtrans, d_params;
+  int nElements = -1;
 };
 
 // setting test parameter values
@@ -224,12 +242,12 @@ const std::vector<JonesTransParam> inputs = {{500, 4, 0.001},
 typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(d_golden_ar_trans,
-                                d_computed_ar_trans,
+  ASSERT_TRUE(raft::devArrMatch(d_golden_ar_trans.data(),
+                                d_computed_ar_trans.data(),
                                 nElements,
                                 raft::CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(raft::devArrMatch(d_golden_ma_trans,
-                                d_computed_ma_trans,
+  ASSERT_TRUE(raft::devArrMatch(d_golden_ma_trans.data(),
+                                d_computed_ma_trans.data(),
                                 nElements,
                                 raft::CompareApprox<double>(params.tolerance)));
   /*
@@ -238,10 +256,14 @@ TEST_P(JonesTransTestClass, Result)
   transformed coefficients -> ar_param_inverse_transform()/ma_param_inverse_transform() ->
   initially generated random coefficients
   */
-  ASSERT_TRUE(raft::devArrMatch(
-    d_computed_ma_invtrans, d_params, nElements, raft::CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(raft::devArrMatch(
-    d_computed_ar_invtrans, d_params, nElements, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_invtrans.data(),
+                                d_params.data(),
+                                nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_invtrans.data(),
+                                d_params.data(),
+                                nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(JonesTrans, JonesTransTestClass, ::testing::ValuesIn(inputs));
 

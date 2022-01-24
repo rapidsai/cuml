@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <test_utils.h>
+#include "test_opg_utils.h"
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
+#include <gtest/gtest.h>
 #include <opg/linalg/gemm.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/matrix/matrix.hpp>
-#include "test_opg_utils.h"
+#include <test_utils.h>
 
 #include <raft/comms/mpi_comms.hpp>
 
@@ -61,7 +61,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     totalRanks = comm.get_size();
     raft::random::Rng r(params.seed + myRank);
 
-    CUBLAS_CHECK(cublasSetStream(cublasHandle, stream));
+    RAFT_CUBLAS_TRY(cublasSetStream(cublasHandle, stream));
 
     if (myRank == 0) {
       std::cout << "Testing PCA of " << params.M << " x " << params.N << " matrix" << std::endl;
@@ -79,7 +79,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     std::vector<Matrix::Data<T>*> inParts;
     Matrix::opg::allocate(handle, inParts, desc, myRank, stream);
     Matrix::opg::randomize(handle, r, inParts, desc, myRank, stream, T(10.0), T(20.0));
-    handle.wait_on_user_stream();
+    handle.sync_stream();
 
     prmsPCA.n_rows       = params.M;
     prmsPCA.n_cols       = params.N;

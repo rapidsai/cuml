@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
+#include <stdio.h>
+#include <stdlib.h>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -50,7 +50,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.clusters * params.dim;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> counts(params.clusters, stream);
     exp_mean.resize(params.dim, stream);
@@ -85,10 +85,10 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
       }
     }
     expectedVal = sqrt(expectedVal);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   DispersionInputs<T> params;

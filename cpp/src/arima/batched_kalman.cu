@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,20 @@
 
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
-#include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <linalg/block.cuh>
+#include <raft/common/nvtx.hpp>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
@@ -957,7 +957,7 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          d_F_fc);
         break;
     }
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   } else {
     int num_sm;
     cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0);
@@ -1222,48 +1222,48 @@ void _batched_kalman_filter(raft::handle_t& handle,
 
     double alpha = 1.0;
     double beta  = 0.0;
-    CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(cublasHandle,
-                                                        CUBLAS_OP_N,
-                                                        CUBLAS_OP_N,
-                                                        nobs,
-                                                        1,
-                                                        order.n_exog,
-                                                        &alpha,
-                                                        d_exog,
-                                                        nobs,
-                                                        nobs * order.n_exog,
-                                                        d_beta,
-                                                        order.n_exog,
-                                                        order.n_exog,
-                                                        &beta,
-                                                        obs_intercept.data(),
-                                                        nobs,
-                                                        nobs,
-                                                        batch_size,
-                                                        stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemmStridedBatched(cublasHandle,
+                                                           CUBLAS_OP_N,
+                                                           CUBLAS_OP_N,
+                                                           nobs,
+                                                           1,
+                                                           order.n_exog,
+                                                           &alpha,
+                                                           d_exog,
+                                                           nobs,
+                                                           nobs * order.n_exog,
+                                                           d_beta,
+                                                           order.n_exog,
+                                                           order.n_exog,
+                                                           &beta,
+                                                           obs_intercept.data(),
+                                                           nobs,
+                                                           nobs,
+                                                           batch_size,
+                                                           stream));
 
     if (fc_steps > 0) {
       obs_intercept_fut.resize(fc_steps * batch_size, stream);
 
-      CUBLAS_CHECK(raft::linalg::cublasgemmStridedBatched(cublasHandle,
-                                                          CUBLAS_OP_N,
-                                                          CUBLAS_OP_N,
-                                                          fc_steps,
-                                                          1,
-                                                          order.n_exog,
-                                                          &alpha,
-                                                          d_exog_fut,
-                                                          fc_steps,
-                                                          fc_steps * order.n_exog,
-                                                          d_beta,
-                                                          order.n_exog,
-                                                          order.n_exog,
-                                                          &beta,
-                                                          obs_intercept_fut.data(),
-                                                          fc_steps,
-                                                          fc_steps,
-                                                          batch_size,
-                                                          stream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemmStridedBatched(cublasHandle,
+                                                             CUBLAS_OP_N,
+                                                             CUBLAS_OP_N,
+                                                             fc_steps,
+                                                             1,
+                                                             order.n_exog,
+                                                             &alpha,
+                                                             d_exog_fut,
+                                                             fc_steps,
+                                                             fc_steps * order.n_exog,
+                                                             d_beta,
+                                                             order.n_exog,
+                                                             order.n_exog,
+                                                             &beta,
+                                                             obs_intercept_fut.data(),
+                                                             fc_steps,
+                                                             fc_steps,
+                                                             batch_size,
+                                                             stream));
     }
   }
 
@@ -1283,7 +1283,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
   MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, 1, 1.0, RQb, Rb, 0.0, RQR);
 
   // Durbin Koopman "Time Series Analysis" pg 138
-  ML::PUSH_RANGE("Init P");
+  raft::common::nvtx::push_range("Init P");
   MLCommon::LinAlg::Batched::Matrix<double> P(
     rd, rd, batch_size, cublasHandle, arima_mem.P_batches, arima_mem.P_dense, stream, true);
   {
@@ -1326,7 +1326,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
       _lyapunov_wrapper(handle, arima_mem, Tb, RQR, P, rd);
     }
   }
-  ML::POP_RANGE();
+  raft::common::nvtx::pop_range();
 
   // Initialize the state alpha by solving (I - T*) x* = c with:
   //     | mu |
@@ -1397,7 +1397,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
       });
   } else {
     // Memset alpha to 0
-    CUDA_CHECK(cudaMemsetAsync(alpha.raw_data(), 0, sizeof(double) * rd * batch_size, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(alpha.raw_data(), 0, sizeof(double) * rd * batch_size, stream));
   }
 
   batched_kalman_loop(handle,
@@ -1426,7 +1426,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
     int n_blocks           = raft::ceildiv<int>(fc_steps * batch_size, TPB_conf);
     confidence_intervals<<<n_blocks, TPB_conf, 0, stream>>>(
       d_fc, d_lower, d_upper, fc_steps * batch_size, sqrt(2.0) * erfinv(level));
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -1442,7 +1442,7 @@ void init_batched_kalman_matrices(raft::handle_t& handle,
                                   double* d_R_b,
                                   double* d_T_b)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
 
   auto stream = handle.get_stream();
 
@@ -1535,8 +1535,6 @@ void init_batched_kalman_matrices(raft::handle_t& handle,
     // If rd=2 and phi_2=-1, I-TxT is singular
     if (rd == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) { batch_T[1] = -0.99; }
   });
-
-  ML::POP_RANGE();
 }
 
 void batched_kalman_filter(raft::handle_t& handle,
@@ -1556,7 +1554,7 @@ void batched_kalman_filter(raft::handle_t& handle,
                            double* d_lower,
                            double* d_upper)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
 
   auto cublasHandle = handle.get_cublas_handle();
   auto stream       = handle.get_stream();
@@ -1607,8 +1605,6 @@ void batched_kalman_filter(raft::handle_t& handle,
                          level,
                          d_lower,
                          d_upper);
-
-  ML::POP_RANGE();
 }
 
 void batched_jones_transform(raft::handle_t& handle,

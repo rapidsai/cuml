@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <test_utils.h>
 #include <raft/matrix/matrix.hpp>
+#include <rmm/device_uvector.hpp>
 #include <solver/cd.cuh>
+#include <test_utils.h>
 
 namespace ML {
 namespace Solver {
@@ -35,40 +36,54 @@ struct CdInputs {
 
 template <typename T>
 class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
+ public:
+  CdTest()
+    : params(::testing::TestWithParam<CdInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.n_row * params.n_col, stream),
+      labels(params.n_row, stream),
+      coef(params.n_col, stream),
+      coef2(params.n_col, stream),
+      coef3(params.n_col, stream),
+      coef4(params.n_col, stream),
+      coef_ref(params.n_col, stream),
+      coef2_ref(params.n_col, stream),
+      coef3_ref(params.n_col, stream),
+      coef4_ref(params.n_col, stream)
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef3.data(), 0, coef3.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef4.data(), 0, coef4.size() * sizeof(T), stream));
+
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef_ref.data(), 0, coef_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef2_ref.data(), 0, coef2_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef3_ref.data(), 0, coef3_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef4_ref.data(), 0, coef4_ref.size() * sizeof(T), stream));
+  }
+
  protected:
   void lasso()
   {
-    params  = ::testing::TestWithParam<CdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    raft::allocate(data, len, stream);
-    raft::allocate(labels, params.n_row, stream);
-    raft::allocate(coef, params.n_col, stream, true);
-    raft::allocate(coef2, params.n_col, stream, true);
-    raft::allocate(coef3, params.n_col, stream, true);
-    raft::allocate(coef4, params.n_col, stream, true);
-    raft::allocate(coef_ref, params.n_col, stream, true);
-    raft::allocate(coef2_ref, params.n_col, stream, true);
-    raft::allocate(coef3_ref, params.n_col, stream, true);
-    raft::allocate(coef4_ref, params.n_col, stream, true);
-
     T data_h[len] = {1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0};
-    raft::update_device(data, data_h, len, stream);
+    raft::update_device(data.data(), data_h, len, stream);
 
     T labels_h[params.n_row] = {6.0, 8.3, 9.8, 11.2};
-    raft::update_device(labels, labels_h, params.n_row, stream);
+    raft::update_device(labels.data(), labels_h, params.n_row, stream);
 
     T coef_ref_h[params.n_col] = {4.90832, 0.35031};
-    raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
+    raft::update_device(coef_ref.data(), coef_ref_h, params.n_col, stream);
 
     T coef2_ref_h[params.n_col] = {2.53530, -0.36832};
-    raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
+    raft::update_device(coef2_ref.data(), coef2_ref_h, params.n_col, stream);
 
     T coef3_ref_h[params.n_col] = {2.932841, 1.15248};
-    raft::update_device(coef3_ref, coef3_ref_h, params.n_col, stream);
+    raft::update_device(coef3_ref.data(), coef3_ref_h, params.n_col, stream);
 
     T coef4_ref_h[params.n_col] = {0.569439, -0.00542};
-    raft::update_device(coef4_ref, coef4_ref_h, params.n_col, stream);
+    raft::update_device(coef4_ref.data(), coef4_ref_h, params.n_col, stream);
 
     bool fit_intercept  = false;
     bool normalize      = false;
@@ -81,11 +96,11 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
 
     intercept = T(0);
     cdFit(handle,
-          data,
+          data.data(),
           params.n_row,
           params.n_col,
-          labels,
-          coef,
+          labels.data(),
+          coef.data(),
           &intercept,
           fit_intercept,
           normalize,
@@ -100,11 +115,11 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     fit_intercept = true;
     intercept2    = T(0);
     cdFit(handle,
-          data,
+          data.data(),
           params.n_row,
           params.n_col,
-          labels,
-          coef2,
+          labels.data(),
+          coef2.data(),
           &intercept2,
           fit_intercept,
           normalize,
@@ -121,11 +136,11 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     fit_intercept = false;
     intercept     = T(0);
     cdFit(handle,
-          data,
+          data.data(),
           params.n_row,
           params.n_col,
-          labels,
-          coef3,
+          labels.data(),
+          coef3.data(),
           &intercept,
           fit_intercept,
           normalize,
@@ -141,11 +156,11 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     normalize     = true;
     intercept2    = T(0);
     cdFit(handle,
-          data,
+          data.data(),
           params.n_row,
           params.n_col,
-          labels,
-          coef4,
+          labels.data(),
+          coef4.data(),
           &intercept2,
           fit_intercept,
           normalize,
@@ -158,37 +173,18 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           stream);
   }
 
-  void SetUp() override
-  {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-    lasso();
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(coef));
-    CUDA_CHECK(cudaFree(coef_ref));
-    CUDA_CHECK(cudaFree(coef2));
-    CUDA_CHECK(cudaFree(coef2_ref));
-    CUDA_CHECK(cudaFree(coef3));
-    CUDA_CHECK(cudaFree(coef3_ref));
-    CUDA_CHECK(cudaFree(coef4));
-    CUDA_CHECK(cudaFree(coef4_ref));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void SetUp() override { lasso(); }
 
  protected:
   CdInputs<T> params;
-  T *data, *labels, *coef, *coef_ref;
-  T *coef2, *coef2_ref;
-  T *coef3, *coef3_ref;
-  T *coef4, *coef4_ref;
-  T intercept, intercept2;
-  cudaStream_t stream = 0;
   raft::handle_t handle;
+  cudaStream_t stream = 0;
+
+  rmm::device_uvector<T> data, labels, coef, coef_ref;
+  rmm::device_uvector<T> coef2, coef2_ref;
+  rmm::device_uvector<T> coef3, coef3_ref;
+  rmm::device_uvector<T> coef4, coef4_ref;
+  T intercept, intercept2;
 };
 
 const std::vector<CdInputs<float>> inputsf2 = {{0.01f, 4, 2}};
@@ -198,33 +194,33 @@ const std::vector<CdInputs<double>> inputsd2 = {{0.01, 4, 2}};
 typedef CdTest<float> CdTestF;
 TEST_P(CdTestF, Fit)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(coef4_ref, coef4, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef CdTest<double> CdTestD;
 TEST_P(CdTestD, Fit)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(coef4_ref, coef4, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(CdTests, CdTestF, ::testing::ValuesIn(inputsf2));

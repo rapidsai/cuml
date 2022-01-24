@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <linalg/sqrt.cuh>
-#include <raft/random/rng.hpp>
 #include "test_utils.h"
+#include <gtest/gtest.h>
+#include <linalg/sqrt.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -36,7 +36,7 @@ void naiveSqrtElem(Type* out, const Type* in1, int len)
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
   naiveSqrtElemKernel<Type><<<nblks, TPB>>>(out, in1, len);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -61,7 +61,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
   {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     int len = params.len;
     in1.resize(len, stream);
     out_ref.resize(len, stream);
@@ -72,7 +72,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
 
     sqrt(out.data(), in1.data(), len, stream);
     sqrt(in1.data(), in1.data(), len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

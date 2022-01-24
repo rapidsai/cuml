@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <cuml/tsa/holtwinters_params.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <rmm/device_uvector.hpp>
 #include "internal/hw_decompose.cuh"
 #include "internal/hw_eval.cuh"
 #include "internal/hw_forecast.cuh"
 #include "internal/hw_optim.cuh"
+#include <cuml/tsa/holtwinters_params.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 
@@ -89,7 +89,7 @@ void HoltWintersDecompose(const raft::handle_t& handle,
     raft::copy(start_level, ts + batch_size, batch_size, stream);
     raft::copy(start_trend, ts + batch_size, batch_size, stream);
     const Dtype alpha = -1.;
-    CUBLAS_CHECK(
+    RAFT_CUBLAS_TRY(
       raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts, 1, start_trend, 1, stream));
     // cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
   } else if (start_level != nullptr && start_trend != nullptr && start_season != nullptr) {
