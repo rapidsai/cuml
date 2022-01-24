@@ -82,11 +82,18 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
-
 Text Preprocessing (Single-GPU)
 ---------------------------------------
  .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
+
+Preprocessing (Single-GPU)
+-------------
+.. automodule:: cuml.preprocessing
+   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, MissingIndicator,
+             Normalizer, PolynomialFeatures, RobustScaler, SimpleImputer,
+             StandardScaler, add_dummy_feature,binarize, maxabs_scale,
+             minmax_scale, normalize, robust_scale, scale
 
 Feature and Label Encoding (Dask-based Multi-GPU)
 -------------------------------------------------
@@ -574,12 +581,6 @@ Experimental
 
 Preprocessing
 -------------
-.. automodule:: cuml.experimental.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, MissingIndicator,
-             Normalizer, PolynomialFeatures, RobustScaler, SimpleImputer,
-             StandardScaler, add_dummy_feature,binarize, maxabs_scale,
-             minmax_scale,normalize, robust_scale, scale
-
 .. automodule:: cuml.experimental.compose
    :members: ColumnTransformer, FunctionTransformer, make_column_transformer,
              make_column_selector
