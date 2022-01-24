@@ -66,8 +66,8 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     auto stream = handle.get_stream();
     d_X.resize(nElements, stream);
     d_labels.resize(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
     sampleSilScore.resize(nElements, stream);
 
     raft::update_device(d_X.data(), &h_X[0], (int)nElements, stream);
@@ -81,7 +81,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     ML::Metrics::pairwise_distance(
       handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
 

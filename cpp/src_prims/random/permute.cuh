@@ -93,7 +93,7 @@ struct permute_impl_t {
         raft::is_aligned(vin, sizeof(VType))) {
       permuteKernel<VType, IntType, IdxType, TPB, rowMajor>
         <<<nblks, TPB, 0, stream>>>(perms, vout, vin, a, b, N, D / VLen);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     } else {  // otherwise try the next lower vector length
       permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, VLen / 2>::permuteImpl(
         perms, out, in, N, D, nblks, a, b, stream);
@@ -116,7 +116,7 @@ struct permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, 1> {
   {
     permuteKernel<Type, IntType, IdxType, TPB, rowMajor>
       <<<nblks, TPB, 0, stream>>>(perms, out, in, a, b, N, D);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 

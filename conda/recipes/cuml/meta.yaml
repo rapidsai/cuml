@@ -37,6 +37,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
+    - cuda-python >=11.5,<12.0
   run:
     - python x.x
     - cudf {{ minor_version }}
@@ -52,6 +53,7 @@ requirements:
     - distributed>=2021.11.1
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cuda-python >=11.5,<12.0
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]

@@ -42,7 +42,7 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream)
   static const int TPB = 256;
   auto nblks           = raft::ceildiv<IdxT>(len, TPB);
   castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 class UmapBase : public BlobsFixture<float, int> {
