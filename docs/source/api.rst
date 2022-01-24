@@ -575,10 +575,14 @@ Experimental
 Preprocessing
 -------------
 .. automodule:: cuml.experimental.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
-      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
-      add_dummy_feature, binarize, minmax_scale, normalize,
-      PolynomialFeatures, robust_scale, scale
+   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, MissingIndicator,
+             Normalizer, PolynomialFeatures, RobustScaler, SimpleImputer,
+             StandardScaler, add_dummy_feature,binarize, maxabs_scale,
+             minmax_scale,normalize, robust_scale, scale
+
+.. automodule:: cuml.experimental.compose
+   :members: ColumnTransformer, FunctionTransformer, make_column_transformer,
+             make_column_selector
 
 Linear Models
 -------------
