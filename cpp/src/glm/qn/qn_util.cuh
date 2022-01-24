@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,48 +15,15 @@
  */
 
 #pragma once
+
+#include <cuml/linear_model/qn.h>
+
 #include <cuml/common/logger.hpp>
 #include <limits>
 #include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
-
-/** Loss function types supported by the Quasi-Newton solvers. */
-enum QN_LOSS_TYPE : int {
-  /** Logistic classification.
-   *  Expected target: {0, 1}.
-   */
-  QN_LOSS_LOGISTIC = 0,
-  /** L2 regression.
-   *  Expected target: R.
-   */
-  QN_LOSS_SQUARED = 1,
-  /** Softmax classification..
-   *  Expected target: {0, 1, ...}.
-   */
-  QN_LOSS_SOFTMAX = 2,
-  /** Hinge.
-   *  Expected target: {0, 1}.
-   */
-  QN_LOSS_SVC_L1 = 3,
-  /** Squared-hinge.
-   *  Expected target: {0, 1}.
-   */
-  QN_LOSS_SVC_L2 = 4,
-  /** Epsilon-insensitive.
-   *  Expected target: R.
-   */
-  QN_LOSS_SVR_L1 = 5,
-  /** Epsilon-insensitive-squared.
-   *  Expected target: R.
-   */
-  QN_LOSS_SVR_L2 = 6,
-  /** L1 regression.
-   *  Expected target: R.
-   */
-  QN_LOSS_ABS = 7
-};
 
 enum LINE_SEARCH_ALGORITHM {
   LBFGS_LS_BT_ARMIJO       = 1,
@@ -117,6 +84,18 @@ class LBFGSParam {
     ls_inc         = T(2.1);
   }
 
+  explicit LBFGSParam(const qn_params& pams) : LBFGSParam()
+  {
+    m       = pams.lbfgs_memory;
+    epsilon = T(pams.grad_tol);
+    // sometimes even number works better - to detect zig-zags;
+    past           = pams.change_tol > 0 ? 10 : 0;
+    delta          = T(pams.change_tol);
+    max_iterations = pams.max_iter;
+    max_linesearch = pams.linesearch_max_iter;
+    ftol           = pams.change_tol > 0 ? T(pams.change_tol * 0.1) : T(1e-4);
+  }
+
   inline int check_param() const
   {  // TODO exceptions
     int ret = 1;
@@ -145,6 +124,17 @@ class LBFGSParam {
     return 0;
   }
 };
+
+inline bool qn_is_classification(qn_loss_type t)
+{
+  switch (t) {
+    case QN_LOSS_LOGISTIC:
+    case QN_LOSS_SOFTMAX:
+    case QN_LOSS_SVC_L1:
+    case QN_LOSS_SVC_L2: return true;
+    default: return false;
+  }
+}
 
 template <typename T>
 HDI T project_orth(T x, T y)
