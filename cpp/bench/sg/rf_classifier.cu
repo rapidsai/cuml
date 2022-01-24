@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
 #include <cmath>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -68,7 +68,7 @@ class RFClassifier : public BlobsFixture<D> {
           this->data.y.data(),
           this->params.nclasses,
           rfParams);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
     });
   }
 

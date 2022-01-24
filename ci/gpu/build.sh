@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 ##############################################
 # cuML GPU build and test script for CI      #
 ##############################################
@@ -125,8 +125,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -187,6 +187,11 @@ else
     cd $LIBCUML_BUILD_DIR
     chrpath -d ./test/ml
     patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
+    cp _deps/raft-build/libraft_nn.so $PWD
+    patchelf --replace-needed `patchelf --print-needed libraft_nn.so | grep faiss` libfaiss.so libraft_nn.so
+    cp _deps/raft-build/libraft_distance.so $PWD
+
+    gpuci_logger "Running libcuml binaries"
     GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
@@ -212,8 +217,8 @@ else
     
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2021.11.2" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2021.11.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
     
     gpuci_logger "Python pytest for cuml"

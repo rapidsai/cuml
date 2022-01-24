@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
+#include <cmath>
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <cmath>
-#include <cuml/svm/svc.hpp>
 #include <sstream>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -66,8 +66,9 @@ class SVC : public BlobsFixture<D, D> {
                       this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      this->model);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+                      this->model,
+                      static_cast<D*>(nullptr));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
       ML::SVM::svmFreeBuffers(*this->handle, this->model);
     });
   }

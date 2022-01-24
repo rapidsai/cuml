@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/host/allocator.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Matrix {
@@ -85,7 +85,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   GramMatrixTest()
     : params(GetParam()), stream(0), x1(0, stream), x2(0, stream), gram(0, stream), gram_host(0)
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     if (params.ld1 == 0) { params.ld1 = params.is_row_major ? params.n_cols : params.n1; }
     if (params.ld2 == 0) { params.ld2 = params.is_row_major ? params.n_cols : params.n2; }
@@ -98,7 +98,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     size = get_offset(params.n1 - 1, params.n2 - 1, params.ld_out, params.is_row_major) + 1;
 
     gram.resize(size, stream);
-    CUDA_CHECK(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
     gram_host.resize(gram.size());
     std::fill(gram_host.begin(), gram_host.end(), 0);
 
@@ -107,7 +107,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
   }
 
-  ~GramMatrixTest() override { CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream)); }
+  ~GramMatrixTest() override { RAFT_CUDA_TRY_NO_THROW(cudaStreamDestroy(stream)); }
 
   // Calculate the Gram matrix on the host.
   void naiveKernel()
@@ -116,7 +116,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
     std::vector<math_t> x2_host(x2.size());
     raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < params.n1; i++) {
       for (int j = 0; j < params.n2; j++) {

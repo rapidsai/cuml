@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 
+#include "test_utils.h"
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.h>
 #include <random/make_regression.cuh>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Random {
@@ -41,32 +41,34 @@ struct MakeRegressionInputs {
 
 template <typename T>
 class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<T>> {
+ public:
+  MakeRegressionTest()
+    : params(::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      values_ret(params.n_samples * params.n_targets, stream),
+      values_prod(params.n_samples * params.n_targets, stream)
+  {
+  }
+
  protected:
   void SetUp() override
   {
-    params = ::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam();
-
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
 
-    raft::handle_t handle;
-    stream = handle.get_stream();
-
-    raft::allocate(data, params.n_samples * params.n_features, stream);
-    raft::allocate(values_ret, params.n_samples * params.n_targets, stream);
-    raft::allocate(values_prod, params.n_samples * params.n_targets, stream);
-    raft::allocate(values_cm, params.n_samples * params.n_targets, stream);
-    raft::allocate(coef, params.n_features * params.n_targets, stream);
+    rmm::device_uvector<T> data(params.n_samples * params.n_features, stream);
+    rmm::device_uvector<T> values_cm(params.n_samples * params.n_targets, stream);
+    rmm::device_uvector<T> coef(params.n_features * params.n_targets, stream);
 
     // Create the regression problem
     make_regression(handle,
-                    data,
-                    values_ret,
+                    data.data(),
+                    values_ret.data(),
                     params.n_samples,
                     params.n_features,
                     params.n_informative,
                     stream,
-                    coef,
+                    coef.data(),
                     params.n_targets,
                     params.bias,
                     params.effective_rank,
@@ -78,48 +80,45 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    CUBLAS_CHECK(raft::linalg::cublasgemm(handle.get_cublas_handle(),
-                                          CUBLAS_OP_T,
-                                          CUBLAS_OP_T,
-                                          params.n_samples,
-                                          params.n_targets,
-                                          params.n_features,
-                                          &alpha,
-                                          data,
-                                          params.n_features,
-                                          coef,
-                                          params.n_targets,
-                                          &beta,
-                                          values_cm,
-                                          params.n_samples,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(handle.get_cublas_handle(),
+                                             CUBLAS_OP_T,
+                                             CUBLAS_OP_T,
+                                             params.n_samples,
+                                             params.n_targets,
+                                             params.n_features,
+                                             &alpha,
+                                             data.data(),
+                                             params.n_features,
+                                             coef.data(),
+                                             params.n_targets,
+                                             &beta,
+                                             values_cm.data(),
+                                             params.n_samples,
+                                             stream));
 
     // Transpose the values to row-major
     raft::linalg::transpose(
-      handle, values_cm, values_prod, params.n_samples, params.n_targets, stream);
+      handle, values_cm.data(), values_prod.data(), params.n_samples, params.n_targets, stream);
 
     // Add the bias
-    raft::linalg::addScalar(
-      values_prod, values_prod, params.bias, params.n_samples * params.n_targets, stream);
+    raft::linalg::addScalar(values_prod.data(),
+                            values_prod.data(),
+                            params.bias,
+                            params.n_samples * params.n_targets,
+                            stream);
 
     // Count the number of zeroes in the coefficients
-    thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef);
+    thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef.data());
     zero_count = thrust::count(__coef, __coef + params.n_features * params.n_targets, (T)0.0);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(values_ret));
-    CUDA_CHECK(cudaFree(values_prod));
-    CUDA_CHECK(cudaFree(values_cm));
-  }
-
  protected:
-  MakeRegressionInputs<T> params;
-  T *data, *values_ret, *values_prod, *values_cm, *coef;
-  int zero_count;
+  raft::handle_t handle;
   cudaStream_t stream = 0;
+
+  MakeRegressionInputs<T> params;
+  rmm::device_uvector<T> values_ret, values_prod;
+  int zero_count;
 };
 
 typedef MakeRegressionTest<float> MakeRegressionTestF;
@@ -133,8 +132,8 @@ TEST_P(MakeRegressionTestF, Result)
   ASSERT_TRUE(match(params.n_targets * (params.n_features - params.n_informative),
                     zero_count,
                     raft::Compare<int>()));
-  ASSERT_TRUE(devArrMatch(values_ret,
-                          values_prod,
+  ASSERT_TRUE(devArrMatch(values_ret.data(),
+                          values_prod.data(),
                           params.n_samples,
                           params.n_targets,
                           raft::CompareApprox<float>(params.tolerance),
@@ -153,8 +152,8 @@ TEST_P(MakeRegressionTestD, Result)
   ASSERT_TRUE(match(params.n_targets * (params.n_features - params.n_informative),
                     zero_count,
                     raft::Compare<int>()));
-  ASSERT_TRUE(devArrMatch(values_ret,
-                          values_prod,
+  ASSERT_TRUE(devArrMatch(values_ret.data(),
+                          values_prod.data(),
                           params.n_samples,
                           params.n_targets,
                           raft::CompareApprox<double>(params.tolerance),

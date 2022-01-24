@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include "grammatrix.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
 #include <raft/linalg/gemm.cuh>
-#include "grammatrix.cuh"
 
 namespace MLCommon {
 namespace Matrix {
@@ -126,7 +126,7 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
                           0,
                           stream>>>(inout, ld, n1, n2, exponent, gain, offset);
     }
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
  public:
@@ -206,7 +206,7 @@ class TanhKernel : public GramMatrixBase<math_t> {
                     0,
                     stream>>>(inout, ld, n1, n2, gain, offset);
     }
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
  public:

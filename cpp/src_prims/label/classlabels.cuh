@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -49,7 +49,7 @@ int getUniqueLabels(math_t* y, size_t n, math_t* unique, cudaStream_t stream)
   rmm::device_uvector<math_t> unique_v(0, stream);
   auto n_unique = raft::label::getUniquelabels(unique_v, y, n, stream);
   raft::copy(unique, unique_v.data(), n_unique, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   return n_unique;
 }
 
@@ -84,7 +84,7 @@ void getOvrLabels(
     n,
     [idx, y_unique] __device__(math_t y) { return y == y_unique[idx] ? +1 : -1; },
     stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 // TODO: add one-versus-one selection: select two classes, relabel them to

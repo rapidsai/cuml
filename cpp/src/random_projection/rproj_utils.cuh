@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 
 #include <cuml/random_projection/rproj_c.h>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -82,12 +82,12 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p, int random_s
   dim3 blk(TPB_X, 1, 1);
 
   sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array.data(), n, successes.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   int ret = 0;
   raft::update_host(&ret, successes.data(), 1, h.get_stream());
   cudaStreamSynchronize(h.get_stream());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   return n - ret;
 }

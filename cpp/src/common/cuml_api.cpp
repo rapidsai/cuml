@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #include "cumlHandle.hpp"
 
-#include <cuml/cuml_api.h>
 #include <cuml/common/utils.hpp>
+#include <cuml/cuml_api.h>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
@@ -38,13 +38,13 @@ class hostAllocatorFunctionWrapper : public raft::mr::host::allocator {
   virtual void* allocate(std::size_t n, cudaStream_t stream)
   {
     void* ptr = 0;
-    CUDA_CHECK(_allocate_fn(&ptr, n, stream));
+    RAFT_CUDA_TRY(_allocate_fn(&ptr, n, stream));
     return ptr;
   }
 
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream)
   {
-    CUDA_CHECK_NO_THROW(_deallocate_fn(p, n, stream));
+    RAFT_CUDA_TRY_NO_THROW(_deallocate_fn(p, n, stream));
   }
 
  private:
@@ -62,13 +62,13 @@ class deviceAllocatorFunctionWrapper : public raft::mr::device::default_allocato
   virtual void* allocate(std::size_t n, cudaStream_t stream)
   {
     void* ptr = 0;
-    CUDA_CHECK(_allocate_fn(&ptr, n, stream));
+    RAFT_CUDA_TRY(_allocate_fn(&ptr, n, stream));
     return ptr;
   }
 
   virtual void deallocate(void* p, std::size_t n, cudaStream_t stream)
   {
-    CUDA_CHECK_NO_THROW(_deallocate_fn(p, n, stream));
+    RAFT_CUDA_TRY_NO_THROW(_deallocate_fn(p, n, stream));
   }
 
  private:

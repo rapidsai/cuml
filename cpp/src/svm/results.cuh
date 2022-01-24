@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
 
 #pragma once
 
-#include <math.h>
 #include <iostream>
 #include <limits>
+#include <math.h>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 
+#include "ws_util.cuh"
+#include <cub/device/device_select.cuh>
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
-#include <cub/device/device_select.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
@@ -32,7 +33,6 @@
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include "ws_util.cuh"
 
 namespace ML {
 namespace SVM {
@@ -86,7 +86,7 @@ class Results {
   {
     InitCubBuffers();
     MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   /**
@@ -127,7 +127,7 @@ class Results {
       *x_support  = nullptr;
     }
     // Make sure that all pending GPU calculations finished before we return
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   /**
@@ -143,7 +143,7 @@ class Results {
     math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
     raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     return x_support;
   }
 
@@ -190,7 +190,7 @@ class Results {
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
     *dual_coefs    = (math_t*)rmm_alloc->allocate(*n_support * sizeof(math_t), stream);
     raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   /**
@@ -273,7 +273,7 @@ class Results {
       cub_storage.data(), cub_bytes, val, flag.data(), out, d_num_selected.data(), n, stream);
     int n_selected;
     raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     return n_selected;
   }
 
@@ -346,12 +346,12 @@ class Results {
   int SelectByCoef(const math_t* coef, int n, const valType* val, select_op op, valType* out)
   {
     set_flag<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef, n, op);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(
       cub_storage.data(), cub_bytes, val, flag.data(), out, d_num_selected.data(), n, stream);
     int n_selected;
     raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     return n_selected;
   }
 
@@ -367,7 +367,7 @@ class Results {
                       void (*flag_op)(bool*, int, const math_t*, const math_t*, const math_t*))
   {
     flag_op<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(flag.data(), n_train, alpha, y, C);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(),
                                cub_bytes,
                                f,
@@ -378,7 +378,7 @@ class Results {
                                stream);
     int n_selected;
     raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     math_t res = 0;
     ASSERT(n_selected > 0,
            "Incorrect training: cannot calculate the constant in the decision "

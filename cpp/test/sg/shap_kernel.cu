@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@
 
 #include <test_utils.h>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -50,24 +51,24 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
  protected:
   void SetUp() override
   {
-    int i, j;
+    params = ::testing::TestWithParam<MakeKSHAPDatasetInputs>::GetParam();
+    stream = handle.get_stream();
 
-    params  = ::testing::TestWithParam<MakeKSHAPDatasetInputs>::GetParam();
+    int i, j;
     nrows_X = params.nrows_exact + params.nrows_sampled;
 
-    raft::allocate(background, params.nrows_background * params.ncols, stream);
-    raft::allocate(observation, params.ncols, stream);
-    raft::allocate(nsamples, params.nrows_sampled / 2, stream);
+    rmm::device_uvector<T> background(params.nrows_background * params.ncols, stream);
+    rmm::device_uvector<T> observation(params.ncols, stream);
+    rmm::device_uvector<int> nsamples(params.nrows_sampled / 2, stream);
+    rmm::device_uvector<float> X(nrows_X * params.ncols, stream);
+    rmm::device_uvector<T> dataset(nrows_X * params.nrows_background * params.ncols, stream);
 
-    raft::allocate(X, nrows_X * params.ncols, stream);
-    raft::allocate(dataset, nrows_X * params.nrows_background * params.ncols, stream);
+    thrust::device_ptr<T> b_ptr   = thrust::device_pointer_cast(background.data());
+    thrust::device_ptr<T> o_ptr   = thrust::device_pointer_cast(observation.data());
+    thrust::device_ptr<int> n_ptr = thrust::device_pointer_cast(nsamples.data());
 
-    thrust::device_ptr<T> b_ptr   = thrust::device_pointer_cast(background);
-    thrust::device_ptr<T> o_ptr   = thrust::device_pointer_cast(observation);
-    thrust::device_ptr<int> n_ptr = thrust::device_pointer_cast(nsamples);
-
-    thrust::device_ptr<float> X_ptr = thrust::device_pointer_cast(X);
-    thrust::device_ptr<T> d_ptr     = thrust::device_pointer_cast(dataset);
+    thrust::device_ptr<float> X_ptr = thrust::device_pointer_cast(X.data());
+    thrust::device_ptr<T> d_ptr     = thrust::device_pointer_cast(dataset.data());
 
     // Initialize arrays:
 
@@ -100,19 +101,19 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
     }
 
     kernel_dataset(handle,
-                   X,
+                   X.data(),
                    nrows_X,
                    params.ncols,
-                   background,
+                   background.data(),
                    params.nrows_background,
-                   dataset,
-                   observation,
-                   nsamples,
+                   dataset.data(),
+                   observation.data(),
+                   nsamples.data(),
                    params.nrows_sampled,
                    params.max_samples,
                    params.seed);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     int counter;
 
@@ -181,22 +182,8 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
     }
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(background));
-    CUDA_CHECK(cudaFree(observation));
-    CUDA_CHECK(cudaFree(X));
-    CUDA_CHECK(cudaFree(dataset));
-    CUDA_CHECK(cudaFree(nsamples));
-  }
-
  protected:
   MakeKSHAPDatasetInputs params;
-  T* background;
-  T* observation;
-  float* X;
-  T* dataset;
-  int* nsamples;
   int nrows_X;
   bool test_sampled_X;
   bool test_scatter_exact;

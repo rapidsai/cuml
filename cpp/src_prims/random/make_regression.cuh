@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,18 +22,18 @@
 
 #include <algorithm>
 
+#include "permute.cuh"
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/qr.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "permute.cuh"
 
 namespace MLCommon {
 namespace Random {
@@ -81,9 +81,9 @@ static void _make_low_rank_matrix(const raft::handle_t& handle,
   rmm::device_uvector<DataT> singular_vec(n, stream);
   _singular_profile_kernel<<<raft::ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
     singular_vec.data(), n, tail_strength, effective_rank);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   rmm::device_uvector<DataT> singular_mat(n * n, stream);
-  CUDA_CHECK(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
   raft::matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n, n, stream);
 
   // Generate the column-major matrix
@@ -246,29 +246,29 @@ void make_regression(const raft::handle_t& handle,
   // Generate a ground truth model with only n_informative features
   r.uniform(_coef, n_informative * n_targets, (DataT)1.0, (DataT)100.0, stream);
   if (coef && n_informative != n_cols) {
-    CUDA_CHECK(cudaMemsetAsync(_coef + n_informative * n_targets,
-                               0,
-                               (n_cols - n_informative) * n_targets * sizeof(DataT),
-                               stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(_coef + n_informative * n_targets,
+                                  0,
+                                  (n_cols - n_informative) * n_targets * sizeof(DataT),
+                                  stream));
   }
 
   // Compute the output values
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
-  CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
-                                        CUBLAS_OP_T,
-                                        CUBLAS_OP_T,
-                                        n_rows,
-                                        n_targets,
-                                        n_informative,
-                                        &alpha,
-                                        out,
-                                        n_cols,
-                                        _coef,
-                                        n_targets,
-                                        &beta,
-                                        _values_col,
-                                        n_rows,
-                                        stream));
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
+                                           CUBLAS_OP_T,
+                                           CUBLAS_OP_T,
+                                           n_rows,
+                                           n_targets,
+                                           n_informative,
+                                           &alpha,
+                                           out,
+                                           n_cols,
+                                           _coef,
+                                           n_targets,
+                                           &beta,
+                                           _values_col,
+                                           n_rows,
+                                           stream));
 
   // Transpose the values from column-major to row-major if needed
   if (n_targets > 1) {
@@ -301,7 +301,7 @@ void make_regression(const raft::handle_t& handle,
     IdxT nblks_rows = raft::ceildiv<IdxT>(n_rows, Nthreads);
     _gather2d_kernel<<<nblks_rows, Nthreads, 0, stream>>>(
       values, _values, perms_samples.data(), n_rows, n_targets);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // Shuffle the features from tmp_out to out
     permute<DataT, IdxT, IdxT>(
@@ -312,7 +312,7 @@ void make_regression(const raft::handle_t& handle,
       IdxT nblks_cols = raft::ceildiv<IdxT>(n_cols, Nthreads);
       _gather2d_kernel<<<nblks_cols, Nthreads, 0, stream>>>(
         coef, _coef, perms_features.data(), n_cols, n_targets);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
 
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/distance_type.h>
 #include <raft/mr/device/allocator.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
@@ -36,10 +36,10 @@
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/utils/Heap.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
+#include <faiss/utils/Heap.h>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -185,7 +185,7 @@ void class_probs(const raft::handle_t& handle,
     int n_unique_labels = n_unique[i];
     size_t cur_size     = n_query_rows * n_unique_labels;
 
-    CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 
     dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
     dim3 blk(TPB_X, 1, 1);
@@ -214,7 +214,7 @@ void class_probs(const raft::handle_t& handle,
       stream);
     class_probs_kernel<float, precomp_lbls><<<grid, blk, 0, stream>>>(
       out[i], knn_indices, y_normalized.data(), n_unique_labels, n_query_rows, k);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -293,7 +293,7 @@ void knn_classify(const raft::handle_t& handle,
 
     class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
       out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i, use_shared_mem);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -339,8 +339,8 @@ void knn_regress(const raft::handle_t& handle,
       <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
+#include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/stats/mean.hpp>
 #include <vector>
-#include "simple_mat.cuh"
 
 namespace ML {
 namespace GLM {
@@ -221,7 +221,7 @@ struct GLMWithData : GLMDims {
     objective->loss_grad(dev_scalar, G, W, *X, *y, *Z, stream);
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     return loss_host;
   }
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #include <cuml/fil/fil.h>
 
+#include "benchmark.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -79,7 +79,7 @@ class FIL : public RegressionFixture<float> {
     auto* mPtr         = &rf_model;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
     ML::fil::treelite_params_t tl_params = {
