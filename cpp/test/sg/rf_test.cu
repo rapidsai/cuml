@@ -544,15 +544,9 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
-    // allocating memory for quantile structure storing device pointers
-    auto quantiles_array =
-      std::make_shared<rmm::device_uvector<T>>(params.n_bins * 1, handle.get_stream());
-    auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
-    // creating quantile structure storing device pointers
-    DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
     // computing the quantiles
-    quantiles =
-      DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, handle);
+    auto [quantiles, quantiles_array, n_uniquebins_array] =
+      DT::computeQuantiles(handle, data.data().get(), params.n_bins, params.n_rows, 1);
 
     raft::update_host(
       h_quantiles.data(), quantiles.quantiles_array, params.n_bins, handle.get_stream());
@@ -594,15 +588,9 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
-    // allocating memory for quantile structure storing device pointers
-    auto quantiles_array =
-      std::make_shared<rmm::device_uvector<T>>(params.n_bins * 1, handle.get_stream());
-    auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(1, handle.get_stream());
-    // creating quantile structure storing device pointers
-    DT::Quantiles<T, int> quantiles = {quantiles_array->data(), n_uniquebins_array->data()};
     // computing the quantiles
-    quantiles =
-      DT::computeQuantiles(quantiles, params.n_bins, data.data().get(), params.n_rows, 1, handle);
+    auto [quantiles, quantiles_array, n_uniquebins_array] =
+      DT::computeQuantiles(handle, data.data().get(), params.n_bins, params.n_rows, 1);
 
     int n_uniquebins;
     raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());

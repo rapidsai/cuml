@@ -39,17 +39,16 @@ __global__ void computeQuantilesKernel(
   T* quantiles, int* n_bins_unique, const T* sorted_data, const int n_bins_max, const int n_rows);
 
 template <typename T>
-Quantiles<T, int>& computeQuantiles(Quantiles<T, int>& quantiles,
-                                    int n_bins_max,
-                                    const T* data,
-                                    int n_rows,
-                                    int n_cols,
-                                    const raft::handle_t& handle)
+auto computeQuantiles(
+  const raft::handle_t& handle, const T* data, int n_bins_max, int n_rows, int n_cols)
 {
   raft::common::nvtx::push_range("computeQuantiles");
   auto stream               = handle.get_stream();
-  size_t temp_storage_bytes = 0;
+  size_t temp_storage_bytes = 0;  // for device radix sort
   rmm::device_uvector<T> sorted_column(n_rows, stream);
+  // acquire device vectors to store the quantiles + offsets
+  auto quantiles_array    = std::make_shared<rmm::device_uvector<T>>(n_cols * n_bins_max, stream);
+  auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(n_cols, stream);
 
   // get temp_storage_bytes for sorting
   RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys(
@@ -60,25 +59,24 @@ Quantiles<T, int>& computeQuantiles(Quantiles<T, int>& quantiles,
     raft::common::nvtx::push_range("sorting columns");
     int col_offset = col * n_rows;
     RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys((void*)(d_temp_storage.data()),
-                                              temp_storage_bytes,
-                                              data + col_offset,
-                                              sorted_column.data(),
-                                              n_rows,
-                                              0,
-                                              8 * sizeof(T),
-                                              stream));
+                                                 temp_storage_bytes,
+                                                 data + col_offset,
+                                                 sorted_column.data(),
+                                                 n_rows,
+                                                 0,
+                                                 8 * sizeof(T),
+                                                 stream));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     raft::common::nvtx::pop_range();  // sorting columns
 
-    // do the quantile computation parallelizing across cols too across CTAs
     int n_blocks        = 1;
     int n_threads       = min(1024, n_bins_max);
     int quantile_offset = col * n_bins_max;
     int bins_offset     = col;
     raft::common::nvtx::push_range("computeQuantilesKernel @quantile.cuh");
     computeQuantilesKernel<<<n_blocks, n_threads, 0, stream>>>(
-      quantiles.quantiles_array + quantile_offset,
-      quantiles.n_uniquebins_array + bins_offset,
+      quantiles_array->data() + quantile_offset,
+      n_uniquebins_array->data() + bins_offset,
       sorted_column.data(),
       n_bins_max,
       n_rows);
@@ -86,8 +84,12 @@ Quantiles<T, int>& computeQuantiles(Quantiles<T, int>& quantiles,
     RAFT_CUDA_TRY(cudaGetLastError());
     raft::common::nvtx::pop_range();  // computeQuatilesKernel
   }
+  // encapsulate the device pointers under a Quantiles struct
+  Quantiles<T, int> quantiles;
+  quantiles.quantiles_array    = quantiles_array->data();
+  quantiles.n_uniquebins_array = n_uniquebins_array->data();
   raft::common::nvtx::pop_range();  // computeQuantiles
-  return quantiles;
+  return std::make_tuple(quantiles, quantiles_array, n_uniquebins_array);
 }
 
 }  // namespace DT
