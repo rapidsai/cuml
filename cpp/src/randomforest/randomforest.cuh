@@ -196,7 +196,7 @@ class RandomForest {
     }
     // Cleanup
     handle.sync_stream_pool();
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   /**
@@ -223,7 +223,7 @@ class RandomForest {
 
     std::vector<T> h_input(n_rows * n_cols);
     raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     int row_size = n_cols;
 
@@ -260,7 +260,7 @@ class RandomForest {
     }
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   /**

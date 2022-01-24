@@ -114,7 +114,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
                               season_ptr.data(),
                               forecast_ptr.data());
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override { basicTest(); }

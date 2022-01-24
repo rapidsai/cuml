@@ -111,7 +111,7 @@ class BatchedLevelAlgoUnitTestFixture {
     computeQuantiles(d_quantiles.data(), n_bins, data.data(), n_row, n_col, nullptr);
     MLCommon::iota(row_ids.data(), 0, 1, n_row, 0);
 
-    CUDA_CHECK(cudaStreamSynchronize(0));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(0));
 
     input.data         = data.data();
     input.labels       = labels.data();
@@ -185,9 +185,9 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
   auto stream = raft_handle->get_stream();
 
   raft::update_device(curr_nodes.data(), h_nodes.data() + 1, batchSize, stream);
-  CUDA_CHECK(cudaMemsetAsync(n_new_nodes.data(), 0, sizeof(IdxT), stream));
-  CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
-  CUDA_CHECK(cudaMemsetAsync(new_depth.data(), 0, sizeof(IdxT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(n_new_nodes.data(), 0, sizeof(IdxT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(new_depth.data(), 0, sizeof(IdxT), stream));
   initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits.data(), batchSize, stream);
 
   /* { quesval, colid, best_metric_val, nLeft } */
@@ -208,9 +208,9 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
                                                     n_new_leaves.data(),
                                                     h_n_total_nodes,
                                                     new_depth.data());
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   raft::update_host(&h_n_new_nodes, n_new_nodes.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
   h_n_total_nodes += h_n_new_nodes;
   EXPECT_EQ(h_n_total_nodes, test_params.expected_n_total_nodes);
   EXPECT_EQ(h_n_new_nodes, test_params.expected_n_new_nodes);
@@ -267,10 +267,11 @@ TEST_P(TestMetric, RegressionMetricGain)
   h_workload_info.num_blocks     = 1;
 
   raft::update_device(workload_info.data(), &h_workload_info, 1, stream);
-  CUDA_CHECK(cudaMemsetAsync(mutex.data(), 0, sizeof(int) * max_batch, stream));
-  CUDA_CHECK(cudaMemsetAsync(done_count.data(), 0, sizeof(int) * max_batch * n_col_blks, stream));
-  CUDA_CHECK(cudaMemsetAsync(hist.data(), 0, 2 * sizeof(DataT) * nPredCounts, stream));
-  CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(mutex.data(), 0, sizeof(int) * max_batch, stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(done_count.data(), 0, sizeof(int) * max_batch * n_col_blks, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(hist.data(), 0, 2 * sizeof(DataT) * nPredCounts, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
   initSplit<DataT, IdxT, TPB_DEFAULT>(splits.data(), batchSize, stream);
 
   std::vector<SplitT> h_splits(1);
@@ -308,8 +309,8 @@ TEST_P(TestMetric, RegressionMetricGain)
                                      1234ULL);
 
   raft::update_host(h_splits.data(), splits.data(), 1, stream);
-  CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   // the split uses feature 0
   // rows 0, 4 go to the left side of the threshold

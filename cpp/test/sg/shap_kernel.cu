@@ -113,7 +113,7 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
                    params.max_samples,
                    params.seed);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     int counter;
 

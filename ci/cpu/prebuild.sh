@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# Copyright (c) 2022, NVIDIA CORPORATION.
 
 export UPLOAD_CUML=1
 
-if [[ "$PYTHON" == "3.7" ]]; then
+if [[ "$PYTHON" == "3.8" ]]; then
     export UPLOAD_LIBCUML=1
 else
     export UPLOAD_LIBCUML=0

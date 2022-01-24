@@ -106,11 +106,11 @@ template
     d_golden_ar_trans.resize(nElements, stream);
     d_computed_ar_trans.resize(nElements, stream);
     d_params.resize(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       d_golden_ar_trans.data(), 0, d_golden_ar_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       d_computed_ar_trans.data(), 0, d_computed_ar_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(d_params.data(), 0, d_params.size() * sizeof(DataT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_params.data(), 0, d_params.size() * sizeof(DataT), stream));
 
     raft::update_device(d_params.data(), &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans.data(), newParams, (size_t)nElements, stream);
@@ -162,9 +162,9 @@ template
 
     d_golden_ma_trans.resize(nElements, stream);
     d_computed_ma_trans.resize(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       d_golden_ma_trans.data(), 0, d_golden_ma_trans.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       d_computed_ma_trans.data(), 0, d_computed_ma_trans.size() * sizeof(DataT), stream));
 
     raft::update_device(d_golden_ma_trans.data(), newParams, (size_t)nElements, stream);
@@ -182,7 +182,7 @@ template
     //>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     d_computed_ar_invtrans.resize(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       d_computed_ar_invtrans.data(), 0, d_computed_ar_invtrans.size() * sizeof(DataT), stream));
 
     // calling the ar_param_inverse_transform CUDA implementation
@@ -197,7 +197,7 @@ template
     //>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     d_computed_ma_invtrans.resize(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       d_computed_ma_invtrans.data(), 0, d_computed_ma_invtrans.size() * sizeof(DataT), stream));
 
     // calling the ma_param_inverse_transform CUDA implementation

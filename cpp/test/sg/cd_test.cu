@@ -51,15 +51,15 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
       coef3_ref(params.n_col, stream),
       coef4_ref(params.n_col, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef3.data(), 0, coef3.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef4.data(), 0, coef4.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef3.data(), 0, coef3.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef4.data(), 0, coef4.size() * sizeof(T), stream));
 
-    CUDA_CHECK(cudaMemsetAsync(coef_ref.data(), 0, coef_ref.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef2_ref.data(), 0, coef2_ref.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef3_ref.data(), 0, coef3_ref.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(coef4_ref.data(), 0, coef4_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef_ref.data(), 0, coef_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef2_ref.data(), 0, coef2_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef3_ref.data(), 0, coef3_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef4_ref.data(), 0, coef4_ref.size() * sizeof(T), stream));
   }
 
  protected:

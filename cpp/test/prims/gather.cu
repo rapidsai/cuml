@@ -76,7 +76,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
     raft::random::Rng r(params.seed);
     raft::random::Rng r_int(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     uint32_t nrows      = params.nrows;
     uint32_t ncols      = params.ncols;
@@ -107,9 +107,9 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     // launch device version of the kernel
     gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   cudaStream_t stream = 0;

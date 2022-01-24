@@ -64,7 +64,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     // allocating and initializing memory to the GPU
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -102,7 +102,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
   }
 
   // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   vMeasureParam params;

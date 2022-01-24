@@ -80,21 +80,21 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    CUBLAS_CHECK(raft::linalg::cublasgemm(handle.get_cublas_handle(),
-                                          CUBLAS_OP_T,
-                                          CUBLAS_OP_T,
-                                          params.n_samples,
-                                          params.n_targets,
-                                          params.n_features,
-                                          &alpha,
-                                          data.data(),
-                                          params.n_features,
-                                          coef.data(),
-                                          params.n_targets,
-                                          &beta,
-                                          values_cm.data(),
-                                          params.n_samples,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(handle.get_cublas_handle(),
+                                             CUBLAS_OP_T,
+                                             CUBLAS_OP_T,
+                                             params.n_samples,
+                                             params.n_targets,
+                                             params.n_features,
+                                             &alpha,
+                                             data.data(),
+                                             params.n_features,
+                                             coef.data(),
+                                             params.n_targets,
+                                             &beta,
+                                             values_cm.data(),
+                                             params.n_samples,
+                                             stream));
 
     // Transpose the values to row-major
     raft::linalg::transpose(

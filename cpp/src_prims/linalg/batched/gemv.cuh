@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ void gemvImplY(DataT* y,
   dim3 nblks(mAligned, batchSize);
   gemvKernel<DataT, IdxT, VecLenAx, VecLenY, EpilogueOp>
     <<<nblks, tpb, smemSize, stream>>>(y, A, x, z, alpha, beta, m, n, op);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT, typename IdxT, int VecLenAx, typename EpilogueOp>
