@@ -44,15 +44,15 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
 
     firstClusterArray.resize(nElements, stream);
     secondClusterArray.resize(nElements, stream);
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
 
     if (!params.testZeroArray) {
@@ -65,7 +65,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void SetUpDifferentArrays()
   {

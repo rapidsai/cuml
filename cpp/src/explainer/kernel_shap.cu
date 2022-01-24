@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -194,7 +194,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
       X, nrows_X, ncols, background, nrows_background, dataset, observation);
   }
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // check if random part of the dataset is needed
   if (len_samples > 0) {
@@ -212,7 +212,7 @@ void kernel_dataset_impl(const raft::handle_t& handle,
       seed);
   }
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void kernel_dataset(const raft::handle_t& handle,

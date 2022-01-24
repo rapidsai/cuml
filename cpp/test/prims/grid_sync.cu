@@ -56,13 +56,13 @@ void gridSyncTest(int* out, int* out1, const GridSyncInputs& params, cudaStream_
 {
   size_t workspaceSize = GridSync::computeWorkspaceSize(params.gridDim, params.type, true);
   rmm::device_uvector<char> workspace(workspaceSize, stream);
-  CUDA_CHECK(cudaMemset(workspace.data(), 0, workspace.size()));
+  RAFT_CUDA_TRY(cudaMemset(workspace.data(), 0, workspace.size()));
   gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace.data(), out, params.type);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   if (params.checkWorkspaceReuse) {
-    CUDA_CHECK(cudaDeviceSynchronize());
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
     gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace.data(), out1, params.type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -77,7 +77,7 @@ class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
     params     = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     size_t len = computeOutLen();
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     out.resize(len, stream);
     out1.resize(len, stream);

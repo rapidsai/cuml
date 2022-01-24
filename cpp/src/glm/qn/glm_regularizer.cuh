@@ -81,7 +81,7 @@ struct RegularizedGLM : GLMDims {
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
     raft::update_host(&loss_host, lossVal.data, 1, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     lossVal.fill(loss_host + reg_host, stream);
   }

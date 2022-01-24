@@ -74,27 +74,27 @@ void countLabels(const LabelT* labels,
   LabelT upper_level        = upperLabelRange + 1;
   size_t temp_storage_bytes = 0;
 
-  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(nullptr,
-                                                 temp_storage_bytes,
-                                                 labels,
-                                                 binCountArray,
-                                                 num_levels,
-                                                 lower_level,
-                                                 upper_level,
-                                                 nRows,
-                                                 stream));
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
+                                                    temp_storage_bytes,
+                                                    labels,
+                                                    binCountArray,
+                                                    num_levels,
+                                                    lower_level,
+                                                    upper_level,
+                                                    nRows,
+                                                    stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(workspace.data(),
-                                                 temp_storage_bytes,
-                                                 labels,
-                                                 binCountArray,
-                                                 num_levels,
-                                                 lower_level,
-                                                 upper_level,
-                                                 nRows,
-                                                 stream));
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(workspace.data(),
+                                                    temp_storage_bytes,
+                                                    labels,
+                                                    binCountArray,
+                                                    num_levels,
+                                                    lower_level,
+                                                    upper_level,
+                                                    nRows,
+                                                    stream));
 }
 
 /**
@@ -121,9 +121,9 @@ double entropy(const T* clusterArray,
 
   // declaring, allocating and initializing memory for bincount array and entropy values
   rmm::device_uvector<double> prob(numUniqueClasses, stream);
-  CUDA_CHECK(cudaMemsetAsync(prob.data(), 0, numUniqueClasses * sizeof(double), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(prob.data(), 0, numUniqueClasses * sizeof(double), stream));
   rmm::device_scalar<double> d_entropy(stream);
-  CUDA_CHECK(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream));
 
   // workspace allocation
   rmm::device_uvector<char> workspace(1, stream);
@@ -143,7 +143,7 @@ double entropy(const T* clusterArray,
   double h_entropy;
   raft::update_host(&h_entropy, d_entropy.data(), 1, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   return h_entropy;
 }

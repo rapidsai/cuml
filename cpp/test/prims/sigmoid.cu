@@ -46,7 +46,7 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
     params = ::testing::TestWithParam<SigmoidInputs<T>>::GetParam();
 
     int len = params.len;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     data.resize(len, stream);
     T data_h[params.len] = {2.1, -4.5, -0.34, 10.0};
@@ -58,7 +58,7 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
     raft::update_device(result_ref.data(), result_ref_h, len, stream);
 
     sigmoid(result.data(), data.data(), len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
