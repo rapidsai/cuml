@@ -16,14 +16,16 @@
 
 function(find_and_configure_raft)
 
-    set(oneValueArgs VERSION FORK PINNED_TAG)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_FAISS_STATIC)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
-        set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
-        set(CPM_DOWNLOAD_ALL ON)
+    string(APPEND RAFT_COMPONENTS "distance")
+    if(PKG_USE_RAFT_NN)
+        string(APPEND RAFT_COMPONENTS " nn")
     endif()
+
+    message("CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
@@ -33,8 +35,10 @@ function(find_and_configure_raft)
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
+            FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
+              "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
               "NVTX ${NVTX}"
     )
 
@@ -42,10 +46,6 @@ function(find_and_configure_raft)
         message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
     else()
         message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
-    endif()
-
-    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
-        set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
     endif()
 
 endfunction()
@@ -56,7 +56,9 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
-        FORK       viclafargue
-        PINNED_TAG rmm-usage-for-faiss
-        )
+find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
+                        FORK             rapidsai
+                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        USE_RAFT_NN      ${CUML_USE_RAFT_NN}
+                        USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
+                        )
