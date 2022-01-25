@@ -482,13 +482,53 @@ def train_test_split(X,
         return X_train, X_test
 
 
-class StratifiedKFold_gpu:
+class StratifiedKFold:
+    """
+    A cudf based implementation of Stratified K-Folds cross-validator.
 
-    def __init__(self, n_splits=3, shuffle=True, random_state=42):
+    Provides train/test indices to split data into stratified K folds.
+    The percentage of samples for each class are maintained in each
+    fold.
+
+    Parameters
+    ----------
+    n_splits : int, default=5
+        Number of folds. Must be at least 2.
+    shuffle : boolean, default=False
+        Whether to shuffle each class's samples before splitting.
+    random_state : int (default=None)
+        Random seed
+
+    Examples
+    --------
+    Splitting X,y into stratified K folds
+    .. code-block:: python
+        import cupy
+        X = cupy.random.rand(12,10)
+        y = cupy.arange(12)%4
+        kf = StratifiedKFold(n_splits=3)
+        for tr,te in kf.split(X,y):
+            print(tr, te)
+    Output:
+    .. code-block:: python
+        [ 4  5  6  7  8  9 10 11] [0 1 2 3]
+        [ 0  1  2  3  8  9 10 11] [4 5 6 7]
+        [0 1 2 3 4 5 6 7] [ 8  9 10 11]
+
+    """
+
+    def __init__(self, n_splits=5, shuffle=False, random_state=None):
+        if n_splits < 2 or not isinstance(n_splits, int):
+            raise ValueError(
+                f'n_splits {n_splits} is not a integer at least 2')
+
+        if not isinstance(random_state, int):
+            raise ValueError(f'random_state {random_state} is not an integer')
+
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.seed = random_state
-        self.tpb = 64
+        self.tpb = 64  # threads per bloc
 
     def get_n_splits(self, X=None, y=None):
         return self.n_splits
@@ -512,7 +552,8 @@ class StratifiedKFold_gpu:
         col = dg.columns[0]
         msg = f'n_splits={self.n_splits} cannot be greater ' + \
               'than the number of members in each class.'
-        assert dg[col].min() >= self.n_splits, msg
+        if self.n_splits > dg[col].min():
+            raise ValueError(msg)
 
         def get_order_in_group(y, ids, order):
             for i in range(cuda.threadIdx.x, len(y), cuda.blockDim.x):
