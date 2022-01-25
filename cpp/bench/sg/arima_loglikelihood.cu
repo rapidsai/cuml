@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/cudart_utils.h>
 #include "benchmark.cuh"
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace Bench {
@@ -68,7 +68,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
                      counting + this->params.batch_size,
                      [=] __device__(int bid) { x[(bid + 1) * N - 1] = 1.0; });
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Benchmark loop
     this->loopOnState(state, [this]() {

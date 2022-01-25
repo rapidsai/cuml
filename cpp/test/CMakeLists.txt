@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,23 @@
 #=============================================================================
 
 set(COMMON_TEST_LINK_LIBRARIES
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
   CUDA::cufft
   rmm::rmm
+<<<<<<< HEAD
   raft
   raft_nn
   raft_distance
   $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
+=======
+  raft::raft
+  raft::nn
+  raft::distance
+>>>>>>> branch-22.04
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX
   Threads::Threads
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+  ${TREELITE_LIBS}
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )
 
@@ -98,7 +98,7 @@ if(BUILD_CUML_TESTS)
 
   target_link_libraries(${CUML_CPP_TEST_TARGET}
     PRIVATE
-        ${CUML_CPP_TARGET}
+        cuml::${CUML_CPP_TARGET}
         $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:${CUML_C_TARGET}>
         ${COMMON_TEST_LINK_LIBRARIES}
     )
@@ -133,7 +133,7 @@ if(BUILD_CUML_MG_TESTS)
       )
 
     target_link_libraries(${CUML_MG_TEST_TARGET}
-      ${CUML_CPP_TARGET}
+      cuml::${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
@@ -225,7 +225,7 @@ if(BUILD_PRIMS_TESTS)
 
   target_link_libraries(${PRIMS_TEST_TARGET}
     PRIVATE
-      ${CUML_CPP_TARGET}
+      cuml::${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 

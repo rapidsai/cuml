@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
 #include "common.cuh"    // for node_traits, num_trees, tree_num_nodes
 #include "internal.cuh"  // for MAX_FIL_INT_FLOAT, BITS_PER_BYTE, cat_feature_counters, cat_sets, cat_sets_owner, categorical_sets, leaf_algo_t
 
-#include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
-#include <cuml/fil/fnv_hash.h>     // for fowler_noll_vo_fingerprint64_32
 #include <cuml/common/logger.hpp>  // for CUML_LOG_WARN
+#include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
+#include <cuml/fil/fnv_hash.h>  // for fowler_noll_vo_fingerprint64_32
 
-#include <raft/cudart_utils.h>  // for CUDA_CHECK
+#include <raft/cudart_utils.h>  // for RAFT_CUDA_TRY
 #include <raft/error.hpp>       // for ASSERT
 #include <raft/handle.hpp>      // for handle_t
 
@@ -636,7 +636,7 @@ struct tl2fil_t {
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
     // sync is necessary as nodes_ are used in init(),
     // but destructed at the end of this function
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     if (tl_params_.pforest_shape_str) {
       *tl_params_.pforest_shape_str = sprintf_shape(model_, nodes_, roots_, cat_sets_);
     }

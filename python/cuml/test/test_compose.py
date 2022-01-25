@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -268,3 +268,17 @@ def test_make_column_selector():
 
     assert_allclose(t_X, sk_t_X)
     assert type(t_X) == type(X)
+
+
+def test_column_transformer_index(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
+
+    if not isinstance(X, (pdDataFrame, cuDataFrame)):
+        pytest.skip()
+
+    cu_transformers = [
+        ("scaler", cuStandardScaler(), X.columns)
+    ]
+
+    transformer = cuColumnTransformer(cu_transformers)
+    transformer.fit_transform(X)

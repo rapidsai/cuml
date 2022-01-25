@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuml/matrix/kernelparams.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <common/ml_benchmark.hpp>
+#include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>
@@ -50,12 +50,12 @@ struct GramMatrix : public Fixture {
         << p.n << "/" << (p.is_row_major ? "row_major" : "col_major");
     this->SetName(oss.str().c_str());
 
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
+    RAFT_CUBLAS_TRY(cublasCreate(&cublas_handle));
     kernel =
       std::unique_ptr<GramMatrixBase<T>>(KernelFactory<T>::create(p.kernel_params, cublas_handle));
   }
 
-  ~GramMatrix() { CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle)); }
+  ~GramMatrix() { RAFT_CUBLAS_TRY_NO_THROW(cublasDestroy(cublas_handle)); }
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

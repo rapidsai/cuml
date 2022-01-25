@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <linalg/eltwise2d.cuh>
-#include <raft/random/rng.hpp>
 #include "test_utils.h"
+#include <gtest/gtest.h>
+#include <linalg/eltwise2d.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -62,7 +62,7 @@ void naiveEltwise2DAdd(int rows,
   int nblks            = raft::ceildiv(rows * cols, TPB);
   naiveEltwise2DAddKernel<Type>
     <<<nblks, TPB, 0, stream>>>(rows, cols, aPtr, bPtr, cPtr, dPtr, alpha, beta);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -102,7 +102,7 @@ class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
   {
     params = ::testing::TestWithParam<Eltwise2dInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     auto w   = params.w;
     auto h   = params.h;
     auto len = w * h;
@@ -116,7 +116,7 @@ class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
     naiveEltwise2DAdd(
       h, w, in1.data(), in2.data(), out_ref.data(), out_ref.data(), (T)1, (T)1, stream);
     WrapperEltwise2d<T>(h, w, in1.data(), in2.data(), out.data(), out.data(), (T)1, (T)1);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

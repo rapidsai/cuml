@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/neighbors/knn.hpp>
 #include "optimize.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
+#include <cuml/neighbors/knn.hpp>
 
-#include <raft/cudart_utils.h>
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
+#include <raft/cudart_utils.h>
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
@@ -79,7 +79,7 @@ void reset_local_connectivity(raft::sparse::COO<T>* in_coo,
   // Perform l_inf normalization
   raft::sparse::linalg::csr_row_normalize_max<T>(
     row_ind.data(), in_coo->vals(), in_coo->nnz, in_coo->n_rows, in_coo->vals(), stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   raft::sparse::linalg::coo_symmetrize<T>(
     in_coo,
@@ -90,7 +90,7 @@ void reset_local_connectivity(raft::sparse::COO<T>* in_coo,
     },
     stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -186,7 +186,7 @@ void general_simplicial_set_intersection(int* row1_ind,
                                          cudaStream_t stream)
 {
   rmm::device_uvector<int> result_ind(in1->n_rows, stream);
-  CUDA_CHECK(cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
 
   int result_nnz = raft::sparse::linalg::csr_add_calc_inds<float>(row1_ind,
                                                                   in1->cols(),
@@ -251,7 +251,7 @@ void general_simplicial_set_intersection(int* row1_ind,
                                                                right_min,
                                                                in1->n_rows,
                                                                weight);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 
   dim3 grid_n(raft::ceildiv(result->nnz, TPB_X), 1, 1);
 }
@@ -273,7 +273,7 @@ void perform_categorical_intersection(T* y,
 
   reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <int TPB_X, typename value_idx, typename value_t>
@@ -298,7 +298,7 @@ void perform_general_intersection(const raft::handle_t& handle,
   manifold_dense_inputs_t<value_t> y_inputs(y, nullptr, rgraph_coo->n_rows, 1);
   kNNGraph::run<value_idx, value_t, manifold_dense_inputs_t<value_t>>(
     handle, y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Target kNN Graph");
@@ -323,7 +323,7 @@ void perform_general_intersection(const raft::handle_t& handle,
                                                 &ygraph_coo,
                                                 params,
                                                 stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Target Fuzzy Simplicial Set");
@@ -338,8 +338,8 @@ void perform_general_intersection(const raft::handle_t& handle,
   rmm::device_uvector<int> xrow_ind(rgraph_coo->n_rows, stream);
   rmm::device_uvector<int> yrow_ind(ygraph_coo.n_rows, stream);
 
-  CUDA_CHECK(cudaMemsetAsync(xrow_ind.data(), 0, rgraph_coo->n_rows * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0, ygraph_coo.n_rows * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(xrow_ind.data(), 0, rgraph_coo->n_rows * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(yrow_ind.data(), 0, ygraph_coo.n_rows * sizeof(int), stream));
 
   raft::sparse::COO<value_t> cygraph_coo(stream);
   raft::sparse::op::coo_remove_zeros<value_t>(&ygraph_coo, &cygraph_coo, stream);
@@ -364,7 +364,7 @@ void perform_general_intersection(const raft::handle_t& handle,
 
   reset_local_connectivity<value_t, TPB_X>(&out, final_coo, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace Supervised
 }  // namespace UMAPAlgo

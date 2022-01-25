@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cooperative_groups.h>
-#include <raft/cudart_utils.h>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/vectorized.cuh>
 
 namespace MLCommon {
@@ -93,7 +93,7 @@ struct permute_impl_t {
         raft::is_aligned(vin, sizeof(VType))) {
       permuteKernel<VType, IntType, IdxType, TPB, rowMajor>
         <<<nblks, TPB, 0, stream>>>(perms, vout, vin, a, b, N, D / VLen);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     } else {  // otherwise try the next lower vector length
       permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, VLen / 2>::permuteImpl(
         perms, out, in, N, D, nblks, a, b, stream);
@@ -116,7 +116,7 @@ struct permute_impl_t<Type, IntType, IdxType, TPB, rowMajor, 1> {
   {
     permuteKernel<Type, IntType, IdxType, TPB, rowMajor>
       <<<nblks, TPB, 0, stream>>>(perms, out, in, a, b, N, D);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 

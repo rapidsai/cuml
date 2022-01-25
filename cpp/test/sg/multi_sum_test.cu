@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 
 #include <cuml/fil/multi_sum.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 
 #include <thrust/device_vector.h>
@@ -111,9 +111,9 @@ class MultiSumTest : public testing::TestWithParam<int> {
     int* error_p            = error_d.data().get();
 
     test_multi_sum_k<<<params_h.size(), block_dim_x>>>(data_p, p_p, error_p);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     error = error_d;
-    CUDA_CHECK(cudaDeviceSynchronize());
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
     for (std::size_t i = 0; i < params_h.size(); ++i) {
       ASSERT(error[i] == 0,
              "test # %lu: block_dim_x %d multi_sum<%d>(on %d sets sized"

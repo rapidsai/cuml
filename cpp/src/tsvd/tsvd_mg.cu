@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@
 #include <opg/stats/mean_center.hpp>
 #include <opg/stats/stddev.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean_center.hpp>
@@ -107,18 +107,18 @@ void fit_impl(raft::handle_t& handle,
   auto n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   fit_impl(
     handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 
@@ -158,7 +158,7 @@ void transform_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 }
 
@@ -194,18 +194,18 @@ void transform_impl(raft::handle_t& handle,
   auto n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   transform_impl(
     handle, input_data, input_desc, components, trans_data, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 
@@ -243,7 +243,7 @@ void inverse_transform_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 }
 
@@ -280,17 +280,17 @@ void inverse_transform_impl(raft::handle_t& handle,
   auto n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   inverse_transform_impl(
     handle, trans_data, trans_desc, components, input_data, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 
@@ -328,7 +328,7 @@ void fit_transform_impl(raft::handle_t& handle,
   ;
   cudaStream_t streams[n_streams];
   for (std::size_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   fit_impl(
@@ -366,17 +366,17 @@ void fit_transform_impl(raft::handle_t& handle,
 
   T total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), std::size_t(1), streams[0]);
-  CUDA_CHECK(cudaStreamSynchronize(streams[0]));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(streams[0]));
   T scalar = T(1) / total_vars_h;
 
   raft::linalg::scalarMultiply(
     explained_var_ratio, explained_var, scalar, prms.n_components, streams[0]);
 
   for (std::size_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
   for (std::size_t i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 

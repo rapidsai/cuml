@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 
 #include <raft/common/nvtx.hpp>
 
-#include <decisiontree/treelite_util.h>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
+#include <decisiontree/treelite_util.h>
 
 #include <metrics/scores.cuh>
 #include <raft/random/rng.hpp>
@@ -153,7 +153,7 @@ class RandomForest {
 
     auto global_quantiles =
       DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -186,7 +186,7 @@ class RandomForest {
     }
     // Cleanup
     handle.sync_stream_pool();
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   /**
@@ -213,7 +213,7 @@ class RandomForest {
 
     std::vector<T> h_input(n_rows * n_cols);
     raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     int row_size = n_cols;
 
@@ -250,7 +250,7 @@ class RandomForest {
     }
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   /**

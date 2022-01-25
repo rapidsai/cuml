@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include <raft/stats/stddev.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
+
 #include "preprocess.cuh"
 
 namespace ML {

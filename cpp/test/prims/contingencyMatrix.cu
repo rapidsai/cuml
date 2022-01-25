@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
+#include <raft/cudart_utils.h>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -79,7 +79,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
       std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
     }
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     dY.resize(numElements, stream);
     dYHat.resize(numElements, stream);
 
@@ -115,10 +115,10 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY.data(), stream, minLabel, maxLabel);
     pWorkspace.resize(workspaceSz, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void RunTest()
   {

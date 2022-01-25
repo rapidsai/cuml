@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
-#include <raft/cudart_utils.h>
+#include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <rmm/device_uvector.hpp>
@@ -390,7 +391,7 @@ void conditional_sum_of_squares(raft::handle_t& handle,
                                                                                start_sum,
                                                                                start_y,
                                                                                start_v);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void batched_loglike(raft::handle_t& handle,
@@ -691,9 +692,9 @@ void _arma_least_squares(raft::handle_t& handle,
 
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
     // Too few observations for the estimate, fill with 0 (1 for sigma2)
-    if (k) CUDA_CHECK(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
-    if (p) CUDA_CHECK(cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
-    if (q) CUDA_CHECK(cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+    if (k) RAFT_CUDA_TRY(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
+    if (p) RAFT_CUDA_TRY(cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
+    if (q) RAFT_CUDA_TRY(cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
     if (estimate_sigma2) {
       thrust::device_ptr<double> sigma2_thrust = thrust::device_pointer_cast(d_sigma2);
       thrust::fill(thrust::cuda::par.on(stream), sigma2_thrust, sigma2_thrust + batch_size, 1.0);
@@ -910,7 +911,7 @@ void _start_params(raft::handle_t& handle,
     }
     // In other cases, we initialize to zero
     else {
-      CUDA_CHECK(
+      RAFT_CUDA_TRY(
         cudaMemsetAsync(params.beta, 0, order.n_exog * batch_size * sizeof(double), stream));
     }
   }

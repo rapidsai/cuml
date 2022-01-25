@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,28 @@
 #include <random>
 #include <type_traits>
 
+#include <common/nvtx.hpp>
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+#include <label/classlabels.cuh>
+#include <matrix/kernelfactory.cuh>
 #include <omp.h>
+#include <raft/common/nvtx.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/transpose.h>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.hpp>
+#include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.hpp>
-#include <rmm/device_uvector.hpp>
 
 #include <glm/ols.cuh>
 #include <glm/qn/qn.cuh>
@@ -418,7 +419,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       ps1 = psBuf.data();
     }
   }
-  CUDA_CHECK(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
   if (params.probability) {
     thrust::device_ptr<thrust::tuple<T, T>> p((thrust::tuple<T, T>*)ps1);
     thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, thrust::make_tuple(T(1), T(0)));

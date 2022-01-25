@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
-#include <cuml/fil/fil.h>
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
 #include <bitset>
 #include <cstdint>
+#include <cuml/fil/fil.h>
 #include <iostream>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
 #include <rmm/device_uvector.hpp>
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <vector>
 
 namespace raft {
@@ -517,15 +517,15 @@ struct cat_sets_device_owner {
            "too many categories/categorical nodes: cannot store bits offset in node");
     if (cat_sets.fid_num_cats_size > 0) {
       ASSERT(cat_sets.fid_num_cats != nullptr, "internal error: cat_sets.fid_num_cats is nil");
-      CUDA_CHECK(cudaMemcpyAsync(fid_num_cats.data(),
-                                 cat_sets.fid_num_cats,
-                                 fid_num_cats.size() * sizeof(float),
-                                 cudaMemcpyDefault,
-                                 stream));
+      RAFT_CUDA_TRY(cudaMemcpyAsync(fid_num_cats.data(),
+                                    cat_sets.fid_num_cats,
+                                    fid_num_cats.size() * sizeof(float),
+                                    cudaMemcpyDefault,
+                                    stream));
     }
     if (cat_sets.bits_size > 0) {
       ASSERT(cat_sets.bits != nullptr, "internal error: cat_sets.bits is nil");
-      CUDA_CHECK(cudaMemcpyAsync(
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
         bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
     }
   }

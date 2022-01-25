@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <distance/distance.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.hpp>
 #include "test_utils.h"
+#include <distance/distance.cuh>
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace Distance {
@@ -129,7 +129,7 @@ void naiveDistance(DataType* dist,
       break;
     default: FAIL() << "should be here\n";
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename DataType>
@@ -186,7 +186,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     int k               = params.k;
     bool isRowMajor     = params.isRowMajor;
     cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     x.resize(m * k, stream);
     y.resize(n * k, stream);
     dist_ref.resize(m * n, stream);
@@ -212,7 +212,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                              worksize,
                                              stream,
                                              isRowMajor);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

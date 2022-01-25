@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,17 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <label/classlabels.cuh>
-#include <raft/common/nvtx.hpp>
-#include <raft/sparse/csr.hpp>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
 #include "mergelabels/runner.cuh"
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
+#include <common/nvtx.hpp>
+#include <label/classlabels.cuh>
+#include <raft/common/nvtx.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/sparse/csr.hpp>
 
 #include <cuml/common/logger.hpp>
 
@@ -222,7 +223,7 @@ std::size_t run(const raft::handle_t& handle,
       raft::common::nvtx::pop_range();
     }
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
     raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
@@ -277,7 +278,7 @@ std::size_t run(const raft::handle_t& handle,
     if (algo_ccl == 2) final_relabel(labels, N, stream);
     std::size_t nblks = raft::ceildiv<std::size_t>(N, TPB);
     relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();
 
     // Calculate the core_indices only if an array was passed in

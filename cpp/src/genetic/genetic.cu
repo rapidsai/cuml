@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "constants.h"
+#include "node.cuh"
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
-#include <cuml/common/logger.hpp>
-#include "constants.h"
-#include "node.cuh"
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.hpp>
@@ -188,10 +188,10 @@ void parallel_evolve(const raft::handle_t& h,
                                                               criterion,
                                                               params.parsimony_coefficient);
 
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // Make sure tournaments have finished running before copying win indices
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Perform host mutations
 
@@ -242,7 +242,7 @@ void parallel_evolve(const raft::handle_t& h,
   }
 
   // Make sure all copying is done
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   // Update raw fitness for all programs
   set_batched_fitness(

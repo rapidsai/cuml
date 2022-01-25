@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <random>
 #include <vector>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/random/rng.hpp>
 
@@ -103,7 +103,7 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
       h_a.data(), a.data(), params.m * params.k * params.batch_size, handle.get_stream());
     raft::update_host(
       h_b.data(), b.data(), params.k * params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     block_gemm_test_kernel<Policy>
@@ -328,7 +328,7 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     raft::update_host(
       h_a.data(), a.data(), params.m * params.n * params.batch_size, handle.get_stream());
     raft::update_host(h_x.data(), x.data(), params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     int shared_mem_size = params.n * sizeof(T);
@@ -459,7 +459,7 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
     /* Copy to host */
     raft::update_host(h_x.data(), x.data(), params.n * params.batch_size, handle.get_stream());
     raft::update_host(h_y.data(), y.data(), params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     constexpr int BlockSize = 64;
@@ -588,7 +588,7 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
     raft::update_host(h_x.data(), x.data(), params.n * params.batch_size, handle.get_stream());
     raft::update_host(
       h_A.data(), A.data(), params.n * params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     constexpr int BlockSize = 64;
@@ -701,7 +701,7 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
 
     /* Copy to host */
     raft::update_host(h_x.data(), x.data(), params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     constexpr int BlockSize = 64;
@@ -796,7 +796,7 @@ class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityI
     /* Copy to host */
     raft::update_host(
       h_in.data(), d_in.data(), params.n * params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     block_cov_stability_test_kernel<CovPolicy>

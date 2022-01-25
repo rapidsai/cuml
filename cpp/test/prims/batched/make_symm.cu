@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
 #include <linalg/batched/make_symm.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "../test_utils.h"
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -59,7 +59,7 @@ void naiveBatchMakeSymm(Type* y, const Type* x, int batchSize, int n, cudaStream
   int nblks = raft::ceildiv<int>(n, blk.x);
   dim3 grid(nblks, nblks, batchSize);
   naiveBatchMakeSymmKernel<Type><<<grid, blk, 0, stream>>>(y, x, n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
@@ -72,7 +72,7 @@ class BatchMakeSymmTest : public ::testing::TestWithParam<BatchMakeSymmInputs<T>
     params = ::testing::TestWithParam<BatchMakeSymmInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.batchSize * params.n * params.n;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     x.resize(len, stream);
     out_ref.resize(len, stream);
@@ -81,7 +81,7 @@ class BatchMakeSymmTest : public ::testing::TestWithParam<BatchMakeSymmInputs<T>
     r.uniform(x.data(), len, T(-1.0), T(1.0), stream);
     naiveBatchMakeSymm(out_ref.data(), x.data(), params.batchSize, params.n, stream);
     make_symm<T, int>(out.data(), x.data(), params.batchSize, params.n, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

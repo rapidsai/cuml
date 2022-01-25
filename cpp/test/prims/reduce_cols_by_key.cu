@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <linalg/reduce_cols_by_key.cuh>
-#include <raft/random/rng.hpp>
 #include "test_utils.h"
+#include <gtest/gtest.h>
+#include <linalg/reduce_cols_by_key.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -36,7 +36,7 @@ void naiveReduceColsByKey(const T* in,
   raft::copy(&(h_keys[0]), keys, ncols, stream);
   std::vector<T> h_in(nrows * ncols);
   raft::copy(&(h_in[0]), in, nrows * ncols, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   std::vector<T> out(nrows * nkeys, T(0));
   for (uint32_t i = 0; i < nrows; ++i) {
     for (uint32_t j = 0; j < ncols; ++j) {
@@ -44,7 +44,7 @@ void naiveReduceColsByKey(const T* in,
     }
   }
   raft::copy(out_ref, &(out[0]), nrows * nkeys, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
 
 template <typename T>
@@ -71,7 +71,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
   {
     params = ::testing::TestWithParam<ReduceColsInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     auto nrows = params.rows;
     auto ncols = params.cols;
     auto nkeys = params.nkeys;
@@ -83,10 +83,10 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     r.uniformInt(keys.data(), ncols, 0u, params.nkeys, stream);
     naiveReduceColsByKey(in.data(), keys.data(), out_ref.data(), nrows, ncols, nkeys, stream);
     reduce_cols_by_key(in.data(), keys.data(), out.data(), nrows, ncols, nkeys, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   cudaStream_t stream = 0;

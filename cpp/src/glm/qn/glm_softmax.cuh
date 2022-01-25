@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
 
 namespace ML {
 namespace GLM {
@@ -151,8 +151,8 @@ template <typename T>
 void launchLogsoftmax(
   T* loss_val, T* dldZ, const T* Z, const T* labels, int C, int N, cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));
@@ -170,7 +170,7 @@ void launchLogsoftmax(
     dim3 gs(ceildiv(N, 8));
     logSoftmaxKernel<T, 32, 8><<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>

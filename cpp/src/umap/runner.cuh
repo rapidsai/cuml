@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/manifold/common.hpp>
 #include "optimize.cuh"
 #include "supervised.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/common.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
@@ -44,6 +44,7 @@
 
 #include <raft/cuda_utils.cuh>
 
+#include <common/nvtx.hpp>
 #include <cuda_runtime.h>
 #include <raft/common/nvtx.hpp>
 
@@ -282,7 +283,7 @@ void _get_graph_supervised(
                                                 &tmp_coo,
                                                 params,
                                                 stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   raft::sparse::op::coo_remove_zeros<value_t>(&tmp_coo, &rgraph_coo, stream);
 
@@ -386,7 +387,7 @@ void _fit_supervised(const raft::handle_t& handle,
                                                 &tmp_coo,
                                                 params,
                                                 stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   raft::sparse::op::coo_remove_zeros<value_t>(&tmp_coo, &rgraph_coo, stream);
 
@@ -438,7 +439,7 @@ void _fit_supervised(const raft::handle_t& handle,
 
   if (params->callback) params->callback->on_train_end(embeddings);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -500,8 +501,8 @@ void _transform(const raft::handle_t& handle,
    */
   rmm::device_uvector<value_t> sigmas(inputs.n, stream);
   rmm::device_uvector<value_t> rhos(inputs.n, stream);
-  CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, inputs.n * sizeof(value_t), stream));
-  CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, inputs.n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, inputs.n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, inputs.n * sizeof(value_t), stream));
 
   dim3 grid_n(raft::ceildiv(inputs.n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -543,7 +544,7 @@ void _transform(const raft::handle_t& handle,
                                    graph_coo.cols(),
                                    graph_coo.n_rows,
                                    params->n_neighbors);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<int> row_ind(inputs.n, stream);
   rmm::device_uvector<int> ia(inputs.n, stream);
@@ -552,7 +553,7 @@ void _transform(const raft::handle_t& handle,
   raft::sparse::linalg::coo_degree(&graph_coo, ia.data(), stream);
 
   rmm::device_uvector<value_t> vals_normed(graph_coo.nnz, stream);
-  CUDA_CHECK(cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
@@ -567,11 +568,11 @@ void _transform(const raft::handle_t& handle,
                                                              params->n_components,
                                                              transformed,
                                                              params->n_neighbors);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  CUDA_CHECK(cudaMemsetAsync(ia.data(), 0.0, ia.size() * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(ia.data(), 0.0, ia.size() * sizeof(int), stream));
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /**
    * Go through raft::sparse::COO values and set everything that's less than
@@ -604,7 +605,7 @@ void _transform(const raft::handle_t& handle,
     },
     stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /**
    * Remove zeros

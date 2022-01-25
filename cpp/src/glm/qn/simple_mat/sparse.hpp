@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,18 @@
 #include <iostream>
 #include <vector>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
+#include "base.hpp"
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
-#include "base.hpp"
 
 namespace ML {
 
@@ -95,7 +95,7 @@ struct SimpleSparseMat : SimpleMat<T> {
     // to swap arguments A and B in cusparseSpMM.
     cusparseDnMatDescr_t descrC;
     auto order = C.ord == COL_MAJOR ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
-    CUSPARSE_CHECK(raft::sparse::cusparsecreatednmat(
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecreatednmat(
       &descrC, C.n, C.m, order == CUSPARSE_ORDER_COL ? C.n : C.m, C.data, order));
 
     /*
@@ -116,53 +116,53 @@ struct SimpleSparseMat : SimpleMat<T> {
         ldX'   - leading dimension - m or n, depending on order and transX
      */
     cusparseDnMatDescr_t descrA;
-    CUSPARSE_CHECK(raft::sparse::cusparsecreatednmat(&descrA,
-                                                     C.ord == A.ord ? A.n : A.m,
-                                                     C.ord == A.ord ? A.m : A.n,
-                                                     A.ord == COL_MAJOR ? A.m : A.n,
-                                                     A.data,
-                                                     order));
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsecreatednmat(&descrA,
+                                                        C.ord == A.ord ? A.n : A.m,
+                                                        C.ord == A.ord ? A.m : A.n,
+                                                        A.ord == COL_MAJOR ? A.m : A.n,
+                                                        A.data,
+                                                        order));
     auto opA =
       transA ^ (C.ord == A.ord) ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
     cusparseSpMatDescr_t descrB;
-    CUSPARSE_CHECK(
+    RAFT_CUSPARSE_TRY(
       raft::sparse::cusparsecreatecsr(&descrB, B.m, B.n, B.nnz, B.row_ids, B.cols, B.values));
     auto opB = transB ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
     auto alg = order == CUSPARSE_ORDER_COL ? CUSPARSE_SPMM_CSR_ALG1 : CUSPARSE_SPMM_CSR_ALG2;
 
     size_t bufferSize;
-    CUSPARSE_CHECK(raft::sparse::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
-                                                         opB,
-                                                         opA,
-                                                         &alpha,
-                                                         descrB,
-                                                         descrA,
-                                                         &beta,
-                                                         descrC,
-                                                         alg,
-                                                         &bufferSize,
-                                                         stream));
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
+                                                            opB,
+                                                            opA,
+                                                            &alpha,
+                                                            descrB,
+                                                            descrA,
+                                                            &beta,
+                                                            descrC,
+                                                            alg,
+                                                            &bufferSize,
+                                                            stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     rmm::device_uvector<T> tmp(bufferSize, stream);
 
-    CUSPARSE_CHECK(raft::sparse::cusparsespmm(handle.get_cusparse_handle(),
-                                              opB,
-                                              opA,
-                                              &alpha,
-                                              descrB,
-                                              descrA,
-                                              &beta,
-                                              descrC,
-                                              alg,
-                                              tmp.data(),
-                                              stream));
+    RAFT_CUSPARSE_TRY(raft::sparse::cusparsespmm(handle.get_cusparse_handle(),
+                                                 opB,
+                                                 opA,
+                                                 &alpha,
+                                                 descrB,
+                                                 descrA,
+                                                 &beta,
+                                                 descrC,
+                                                 alg,
+                                                 tmp.data(),
+                                                 stream));
 
-    CUSPARSE_CHECK(cusparseDestroyDnMat(descrA));
-    CUSPARSE_CHECK(cusparseDestroySpMat(descrB));
-    CUSPARSE_CHECK(cusparseDestroyDnMat(descrC));
+    RAFT_CUSPARSE_TRY(cusparseDestroyDnMat(descrA));
+    RAFT_CUSPARSE_TRY(cusparseDestroySpMat(descrB));
+    RAFT_CUSPARSE_TRY(cusparseDestroyDnMat(descrC));
   }
 };
 
@@ -171,7 +171,7 @@ inline void check_csr(const SimpleSparseMat<T>& mat, cudaStream_t stream)
 {
   int row_ids_nnz;
   raft::update_host(&row_ids_nnz, &mat.row_ids[mat.m], 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   ASSERT(row_ids_nnz == mat.nnz,
          "SimpleSparseMat: the size of CSR row_ids array must be `m + 1`, and "
          "the last element must be equal nnz.");
@@ -189,7 +189,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleSparseMat<T>& mat)
   raft::update_host(&values[0], mat.values, mat.nnz, rmm::cuda_stream_default);
   raft::update_host(&cols[0], mat.cols, mat.nnz, rmm::cuda_stream_default);
   raft::update_host(&row_ids[0], mat.row_ids, mat.m + 1, rmm::cuda_stream_default);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
 
   int i, row_end = 0;
   for (int row = 0; row < mat.m; row++) {

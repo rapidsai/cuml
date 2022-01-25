@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.hpp>
 #include <stats/weighted_mean.cuh>
-#include "test_utils.h"
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 namespace MLCommon {
 namespace Stats {
@@ -69,7 +69,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     raft::random::Rng r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
     cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     // device-side data
     din.resize(len);
     dweights.resize(cols);
@@ -94,7 +94,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {}
@@ -135,7 +135,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     int rows = params.M, cols = params.N, len = rows * cols;
 
     cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     // device-side data
     din.resize(len);
     dweights.resize(rows);
@@ -160,7 +160,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.M;
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {}
