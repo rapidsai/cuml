@@ -17,16 +17,9 @@
 set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cufft
   rmm::rmm
-<<<<<<< HEAD
-  raft
-  raft_nn
-  raft_distance
-  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
-=======
   raft::raft
   raft::nn
   raft::distance
->>>>>>> branch-22.04
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX
