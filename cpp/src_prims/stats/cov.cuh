@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,21 +65,21 @@ void cov(const raft::handle_t& handle,
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta  = Type(0);
     if (rowMajor) {
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_h,
-                                            CUBLAS_OP_N,
-                                            CUBLAS_OP_T,
-                                            D,
-                                            D,
-                                            N,
-                                            &alpha,
-                                            data,
-                                            D,
-                                            data,
-                                            D,
-                                            &beta,
-                                            covar,
-                                            D,
-                                            stream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_h,
+                                               CUBLAS_OP_N,
+                                               CUBLAS_OP_T,
+                                               D,
+                                               D,
+                                               N,
+                                               &alpha,
+                                               data,
+                                               D,
+                                               data,
+                                               D,
+                                               &beta,
+                                               covar,
+                                               D,
+                                               stream));
     } else {
       raft::linalg::gemm(
         handle, data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
@@ -88,7 +88,7 @@ void cov(const raft::handle_t& handle,
     ///@todo: implement this using cutlass + customized epilogue!
     ASSERT(false, "cov: Implement stable=false case!");
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace Stats

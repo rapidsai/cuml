@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
     params = ::testing::TestWithParam<BatchedICInputs<T>>::GetParam();
 
     // Create stream and allocator
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Create arrays
@@ -109,7 +109,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   void TearDown() override
   {
     allocator->deallocate(res_d, sizeof(T) * params.batch_size, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

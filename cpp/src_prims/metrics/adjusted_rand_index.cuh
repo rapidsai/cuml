@@ -132,7 +132,7 @@ double compute_adjusted_rand_index(const T* firstClusterArray,
   }
   auto nUniqClasses = MathT(nClasses);
   rmm::device_uvector<MathT> dContingencyMatrix(nUniqClasses * nUniqClasses, stream);
-  CUDA_CHECK(cudaMemsetAsync(
+  RAFT_CUDA_TRY(cudaMemsetAsync(
     dContingencyMatrix.data(), 0, nUniqClasses * nUniqClasses * sizeof(MathT), stream));
   auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
@@ -152,11 +152,11 @@ double compute_adjusted_rand_index(const T* firstClusterArray,
   rmm::device_scalar<MathT> d_bCTwoSum(stream);
   rmm::device_scalar<MathT> d_nChooseTwoSum(stream);
   MathT h_aCTwoSum, h_bCTwoSum, h_nChooseTwoSum;
-  CUDA_CHECK(cudaMemsetAsync(a.data(), 0, nUniqClasses * sizeof(MathT), stream));
-  CUDA_CHECK(cudaMemsetAsync(b.data(), 0, nUniqClasses * sizeof(MathT), stream));
-  CUDA_CHECK(cudaMemsetAsync(d_aCTwoSum.data(), 0, sizeof(MathT), stream));
-  CUDA_CHECK(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
-  CUDA_CHECK(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(a.data(), 0, nUniqClasses * sizeof(MathT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(b.data(), 0, nUniqClasses * sizeof(MathT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_aCTwoSum.data(), 0, sizeof(MathT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(MathT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(MathT), stream));
   // calculating the sum of NijC2
   raft::linalg::mapThenSumReduce<MathT, nCTwo<MathT>>(d_nChooseTwoSum.data(),
                                                       nUniqClasses * nUniqClasses,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ void range(T* out, int n, cudaStream_t stream)
 template <typename T>
 void zero(T* out, int n, cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
 }
 
 }  // unnamed namespace

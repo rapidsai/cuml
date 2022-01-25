@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -23,30 +23,32 @@ VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
-   clean            - remove all existing build artifacts and configuration (start over)
-   libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
-                      around the C++ code.
-   cuml             - build the cuml Python package
-   cpp-mgtests      - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
-   prims            - build the ml-prims tests
-   bench            - build the libcuml C++ benchmark
-   prims-bench      - build the ml-prims C++ benchmark
-   cppdocs          - build the C++ API doxygen documentation
-   pydocs           - build the general and Python API documentation
+   clean             - remove all existing build artifacts and configuration (start over)
+   libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
+                       around the C++ code.
+   cuml              - build the cuml Python package
+   cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   prims             - build the ml-prims tests
+   bench             - build the libcuml C++ benchmark
+   prims-bench       - build the ml-prims C++ benchmark
+   cppdocs           - build the C++ API doxygen documentation
+   pydocs            - build the general and Python API documentation
  and <flag> is:
-   -v               - verbose build mode
-   -g               - build for debug
-   -n               - no install step
-   -h               - print this text
-   --allgpuarch     - build for all supported GPU architectures
-   --singlegpu      - Build libcuml and cuml without multigpu components
-   --nolibcumltest  - disable building libcuml C++ tests for a faster build
-   --nvtx           - Enable nvtx for profiling support
-   --show_depr_warn - show cmake deprecation warnings
-   --codecov        - Enable code coverage support by compiling with Cython linetracing
-                      and profiling enabled (WARNING: Impacts performance)
-   --ccache         - Use ccache to cache previous compilations
-   --nocloneraft    - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
+   -v                - verbose build mode
+   -g                - build for debug
+   -n                - no install step
+   -h                - print this text
+   --allgpuarch      - build for all supported GPU architectures
+   --singlegpu       - Build libcuml and cuml without multigpu components
+   --nolibcumltest   - disable building libcuml C++ tests for a faster build
+   --nvtx            - Enable nvtx for profiling support
+   --show_depr_warn  - show cmake deprecation warnings
+   --codecov         - Enable code coverage support by compiling with Cython linetracing
+                       and profiling enabled (WARNING: Impacts performance)
+   --ccache          - Use ccache to cache previous compilations
+   --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
+   --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
+   --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
@@ -77,6 +79,7 @@ BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
+BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
 DISABLE_FORCE_CLONE_RAFT=OFF
 
@@ -194,6 +197,12 @@ while true; do
         --nocloneraft )
             DISABLE_FORCE_CLONE_RAFT=ON
             ;;
+        --static-faiss )
+            BUILD_STATIC_FAISS=ON
+            ;;
+        --static-treelite )
+            BUILD_STATIC_TREELITE=ON
+            ;;
         --)
             shift
             break
@@ -245,6 +254,8 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
+          -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DDISABLE_FORCE_CLONE_RAFT=${DISABLE_FORCE_CLONE_RAFT} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
