@@ -1,6 +1,3 @@
-"""
-Extended math utilities.
-"""
 # Original authors from Sckit-Learn:
 #          Gael Varoquaux
 #          Alexandre Gramfort
@@ -21,16 +18,14 @@ Extended math utilities.
 
 import cupy as np
 import cupyx
-from cupy import sparse
-
-from .validation import _deprecate_positional_args
+from cupyx.scipy import sparse
 
 
 def row_norms(X, squared=False):
     """Row-wise (squared) Euclidean norm of X.
 
     Equivalent to np.sqrt((X * X).sum(axis=1)), but also supports sparse
-    matrices and does not create an X.shape-sized temporary.
+    matrices.
 
     Performs no input validation.
 
@@ -47,9 +42,13 @@ def row_norms(X, squared=False):
         The row-wise (squared) Euclidean norm of X.
     """
     if sparse.issparse(X):
-        if not isinstance(X, sparse.csr_matrix):
-            X = sparse.csr_matrix(X)
-        # norms = csr_row_norms(X)
+        if isinstance(X, (sparse.csr_matrix, sparse.csc_matrix,
+                          sparse.coo_matrix)):
+            X_copy = X.copy()
+            X_copy.data = np.square(X_copy.data)
+            norms = X_copy.sum(axis=1).squeeze()
+        else:
+            raise ValueError('Sparse matrix not compatible')
     else:
         norms = np.einsum('ij,ij->i', X, X)
 
@@ -134,80 +133,6 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
         updated_variance = updated_unnormalized_variance / updated_sample_count
 
     return updated_mean, updated_variance, updated_sample_count
-
-
-@_deprecate_positional_args
-def weighted_mode(a, w, *, axis=0):
-    """Returns an array of the weighted modal (most common) value in a
-
-    If there is more than one such value, only the first is returned.
-    The bin-count for the modal bins is also returned.
-
-    This is an extension of the algorithm in scipy.stats.mode.
-
-    Parameters
-    ----------
-    a : array_like
-        n-dimensional array of which to find mode(s).
-    w : array_like
-        n-dimensional array of weights for each value
-    axis : int, optional
-        Axis along which to operate. Default is 0, i.e. the first axis.
-
-    Returns
-    -------
-    vals : ndarray
-        Array of modal values.
-    score : ndarray
-        Array of weighted counts for each mode.
-
-    Examples
-    --------
-    >>> from sklearn.utils.extmath import weighted_mode
-    >>> x = [4, 1, 4, 2, 4, 2]
-    >>> weights = [1, 1, 1, 1, 1, 1]
-    >>> weighted_mode(x, weights)
-    (array([4.]), array([3.]))
-
-    The value 4 appears three times: with uniform weights, the result is
-    simply the mode of the distribution.
-
-    >>> weights = [1, 3, 0.5, 1.5, 1, 2]  # deweight the 4's
-    >>> weighted_mode(x, weights)
-    (array([2.]), array([3.5]))
-
-    The value 2 has the highest score: it appears twice with weights of
-    1.5 and 2: the sum of these is 3.5.
-
-    See Also
-    --------
-    scipy.stats.mode
-    """
-    if axis is None:
-        a = np.ravel(a)
-        w = np.ravel(w)
-        axis = 0
-    else:
-        a = np.asarray(a)
-        w = np.asarray(w)
-
-    if a.shape != w.shape:
-        w = np.full(a.shape, w, dtype=w.dtype)
-
-    scores = np.unique(np.ravel(a))       # get ALL unique values
-    testshape = list(a.shape)
-    testshape[axis] = 1
-    oldmostfreq = np.zeros(testshape)
-    oldcounts = np.zeros(testshape)
-    for score in scores:
-        template = np.zeros(a.shape)
-        ind = (a == score)
-        template[ind] = w[ind]
-        counts = np.expand_dims(np.sum(template, axis), axis)
-        mostfrequent = np.where(counts > oldcounts, score, oldmostfreq)
-        oldcounts = np.maximum(counts, oldcounts)
-        oldmostfreq = mostfrequent
-    return mostfrequent, oldcounts
 
 
 # Use at least float64 for the accumulating functions to avoid precision issue

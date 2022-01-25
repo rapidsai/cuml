@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <random/make_blobs.cuh>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -29,44 +29,46 @@ struct Params {
 template <typename T>
 struct MakeBlobs : public Fixture {
   MakeBlobs(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+    : Fixture(name), params(p), data(0, stream), labels(0, stream)
+  {
+  }
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
-    alloc(data, params.rows * params.cols);
-    alloc(labels, params.rows);
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
+    data.resize(params.rows * params.cols, stream);
+    labels.resize(params.rows, stream);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
-    dealloc(data, params.rows * params.cols);
-    dealloc(labels, params.rows);
-  }
-
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     loopOnState(state, [this]() {
-      MLCommon::Random::make_blobs(data, labels, params.rows, params.cols,
-                                   params.clusters, this->d_alloc, this->stream,
+      MLCommon::Random::make_blobs(data.data(),
+                                   labels.data(),
+                                   params.rows,
+                                   params.cols,
+                                   params.clusters,
+                                   this->stream,
                                    params.row_major);
     });
   }
 
  private:
   Params params;
-  T* data;
-  int* labels;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<int> labels;
 };  // struct MakeBlobs
 
-static std::vector<Params> getInputs() {
+static std::vector<Params> getInputs()
+{
   std::vector<Params> out;
   Params p;
   for (auto rows : std::vector<int>{100000, 1000000}) {
     for (auto cols : std::vector<int>{10, 100}) {
       for (auto clusters : std::vector<int>{2, 10, 100}) {
-        p.rows = rows;
-        p.cols = cols;
-        p.clusters = clusters;
+        p.rows      = rows;
+        p.cols      = cols;
+        p.clusters  = clusters;
         p.row_major = true;
         out.push_back(p);
         p.row_major = false;

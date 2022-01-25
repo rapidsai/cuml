@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -151,7 +151,7 @@ class cuml_build(_build):
         # object has all the args used by the user, we can check that.
         self.singlegpu = '--singlegpu' in self.distribution.script_args
 
-        libs = ['cuda', 'cuml++']
+        libs = ['cuml++', 'cudart', 'cusparse', 'cusolver']
 
         include_dirs = [
             '../cpp/src',
@@ -160,6 +160,7 @@ class cuml_build(_build):
             raft_include_dir,
             cuda_include_dir,
             numpy.get_include(),
+            '../cpp/build/faiss/src/faiss',
             os.path.dirname(sysconfig.get_path("include"))
         ]
 
@@ -183,13 +184,15 @@ class cuml_build(_build):
             Extension("*",
                       sources=["cuml/**/*.pyx"],
                       include_dirs=include_dirs,
-                      library_dirs=[get_python_lib(), libcuml_path],
-                      runtime_library_dirs=[
-                          cuda_lib_dir, os.path.join(os.sys.prefix, "lib")
+                      library_dirs=[
+                          get_python_lib(),
+                          libcuml_path,
+                          cuda_lib_dir,
+                          os.path.join(os.sys.prefix, "lib")
                       ],
                       libraries=libs,
                       language='c++',
-                      extra_compile_args=['-std=c++14'])
+                      extra_compile_args=['-std=c++17'])
         ]
 
         self.distribution.ext_modules = extensions
@@ -205,6 +208,27 @@ class cuml_build_ext(cython_build_ext, object):
     ] + cython_build_ext.user_options
 
     boolean_options = ["singlegpu"] + cython_build_ext.boolean_options
+
+    def build_extensions(self):
+        def remove_flags(compiler, *flags):
+            for flag in flags:
+                try:
+                    compiler.compiler_so = list(
+                        filter((flag).__ne__, compiler.compiler_so)
+                    )
+                except Exception:
+                    pass
+        # Full optimization
+        self.compiler.compiler_so.append("-O3")
+
+        # Ignore deprecation declaraction warnings
+        self.compiler.compiler_so.append("-Wno-deprecated-declarations")
+
+        # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
+        remove_flags(
+            self.compiler, "-g", "-G", "-O1", "-O2", "-Wstrict-prototypes"
+        )
+        cython_build_ext.build_extensions(self)
 
     def initialize_options(self):
 

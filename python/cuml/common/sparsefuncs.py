@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.import_utils import has_scipy
 import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cupy.sparse import csr_matrix as cp_csr_matrix,\
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 
@@ -176,7 +176,7 @@ def _insert_zeros(ary, zero_indices):
 
 
 @with_cupy_rmm
-def extract_knn_graph(knn_graph, convert_dtype=True):
+def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
     """
     Converts KNN graph from CSR, COO and CSC formats into separate
     distance and indice arrays. Input can be a cupy sparse graph (device)
@@ -191,7 +191,7 @@ def extract_knn_graph(knn_graph, convert_dtype=True):
         csc_matrix = DummyClass
 
     if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-        knn_graph = cp.sparse.csr_matrix(knn_graph)
+        knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
         n_samples = knn_graph.shape[0]
         reordering = knn_graph.data.reshape((n_samples, -1))
         reordering = reordering.argsort()
@@ -208,14 +208,16 @@ def extract_knn_graph(knn_graph, convert_dtype=True):
         knn_indices = knn_graph.col
 
     if knn_indices is not None:
+        convert_to_dtype = None
+        if convert_dtype:
+            convert_to_dtype = np.int32 if sparse else np.int64
+
         knn_dists = knn_graph.data
         knn_indices_m, _, _, _ = \
             input_to_cuml_array(knn_indices, order='C',
                                 deepcopy=True,
-                                check_dtype=np.int64,
-                                convert_to_dtype=(np.int64
-                                                  if convert_dtype
-                                                  else None))
+                                check_dtype=(np.int64, np.int32),
+                                convert_to_dtype=convert_to_dtype)
 
         knn_dists_m, _, _, _ = \
             input_to_cuml_array(knn_dists, order='C',

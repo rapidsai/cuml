@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
@@ -171,7 +172,7 @@ class ExponentialSmoothing(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
@@ -182,13 +183,15 @@ class ExponentialSmoothing(Base):
     season = CumlArrayDescriptor()
     SSE = CumlArrayDescriptor()
 
-    def __init__(self, endog, seasonal="additive",
+    @_deprecate_pos_args(version="21.06")
+    def __init__(self, endog, *, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3, handle=None,
                  verbose=False, output_type=None):
 
-        super(ExponentialSmoothing, self).__init__(
-            handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:

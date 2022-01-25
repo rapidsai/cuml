@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import ClassifierMixin
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 
 import numpy as np
 import cupy as cp
@@ -75,7 +76,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
+class KNeighborsClassifier(NearestNeighbors,
+                           ClassifierMixin,
+                           FMajorInputTagMixin):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
@@ -105,7 +108,7 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -147,9 +150,9 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, weights="uniform", *, handle=None, verbose=False,
+    def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
-        super(KNeighborsClassifier, self).__init__(
+        super().__init__(
             handle=handle,
             verbose=verbose,
             output_type=output_type,
@@ -205,7 +208,8 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
-        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C")
+        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
+                                  index=knn_indices.index)
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -274,7 +278,8 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
             classes = CumlArray.zeros((n_rows,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
-                                      order="C")
+                                      order="C",
+                                      index=knn_indices.index)
             out_classes.append(classes)
             classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)
@@ -305,9 +310,3 @@ class KNeighborsClassifier(NearestNeighbors, ClassifierMixin):
 
     def get_param_names(self):
         return super().get_param_names() + ["weights"]
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': 'F'
-        }

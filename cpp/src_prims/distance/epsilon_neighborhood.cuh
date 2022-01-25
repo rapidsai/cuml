@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,15 @@
 #pragma once
 
 #include <common/device_utils.cuh>
-#include <linalg/contractions.cuh>
+#include <raft/linalg/contractions.cuh>
 
 namespace MLCommon {
 namespace Distance {
 
-template <typename DataT, typename IdxT, typename Policy,
-          typename BaseClass = LinAlg::Contractions_NT<DataT, IdxT, Policy>>
+template <typename DataT,
+          typename IdxT,
+          typename Policy,
+          typename BaseClass = raft::linalg::Contractions_NT<DataT, IdxT, Policy>>
 struct EpsUnexpL2SqNeighborhood : public BaseClass {
  private:
   typedef Policy P;
@@ -37,23 +39,29 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
   DataT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
-  DI EpsUnexpL2SqNeighborhood(bool* _adj, IdxT* _vd, const DataT* _x,
-                              const DataT* _y, IdxT _m, IdxT _n, IdxT _k,
-                              DataT _eps, char* _smem)
-    : BaseClass(_x, _y, _m, _n, _k, _smem),
-      adj(_adj),
-      eps(_eps),
-      vd(_vd),
-      smem(_smem) {}
+  DI EpsUnexpL2SqNeighborhood(bool* _adj,
+                              IdxT* _vd,
+                              const DataT* _x,
+                              const DataT* _y,
+                              IdxT _m,
+                              IdxT _n,
+                              IdxT _k,
+                              DataT _eps,
+                              char* _smem)
+    : BaseClass(_x, _y, _m, _n, _k, _smem), adj(_adj), eps(_eps), vd(_vd), smem(_smem)
+  {
+  }
 
-  DI void run() {
+  DI void run()
+  {
     prolog();
     loop();
     epilog();
   }
 
  private:
-  DI void prolog() {
+  DI void prolog()
+  {
     this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -67,7 +75,8 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     this->pageWr ^= 1;
   }
 
-  DI void loop() {
+  DI void loop()
+  {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
       this->ldgXY(kidx);
       accumulate();  // on the previous k-block
@@ -79,10 +88,11 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     accumulate();  // last iteration
   }
 
-  DI void epilog() {
+  DI void epilog()
+  {
     IdxT startx = blockIdx.x * P::Mblk + this->accrowid;
     IdxT starty = blockIdx.y * P::Nblk + this->acccolid;
-    auto lid = raft::laneId();
+    auto lid    = raft::laneId();
     IdxT sums[P::AccColsPerTh];
 #pragma unroll
     for (int j = 0; j < P::AccColsPerTh; ++j) {
@@ -93,7 +103,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       auto xid = startx + i * P::AccThRows;
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
-        auto yid = starty + j * P::AccThCols;
+        auto yid      = starty + j * P::AccThCols;
         auto is_neigh = acc[i][j] <= eps;
         ///@todo: fix uncoalesced writes using shared mem
         if (xid < this->m && yid < this->n) {
@@ -103,12 +113,11 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
       }
     }
     // perform reduction of adjacency values to compute vertex degrees
-    if (vd != nullptr) {
-      updateVertexDegree(sums);
-    }
+    if (vd != nullptr) { updateVertexDegree(sums); }
   }
 
-  DI void accumulate() {
+  DI void accumulate()
+  {
 #pragma unroll
     for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
       this->ldsXY(ki);
@@ -126,16 +135,17 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     }
   }
 
-  DI void updateVertexDegree(IdxT (&sums)[P::AccColsPerTh]) {
+  DI void updateVertexDegree(IdxT (&sums)[P::AccColsPerTh])
+  {
     __syncthreads();  // so that we can safely reuse smem
-    int gid = threadIdx.x / P::AccThCols;
-    int lid = threadIdx.x % P::AccThCols;
-    auto cidx = IdxT(blockIdx.y) * P::Nblk + lid;
+    int gid       = threadIdx.x / P::AccThCols;
+    int lid       = threadIdx.x % P::AccThCols;
+    auto cidx     = IdxT(blockIdx.y) * P::Nblk + lid;
     IdxT totalSum = 0;
     // update the individual vertex degrees
 #pragma unroll
     for (int i = 0; i < P::AccColsPerTh; ++i) {
-      sums[i] = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
+      sums[i]  = batchedBlockReduce<IdxT, P::AccThCols>(sums[i], smem);
       auto cid = cidx + i * P::AccThCols;
       if (gid == 0 && cid < this->n) {
         atomicUpdate(cid, sums[i]);
@@ -145,42 +155,45 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     }
     // update the total edge count
     totalSum = raft::blockReduce<IdxT>(totalSum, smem);
-    if (threadIdx.x == 0) {
-      atomicUpdate(this->n, totalSum);
-    }
+    if (threadIdx.x == 0) { atomicUpdate(this->n, totalSum); }
   }
 
-  DI void atomicUpdate(IdxT addrId, IdxT val) {
+  DI void atomicUpdate(IdxT addrId, IdxT val)
+  {
     if (sizeof(IdxT) == 4) {
       raft::myAtomicAdd<unsigned>((unsigned*)(vd + addrId), val);
     } else if (sizeof(IdxT) == 8) {
-      raft::myAtomicAdd<unsigned long long>((unsigned long long*)(vd + addrId),
-                                            val);
+      raft::myAtomicAdd<unsigned long long>((unsigned long long*)(vd + addrId), val);
     }
   }
 };  // struct EpsUnexpL2SqNeighborhood
 
 template <typename DataT, typename IdxT, typename Policy>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void epsUnexpL2SqNeighKernel(
-  bool* adj, IdxT* vd, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k,
-  DataT eps) {
+  bool* adj, IdxT* vd, const DataT* x, const DataT* y, IdxT m, IdxT n, IdxT k, DataT eps)
+{
   extern __shared__ char smem[];
-  EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy> obj(adj, vd, x, y, m, n, k, eps,
-                                                    smem);
+  EpsUnexpL2SqNeighborhood<DataT, IdxT, Policy> obj(adj, vd, x, y, m, n, k, eps, smem);
   obj.run();
 }
 
 template <typename DataT, typename IdxT, int VecLen>
-void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
-                           IdxT m, IdxT n, IdxT k, DataT eps,
-                           cudaStream_t stream) {
-  typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
-  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
-            raft::ceildiv<int>(n, Policy::Nblk));
+void epsUnexpL2SqNeighImpl(bool* adj,
+                           IdxT* vd,
+                           const DataT* x,
+                           const DataT* y,
+                           IdxT m,
+                           IdxT n,
+                           IdxT k,
+                           DataT eps,
+                           cudaStream_t stream)
+{
+  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy Policy;
+  dim3 grid(raft::ceildiv<int>(m, Policy::Mblk), raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   epsUnexpL2SqNeighKernel<DataT, IdxT, Policy>
     <<<grid, blk, Policy::SmemSize, stream>>>(adj, vd, x, y, m, n, k, eps);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 /**
@@ -201,16 +214,21 @@ void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
  * @param[in]  stream cuda stream
  */
 template <typename DataT, typename IdxT>
-void epsUnexpL2SqNeighborhood(bool* adj, IdxT* vd, const DataT* x,
-                              const DataT* y, IdxT m, IdxT n, IdxT k, DataT eps,
-                              cudaStream_t stream) {
+void epsUnexpL2SqNeighborhood(bool* adj,
+                              IdxT* vd,
+                              const DataT* x,
+                              const DataT* y,
+                              IdxT m,
+                              IdxT n,
+                              IdxT k,
+                              DataT eps,
+                              cudaStream_t stream)
+{
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT)>(adj, vd, x, y, m, n,
-                                                           k, eps, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 16 / sizeof(DataT)>(adj, vd, x, y, m, n, k, eps, stream);
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT)>(adj, vd, x, y, m, n,
-                                                          k, eps, stream);
+    epsUnexpL2SqNeighImpl<DataT, IdxT, 8 / sizeof(DataT)>(adj, vd, x, y, m, n, k, eps, stream);
   } else {
     epsUnexpL2SqNeighImpl<DataT, IdxT, 1>(adj, vd, x, y, m, n, k, eps, stream);
   }

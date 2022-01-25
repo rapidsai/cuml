@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,48 +16,70 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace GLM {
 namespace opg {
 
-void preProcessData(raft::handle_t &handle,
-                    std::vector<MLCommon::Matrix::Data<float> *> &input_data,
-                    MLCommon::Matrix::PartDescriptor &input_desc,
-                    std::vector<MLCommon::Matrix::Data<float> *> &labels,
-                    float *mu_input, float *mu_labels, float *norm2_input,
-                    bool fit_intercept, bool normalize, cudaStream_t *streams,
-                    int n_streams, bool verbose);
+void preProcessData(raft::handle_t& handle,
+                    std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+                    MLCommon::Matrix::PartDescriptor& input_desc,
+                    std::vector<MLCommon::Matrix::Data<float>*>& labels,
+                    float* mu_input,
+                    float* mu_labels,
+                    float* norm2_input,
+                    bool fit_intercept,
+                    bool normalize,
+                    cudaStream_t* streams,
+                    int n_streams,
+                    bool verbose);
 
-void preProcessData(raft::handle_t &handle,
-                    std::vector<MLCommon::Matrix::Data<double> *> &input_data,
-                    MLCommon::Matrix::PartDescriptor &input_desc,
-                    std::vector<MLCommon::Matrix::Data<double> *> &labels,
-                    double *mu_input, double *mu_labels, double *norm2_input,
-                    bool fit_intercept, bool normalize, cudaStream_t *streams,
-                    int n_streams, bool verbose);
+void preProcessData(raft::handle_t& handle,
+                    std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+                    MLCommon::Matrix::PartDescriptor& input_desc,
+                    std::vector<MLCommon::Matrix::Data<double>*>& labels,
+                    double* mu_input,
+                    double* mu_labels,
+                    double* norm2_input,
+                    bool fit_intercept,
+                    bool normalize,
+                    cudaStream_t* streams,
+                    int n_streams,
+                    bool verbose);
 
-void postProcessData(raft::handle_t &handle,
-                     std::vector<MLCommon::Matrix::Data<float> *> &input_data,
-                     MLCommon::Matrix::PartDescriptor &input_desc,
-                     std::vector<MLCommon::Matrix::Data<float> *> &labels,
-                     float *coef, float *intercept, float *mu_input,
-                     float *mu_labels, float *norm2_input, bool fit_intercept,
-                     bool normalize, cudaStream_t *streams, int n_streams,
+void postProcessData(raft::handle_t& handle,
+                     std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+                     MLCommon::Matrix::PartDescriptor& input_desc,
+                     std::vector<MLCommon::Matrix::Data<float>*>& labels,
+                     float* coef,
+                     float* intercept,
+                     float* mu_input,
+                     float* mu_labels,
+                     float* norm2_input,
+                     bool fit_intercept,
+                     bool normalize,
+                     cudaStream_t* streams,
+                     int n_streams,
                      bool verbose);
 
-void postProcessData(raft::handle_t &handle,
-                     std::vector<MLCommon::Matrix::Data<double> *> &input_data,
-                     MLCommon::Matrix::PartDescriptor &input_desc,
-                     std::vector<MLCommon::Matrix::Data<double> *> &labels,
-                     double *coef, double *intercept, double *mu_input,
-                     double *mu_labels, double *norm2_input, bool fit_intercept,
-                     bool normalize, cudaStream_t *streams, int n_streams,
+void postProcessData(raft::handle_t& handle,
+                     std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+                     MLCommon::Matrix::PartDescriptor& input_desc,
+                     std::vector<MLCommon::Matrix::Data<double>*>& labels,
+                     double* coef,
+                     double* intercept,
+                     double* mu_input,
+                     double* mu_labels,
+                     double* norm2_input,
+                     bool fit_intercept,
+                     bool normalize,
+                     cudaStream_t* streams,
+                     int n_streams,
                      bool verbose);
 
 };  // end namespace opg

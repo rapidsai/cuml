@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,13 +28,16 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml import Handle
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -59,7 +62,10 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool normalize, int algo) except +
 
 
-class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
+class LinearRegression(Base,
+                       RegressorMixin,
+                       LinearPredictMixin,
+                       FMajorInputTagMixin):
 
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -123,10 +129,22 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
 
     Parameters
     -----------
-    algorithm : 'eig' or 'svd' (default = 'eig')
-        Eig uses a eigendecomposition of the covariance matrix, and is much
-        faster.
-        SVD is slower, but guaranteed to be stable.
+    algorithm : {'svd', 'eig', `qr`, 'svd-qr', 'svd-jacobi'}, (default = 'eig')
+        Choose an algorithm:
+
+          * 'svd' - alias for svd-jacobi;
+          * 'eig' - use an eigendecomposition of the covariance matrix;
+          * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
+          * 'svd-qr' - compute SVD decomposition using QR algorithm
+          * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations.
+
+        Among these algorithms, only 'svd-jacobi' supports the case when the
+        number of features is larger than the sample size; this algorithm
+        is force-selected automatically in such a case.
+
+        For the broad range of inputs, 'eig' and `qr` are usually the fastest,
+        followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
+        algorithms are more stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
@@ -148,7 +166,7 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -175,7 +193,7 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
         is a regression task (predicting a continuous variable).
 
     For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
@@ -186,11 +204,15 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
+    def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        super(LinearRegression, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        if handle is None and algorithm == 'eig':
+            # if possible, create two streams, so that eigenvalue decomposition
+            # can benefit from running independent operations concurrently.
+            handle = Handle(n_streams=2)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # internal array attributes
         self.coef_ = None
@@ -198,7 +220,7 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        if algorithm in ['svd', 'eig']:
+        if algorithm in ['svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi']:
             self.algorithm = algorithm
             self.algo = self._get_algorithm_int(algorithm)
         else:
@@ -210,7 +232,10 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
     def _get_algorithm_int(self, algorithm):
         return {
             'svd': 0,
-            'eig': 1
+            'eig': 1,
+            'qr': 2,
+            'svd-qr': 3,
+            'svd-jacobi': 0
         }[algorithm]
 
     @generate_docstring()
@@ -290,8 +315,3 @@ class LinearRegression(Base, RegressorMixin, LinearPredictMixin):
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

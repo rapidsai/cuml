@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <cuml/tsa/holtwinters_params.h>
+#include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <iostream>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 #define IDX(n, m, N) (n + (m) * (N))
@@ -43,7 +41,8 @@
 
 #define GET_TID (blockIdx.x * blockDim.x + threadIdx.x)
 
-inline int GET_THREADS_PER_BLOCK(const int n, const int max_threads = 512) {
+inline int GET_THREADS_PER_BLOCK(const int n, const int max_threads = 512)
+{
   int ret;
   if (n <= 128)
     ret = 32;
@@ -54,14 +53,17 @@ inline int GET_THREADS_PER_BLOCK(const int n, const int max_threads = 512) {
   return ret > max_threads ? max_threads : ret;
 }
 
-inline int GET_NUM_BLOCKS(const int n, const int max_threads = 512,
-                          const int max_blocks = MAX_BLOCKS_PER_DIM) {
+inline int GET_NUM_BLOCKS(const int n,
+                          const int max_threads = 512,
+                          const int max_blocks  = MAX_BLOCKS_PER_DIM)
+{
   int ret = (n - 1) / GET_THREADS_PER_BLOCK(n, max_threads) + 1;
   return ret > max_blocks ? max_blocks : ret;
 }
 
 template <typename Dtype>
-__device__ Dtype abs_device(Dtype val) {
+__device__ Dtype abs_device(Dtype val)
+{
   int nbytes = sizeof(val);
   if (nbytes == sizeof(float))
     return fabsf(val);
@@ -70,7 +72,8 @@ __device__ Dtype abs_device(Dtype val) {
 }
 
 template <typename Dtype>
-__device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.) {
+__device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.)
+{
   int nbytes = sizeof(val);
   if (nbytes == sizeof(float))
     return fminf(fmaxf(val, min), max);
@@ -79,6 +82,7 @@ __device__ Dtype bound_device(Dtype val, Dtype min = .0, Dtype max = 1.) {
 }
 
 template <typename Dtype>
-__device__ Dtype max3(Dtype a, Dtype b, Dtype c) {
+__device__ Dtype max3(Dtype a, Dtype b, Dtype c)
+{
   return a > b ? (a > c ? a : c) : (b > c ? b : c);
 }

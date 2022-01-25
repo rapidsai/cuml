@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 #pragma once
 
 #include <stdarg.h>
+
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+
+#include <cuml/common/log_levels.hpp>
 
 namespace spdlog {
 class logger;
@@ -47,27 +50,6 @@ namespace ML {
 std::string format(const char* fmt, va_list& vl);
 std::string format(const char* fmt, ...);
 /** @} */
-
-/**
- * @defgroup CumlLogLevels Logging levels used in cuML
- *
- * @note exactly match the corresponding ones (but reverse in terms of value)
- *       in spdlog for wrapping purposes
- *
- * @{
- */
-#define CUML_LEVEL_TRACE 6
-#define CUML_LEVEL_DEBUG 5
-#define CUML_LEVEL_INFO 4
-#define CUML_LEVEL_WARN 3
-#define CUML_LEVEL_ERROR 2
-#define CUML_LEVEL_CRITICAL 1
-#define CUML_LEVEL_OFF 0
-/** @} */
-
-#if !defined(CUML_ACTIVE_LEVEL)
-#define CUML_ACTIVE_LEVEL CUML_LEVEL_DEBUG
-#endif
 
 /**
  * @brief The main Logging class for cuML library.
@@ -225,29 +207,25 @@ class PatternSetter {
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_INFO)
-#define CUML_LOG_INFO(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_INFO, fmt, ##__VA_ARGS__)
+#define CUML_LOG_INFO(fmt, ...) ML::Logger::get().log(CUML_LEVEL_INFO, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_INFO(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_WARN)
-#define CUML_LOG_WARN(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_WARN, fmt, ##__VA_ARGS__)
+#define CUML_LOG_WARN(fmt, ...) ML::Logger::get().log(CUML_LEVEL_WARN, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_WARN(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_ERROR)
-#define CUML_LOG_ERROR(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#define CUML_LOG_ERROR(fmt, ...) ML::Logger::get().log(CUML_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_ERROR(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_CRITICAL)
-#define CUML_LOG_CRITICAL(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_CRITICAL, fmt, ##__VA_ARGS__)
+#define CUML_LOG_CRITICAL(fmt, ...) ML::Logger::get().log(CUML_LEVEL_CRITICAL, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_CRITICAL(fmt, ...) void(0)
 #endif

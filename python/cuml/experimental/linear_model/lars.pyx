@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ from libc.stdint cimport uintptr_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.raft.common.handle cimport handle_t
@@ -72,13 +73,13 @@ class Lars(Base, RegressorMixin):
        correlation between any unused predictor and the residual is lower than
        a tolerance.
 
-    The solver is based on [1]. The equations referred in the comments
+    The solver is based on [1]_. The equations referred in the comments
     correspond to the equations in the paper.
 
     Note: this algorithm assumes that the offset is removed from X and y, and
     each feature is normalized:
 
-    sum_i y_i = 0, sum_i x_{i,j} = 0, sum_i x_{i,j}^2=1 for j=0..n_col-1
+    :math:`sum_i y_i = 0, sum_i x_{i,j} = 0,sum_i x_{i,j}^2=1 for j=0..n_col-1`
 
     Parameters
     -----------
@@ -95,7 +96,7 @@ class Lars(Base, RegressorMixin):
         changing the input data.
     fit_path : boolean (default = True)
         Whether to return all the coefficients along the reularization path
-        in the coef_path_ attribute.
+        in the `coef_path_` attribute.
     precompute : bool, 'auto', or array-like with shape = (n_features,
         n_features). Default 'auto'. Whether to precompute the Gram matrix. The
         user can provide the Gram matrix as an argument.
@@ -116,7 +117,7 @@ class Lars(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -126,11 +127,11 @@ class Lars(Base, RegressorMixin):
     active_ : array of ints shape = [n_alphas]
         The indices of the active variables at the end of the path.
     beta_ : array of floats or doubles [n_asphas]
-        The active regression coefficients (same as coef_ but zeros omitted).
+        The active regression coefficients (same as `coef_` but zeros omitted).
     coef_path_ : array of floats or doubles, shape = [n_alphas, n_alphas + 1]
         The coefficients along the regularization path. Stored only if fit_path
         is True. Note that we only store coefficients for indices in the active
-        set (i.e. coef_path_[:,-1] == coef_[active_])
+        set (i.e. ``coef_path_[:,-1] == coef_[active_]``)
     coef_ : array, shape (n_features)
         The estimated coefficients for the regression model.
     intercept_ : scalar, float or double
@@ -141,13 +142,14 @@ class Lars(Base, RegressorMixin):
     Notes
     ------
     For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lars.html>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lars.html>`__.
 
-    References:
-    -----------
-    [1] B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least Angle Regression
-    The Annals of Statistics (2004) Vol 32, No 2, 407-499
-    http://statweb.stanford.edu/~tibs/ftp/lars.pdf
+    References
+    ----------
+    .. [1] `B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least Angle
+       Regression The Annals of Statistics (2004) Vol 32, No 2, 407-499
+       <http://statweb.stanford.edu/~tibs/ftp/lars.pdf>`_
+
     """
 
     alphas_ = CumlArrayDescriptor()
@@ -161,8 +163,9 @@ class Lars(Base, RegressorMixin):
                  handle=None, verbose=False, output_type=None, copy_X=True,
                  fit_path=True, n_nonzero_coefs=500, eps=None,
                  precompute='auto'):
-        super(Lars, self).__init__(handle=handle, verbose=verbose,
-                                   output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
@@ -314,7 +317,7 @@ class Lars(Base, RegressorMixin):
             X = cp.copy(X)
 
         if self.eps is None:
-            self.eps = np.finfo(np.float).eps
+            self.eps = np.finfo(float).eps
 
         self._fit_cpp(X, y, Gram, x_scale)
 
@@ -362,7 +365,7 @@ class Lars(Base, RegressorMixin):
         cdef uintptr_t active_idx_ptr = \
             input_to_cuml_array(self.active_).array.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
 
         if self.dtype == np.float32:
             larsPredict(handle_[0], <float*> X_ptr, <int> n_rows,

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,17 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
 
-class Lasso(Base, RegressorMixin, LinearPredictMixin):
+class Lasso(Base,
+            LinearPredictMixin,
+            RegressorMixin,
+            FMajorInputTagMixin):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
@@ -119,7 +124,7 @@ class Lasso(Base, RegressorMixin, LinearPredictMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -138,14 +143,14 @@ class Lasso(Base, RegressorMixin, LinearPredictMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
+    def __init__(self, *, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
                  output_type=None, verbose=False):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle,
-                                    verbose=verbose,
-                                    output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self._check_alpha(alpha)
         self.alpha = alpha
@@ -169,12 +174,21 @@ class Lasso(Base, RegressorMixin, LinearPredictMixin):
         self.solver_model = CD(fit_intercept=self.fit_intercept,
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=1.0, shuffle=shuffle,
-                               max_iter=self.max_iter, handle=self.handle)
+                               max_iter=self.max_iter, handle=self.handle,
+                               tol=self.tol)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
             raise ValueError(msg.format(alpha))
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        if 'selection' in params:
+            params.pop('selection')
+            params['shuffle'] = self.selection == 'random'
+        self.solver_model.set_params(**params)
+        return self
 
     @generate_docstring()
     def fit(self, X, y, convert_dtype=True) -> "Lasso":
@@ -195,8 +209,3 @@ class Lasso(Base, RegressorMixin, LinearPredictMixin):
             "tol",
             "selection",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace Datasets {
@@ -53,34 +55,62 @@ namespace Datasets {
  * @param[in]  seed               seed for the RNG
  * @{
  */
-void make_blobs(const raft::handle_t& handle, float* out, int64_t* labels,
-                int64_t n_rows, int64_t n_cols, int64_t n_clusters,
-                bool row_major = true, const float* centers = nullptr,
-                const float* cluster_std = nullptr,
-                const float cluster_std_scalar = 1.f, bool shuffle = true,
-                float center_box_min = -10.f, float center_box_max = 10.f,
-                uint64_t seed = 0ULL);
-void make_blobs(const raft::handle_t& handle, double* out, int64_t* labels,
-                int64_t n_rows, int64_t n_cols, int64_t n_clusters,
-                bool row_major = true, const double* centers = nullptr,
-                const double* cluster_std = nullptr,
-                const double cluster_std_scalar = 1.0, bool shuffle = true,
-                double center_box_min = -10.0, double center_box_max = 10.0,
-                uint64_t seed = 0ULL);
-void make_blobs(const raft::handle_t& handle, float* out, int* labels,
-                int n_rows, int n_cols, int n_clusters, bool row_major = true,
-                const float* centers = nullptr,
-                const float* cluster_std = nullptr,
-                const float cluster_std_scalar = 1.f, bool shuffle = true,
-                float center_box_min = -10.f, float center_box_max = 10.0,
-                uint64_t seed = 0ULL);
-void make_blobs(const raft::handle_t& handle, double* out, int* labels,
-                int n_rows, int n_cols, int n_clusters, bool row_major = true,
-                const double* centers = nullptr,
-                const double* cluster_std = nullptr,
-                const double cluster_std_scalar = 1.0, bool shuffle = true,
-                double center_box_min = -10.0, double center_box_max = 10.0,
-                uint64_t seed = 0ULL);
+void make_blobs(const raft::handle_t& handle,
+                float* out,
+                int64_t* labels,
+                int64_t n_rows,
+                int64_t n_cols,
+                int64_t n_clusters,
+                bool row_major                 = true,
+                const float* centers           = nullptr,
+                const float* cluster_std       = nullptr,
+                const float cluster_std_scalar = 1.f,
+                bool shuffle                   = true,
+                float center_box_min           = -10.f,
+                float center_box_max           = 10.f,
+                uint64_t seed                  = 0ULL);
+void make_blobs(const raft::handle_t& handle,
+                double* out,
+                int64_t* labels,
+                int64_t n_rows,
+                int64_t n_cols,
+                int64_t n_clusters,
+                bool row_major                  = true,
+                const double* centers           = nullptr,
+                const double* cluster_std       = nullptr,
+                const double cluster_std_scalar = 1.0,
+                bool shuffle                    = true,
+                double center_box_min           = -10.0,
+                double center_box_max           = 10.0,
+                uint64_t seed                   = 0ULL);
+void make_blobs(const raft::handle_t& handle,
+                float* out,
+                int* labels,
+                int n_rows,
+                int n_cols,
+                int n_clusters,
+                bool row_major                 = true,
+                const float* centers           = nullptr,
+                const float* cluster_std       = nullptr,
+                const float cluster_std_scalar = 1.f,
+                bool shuffle                   = true,
+                float center_box_min           = -10.f,
+                float center_box_max           = 10.0,
+                uint64_t seed                  = 0ULL);
+void make_blobs(const raft::handle_t& handle,
+                double* out,
+                int* labels,
+                int n_rows,
+                int n_cols,
+                int n_clusters,
+                bool row_major                  = true,
+                const double* centers           = nullptr,
+                const double* cluster_std       = nullptr,
+                const double cluster_std_scalar = 1.0,
+                bool shuffle                    = true,
+                double center_box_min           = -10.0,
+                double center_box_max           = 10.0,
+                uint64_t seed                   = 0ULL);
 /** @} */
 
 }  // namespace Datasets

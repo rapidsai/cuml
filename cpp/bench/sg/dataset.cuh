@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <common/cumlHandle.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/unary_op.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
@@ -75,25 +74,26 @@ struct RegressionParams {
  */
 template <typename D, typename L, typename IdxT = int>
 struct Dataset {
+  Dataset() : X(0, rmm::cuda_stream_default), y(0, rmm::cuda_stream_default) {}
   /** input data */
-  D* X;
+  rmm::device_uvector<D> X;
   /** labels or output associated with each row of input data */
-  L* y;
+  rmm::device_uvector<L> y;
 
   /** allocate space needed for the dataset */
-  void allocate(const raft::handle_t& handle, const DatasetParams& p) {
-    auto allocator = handle.get_device_allocator();
+  void allocate(const raft::handle_t& handle, const DatasetParams& p)
+  {
     auto stream = handle.get_stream();
-    X = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
-    y = (L*)allocator->allocate(p.nrows * sizeof(L), stream);
+    X.resize(p.nrows * p.ncols, stream);
+    y.resize(p.nrows, stream);
   }
 
   /** free-up the buffers */
-  void deallocate(const raft::handle_t& handle, const DatasetParams& p) {
-    auto allocator = handle.get_device_allocator();
+  void deallocate(const raft::handle_t& handle, const DatasetParams& p)
+  {
     auto stream = handle.get_stream();
-    allocator->deallocate(X, p.nrows * p.ncols * sizeof(D), stream);
-    allocator->deallocate(y, p.nrows * sizeof(L), stream);
+    X.release();
+    y.release();
   }
 
   /** whether the current dataset is for classification or regression */
@@ -103,30 +103,40 @@ struct Dataset {
    * Generate random blobs data. Args are the same as in make_blobs.
    * Assumes that the user has already called `allocate`
    */
-  void blobs(const raft::handle_t& handle, const DatasetParams& p,
-             const BlobsParams& b) {
+  void blobs(const raft::handle_t& handle, const DatasetParams& p, const BlobsParams& b)
+  {
     const auto& handle_impl = handle;
-    auto stream = handle_impl.get_stream();
-    auto cublas_handle = handle_impl.get_cublas_handle();
-    auto allocator = handle_impl.get_device_allocator();
+    auto stream             = handle_impl.get_stream();
+    auto cublas_handle      = handle_impl.get_cublas_handle();
 
     // Make blobs will generate labels of type IdxT which has to be an integer
     // type. We cast it to a different output type if needed.
     IdxT* tmpY;
+    rmm::device_uvector<IdxT> tmpY_vec(0, stream);
     if (std::is_same<L, IdxT>::value) {
-      tmpY = (IdxT*)y;
+      tmpY = (IdxT*)y.data();
     } else {
-      tmpY = (IdxT*)allocator->allocate(p.nrows * sizeof(IdxT), stream);
+      tmpY_vec.resize(p.nrows, stream);
+      tmpY = tmpY_vec.data();
     }
 
-    ML::Datasets::make_blobs(handle, X, tmpY, p.nrows, p.ncols, p.nclasses,
-                             p.rowMajor, nullptr, nullptr, D(b.cluster_std),
-                             b.shuffle, D(b.center_box_min),
-                             D(b.center_box_max), b.seed);
+    ML::Datasets::make_blobs(handle,
+                             X.data(),
+                             tmpY,
+                             p.nrows,
+                             p.ncols,
+                             p.nclasses,
+                             p.rowMajor,
+                             nullptr,
+                             nullptr,
+                             D(b.cluster_std),
+                             b.shuffle,
+                             D(b.center_box_min),
+                             D(b.center_box_max),
+                             b.seed);
     if (!std::is_same<L, IdxT>::value) {
       raft::linalg::unaryOp(
-        y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
-      allocator->deallocate(tmpY, p.nrows * sizeof(IdxT), stream);
+        y.data(), tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
     }
   }
 
@@ -134,29 +144,36 @@ struct Dataset {
    * Generate random regression data. Args are the same as in make_regression.
    * Assumes that the user has already called `allocate`
    */
-  void regression(const raft::handle_t& handle, const DatasetParams& p,
-                  const RegressionParams& r) {
-    ASSERT(!isClassification(),
-           "make_regression: is only for regression problems!");
+  void regression(const raft::handle_t& handle, const DatasetParams& p, const RegressionParams& r)
+  {
+    ASSERT(!isClassification(), "make_regression: is only for regression problems!");
     const auto& handle_impl = handle;
-    auto stream = handle_impl.get_stream();
-    auto cublas_handle = handle_impl.get_cublas_handle();
-    auto cusolver_handle = handle_impl.get_cusolver_dn_handle();
-    auto allocator = handle_impl.get_device_allocator();
+    auto stream             = handle_impl.get_stream();
+    auto cublas_handle      = handle_impl.get_cublas_handle();
+    auto cusolver_handle    = handle_impl.get_cusolver_dn_handle();
 
-    D* tmpX = X;
-
+    D* tmpX = X.data();
+    rmm::device_uvector<D> tmpX_vec(0, stream);
     if (!p.rowMajor) {
-      tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
+      tmpX_vec.resize(p.nrows * p.ncols, stream);
+      tmpX = tmpX_vec.data();
     }
-    MLCommon::Random::make_regression(
-      handle, tmpX, y, p.nrows, p.ncols, r.n_informative, stream, (D*)nullptr,
-      1, D(r.bias), r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle,
-      r.seed);
-    if (!p.rowMajor) {
-      raft::linalg::transpose(handle, tmpX, X, p.nrows, p.ncols, stream);
-      allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
-    }
+    MLCommon::Random::make_regression(handle,
+                                      tmpX,
+                                      y.data(),
+                                      p.nrows,
+                                      p.ncols,
+                                      r.n_informative,
+                                      stream,
+                                      (D*)nullptr,
+                                      1,
+                                      D(r.bias),
+                                      r.effective_rank,
+                                      D(r.tail_strength),
+                                      D(r.noise),
+                                      r.shuffle,
+                                      r.seed);
+    if (!p.rowMajor) { raft::linalg::transpose(handle, tmpX, X.data(), p.nrows, p.ncols, stream); }
   }
 
   /**
@@ -172,18 +189,20 @@ struct Dataset {
    *              std::vector<L>& y, int lineNum, const DatasetParams& p);`
    */
   template <typename Lambda>
-  void read_csv(const raft::handle_t& handle, const std::string& csvfile,
-                const DatasetParams& p, Lambda readOp) {
+  void read_csv(const raft::handle_t& handle,
+                const std::string& csvfile,
+                const DatasetParams& p,
+                Lambda readOp)
+  {
     if (isClassification() && p.nclasses <= 0) {
-      ASSERT(false,
-             "read_csv: for classification data 'nclasses' is mandatory!");
+      ASSERT(false, "read_csv: for classification data 'nclasses' is mandatory!");
     }
     std::vector<D> _X(p.nrows * p.ncols);
     std::vector<L> _y(p.nrows);
     std::ifstream myfile;
     myfile.open(csvfile);
     std::string line;
-    int counter = 0;
+    int counter   = 0;
     int break_cnt = p.nrows;
     while (getline(myfile, line) && (counter < p.nrows)) {
       auto row = split(line, ',');
@@ -197,7 +216,8 @@ struct Dataset {
   }
 
  private:
-  std::vector<std::string> split(const std::string& str, char delimiter) {
+  std::vector<std::string> split(const std::string& str, char delimiter)
+  {
     std::vector<std::string> tokens;
     std::string token;
     std::istringstream iss(str);
@@ -209,7 +229,8 @@ struct Dataset {
 };
 
 namespace {
-std::ostream& operator<<(std::ostream& os, const DatasetParams& d) {
+std::ostream& operator<<(std::ostream& os, const DatasetParams& d)
+{
   os << "/" << d.nrows << "x" << d.ncols;
   return os;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,33 +16,31 @@
 
 #pragma once
 
+namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Index_ = int>
 struct Pack {
   /**
-     * vertex degree array
-     * Last position is the sum of all elements in this array (excluding it)
-     * Hence, its length is one more than the number of poTypes
-     */
-  Index_ *vd;
+   * vertex degree array
+   * Last position is the sum of all elements in this array (excluding it)
+   * Hence, its length is one more than the number of poTypes
+   */
+  Index_* vd;
   /** the adjacency matrix */
-  bool *adj;
+  bool* adj;
   /** the adjacency graph */
-  Index_ *adj_graph;
+  Index_* adj_graph;
 
   Index_ adjnnz;
 
   /** exculusive scan generated from vd */
-  Index_ *ex_scan;
-  /** array to store whether a vertex is core poType or not */
-  bool *core_pts;
-  /** number of poTypes in the dataset */
+  Index_* ex_scan;
+  /** number of points in the dataset */
   Index_ N;
-  /** Minpts for classifying core pts */
-  Index_ minPts;
 };
 
 }  // namespace AdjGraph
 }  // namespace Dbscan
+}  // namespace ML

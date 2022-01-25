@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 
 #include <cuml/cuml_api.h>
 
-enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH };
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH } cumlSvmKernelType;
 
 /**
  * @defgroup SVM C-wrapper to C++ implementation of Support Vector Machine
@@ -61,23 +61,51 @@ extern "C" {
  * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
  * @{
  */
-cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
-                         int n_cols, float *labels, float C, float cache_size,
-                         int max_iter, int nochange_steps, float tol,
-                         int verbosity, cumlSvmKernelType kernel, int degree,
-                         float gamma, float coef0, int *n_support, float *b,
-                         float **dual_coefs, float **x_support,
-                         int **support_idx, int *n_classes,
-                         float **unique_labels);
+cumlError_t cumlSpSvcFit(cumlHandle_t handle,
+                         float* input,
+                         int n_rows,
+                         int n_cols,
+                         float* labels,
+                         float C,
+                         float cache_size,
+                         int max_iter,
+                         int nochange_steps,
+                         float tol,
+                         int verbosity,
+                         cumlSvmKernelType kernel,
+                         int degree,
+                         float gamma,
+                         float coef0,
+                         int* n_support,
+                         float* b,
+                         float** dual_coefs,
+                         float** x_support,
+                         int** support_idx,
+                         int* n_classes,
+                         float** unique_labels);
 
-cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
-                         int n_cols, double *labels, double C,
-                         double cache_size, int max_iter, int nochange_steps,
-                         double tol, int verbosity, cumlSvmKernelType kernel,
-                         int degree, double gamma, double coef0, int *n_support,
-                         double *b, double **dual_coefs, double **x_support,
-                         int **support_idx, int *n_classes,
-                         double **unique_labels);
+cumlError_t cumlDpSvcFit(cumlHandle_t handle,
+                         double* input,
+                         int n_rows,
+                         int n_cols,
+                         double* labels,
+                         double C,
+                         double cache_size,
+                         int max_iter,
+                         int nochange_steps,
+                         double tol,
+                         int verbosity,
+                         cumlSvmKernelType kernel,
+                         int degree,
+                         double gamma,
+                         double coef0,
+                         int* n_support,
+                         double* b,
+                         double** dual_coefs,
+                         double** x_support,
+                         int** support_idx,
+                         int* n_classes,
+                         double** unique_labels);
 /** @} */
 
 /**
@@ -109,20 +137,40 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
  * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
  * @{
  */
-cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
-                             int n_cols, cumlSvmKernelType kernel, int degree,
-                             float gamma, float coef0, int *n_support, float *b,
-                             float **dual_coefs, float **x_support,
-                             int *n_classes, float **unique_labels,
-                             float *preds, float buffer_size,
+cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
+                             float* input,
+                             int n_rows,
+                             int n_cols,
+                             cumlSvmKernelType kernel,
+                             int degree,
+                             float gamma,
+                             float coef0,
+                             int n_support,
+                             float b,
+                             float* dual_coefs,
+                             float* x_support,
+                             int n_classes,
+                             float* unique_labels,
+                             float* preds,
+                             float buffer_size,
                              int predict_class);
 
-cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
-                             int n_cols, cumlSvmKernelType kernel, int degree,
-                             double gamma, double coef0, int *n_support,
-                             double *b, double **dual_coefs, double **x_support,
-                             int *n_classes, double **unique_labels,
-                             double *preds, double buffer_size,
+cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
+                             double* input,
+                             int n_rows,
+                             int n_cols,
+                             cumlSvmKernelType kernel,
+                             int degree,
+                             double gamma,
+                             double coef0,
+                             int n_support,
+                             double b,
+                             double* dual_coefs,
+                             double* x_support,
+                             int n_classes,
+                             double* unique_labels,
+                             double* preds,
+                             double buffer_size,
                              int predict_class);
 /** @} */
 #ifdef __cplusplus

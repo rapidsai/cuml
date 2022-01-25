@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
 #
 
 import pytest
+import cupy as cp
 import numpy as np
 from numba import cuda
 
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import is_array_like
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn import svm
@@ -129,12 +131,18 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             coef_tol *= 10
 
     # Compare model parameter b (intercept). In practice some models can have
-    # same differences in the model parameters while still being within
+    # some differences in the model parameters while still being within
     # the accuracy tolerance.
-    if abs(svm2.intercept_) > 1e-6:
-        assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) <= b_tol
-    else:
-        assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
+    #
+    # We skip this test for multiclass (when intercept_ is an array). Apart
+    # from the larger discrepancies in multiclass case, sklearn also uses a
+    # different sign convention for intercept in that case.
+    if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
+        if abs(svm2.intercept_) > 1e-6:
+            assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) \
+                <= b_tol
+        else:
+            assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
 
     # For linear kernels we can compare the normal vector of the separating
     # hyperplane w, which is stored in the coef_ attribute.
@@ -159,7 +167,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
                   accuracy2)
 
 
-def make_dataset(dataset, n_rows, n_cols, n_classes=2):
+def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
     np.random.seed(137)
     if n_rows*0.25 < 4000:
         # Use at least 4000 test samples
@@ -173,11 +181,11 @@ def make_dataset(dataset, n_rows, n_cols, n_classes=2):
         n_test = n_rows * 0.25
     if dataset == 'classification1':
         X, y = make_classification(
-            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_rows, n_cols, n_informative=n_informative, n_redundant=0,
             n_classes=n_classes, n_clusters_per_class=1)
     elif dataset == 'classification2':
         X, y = make_classification(
-            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_rows, n_cols, n_informative=n_informative, n_redundant=0,
             n_classes=n_classes, n_clusters_per_class=2)
     elif dataset == 'gaussian':
         X, y = make_gaussian_quantiles(n_samples=n_rows, n_features=n_cols,
@@ -263,6 +271,26 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
                     report_summary=True)
 
 
+@pytest.mark.parametrize('params', [{'kernel': 'rbf', 'C': 1, 'gamma': 1}])
+def test_svm_skl_cmp_multiclass(params, dataset='classification2', n_rows=100,
+                                n_cols=6):
+    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols,
+                                                    n_classes=3,
+                                                    n_informative=6)
+
+    # Default to numpy for testing
+    with cuml.using_output_type("numpy"):
+
+        cuSVC = cu_svm.SVC(**params)
+        cuSVC.fit(X_train, y_train)
+
+        sklSVC = svm.SVC(**params)
+        sklSVC.fit(X_train, y_train)
+
+        compare_svm(cuSVC, sklSVC, X_test, y_test, coef_tol=1e-5,
+                    report_summary=True)
+
+
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 5, 'gamma': 0.005, "probability": False},
     {'kernel': 'rbf', 'C': 5, 'gamma': 0.005, "probability": True}])
@@ -320,15 +348,16 @@ def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
                               brier_tol=1e-3):
     """ Compare the probability output from two support vector classifiers.
     """
+
     prob1 = svc1.predict_proba(X_test)
-    brier1 = brier_score_loss(y_test, prob1[:, 1])
-
     prob2 = svc2.predict_proba(X_test)
-    brier2 = brier_score_loss(y_test, prob2[:, 1])
-
     assert mean_squared_error(prob1, prob2) <= tol
-    # Brier score - smaller is better
-    assert brier1 - brier2 <= brier_tol
+
+    if (svc1.n_classes_ == 2):
+        brier1 = brier_score_loss(y_test, prob1[:, 1])
+        brier2 = brier_score_loss(y_test, prob2[:, 1])
+        # Brier score - smaller is better
+        assert brier1 - brier2 <= brier_tol
 
 
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
@@ -480,8 +509,7 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
     stream = cuml.cuda.Stream()
-    handle = cuml.Handle()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
     # before the first call to get_memory_info.
@@ -530,8 +558,7 @@ def test_svm_memleak_on_exception(params, n_rows=1000, n_iter=10,
                                   random_state=137, centers=2)
     X_train = X_train.astype(np.float32)
     stream = cuml.cuda.Stream()
-    handle = cuml.Handle()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
 
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
@@ -653,3 +680,24 @@ def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
         clf = cu_svm.SVR()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
+
+
+def test_svm_no_support_vectors():
+    n_rows = 10
+    n_cols = 3
+    X = cp.random.uniform(size=(n_rows, n_cols), dtype=cp.float64)
+    y = cp.ones((n_rows, 1))
+    model = cuml.svm.SVR(kernel="linear", C=10)
+    model.fit(X, y)
+    pred = model.predict(X)
+
+    assert array_equal(pred, y, 0)
+
+    assert model.n_support_ == 0
+    assert abs(model.intercept_ - 1) <= 1e-6
+    assert array_equal(model.coef_, cp.zeros((1, n_cols)))
+    assert model.dual_coef_.shape == (1, 0)
+    assert model.support_.shape == (0,)
+    assert model.support_vectors_.shape[0] == 0
+    # Check disabled due to https://github.com/rapidsai/cuml/issues/4095
+    # assert model.support_vectors_.shape[1] == n_cols

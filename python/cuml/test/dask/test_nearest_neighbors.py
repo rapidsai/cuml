@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import pytest
 
 import cudf
@@ -69,8 +70,7 @@ def _scale_rows(client, nrows):
     return n_workers * nrows
 
 
-@pytest.mark.parametrize("nrows", [unit_param(100),
-                                   unit_param(1e3),
+@pytest.mark.parametrize("nrows", [unit_param(300),
                                    quality_param(1e6),
                                    stress_param(5e8)])
 @pytest.mark.parametrize("ncols", [10, 30])
@@ -80,8 +80,8 @@ def _scale_rows(client, nrows):
                                          stress_param(100)])
 @pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
                                      quality_param(7), stress_param(50)])
-@pytest.mark.parametrize("streams_per_handle", [5, 10])
-@pytest.mark.parametrize("reverse_worker_order", [True, False])
+@pytest.mark.parametrize("streams_per_handle,reverse_worker_order",
+                         [(5, True), (10, False)])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                      streams_per_handle, reverse_worker_order, client):
 
@@ -113,7 +113,7 @@ def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
 
     out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-    local_i = np.array(out_i.compute().as_gpu_matrix(), dtype="int64")
+    local_i = np.array(out_i.compute().to_numpy(), dtype="int64")
 
     sklModel = KNeighborsClassifier(n_neighbors=n_neighbors).fit(X, y)
     skl_y_hat = sklModel.predict(X)
@@ -167,7 +167,7 @@ def test_batch_size(nrows, ncols, n_parts,
 
     out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-    local_i = np.array(out_i.compute().as_gpu_matrix())
+    local_i = out_i.compute().to_numpy()
 
     y_hat, _ = predict(local_i, y, n_neighbors)
 
@@ -248,7 +248,7 @@ def test_one_query_partition(client):
 
     X_train, _ = make_blobs(n_samples=4000,
                             n_features=16,
-                            n_parts=4)
+                            n_parts=8)
 
     X_test, _ = make_blobs(n_samples=200,
                            n_features=16,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,24 @@
 
 #include <cuml/cuml_api.h>
 
-TEST(HandleTest, CreateHandleAndDestroy) {
+TEST(HandleTest, CreateHandleAndDestroy)
+{
   cumlHandle_t handle;
-  cumlError_t status = cumlCreate(&handle);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+  cumlError_t status = cumlCreate(&handle, stream);
   EXPECT_EQ(CUML_SUCCESS, status);
 
   status = cumlDestroy(handle);
   EXPECT_EQ(CUML_SUCCESS, status);
 }
 
-TEST(HandleTest, DoubleDestoryFails) {
+TEST(HandleTest, DoubleDestoryFails)
+{
   cumlHandle_t handle;
-  cumlError_t status = cumlCreate(&handle);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+  cumlError_t status = cumlCreate(&handle, stream);
   EXPECT_EQ(CUML_SUCCESS, status);
 
   status = cumlDestroy(handle);
@@ -37,21 +43,4 @@ TEST(HandleTest, DoubleDestoryFails) {
   // handle is destroyed
   status = cumlDestroy(handle);
   EXPECT_EQ(CUML_INVALID_HANDLE, status);
-}
-
-TEST(HandleTest, set_stream) {
-  cumlHandle_t handle;
-  cumlError_t status = cumlCreate(&handle);
-  EXPECT_EQ(CUML_SUCCESS, status);
-
-  status = cumlSetStream(handle, 0);
-  EXPECT_EQ(CUML_SUCCESS, status);
-
-  status = cumlDestroy(handle);
-  EXPECT_EQ(CUML_SUCCESS, status);
-}
-
-TEST(HandleTest, SetStreamInvalidHandle) {
-  cumlHandle_t handle = 12346;
-  EXPECT_EQ(CUML_INVALID_HANDLE, cumlSetStream(handle, 0));
 }

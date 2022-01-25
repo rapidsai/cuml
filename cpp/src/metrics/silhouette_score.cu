@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,57 @@
  * limitations under the License.
  */
 
-#include <raft/linalg/distance_type.h>
 #include <cuml/metrics/metrics.hpp>
+#include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
+#include <raft/linalg/distance_type.h>
 
 namespace ML {
 
 namespace Metrics {
-double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
-                        int nCols, int *labels, int nLabels, double *silScores,
-                        raft::distance::DistanceType metric) {
+double silhouette_score(const raft::handle_t& handle,
+                        double* y,
+                        int nRows,
+                        int nCols,
+                        int* labels,
+                        int nLabels,
+                        double* silScores,
+                        raft::distance::DistanceType metric)
+{
   return MLCommon::Metrics::silhouette_score<double, int>(
-    y, nRows, nCols, labels, nLabels, silScores, handle.get_device_allocator(),
-    handle.get_stream(), metric);
+    handle, y, nRows, nCols, labels, nLabels, silScores, handle.get_stream(), metric);
 }
+
+namespace Batched {
+
+float silhouette_score(const raft::handle_t& handle,
+                       float* X,
+                       int n_rows,
+                       int n_cols,
+                       int* y,
+                       int n_labels,
+                       float* scores,
+                       int chunk,
+                       raft::distance::DistanceType metric)
+{
+  return MLCommon::Metrics::Batched::silhouette_score<float, int, int>(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+}
+
+double silhouette_score(const raft::handle_t& handle,
+                        double* X,
+                        int n_rows,
+                        int n_cols,
+                        int* y,
+                        int n_labels,
+                        double* scores,
+                        int chunk,
+                        raft::distance::DistanceType metric)
+{
+  return MLCommon::Metrics::Batched::silhouette_score<double, int, int>(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+}
+
+}  // namespace Batched
 }  // namespace Metrics
 }  // namespace ML

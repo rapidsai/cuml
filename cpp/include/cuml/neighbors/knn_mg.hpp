@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,61 +14,57 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <raft/handle.hpp>
 #include <vector>
 
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
 
-#include <common/cumlHandle.hpp>
-
-#pragma once
-
-using namespace MLCommon;
-
 namespace ML {
 namespace KNN {
 namespace opg {
 
+using namespace MLCommon;
+
 /**
- * @brief Performs a multi-node multi-GPU brute force nearest neighbors.
- * @param handle: the raft::handle_t to use for managing resources
- * @param[out] out_I: vector of output index partitions. size should match the
+ * Performs a multi-node multi-GPU KNN.
+ * @param[in] handle the raft::handle_t to use for managing resources
+ * @param[out] out_I vector of output index partitions. size should match the
  *        number of local input partitions.
- * @param[out] out_D: vector of output distance partitions. size should match
+ * @param[out] out_D vector of output distance partitions. size should match
  *        the number of local input partitions.
- * @param[in] idx_data: vector of local indices to query
- * @param[in] idx_desc: describes how the index partitions are distributed
+ * @param[in] idx_data vector of local indices to query
+ * @param[in] idx_desc describes how the index partitions are distributed
  *        across the ranks.
- * @param[in] query_data: vector of local query partitions
- * @param[in] query_desc: describes how the query partitions are distributed
+ * @param[in] query_data vector of local query partitions
+ * @param[in] query_desc describes how the query partitions are distributed
  *        across the cluster.
- * @param[in] rowMajorIndex: are index vectors in row-major format?
- * @param[in] rowMajorQuery: are query vector in row-major format?
- * @param[in] k: the numeber of neighbors to query
- * @param[in] batch_size: the max number of rows to broadcast at a time
- * @param[in] verbose: print extra logging info
- *
+ * @param[in] rowMajorIndex boolean indicating whether the index is row major.
+ * @param[in] rowMajorQuery boolean indicating whether the query is row major.
+ * @param[in] k the number of neighbors to query
+ * @param[in] batch_size the max number of rows to broadcast at a time
+ * @param[in] verbose print extra logging info
  */
-void brute_force_knn(raft::handle_t &handle,
-                     std::vector<Matrix::Data<int64_t> *> &out_I,
-                     std::vector<Matrix::floatData_t *> &out_D,
-                     std::vector<Matrix::floatData_t *> &idx_data,
-                     Matrix::PartDescriptor &idx_desc,
-                     std::vector<Matrix::floatData_t *> &query_data,
-                     Matrix::PartDescriptor &query_desc,
-                     bool rowMajorIndex = false, bool rowMajorQuery = false,
-                     int k = 10, size_t batch_size = 1 << 15,
-                     bool verbose = false);
+void knn(raft::handle_t& handle,
+         std::vector<Matrix::Data<int64_t>*>* out_I,
+         std::vector<Matrix::floatData_t*>* out_D,
+         std::vector<Matrix::floatData_t*>& idx_data,
+         Matrix::PartDescriptor& idx_desc,
+         std::vector<Matrix::floatData_t*>& query_data,
+         Matrix::PartDescriptor& query_desc,
+         bool rowMajorIndex,
+         bool rowMajorQuery,
+         int k,
+         size_t batch_size,
+         bool verbose);
 
 /**
  * Performs a multi-node multi-GPU KNN classify.
  * @param[in] handle the raft::handle_t to use for managing resources
  * @param[out] out vector of output labels partitions. size should match the
  *        number of local input partitions.
- * @param[out] out_I vector of output index partitions. size should match the
- *        number of local input partitions.
- * @param[out] out_D vector of output distance partitions. size should match
- *        the number of local input partitions.
  * @param[in] probas (optional) pointer to a vector containing arrays of probabilities
  * @param[in] idx_data vector of local indices to query
  * @param[in] idx_desc describes how the index partitions are distributed
@@ -81,36 +77,35 @@ void brute_force_knn(raft::handle_t &handle,
  *          to the i'th output. size should match the number of local input partitions.
  * @param[in] uniq_labels vector of the sorted unique labels for each array in y
  * @param[in] n_unique vector of sizes for each array in uniq_labels
- * @param[in] rowMajorIndex boolean indicating whether the index is row major. 
- * @param[in] rowMajorQuery boolean indicating whether the query is row major. 
+ * @param[in] rowMajorIndex boolean indicating whether the index is row major.
+ * @param[in] rowMajorQuery boolean indicating whether the query is row major.
  * @param[in] probas_only return probas instead of performing complete knn_classify
  * @param[in] k the number of neighbors to query
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
-                  std::vector<Matrix::Data<int64_t> *> *out_I,
-                  std::vector<Matrix::floatData_t *> *out_D,
-                  std::vector<std::vector<float *>> *probas,
-                  std::vector<Matrix::floatData_t *> &idx_data,
-                  Matrix::PartDescriptor &idx_desc,
-                  std::vector<Matrix::floatData_t *> &query_data,
-                  Matrix::PartDescriptor &query_desc,
-                  std::vector<std::vector<int *>> &y,
-                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
-                  bool rowMajorIndex = false, bool rowMajorQuery = false,
-                  bool probas_only = false, int k = 10,
-                  size_t batch_size = 1 << 15, bool verbose = false);
+void knn_classify(raft::handle_t& handle,
+                  std::vector<Matrix::Data<int>*>* out,
+                  std::vector<std::vector<float*>>* probas,
+                  std::vector<Matrix::floatData_t*>& idx_data,
+                  Matrix::PartDescriptor& idx_desc,
+                  std::vector<Matrix::floatData_t*>& query_data,
+                  Matrix::PartDescriptor& query_desc,
+                  std::vector<std::vector<int*>>& y,
+                  std::vector<int*>& uniq_labels,
+                  std::vector<int>& n_unique,
+                  bool rowMajorIndex = false,
+                  bool rowMajorQuery = false,
+                  bool probas_only   = false,
+                  int k              = 10,
+                  size_t batch_size  = 1 << 15,
+                  bool verbose       = false);
 
 /**
  * Performs a multi-node multi-GPU KNN regress.
  * @param[in] handle the raft::handle_t to use for managing resources
  * @param[out] out vector of output partitions. size should match the
  *        number of local input partitions.
- * @param[out] out_I vector of output index partitions. size should match the
- *        number of local input partitions.
- * @param[out] out_D vector of output distance partitions. size should match
- *        the number of local input partitions.
  * @param[in] idx_data vector of local indices to query
  * @param[in] idx_desc describes how the index partitions are distributed
  *        across the ranks.
@@ -127,16 +122,18 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn_regress(raft::handle_t &handle,
-                 std::vector<Matrix::Data<float> *> *out,
-                 std::vector<Matrix::Data<int64_t> *> *out_I,
-                 std::vector<Matrix::floatData_t *> *out_D,
-                 std::vector<Matrix::floatData_t *> &idx_data,
-                 Matrix::PartDescriptor &idx_desc,
-                 std::vector<Matrix::floatData_t *> &query_data,
-                 Matrix::PartDescriptor &query_desc,
-                 std::vector<std::vector<float *>> &y, bool rowMajorIndex,
-                 bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
+void knn_regress(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>* out,
+                 std::vector<Matrix::floatData_t*>& idx_data,
+                 Matrix::PartDescriptor& idx_desc,
+                 std::vector<Matrix::floatData_t*>& query_data,
+                 Matrix::PartDescriptor& query_desc,
+                 std::vector<std::vector<float*>>& y,
+                 bool rowMajorIndex,
+                 bool rowMajorQuery,
+                 int k,
+                 int n_outputs,
+                 size_t batch_size,
                  bool verbose);
 
 };  // END namespace opg

@@ -15,12 +15,11 @@ The `test` directory has subdirectories that reflect this distinction between th
 ## Setup
 ### Dependencies
 
-1. cmake (>= 3.14)
-2. CUDA (>= 10.0)
-3. gcc (>=5.4.0)
-4. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-5. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
-6. UCX with CUDA support [optional] (>=1.7) - enables point-to-point messaging in the cuML communicator.
+1. cmake (>= 3.20.1)
+2. CUDA (>= 11.0)
+3. gcc (>=9.3.0)
+4. clang-format (= 11.1.0) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=11` and `clang-tools=11` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+5. UCX with CUDA support [optional](>=1.7) - enables point-to-point messaging in the cuML communicator.
 
 ### Building cuML:
 
@@ -33,29 +32,20 @@ Current cmake offers the following configuration options:
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
-| BUILD_GTEST | [ON, OFF]  | ON  |  Enable/disable building Googletest for test executables. The library search path will be used to find an existing version. |
+| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
+| BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
+| BUILD_CUML_BENCH | [ON, OFF]  | ON  | Enable/disable building of cuML C++ benchark. |
+| BUILD_CUML_PRIMS_BENCH | [ON, OFF]  | ON  | Enable/disable building of ml-prims C++ benchark. |
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). The standard communicator and MPI communicator are not mutually exclusive and can both be installed at the same time. |
 | WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support in the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This flag is ignored if BUILD_CUML_STD_COMMS is set to OFF. |
 | BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator may both be installed at the same time. If OFF, it overrides BUILD_CUML_MG_TESTS to be OFF as well. |
 | SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCX-py and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
-| BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
-| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building oc cuML C++ benchark.  |
-| BUILD_STATIC_FAISS | [ON, OFF] | OFF | Enable/disable building and static linking of FAISS into cuML. When this option is disabled, build will search for an installed version of FAISS. |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
-| GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compile only for that.  |
-
-- Library Location options:
-
-| Flag | Possible Values | Default Value | Behavior |
-| --- | --- | --- | --- |
-| BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. This is only used when BUILD_STATIC_FAISS=ON |
-| FAISS_ROOT | path/to/faiss | "" | Optional variable allowing to manually specify the location of FAISS. |
-| GTEST_ROOT | path/to/gtest | "" | Optional variable allowing to manually specify the location of Googletest. |
-| NCCL_PATH| path/to/nccl | "" | Optional variable allowing to manually specify location of NCCL library. |
-| CUMLPRIMS_MG_PATH | path/to/libcumlprims | "" | Optional variable allowing to manually specify location of libcumlprims library. |
+| CMAKE_CUDA_ARCHITECTURES |  List of GPU architectures, semicolon-separated | Empty  | List the GPU architectures to compile the GPU targets for. Set to "NATIVE" to auto detect GPU architecture of the system, set to "ALL" to compile for all RAPIDS supported archs: ["60" "62" "70" "72" "75" "80" "86"].  |
+| USE_CCACHE | [ON, OFF]  | ON  | Cache build artifacts with ccache. |
 
 - Debug configuration options:
 
@@ -68,12 +58,12 @@ Current cmake offers the following configuration options:
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 
 ```bash
-$ make -j # Build libcuml++ and all tests
-$ make -j sg_benchmark # Build c++ cuml single gpu benchmark
-$ make -j cuml++ # Build libcuml++
-$ make -j ml # Build ml_test algorithm tests binary
-$ make -j ml_mg # Build ml_mg_test multi GPU algorithms tests binary
-$ make -j prims # Build prims_test ML primitive unit tests binary
+$ cmake --build . -j                        # Build libcuml++ and all tests
+$ cmake --build . -j --target  sg_benchmark # Build c++ cuml single gpu benchmark
+$ cmake --build . -j --target  cuml++       # Build libcuml++
+$ cmake --build . -j --target  ml           # Build ml_test algorithm tests binary
+$ cmake --build . -j --target  ml_mg        # Build ml_mg_test multi GPU algorithms tests binary
+$ cmake --build . -j --target  prims        # Build prims_test ML primitive unit tests binary
 ```
 
 ### Third Party Modules
@@ -82,10 +72,9 @@ The external folder contains submodules that cuML depends on.
 
 Current external submodules are:
 
-1. [CUTLASS](https://github.com/NVIDIA/cutlass)
-2. [CUB](https://github.com/NVlabs/cub)
-3. [Faiss](https://github.com/facebookresearch/faiss)
-4. [Google Test](https://github.com/google/googletest)
+1. [CUB](https://github.com/NVlabs/cub)
+2. [Faiss](https://github.com/facebookresearch/faiss)
+3. [Google Test](https://github.com/google/googletest)
 
 ## Using cuML libraries
 

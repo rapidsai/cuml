@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,14 +52,14 @@ enum SyncType {
  * char* workspace;
  * // allocate the workspace by getting to know the right size needed
  * size_t workspaceSize = GridSync::computeWorkspaceSize(gridDim, type);
- * CUDA_CHECK(cudaMalloc((void**)&workspace, workspaceSize);
+ * RAFT_CUDA_TRY(cudaMalloc((void**)&workspace, workspaceSize);
  * // before the first usage of this workspace, initialize this to 0
  * // this is a one-time thing and if you're passing the same workspace
  * // to the same GridSync object inside the kernel and this workspace is
  * // exclusive, then subsequent memset calls are not needed
- * CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
+ * RAFT_CUDA_TRY(cudaMemset(workspace, 0, workspaceSize));
  * kernel<<<gridDim, blockDim>>>(workspace, type, ...);
- * CUDA_CHECK(cudaFree(workspace));
+ * RAFT_CUDA_TRY(cudaFree(workspace));
  * @endcode
  *
  * @note In order to call `GridSync::sync` method consecutively on the same
@@ -99,36 +99,36 @@ enum SyncType {
  */
 struct GridSync {
   /**
-     * @brief ctor
-     * @param _workspace workspace needed for providing synchronization
-     * @param _type synchronization type
-     * @param _multiSync whether we need this object to perform multiple
-     *  synchronizations in the same kernel call
-     *
-     * @note
-     * <ol>
-     * <li>All threads across all threadblocks must instantiate this object!
-     * <li>
-     *   Also, make sure that the workspace has been initialized to zero before
-     *   the first usage of this workspace
-     * </li>
-     * <li>This workspace must not be used elsewhere concurrently</li>
-     * </ol>
-     */
+   * @brief ctor
+   * @param _workspace workspace needed for providing synchronization
+   * @param _type synchronization type
+   * @param _multiSync whether we need this object to perform multiple
+   *  synchronizations in the same kernel call
+   *
+   * @note
+   * <ol>
+   * <li>All threads across all threadblocks must instantiate this object!
+   * <li>
+   *   Also, make sure that the workspace has been initialized to zero before
+   *   the first usage of this workspace
+   * </li>
+   * <li>This workspace must not be used elsewhere concurrently</li>
+   * </ol>
+   */
   DI GridSync(void* _workspace, SyncType _type, bool _multiSync = false)
-    : workspace((int*)_workspace), syncType(_type), multiSync(_multiSync) {
+    : workspace((int*)_workspace), syncType(_type), multiSync(_multiSync)
+  {
     if (syncType == ACROSS_X) {
-      offset = blockIdx.y + blockIdx.z * gridDim.y;
-      stride = gridDim.y * gridDim.z;
+      offset            = blockIdx.y + blockIdx.z * gridDim.y;
+      stride            = gridDim.y * gridDim.z;
       int nBlksToArrive = gridDim.x;
-      updateValue = blockIdx.x == 0 ? -(nBlksToArrive - 1) : 1;
+      updateValue       = blockIdx.x == 0 ? -(nBlksToArrive - 1) : 1;
     } else {
-      offset = 0;
-      stride = 1;
+      offset            = 0;
+      stride            = 1;
       int nBlksToArrive = gridDim.x * gridDim.y * gridDim.z;
-      updateValue = blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0
-                      ? -(nBlksToArrive - 1)
-                      : 1;
+      updateValue =
+        blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 ? -(nBlksToArrive - 1) : 1;
     }
   }
 
@@ -139,13 +139,12 @@ struct GridSync {
    * There's no need to wrap this call between __syncthreads. That is taken
    * care of internally.
    */
-  DI void sync() {
+  DI void sync()
+  {
     int* arrivalTracker = workspace + offset;
     markArrived(arrivalTracker);
     waitForOthers((volatile int*)arrivalTracker);
-    if (multiSync) {
-      offset = offset < stride ? offset + stride : offset - stride;
-    }
+    if (multiSync) { offset = offset < stride ? offset + stride : offset - stride; }
   }
 
   /**
@@ -157,13 +156,11 @@ struct GridSync {
    * @param multiSync whether we need this object to perform multiple
    *  synchronizations in the same kernel call
    */
-  static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type,
-                                     bool multiSync = false) {
-    int nblks = type == ACROSS_X ? gridDim.y * gridDim.z : 1;
+  static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type, bool multiSync = false)
+  {
+    int nblks   = type == ACROSS_X ? gridDim.y * gridDim.z : 1;
     size_t size = sizeof(int) * nblks;
-    if (multiSync) {
-      size *= 2;
-    }
+    if (multiSync) { size *= 2; }
     return size;
   }
 
@@ -182,13 +179,14 @@ struct GridSync {
   int offset;
 
   /**
-     * @brief Register your threadblock to have arrived at the sync point
-     * @param arrivalTracker the location that'll be atomically updated by all
-     *  arriving threadblocks
-     *
-     * @note All threads of this threadblock must call this unconditionally!
-     */
-  DI void markArrived(int* arrivalTracker) {
+   * @brief Register your threadblock to have arrived at the sync point
+   * @param arrivalTracker the location that'll be atomically updated by all
+   *  arriving threadblocks
+   *
+   * @note All threads of this threadblock must call this unconditionally!
+   */
+  DI void markArrived(int* arrivalTracker)
+  {
     __syncthreads();
     if (masterThread()) {
       __threadfence();
@@ -198,14 +196,15 @@ struct GridSync {
   }
 
   /**
-     * @brief Perform a wait until all the required threadblocks have arrived
-     * at the sync point by calling the 'arrived' method.
-     * @param gmemArrivedBlks the location that'd have been atomically updated
-     *  by all arriving threadblocks
-     *
-     * @note All threads of all threadblocks must call this unconditionally!
-     */
-  DI void waitForOthers(volatile int* gmemArrivedBlks) {
+   * @brief Perform a wait until all the required threadblocks have arrived
+   * at the sync point by calling the 'arrived' method.
+   * @param gmemArrivedBlks the location that'd have been atomically updated
+   *  by all arriving threadblocks
+   *
+   * @note All threads of all threadblocks must call this unconditionally!
+   */
+  DI void waitForOthers(volatile int* gmemArrivedBlks)
+  {
     if (masterThread()) {
       int arrivedBlks = -1;
       do {
@@ -216,9 +215,7 @@ struct GridSync {
     __syncthreads();
   }
 
-  DI bool masterThread() const {
-    return threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0;
-  }
+  DI bool masterThread() const { return threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0; }
 };  // struct GridSync
 
 /**
@@ -238,11 +235,12 @@ struct GridSync {
  *       entering this function, all threads in this block really have completed
  *       whatever their individual tasks were.
  */
-DI bool signalDone(int* done_count, int nBlks, bool master, int* amIlast) {
+DI bool signalDone(int* done_count, int nBlks, bool master, int* amIlast)
+{
   if (threadIdx.x == 0) {
     auto delta = master ? nBlks - 1 : -1;
-    auto old = atomicAdd(done_count, delta);
-    *amIlast = ((old + delta) == 0);
+    auto old   = atomicAdd(done_count, delta);
+    *amIlast   = ((old + delta) == 0);
   }
   __syncthreads();
   return *amIlast;

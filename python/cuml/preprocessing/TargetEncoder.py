@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import pandas
 import cupy as cp
 import numpy as np
 from cuml.common.exceptions import NotFittedError
+import warnings
 
 
 class TargetEncoder:
@@ -37,9 +38,8 @@ class TargetEncoder:
         Default number of folds for fitting training data. To prevent
         label leakage in `fit`, we split data into `n_folds` and
         encode one fold using the target variables of the remaining folds.
-    smooth : float (default=0)
-        0 <= smooth <= 1
-        Percentage of samples to smooth the encoding
+    smooth : int or float (default=0)
+        Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
     split_method : {'random', 'continuous', 'interleaved'},
@@ -48,6 +48,8 @@ class TargetEncoder:
         'random': random split.
         'continuous': consecutive samples are grouped into one folds.
         'interleaved': samples are assign to each fold in a round robin way.
+        'customize': customize splitting by providing a `fold_ids` array
+                     in `fit()` or `fit_transform()` functions.
     output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
 
@@ -83,8 +85,8 @@ class TargetEncoder:
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
                  split_method='interleaved', output_type='auto'):
-        if smooth < 0 or smooth > 1:
-            raise ValueError('smooth {} is not in range [0,1]'.format(smooth))
+        if smooth < 0:
+            raise ValueError(f'smooth {smooth} is not zero or positive')
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
                 'n_folds {} is not a postive integer'.format(n_folds))
@@ -97,9 +99,10 @@ class TargetEncoder:
         if not isinstance(seed, int):
             raise ValueError('seed {} is not an integer'.format(seed))
 
-        if split_method not in {'random', 'continuous', 'interleaved'}:
+        if split_method not in {'random', 'continuous', 'interleaved',
+                                'customize'}:
             msg = ("split_method should be either 'random'"
-                   " or 'continuous' or 'interleaved', "
+                   " or 'continuous' or 'interleaved', or 'customize'"
                    "got {0}.".format(self.split))
             raise ValueError(msg)
 
@@ -115,7 +118,7 @@ class TargetEncoder:
         self.train = None
         self.output_type = output_type
 
-    def fit(self, x, y):
+    def fit(self, x, y, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
 
@@ -126,26 +129,62 @@ class TargetEncoder:
            not be unique
         y : cudf.Series or cupy.ndarray
             Series containing the target variable.
-
+        fold_ids: cudf.Series or cupy.ndarray
+            Series containing the indices of the customized
+            folds. Its values should be integers in range
+            `[0, N-1]` to split data into `N` folds. If None,
+            fold_ids is generated based on `split_method`.
         Returns
         -------
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-        res, train = self._fit_transform(x, y)
+        if self.split == 'customize' and fold_ids is None:
+            raise ValueError("`fold_ids` is required "
+                             "since split_method is set to"
+                             "'customize'.")
+        if fold_ids is not None and self.split != 'customize':
+            self.split == 'customize'
+            warnings.warn("split_method is set to 'customize'"
+                          "since `fold_ids` are provided.")
+        if fold_ids is not None and len(fold_ids) != len(x):
+            raise ValueError(f"`fold_ids` length {len(fold_ids)}"
+                             "is different from input data length"
+                             f"{len(x)}")
+
+        res, train = self._fit_transform(x, y, fold_ids=fold_ids)
         self.train_encode = res
         self.train = train
         self._fitted = True
         return self
 
-    def fit_transform(self, x, y):
+    def fit_transform(self, x, y, fold_ids=None):
         """
         Simultaneously fit and transform an input
 
         This is functionally equivalent to (but faster than)
         `TargetEncoder().fit(y).transform(y)`
+
+        Parameters
+        ----------
+        x: cudf.Series or cudf.DataFrame or cupy.ndarray
+           categories to be encoded. It's elements may or may
+           not be unique
+        y : cudf.Series or cupy.ndarray
+            Series containing the target variable.
+        fold_ids: cudf.Series or cupy.ndarray
+            Series containing the indices of the customized
+            folds. Its values should be integers in range
+            `[0, N-1]` to split data into `N` folds. If None,
+            fold_ids is generated based on `split_method`.
+
+        Returns
+        -------
+        encoded : cupy.ndarray
+            The ordinally encoded input series
+
         """
-        self.fit(x, y)
+        self.fit(x, y, fold_ids=fold_ids)
         return self.train_encode
 
     def transform(self, x):
@@ -175,7 +214,7 @@ class TargetEncoder:
         test = test.merge(self.encode_all, on=x_cols, how='left')
         return self._impute_and_sort(test)
 
-    def _fit_transform(self, x, y):
+    def _fit_transform(self, x, y, fold_ids):
         """
         Core function of target encoding
         """
@@ -186,7 +225,7 @@ class TargetEncoder:
         train[self.y_col] = self._make_y_column(y)
 
         self.n_folds = min(self.n_folds, len(train))
-        train[self.fold_col] = self._make_fold_column(len(train))
+        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
         self.mean = train[self.y_col].mean()
 
@@ -238,10 +277,11 @@ class TargetEncoder:
                 "or numpy.ndarray"
                 "or cupy.ndarray")
 
-    def _make_fold_column(self, len_train):
+    def _make_fold_column(self, len_train, fold_ids):
         """
         Create a fold id column for each split_method
         """
+
         if self.split == 'random':
             return cp.random.randint(0, self.n_folds, len_train)
         elif self.split == 'continuous':
@@ -249,6 +289,12 @@ class TargetEncoder:
                     (len_train/self.n_folds)) % self.n_folds
         elif self.split == 'interleaved':
             return cp.arange(len_train) % self.n_folds
+        elif self.split == 'customize':
+            if fold_ids is None:
+                raise ValueError("fold_ids can't be None"
+                                 "since split_method is set to"
+                                 "'customize'.")
+            return fold_ids
         else:
             msg = ("split should be either 'random'"
                    " or 'continuous' or 'interleaved', "
@@ -260,7 +306,7 @@ class TargetEncoder:
         Compute the output encoding based on aggregated sum and count
         """
         df_sum = df_sum.merge(df_count, on=cols, how='left')
-        smooth = self.smooth * len(df_sum)
+        smooth = self.smooth
         df_sum[self.out_col] = (df_sum[f'{y_col}_x'] +
                                 smooth*self.mean) / \
                                (df_sum[f'{y_col}_y'] +

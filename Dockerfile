@@ -19,15 +19,6 @@ RUN source activate ${CONDA_ENV} && \
     make -j && \
     make install
 
-# libcumlcomms build/install
-RUN source activate ${CONDA_ENV} && \
-    cd cpp/comms/std && \
-    mkdir build && \
-    cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} && \
-    make -j && \
-    make install
-
 # cuML build/install
 RUN source activate ${CONDA_ENV} && \
     cd python && \

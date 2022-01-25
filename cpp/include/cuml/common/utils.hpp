@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,12 @@
 #include <cuda_runtime.h>
 #include <execinfo.h>
 #include <raft/cudart_utils.h>
+
 #include <cstdio>
+
 #include <raft/error.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+
 #include "logger.hpp"

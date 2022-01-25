@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ def validate_dask_array(darray, client=None):
 
 def _conv_df_to_sparse(x):
     cupy_ary = rmm_cupy_ary(cp.asarray,
-                            x.as_gpu_matrix(),
+                            x.to_cupy(),
                             dtype=x.dtypes[0])
 
     return cupyx.scipy.sparse.csr_matrix(cupy_ary)
@@ -71,7 +71,7 @@ def _conv_array_to_sparse(arr):
                                 dtype=arr.dtype)
         ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
-    elif isinstance(arr, cp.core.core.ndarray):
+    elif isinstance(arr, cp.ndarray):
         ret = cupyx.scipy.sparse.csr_matrix(arr)
     else:
         raise ValueError("Unexpected input type %s" % type(arr))

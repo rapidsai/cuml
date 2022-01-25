@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,30 @@ VALID_METRICS = {
         "chebyshev", "linf",
         "jensenshannon",
         "cosine", "correlation",
-        "inner_product", "sqeuclidean"
+        "inner_product", "sqeuclidean",
+        "haversine"
     ]),
-    "sparse": set(["euclidean", "l2", "inner_product"]),
-    "ivfflat": set(["l2", "euclidean"]),
-    "ivfpq": set(["l2", "euclidean"]),
-    "ivfsq": set(["l2", "euclidean"])
-    }
+    "rbc": set([
+        "euclidean", "haversine",
+        "l2"
+    ]),
+    "ivfflat": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ]),
+    "ivfpq": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ]),
+    "ivfsq": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ])
+}
+
+VALID_METRICS_SPARSE = {
+    "brute": set(["euclidean", "l2", "inner_product",
+                  "l1", "cityblock", "manhattan", "taxicab",
+                  "canberra", "linf", "chebyshev", "jaccard",
+                  "minkowski", "lp", "cosine", "hellinger"])
+}

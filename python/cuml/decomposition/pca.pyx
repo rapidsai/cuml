@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -109,7 +111,9 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base):
+class PCA(Base,
+          FMajorInputTagMixin,
+          SparseInputTagMixin):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -249,7 +253,7 @@ class PCA(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -296,13 +300,14 @@ class PCA(Base):
     noise_variance_ = CumlArrayDescriptor()
     trans_input_ = CumlArrayDescriptor()
 
-    def __init__(self, copy=True, handle=None, iterated_power=15,
+    def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose,
-                                  output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -342,15 +347,7 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        if self.n_components is None:
-            logger.warn(
-                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
-                ' n_components argument defauts to using'
-                ' min(n_samples, n_features) rather than 1'
-            )
-            params.n_components = min(n_rows, n_cols)
-        else:
-            params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -399,22 +396,22 @@ class PCA(Base):
 
         self.components_ = cp.flip(self.components_, axis=1)
 
-        self.components_ = self.components_.T[:self.n_components, :]
+        self.components_ = self.components_.T[:self._n_components, :]
 
         self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
             self.explained_variance_)
 
-        if self.n_components < min(self.n_rows, self.n_cols):
+        if self._n_components < min(self.n_rows, self.n_cols):
             self.noise_variance_ = \
-                self.explained_variance_[self.n_components:].mean()
+                self.explained_variance_[self._n_components:].mean()
         else:
             self.noise_variance_ = cp.array([0.0])
 
         self.explained_variance_ = \
-            self.explained_variance_[:self.n_components]
+            self.explained_variance_[:self._n_components]
 
         self.explained_variance_ratio_ = \
-            self.explained_variance_ratio_[:self.n_components]
+            self.explained_variance_ratio_[:self._n_components]
 
         # Truncating negative explained variance values to 0
         self.singular_values_ = \
@@ -431,6 +428,18 @@ class PCA(Base):
         Fit the model with X. y is currently ignored.
 
         """
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`fit`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
+            self._n_components = min(n_rows, n_cols)
+        else:
+            self._n_components = self.n_components
+
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
@@ -583,7 +592,7 @@ class PCA(Base):
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
@@ -677,14 +686,14 @@ class PCA(Base):
 
         # todo: check dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype.type)
+                            dtype=dtype.type, index=X_m.index)
 
         cdef uintptr_t _trans_input_ptr = t_input_data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
@@ -720,25 +729,6 @@ class PCA(Base):
         return super().get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = Handle()
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F',
-            'X_types_gpu': ['2darray', 'sparse'],
-            'X_types': ['2darray', 'sparse']
-        }
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):

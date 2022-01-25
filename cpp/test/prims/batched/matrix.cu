@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <algorithm>
-#include <cmath>
-#include <random>
-#include <vector>
+#include <linalg_naive.h>
+#include <test_utils.h>
 
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
+#include <linalg/batched/matrix.cuh>
 
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <linalg/batched/matrix.cuh>
 #include <raft/linalg/add.cuh>
-#include "../linalg_naive.h"
-#include "../test_utils.h"
+#include <raft/mr/device/allocator.hpp>
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -66,7 +67,8 @@ struct MatrixInputs {
 template <typename T>
 class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     using std::vector;
     params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
 
@@ -76,13 +78,14 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
                  (params.operation == AmB_op) || (params.operation == AkB_op) ||
                  (params.operation == Lyapunov_op);
     bool use_Z = (params.operation == AZT_op) || (params.operation == ZA_op) ||
-                 (params.operation == AsolveZ_op) ||
-                 (params.operation == LaggedZ_op);
+                 (params.operation == AsolveZ_op) || (params.operation == LaggedZ_op);
     bool Z_col = (params.operation == AsolveZ_op);
-    int r = params.operation == AZT_op ? params.n : params.m;
+    int r      = params.operation == AZT_op ? params.n : params.m;
 
     // Check if the dimensions are valid and compute the output dimensions
-    int m_r, n_r;
+    int m_r{};
+    int n_r{};
+
     switch (params.operation) {
       case AB_op:
         ASSERT_TRUE(params.n == params.p);
@@ -132,8 +135,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
       case Hessenberg_op:
       case Schur_op:
       case Lyapunov_op:
-        ASSERT_TRUE(params.m == params.n && params.m == params.p &&
-                    params.m == params.q);
+        ASSERT_TRUE(params.m == params.n && params.m == params.p && params.m == params.q);
         m_r = params.m;
         n_r = params.m;
         break;
@@ -151,22 +153,21 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<T> udis(-1.0, 3.0);
-    for (int i = 0; i < A.size(); i++) A[i] = udis(gen);
-    for (int i = 0; i < B.size(); i++) B[i] = udis(gen);
-    for (int i = 0; i < Z.size(); i++) Z[i] = udis(gen);
+    for (std::size_t i = 0; i < A.size(); i++)
+      A[i] = udis(gen);
+    for (std::size_t i = 0; i < B.size(); i++)
+      B[i] = udis(gen);
+    for (std::size_t i = 0; i < Z.size(); i++)
+      Z[i] = udis(gen);
 
-    // Create handles, stream, allocator
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
+    // Create handles, stream
+    RAFT_CUBLAS_TRY(cublasCreate(&handle));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     // Created batched matrices
-    Matrix<T> AbM(params.m, params.n, params.batch_size, handle, allocator,
-                  stream);
-    Matrix<T> BbM(params.p, params.q, params.batch_size, handle, allocator,
-                  stream);
-    Matrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.batch_size, handle,
-                  allocator, stream);
+    Matrix<T> AbM(params.m, params.n, params.batch_size, handle, stream);
+    Matrix<T> BbM(params.p, params.q, params.batch_size, handle, stream);
+    Matrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.batch_size, handle, stream);
 
     // Copy the data to the device
     if (use_A) raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
@@ -174,73 +175,52 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     if (use_Z) raft::update_device(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
     // Create fake batched matrices to be overwritten by results
-    res_bM = new Matrix<T>(1, 1, 1, handle, allocator, stream);
+    res_bM = new Matrix<T>(1, 1, 1, handle, stream);
 
     // Compute the tested results
     switch (params.operation) {
-      case AB_op:
-        *res_bM = AbM * BbM;
-        break;
-      case ApB_op:
-        *res_bM = AbM + BbM;
-        break;
-      case AmB_op:
-        *res_bM = AbM - BbM;
-        break;
-      case AkB_op:
-        *res_bM = b_kron(AbM, BbM);
-        break;
-      case AZT_op:
-        *res_bM = b_gemm(AbM, ZbM, false, true);
-        break;
-      case ZA_op:
-        *res_bM = ZbM * AbM;
-        break;
+      case AB_op: *res_bM = AbM * BbM; break;
+      case ApB_op: *res_bM = AbM + BbM; break;
+      case AmB_op: *res_bM = AbM - BbM; break;
+      case AkB_op: *res_bM = b_kron(AbM, BbM); break;
+      case AZT_op: *res_bM = b_gemm(AbM, ZbM, false, true); break;
+      case ZA_op: *res_bM = ZbM * AbM; break;
       case AsolveZ_op:
         // A * A\Z -> should be Z
         *res_bM = AbM * b_solve(AbM, ZbM);
         break;
-      case LaggedZ_op:
-        *res_bM = b_lagged_mat(ZbM, params.n);
-        break;
-      case CopyA2D_op:
-        *res_bM = b_2dcopy(AbM, params.s, params.t, params.p, params.q);
-        break;
-      case DiffA_op:
-        *res_bM = AbM.difference();
-        break;
+      case LaggedZ_op: *res_bM = b_lagged_mat(ZbM, params.n); break;
+      case CopyA2D_op: *res_bM = b_2dcopy(AbM, params.s, params.t, params.p, params.q); break;
+      case DiffA_op: *res_bM = AbM.difference(); break;
       case Hessenberg_op: {
-        constexpr T zero_tolerance =
-          std::is_same<T, double>::value ? 1e-7 : 1e-3f;
+        constexpr T zero_tolerance = std::is_same<T, double>::value ? 1e-7 : 1e-3f;
 
         int n = params.m;
-        Matrix<T> HbM(n, n, params.batch_size, handle, allocator, stream);
-        Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
+        Matrix<T> HbM(n, n, params.batch_size, handle, stream);
+        Matrix<T> UbM(n, n, params.batch_size, handle, stream);
         b_hessenberg(AbM, UbM, HbM);
 
         // Check that H is in Hessenberg form
         std::vector<T> H = std::vector<T>(n * n * params.batch_size);
         raft::update_host(H.data(), HbM.raw_data(), H.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
-              ASSERT_TRUE(raft::abs(H[n * n * ib + n * j + i]) <
-                          zero_tolerance);
+              ASSERT_TRUE(raft::abs(H[n * n * ib + n * j + i]) < zero_tolerance);
             }
           }
         }
 
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
-        raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
-                          UUt.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(), UUt.size(), stream);
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-              ASSERT_TRUE(raft::abs(UUt[n * n * ib + n * j + i] -
-                                    (i == j ? (T)1 : (T)0)) < zero_tolerance);
+              ASSERT_TRUE(raft::abs(UUt[n * n * ib + n * j + i] - (i == j ? (T)1 : (T)0)) <
+                          zero_tolerance);
             }
           }
         }
@@ -250,45 +230,41 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         break;
       }
       case Schur_op: {
-        constexpr T zero_tolerance =
-          std::is_same<T, double>::value ? 1e-7 : 1e-3f;
+        constexpr T zero_tolerance = std::is_same<T, double>::value ? 1e-7 : 1e-3f;
 
         int n = params.m;
-        Matrix<T> SbM(n, n, params.batch_size, handle, allocator, stream);
-        Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
+        Matrix<T> SbM(n, n, params.batch_size, handle, stream);
+        Matrix<T> UbM(n, n, params.batch_size, handle, stream);
         b_schur(AbM, UbM, SbM);
 
         // Check that S is in Schur form
         std::vector<T> S = std::vector<T>(n * n * params.batch_size);
         raft::update_host(S.data(), SbM.raw_data(), S.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
-              ASSERT_TRUE(raft::abs(S[n * n * ib + n * j + i]) <
-                          zero_tolerance);
+              ASSERT_TRUE(raft::abs(S[n * n * ib + n * j + i]) < zero_tolerance);
             }
           }
         }
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int k = 0; k < n - 3; k++) {
-            ASSERT_FALSE(
-              raft::abs(S[n * n * ib + n * k + k + 1]) > zero_tolerance &&
-              raft::abs(S[n * n * ib + n * (k + 1) + k + 2]) > zero_tolerance &&
-              raft::abs(S[n * n * ib + n * (k + 2) + k + 3]) > zero_tolerance);
+            ASSERT_FALSE(raft::abs(S[n * n * ib + n * k + k + 1]) > zero_tolerance &&
+                         raft::abs(S[n * n * ib + n * (k + 1) + k + 2]) > zero_tolerance &&
+                         raft::abs(S[n * n * ib + n * (k + 2) + k + 3]) > zero_tolerance);
           }
         }
 
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
-        raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
-                          UUt.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(), UUt.size(), stream);
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-              ASSERT_TRUE(raft::abs(UUt[n * n * ib + n * j + i] -
-                                    (i == j ? (T)1 : (T)0)) < zero_tolerance);
+              ASSERT_TRUE(raft::abs(UUt[n * n * ib + n * j + i] - (i == j ? (T)1 : (T)0)) <
+                          zero_tolerance);
             }
           }
         }
@@ -313,35 +289,42 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         for (int bid = 0; bid < params.batch_size; bid++) {
           Naive::matMul(res_h.data() + bid * m_r * n_r,
                         A.data() + bid * params.m * params.n,
-                        B.data() + bid * params.p * params.q, params.m,
-                        params.n, params.q);
+                        B.data() + bid * params.p * params.q,
+                        params.m,
+                        params.n,
+                        params.q);
         }
         break;
-      case ApB_op:
-        Naive::add(res_h.data(), A.data(), B.data(), A.size());
-        break;
-      case AmB_op:
-        Naive::add(res_h.data(), A.data(), B.data(), A.size(), T(-1.0));
-        break;
+      case ApB_op: Naive::add(res_h.data(), A.data(), B.data(), A.size()); break;
+      case AmB_op: Naive::add(res_h.data(), A.data(), B.data(), A.size(), T(-1.0)); break;
       case AkB_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
           Naive::kronecker(res_h.data() + bid * m_r * n_r,
                            A.data() + bid * params.m * params.n,
-                           B.data() + bid * params.p * params.q, params.m,
-                           params.n, params.p, params.q);
+                           B.data() + bid * params.p * params.q,
+                           params.m,
+                           params.n,
+                           params.p,
+                           params.q);
         }
         break;
       case AZT_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
           Naive::matMul(res_h.data() + bid * m_r * n_r,
                         A.data() + bid * params.m * params.n,
-                        Z.data() + bid * r, params.m, params.n, 1);
+                        Z.data() + bid * r,
+                        params.m,
+                        params.n,
+                        1);
         }
         break;
       case ZA_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::matMul(res_h.data() + bid * m_r * n_r, Z.data() + bid * r,
-                        A.data() + bid * params.m * params.n, 1, params.m,
+          Naive::matMul(res_h.data() + bid * m_r * n_r,
+                        Z.data() + bid * r,
+                        A.data() + bid * params.m * params.n,
+                        1,
+                        params.m,
                         params.n);
         }
         break;
@@ -351,30 +334,32 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         break;
       case LaggedZ_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::laggedMat(res_h.data() + bid * m_r * n_r,
-                           Z.data() + bid * params.m, params.m, params.n);
+          Naive::laggedMat(
+            res_h.data() + bid * m_r * n_r, Z.data() + bid * params.m, params.m, params.n);
         }
         break;
       case CopyA2D_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
           Naive::copy2D(res_h.data() + bid * m_r * n_r,
-                        A.data() + bid * params.m * params.n, params.s,
-                        params.t, params.m, m_r, n_r);
+                        A.data() + bid * params.m * params.n,
+                        params.s,
+                        params.t,
+                        params.m,
+                        m_r,
+                        n_r);
         }
         break;
       case DiffA_op: {
         int len = params.m * params.n;
         for (int bid = 0; bid < params.batch_size; bid++) {
-          Naive::diff(res_h.data() + bid * (len - 1), A.data() + bid * len,
-                      len);
+          Naive::diff(res_h.data() + bid * (len - 1), A.data() + bid * len, len);
         }
         break;
       }
       case Hessenberg_op:
       case Schur_op:
         // Simply copy A (will be compared against UHU')
-        memcpy(res_h.data(), A.data(),
-               params.m * params.m * params.batch_size * sizeof(T));
+        memcpy(res_h.data(), A.data(), params.m * params.m * params.batch_size * sizeof(T));
         break;
       case Lyapunov_op:
         // Simply copy -B (will be compared against AXA'-X)
@@ -384,21 +369,22 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         break;
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     delete res_bM;
-    CUBLAS_CHECK(cublasDestroy(handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUBLAS_TRY(cublasDestroy(handle));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
   MatrixInputs<T> params;
-  Matrix<T> *res_bM;
+  Matrix<T>* res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)
@@ -460,21 +446,25 @@ const std::vector<MatrixInputs<float>> inputsf = {
 
 using BatchedMatrixTestD = MatrixTest<double>;
 using BatchedMatrixTestF = MatrixTest<float>;
-TEST_P(BatchedMatrixTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatchHost(
-    res_h.data(), res_bM->raw_data(), res_h.size(),
-    raft::CompareApprox<double>(params.tolerance), stream));
+TEST_P(BatchedMatrixTestD, Result)
+{
+  ASSERT_TRUE(raft::devArrMatchHost(res_h.data(),
+                                    res_bM->raw_data(),
+                                    res_h.size(),
+                                    raft::CompareApprox<double>(params.tolerance),
+                                    stream));
 }
-TEST_P(BatchedMatrixTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatchHost(
-    res_h.data(), res_bM->raw_data(), res_h.size(),
-    raft::CompareApprox<float>(params.tolerance), stream));
+TEST_P(BatchedMatrixTestF, Result)
+{
+  ASSERT_TRUE(raft::devArrMatchHost(res_h.data(),
+                                    res_bM->raw_data(),
+                                    res_h.size(),
+                                    raft::CompareApprox<float>(params.tolerance),
+                                    stream));
 }
 
-INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,
-                        ::testing::ValuesIn(inputsd));
-INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestF, ::testing::ValuesIn(inputsf));
 
 }  // namespace Batched
 }  // namespace LinAlg

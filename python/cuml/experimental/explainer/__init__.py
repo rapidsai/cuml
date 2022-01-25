@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,5 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.experimental.explainer.kernel_shap import KernelExplainer
-from cuml.experimental.explainer.permutation_shap import PermutationExplainer
+from cuml.experimental.explainer.tree_shap import TreeExplainer

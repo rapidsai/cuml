@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>
+
+#include <raft/cuda_utils.cuh>
+
+#include <cub/cub.cuh>
 
 namespace MLCommon {
 namespace Cache {
@@ -44,17 +45,15 @@ namespace Cache {
  * @param [out] out vectors collected from the cache, size [n_vec * n]
  */
 template <typename math_t>
-__global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
-                         int n, math_t *out) {
+__global__ void get_vecs(const math_t* cache, int n_vec, const int* cache_idx, int n, math_t* out)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int out_col = tid / n_vec;  // col idx
-    int cache_col = cache_idx[out_col];
+    size_t out_col   = tid / n_vec;  // col idx
+    size_t cache_col = cache_idx[out_col];
     if (cache_idx[out_col] >= 0) {
-      if (row + out_col * n_vec < n_vec * n) {
-        out[tid] = cache[row + cache_col * n_vec];
-      }
+      if (row + out_col * n_vec < (size_t)n_vec * n) { out[tid] = cache[row + cache_col * n_vec]; }
     }
   }
 }
@@ -86,20 +85,26 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
  * @param [in] n_cache_vecs
  */
 template <typename math_t>
-__global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
-                           const int *tile_idx, int n, const int *cache_idx,
-                           math_t *cache, int n_cache_vecs) {
+__global__ void store_vecs(const math_t* tile,
+                           int n_tile,
+                           int n_vec,
+                           const int* tile_idx,
+                           int n,
+                           const int* cache_idx,
+                           math_t* cache,
+                           int n_cache_vecs)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int tile_col = tid / n_vec;  // col idx
-    int data_col = tile_idx ? tile_idx[tile_col] : tile_col;
+    int tile_col  = tid / n_vec;  // col idx
+    int data_col  = tile_idx ? tile_idx[tile_col] : tile_col;
     int cache_col = cache_idx[tile_col];
 
     // We ignore negative values. The rest of the checks should be fulfilled
     // if the cache is used properly
     if (cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
-      cache[row + cache_col * n_vec] = tile[row + data_col * n_vec];
+      cache[row + (size_t)cache_col * n_vec] = tile[row + (size_t)data_col * n_vec];
     }
   }
 }
@@ -107,9 +112,7 @@ __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
 /**
  * Map a key to a cache set.
  */
-int DI hash(int key, int n_cache_sets, int associativity) {
-  return key % n_cache_sets;
-}
+int DI hash(int key, int n_cache_sets, int associativity) { return key % n_cache_sets; }
 
 /**
  * @brief Binary search to find the first element in the array which is greater
@@ -120,14 +123,15 @@ int DI hash(int key, int n_cache_sets, int associativity) {
  * @return the index of the first element in the array for which
  * array[idx] >= value. If there is no such value, then return n.
  */
-int DI arg_first_ge(const int *array, int n, int val) {
+int DI arg_first_ge(const int* array, int n, int val)
+{
   int start = 0;
-  int end = n - 1;
+  int end   = n - 1;
   if (array[0] == val) return 0;
   if (array[end] < val) return n;
   while (start + 1 < end) {
     int q = (start + end + 1) / 2;
-    //invariants:
+    // invariants:
     // start < end
     // start < q <=end
     // array[start] < val && array[end] <=val
@@ -156,7 +160,8 @@ int DI arg_first_ge(const int *array, int n, int val) {
  * @return the idx of the k-th occurance of val in array, or -1 if
  * the value is not found.
  */
-int DI find_nth_occurrence(const int *array, int n, int val, int k) {
+int DI find_nth_occurrence(const int* array, int n, int val, int k)
+{
   int q = arg_first_ge(array, n, val);
   if (q + k < n && array[q + k] == val) {
     q += k;
@@ -195,10 +200,10 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  *   Each block should give a different pointer for rank.
  */
 template <int nthreads, int associativity>
-DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
+DI void rank_set_entries(const int* cache_time, int n_cache_sets, int* rank)
+{
   const int items_per_thread = raft::ceildiv(associativity, nthreads);
-  typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int>
-    BlockRadixSort;
+  typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int> BlockRadixSort;
   __shared__ typename BlockRadixSort::TempStorage temp_storage;
 
   int key[items_per_thread];
@@ -207,8 +212,8 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
   int block_offset = blockIdx.x * associativity;
 
   for (int j = 0; j < items_per_thread; j++) {
-    int k = threadIdx.x + j * nthreads;
-    int t = (k < associativity) ? cache_time[block_offset + k] : 32768;
+    int k  = threadIdx.x + j * nthreads;
+    int t  = (k < associativity) ? cache_time[block_offset + k] : 32768;
     key[j] = t;
     val[j] = k;
   }
@@ -216,9 +221,7 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
   BlockRadixSort(temp_storage).Sort(key, val);
 
   for (int j = 0; j < items_per_thread; j++) {
-    if (val[j] < associativity) {
-      rank[val[j]] = threadIdx.x * items_per_thread + j;
-    }
+    if (val[j] < associativity) { rank[val[j]] = threadIdx.x * items_per_thread + j; }
   }
   __syncthreads();
 }
@@ -251,9 +254,15 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
  *   not be cached, size [n]
  */
 template <int nthreads, int associativity>
-__global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
-                                 int *cached_keys, int n_cache_sets,
-                                 int *cache_time, int time, int *cache_idx) {
+__global__ void assign_cache_idx(const int* keys,
+                                 int n,
+                                 const int* cache_set,
+                                 int* cached_keys,
+                                 int n_cache_sets,
+                                 int* cache_time,
+                                 int time,
+                                 int* cache_idx)
+{
   int block_offset = blockIdx.x * associativity;
 
   const int items_per_thread = raft::ceildiv(associativity, nthreads);
@@ -272,7 +281,7 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
   // these elements are assigned -1.
 
   for (int j = 0; j < items_per_thread; j++) {
-    int i = threadIdx.x + j * nthreads;
+    int i     = threadIdx.x + j * nthreads;
     int t_idx = block_offset + i;
     bool mask = (i < associativity);
     // whether this slot is available for writing
@@ -283,10 +292,10 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
     if (mask) {
       int k = find_nth_occurrence(cache_set, n, blockIdx.x, rank[i]);
       if (k > -1) {
-        int key_val = keys[k];
+        int key_val        = keys[k];
         cached_keys[t_idx] = key_val;
-        cache_idx[k] = t_idx;
-        cache_time[t_idx] = time;
+        cache_idx[k]       = t_idx;
+        cache_time[t_idx]  = time;
       }
     }
   }
@@ -314,21 +323,28 @@ namespace {
  * @param [inout] cached_keys keys stored in the cache, size [n_cache_sets * associativity]
  * @param [in] n_cache_sets number of cache sets
  * @param [in] associativity number of keys in cache set
- * @param [inout] cache_time time stamp when the indices were cached, size [n_cache_sets * associativity]
+ * @param [inout] cache_time time stamp when the indices were cached, size [n_cache_sets *
+ * associativity]
  * @param [out] cache_idx cache indices of the working set elements, size [n]
  * @param [out] is_cached whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
-__global__ void get_cache_idx(int *keys, int n, int *cached_keys,
-                              int n_cache_sets, int associativity,
-                              int *cache_time, int *cache_idx, bool *is_cached,
-                              int time) {
+__global__ void get_cache_idx(int* keys,
+                              int n,
+                              int* cached_keys,
+                              int n_cache_sets,
+                              int associativity,
+                              int* cache_time,
+                              int* cache_idx,
+                              bool* is_cached,
+                              int time)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
-    int widx = keys[tid];
-    int sidx = hash(widx, n_cache_sets, associativity);
-    int cidx = sidx * associativity;
-    int i = 0;
+    int widx   = keys[tid];
+    int sidx   = hash(widx, n_cache_sets, associativity);
+    int cidx   = sidx * associativity;
+    int i      = 0;
     bool found = false;
     // search for empty spot and the least recently used spot
     while (i < associativity && !found) {
@@ -337,9 +353,9 @@ __global__ void get_cache_idx(int *keys, int n, int *cached_keys,
     }
     is_cached[tid] = found;
     if (found) {
-      cidx = cidx + i - 1;
-      cache_time[cidx] = time;  //update time stamp
-      cache_idx[tid] = cidx;    //exact cache idx
+      cidx             = cidx + i - 1;
+      cache_time[cidx] = time;  // update time stamp
+      cache_idx[tid]   = cidx;  // exact cache idx
     } else {
       cache_idx[tid] = sidx;  // assign cache set
     }

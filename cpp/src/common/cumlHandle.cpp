@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,25 @@
  */
 
 #include "cumlHandle.hpp"
+
+#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/logger.hpp>
 
 namespace ML {
 
 HandleMap handleMap;
 
-std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle() {
+std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle(cudaStream_t stream)
+{
   cumlError_t status = CUML_SUCCESS;
   cumlHandle_t chosen_handle;
   try {
-    auto handle_ptr = new raft::handle_t();
+    auto handle_ptr = new raft::handle_t{stream};
     bool inserted;
     {
       std::lock_guard<std::mutex> guard(_mapMutex);
@@ -38,49 +41,47 @@ std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle() {
       do {
         // try to insert using next free handle identifier
         chosen_handle = _nextHandle;
-        inserted = _handleMap.insert({chosen_handle, handle_ptr}).second;
+        inserted      = _handleMap.insert({chosen_handle, handle_ptr}).second;
         _nextHandle += 1;
       } while (!inserted && _nextHandle != initial_next);
     }
     if (!inserted) {
       // no free handle identifier available
       chosen_handle = INVALID_HANDLE;
-      status = CUML_ERROR_UNKNOWN;
+      status        = CUML_ERROR_UNKNOWN;
     }
   }
-  //TODO: Implement this
-  //catch (const MLCommon::Exception& e)
+  // TODO: Implement this
+  // catch (const MLCommon::Exception& e)
   //{
   //    //log e.what()?
   //    status =  e.getErrorCode();
   //}
   catch (...) {
-    status = CUML_ERROR_UNKNOWN;
+    status        = CUML_ERROR_UNKNOWN;
     chosen_handle = CUML_ERROR_UNKNOWN;
   }
   return std::pair<cumlHandle_t, cumlError_t>(chosen_handle, status);
 }
 
-std::pair<raft::handle_t*, cumlError_t> HandleMap::lookupHandlePointer(
-  cumlHandle_t handle) const {
+std::pair<raft::handle_t*, cumlError_t> HandleMap::lookupHandlePointer(cumlHandle_t handle) const
+{
   std::lock_guard<std::mutex> guard(_mapMutex);
   auto it = _handleMap.find(handle);
   if (it == _handleMap.end()) {
-    return std::pair<raft::handle_t*, cumlError_t>(nullptr,
-                                                   CUML_INVALID_HANDLE);
+    return std::pair<raft::handle_t*, cumlError_t>(nullptr, CUML_INVALID_HANDLE);
   } else {
     return std::pair<raft::handle_t*, cumlError_t>(it->second, CUML_SUCCESS);
   }
 }
 
-cumlError_t HandleMap::removeAndDestroyHandle(cumlHandle_t handle) {
+cumlError_t HandleMap::removeAndDestroyHandle(cumlHandle_t handle)
+{
   raft::handle_t* handle_ptr;
   {
     std::lock_guard<std::mutex> guard(_mapMutex);
     auto it = _handleMap.find(handle);
-    if (it == _handleMap.end()) {
-      return CUML_INVALID_HANDLE;
-    }
+    if (it == _handleMap.end()) { return CUML_INVALID_HANDLE; }
     handle_ptr = it->second;
     _handleMap.erase(it);
   }
@@ -88,8 +89,8 @@ cumlError_t HandleMap::removeAndDestroyHandle(cumlHandle_t handle) {
   try {
     delete handle_ptr;
   }
-  //TODO: Implement this
-  //catch (const MLCommon::Exception& e)
+  // TODO: Implement this
+  // catch (const MLCommon::Exception& e)
   //{
   //    //log e.what()?
   //    status =  e.getErrorCode();

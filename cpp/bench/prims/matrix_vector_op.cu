@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -28,31 +28,37 @@ struct Params {
 
 template <typename T>
 struct MatVecOp : public Fixture {
-  MatVecOp(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+  MatVecOp(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
     alloc(out, params.rows * params.cols, true);
     alloc(in, params.rows * params.cols, true);
     auto vecLen = params.bcastAlongRows ? params.cols : params.rows;
     alloc(vec, vecLen, true);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     dealloc(out, params.rows * params.cols);
     dealloc(in, params.rows * params.cols);
     auto vecLen = params.bcastAlongRows ? params.cols : params.rows;
     dealloc(vec, vecLen);
   }
 
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     loopOnState(state, [this]() {
-      raft::linalg::matrixVectorOp(out, in, vec, params.cols, params.rows,
-                                   params.rowMajor, params.bcastAlongRows,
-                                   raft::Sum<T>(), stream);
+      raft::linalg::matrixVectorOp(out,
+                                   in,
+                                   vec,
+                                   params.cols,
+                                   params.rows,
+                                   params.rowMajor,
+                                   params.bcastAlongRows,
+                                   raft::Sum<T>(),
+                                   stream);
     });
   }
 
@@ -61,7 +67,8 @@ struct MatVecOp : public Fixture {
   T *out, *in, *vec;
 };  // struct MatVecOp
 
-static std::vector<Params> getInputs() {
+static std::vector<Params> getInputs()
+{
   return {
     {1024, 128, true, true},       {1024 * 1024, 128, true, true},
     {1024, 128 + 2, true, true},   {1024 * 1024, 128 + 2, true, true},

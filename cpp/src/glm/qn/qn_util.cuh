@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,28 +22,64 @@
 namespace ML {
 namespace GLM {
 
+/** Loss function types supported by the Quasi-Newton solvers. */
+enum QN_LOSS_TYPE : int {
+  /** Logistic classification.
+   *  Expected target: {0, 1}.
+   */
+  QN_LOSS_LOGISTIC = 0,
+  /** L2 regression.
+   *  Expected target: R.
+   */
+  QN_LOSS_SQUARED = 1,
+  /** Softmax classification..
+   *  Expected target: {0, 1, ...}.
+   */
+  QN_LOSS_SOFTMAX = 2,
+  /** Hinge.
+   *  Expected target: {0, 1}.
+   */
+  QN_LOSS_SVC_L1 = 3,
+  /** Squared-hinge.
+   *  Expected target: {0, 1}.
+   */
+  QN_LOSS_SVC_L2 = 4,
+  /** Epsilon-insensitive.
+   *  Expected target: R.
+   */
+  QN_LOSS_SVR_L1 = 5,
+  /** Epsilon-insensitive-squared.
+   *  Expected target: R.
+   */
+  QN_LOSS_SVR_L2 = 6,
+  /** L1 regression.
+   *  Expected target: R.
+   */
+  QN_LOSS_ABS = 7
+};
+
 enum LINE_SEARCH_ALGORITHM {
-  LBFGS_LS_BT_ARMIJO = 1,
-  LBFGS_LS_BT = 2,  // Default. Alias for Wolfe
-  LBFGS_LS_BT_WOLFE = 2,
+  LBFGS_LS_BT_ARMIJO       = 1,
+  LBFGS_LS_BT              = 2,  // Default. Alias for Wolfe
+  LBFGS_LS_BT_WOLFE        = 2,
   LBFGS_LS_BT_STRONG_WOLFE = 3
 };
 
 enum LINE_SEARCH_RETCODE {
-  LS_SUCCESS = 0,
-  LS_INVALID_STEP_MIN = 1,
-  LS_INVALID_STEP_MAX = 2,
+  LS_SUCCESS           = 0,
+  LS_INVALID_STEP_MIN  = 1,
+  LS_INVALID_STEP_MAX  = 2,
   LS_MAX_ITERS_REACHED = 3,
-  LS_INVALID_DIR = 4,
-  LS_INVALID_STEP = 5
+  LS_INVALID_DIR       = 4,
+  LS_INVALID_STEP      = 5
 };
 
 enum OPT_RETCODE {
-  OPT_SUCCESS = 0,
-  OPT_NUMERIC_ERROR = 1,
-  OPT_LS_FAILED = 2,
+  OPT_SUCCESS           = 0,
+  OPT_NUMERIC_ERROR     = 1,
+  OPT_LS_FAILED         = 2,
   OPT_MAX_ITERS_REACHED = 3,
-  OPT_INVALID_ARGS = 4
+  OPT_INVALID_ARGS      = 4
 };
 
 template <typename T = double>
@@ -60,27 +96,29 @@ class LBFGSParam {
   T max_step;  // max. allowed step length
   T ftol;      // line  search tolerance
   T wolfe;     // wolfe parameter
-  T ls_dec;    //line search decrease factor
-  T ls_inc;    //line search increase factor
+  T ls_dec;    // line search decrease factor
+  T ls_inc;    // line search increase factor
 
  public:
-  LBFGSParam() {
-    m = 6;
-    epsilon = T(1e-5);
-    past = 0;
-    delta = T(0);
+  LBFGSParam()
+  {
+    m              = 6;
+    epsilon        = T(1e-5);
+    past           = 0;
+    delta          = T(0);
     max_iterations = 0;
-    linesearch = LBFGS_LS_BT_ARMIJO;
+    linesearch     = LBFGS_LS_BT_ARMIJO;
     max_linesearch = 20;
-    min_step = T(1e-20);
-    max_step = T(1e+20);
-    ftol = T(1e-4);
-    wolfe = T(0.9);
-    ls_dec = T(0.5);
-    ls_inc = T(2.1);
+    min_step       = T(1e-20);
+    max_step       = T(1e+20);
+    ftol           = T(1e-4);
+    wolfe          = T(0.9);
+    ls_dec         = T(0.5);
+    ls_inc         = T(2.1);
   }
 
-  inline int check_param() const {  // TODO exceptions
+  inline int check_param() const
+  {  // TODO exceptions
     int ret = 1;
     if (m <= 0) return ret;
     ret++;
@@ -92,9 +130,7 @@ class LBFGSParam {
     ret++;
     if (max_iterations < 0) return ret;
     ret++;
-    if (linesearch < LBFGS_LS_BT_ARMIJO ||
-        linesearch > LBFGS_LS_BT_STRONG_WOLFE)
-      return ret;
+    if (linesearch < LBFGS_LS_BT_ARMIJO || linesearch > LBFGS_LS_BT_STRONG_WOLFE) return ret;
     ret++;
     if (max_linesearch <= 0) return ret;
     ret++;
@@ -111,30 +147,37 @@ class LBFGSParam {
 };
 
 template <typename T>
-HDI T project_orth(T x, T y) {
+HDI T project_orth(T x, T y)
+{
   return x * y <= T(0) ? T(0) : x;
 }
 
 template <typename T>
-inline bool check_convergence(const LBFGSParam<T> &param, const int k,
-                              const T fx, SimpleVec<T> &x, SimpleVec<T> &grad,
-                              std::vector<T> &fx_hist, T *dev_scalar,
-                              cudaStream_t stream) {
-  // New x norm and gradient norm
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(grad, dev_scalar, stream);
+inline bool check_convergence(const LBFGSParam<T>& param,
+                              const int k,
+                              const T fx,
+                              SimpleVec<T>& x,
+                              SimpleVec<T>& grad,
+                              std::vector<T>& fx_hist,
+                              T* dev_scalar,
+                              cudaStream_t stream)
+{
+  // Gradient norm is now in Linf to match the reference implementation
+  // (originally it was L2-norm)
+  T gnorm = nrmMax(grad, dev_scalar, stream);
+  // Positive scale factor for the stop condition
+  T fmag = std::max(fx, param.epsilon);
 
-  CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)", k,
-                 fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
+  CUML_LOG_DEBUG(
+    "%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, fmag=%.8f)", k, fx, gnorm / fmag, gnorm, fmag);
   // Convergence test -- gradient
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (gnorm <= param.epsilon * fmag) {
     CUML_LOG_DEBUG("Converged after %d iterations: f(x)=%.6f", k, fx);
     return true;
   }
   // Convergence test -- objective function value
   if (param.past > 0) {
-    if (k >= param.past &&
-        std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
+    if (k >= param.past && std::abs(fx_hist[k % param.past] - fx) <= param.delta * fmag) {
       CUML_LOG_DEBUG("Insufficient change in objective value");
       return true;
     }
@@ -150,13 +193,20 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
  * e.g. to compute the new search direction for g = \nabla f(x)
  */
 template <typename T>
-inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
-                            const int end_prev, const SimpleMat<T> &S,
-                            const SimpleMat<T> &Y, const SimpleVec<T> &g,
-                            const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
-                            SimpleVec<T> &drt, std::vector<T> &yhist,
-                            std::vector<T> &alpha, T *dev_scalar,
-                            cudaStream_t stream) {
+inline int lbfgs_search_dir(const LBFGSParam<T>& param,
+                            int* n_vec,
+                            const int end_prev,
+                            const SimpleDenseMat<T>& S,
+                            const SimpleDenseMat<T>& Y,
+                            const SimpleVec<T>& g,
+                            const SimpleVec<T>& svec,
+                            const SimpleVec<T>& yvec,
+                            SimpleVec<T>& drt,
+                            std::vector<T>& yhist,
+                            std::vector<T>& alpha,
+                            T* dev_scalar,
+                            cudaStream_t stream)
+{
   SimpleVec<T> sj, yj;  // mask vectors
   int end = end_prev;
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
@@ -188,8 +238,8 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
   // Recursive formula to compute d = -H * g
   drt.ax(-1.0, g, stream);
   int bound = std::min(param.m, *n_vec);
-  end = (end + 1) % param.m;
-  int j = end;
+  end       = (end + 1) % param.m;
+  int j     = end;
   for (int i = 0; i < bound; i++) {
     j = (j + param.m - 1) % param.m;
     col_ref(S, sj, j);
@@ -212,10 +262,9 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
 }
 
 template <typename T>
-HDI T get_pseudo_grad(T x, T dlossx, T C) {
-  if (x != 0) {
-    return dlossx + raft::sgn(x) * C;
-  }
+HDI T get_pseudo_grad(T x, T dlossx, T C)
+{
+  if (x != 0) { return dlossx + raft::sgn(x) * C; }
   T dplus = dlossx + C;
   T dmins = dlossx - C;
   if (dmins > T(0)) return dmins;
@@ -228,9 +277,7 @@ struct op_project {
   T scal;
   op_project(T s) : scal(s) {}
 
-  HDI T operator()(const T x, const T y) const {
-    return project_orth(x, scal * y);
-  }
+  HDI T operator()(const T x, const T y) const { return project_orth(x, scal * y); }
 };
 
 template <typename T>
@@ -238,9 +285,7 @@ struct op_pseudo_grad {
   T l1;
   op_pseudo_grad(const T lam) : l1(lam) {}
 
-  HDI T operator()(const T x, const T dlossx) const {
-    return get_pseudo_grad(x, dlossx, l1);
-  }
+  HDI T operator()(const T x, const T dlossx) const { return get_pseudo_grad(x, dlossx, l1); }
 };
 
 };  // namespace GLM

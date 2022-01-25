@@ -86,14 +86,23 @@ At a high level, all cuML Estimators must:
          ]
    ```
 
-7. Implement `_more_tags()` if any of the [default tags]() need to be overriden for the new estimator:
+7. Implement the appropriate tags method if any of the [default tags](#estimator-tags-and-cuml-specific-tags) need to be overriden for the new estimator.
+There are some convenience [Mixins](../../python/common/mixins.py), that the estimator can inherit, can be used for indicating the preferred order (column or row major) as well as for sparse input capability.
+
+If other tags are needed, they are static (i.e. don't change depending on the instantiated estimator), and more than one estimator will use them, then implement a new [Mixin](../../python/common/mixins.py), if the tag will be used by a single class then implement the `_more_static_tags` method:
+   ```python
+    @staticmethod
+    def _more_static_tags():
+       return {
+            "requires_y": True
+       }
+   ```
+   If the tags depend on an attribute that is defined at runtime or instantiation of the estimator, then implement the `_more_tags` method:
    ```python
       def _more_tags(self):
            return {
-               'preferred_input_order': 'F',
-               'X_types_gpu': ['2darray', 'sparse']
-               'X_types': ['2darray', 'sparse']
-           }
+               "allow_nan": is_scalar_nan(self.missing_values)
+            }
    ```
 
 For the majority of estimators, the above steps will be sufficient to correctly work with the cuML library and ensure a consistent API. However, situations may arise where an estimator differs from the standard pattern and some of the functionality needs to be customized. The remainder of this guide takes a deep dive into the estimator functionality to assist developers when building estimators.
@@ -209,6 +218,25 @@ Additionaly, some tags specific to cuML have been added. These tags may or may n
    Analogous to `X_types`, indicates what types of GPU objects an estimator can take. `2darray` includes GPU ndarray objects (like CuPy and Numba) and cuDF objects, since they are all processed the same by `input_utils`. `sparse` includes `CuPy` sparse arrays.
  - `preferred_input_order` (default=None)
    One of ['F', 'C', None]. Whether an estimator "prefers" data in column-major ('F') or row-major ('C') contiguous memory layout. If different methods prefer different layouts or neither format is benefitial, then it is defined to `None` unless there is a good reason to chose either `F` or `C`. For example, all of `fit`, `predict`, etc. in an estimator use `F` but only `score` uses`C`.
+- `dynamic_tags` (default=False)
+   Most estimators only need to define the tags statically, which facilitates the usage of tags in general. But some estimators might need to modify the values of a tag based on runtime attributes, so this tag reflects whether an estimator needs to do that. This tag value is automatically set by the `Base` estimator class if an Estimator has defined the `_more_tags` instance method.
+
+Note on MRO and tags: Tag resolution makes it so that multiple classes define the same tag in a composed class, classes closer to the final class overwrite the values of the farther ones. In Python, the MRO resolution makes it so that the uppermost classes are closer to the inheritting class, for example:
+
+Class:
+```python
+class DBSCAN(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
+```
+
+MRO:
+```python
+>>> cuml.DBSCAN.__mro__
+(<class 'cuml.cluster.dbscan.DBSCAN'>, <class 'cuml.common.base.Base'>, <class 'cuml.common.mixins.TagsMixin'>, <class 'cuml.common.mixins.ClusterMixin'>, <class 'cuml.common.mixins.CMajorInputTagMixin'>, <class 'object'>)
+```
+
+So this needs to be taken into account for tag resolution, for the case above, the tags in `ClusterMixin` would overwrite tags of `CMajorInputTagMixin` if they defined the same tags. So take this into consideration for the (uncommon) cases where there might be tags re-defined in your MRO. This is not common since most tag mixins define mutually exclusive tags (i.e. either prefer `F` or `C` major inputs).
 
 ### Estimator Array-Like Attributes
 

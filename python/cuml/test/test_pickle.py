@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from cuml.test.utils import array_equal, unit_param, stress_param, \
 from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
-from sklearn.manifold.t_sne import trustworthiness
+from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
 
@@ -41,7 +41,9 @@ solver_models = solver_config.get_models()
 
 cluster_config = ClassEnumerator(
     module=cuml.cluster,
-    exclude_classes=[cuml.DBSCAN]
+    exclude_classes=[cuml.DBSCAN,
+                     cuml.AgglomerativeClustering,
+                     cuml.HDBSCAN]
 )
 cluster_models = cluster_config.get_models()
 
@@ -55,6 +57,10 @@ neighbor_config = ClassEnumerator(module=cuml.neighbors)
 neighbor_models = neighbor_config.get_models()
 
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
+
+agglomerative_model = {"AgglomerativeClustering": cuml.AgglomerativeClustering}
+
+hdbscan_model = {"HDBSCAN": cuml.HDBSCAN}
 
 umap_model = {"UMAP": cuml.UMAP}
 
@@ -70,13 +76,19 @@ unfit_pickle_xfail = [
     'AutoARIMA',
     'KalmanFilter',
     'BaseRandomForestModel',
-    'ForestInference'
+    'ForestInference',
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier'
 ]
 unfit_clone_xfail = [
     'AutoARIMA',
     "ARIMA",
     "BaseRandomForestModel",
     "GaussianRandomProjection",
+    'MulticlassClassifier',
+    'OneVsOneClassifier',
+    'OneVsRestClassifier',
     "SparseRandomProjection",
 ]
 
@@ -89,6 +101,8 @@ all_models.update({
     **decomposition_models_xfail,
     **neighbor_models,
     **dbscan_model,
+    **hdbscan_model,
+    **agglomerative_model,
     **umap_model,
     **rf_models,
     **k_neighbors_models,
@@ -190,6 +204,16 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                                        stress_param([500000, 1000, 500])])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+    if data_size[0] == 500000 and datatype == np.float64 and \
+            ("LogisticRegression" in keys or "Ridge" in keys) and \
+            pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            data_size[0] = data_size[0] * pytest.max_gpu_memory // 640
+            data_size[1] = data_size[1] * pytest.max_gpu_memory // 640
+            data_size[2] = data_size[2] * pytest.max_gpu_memory // 640
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     result = {}
 
     def create_mod():
@@ -300,7 +324,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
         result["umap"] = trustworthiness(X_train,
                                          cu_before_pickle_transform,
-                                         n_neighbors)
+                                         n_neighbors=n_neighbors)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
@@ -311,7 +335,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
         cu_trust_after = trustworthiness(X_train,
                                          pickled_model.transform(X_train),
-                                         n_neighbors)
+                                         n_neighbors=n_neighbors)
         assert cu_trust_after >= result["umap"] - 0.2
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -342,6 +366,8 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
@@ -358,6 +384,8 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()
@@ -374,6 +402,14 @@ def test_unfit_clone(model_name):
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
                                        stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
+    if data_info[0] == 500000 and pytest.max_gpu_memory < 32 and \
+            ("KNeighborsClassifier" in keys or "KNeighborsRegressor" in keys):
+        if pytest.adapt_stress_test:
+            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
+
     result = {}
 
     def create_mod():
@@ -404,6 +440,13 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
                                                      50])])
 @pytest.mark.parametrize('keys', k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    if data_info[0] == 500000 and "NearestNeighbors" in keys and \
+            pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     result = {}
 
     def create_mod():
@@ -466,6 +509,12 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                                        stress_param([500000, 1000, 500])])
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
+    if data_size[0] == 500000 and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            data_size[0] = data_size[0] * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     result = {}
 
     def create_mod():
@@ -478,6 +527,27 @@ def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
     def assert_model(pickled_model, X_train):
         pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["dbscan"], pickle_after_predict)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', agglomerative_model.keys())
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
+                                       stress_param([500000, 1000, 500])])
+def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
+    result = {}
+
+    def create_mod():
+        nrows, ncols, n_info = data_size
+        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
+        model = agglomerative_model[keys]()
+        result["agglomerative"] = model.fit_predict(X_train)
+        return model, X_train
+
+    def assert_model(pickled_model, X_train):
+        pickle_after_predict = pickled_model.fit_predict(X_train)
+        assert array_equal(result["agglomerative"], pickle_after_predict)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -510,7 +580,7 @@ def test_tsne_pickle(tmpdir):
         result["fit_model"] = pickled_model.fit(X)
         result["data"] = X
         result["trust"] = trustworthiness(
-            X, pickled_model.embedding_, 10)
+            X, pickled_model.embedding_, n_neighbors=10)
 
     def create_mod_2():
         model = result["fit_model"]
@@ -518,7 +588,7 @@ def test_tsne_pickle(tmpdir):
 
     def assert_second_model(pickled_model, X):
         trust_after = trustworthiness(
-            X, pickled_model.embedding_, 10)
+            X, pickled_model.embedding_, n_neighbors=10)
         assert result["trust"] == trust_after
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -527,10 +597,11 @@ def test_tsne_pickle(tmpdir):
 
 # Probabilistic SVM is tested separately because it is a meta estimator that
 # owns a set of base SV classifiers.
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('params', [{'probability': True},
                                     {'probability': False}])
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_svc_pickle(tmpdir, datatype, params):
+@pytest.mark.parametrize('multiclass', [True, False])
+def test_svc_pickle(tmpdir, datatype, params, multiclass):
     result = {}
 
     def create_mod():
@@ -540,7 +611,8 @@ def test_svc_pickle(tmpdir, datatype, params):
             [True, False], 150, replace=True, p=[0.75, 0.25])
         X_train = iris.data[iris_selection]
         y_train = iris.target[iris_selection]
-        y_train = (y_train > 0).astype(datatype)
+        if not multiclass:
+            y_train = (y_train > 0).astype(datatype)
         data = [X_train, y_train]
         result["model"] = model.fit(X_train, y_train)
         return model, data
@@ -638,6 +710,8 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
 @pytest.mark.parametrize('nrows', [unit_param(100)])
 @pytest.mark.parametrize('ncols', [unit_param(20)])
 @pytest.mark.parametrize('n_info', [unit_param(10)])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
 
     result = {}
@@ -649,7 +723,8 @@ def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
                                                                n_info,
                                                                n_classes=2)
         model = rf_models[key](n_estimators=1, max_depth=1,
-                               max_features=1.0, random_state=10)
+                               max_features=1.0, random_state=10,
+                               n_bins=32)
         model.fit(X_train, y_train)
         result['rf_res'] = model.predict(X_test)
         return model, X_test
