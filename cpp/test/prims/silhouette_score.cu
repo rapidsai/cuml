@@ -21,7 +21,7 @@
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

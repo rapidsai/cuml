@@ -29,7 +29,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>

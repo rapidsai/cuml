@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <random/mvg.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
@@ -170,21 +171,22 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
     cublasHandle_t handle;
     RAFT_CUBLAS_TRY(cublasCreate(&handle));
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(handle,
-                                             CUBLAS_OP_N,
-                                             CUBLAS_OP_T,
-                                             dim,
-                                             dim,
-                                             nPoints,
-                                             &alfa,
-                                             X_d.data(),
-                                             dim,
-                                             X_d.data(),
-                                             dim,
-                                             &beta,
-                                             Rand_cov.data(),
-                                             dim,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle,
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_T,
+                                                     dim,
+                                                     dim,
+                                                     nPoints,
+                                                     &alfa,
+                                                     X_d.data(),
+                                                     dim,
+                                                     X_d.data(),
+                                                     dim,
+                                                     &beta,
+                                                     Rand_cov.data(),
+                                                     dim,
+                                                     stream));
 
     // restoring cov provided into P_d
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);

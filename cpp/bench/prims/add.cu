@@ -15,7 +15,7 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <raft/linalg/add.cuh>
+#include <raft/linalg/add.hpp>
 
 namespace MLCommon {
 namespace Bench {

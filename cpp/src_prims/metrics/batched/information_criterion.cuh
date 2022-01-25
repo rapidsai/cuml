@@ -25,7 +25,7 @@
  *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
  */
 
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 
 #include <cmath>
 

@@ -19,7 +19,7 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>

@@ -24,13 +24,13 @@
 #include <glm/preprocess.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/multiply.cuh>
-#include <raft/linalg/subtract.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/multiply.hpp>
+#include <raft/linalg/subtract.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 

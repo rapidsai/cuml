@@ -15,10 +15,10 @@
  */
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/strided_reduction.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/strided_reduction.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>

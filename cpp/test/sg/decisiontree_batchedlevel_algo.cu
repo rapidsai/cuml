@@ -20,7 +20,6 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
 #include <test_utils.h>
@@ -63,20 +62,21 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     prepareDataset(tmp.data());
     auto alpha = T(1.0) auto beta = T(0.0);
     auto cublas                   = handle->get_cublas_handle();
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublas,
-                                             CUBLAS_OP_T,
-                                             CUBLAS_OP_N,
-                                             inparams.M,
-                                             inparams.N,
-                                             &alpha,
-                                             tmp.data(),
-                                             inparams.N,
-                                             &beta,
-                                             tmp.data(),
-                                             inparams.M,
-                                             data.data(),
-                                             inparams.M,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgeam(cublas,
+                                                     CUBLAS_OP_T,
+                                                     CUBLAS_OP_N,
+                                                     inparams.M,
+                                                     inparams.N,
+                                                     &alpha,
+                                                     tmp.data(),
+                                                     inparams.N,
+                                                     &beta,
+                                                     tmp.data(),
+                                                     inparams.M,
+                                                     data.data(),
+                                                     inparams.M,
+                                                     stream));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     rowids.resize(inparams.M, stream);
     MLCommon::iota(rowids.data(), 0, 1, inparams.M, stream);

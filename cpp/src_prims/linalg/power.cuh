@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/unary_op.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
