@@ -52,7 +52,7 @@ void chunk_to_device(const OutType* ptr,
     if (length * (i + 1) > n) length = length - ((chunk_size * (i + 1)) - n);
 
     int device = devices[i];
-    CUDA_CHECK(cudaSetDevice(device));
+    RAFT_CUDA_TRY(cudaSetDevice(device));
     output.emplace_back(length * D, stream);
     raft::update_device(output.back().data(), ptr + (chunk_size * i), length * D, stream);
   }

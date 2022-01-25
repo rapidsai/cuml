@@ -517,15 +517,15 @@ struct cat_sets_device_owner {
            "too many categories/categorical nodes: cannot store bits offset in node");
     if (cat_sets.fid_num_cats_size > 0) {
       ASSERT(cat_sets.fid_num_cats != nullptr, "internal error: cat_sets.fid_num_cats is nil");
-      CUDA_CHECK(cudaMemcpyAsync(fid_num_cats.data(),
-                                 cat_sets.fid_num_cats,
-                                 fid_num_cats.size() * sizeof(float),
-                                 cudaMemcpyDefault,
-                                 stream));
+      RAFT_CUDA_TRY(cudaMemcpyAsync(fid_num_cats.data(),
+                                    cat_sets.fid_num_cats,
+                                    fid_num_cats.size() * sizeof(float),
+                                    cudaMemcpyDefault,
+                                    stream));
     }
     if (cat_sets.bits_size > 0) {
       ASSERT(cat_sets.bits != nullptr, "internal error: cat_sets.bits is nil");
-      CUDA_CHECK(cudaMemcpyAsync(
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
         bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
     }
   }

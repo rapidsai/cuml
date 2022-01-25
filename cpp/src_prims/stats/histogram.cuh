@@ -74,7 +74,8 @@ template <typename IdxT, int VecLen>
 dim3 computeGridDim(IdxT nrows, IdxT ncols, const void* kernel)
 {
   int occupancy;
-  CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occupancy, kernel, ThreadsPerBlock, 0));
+  RAFT_CUDA_TRY(
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occupancy, kernel, ThreadsPerBlock, 0));
   const auto maxBlks = occupancy * raft::getMultiProcessorCount();
   int nblksx         = raft::ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
   // for cases when there aren't a lot of blocks for computing one histogram
@@ -401,7 +402,7 @@ void histogramVecLen(HistType type,
                      cudaStream_t stream,
                      BinnerOp binner)
 {
-  CUDA_CHECK(cudaMemsetAsync(bins, 0, ncols * nbins * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(bins, 0, ncols * nbins * sizeof(int), stream));
   switch (type) {
     case HistTypeGmem:
       gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols, binner, stream);
@@ -439,7 +440,7 @@ void histogramVecLen(HistType type,
       break;
     default: ASSERT(false, "histogram: Invalid type passed '%d'!", type);
   };
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT>

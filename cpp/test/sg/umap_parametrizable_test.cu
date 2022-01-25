@@ -152,7 +152,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                                           knn_dists,
                                           umap_params.n_neighbors);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     }
 
     float* model_embedding = nullptr;
@@ -165,10 +165,10 @@ class UMAPParametrizableTest : public ::testing::Test {
       model_embedding = model_embedding_b->data();
     }
 
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       model_embedding, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     if (test_params.supervised) {
       ML::UMAP::fit(
@@ -198,13 +198,13 @@ class UMAPParametrizableTest : public ::testing::Test {
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     if (!test_params.fit_transform) {
-      CUDA_CHECK(cudaMemsetAsync(
+      RAFT_CUDA_TRY(cudaMemsetAsync(
         embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
       ML::UMAP::transform(handle,
                           X,
@@ -219,7 +219,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                           &umap_params,
                           embedding_ptr);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
       delete model_embedding_b;
     }
@@ -294,11 +294,11 @@ class UMAPParametrizableTest : public ::testing::Test {
                              10.f,
                              1234ULL);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     MLCommon::LinAlg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     rmm::device_uvector<float> embeddings1(n_samples * umap_params.n_components, stream);
 

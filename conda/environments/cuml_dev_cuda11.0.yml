@@ -6,6 +6,7 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=11.0
+- cuda-python >=11.5,<12.0
 - rapids-build-env=22.02.*
 - rapids-notebook-env=22.02.*
 - rapids-doc-env=22.02.*
@@ -22,7 +23,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
-- treelite=2.1.0
+- treelite=2.2.1
 - statsmodels
 - seaborn
 - hdbscan
@@ -30,8 +31,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask.git@2022.01.0
+    - git+https://github.com/dask/distributed.git@2022.01.0
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/

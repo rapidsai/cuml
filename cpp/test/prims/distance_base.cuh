@@ -129,7 +129,7 @@ void naiveDistance(DataType* dist,
       break;
     default: FAIL() << "should be here\n";
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename DataType>
@@ -186,7 +186,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     int k               = params.k;
     bool isRowMajor     = params.isRowMajor;
     cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     x.resize(m * k, stream);
     y.resize(n * k, stream);
     dist_ref.resize(m * n, stream);
@@ -212,7 +212,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                              worksize,
                                              stream,
                                              isRowMajor);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

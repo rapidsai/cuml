@@ -52,7 +52,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     ML::ARIMAOrder order = {
       params.p, params.d, params.q, params.P, params.D, params.Q, params.s, params.k};
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     data.resize(params.batch_size * params.n_obs, stream);
 
@@ -69,7 +69,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
                params.gtype);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   MakeArimaInputs params;
@@ -83,11 +83,11 @@ const std::vector<MakeArimaInputs> make_arima_inputs = {
   {10000, 150, 2, 1, 2, 0, 1, 2, 4, 0, raft::random::GenPhilox, 1234ULL}};
 
 typedef MakeArimaTest<float> MakeArimaTestF;
-TEST_P(MakeArimaTestF, Result) { CUDA_CHECK(cudaStreamSynchronize(stream)); }
+TEST_P(MakeArimaTestF, Result) { RAFT_CUDA_TRY(cudaStreamSynchronize(stream)); }
 INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestF, ::testing::ValuesIn(make_arima_inputs));
 
 typedef MakeArimaTest<double> MakeArimaTestD;
-TEST_P(MakeArimaTestD, Result) { CUDA_CHECK(cudaStreamSynchronize(stream)); }
+TEST_P(MakeArimaTestD, Result) { RAFT_CUDA_TRY(cudaStreamSynchronize(stream)); }
 INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestD, ::testing::ValuesIn(make_arima_inputs));
 
 }  // end namespace Random
