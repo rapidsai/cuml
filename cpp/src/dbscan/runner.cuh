@@ -223,7 +223,7 @@ std::size_t run(const raft::handle_t& handle,
       raft::common::nvtx::pop_range();
     }
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
     raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
@@ -278,7 +278,7 @@ std::size_t run(const raft::handle_t& handle,
     if (algo_ccl == 2) final_relabel(labels, N, stream);
     std::size_t nblks = raft::ceildiv<std::size_t>(N, TPB);
     relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();
 
     // Calculate the core_indices only if an array was passed in

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ void eltwise2D(int rows,  // m
   size_t blocks  = ((cols * rows) + threads - 1) / threads;
   eltwise2DKernel<Type>
     <<<blocks, threads, 0, stream>>>(rows, cols, dotA, dotB, pC, pD, alpha, beta, op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace LinAlg

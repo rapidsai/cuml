@@ -148,7 +148,7 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_stream; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   findMaxAbsOfColumns(
@@ -166,7 +166,7 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_stream; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   flip(components, input_desc.N, n_components, max_vals.data(), streams[0]);

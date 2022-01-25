@@ -237,11 +237,13 @@ void optimize_layout(T* head_embedding,
   T* d_tail_buffer = tail_embedding;
   if (params->deterministic) {
     head_buffer.resize(head_n * params->n_components, stream_view);
-    CUDA_CHECK(cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
     // No need for tail if it's not being written.
     if (move_other) {
       tail_buffer.resize(tail_n * params->n_components, stream_view);
-      CUDA_CHECK(cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
     }
     d_head_buffer = head_buffer.data();
     d_tail_buffer = tail_buffer.data();
@@ -288,7 +290,7 @@ void optimize_layout(T* head_embedding,
                               move_other,
                               stream_view);
     }
-    CUDA_CHECK(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
   }
 }
@@ -338,7 +340,7 @@ void launcher(
   raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
 
   rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
-  CUDA_CHECK(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
 
@@ -361,7 +363,7 @@ void launcher(
                             n_epochs,
                             stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Algo

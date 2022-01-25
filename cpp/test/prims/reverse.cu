@@ -40,7 +40,7 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
@@ -60,7 +60,7 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
             stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   ReverseInputs<T> params;
