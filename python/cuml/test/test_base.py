@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import pytest
 import numpydoc.docscrape
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)
+from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
+                                                            as sklBaseEstimator
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
@@ -38,9 +40,8 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    handle = cuml.Handle()
-    stream = cuml.cuda.Stream()
-    handle.setStream(stream)
+    stream = cuml.raft.common.cuda.Stream()
+    handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()
     del base
@@ -86,6 +87,11 @@ def test_base_subclass_init_matches_docs(child_class: str):
         Classname to test in the dict all_base_children
 
     """
+    klass = all_base_children[child_class]
+
+    if issubclass(klass, sklBaseEstimator):
+        pytest.skip("Exemption for preprocessing models. Preprocessing models"
+                    "do not have base arguments in constructors.")
 
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
@@ -105,8 +111,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
     base_sig = inspect.signature(cuml.Base, follow_wrapped=True)
     base_doc = numpydoc.docscrape.NumpyDocString(cuml.Base.__doc__)
     base_doc_params = base_doc["Parameters"]
-
-    klass = all_base_children[child_class]
 
     # Load the current class signature, parse the docstring and pull out params
     klass_sig = inspect.signature(klass, follow_wrapped=True)
@@ -140,6 +144,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
 
 @pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+# ignore ColumnTransformer init warning
+@pytest.mark.filterwarnings("ignore:Transformers are required")
 def test_base_children_get_param_names(child_class: str):
 
     """
@@ -166,7 +172,6 @@ def test_base_children_get_param_names(child_class: str):
 
         # Now ensure the base parameters are included in get_param_names
         for name, param in sig.parameters.items():
-
             if (param.kind == inspect.Parameter.VAR_KEYWORD
                     or param.kind == inspect.Parameter.VAR_POSITIONAL):
                 continue

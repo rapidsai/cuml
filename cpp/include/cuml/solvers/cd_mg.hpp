@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 #include <cuml/linear_model/glm.hpp>
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
-
-#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace CD {
@@ -43,19 +41,35 @@ namespace opg {
  * @param[in] tol: tolerance for early stopping during fitting
  * @param[in] verbose
  */
-void fit(raft::handle_t &handle,
-         std::vector<MLCommon::Matrix::Data<float> *> &input_data,
-         MLCommon::Matrix::PartDescriptor &input_desc,
-         std::vector<MLCommon::Matrix::Data<float> *> &labels, float *coef,
-         float *intercept, bool fit_intercept, bool normalize, int epochs,
-         float alpha, float l1_ratio, bool shuffle, float tol, bool verbose);
+void fit(raft::handle_t& handle,
+         std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+         MLCommon::Matrix::PartDescriptor& input_desc,
+         std::vector<MLCommon::Matrix::Data<float>*>& labels,
+         float* coef,
+         float* intercept,
+         bool fit_intercept,
+         bool normalize,
+         int epochs,
+         float alpha,
+         float l1_ratio,
+         bool shuffle,
+         float tol,
+         bool verbose);
 
-void fit(raft::handle_t &handle,
-         std::vector<MLCommon::Matrix::Data<double> *> &input_data,
-         MLCommon::Matrix::PartDescriptor &input_desc,
-         std::vector<MLCommon::Matrix::Data<double> *> &labels, double *coef,
-         double *intercept, bool fit_intercept, bool normalize, int epochs,
-         double alpha, double l1_ratio, bool shuffle, double tol, bool verbose);
+void fit(raft::handle_t& handle,
+         std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+         MLCommon::Matrix::PartDescriptor& input_desc,
+         std::vector<MLCommon::Matrix::Data<double>*>& labels,
+         double* coef,
+         double* intercept,
+         bool fit_intercept,
+         bool normalize,
+         int epochs,
+         double alpha,
+         double l1_ratio,
+         bool shuffle,
+         double tol,
+         bool verbose);
 
 /**
  * @brief performs MNMG prediction for OLS
@@ -70,17 +84,27 @@ void fit(raft::handle_t &handle,
  * @param[out] preds: predictions
  * @param[in] verbose
  */
-void predict(raft::handle_t &handle,
-             MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-             MLCommon::Matrix::Data<float> **input, size_t n_rows,
-             size_t n_cols, float *coef, float intercept,
-             MLCommon::Matrix::Data<float> **preds, bool verbose);
+void predict(raft::handle_t& handle,
+             MLCommon::Matrix::RankSizePair** rank_sizes,
+             size_t n_parts,
+             MLCommon::Matrix::Data<float>** input,
+             size_t n_rows,
+             size_t n_cols,
+             float* coef,
+             float intercept,
+             MLCommon::Matrix::Data<float>** preds,
+             bool verbose);
 
-void predict(raft::handle_t &handle,
-             MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-             MLCommon::Matrix::Data<double> **input, size_t n_rows,
-             size_t n_cols, double *coef, double intercept,
-             MLCommon::Matrix::Data<double> **preds, bool verbose);
+void predict(raft::handle_t& handle,
+             MLCommon::Matrix::RankSizePair** rank_sizes,
+             size_t n_parts,
+             MLCommon::Matrix::Data<double>** input,
+             size_t n_rows,
+             size_t n_cols,
+             double* coef,
+             double intercept,
+             MLCommon::Matrix::Data<double>** preds,
+             bool verbose);
 
 };  // end namespace opg
 };  // namespace CD

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,3 +184,47 @@ def test_targetencoder_cupy():
     assert array_equal(test_encoded, answer)
     print(type(test_encoded))
     assert isinstance(test_encoded, cp.ndarray)
+
+
+def test_targetencoder_smooth():
+    train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
+                            'label': [1, 0, 1, 1]})
+    answers = np.array([[1., 1., 0., 1.],
+                        [0.875, 0.875, 0.375, 0.875],
+                        [0.8333, 0.8333, 0.5, 0.8333],
+                        [0.75, 0.75, 0.75, 0.75]])
+    smooths = [0, 1, 2, 10000]
+    for smooth, answer in zip(smooths, answers):
+        encoder = TargetEncoder(smooth=smooth)
+        train_encoded = encoder.fit_transform(train.category, train.label)
+        assert array_equal(train_encoded, answer)
+
+        encoder = TargetEncoder(smooth=smooth)
+        encoder.fit(train.category, train.label)
+        train_encoded = encoder.transform(train.category)
+
+        assert array_equal(train_encoded, answer)
+
+
+def test_targetencoder_customized_fold_id():
+    """
+    use customized `fold_ids` array to split data.
+    in this example, the 1st sample belongs to `fold 0`
+    the 2nd and 3rd sample belongs to `fold 1`
+    and the 4th sample belongs to `fold 2`
+    """
+    train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
+                            'label': [1, 0, 1, 1]})
+    fold_ids = [0, 1, 1, 2]
+    encoder = TargetEncoder(split_method='customize')
+    train_encoded = encoder.fit_transform(train.category, train.label,
+                                          fold_ids=fold_ids)
+    answer = np.array([1., 0.75, 0.75, 1.])
+    assert array_equal(train_encoded, answer)
+
+    encoder = TargetEncoder(split_method='customize')
+    encoder.fit(train.category, train.label,
+                fold_ids=fold_ids)
+    train_encoded = encoder.transform(train.category)
+
+    assert array_equal(train_encoded, answer)

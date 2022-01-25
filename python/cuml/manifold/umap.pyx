@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ from cuml.common.memory_utils import using_output_type
 from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
 if has_scipy(True):
@@ -96,9 +97,9 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         int init,
         int target_n_neighbors,
         MetricType target_metric,
-        float target_weights,
+        float target_weight,
         uint64_t random_state,
-        bool multicore_implem,
+        bool deterministic,
         int optim_batch_size,
         GraphBasedDimRedCallback * callback
 
@@ -157,7 +158,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                           float *transformed) except +
 
 
-class UMAP(Base):
+class UMAP(Base,
+           CMajorInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
 
@@ -297,7 +299,7 @@ class UMAP(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
@@ -331,7 +333,7 @@ class UMAP(Base):
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
                  n_epochs=None,
@@ -348,17 +350,17 @@ class UMAP(Base):
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
-                 target_weights=0.5,
+                 target_weight=0.5,
                  target_metric="categorical",
                  handle=None,
                  hash_input=False,
                  random_state=None,
-                 optim_batch_size=0,
                  callback=None,
                  output_type=None):
 
-        super(UMAP, self).__init__(handle=handle, verbose=verbose,
-                                   output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.hash_input = hash_input
 
@@ -386,9 +388,9 @@ class UMAP(Base):
         self.negative_sample_rate = negative_sample_rate
         self.transform_queue_size = transform_queue_size
         self.target_n_neighbors = target_n_neighbors
-        self.target_weights = target_weights
+        self.target_weight = target_weight
 
-        self.multicore_implem = random_state is None
+        self.deterministic = random_state is not None
 
         # Check to see if we are already a random_state (type==np.uint64).
         # Reuse this if already passed (can happen from get_params() of another
@@ -411,8 +413,6 @@ class UMAP(Base):
             self.target_metric = target_metric
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
-
-        self.optim_batch_size = <int> optim_batch_size
 
         self.callback = callback  # prevent callback destruction
         self.X_m = None
@@ -453,10 +453,9 @@ class UMAP(Base):
             umap_params.target_metric = MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
-        umap_params.target_weights = <float> cls.target_weights
+        umap_params.target_weight = <float> cls.target_weight
         umap_params.random_state = <uint64_t> cls.random_state
-        umap_params.multicore_implem = <bool> cls.multicore_implem
-        umap_params.optim_batch_size = <int> cls.optim_batch_size
+        umap_params.deterministic = <bool> cls.deterministic
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
@@ -494,62 +493,8 @@ class UMAP(Base):
         params, covar = curve_fit(curve, xv, yv)
         return params[0], params[1]
 
-    @cuml.internals.api_base_return_generic_skipall
-    def _extract_knn_graph(
-        self,
-        knn_graph,
-        convert_dtype=True
-    ) -> typing.Tuple[typing.Tuple[CumlArray, typing.Any],
-                      typing.Tuple[CumlArray, typing.Any]]:
-        if has_scipy():
-            from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
-        else:
-            from cuml.common.import_utils import DummyClass
-            csr_matrix = DummyClass
-            coo_matrix = DummyClass
-            csc_matrix = DummyClass
-
-        if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-            knn_graph = cp_csr_matrix(knn_graph)
-            n_samples = knn_graph.shape[0]
-            reordering = knn_graph.data.reshape((n_samples, -1))
-            reordering = reordering.argsort()
-            n_neighbors = reordering.shape[1]
-            reordering += (cupy.arange(n_samples) * n_neighbors)[:, np.newaxis]
-            reordering = reordering.flatten()
-            knn_graph.indices = knn_graph.indices[reordering]
-            knn_graph.data = knn_graph.data[reordering]
-
-        knn_indices = None
-        if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
-            knn_indices = knn_graph.indices
-        elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
-            knn_indices = knn_graph.col
-
-        knn_indices_ptr, knn_dists_ptr = None, None
-        if knn_indices is not None:
-            knn_dists = knn_graph.data
-            knn_indices_m, _, _, _ = \
-                input_to_cuml_array(knn_indices, order='C',
-                                    deepcopy=True,
-                                    check_dtype=np.int64,
-                                    convert_to_dtype=(np.int64
-                                                      if convert_dtype
-                                                      else None))
-
-            knn_dists_m, _, _, _ = \
-                input_to_cuml_array(knn_dists, order='C',
-                                    deepcopy=True,
-                                    check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
-
-            return (knn_indices_m, knn_indices_m.ptr),\
-                   (knn_dists_m, knn_dists_m.ptr)
-        return (None, None), (None, None)
-
     @generate_docstring(convert_dtype_cast='np.float32',
+                        X='dense_sparse',
                         skip_parameters_heading=True)
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None) -> "UMAP":
@@ -615,7 +560,8 @@ class UMAP(Base):
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
-                                          order="C", dtype=np.float32)
+                                          order="C", dtype=np.float32,
+                                          index=self.X_m.index)
 
         if self.hash_input:
             with using_output_type("numpy"):
@@ -775,12 +721,14 @@ class UMAP(Base):
         if is_sparse(X):
             X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
                                   convert_format=False)
+            index = None
         else:
             X_m, n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+            index = X_m.index
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
@@ -800,7 +748,8 @@ class UMAP(Base):
 
         embedding = CumlArray.zeros((X_m.shape[0],
                                     self.n_components),
-                                    order="C", dtype=np.float32)
+                                    order="C", dtype=np.float32,
+                                    index=index)
         cdef uintptr_t xformed_ptr = embedding.ptr
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
@@ -871,15 +820,9 @@ class UMAP(Base):
             "a",
             "b",
             "target_n_neighbors",
-            "target_weights",
+            "target_weight",
             "target_metric",
             "hash_input",
             "random_state",
-            "optim_batch_size",
             "callback",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

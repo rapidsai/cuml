@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,18 +20,14 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 from dask.dataframe import Series as DaskSeries
 import dask.array as da
 from uuid import uuid1
 import numpy as np
-
-
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
+import pandas as pd
+import cudf
 
 
 class KNeighborsClassifier(NearestNeighbors):
@@ -63,11 +59,11 @@ class KNeighborsClassifier(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0,
+    def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
-        super(KNeighborsClassifier, self).__init__(client=client,
-                                                   verbose=verbose,
-                                                   **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -88,9 +84,16 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         self : KNeighborsClassifier model
         """
+
+        if not isinstance(X._meta, (np.ndarray, pd.DataFrame, cudf.DataFrame)):
+            raise ValueError('This chunk type is not supported')
+
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
+
+        # uniq_labels: set of possible labels for each labels column
+        # n_unique: number of possible labels for each labels column
 
         uniq_labels = []
         if self.data_handler.datatype == 'cupy':
@@ -109,8 +112,10 @@ class KNeighborsClassifier(NearestNeighbors):
                     uniq_labels.append(y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
-        if not isinstance(uniq_labels[0], np.ndarray):  # for cuDF Series
+        if hasattr(uniq_labels[0], 'values_host'):  # for cuDF Series
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
+        elif hasattr(uniq_labels[0], 'values'):  # for pandas Series
+            uniq_labels = list(map(lambda x: x.values, uniq_labels))
         self.uniq_labels = np.array(uniq_labels)
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 
@@ -124,23 +129,23 @@ class KNeighborsClassifier(NearestNeighbors):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank, convert_dtype,
                       probas_only):
         if probas_only:
             return model.predict_proba(
-                data, data_parts_to_ranks, data_nrows,
+                index, index_parts_to_ranks, index_nrows,
                 query, query_parts_to_ranks, query_nrows,
                 uniq_labels, n_unique, ncols, rank, convert_dtype
             )
         else:
             return model.predict(
-                data, data_parts_to_ranks, data_nrows,
+                index, index_parts_to_ranks, index_nrows,
                 query, query_parts_to_ranks, query_nrows,
                 uniq_labels, n_unique, ncols, rank, convert_dtype
             )
@@ -237,8 +242,7 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_clf_res,
-                                              getter_func=_custom_getter(0))
+                                              knn_clf_res)
         comms.destroy()
 
         return to_output(out_futures, self.datatype).squeeze()
@@ -359,6 +363,11 @@ class KNeighborsClassifier(NearestNeighbors):
         wait_and_raise_from_futures(list(knn_prob_res.values()))
 
         n_outputs = len(self.n_unique)
+
+        def _custom_getter(o):
+            def func_get(f, idx):
+                return f[o][idx]
+            return func_get
 
         """
         Gather resulting partitions and return result

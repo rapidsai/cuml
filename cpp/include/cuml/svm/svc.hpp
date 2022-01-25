@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,15 @@
 
 #pragma once
 
-#include <cuml/matrix/kernelparams.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include "svm_model.h"
 #include "svm_parameter.h"
+#include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
+#include <raft/handle.hpp>
+
+// namespace raft {
+// class handle_t;
+// }
 
 namespace ML {
 namespace SVM {
@@ -47,10 +51,15 @@ namespace SVM {
  * @param [in] sample_weight optional sample weights, size [n_rows]
  */
 template <typename math_t>
-void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
-            math_t *labels, const svmParameter &param,
-            MLCommon::Matrix::KernelParams &kernel_params,
-            svmModel<math_t> &model, const math_t *sample_weight = nullptr);
+void svcFit(const raft::handle_t& handle,
+            math_t* input,
+            int n_rows,
+            int n_cols,
+            math_t* labels,
+            const SvmParameter& param,
+            MLCommon::Matrix::KernelParams& kernel_params,
+            SvmModel<math_t>& model,
+            const math_t* sample_weight);
 
 /**
  * @brief Predict classes or decision function value for samples in input.
@@ -82,19 +91,24 @@ void svcFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
  *     return the decision function value (false)
  */
 template <typename math_t>
-void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
-                int n_cols, MLCommon::Matrix::KernelParams &kernel_params,
-                const svmModel<math_t> &model, math_t *preds,
-                math_t buffer_size, bool predict_class = true);
+void svcPredict(const raft::handle_t& handle,
+                math_t* input,
+                int n_rows,
+                int n_cols,
+                MLCommon::Matrix::KernelParams& kernel_params,
+                const SvmModel<math_t>& model,
+                math_t* preds,
+                math_t buffer_size,
+                bool predict_class);
 
 /**
- * Deallocate device buffers in the svmModel struct.
+ * Deallocate device buffers in the SvmModel struct.
  *
  * @param [in] handle cuML handle
  * @param [inout] m SVM model parameters
  */
 template <typename math_t>
-void svmFreeBuffers(const raft::handle_t &handle, svmModel<math_t> &m);
+void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m);
 
 /**
  * @brief C-Support Vector Classification
@@ -121,8 +135,8 @@ class SVC {
   // Public members for easier access during testing from Python.
 
   MLCommon::Matrix::KernelParams kernel_params;
-  svmParameter param;
-  svmModel<math_t> model;
+  SvmParameter param;
+  SvmModel<math_t> model;
   /**
    * @brief Constructs a support vector classifier
    * @param handle cuML handle
@@ -134,11 +148,15 @@ class SVC {
    * @param nochange_steps number of steps with no change wrt convergence
    * @param verbosity verbosity level for logging messages during execution
    */
-  SVC(raft::handle_t &handle, math_t C = 1, math_t tol = 1.0e-3,
+  SVC(raft::handle_t& handle,
+      math_t C   = 1,
+      math_t tol = 1.0e-3,
       MLCommon::Matrix::KernelParams kernel_params =
         MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
-      math_t cache_size = 200, int max_iter = -1, int nochange_steps = 1000,
-      int verbosity = CUML_LEVEL_INFO);
+      math_t cache_size  = 200,
+      int max_iter       = -1,
+      int nochange_steps = 1000,
+      int verbosity      = CUML_LEVEL_INFO);
 
   ~SVC();
 
@@ -154,8 +172,8 @@ class SVC {
    * @param labels device pointer for the labels. Size n_rows.
    * @param [in] sample_weight optional sample weights, size [n_rows]
    */
-  void fit(math_t *input, int n_rows, int n_cols, math_t *labels,
-           const math_t *sample_weight = nullptr);
+  void fit(
+    math_t* input, int n_rows, int n_cols, math_t* labels, const math_t* sample_weight = nullptr);
 
   /**
    * @brief Predict classes for samples in input.
@@ -166,7 +184,7 @@ class SVC {
    * @param [out] preds device pointer to store the predicted class labels.
    *    Size [n_rows]. Should be allocated on entry.
    */
-  void predict(math_t *input, int n_rows, int n_cols, math_t *preds);
+  void predict(math_t* input, int n_rows, int n_cols, math_t* preds);
 
   /**
    * @brief Calculate decision function value for samples in input.
@@ -177,10 +195,10 @@ class SVC {
    * @param [out] preds device pointer to store the decision function value
    *    Size [n_rows]. Should be allocated on entry.
    */
-  void decisionFunction(math_t *input, int n_rows, int n_cols, math_t *preds);
+  void decisionFunction(math_t* input, int n_rows, int n_cols, math_t* preds);
 
  private:
-  const raft::handle_t &handle;
+  const raft::handle_t& handle;
 };
 
 };  // end namespace SVM

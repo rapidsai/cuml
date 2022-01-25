@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
+#include <common/device_utils.cuh>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <common/device_utils.cuh>
-#include "test_utils.h"
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 
@@ -37,15 +38,14 @@ namespace MLCommon {
  */
 
 template <int NThreads>
-__global__ void batchedBlockReduceTestKernel(int* out) {
+__global__ void batchedBlockReduceTestKernel(int* out)
+{
   extern __shared__ char smem[];
   int val = threadIdx.x;
-  val = batchedBlockReduce<int, NThreads>(val, reinterpret_cast<char*>(smem));
+  val     = batchedBlockReduce<int, NThreads>(val, reinterpret_cast<char*>(smem));
   int gid = threadIdx.x / NThreads;
   int lid = threadIdx.x % NThreads;
-  if (gid == 0) {
-    out[lid] = val;
-  }
+  if (gid == 0) { out[lid] = val; }
 }
 
 struct BatchedBlockReduceInputs {
@@ -53,41 +53,37 @@ struct BatchedBlockReduceInputs {
 };
 
 template <int NThreads>
-void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param,
-                            cudaStream_t stream) {
+void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param, cudaStream_t stream)
+{
   size_t smemSize = sizeof(int) * (param.blkDim / raft::WarpSize) * NThreads;
-  batchedBlockReduceTestKernel<NThreads>
-    <<<1, param.blkDim, smemSize, stream>>>(out);
-  CUDA_CHECK(cudaGetLastError());
+  batchedBlockReduceTestKernel<NThreads><<<1, param.blkDim, smemSize, stream>>>(out);
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
-::std::ostream& operator<<(::std::ostream& os,
-                           const BatchedBlockReduceInputs& dims) {
-  return os;
-}
+::std::ostream& operator<<(::std::ostream& os, const BatchedBlockReduceInputs& dims) { return os; }
 
 template <int NThreads>
-class BatchedBlockReduceTest
-  : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
+class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
  protected:
-  void SetUp() override {
+  BatchedBlockReduceTest() : out(0, stream), refOut(0, stream) {}
+
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(out, NThreads, true);
-    raft::allocate(refOut, NThreads, true);
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    out.resize(NThreads, stream);
+    refOut.resize(NThreads, stream);
+    RAFT_CUDA_TRY(cudaMemset(out.data(), 0, out.size() * sizeof(int)));
+    RAFT_CUDA_TRY(cudaMemset(refOut.data(), 0, refOut.size() * sizeof(int)));
     computeRef();
-    batchedBlockReduceTest<NThreads>(out, params, stream);
+    batchedBlockReduceTest<NThreads>(out.data(), params, stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(refOut));
-  }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
-  void computeRef() {
-    int* ref = new int[NThreads];
+  void computeRef()
+  {
+    int* ref    = new int[NThreads];
     int nGroups = params.blkDim / NThreads;
     for (int i = 0; i < NThreads; ++i) {
       ref[i] = 0;
@@ -95,15 +91,15 @@ class BatchedBlockReduceTest
         ref[i] += j * NThreads + i;
       }
     }
-    raft::update_device(refOut, ref, NThreads, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::update_device(refOut.data(), ref, NThreads, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     delete[] ref;
   }
 
  protected:
   BatchedBlockReduceInputs params;
-  int *out, *refOut;
-  cudaStream_t stream;
+  rmm::device_uvector<int> out, refOut;
+  cudaStream_t stream = 0;
 };
 
 typedef BatchedBlockReduceTest<8> BBTest8;
@@ -111,13 +107,17 @@ typedef BatchedBlockReduceTest<16> BBTest16;
 typedef BatchedBlockReduceTest<32> BBTest32;
 
 const std::vector<BatchedBlockReduceInputs> inputs = {
-  {32}, {64}, {128}, {256}, {512},
+  {32},
+  {64},
+  {128},
+  {256},
+  {512},
 };
 
-TEST_P(BBTest8, Result) {
-  ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>()));
+TEST_P(BBTest8, Result)
+{
+  ASSERT_TRUE(devArrMatch(refOut.data(), out.data(), 8, raft::Compare<int>()));
 }
-INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon

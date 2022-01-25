@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <limits>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 #include <stats/minmax.cuh>
-#include "test_utils.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Stats {
@@ -37,13 +37,14 @@ struct MinMaxInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const MinMaxInputs<T>& dims) {
+::std::ostream& operator<<(::std::ostream& os, const MinMaxInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
-__global__ void naiveMinMaxInitKernel(int ncols, T* globalmin, T* globalmax,
-                                      T init_val) {
+__global__ void naiveMinMaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= ncols) return;
   globalmin[tid] = init_val;
@@ -51,8 +52,8 @@ __global__ void naiveMinMaxInitKernel(int ncols, T* globalmin, T* globalmax,
 }
 
 template <typename T>
-__global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols,
-                                  T* globalmin, T* globalmax) {
+__global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols, T* globalmin, T* globalmax)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int col = tid / nrows;
   if (col < ncols) {
@@ -65,22 +66,22 @@ __global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols,
 }
 
 template <typename T>
-void naiveMinMax(const T* data, int nrows, int ncols, T* globalmin,
-                 T* globalmax, cudaStream_t stream) {
+void naiveMinMax(
+  const T* data, int nrows, int ncols, T* globalmin, T* globalmax, cudaStream_t stream)
+{
   const int TPB = 128;
-  int nblks = raft::ceildiv(ncols, TPB);
-  T init_val = std::numeric_limits<T>::max();
-  naiveMinMaxInitKernel<<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax,
-                                                   init_val);
-  CUDA_CHECK(cudaGetLastError());
+  int nblks     = raft::ceildiv(ncols, TPB);
+  T init_val    = std::numeric_limits<T>::max();
+  naiveMinMaxInitKernel<<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
+  RAFT_CUDA_TRY(cudaGetLastError());
   nblks = raft::ceildiv(nrows * ncols, TPB);
-  naiveMinMaxKernel<<<nblks, TPB, 0, stream>>>(data, nrows, ncols, globalmin,
-                                               globalmax);
-  CUDA_CHECK(cudaGetLastError());
+  naiveMinMaxKernel<<<nblks, TPB, 0, stream>>>(data, nrows, ncols, globalmin, globalmax);
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 template <typename T>
-__global__ void nanKernel(T* data, const bool* mask, int len, T nan) {
+__global__ void nanKernel(T* data, const bool* mask, int len, T nan)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;
   if (!mask[tid]) data[tid] = nan;
@@ -89,76 +90,107 @@ __global__ void nanKernel(T* data, const bool* mask, int len, T nan) {
 template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
-  void SetUp() override {
+  MinMaxTest() : minmax_act(0, stream), minmax_ref(0, stream) {}
+
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.rows * params.cols;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(mask, len);
-    raft::allocate(minmax_act, 2 * params.cols);
-    raft::allocate(minmax_ref, 2 * params.cols);
-    r.normal(data, len, (T)0.0, (T)1.0, stream);
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+
+    rmm::device_uvector<T> data(len, stream);
+    rmm::device_uvector<bool> mask(len, stream);
+    minmax_act.resize(2 * params.cols, stream);
+    minmax_ref.resize(2 * params.cols, stream);
+
+    r.normal(data.data(), len, (T)0.0, (T)1.0, stream);
     T nan_prob = 0.01;
-    r.bernoulli(mask, len, nan_prob, stream);
+    r.bernoulli(mask.data(), len, nan_prob, stream);
     const int TPB = 256;
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
-      data, mask, len, std::numeric_limits<T>::quiet_NaN());
-    CUDA_CHECK(cudaPeekAtLastError());
-    naiveMinMax(data, params.rows, params.cols, minmax_ref,
-                minmax_ref + params.cols, stream);
-    minmax<T, 512>(data, nullptr, nullptr, params.rows, params.cols,
-                   params.rows, minmax_act, minmax_act + params.cols, nullptr,
+      data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    naiveMinMax(data.data(),
+                params.rows,
+                params.cols,
+                minmax_ref.data(),
+                minmax_ref.data() + params.cols,
+                stream);
+    minmax<T, 512>(data.data(),
+                   nullptr,
+                   nullptr,
+                   params.rows,
+                   params.cols,
+                   params.rows,
+                   minmax_act.data(),
+                   minmax_act.data() + params.cols,
+                   nullptr,
                    stream);
-  }
-
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mask));
-    CUDA_CHECK(cudaFree(minmax_act));
-    CUDA_CHECK(cudaFree(minmax_ref));
   }
 
  protected:
   MinMaxInputs<T> params;
-  T *data, *minmax_act, *minmax_ref;
-  bool* mask;
-  cudaStream_t stream;
+  rmm::device_uvector<T> minmax_act;
+  rmm::device_uvector<T> minmax_ref;
+  cudaStream_t stream = 0;
 };
 
-const std::vector<MinMaxInputs<float>> inputsf = {
-  {0.00001f, 1024, 32, 1234ULL},  {0.00001f, 1024, 64, 1234ULL},
-  {0.00001f, 1024, 128, 1234ULL}, {0.00001f, 1024, 256, 1234ULL},
-  {0.00001f, 1024, 512, 1234ULL}, {0.00001f, 1024, 1024, 1234ULL},
-  {0.00001f, 4096, 32, 1234ULL},  {0.00001f, 4096, 64, 1234ULL},
-  {0.00001f, 4096, 128, 1234ULL}, {0.00001f, 4096, 256, 1234ULL},
-  {0.00001f, 4096, 512, 1234ULL}, {0.00001f, 4096, 1024, 1234ULL},
-  {0.00001f, 8192, 32, 1234ULL},  {0.00001f, 8192, 64, 1234ULL},
-  {0.00001f, 8192, 128, 1234ULL}, {0.00001f, 8192, 256, 1234ULL},
-  {0.00001f, 8192, 512, 1234ULL}, {0.00001f, 8192, 1024, 1234ULL},
-  {0.00001f, 1024, 8192, 1234ULL}};
+const std::vector<MinMaxInputs<float>> inputsf = {{0.00001f, 1024, 32, 1234ULL},
+                                                  {0.00001f, 1024, 64, 1234ULL},
+                                                  {0.00001f, 1024, 128, 1234ULL},
+                                                  {0.00001f, 1024, 256, 1234ULL},
+                                                  {0.00001f, 1024, 512, 1234ULL},
+                                                  {0.00001f, 1024, 1024, 1234ULL},
+                                                  {0.00001f, 4096, 32, 1234ULL},
+                                                  {0.00001f, 4096, 64, 1234ULL},
+                                                  {0.00001f, 4096, 128, 1234ULL},
+                                                  {0.00001f, 4096, 256, 1234ULL},
+                                                  {0.00001f, 4096, 512, 1234ULL},
+                                                  {0.00001f, 4096, 1024, 1234ULL},
+                                                  {0.00001f, 8192, 32, 1234ULL},
+                                                  {0.00001f, 8192, 64, 1234ULL},
+                                                  {0.00001f, 8192, 128, 1234ULL},
+                                                  {0.00001f, 8192, 256, 1234ULL},
+                                                  {0.00001f, 8192, 512, 1234ULL},
+                                                  {0.00001f, 8192, 1024, 1234ULL},
+                                                  {0.00001f, 1024, 8192, 1234ULL}};
 
-const std::vector<MinMaxInputs<double>> inputsd = {
-  {0.0000001, 1024, 32, 1234ULL},  {0.0000001, 1024, 64, 1234ULL},
-  {0.0000001, 1024, 128, 1234ULL}, {0.0000001, 1024, 256, 1234ULL},
-  {0.0000001, 1024, 512, 1234ULL}, {0.0000001, 1024, 1024, 1234ULL},
-  {0.0000001, 4096, 32, 1234ULL},  {0.0000001, 4096, 64, 1234ULL},
-  {0.0000001, 4096, 128, 1234ULL}, {0.0000001, 4096, 256, 1234ULL},
-  {0.0000001, 4096, 512, 1234ULL}, {0.0000001, 4096, 1024, 1234ULL},
-  {0.0000001, 8192, 32, 1234ULL},  {0.0000001, 8192, 64, 1234ULL},
-  {0.0000001, 8192, 128, 1234ULL}, {0.0000001, 8192, 256, 1234ULL},
-  {0.0000001, 8192, 512, 1234ULL}, {0.0000001, 8192, 1024, 1234ULL},
-  {0.0000001, 1024, 8192, 1234ULL}};
+const std::vector<MinMaxInputs<double>> inputsd = {{0.0000001, 1024, 32, 1234ULL},
+                                                   {0.0000001, 1024, 64, 1234ULL},
+                                                   {0.0000001, 1024, 128, 1234ULL},
+                                                   {0.0000001, 1024, 256, 1234ULL},
+                                                   {0.0000001, 1024, 512, 1234ULL},
+                                                   {0.0000001, 1024, 1024, 1234ULL},
+                                                   {0.0000001, 4096, 32, 1234ULL},
+                                                   {0.0000001, 4096, 64, 1234ULL},
+                                                   {0.0000001, 4096, 128, 1234ULL},
+                                                   {0.0000001, 4096, 256, 1234ULL},
+                                                   {0.0000001, 4096, 512, 1234ULL},
+                                                   {0.0000001, 4096, 1024, 1234ULL},
+                                                   {0.0000001, 8192, 32, 1234ULL},
+                                                   {0.0000001, 8192, 64, 1234ULL},
+                                                   {0.0000001, 8192, 128, 1234ULL},
+                                                   {0.0000001, 8192, 256, 1234ULL},
+                                                   {0.0000001, 8192, 512, 1234ULL},
+                                                   {0.0000001, 8192, 1024, 1234ULL},
+                                                   {0.0000001, 1024, 8192, 1234ULL}};
 
 typedef MinMaxTest<float> MinMaxTestF;
-TEST_P(MinMaxTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
+TEST_P(MinMaxTestF, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref.data(),
+                                minmax_act.data(),
+                                2 * params.cols,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef MinMaxTest<double> MinMaxTestD;
-TEST_P(MinMaxTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
+TEST_P(MinMaxTestD, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref.data(),
+                                minmax_act.data(),
+                                2 * params.cols,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
 

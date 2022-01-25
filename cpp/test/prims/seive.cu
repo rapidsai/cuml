@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <common/seive.cuh>
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 
-TEST(Seive, Test) {
+TEST(Seive, Test)
+{
   Seive s1(32);
   ASSERT_TRUE(s1.isPrime(17));
   ASSERT_FALSE(s1.isPrime(28));

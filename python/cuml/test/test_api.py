@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,19 @@
 
 import pytest
 import cuml
-from cuml.test.utils import ClassEnumerator
-import numpy as np
+import cuml.common.mixins as cumix
 import cupy as cp
+import inspect
+import numpy as np
 
+from cuml.common.base import Base
+from cuml.test.utils import ClassEnumerator
 from sklearn.datasets import make_classification
 
+
+###############################################################################
+#                        Helper functions and classes                         #
+###############################################################################
 
 def func_positional_arg(func):
 
@@ -57,46 +64,101 @@ tags = {
     'X_types_gpu': list,
 
     # Scikit-learn API standard tags
-    'non_deterministic': bool,
-    'requires_positive_X': bool,
-    'requires_positive_y': bool,
-    'X_types': list,
-    'poor_score': bool,
-    'no_validation': bool,
-    'multioutput': bool,
     'allow_nan': bool,
-    'stateless': bool,
-    'multilabel': bool,
-    '_skip_test': bool,
-    '_xfail_checks': bool,
-    'multioutput_only': bool,
     'binary_only': bool,
+    'multilabel': bool,
+    'multioutput': bool,
+    'multioutput_only': bool,
+    'no_validation': bool,
+    'non_deterministic': bool,
+    'pairwise': bool,
+    'poor_score': bool,
+    'preserves_dtype': list,
     'requires_fit': bool,
     'requires_y': bool,
-    'pairwise': bool,
+    'requires_positive_X': bool,
+    'requires_positive_y': bool,
+    'stateless': bool,
+    'X_types': list,
+    '_skip_test': bool,
+    '_xfail_checks': bool,
 }
 
+tags_mixins = {
+    cumix.FMajorInputTagMixin: {'preferred_input_order': 'F'},
+    cumix.CMajorInputTagMixin: {'preferred_input_order': 'C'},
+    cumix.SparseInputTagMixin: {
+        'X_types_gpu': ['2darray', 'sparse'],
+        'X_types': ['2darray', 'sparse']
+    },
+    cumix.StringInputTagMixin: {
+        'X_types_gpu': ['2darray', 'string'],
+        'X_types': ['2darray', 'string']
+    },
+    cumix.AllowNaNTagMixin: {'allow_nan': True},
+    cumix.StatelessTagMixin: {'stateless': True}
+}
+
+
+class dummy_regressor_estimator(Base,
+                                cumix.RegressorMixin):
+    def __init__(self, *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle)
+
+
+class dummy_classifier_estimator(Base,
+                                 cumix.ClassifierMixin):
+    def __init__(self, *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle)
+
+
+class dummy_cluster_estimator(Base,
+                              cumix.ClusterMixin):
+    def __init__(self, *,
+                 handle=None,
+                 verbose=False,
+                 output_type=None):
+        super().__init__(handle=handle)
+
+
+class dummy_class_with_tags(cumix.TagsMixin,
+                            cumix.FMajorInputTagMixin,
+                            cumix.CMajorInputTagMixin):
+    @staticmethod
+    def _more_static_tags():
+        return {
+            'X_types': ['categorical']
+        }
+
+    def _more_tags(self):
+        return {
+            'X_types': ['string']
+        }
+
+
+###############################################################################
+#                               Tags Tests                                    #
+###############################################################################
 
 @pytest.mark.parametrize("model", list(models.values()))
 def test_get_tags(model):
     # This test ensures that our estimators return the tags defined by
     # Scikit-learn and our cuML specific tags
-    # mod = models[model_name]
-    # assert hasattr('_get_tags', m)
 
-    # for tag in tags:
-    #     assert
+    assert hasattr(model, '_get_tags')
 
-    print(model)
-    if model in (cuml.tsa.auto_arima.AutoARIMA, cuml.tsa.arima.ARIMA,
-                 cuml.tsa.holtwinters.ExponentialSmoothing):
-        mod = model(cp.ones(10))
-    else:
-        mod = model()
+    model_tags = model._get_tags()
 
-    assert hasattr(mod, '_get_tags')
-
-    model_tags = mod._get_tags()
+    if (hasattr(model, "_more_static_tags")):
+        import inspect
+        assert(isinstance(inspect.getattr_static(model, "_more_static_tags"),
+                          staticmethod))
     for tag, tag_type in tags.items():
         # preferred input order can be None or a string
         if tag == 'preferred_input_order':
@@ -108,7 +170,58 @@ def test_get_tags(model):
     return True
 
 
+def test_dynamic_tags_and_composition():
+    static_tags = dummy_class_with_tags._get_tags()
+    dynamic_tags = dummy_class_with_tags()._get_tags()
+    print(dummy_class_with_tags.__mro__)
+
+    # In python, the MRO is so that the uppermost inheritted class
+    # being closest to the final class, so in our dummy_class_with_tags
+    # the F Major input mixin should the C mixin
+    assert static_tags['preferred_input_order'] == 'F'
+    assert dynamic_tags['preferred_input_order'] == 'F'
+
+    # Testing dynamic tags actually take precedence over static ones on the
+    # instantiated object
+    assert static_tags['X_types'] == ['categorical']
+    assert dynamic_tags['X_types'] == ['string']
+
+
+@pytest.mark.parametrize("mixin", tags_mixins.keys())
+def test_tag_mixins(mixin):
+    for tag, value in tags_mixins[mixin].items():
+        assert mixin._more_static_tags()[tag] == value
+
+
+@pytest.mark.parametrize("model", [dummy_cluster_estimator,
+                                   dummy_regressor_estimator,
+                                   dummy_classifier_estimator])
+def test_estimator_type_mixins(model):
+    assert hasattr(model, "_estimator_type")
+    if model._estimator_type in ["regressor", "classifier"]:
+        assert model._get_tags()['requires_y']
+    else:
+        assert not model._get_tags()['requires_y']
+
+
+@pytest.mark.parametrize("model", list(models.values()))
+def test_mro(model):
+    found_base = False
+    for cl in reversed(inspect.getmro(model.__class__)):
+        if cl == Base:
+            if found_base:
+                pytest.fail("Found Base class twice in the MRO")
+            else:
+                found_base = True
+
+
+###############################################################################
+#                            Fit Function Tests                               #
+###############################################################################
+
 @pytest.mark.parametrize("model_name", list(models.keys()))
+# ignore random forest float64 warnings
+@pytest.mark.filterwarnings("ignore:To use pickling or GPU-based")
 def test_fit_function(dataset, model_name):
     # This test ensures that our estimators return self after a call to fit
     if model_name in [
@@ -127,6 +240,8 @@ def test_fit_function(dataset, model_name):
         model = models[model_name](n_components=2)
     elif model_name in ["ARIMA", "AutoARIMA", "ExponentialSmoothing"]:
         model = models[model_name](np.random.normal(0.0, 1.0, (10,)))
+    elif model_name in ["RandomForestClassifier", "RandomForestRegressor"]:
+        model = models[model_name](n_bins=32)
     else:
         if n_pos_args_constr == 1:
             model = models[model_name]()

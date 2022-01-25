@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,10 @@ import os
 import subprocess
 import argparse
 import tempfile
+import shutil
 
 
-EXPECTED_VERSION = "8.0.1"
+EXPECTED_VERSION = "11.1.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
 #       to the cuml repo
@@ -64,7 +65,7 @@ def parse_args():
         args.dstdir = tempfile.mkdtemp()
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
-    version = VERSION_REGEX.match(ret)
+    version = VERSION_REGEX.search(ret)
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)
@@ -129,6 +130,12 @@ def main():
         sys.exit(-1)
     all_files = list_all_src_files(args.regex_compiled, args.ignore_compiled,
                                    args.dirs, args.dstdir, args.inplace)
+
+    # Check whether clang-format exists
+    if shutil.which("clang-format") is None:
+        print("clang-format not found. Exiting...")
+        return
+
     # actual format checker
     status = True
     for src, dst in all_files:

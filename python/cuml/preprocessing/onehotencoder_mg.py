@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 from cuml.preprocessing.encoders import OneHotEncoder
 import dask
 import cupy as cp
-from cudf.core import DataFrame
+from cudf import DataFrame
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
@@ -29,7 +29,7 @@ class OneHotEncoderMG(OneHotEncoder):
     in `cuml.dask.preprocessing.encoders`.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         super().__init__(**kwargs)
         self.client = client
 

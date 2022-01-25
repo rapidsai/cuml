@@ -1,5 +1,5 @@
 /*
- * Copyright (c)2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,10 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
 
-#include <common/device_buffer.hpp>
-
-#include <cuml/common/cuml_allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace Selection {
@@ -41,11 +39,11 @@ namespace Selection {
 template <typename math_t>
 class MetricProcessor {
  public:
-  virtual void preprocess(math_t *data) {}
+  virtual void preprocess(math_t* data) {}
 
-  virtual void revert(math_t *data) {}
+  virtual void revert(math_t* data) {}
 
-  virtual void postprocess(math_t *data) {}
+  virtual void postprocess(math_t* data) {}
 
   virtual ~MetricProcessor() = default;
 };
@@ -58,43 +56,60 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
   size_t n_rows_;
   size_t n_cols_;
   cudaStream_t stream_;
-  std::shared_ptr<deviceAllocator> device_allocator_;
-  device_buffer<math_t> colsums_;
+  rmm::device_uvector<math_t> colsums_;
 
  public:
-  CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major,
-                        cudaStream_t stream,
-                        std::shared_ptr<deviceAllocator> allocator)
-    : device_allocator_(allocator),
-      stream_(stream),
-      colsums_(allocator, stream, n_rows),
+  CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major, cudaStream_t stream)
+    : stream_(stream),
+      colsums_(n_rows, stream),
       n_cols_(n_cols),
       n_rows_(n_rows),
       row_major_(row_major),
-      k_(k) {}
+      k_(k)
+  {
+  }
 
-  void preprocess(math_t *data) {
-    raft::linalg::rowNorm(colsums_.data(), data, n_cols_, n_rows_,
-                          raft::linalg::NormType::L2Norm, row_major_, stream_,
+  void preprocess(math_t* data)
+  {
+    raft::linalg::rowNorm(colsums_.data(),
+                          data,
+                          n_cols_,
+                          n_rows_,
+                          raft::linalg::NormType::L2Norm,
+                          row_major_,
+                          stream_,
                           [] __device__(math_t in) { return sqrtf(in); });
 
     raft::linalg::matrixVectorOp(
-      data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false,
+      data,
+      data,
+      colsums_.data(),
+      n_cols_,
+      n_rows_,
+      row_major_,
+      false,
       [] __device__(math_t mat_in, math_t vec_in) { return mat_in / vec_in; },
       stream_);
   }
 
-  void revert(math_t *data) {
+  void revert(math_t* data)
+  {
     raft::linalg::matrixVectorOp(
-      data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false,
+      data,
+      data,
+      colsums_.data(),
+      n_cols_,
+      n_rows_,
+      row_major_,
+      false,
       [] __device__(math_t mat_in, math_t vec_in) { return mat_in * vec_in; },
       stream_);
   }
 
-  void postprocess(math_t *data) {
+  void postprocess(math_t* data)
+  {
     raft::linalg::unaryOp(
-      data, data, k_ * n_rows_, [] __device__(math_t in) { return 1 - in; },
-      stream_);
+      data, data, k_ * n_rows_, [] __device__(math_t in) { return 1 - in; }, stream_);
   }
 
   ~CosineMetricProcessor() = default;
@@ -105,79 +120,97 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   using cosine = CosineMetricProcessor<math_t>;
 
  public:
-  CorrelationMetricProcessor(size_t n_rows, size_t n_cols, int k,
-                             bool row_major, cudaStream_t stream,
-                             std::shared_ptr<deviceAllocator> allocator)
-    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream,
-                                    allocator),
-      means_(allocator, stream, n_rows) {}
+  CorrelationMetricProcessor(
+    size_t n_rows, size_t n_cols, int k, bool row_major, cudaStream_t stream)
+    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream), means_(n_rows, stream)
+  {
+  }
 
-  void preprocess(math_t *data) {
+  void preprocess(math_t* data)
+  {
     math_t normalizer_const = 1.0 / (math_t)cosine::n_cols_;
 
-    raft::linalg::reduce(means_.data(), data, cosine::n_cols_, cosine::n_rows_,
-                         (math_t)0.0, cosine::row_major_, true,
+    raft::linalg::reduce(means_.data(),
+                         data,
+                         cosine::n_cols_,
+                         cosine::n_rows_,
+                         (math_t)0.0,
+                         cosine::row_major_,
+                         true,
                          cosine::stream_);
 
     raft::linalg::unaryOp(
-      means_.data(), means_.data(), cosine::n_rows_,
+      means_.data(),
+      means_.data(),
+      cosine::n_rows_,
       [=] __device__(math_t in) { return in * normalizer_const; },
       cosine::stream_);
 
-    raft::stats::meanCenter(data, data, means_.data(), cosine::n_cols_,
-                            cosine::n_rows_, cosine::row_major_, false,
+    raft::stats::meanCenter(data,
+                            data,
+                            means_.data(),
+                            cosine::n_cols_,
+                            cosine::n_rows_,
+                            cosine::row_major_,
+                            false,
                             cosine::stream_);
 
     CosineMetricProcessor<math_t>::preprocess(data);
   }
 
-  void revert(math_t *data) {
+  void revert(math_t* data)
+  {
     CosineMetricProcessor<math_t>::revert(data);
 
-    raft::stats::meanAdd(data, data, means_.data(), cosine::n_cols_,
-                         cosine::n_rows_, cosine::row_major_, false,
+    raft::stats::meanAdd(data,
+                         data,
+                         means_.data(),
+                         cosine::n_cols_,
+                         cosine::n_rows_,
+                         cosine::row_major_,
+                         false,
                          cosine::stream_);
   }
 
-  void postprocess(math_t *data) {
-    CosineMetricProcessor<math_t>::postprocess(data);
-  }
+  void postprocess(math_t* data) { CosineMetricProcessor<math_t>::postprocess(data); }
 
   ~CorrelationMetricProcessor() = default;
 
-  device_buffer<math_t> means_;
+  rmm::device_uvector<math_t> means_;
 };
 
 template <typename math_t>
 class DefaultMetricProcessor : public MetricProcessor<math_t> {
  public:
-  void preprocess(math_t *data) {}
+  void preprocess(math_t* data) {}
 
-  void revert(math_t *data) {}
+  void revert(math_t* data) {}
 
-  void postprocess(math_t *data) {}
+  void postprocess(math_t* data) {}
 
   ~DefaultMetricProcessor() = default;
 };
 
 template <typename math_t>
 inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
-  ML::MetricType metric, int n, int D, int k, bool rowMajorQuery,
-  cudaStream_t userStream, std::shared_ptr<deviceAllocator> allocator) {
-  MetricProcessor<math_t> *mp = nullptr;
+  raft::distance::DistanceType metric,
+  int n,
+  int D,
+  int k,
+  bool rowMajorQuery,
+  cudaStream_t userStream)
+{
+  MetricProcessor<math_t>* mp = nullptr;
 
   switch (metric) {
-    case ML::MetricType::METRIC_Cosine:
-      mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream,
-                                             allocator);
+    case raft::distance::DistanceType::CosineExpanded:
+      mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream);
       break;
 
-    case ML::MetricType::METRIC_Correlation:
-      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery,
-                                                  userStream, allocator);
+    case raft::distance::DistanceType::CorrelationExpanded:
+      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream);
       break;
-    default:
-      mp = new DefaultMetricProcessor<math_t>();
+    default: mp = new DefaultMetricProcessor<math_t>();
   }
 
   return std::unique_ptr<MetricProcessor<math_t>>(mp);

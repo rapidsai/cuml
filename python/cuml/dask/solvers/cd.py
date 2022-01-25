@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 
 class CD(BaseEstimator,
@@ -27,12 +27,12 @@ class CD(BaseEstimator,
     Model-Parallel Multi-GPU Linear Regression Model.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         """
         Initializes the linear regression class.
 
         """
-        super(CD, self).__init__(client=client, **kwargs)
+        super().__init__(client=client, **kwargs)
         self._model_fit = False
         self._consec_call = 0
 
@@ -78,5 +78,5 @@ class CD(BaseEstimator,
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.solvers.cd_mg import CDMG
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return CDMG(handle=handle, output_type=datatype, **kwargs)

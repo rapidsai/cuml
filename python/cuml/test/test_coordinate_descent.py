@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
+@pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
 def test_lasso(datatype, X_type, alpha, algorithm,
                nrows, column_info):
     ncols, n_info = column_info
@@ -103,6 +104,7 @@ def test_lasso_default(datatype, nrows, column_info):
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
+@pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
 def test_elastic_net(datatype, X_type, alpha, algorithm,
                      nrows, column_info):
     ncols, n_info = column_info
@@ -189,3 +191,25 @@ def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
     clf = cuLasso()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('algo', [cuElasticNet, cuLasso])
+def test_set_params(algo):
+    x = np.linspace(0, 1, 50)
+    y = 2 * x
+
+    model = algo(alpha=0.01)
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    model = algo(selection="random", alpha=0.1)
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = algo(alpha=0.01)
+    model.set_params(**{'selection': "random", 'alpha': 0.1})
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert coef_before != coef_after
+    assert coef_after == coef_test

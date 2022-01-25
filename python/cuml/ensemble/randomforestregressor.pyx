@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 import numpy as np
+import nvtx
 import rmm
 import warnings
 
@@ -26,7 +27,7 @@ from cuml import ForestInference
 from cuml.common.array import CumlArray
 import cuml.internals
 
-from cuml.common.base import RegressorMixin
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
@@ -42,7 +43,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
@@ -104,27 +105,23 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           int) except +
 
 
-class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
+class RandomForestRegressor(BaseRandomForestModel,
+                            RegressorMixin):
 
     """
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.
 
-    .. note:: that the underlying algorithm for tree node splits differs from
-        that used in scikit-learn. By default, the cuML Random Forest uses a
-        histogram-based algorithm to determine splits, rather than an exact
-        count. You can tune the size of the histograms with the n_bins
-        parameter.
+    .. note:: Note that the underlying algorithm for tree node splits differs
+      from that used in scikit-learn. By default, the cuML Random Forest uses a
+      quantile-based algorithm to determine splits, rather than an exact
+      count. You can tune the size of the quantiles with the `n_bins` parameter
 
-    **Known Limitations**: This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
 
-     * GPU-based inference is only supported if the model was trained
-       with 32-bit (float32) datatypes. CPU-based inference may be used
-       in this case as a slower fallback.
-     * Very deep / very wide models may exhaust available GPU memory.
-       Future versions of cuML will provide an alternative algorithm to
-       reduce memory consumption.
 
     Examples
     --------
@@ -132,13 +129,11 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     .. code-block:: python
 
         import numpy as np
-        from cuml.test.utils import get_handle
-        from cuml.ensemble import RandomForestRegressor as curfc
-        from cuml.test.utils import get_handle
+        from cuml.ensemble import RandomForestRegressor as curfr
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfc(max_features=1.0, n_bins=8,
-                            split_algo=0, min_samples_leaf=1,
+        cuml_model = curfr(max_features=1.0, n_bins=128,
+                            min_samples_leaf=1,
                             min_samples_split=2,
                             n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
@@ -147,7 +142,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
     Output:
 
-    .. code-block:: python
+    .. code-block:: none
 
         MSE score of cuml :  0.1123437201231765
 
@@ -155,89 +150,75 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    split_algo : int (default = 1)
-        The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
-    split_criterion : int (default = 2)
-        The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY,
-        2 for MSE, or 3 for MAE
-        0 and 1 not valid for regression
+    split_criterion : int or string (default = ``2`` (``'mse'``))
+        The criterion used to split nodes.\n
+         * ``0`` or ``'gini'`` for gini impurity
+         * ``1`` or ``'entropy'`` for information gain (entropy)
+         * ``2`` or ``'mse'`` for mean squared error
+         * ``4`` or ``'poisson'`` for poisson half deviance
+         * ``5`` or ``'gamma'`` for gamma half deviance
+         * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+        ``0``, ``'gini'``, ``1`` and ``'entropy'`` not valid for regression.
     bootstrap : boolean (default = True)
-        Control bootstrapping.
-        If True, each tree in the forest is built
-        on a bootstrapped sample with replacement.
-        If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
+        Control bootstrapping.\n
+            * If ``True``, eachtree in the forest is built
+              on a bootstrapped sample with replacement.
+            * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported with split_algo=1.
-        *Note that this default differs from scikit-learn's
-        random forest, which defaults to unlimited depth.*
+        If ``-1``.\n
+        .. note:: This default differs from scikit-learn's
+          random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
-        if -1.
+        If ``-1``.
     max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider
-        per node split.
-        If int then max_features/n_features.
-        If float then max_features is used as a fraction.
-        If 'auto' then max_features=1.0.
-        If 'sqrt' then max_features=1/sqrt(n_features).
-        If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+        per node split.\n
+         * If type ``int`` then ``max_features`` is the absolute count of
+           features to be used.
+         * If type ``float`` then ``max_features`` is used as a fraction.
+         * If ``'auto'`` then ``max_features=1.0``.
+         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
+        For large problems, particularly those with highly-skewed input data,
+        increasing the number of bins may improve accuracy.
+    n_streams : int (default = 4 )
+        Number of parallel streams used for forest building
     min_samples_leaf : int or float (default = 1)
-        The minimum number of samples (rows) in each leaf node.
-        If int, then min_samples_leaf represents the minimum number.
-        If float, then min_samples_leaf represents a fraction and
-        ceil(min_samples_leaf * n_rows) is the minimum number of samples
-        for each leaf node.
+        The minimum number of samples (rows) in each leaf node.\n
+         * If type ``int``, then ``min_samples_leaf`` represents the minimum
+           number.\n
+         * If ``float``, then ``min_samples_leaf`` represents a fraction and
+           ``ceil(min_samples_leaf * n_rows)`` is the minimum number of
+           samples for each leaf node.
     min_samples_split : int or float (default = 2)
-        The minimum number of samples required to split an internal node.
-        If int, then min_samples_split represents the minimum number.
-        If float, then min_samples_split represents a fraction and
-        ceil(min_samples_split * n_rows) is the minimum number of samples
-        for each split.
+        The minimum number of samples required to split an internal
+        node.\n
+         * If type ``int``, then min_samples_split represents the minimum
+           number.
+         * If type ``float``, then ``min_samples_split`` represents a fraction
+           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
+           samples for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
         In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.
-        for r-squared : 'r2'
-        for median of abs error : 'median_ae'
-        for mean of abs error : 'mean_ae'
-        for mean square error' : 'mse'
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individal trees in RF.
-        Only relevant for GLOBAL_QUANTILE split_algo.
-    use_experimental_backend : boolean (default = False)
-        If set to true and  following conditions are also met, experimental
-         decision tree training implementation would be used:
-            split_algo = 1 (GLOBAL_QUANTILE)
-            max_features = 1.0 (Feature sub-sampling disabled)
-            quantile_per_tree = false (No per tree quantile computation)
-    max_batch_size: int (default = 128)
-        Maximum number of nodes that can be processed in a given batch. This is
-        used only when 'use_experimental_backend' is true.
+        from mean squared error to r-squared.\n
+         * for r-squared : ``'r2'``
+         * for median of abs error : ``'median_ae'``
+         * for mean of abs error : ``'mean_ae'``
+         * for mean square error' : ``'mse'``
+    max_batch_size : int (default = 4096)
+        Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
-    seed : int (default = None)
-        Seed for the random number generator. Unseeded by default. Does not
-        currently fully guarantee the exact same results.
-
-        .. deprecated:: 0.16
-           Parameter `seed` is deprecated and will be removed in 0.17. Please
-           use `random_state` instead
-
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -251,19 +232,33 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    Notes
+    -----
+    **Known Limitations**\n
+    This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+      * GPU-based inference is only supported with 32-bit (float32) datatypes.
+        Alternatives are to use CPU-based inference for 64-bit (float64)
+        datatypes, or let the default automatic datatype conversion occur
+        during GPU inference.
+
+    For additional docs, see `scikitlearn's RandomForestRegressor
+    <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
-    def __init__(self, split_criterion=2,
+    def __init__(self, *,
+                 split_criterion=2,
                  accuracy_metric='r2',
                  handle=None,
                  verbose=False,
                  output_type=None,
                  **kwargs):
         self.RF_type = REGRESSION
-        super(RandomForestRegressor, self).__init__(
+        super().__init__(
             split_criterion=split_criterion,
             accuracy_metric=accuracy_metric,
             handle=handle,
@@ -378,24 +373,26 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
 
         fil_sparse_format : boolean or string (default = 'auto')
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -412,6 +409,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
+    @nvtx.annotate(
+        message="fit RF-Regressor @randomforestregressor.pyx",
+        domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
     def fit(self, X, y, convert_dtype=True):
@@ -419,6 +419,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Perform Random Forest Regression on the input data
 
         """
+
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
 
@@ -441,24 +442,20 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         else:
             seed_val = <uintptr_t>self.random_state
 
-        rf_params = set_rf_class_obj(<int> self.max_depth,
-                                     <int> self.max_leaves,
-                                     <float> max_feature_val,
-                                     <int> self.n_bins,
-                                     <int> self.split_algo,
-                                     <int> self.min_samples_leaf,
-                                     <int> self.min_samples_split,
-                                     <float> self.min_impurity_decrease,
-                                     <bool> self.bootstrap_features,
-                                     <bool> self.bootstrap,
-                                     <int> self.n_estimators,
-                                     <float> self.max_samples,
-                                     <int> seed_val,
-                                     <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree,
-                                     <int> self.n_streams,
-                                     <bool> self.use_experimental_backend,
-                                     <int> self.max_batch_size)
+        rf_params = set_rf_params(<int> self.max_depth,
+                                  <int> self.max_leaves,
+                                  <float> max_feature_val,
+                                  <int> self.n_bins,
+                                  <int> self.min_samples_leaf,
+                                  <int> self.min_samples_split,
+                                  <float> self.min_impurity_decrease,
+                                  <bool> self.bootstrap,
+                                  <int> self.n_estimators,
+                                  <float> self.max_samples,
+                                  <uint64_t> seed_val,
+                                  <CRITERION> self.split_criterion,
+                                  <int> self.n_streams,
+                                  <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -534,6 +531,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(X_m)
         return preds
 
+    @nvtx.annotate(
+        message="predict RF-Regressor @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
@@ -552,14 +552,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -568,11 +570,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         ----------
@@ -581,15 +584,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
-
         elif self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
         else:
             preds = self._predict_model_on_gpu(
                 X=X,
@@ -599,6 +603,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
 
         return preds
 
+    @nvtx.annotate(
+        message="score RF-Regressor @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
     def score(self, X, y, algo='auto', convert_dtype=True,
@@ -615,14 +622,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
@@ -633,11 +642,12 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         ----------
@@ -712,9 +722,9 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         del(preds_m)
         return stats
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Prints the summary of the forest used to train and test the model
+        Obtain the text summary of the random forest model
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -723,14 +733,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_summary(rf_forest64)
+            return get_rf_summary_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_summary(rf_forest)
+            return get_rf_summary_text(rf_forest).decode('utf-8')
 
-    def print_detailed(self):
+    def get_detailed_text(self):
         """
-        Prints the detailed information about the forest used to
-        train and test the Random Forest model
+        Obtain the detailed information for the random forest model, as text
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -739,13 +748,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_detailed(rf_forest64)
+            return get_rf_detailed_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_detailed(rf_forest)
+            return get_rf_detailed_text(rf_forest).decode('utf-8')
 
-    def dump_as_json(self):
+    def get_json(self):
         """
-        Dump (export) the Random Forest model as a JSON string
+        Export the Random Forest model as a JSON string
         """
         cdef RandomForestMetaData[float, float] *rf_forest = \
             <RandomForestMetaData[float, float]*><uintptr_t> self.rf_forest
@@ -754,11 +763,5 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             <RandomForestMetaData[double, double]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64).decode('utf-8')
-        return dump_rf_as_json(rf_forest).decode('utf-8')
-
-    def _more_tags(self):
-        return {
-            # fit and predict require conflicting memory layouts
-            'preferred_input_order': None
-        }
+            return get_rf_json(rf_forest64).decode('utf-8')
+        return get_rf_json(rf_forest).decode('utf-8')

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-/**@file smoblocksolve.h  contains implementation of the blocke SMO solver
-*/
+/**@file smoblocksolve.cuh  contains implementation of the blocke SMO solver
+ */
 #pragma once
 
+#include "smo_sets.cuh"
 #include <cuml/svm/svm_parameter.h>
-#include <stdlib.h>
 #include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>
-#include "smo_sets.cuh"
+#include <stdlib.h>
 
 namespace ML {
 namespace SVM {
@@ -143,11 +143,21 @@ namespace SVM {
  * @param [in] kColIdx column index map for the kernel tile, size [n_ws]
  */
 template <typename math_t, int WSIZE>
-__global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
-  math_t *y_array, int n_train, math_t *alpha, int n_ws, math_t *delta_alpha,
-  math_t *f_array, const math_t *kernel, const int *ws_idx, const math_t *C_vec,
-  math_t eps, math_t *return_buff, int max_iter = 10000,
-  SvmType svmType = C_SVC, const int *kColIdx = nullptr) {
+__global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
+                                                       int n_train,
+                                                       math_t* alpha,
+                                                       int n_ws,
+                                                       math_t* delta_alpha,
+                                                       math_t* f_array,
+                                                       const math_t* kernel,
+                                                       const int* ws_idx,
+                                                       const math_t* C_vec,
+                                                       math_t eps,
+                                                       math_t* return_buff,
+                                                       int max_iter       = 10000,
+                                                       SvmType svmType    = C_SVC,
+                                                       const int* kColIdx = nullptr)
+{
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
   typedef cub::BlockReduce<Pair, WSIZE> BlockReduce;
   typedef cub::BlockReduce<math_t, WSIZE> BlockReduceFloat;
@@ -170,33 +180,32 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t tmp_u, tmp_l;
   __shared__ math_t Kd[WSIZE];  // diagonal elements of the kernel matrix
   __shared__ int k_col_idx_map[WSIZE];
-  __shared__ int k_col_idx_u, k_col_idx_l;
+  __shared__ int64_t k_col_idx_u, k_col_idx_l;
 
-  int tid = threadIdx.x;
-  int idx = ws_idx[tid];
-  int n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
+  int tid        = threadIdx.x;
+  int idx        = ws_idx[tid];
+  int64_t n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
 
   // Consult KernelCache::GetTile for the layout of the kernel matrix
   // kernel matrix row and colums indices for workspace vector ws_idx[tid]
   // k_row_idx \in [0..n_rows-1]
-  int k_row_idx =
-    (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
+  int64_t k_row_idx = (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
   // k_col_idx \in [0..n_unique-1]
-  int k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
+  int64_t k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
 
   k_col_idx_map[tid] = k_col_idx;
 
   // store values in registers
-  math_t y = y_array[idx];
-  math_t f = f_array[idx];
-  math_t a = alpha[idx];
+  math_t y      = y_array[idx];
+  math_t f      = f_array[idx];
+  math_t a      = alpha[idx];
   math_t a_save = a;
-  math_t C = C_vec[idx];
+  math_t C      = C_vec[idx];
 
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid] = kernel[k_row_idx + k_col_idx * n_rows];
+  Kd[tid]    = kernel[k_row_idx + k_col_idx * n_rows];
   int n_iter = 0;
 
   for (; n_iter < max_iter; n_iter++) {
@@ -205,41 +214,38 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     Pair pair{f_tmp, tid};
     Pair res = BlockReduce(temp_storage.pair).Reduce(pair, cub::Min(), n_ws);
     if (tid == 0) {
-      f_u = res.val;
-      u = res.key;
+      f_u         = res.val;
+      u           = res.key;
       k_col_idx_u = k_col_idx_map[u];
     }
     // select f_max to check stopping condition
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
                       // and also the k_col_idx_u shared value
-    math_t Kui = kernel[k_col_idx_u * n_rows + k_row_idx];
-    math_t f_max =
-      BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
+    math_t Kui   = kernel[k_col_idx_u * n_rows + k_row_idx];
+    math_t f_max = BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
     if (tid == 0) {
       // f_max-f_u is used to check stopping condition.
       diff = f_max - f_u;
       if (n_iter == 0) {
         return_buff[0] = diff;
-        diff_end = max(eps, 0.1f * diff);
+        diff_end       = max(eps, 0.1f * diff);
       }
     }
     __syncthreads();
-    if (diff < diff_end) {
-      break;
-    }
+    if (diff < diff_end) { break; }
 
     if (f_u < f && in_lower(a, y, C)) {
       math_t eta_ui = max(Kd[tid] + Kd[u] - 2 * Kui, ETA_EPS);
-      f_tmp = (f_u - f) * (f_u - f) / eta_ui;
+      f_tmp         = (f_u - f) * (f_u - f) / eta_ui;
     } else {
       f_tmp = -INFINITY;
     }
     pair = Pair{f_tmp, tid};
-    res = BlockReduce(temp_storage.pair).Reduce(pair, cub::Max(), n_ws);
+    res  = BlockReduce(temp_storage.pair).Reduce(pair, cub::Max(), n_ws);
     if (tid == 0) {
-      l = res.key;
+      l           = res.key;
       k_col_idx_l = k_col_idx_map[l];
     }
     __syncthreads();
@@ -288,9 +294,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
     // for SVR we can have two vectors with the same kernel value, we sum up
     // their change in delta_alpha
     __syncthreads();
-    if (idx >= n_rows) {
-      delta_alpha[k_col_idx] += (a - a_save) * y;
-    }
+    if (idx >= n_rows) { delta_alpha[k_col_idx] += (a - a_save) * y; }
   }
   // f is recalculated in f_update, therefore we do not need to save that
   return_buff[1] = n_iter;

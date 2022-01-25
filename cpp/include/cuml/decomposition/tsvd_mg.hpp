@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,8 @@
 
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
-#include "tsvd.hpp"
 
-#include <common/cumlHandle.hpp>
+#include "tsvd.hpp"
 
 namespace ML {
 namespace TSVD {
@@ -37,14 +36,22 @@ namespace opg {
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void fit(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-         size_t n_parts, MLCommon::Matrix::floatData_t **input,
-         float *components, float *singular_vals, paramsTSVD prms,
+void fit(raft::handle_t& handle,
+         MLCommon::Matrix::RankSizePair** rank_sizes,
+         std::uint32_t n_parts,
+         MLCommon::Matrix::floatData_t** input,
+         float* components,
+         float* singular_vals,
+         paramsTSVD prms,
          bool verbose = false);
 
-void fit(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-         size_t n_parts, MLCommon::Matrix::doubleData_t **input,
-         double *components, double *singular_vals, paramsTSVD prms,
+void fit(raft::handle_t& handle,
+         MLCommon::Matrix::RankSizePair** rank_sizes,
+         std::uint32_t n_parts,
+         MLCommon::Matrix::doubleData_t** input,
+         double* components,
+         double* singular_vals,
+         paramsTSVD prms,
          bool verbose = false);
 
 /**
@@ -61,23 +68,29 @@ void fit(raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void fit_transform(raft::handle_t &handle,
-                   std::vector<MLCommon::Matrix::Data<float> *> &input_data,
-                   MLCommon::Matrix::PartDescriptor &input_desc,
-                   std::vector<MLCommon::Matrix::Data<float> *> &trans_data,
-                   MLCommon::Matrix::PartDescriptor &trans_desc,
-                   float *components, float *explained_var,
-                   float *explained_var_ratio, float *singular_vals,
-                   paramsTSVD prms, bool verbose);
+void fit_transform(raft::handle_t& handle,
+                   std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+                   MLCommon::Matrix::PartDescriptor& input_desc,
+                   std::vector<MLCommon::Matrix::Data<float>*>& trans_data,
+                   MLCommon::Matrix::PartDescriptor& trans_desc,
+                   float* components,
+                   float* explained_var,
+                   float* explained_var_ratio,
+                   float* singular_vals,
+                   paramsTSVD prms,
+                   bool verbose);
 
-void fit_transform(raft::handle_t &handle,
-                   std::vector<MLCommon::Matrix::Data<double> *> &input_data,
-                   MLCommon::Matrix::PartDescriptor &input_desc,
-                   std::vector<MLCommon::Matrix::Data<double> *> &trans_data,
-                   MLCommon::Matrix::PartDescriptor &trans_desc,
-                   double *components, double *explained_var,
-                   double *explained_var_ratio, double *singular_vals,
-                   paramsTSVD prms, bool verbose);
+void fit_transform(raft::handle_t& handle,
+                   std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+                   MLCommon::Matrix::PartDescriptor& input_desc,
+                   std::vector<MLCommon::Matrix::Data<double>*>& trans_data,
+                   MLCommon::Matrix::PartDescriptor& trans_desc,
+                   double* components,
+                   double* explained_var,
+                   double* explained_var_ratio,
+                   double* singular_vals,
+                   paramsTSVD prms,
+                   bool verbose);
 
 /**
  * @brief performs MNMG transform operation for the tsvd.
@@ -90,16 +103,22 @@ void fit_transform(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void transform(raft::handle_t &handle,
-               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-               MLCommon::Matrix::Data<float> **input, float *components,
-               MLCommon::Matrix::Data<float> **trans_input, paramsTSVD prms,
+void transform(raft::handle_t& handle,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
+               std::uint32_t n_parts,
+               MLCommon::Matrix::Data<float>** input,
+               float* components,
+               MLCommon::Matrix::Data<float>** trans_input,
+               paramsTSVD prms,
                bool verbose);
 
-void transform(raft::handle_t &handle,
-               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-               MLCommon::Matrix::Data<double> **input, double *components,
-               MLCommon::Matrix::Data<double> **trans_input, paramsTSVD prms,
+void transform(raft::handle_t& handle,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
+               std::uint32_t n_parts,
+               MLCommon::Matrix::Data<double>** input,
+               double* components,
+               MLCommon::Matrix::Data<double>** trans_input,
+               paramsTSVD prms,
                bool verbose);
 
 /**
@@ -113,19 +132,22 @@ void transform(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void inverse_transform(raft::handle_t &handle,
-                       MLCommon::Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts,
-                       MLCommon::Matrix::Data<float> **trans_input,
-                       float *components, MLCommon::Matrix::Data<float> **input,
-                       paramsTSVD prms, bool verbose);
+void inverse_transform(raft::handle_t& handle,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
+                       std::uint32_t n_parts,
+                       MLCommon::Matrix::Data<float>** trans_input,
+                       float* components,
+                       MLCommon::Matrix::Data<float>** input,
+                       paramsTSVD prms,
+                       bool verbose);
 
-void inverse_transform(raft::handle_t &handle,
-                       MLCommon::Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts,
-                       MLCommon::Matrix::Data<double> **trans_input,
-                       double *components,
-                       MLCommon::Matrix::Data<double> **input, paramsTSVD prms,
+void inverse_transform(raft::handle_t& handle,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
+                       std::uint32_t n_parts,
+                       MLCommon::Matrix::Data<double>** trans_input,
+                       double* components,
+                       MLCommon::Matrix::Data<double>** input,
+                       paramsTSVD prms,
                        bool verbose);
 
 };  // end namespace opg

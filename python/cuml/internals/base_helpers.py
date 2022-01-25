@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from inspect import Parameter, signature
 import typing
 
 import cuml
@@ -103,8 +104,7 @@ def _wrap_attribute(class_name: str,
                     **kwargs):
 
     # Skip items marked with autowrap_ignore
-    if ("__cuml_is_wrapped" in attribute.__dict__
-            and attribute.__dict__["__cuml_is_wrapped"]):
+    if (attribute.__dict__.get(cuml.internals.CUML_WRAPPED_FLAG, False)):
         return attribute
 
     return_type = _get_base_return_type(class_name, attribute)
@@ -125,14 +125,67 @@ def _wrap_attribute(class_name: str,
     return attribute
 
 
+def _check_and_wrap_init(attribute, **kwargs):
+
+    # Check if the decorator has already been added
+    if (attribute.__dict__.get(cuml.internals._deprecate_pos_args.FLAG_NAME)):
+        return attribute
+
+    # Get the signature to test if all args are keyword only
+    sig = signature(attribute)
+
+    incorrect_params = [
+        n for n,
+        p in sig.parameters.items()
+        if n != "self" and (p.kind == Parameter.POSITIONAL_ONLY
+                            or p.kind == Parameter.POSITIONAL_OR_KEYWORD)
+    ]
+
+    assert len(incorrect_params) == 0, \
+        (
+            "Error in `{}`!. Positional arguments for estimators (that derive "
+            "from `Base`) have been deprecated but parameters '{}' can still "
+            "be used as positional arguments. Please specify all parameters "
+            "after `self` as keyword only by using the `*` argument"
+        ).format(attribute.__qualname__, ", ".join(incorrect_params))
+
+    return cuml.internals._deprecate_pos_args(**kwargs)(attribute)
+
+
 class BaseMetaClass(type):
+    """
+    Metaclass for all estimators in cuML. This metaclass will get called for
+    estimators deriving from `cuml.common.Base` as well as
+    `cuml.dask.common.BaseEstimator`. It serves 2 primary functions:
+
+     1. Set the `@_deprecate_pos_args()` decorator on all `__init__` functions
+     2. Wrap any functions and properties in the API decorators
+        [`cuml.common.Base` only]
+
+    """
     def __new__(cls, classname, bases, classDict):
 
+        is_dask_module = classDict["__module__"].startswith("cuml.dask")
+
         for attributeName, attribute in classDict.items():
+
+            # If attributeName is `__init__`, wrap in the decorator to
+            # deprecate positional args
+            if (attributeName == "__init__"):
+                attribute = _check_and_wrap_init(attribute, version="21.06")
+                classDict[attributeName] = attribute
+
+            # For now, skip all additional processing if we are a dask
+            # estimator
+            if is_dask_module:
+                continue
+
             # Must be a function
             if callable(attribute):
+
                 classDict[attributeName] = _wrap_attribute(
                     classname, attributeName, attribute)
+
             elif isinstance(attribute, property):
                 # Need to wrap the getter if it exists
                 if (hasattr(attribute, "fget") and attribute.fget is not None):
@@ -143,3 +196,31 @@ class BaseMetaClass(type):
                                         input_arg=None))
 
         return type.__new__(cls, classname, bases, classDict)
+
+
+class _tags_class_and_instance:
+    """
+    Decorator for Base class to allow for dynamic and static _get_tags.
+    In general, most methods are either dynamic or static, so this decorator
+    is only meant to be used in the Base estimator _get_tags.
+    """
+
+    def __init__(self, _class, _instance=None):
+        self._class = _class
+        self._instance = _instance
+
+    def instance_method(self, _instance):
+        """
+        Factory to create a _tags_class_and_instance instance method with
+        the existing class associated.
+        """
+        return _tags_class_and_instance(self._class, _instance)
+
+    def __get__(self, _instance, _class):
+        # if the caller had no instance (i.e. it was a class) or there is no
+        # instance associated we the method we return the class call
+        if _instance is None or self._instance is None:
+            return self._class.__get__(_class, None)
+
+        # otherwise return instance call
+        return self._instance.__get__(_instance, _class)

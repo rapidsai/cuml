@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,16 @@
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
-class MBSGDClassifier(Base, ClassifierMixin):
+class MBSGDClassifier(Base,
+                      ClassifierMixin,
+                      FMajorInputTagMixin):
     """
     Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
@@ -60,7 +64,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
                                                  loss='squared_loss',
                                                  alpha=0.5)
         cu_mbsgd_classifier.fit(X, y)
-        cu_pred = cu_mbsgd_classifier.predict(pred_data).to_array()
+        cu_pred = cu_mbsgd_classifier.predict(pred_data).to_numpy()
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
         print(" cuML coef : ", cu_mbsgd_classifier.coef_)
         print("cuML predictions : ", cu_pred)
@@ -145,7 +149,7 @@ class MBSGDClassifier(Base, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
@@ -154,14 +158,14 @@ class MBSGDClassifier(Base, ClassifierMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """
 
-    def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
+    def __init__(self, *, loss='hinge', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbose=False, output_type=None):
-        super(MBSGDClassifier, self).__init__(handle=handle,
-                                              verbose=verbose,
-                                              output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -203,6 +207,11 @@ class MBSGDClassifier(Base, ClassifierMixin):
 
         return preds
 
+    def set_params(self, **params):
+        super().set_params(**params)
+        self.solver_model.set_params(**params)
+        return self
+
     def get_param_names(self):
         return super().get_param_names() + [
             "loss",
@@ -219,8 +228,3 @@ class MBSGDClassifier(Base, ClassifierMixin):
             "batch_size",
             "n_iter_no_change",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

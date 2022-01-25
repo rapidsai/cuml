@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,15 @@ from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
 
 from sklearn.datasets import make_multilabel_classification
+from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 
 import dask.array as da
+import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cudf.core.dataframe import DataFrame
+from cudf import DataFrame
 import numpy as np
+import cudf
 
 
 def generate_dask_array(np_array, n_parts):
@@ -123,7 +126,7 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     d_outputs = d_model.predict(X_test, convert_dtype=True)
     d_outputs = d_outputs.compute()
 
-    d_outputs = d_outputs.as_matrix() \
+    d_outputs = d_outputs.to_numpy() \
         if isinstance(d_outputs, DataFrame) \
         else d_outputs
 
@@ -161,9 +164,28 @@ def test_predict_proba(dataset, datatype, parameters, client):
     d_probas = da.compute(d_probas)[0]
 
     if datatype == 'dask_cudf':
-        d_probas = list(map(lambda o: o.as_matrix()
+        d_probas = list(map(lambda o: o.to_numpy()
                             if isinstance(o, DataFrame)
-                            else o.to_array()[..., np.newaxis],
+                            else o.to_numpy()[..., np.newaxis],
                             d_probas))
 
     check_probabilities(l_probas, d_probas)
+
+
+@pytest.mark.parametrize('input_type', ['array', 'dataframe'])
+def test_predict_1D_labels(input_type, client):
+    # Testing that nothing crashes with 1D labels
+
+    X, y = make_classification(n_samples=10000)
+    if input_type == 'array':
+        dX = da.from_array(X)
+        dy = da.from_array(y)
+    elif input_type == 'dataframe':
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+        dX = dd.from_pandas(X, npartitions=1)
+        dy = dd.from_pandas(y, npartitions=1)
+
+    clf = dKNNClf()
+    clf.fit(dX, dy)
+    clf.predict(dX)

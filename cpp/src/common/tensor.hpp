@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+
 #include <vector>
 
 namespace ML {
@@ -26,20 +27,24 @@ template <typename DataT, int Dim, typename IndexT = int>
 class Tensor {
  public:
   enum { NumDim = Dim };
-  typedef DataT *DataPtrT;
+  typedef DataT* DataPtrT;
 
-  __host__ ~Tensor() {
+  __host__ ~Tensor()
+  {
     if (_state == AllocState::Owner) {
+      if (memory_type(_data) == cudaMemoryTypeHost) { delete _data; }
+
       if (memory_type(_data) == cudaMemoryTypeDevice) {
-        _dAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
+        rmm_alloc->deallocate(_data, this->getSizeInBytes(), _stream);
       } else if (memory_type(_data) == cudaMemoryTypeHost) {
-        _hAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
+        delete _data;
       }
     }
   }
 
-  __host__ Tensor(DataPtrT data, const std::vector<IndexT> &sizes)
-    : _data(data), _state(AllocState::NotOwner) {
+  __host__ Tensor(DataPtrT data, const std::vector<IndexT>& sizes)
+    : _data(data), _state(AllocState::NotOwner)
+  {
     static_assert(Dim > 0, "must have > 0 dimensions");
 
     ASSERT(sizes.size() == Dim,
@@ -58,10 +63,9 @@ class Tensor {
 
   // allocate the data using the allocator and release when the object goes out of scope
   // allocating tensor is the owner of the data
-  __host__ Tensor(const std::vector<IndexT> &sizes,
-                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                  cudaStream_t stream)
-    : _stream(stream), _dAllocator(allocator), _state(AllocState::Owner) {
+  __host__ Tensor(const std::vector<IndexT>& sizes, cudaStream_t stream)
+    : _stream(stream), _state(AllocState::Owner)
+  {
     static_assert(Dim > 0, "must have > 0 dimensions");
 
     ASSERT(sizes.size() == Dim, "dimension mismatch");
@@ -75,17 +79,15 @@ class Tensor {
       _stride[j] = _stride[j + 1] * _size[j + 1];
     }
 
-    _data = static_cast<DataT *>(
-      _dAllocator->allocate(this->getSizeInBytes(), _stream));
+    rmm_alloc = rmm::mr::get_current_device_resource();
+    _data     = (DataT*)rmm_alloc->allocate(this->getSizeInBytes(), _stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(_stream));
-
-    ASSERT(this->data() || (this->getSizeInBytes() == 0),
-           "device allocation failed");
+    ASSERT(this->data() || (this->getSizeInBytes() == 0), "device allocation failed");
   }
 
   /// returns the total number of elements contained within our data
-  __host__ size_t numElements() const {
+  __host__ size_t numElements() const
+  {
     size_t num = (size_t)getSize(0);
 
     for (int i = 1; i < Dim; ++i) {
@@ -99,15 +101,13 @@ class Tensor {
   __host__ inline IndexT getSize(int i) const { return _size[i]; }
 
   /// returns the stride array
-  __host__ inline const IndexT *strides() const { return _stride; }
+  __host__ inline const IndexT* strides() const { return _stride; }
 
   /// returns the stride array.
   __host__ inline const IndexT getStride(int i) const { return _stride[i]; }
 
   /// returns the total size in bytes of our data
-  __host__ size_t getSizeInBytes() const {
-    return numElements() * sizeof(DataT);
-  }
+  __host__ size_t getSizeInBytes() const { return numElements() * sizeof(DataT); }
 
   /// returns a raw pointer to the start of our data
   __host__ inline DataPtrT data() { return _data; }
@@ -125,14 +125,14 @@ class Tensor {
   __host__ inline DataPtrT end() const { return data() + numElements(); }
 
   /// returns the size array.
-  __host__ inline const IndexT *sizes() const { return _size; }
+  __host__ inline const IndexT* sizes() const { return _size; }
 
   template <int NewDim>
-  __host__ Tensor<DataT, NewDim, IndexT> view(
-    const std::vector<IndexT> &sizes, const std::vector<IndexT> &start_pos) {
+  __host__ Tensor<DataT, NewDim, IndexT> view(const std::vector<IndexT>& sizes,
+                                              const std::vector<IndexT>& start_pos)
+  {
     ASSERT(sizes.size() == NewDim, "invalid view requested");
-    ASSERT(start_pos.size() == Dim,
-           "dimensionality of the position if incorrect");
+    ASSERT(start_pos.size() == Dim, "dimensionality of the position if incorrect");
 
     // calc offset at start_pos
     uint32_t offset = 0;
@@ -166,11 +166,8 @@ class Tensor {
   };
 
  protected:
-  std::shared_ptr<MLCommon::deviceAllocator> _dAllocator;
-  std::shared_ptr<MLCommon::hostAllocator> _hAllocator;
-
   /// Raw pointer to where the tensor data begins
-  DataPtrT _data;
+  DataPtrT _data{};
 
   /// Array of strides (in sizeof(T) terms) per each dimension
   IndexT _stride[Dim];
@@ -178,9 +175,11 @@ class Tensor {
   /// Size per each dimension
   IndexT _size[Dim];
 
-  AllocState _state;
+  AllocState _state{};
 
-  cudaStream_t _stream;
+  cudaStream_t _stream{};
+
+  rmm::mr::device_memory_resource* rmm_alloc;
 };
 
 };  // end namespace ML

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -32,26 +32,25 @@ struct Identity {
 
 template <typename T>
 struct MapThenReduce : public Fixture {
-  MapThenReduce(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+  MapThenReduce(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
     alloc(in, params.len, true);
     alloc(out, 1, true);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     dealloc(in, params.len);
     dealloc(out, 1);
   }
 
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     loopOnState(state, [this]() {
-      raft::linalg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
-                                     in);
+      raft::linalg::mapThenSumReduce(out, params.len, Identity<T>(), stream, in);
     });
   }
 
@@ -60,11 +59,18 @@ struct MapThenReduce : public Fixture {
   T *out, *in;
 };  // struct MapThenReduce
 
-static std::vector<Params> getInputs() {
+static std::vector<Params> getInputs()
+{
   return {
-    {1024 * 1024},     {32 * 1024 * 1024},     {1024 * 1024 * 1024},
-    {1024 * 1024 + 2}, {32 * 1024 * 1024 + 2}, {1024 * 1024 * 1024 + 2},
-    {1024 * 1024 + 1}, {32 * 1024 * 1024 + 1}, {1024 * 1024 * 1024 + 1},
+    {1024 * 1024},
+    {32 * 1024 * 1024},
+    {1024 * 1024 * 1024},
+    {1024 * 1024 + 2},
+    {32 * 1024 * 1024 + 2},
+    {1024 * 1024 * 1024 + 2},
+    {1024 * 1024 + 1},
+    {32 * 1024 * 1024 + 1},
+    {1024 * 1024 * 1024 + 1},
   };
 }
 

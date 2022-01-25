@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/kmeans_mg.hpp>
 #include "kmeans_mg_impl.cuh"
+#include <cuml/cluster/kmeans_mg.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -23,21 +23,35 @@ namespace opg {
 
 // ----------------------------- fit ---------------------------------//
 
-void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const float *X, int n_samples, int n_features, float *centroids,
-         float &inertia, int &n_iter) {
-  const raft::handle_t &h = handle;
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* X,
+         int n_samples,
+         int n_features,
+         const float* sample_weight,
+         float* centroids,
+         float& inertia,
+         int& n_iter)
+{
+  const raft::handle_t& h = handle;
 
   raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
+  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
 }
 
-void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const double *X, int n_samples, int n_features, double *centroids,
-         double &inertia, int &n_iter) {
-  const raft::handle_t &h = handle;
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* X,
+         int n_samples,
+         int n_features,
+         const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int& n_iter)
+{
+  const raft::handle_t& h = handle;
   raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, centroids, inertia, n_iter);
+  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
 }
 
 };  // end namespace opg

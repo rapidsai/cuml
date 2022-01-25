@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,31 +16,43 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
-#include <common/device_buffer.hpp>
+#include "penalty.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/sum.cuh>
-#include "penalty.cuh"
+#include <raft/stats/mean.hpp>
+#include <raft/stats/sum.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace Functions {
 
 template <typename math_t, typename idx_type = int>
-void hingeLossGradMult(math_t *data, const math_t *vec1, const math_t *vec2,
-                       idx_type n_row, idx_type n_col, cudaStream_t stream) {
+void hingeLossGradMult(math_t* data,
+                       const math_t* vec1,
+                       const math_t* vec2,
+                       idx_type n_row,
+                       idx_type n_col,
+                       cudaStream_t stream)
+{
   raft::linalg::matrixVectorOp(
-    data, data, vec1, vec2, n_col, n_row, false, false,
+    data,
+    data,
+    vec1,
+    vec2,
+    n_col,
+    n_row,
+    false,
+    false,
     [] __device__(math_t a, math_t b, math_t c) {
       if (c < math_t(1))
         return -a * b;
@@ -51,10 +63,13 @@ void hingeLossGradMult(math_t *data, const math_t *vec1, const math_t *vec2,
 }
 
 template <typename math_t, typename idx_type = int>
-void hingeLossSubtract(math_t *out, const math_t *in, math_t scalar,
-                       idx_type len, cudaStream_t stream) {
+void hingeLossSubtract(
+  math_t* out, const math_t* in, math_t scalar, idx_type len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
+    out,
+    in,
+    len,
     [scalar] __device__(math_t in) {
       if (in < scalar)
         return math_t(1) - in;
@@ -65,37 +80,55 @@ void hingeLossSubtract(math_t *out, const math_t *in, math_t scalar,
 }
 
 template <typename math_t, typename idx_type = int>
-void hingeH(const raft::handle_t &handle, const math_t *input, idx_type n_rows,
-            idx_type n_cols, const math_t *coef, math_t *pred, math_t intercept,
-            cudaStream_t stream) {
-  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, pred, n_rows, 1,
-                     CUBLAS_OP_N, CUBLAS_OP_N, stream);
+void hingeH(const raft::handle_t& handle,
+            const math_t* input,
+            idx_type n_rows,
+            idx_type n_cols,
+            const math_t* coef,
+            math_t* pred,
+            math_t intercept,
+            cudaStream_t stream)
+{
+  raft::linalg::gemm(
+    handle, input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
-  if (intercept != math_t(0))
-    raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
+  if (intercept != math_t(0)) raft::linalg::addScalar(pred, pred, intercept, n_rows, stream);
 
   sign(pred, pred, math_t(1.0), n_rows, stream);
 }
 
 template <typename math_t>
-void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
-                    int n_cols, const math_t *labels, const math_t *coef,
-                    math_t *grads, penalty pen, math_t alpha, math_t l1_ratio,
-                    cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+void hingeLossGrads(const raft::handle_t& handle,
+                    math_t* input,
+                    int n_rows,
+                    int n_cols,
+                    const math_t* labels,
+                    const math_t* coef,
+                    math_t* grads,
+                    penalty pen,
+                    math_t alpha,
+                    math_t l1_ratio,
+                    cudaStream_t stream)
+{
+  rmm::device_uvector<math_t> labels_pred(n_rows, stream);
 
-  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+  raft::linalg::gemm(handle,
+                     input,
+                     n_rows,
+                     n_cols,
+                     coef,
+                     labels_pred.data(),
+                     n_rows,
+                     1,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_N,
+                     stream);
 
-  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, labels_pred.data(),
-                     n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
-
-  raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
-                                n_rows, stream);
+  raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
   hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
   raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
-  raft::mr::device::buffer<math_t> pen_grads(allocator, stream, 0);
+  rmm::device_uvector<math_t> pen_grads(0, stream);
 
   if (pen != penalty::NONE) pen_grads.resize(n_cols, stream);
 
@@ -107,33 +140,43 @@ void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
     elasticnetGrad(pen_grads.data(), coef, n_cols, alpha, l1_ratio, stream);
   }
 
-  if (pen != penalty::NONE) {
-    raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream);
-  }
+  if (pen != penalty::NONE) { raft::linalg::add(grads, grads, pen_grads.data(), n_cols, stream); }
 }
 
 template <typename math_t>
-void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
-               int n_cols, const math_t *labels, const math_t *coef,
-               math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
-               cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
+void hingeLoss(const raft::handle_t& handle,
+               math_t* input,
+               int n_rows,
+               int n_cols,
+               const math_t* labels,
+               const math_t* coef,
+               math_t* loss,
+               penalty pen,
+               math_t alpha,
+               math_t l1_ratio,
+               cudaStream_t stream)
+{
+  rmm::device_uvector<math_t> labels_pred(n_rows, stream);
 
-  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+  raft::linalg::gemm(handle,
+                     input,
+                     n_rows,
+                     n_cols,
+                     coef,
+                     labels_pred.data(),
+                     n_rows,
+                     1,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_N,
+                     stream);
 
-  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, labels_pred.data(),
-                     n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
+  raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
 
-  raft::linalg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels,
-                                n_rows, stream);
-
-  hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows,
-                    stream);
+  hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows, stream);
 
   raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
-  raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
+  rmm::device_uvector<math_t> pen_val(0, stream);
 
   if (pen != penalty::NONE) pen_val.resize(1, stream);
 
@@ -145,9 +188,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
     elasticnet(pen_val.data(), coef, n_cols, alpha, l1_ratio, stream);
   }
 
-  if (pen != penalty::NONE) {
-    raft::linalg::add(loss, loss, pen_val.data(), 1, stream);
-  }
+  if (pen != penalty::NONE) { raft::linalg::add(loss, loss, pen_val.data(), 1, stream); }
 }
 
 };  // namespace Functions

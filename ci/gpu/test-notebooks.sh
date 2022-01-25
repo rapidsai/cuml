@@ -1,8 +1,9 @@
 #!/bin/bash
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 
-NOTEBOOKS_DIR=${WORKSPACE}/notebooks
-NBTEST=${WORKSPACE}/ci/utils/nbtest.sh
-LIBCUDF_KERNEL_CACHE_PATH=${WORKSPACE}/.jitcache
+NOTEBOOKS_DIR="$WORKSPACE/notebooks"
+NBTEST="$WORKSPACE/ci/utils/nbtest.sh"
+LIBCUDF_KERNEL_CACHE_PATH="$WORKSPACE/.jitcache"
 
 cd ${NOTEBOOKS_DIR}
 TOPLEVEL_NB_FOLDERS=$(find . -name *.ipynb |cut -d'/' -f2|sort -u)

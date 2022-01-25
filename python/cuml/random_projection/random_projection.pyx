@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,12 @@ from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
+
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
-    ctypedef void* _DevAlloc "std::shared_ptr<raft::mr::device::allocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -47,7 +49,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat(_DevAlloc, _Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(cuda_stream_view stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -162,10 +164,9 @@ cdef class BaseRandomProjection():
                  random_state=None):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef _DevAlloc alloc = <_DevAlloc>handle_.get_device_allocator()
-        cdef _Stream stream = handle_.get_stream()
-        self.rand_matS = new rand_mat[float](alloc, stream)
-        self.rand_matD = new rand_mat[double](alloc, stream)
+        cdef cuda_stream_view stream = handle_.get_stream()
+        self.rand_matS = new rand_mat[float](stream)
+        self.rand_matD = new rand_mat[double](stream)
 
         self.params.n_components = n_components if n_components != 'auto'\
             else -1
@@ -292,7 +293,8 @@ cdef class BaseRandomProjection():
 
         X_new = CumlArray.empty((n_samples, self.params.n_components),
                                 dtype=self.dtype,
-                                order='F')
+                                order='F',
+                                index=X_m.index)
 
         cdef uintptr_t output_ptr = X_new.ptr
 
@@ -324,7 +326,9 @@ cdef class BaseRandomProjection():
         return self.fit(X).transform(X, convert_dtype)
 
 
-class GaussianRandomProjection(Base, BaseRandomProjection):
+class GaussianRandomProjection(Base,
+                               BaseRandomProjection,
+                               FMajorInputTagMixin):
     """
     Gaussian Random Projection method derivated from BaseRandomProjection
     class.
@@ -404,7 +408,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -423,7 +427,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     """
 
-    def __init__(self, handle=None, n_components='auto', eps=0.1,
+    def __init__(self, *, handle=None, n_components='auto', eps=0.1,
                  random_state=None, verbose=False, output_type=None):
 
         Base.__init__(self,
@@ -448,7 +452,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
         ]
 
 
-class SparseRandomProjection(Base, BaseRandomProjection):
+class SparseRandomProjection(Base,
+                             BaseRandomProjection,
+                             FMajorInputTagMixin):
     """
     Sparse Random Projection method derivated from BaseRandomProjection class.
 
@@ -544,7 +550,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -563,7 +569,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     """
 
-    def __init__(self, handle=None, n_components='auto', density='auto',
+    def __init__(self, *, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
                  verbose=False, output_type=None):
 
@@ -589,8 +595,3 @@ class SparseRandomProjection(Base, BaseRandomProjection):
             "dense_output",
             "random_state"
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

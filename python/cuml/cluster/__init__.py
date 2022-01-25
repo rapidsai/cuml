@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,3 +16,6 @@
 
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
+from cuml.cluster.agglomerative import AgglomerativeClustering
+from cuml.cluster.hdbscan import HDBSCAN
+from cuml.cluster.hdbscan import condense_hierarchy
