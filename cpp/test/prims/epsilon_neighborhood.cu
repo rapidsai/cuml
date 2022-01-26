@@ -45,13 +45,13 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   void SetUp() override
   {
     param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     data.resize(param.n_row * param.n_col, stream);
     labels.resize(param.n_row, stream);
     batchSize = param.n_row / param.n_batches;
     adj.resize(param.n_row * batchSize, stream);
     vd.resize(batchSize + 1, stream);
-    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
     Random::make_blobs<T, IdxT>(data.data(),
                                 labels.data(),
                                 param.n_row,
@@ -65,7 +65,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
@@ -91,8 +91,8 @@ typedef EpsNeighTest<float, int> EpsNeighTestFI;
 TEST_P(EpsNeighTestFI, Result)
 {
   for (int i = 0; i < param.n_batches; ++i) {
-    CUDA_CHECK(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
-    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
     epsUnexpL2SqNeighborhood<float, int>(adj.data(),
                                          vd.data(),
                                          data.data(),

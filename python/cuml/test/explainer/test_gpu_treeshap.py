@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,16 +20,19 @@ import numpy as np
 import cupy as cp
 import cudf
 from cuml.experimental.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost, has_shap
+from cuml.common.import_utils import has_xgboost, has_shap, has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
-from sklearn.datasets import make_regression, make_classification
 
 if has_xgboost():
     import xgboost as xgb
 if has_shap():
     import shap
+if has_sklearn():
+    from sklearn.datasets import make_regression, make_classification
+    from sklearn.ensemble import RandomForestRegressor as sklrfr
+    from sklearn.ensemble import RandomForestClassifier as sklrfc
 
 
 @pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
@@ -37,6 +40,7 @@ if has_shap():
                                        'reg:pseudohubererror'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
@@ -57,11 +61,11 @@ def test_xgb_regressor(objective):
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
 
-    ref_explainer = shap.TreeExplainer(model=xgb_model)
+    ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X)
-    np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value)
+                                   ref_explainer.expected_value, decimal=5)
 
 
 @pytest.mark.parametrize('objective,n_classes',
@@ -80,6 +84,7 @@ def test_xgb_regressor(objective):
                               'multi:softmax', 'multi:softprob'])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
     n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
@@ -100,11 +105,11 @@ def test_xgb_classifier(objective, n_classes):
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
 
-    ref_explainer = shap.TreeExplainer(model=xgb_model)
+    ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X)
-    np.testing.assert_almost_equal(out, correct_out)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value)
+                                   ref_explainer.expected_value, decimal=5)
 
 
 def test_degenerate_cases():
@@ -132,6 +137,7 @@ def test_degenerate_cases():
 
 
 @pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_regressor(input_type):
     n_samples = 100
     X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
@@ -150,31 +156,105 @@ def test_cuml_rf_regressor(input_type):
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
-    # SHAP values should add up to predicted score
-    shap_sum = np.sum(out, axis=1) + explainer.expected_value
     if input_type == 'cupy':
         pred = pred.get()
-        shap_sum = shap_sum.get()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
     elif input_type == 'cudf':
         pred = pred.to_numpy()
-        shap_sum = shap_sum.get()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
+    else:
+        expected_value = explainer.expected_value
+    # SHAP values should add up to predicted score
+    shap_sum = np.sum(out, axis=1) + expected_value
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
+@pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
 @pytest.mark.parametrize('n_classes', [2, 5])
-def test_cuml_rf_classifier(n_classes):
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_cuml_rf_classifier(n_classes, input_type):
     n_samples = 100
     X, y = make_classification(n_samples=n_samples, n_features=8,
                                n_informative=8, n_redundant=0, n_repeated=0,
                                n_classes=n_classes, random_state=2021)
     X, y = X.astype(np.float32), y.astype(np.float32)
+    if input_type == 'cupy':
+        X, y = cp.array(X), cp.array(y)
+    elif input_type == 'cudf':
+        X, y = cudf.DataFrame(X), cudf.Series(y)
     cuml_model = curfc(max_features=1.0, max_samples=0.1, n_bins=128,
                        min_samples_leaf=2, random_state=123,
                        n_streams=1, n_estimators=10, max_leaves=-1,
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
+    pred = cuml_model.predict_proba(X)
 
-    with pytest.raises(RuntimeError):
-        # cuML RF classifier is not supported yet
-        explainer = TreeExplainer(model=cuml_model)
-        explainer.shap_values(X)
+    explainer = TreeExplainer(model=cuml_model)
+    out = explainer.shap_values(X)
+    if input_type == 'cupy':
+        pred = pred.get()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
+    elif input_type == 'cudf':
+        pred = pred.to_numpy()
+        out = out.get()
+        expected_value = explainer.expected_value.get()
+    else:
+        expected_value = explainer.expected_value
+    # SHAP values should add up to predicted score
+    expected_value = expected_value.reshape(-1, 1)
+    shap_sum = np.sum(out, axis=2) + np.tile(expected_value, (1, n_samples))
+    pred = np.transpose(pred, (1, 0))
+    np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
+
+
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_sklearn_rf_regressor():
+    n_samples = 100
+    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
+                           n_targets=1, random_state=2021)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    skl_model = sklrfr(max_features=1.0, max_samples=0.1,
+                       min_samples_leaf=2, random_state=123,
+                       n_estimators=10, max_depth=16)
+    skl_model.fit(X, y)
+
+    explainer = TreeExplainer(model=skl_model)
+    out = explainer.shap_values(X)
+
+    ref_explainer = shap.explainers.Tree(model=skl_model)
+    correct_out = ref_explainer.shap_values(X)
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   ref_explainer.expected_value, decimal=5)
+
+
+@pytest.mark.parametrize('n_classes', [2, 3, 5])
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
+@pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+def test_sklearn_rf_classifier(n_classes):
+    n_samples = 100
+    X, y = make_classification(n_samples=n_samples, n_features=8,
+                               n_informative=8, n_redundant=0, n_repeated=0,
+                               n_classes=n_classes, random_state=2021)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    skl_model = sklrfc(max_features=1.0, max_samples=0.1,
+                       min_samples_leaf=2, random_state=123,
+                       n_estimators=10, max_depth=16)
+    skl_model.fit(X, y)
+
+    explainer = TreeExplainer(model=skl_model)
+    out = explainer.shap_values(X)
+
+    ref_explainer = shap.explainers.Tree(model=skl_model)
+    correct_out = np.array(ref_explainer.shap_values(X))
+    expected_value = ref_explainer.expected_value
+    if n_classes == 2:
+        correct_out = correct_out[1, :, :]
+        expected_value = expected_value[1:]
+    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(explainer.expected_value,
+                                   expected_value, decimal=5)

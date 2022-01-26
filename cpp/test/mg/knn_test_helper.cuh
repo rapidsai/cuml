@@ -163,12 +163,12 @@ class KNNTestHelper {
       this->out_i_parts.push_back(out_i);
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void display_results()
   {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     std::cout << "Finished!" << std::endl;
 

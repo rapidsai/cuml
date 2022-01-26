@@ -208,7 +208,7 @@ void minmax(const T* data,
   int nblks  = raft::ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
   minmaxInitKernel<T, E><<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   nblks           = raft::ceildiv(nrows * ncols, TPB);
   nblks           = min(nblks, 65536);
   size_t smemSize = sizeof(T) * 2 * ncols;
@@ -232,9 +232,9 @@ void minmax(const T* data,
                                                        init_val,
                                                        batch_ncols,
                                                        num_batches);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   decodeKernel<T, E><<<nblks, TPB, 0, stream>>>(globalmin, globalmax, ncols);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace Stats
