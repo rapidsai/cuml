@@ -15,4 +15,4 @@
 #
 
 
-from cuml.kernel_ridge.kernel_ridge import KernelRidge, pairwise_kernels,PAIRWISE_KERNEL_FUNCTIONS 
+from cuml.kernel_ridge.kernel_ridge import KernelRidge

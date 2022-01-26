@@ -45,7 +45,7 @@ from cuml.fil import fil
 from cuml.internals.global_settings import (
     GlobalSettings, _global_settings_data)
 
-from cuml.kernel_ridge.kernel_ridge import KernelRidge, pairwise_kernels,PAIRWISE_KERNEL_FUNCTIONS 
+from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
