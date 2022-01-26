@@ -89,7 +89,7 @@ else
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
     shopt -s extglob
     cd ${CONDA_BLD_DIR}
-    cp -r !(libcuml) libcuml
+    cp -r !("libcuml") "libcuml"
     cd "$WORKSPACE"
   fi
 fi
