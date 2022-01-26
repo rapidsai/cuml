@@ -378,7 +378,8 @@ def test_xgb_classifier_with_categorical(n_classes):
     out = explainer.shap_values(X_test)
 
     dtest = xgb.DMatrix(X_test)
-    ref_out = xgb_model.predict(dtest, pred_contribs=True, validate_features=False)
+    ref_out = xgb_model.predict(dtest, pred_contribs=True,
+                                validate_features=False)
     if n_classes == 2:
         ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
     else:
