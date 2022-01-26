@@ -295,6 +295,10 @@ struct PathSegmentExtractor {
     tl::Operator comparison_op;
     CatBitField categories;
     if (split_type == tl::SplitFeatureType::kCategorical) {
+      /* Create bit fields to store the list of categories associated with this path.
+         The bit fields will be used to quickly decide whether a feature value should
+         flow down down this path or not.
+         The test in the test node is of form: x \in { list of category values } */
       auto n_bitfields =
         bitfield_segments[path_segment_idx + 1] - bitfield_segments[path_segment_idx];
       categories = CatBitField(Span<CatBitFieldStorageT>(cat_bitfields)
@@ -302,6 +306,9 @@ struct PathSegmentExtractor {
       for (CatT cat : tree.MatchingCategories(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
+      // If this path is not the path that's taken the categorical test evaluates to be true,
+      // then flip all the bits in the bit fields. This step is needed because we first built
+      // the bit fields according to the list given in the categorical test.
       bool use_right = tree.CategoriesListRightChild(parent_idx);
       if ((use_right && is_left_path) || (!use_right && !is_left_path)) {
         for (std::size_t i = bitfield_segments[path_segment_idx];

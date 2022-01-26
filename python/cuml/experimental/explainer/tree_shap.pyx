@@ -34,10 +34,8 @@ if has_sklearn():
     from sklearn.ensemble import RandomForestRegressor as sklrfr
     from sklearn.ensemble import RandomForestClassifier as sklrfc
 else:
-    class PlaceHolder:
-        pass
-    sklrfr = PlaceHolder
-    sklrfc = PlaceHolder
+    sklrfr = object
+    sklrfc = object
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
