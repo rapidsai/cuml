@@ -16,15 +16,12 @@ import cupy as cp
 from cupy import linalg
 import numpy as np
 from numba import cuda
-from cuml import (
-    KernelRidge as cuKernelRidge,
-    pairwise_kernels,
-    PAIRWISE_KERNEL_FUNCTIONS,
-)
+from cuml import KernelRidge as cuKernelRidge
+from cuml.metrics import pairwise_kernels, PAIRWISE_KERNEL_FUNCTIONS
+from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
 import pytest
 import math
 import inspect
-from sklearn.metrics import pairwise, mean_squared_error as mse
 from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
 from hypothesis import note, given, settings, assume, strategies as st
 from hypothesis.extra.numpy import arrays
@@ -64,7 +61,8 @@ def test_pairwise_kernels_basic():
     ):
         pairwise_kernels(X, metric="chi2", wrong_parameter_name=1.0)
     # standard kernel with filtered kwd argument
-    pairwise_kernels(X, metric="chi2", filter_params=True, wrong_parameter_name=1.0)
+    pairwise_kernels(X, metric="chi2", filter_params=True,
+                     wrong_parameter_name=1.0)
 
     # incorrect function type
     def non_numba_kernel(x, y):
@@ -115,14 +113,16 @@ def custom_kernel(x, y, custom_arg=5.0):
     return math.exp(-custom_arg * sum) + 0.1
 
 
-test_kernels = sorted(pairwise.PAIRWISE_KERNEL_FUNCTIONS.keys()) + [custom_kernel]
+test_kernels = sorted(
+    PAIRWISE_KERNEL_FUNCTIONS.keys()) + [custom_kernel]
 
 
 @st.composite
 def kernel_arg_strategy(draw):
     kernel = draw(st.sampled_from(test_kernels))
     kernel_func = (
-        PAIRWISE_KERNEL_FUNCTIONS[kernel] if isinstance(kernel, str) else kernel
+        PAIRWISE_KERNEL_FUNCTIONS[kernel] if isinstance(
+            kernel, str) else kernel
     )
     # Inspect the function and generate some arguments
     all_func_kwargs = list(inspect.signature(kernel_func.py_func).parameters.values())[
@@ -146,11 +146,13 @@ def array_strategy(draw):
     X_m = draw(st.integers(1, 20))
     X_n = draw(st.integers(1, 10))
     dtype = draw(st.sampled_from([np.float64, np.float32]))
-    X = draw(arrays(dtype=dtype, shape=(X_m, X_n), elements=st.floats(0, 5, width=32),))
+    X = draw(arrays(dtype=dtype, shape=(X_m, X_n),
+             elements=st.floats(0, 5, width=32),))
     if draw(st.booleans()):
         Y_m = draw(st.integers(1, 20))
         Y = draw(
-            arrays(dtype=dtype, shape=(Y_m, X_n), elements=st.floats(0, 5, width=32),)
+            arrays(dtype=dtype, shape=(Y_m, X_n),
+                   elements=st.floats(0, 5, width=32),)
         )
     else:
         Y = None
@@ -164,7 +166,7 @@ def test_pairwise_kernels(kernel_arg, XY):
     kernel, args = kernel_arg
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
-    K_sklearn = pairwise.pairwise_kernels(X, Y, metric=skl_kernel, **args)
+    K_sklearn = skl_pairwise_kernels(X, Y, metric=skl_kernel, **args)
     assert np.allclose(K, K_sklearn, rtol=0.01)
 
 
@@ -178,12 +180,14 @@ def X_y_alpha_strategy(draw):
 
     n_targets = draw(st.integers(1, 3))
     a = draw(
-        arrays(dtype=dtype, shape=(X_n, n_targets), elements=st.floats(0, 5, width=32),)
+        arrays(dtype=dtype, shape=(X_n, n_targets),
+               elements=st.floats(0, 5, width=32),)
     )
     y = X.dot(a)
 
     alpha = draw(
-        arrays(dtype=dtype, shape=(n_targets), elements=st.floats(0, 5, width=32))
+        arrays(dtype=dtype, shape=(n_targets),
+               elements=st.floats(0, 5, width=32))
     )
 
     sample_weight = draw(
@@ -191,7 +195,8 @@ def X_y_alpha_strategy(draw):
             [
                 st.just(None),
                 st.floats(0.1, 1.5),
-                arrays(dtype=np.float64, shape=X_m, elements=st.floats(0.1, 5)),
+                arrays(dtype=np.float64, shape=X_m,
+                       elements=st.floats(0.1, 5)),
             ]
         )
     )
@@ -255,11 +260,10 @@ def test_precomputed():
     y = rs.normal(size=10)
     K = pairwise_kernels(X)
     precomputed_model = cuKernelRidge(kernel="precomputed")
-    precomputed_model.fit(K.get(), y)
+    precomputed_model.fit(K, y)
     model = cuKernelRidge()
     model.fit(X, y)
     assert np.array_equal(precomputed_model.dual_coef_, model.dual_coef_)
     assert np.allclose(
         precomputed_model.predict(K), model.predict(X), atol=1e-5, rtol=1e-5
     )
-

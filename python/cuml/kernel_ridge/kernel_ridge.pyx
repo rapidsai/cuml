@@ -30,7 +30,6 @@ from cuml.common import input_to_cuml_array
 from cuml.metrics import pairwise_kernels
 
 
-
 # cholesky solve with fallback to least squares for singular problems
 def _safe_solve(K, y):
     try:
@@ -94,9 +93,86 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         return dual_coefs.T
 
 
-
-
 class KernelRidge(Base, RegressorMixin):
+    """Kernel ridge regression.
+    Kernel ridge regression (KRR) performs l2 regularised ridge regression using the kernel trick. The kernel trick allows the estimator to learn a linear function in the space induced by the kernel. This may be a non-linear function in the original feature space (when a non-linear kernel is used).
+    This estimator supports multi-output regression (when y is 2 dimensional). 
+    See the sklearn user guide for more information.
+
+    Parameters
+    ----------
+    alpha : float or array-like of shape (n_targets,), default=1.0
+        Regularization strength; must be a positive float. Regularization
+        improves the conditioning of the problem and reduces the variance of
+        the estimates. Larger values specify stronger regularization.
+        If an array is passed, penalties are assumed to be specific to the targets. Hence they must correspond in
+        number.
+    kernel : str or callable, default="linear"
+        Kernel mapping used internally. This parameter is directly passed to
+        :class:`~cuml.metrics.pairwise_kernel`.
+        If `kernel` is a string, it must be one of the metrics
+        in `cuml.metrics.PAIRWISE_KERNEL_FUNCTIONS` or "precomputed".
+        If `kernel` is "precomputed", X is assumed to be a kernel matrix.
+        `kernel` may be a callable numba device function. If so, is called on
+        each pair of instances (rows) and the resulting value recorded. The
+        callable should take two rows from X as input and return the
+        corresponding kernel value as a single number. 
+    gamma : float, default=None
+        Gamma parameter for the RBF, laplacian, polynomial, exponential chi2
+        and sigmoid kernels. Interpretation of the default value is left to
+        the kernel; see the documentation for sklearn.metrics.pairwise.
+        Ignored by other kernels.
+    degree : float, default=3
+        Degree of the polynomial kernel. Ignored by other kernels.
+    coef0 : float, default=1
+        Zero coefficient for polynomial and sigmoid kernels.
+        Ignored by other kernels.
+    kernel_params : mapping of str to any, default=None
+        Additional parameters (keyword arguments) for kernel function passed
+        as callable object.
+    Attributes
+    ----------
+    dual_coef_ : ndarray of shape (n_samples,) or (n_samples, n_targets)
+        Representation of weight vector(s) in kernel space
+    X_fit_ : ndarray of shape (n_samples, n_features)
+        Training data, which is also required for prediction. If
+        kernel == "precomputed" this is instead the precomputed
+        training matrix, of shape (n_samples, n_samples).
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cupy as cp
+        from cuml.kernel_ridge import KernelRidge
+        from numba import cuda
+        import math
+
+        n_samples, n_features = 10, 5
+        rng = cp.random.RandomState(0)
+        y = rng.randn(n_samples)
+        X = rng.randn(n_samples, n_features)
+
+        model = KernelRidge(kernel="poly").fit(X, y)
+        pred = model.predict(X)
+
+
+        @cuda.jit(device=True)
+        def custom_rbf_kernel(x, y, gamma=None):
+            if gamma is None:
+                gamma = 1.0 / len(x)
+            sum = 0.0
+            for i in range(len(x)):
+                sum += (x[i] - y[i]) ** 2
+            return math.exp(-gamma * sum)
+
+
+        model = KernelRidge(kernel=custom_rbf_kernel,
+                            kernel_params={"gamma": 2.0}).fit(X, y)
+        pred = model.predict(X)
+
+    """
     dual_coef_ = CumlArrayDescriptor()
 
     def __init__(
@@ -122,17 +198,14 @@ class KernelRidge(Base, RegressorMixin):
 
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
-            params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
+            params = {"gamma": self.gamma,
+                      "degree": self.degree, "coef0": self.coef0}
         else:
             params = self.kernel_params or {}
         return pairwise_kernels(X, metric=self.kernel, filter_params=True, **params)
 
     @generate_docstring()
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "KernelRidge":
-        """
-        Fit the model with X and y.
-
-        """
 
         ravel = False
         if len(y.shape) == 1:
@@ -168,7 +241,7 @@ class KernelRidge(Base, RegressorMixin):
         """Predict using the kernel ridge model.
             Parameters
             ----------
-            X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            X : array-like of shape (n_samples, n_features)
                 Samples. If kernel == "precomputed" this is instead a
                 precomputed kernel matrix, shape = [n_samples,
                 n_samples_fitted], where n_samples_fitted is the number of
@@ -177,9 +250,9 @@ class KernelRidge(Base, RegressorMixin):
             -------
             C : array of shape (n_samples,) or (n_samples, n_targets)
                 Returns predicted values.
-            """
-        X_m, _, _, _ = input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        """
+        X_m, _, _, _ = input_to_cuml_array(
+            X, check_dtype=[np.float32, np.float64])
 
         K = self._get_kernel(X_m, self.X_fit_)
         return cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_))
-
