@@ -396,6 +396,7 @@ def test_xgb_regressor_with_categorical():
 
 @pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 def test_lightgbm_regressor_with_categorical():
     n_samples = 100
     n_features = 8
@@ -425,6 +426,7 @@ def test_lightgbm_regressor_with_categorical():
 @pytest.mark.parametrize('n_classes', [2, 3])
 @pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
+@pytest.mark.skipif(not has_shap(), reason="need to install shap")
 def test_lightgbm_classifier_with_categorical(n_classes):
     n_samples = 100
     n_features = 8
