@@ -33,7 +33,7 @@ function(find_and_configure_raft)
             INSTALL_EXPORT_SET  cuml-exports
             CPM_ARGS
             GIT_REPOSITORY https://github.com/cjnolet/raft.git
-            GIT_TAG        imp_2202_comps_pass_trans_deps
+            GIT_TAG        imp-2202-hide_comms_impl
             SOURCE_SUBDIR  cpp
             FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
