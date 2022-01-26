@@ -160,7 +160,7 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   // Interpolate valid values
   fillna_interpolate_kernel<false><<<n_blocks, TPB, 0, stream>>>(
     data, batch_size * n_obs, indices_fwd.data(), indices_bwd.data());
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // namespace TimeSeries

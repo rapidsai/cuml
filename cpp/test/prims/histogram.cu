@@ -48,7 +48,7 @@ void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols, cudaStream_t
   int nblksx    = raft::ceildiv(nrows, TPB);
   dim3 blks(nblksx, ncols);
   naiveHistKernel<<<blks, TPB, 0, stream>>>(bins, nbins, in, nrows);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 struct HistInputs {
@@ -67,7 +67,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     int len = params.nrows * params.ncols;
     in.resize(len, stream);
     if (params.isNormal) {
@@ -77,15 +77,15 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     }
     bins.resize(params.nbins * params.ncols, stream);
     ref_bins.resize(params.nbins * params.ncols, stream);
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(ref_bins.data(), 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(
       params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   cudaStream_t stream = 0;

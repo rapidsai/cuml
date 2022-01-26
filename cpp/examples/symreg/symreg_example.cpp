@@ -245,7 +245,8 @@ int main(int argc, char* argv[])
     dw_test.data(), w_test.data(), sizeof(float) * n_test_rows, cudaMemcpyHostToDevice, stream));
 
   // Initialize AST
-  raft::allocate(d_finalprogs, params.population_size, stream);
+  auto curr_mr = rmm::mr::get_current_device_resource();
+  d_finalprogs = static_cast<cg::program_t>(curr_mr->allocate(params.population_size, stream));
 
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
@@ -337,7 +338,7 @@ int main(int argc, char* argv[])
 
   /* ======================= Reset data ======================= */
 
-  raft::deallocate(d_finalprogs, stream);
+  curr_mr->deallocate(d_finalprogs, params.population_size, stream);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   return 0;

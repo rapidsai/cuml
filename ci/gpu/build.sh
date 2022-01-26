@@ -32,7 +32,7 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
 
 ################################################################################
 # SETUP - Check environment
@@ -65,7 +65,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "shap>=0.37,<=0.39"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
-# gpuci_mamba_retry remove --force rapids-build-env rapids-notebook-env
+# gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_mamba_retry install -y "your-pkg=1.0.0"
 
 gpuci_logger "Install contextvars if needed"
@@ -125,8 +125,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -217,8 +217,8 @@ else
     
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
     set +x
     
     gpuci_logger "Python pytest for cuml"

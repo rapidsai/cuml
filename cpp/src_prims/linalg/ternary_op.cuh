@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ void ternaryOpImpl(math_t* out,
   const IdxType nblks = raft::ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
   ternaryOpKernel<math_t, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in1, in2, in3, len, op);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

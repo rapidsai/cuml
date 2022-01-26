@@ -126,7 +126,7 @@ void svcPredict(const raft::handle_t& handle,
   rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
   rmm::device_uvector<math_t> y(n_rows, stream);
   if (model.n_support == 0) {
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
   }
   rmm::device_uvector<math_t> x_rbf(0, stream);
   rmm::device_uvector<int> idx(0, stream);
@@ -176,19 +176,19 @@ void svcPredict(const raft::handle_t& handle,
                      n_batch);
     math_t one  = 1;
     math_t null = 0;
-    CUBLAS_CHECK(raft::linalg::cublasgemv(cublas_handle,
-                                          CUBLAS_OP_N,
-                                          n_batch,
-                                          model.n_support,
-                                          &one,
-                                          K.data(),
-                                          n_batch,
-                                          model.dual_coefs,
-                                          1,
-                                          &null,
-                                          y.data() + i,
-                                          1,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(cublas_handle,
+                                             CUBLAS_OP_N,
+                                             n_batch,
+                                             model.n_support,
+                                             &one,
+                                             K.data(),
+                                             n_batch,
+                                             model.dual_coefs,
+                                             1,
+                                             &null,
+                                             y.data() + i,
+                                             1,
+                                             stream));
   }
   math_t* labels = model.unique_labels;
   math_t b       = model.b;

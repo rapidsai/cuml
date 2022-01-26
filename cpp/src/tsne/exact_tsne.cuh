@@ -62,7 +62,7 @@ value_t Exact_TSNE(value_t* VAL,
   rmm::device_uvector<value_t> repel(n * dim, stream);
 
   rmm::device_uvector<value_t> velocity(n * dim, stream);
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemsetAsync(velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
   rmm::device_uvector<value_t> gains(n * dim, stream);

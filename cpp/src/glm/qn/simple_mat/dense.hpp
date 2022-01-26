@@ -222,7 +222,7 @@ struct SimpleDenseMat : SimpleMat<T> {
     ASSERT((ord == other.ord) && (this->m == other.m) && (this->n == other.n),
            "SimpleDenseMat::copy: matrices not compatible");
 
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemcpyAsync(data, other.data, len * sizeof(T), cudaMemcpyDeviceToDevice, stream));
   }
 

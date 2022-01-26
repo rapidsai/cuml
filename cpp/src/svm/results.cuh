@@ -86,7 +86,7 @@ class Results {
   {
     InitCubBuffers();
     MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   /**
@@ -143,7 +143,7 @@ class Results {
     math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
     raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     return x_support;
   }
 
@@ -346,7 +346,7 @@ class Results {
   int SelectByCoef(const math_t* coef, int n, const valType* val, select_op op, valType* out)
   {
     set_flag<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef, n, op);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(
       cub_storage.data(), cub_bytes, val, flag.data(), out, d_num_selected.data(), n, stream);
     int n_selected;
@@ -367,7 +367,7 @@ class Results {
                       void (*flag_op)(bool*, int, const math_t*, const math_t*, const math_t*))
   {
     flag_op<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(flag.data(), n_train, alpha, y, C);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(),
                                cub_bytes,
                                f,

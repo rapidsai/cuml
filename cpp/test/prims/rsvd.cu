@@ -106,9 +106,9 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     U.resize(m * params.k, stream);
     S.resize(params.k, stream);
     V.resize(n * params.k, stream);
-    CUDA_CHECK(cudaMemsetAsync(U.data(), 0, U.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(U.data(), 0, U.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
 
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio

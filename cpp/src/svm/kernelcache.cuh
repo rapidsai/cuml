@@ -263,7 +263,7 @@ class KernelCache {
     if (svmType == EPSILON_SVR) {
       mapColumnIndices<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
         ws_idx, n_ws, n_rows, unique_idx.data(), n_unique, k_col_idx.data());
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
     // else k_col_idx is already initialized properly
     return k_col_idx.data();

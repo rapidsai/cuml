@@ -153,7 +153,7 @@ class SmoSolver {
     bool keep_going       = true;
 
     while (n_iter < max_outer_iter && keep_going) {
-      CUDA_CHECK(cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
       ws.Select(f.data(), alpha.data(), y, C_vec.data());
 
       math_t* cacheTile = cache.GetTile(ws.GetIndices());
@@ -172,7 +172,7 @@ class SmoSolver {
                                                                  svmType,
                                                                  cache.GetColIdxMap());
 
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       raft::update_host(host_return_buff, return_buff.data(), 2, stream);
 
@@ -218,35 +218,35 @@ class SmoSolver {
   {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     math_t one = 1;
-    CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                          CUBLAS_OP_N,
-                                          n_rows,
-                                          n_ws,
-                                          &one,
-                                          cacheTile,
-                                          n_rows,
-                                          delta_alpha,
-                                          1,
-                                          &one,
-                                          f,
-                                          1,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                             CUBLAS_OP_N,
+                                             n_rows,
+                                             n_ws,
+                                             &one,
+                                             cacheTile,
+                                             n_rows,
+                                             delta_alpha,
+                                             1,
+                                             &one,
+                                             f,
+                                             1,
+                                             stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
-      CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                            CUBLAS_OP_N,
-                                            n_rows,
-                                            n_ws,
-                                            &one,
-                                            cacheTile,
-                                            n_rows,
-                                            delta_alpha,
-                                            1,
-                                            &one,
-                                            f + n_rows,
-                                            1,
-                                            stream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                               CUBLAS_OP_N,
+                                               n_rows,
+                                               n_ws,
+                                               &one,
+                                               cacheTile,
+                                               n_rows,
+                                               delta_alpha,
+                                               1,
+                                               &one,
+                                               f + n_rows,
+                                               1,
+                                               stream));
     }
   }
 
@@ -278,7 +278,7 @@ class SmoSolver {
     n_train      = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
     ResizeBuffers(n_train, n_cols);
     // Zero init alpha
-    CUDA_CHECK(cudaMemsetAsync(alpha.data(), 0, n_train * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(alpha.data(), 0, n_train * sizeof(math_t), stream));
     InitPenalty(C_vec.data(), sample_weight, n_rows);
     // Init f (and also class labels for SVR)
     switch (svmType) {
