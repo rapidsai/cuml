@@ -306,7 +306,7 @@ struct PathSegmentExtractor {
       for (CatT cat : tree.MatchingCategories(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
-      // If this path is not the path that's taken the categorical test evaluates to be true,
+      // If this path is not the path that's taken when the categorical test evaluates to be true,
       // then flip all the bits in the bit fields. This step is needed because we first built
       // the bit fields according to the list given in the categorical test.
       bool use_right = tree.CategoriesListRightChild(parent_idx);
