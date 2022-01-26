@@ -95,8 +95,12 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
 
 class KernelRidge(Base, RegressorMixin):
     """Kernel ridge regression.
-    Kernel ridge regression (KRR) performs l2 regularised ridge regression using the kernel trick. The kernel trick allows the estimator to learn a linear function in the space induced by the kernel. This may be a non-linear function in the original feature space (when a non-linear kernel is used).
-    This estimator supports multi-output regression (when y is 2 dimensional). 
+    Kernel ridge regression (KRR) performs l2 regularised ridge regression
+    using the kernel trick. The kernel trick allows the estimator to learn a
+    linear function in the space induced by the kernel. This may be a
+    non-linear function in the original feature space (when a non-linear
+    kernel is used).
+    This estimator supports multi-output regression (when y is 2 dimensional).
     See the sklearn user guide for more information.
 
     Parameters
@@ -105,8 +109,8 @@ class KernelRidge(Base, RegressorMixin):
         Regularization strength; must be a positive float. Regularization
         improves the conditioning of the problem and reduces the variance of
         the estimates. Larger values specify stronger regularization.
-        If an array is passed, penalties are assumed to be specific to the targets. Hence they must correspond in
-        number.
+        If an array is passed, penalties are assumed to be specific
+        to the targets.
     kernel : str or callable, default="linear"
         Kernel mapping used internally. This parameter is directly passed to
         :class:`~cuml.metrics.pairwise_kernel`.
@@ -116,7 +120,7 @@ class KernelRidge(Base, RegressorMixin):
         `kernel` may be a callable numba device function. If so, is called on
         each pair of instances (rows) and the resulting value recorded. The
         callable should take two rows from X as input and return the
-        corresponding kernel value as a single number. 
+        corresponding kernel value as a single number.
     gamma : float, default=None
         Gamma parameter for the RBF, laplacian, polynomial, exponential chi2
         and sigmoid kernels. Interpretation of the default value is left to
@@ -173,6 +177,7 @@ class KernelRidge(Base, RegressorMixin):
         pred = model.predict(X)
 
     """
+
     dual_coef_ = CumlArrayDescriptor()
 
     def __init__(
@@ -188,7 +193,8 @@ class KernelRidge(Base, RegressorMixin):
         output_type=None,
         verbose=False
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(handle=handle, verbose=verbose,
+                         output_type=output_type)
         self.alpha = cp.asarray(alpha)
         self.kernel = kernel
         self.gamma = gamma
@@ -202,10 +208,12 @@ class KernelRidge(Base, RegressorMixin):
                       "degree": self.degree, "coef0": self.coef0}
         else:
             params = self.kernel_params or {}
-        return pairwise_kernels(X, metric=self.kernel, filter_params=True, **params)
+        return pairwise_kernels(X, metric=self.kernel,
+                                filter_params=True, **params)
 
     @generate_docstring()
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "KernelRidge":
+    def fit(self, X, y, sample_weight=None,
+            convert_dtype=True) -> "KernelRidge":
 
         ravel = False
         if len(y.shape) == 1:

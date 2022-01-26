@@ -23,7 +23,7 @@ import pytest
 import math
 import inspect
 from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
-from hypothesis import note, given, settings, assume, strategies as st
+from hypothesis import given, settings, assume, strategies as st
 from hypothesis.extra.numpy import arrays
 
 
@@ -40,7 +40,8 @@ def gradient_norm(X, y, model, K, sw=None):
 
     # initialise to NaN in case below loop has 0 iterations
     grads = cp.full_like(y, np.NAN)
-    for i, (beta, target, current_alpha) in enumerate(zip(betas.T, y.T, model.alpha)):
+    for i, (beta, target, current_alpha) in (
+            enumerate(zip(betas.T, y.T, model.alpha))):
         grads[:, i] = 0.0
         grads[:, i] = -cp.dot(K * sw, target)
         grads[:, i] += cp.dot(cp.dot(K * sw, K), beta)
@@ -75,7 +76,8 @@ def test_pairwise_kernels_basic():
 
     # correct function type
     @cuda.jit(device=True)
-    def numba_kernel(x, y, special_argument=3.0):
+    def numba_kernel(x, y,
+                     special_argument=3.0):
         return 1 + 2
 
     pairwise_kernels(X, metric=numba_kernel)
@@ -97,7 +99,8 @@ def test_pairwise_kernels_basic():
         return 1 + 2
 
     with pytest.raises(
-        ValueError, match="Extra kernel parameters must be passed as keyword arguments."
+        ValueError, match="Extra kernel parameters "
+        "must be passed as keyword arguments."
     ):
         pairwise_kernels(X, metric=bad_numba_kernel2)
 
@@ -125,7 +128,8 @@ def kernel_arg_strategy(draw):
             kernel, str) else kernel
     )
     # Inspect the function and generate some arguments
-    all_func_kwargs = list(inspect.signature(kernel_func.py_func).parameters.values())[
+    all_func_kwargs = list(
+        inspect.signature(kernel_func.py_func).parameters.values())[
         2:
     ]
     param = {}
@@ -247,7 +251,8 @@ def test_estimator(kernel_arg, X_y_alpha, gamma, degree, coef0):
         try:
             skl_model.fit(X, y, sample_weight)
         except np.linalg.LinAlgError:
-            # sklearn can fail to fit multiclass models with singular kernel matrices
+            # sklearn can fail to fit multiclass models
+            #  with singular kernel matrices
             assume(False)
 
         skl_pred = skl_model.predict(X)
