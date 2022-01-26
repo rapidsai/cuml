@@ -87,8 +87,8 @@ else
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
     mkdir -p ${CONDA_BLD_DIR}/libcuml
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
-    shopt -s extglob
     cd ${CONDA_BLD_DIR}
+    shopt -s extglob
     cp -r !("libcuml") "libcuml"
     cd "$WORKSPACE"
   fi
