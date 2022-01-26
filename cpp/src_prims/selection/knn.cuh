@@ -339,7 +339,7 @@ void knn_regress(const raft::handle_t& handle,
       <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }

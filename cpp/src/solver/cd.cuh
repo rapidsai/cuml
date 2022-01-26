@@ -181,7 +181,7 @@ void cdFit(const raft::handle_t& handle,
 
       coef_prev = h_coef[ci];
       raft::update_host(&(h_coef[ci]), coef_loc, 1, stream);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       math_t diff = abs(coef_prev - h_coef[ci]);
 

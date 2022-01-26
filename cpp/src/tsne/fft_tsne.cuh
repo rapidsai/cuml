@@ -135,7 +135,7 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
   min_h = min_d.value(stream);
   max_h = max_d.value(stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   return std::make_pair(std::move(min_h), std::move(max_h));
 }

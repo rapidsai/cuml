@@ -143,7 +143,7 @@ double entropy(const T* clusterArray,
   double h_entropy;
   raft::update_host(&h_entropy, d_entropy.data(), 1, stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   return h_entropy;
 }

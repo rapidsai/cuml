@@ -111,7 +111,7 @@ class BatchedLevelAlgoUnitTestFixture {
     computeQuantiles(d_quantiles.data(), n_bins, data.data(), n_row, n_col, nullptr);
     MLCommon::iota(row_ids.data(), 0, 1, n_row, 0);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(0));
+    handle.sync_stream(0);
 
     input.data         = data.data();
     input.labels       = labels.data();
@@ -210,7 +210,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
                                                     new_depth.data());
   RAFT_CUDA_TRY(cudaGetLastError());
   raft::update_host(&h_n_new_nodes, n_new_nodes.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
+  handle.sync_stream(0);
   h_n_total_nodes += h_n_new_nodes;
   EXPECT_EQ(h_n_total_nodes, test_params.expected_n_total_nodes);
   EXPECT_EQ(h_n_new_nodes, test_params.expected_n_new_nodes);
@@ -310,7 +310,7 @@ TEST_P(TestMetric, RegressionMetricGain)
 
   raft::update_host(h_splits.data(), splits.data(), 1, stream);
   RAFT_CUDA_TRY(cudaGetLastError());
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   // the split uses feature 0
   // rows 0, 4 go to the left side of the threshold

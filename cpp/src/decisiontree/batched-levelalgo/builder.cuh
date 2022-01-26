@@ -380,7 +380,7 @@ struct Builder {
     RAFT_CUDA_TRY(cudaGetLastError());
     raft::common::nvtx::pop_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(builder_stream));
+    handle.sync_stream(builder_stream);
     return std::make_tuple(h_splits, work_items.size());
   }
 

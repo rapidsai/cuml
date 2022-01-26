@@ -77,7 +77,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
                                              data.data(),
                                              inparams.M,
                                              stream));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     rowids.resize(inparams.M, stream);
     MLCommon::iota(rowids.data(), 0, 1, inparams.M, stream);
     quantiles.resize(inparams.nbins * inparams.N, stream);

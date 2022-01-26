@@ -233,7 +233,7 @@ Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
 
   int nPtsSampledInRank = 0;
   raft::copy(&nPtsSampledInRank, nSelected.data(), nSelected.numElements(), stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   int* rawPtr_isSampleCentroid = isSampleCentroid.data();
   thrust::for_each_n(handle.get_thrust_policy(),
@@ -769,7 +769,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     // Choose 'n_trials' centroid candidates from X with probability proportional to the squared
     // distance to the nearest existing cluster
     raft::copy(h_wt.data(), minClusterDistance.data(), minClusterDistance.numElements(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // Note - n_trials is relative small here, we don't need MLCommon::gather call
     std::discrete_distribution<> d(h_wt.begin(), h_wt.end());
@@ -880,7 +880,7 @@ void checkWeights(const raft::handle_t& handle,
 
   DataT wt_sum = 0;
   raft::copy(&wt_sum, wt_aggr.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   if (wt_sum != n_samples) {
     LOG(handle,

@@ -148,7 +148,7 @@ double compute_rand_index(T* firstClusterArray,
   // synchronizing and updating the calculated values of a and b from device to host
   uint64_t ab_host[2] = {0};
   raft::update_host(ab_host, arr_buf.data(), 2, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   // error handling
   RAFT_CUDA_TRY(cudaGetLastError());

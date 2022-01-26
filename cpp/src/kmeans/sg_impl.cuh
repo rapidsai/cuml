@@ -232,7 +232,7 @@ void fit(const raft::handle_t& handle,
       DataT curClusteringCost = 0;
       raft::copy(&curClusteringCost, &(clusterCostD.data()->value), 1, stream);
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
       ASSERT(curClusteringCost != (DataT)0.0,
              "Too few points and centriods being found is getting 0 cost from "
              "centers");
@@ -244,7 +244,7 @@ void fit(const raft::handle_t& handle,
       priorClusteringCost = curClusteringCost;
     }
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
@@ -425,7 +425,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   // <<< End of Step-2 >>>
 
   // Scalable kmeans++ paper claims 8 rounds is sufficient
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   int niter = std::min(8, (int)ceil(log(psi)));
   LOG(handle, "KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
 

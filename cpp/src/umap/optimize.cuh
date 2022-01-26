@@ -157,7 +157,7 @@ void optimize_params(T* input,
     T* grads_h = (T*)malloc(2 * sizeof(T));
     raft::update_host(grads_h, grads.data(), 2, stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
 
     for (int i = 0; i < 2; i++) {
       if (abs(grads_h[i]) - tolerance <= 0) tol_grads += 1;
@@ -211,7 +211,7 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
   raft::update_host(&(params->a), coeffs.data(), 1, stream);
   raft::update_host(&(params->b), coeffs.data() + 1, 1, stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   CUML_LOG_DEBUG("a=%f, b=%f", params->a, params->b);
 }

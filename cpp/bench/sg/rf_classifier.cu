@@ -68,7 +68,7 @@ class RFClassifier : public BlobsFixture<D> {
           this->data.y.data(),
           this->params.nclasses,
           rfParams);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
+      this->handle->sync_stream(this->stream);
     });
   }
 
