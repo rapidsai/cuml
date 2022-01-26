@@ -105,11 +105,18 @@ def test_xgb_regressor(objective):
                           evals=[(dtrain, 'train')])
     tl_model = treelite.Model.from_xgboost(xgb_model)
 
+    # Insert NaN randomly into X
+    X_test = X.copy()
+    n_nan = int(np.floor(X.size * 0.1))
+    rng = np.random.default_rng(seed=0)
+    index_nan = rng.choice(X.size, size=n_nan, replace=False)
+    X_test.ravel()[index_nan] = np.nan
+
     explainer = TreeExplainer(model=tl_model)
-    out = explainer.shap_values(X)
+    out = explainer.shap_values(X_test)
 
     ref_explainer = shap.explainers.Tree(model=xgb_model)
-    correct_out = ref_explainer.shap_values(X)
+    correct_out = ref_explainer.shap_values(X_test)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
                                    ref_explainer.expected_value, decimal=5)
@@ -149,11 +156,18 @@ def test_xgb_classifier(objective, n_classes):
         params['num_class'] = n_classes
     xgb_model = xgb.train(params, dtrain=dtrain, num_boost_round=num_round)
 
+    # Insert NaN randomly into X
+    X_test = X.copy()
+    n_nan = int(np.floor(X.size * 0.1))
+    rng = np.random.default_rng(seed=0)
+    index_nan = rng.choice(X.size, size=n_nan, replace=False)
+    X_test.ravel()[index_nan] = np.nan
+
     explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X)
+    out = explainer.shap_values(X_test)
 
     ref_explainer = shap.explainers.Tree(model=xgb_model)
-    correct_out = ref_explainer.shap_values(X)
+    correct_out = ref_explainer.shap_values(X_test)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
                                    ref_explainer.expected_value, decimal=5)
@@ -353,10 +367,18 @@ def test_xgb_classifier_with_categorical(n_classes):
                           evals=[(dtrain, 'train')])
     assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
 
-    explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X)
+    # Insert NaN randomly into X
+    X_test = X.values.copy()
+    n_nan = int(np.floor(X.size * 0.1))
+    rng = np.random.default_rng(seed=0)
+    index_nan = rng.choice(X.size, size=n_nan, replace=False)
+    X_test.ravel()[index_nan] = np.nan
 
-    ref_out = xgb_model.predict(dtrain, pred_contribs=True)
+    explainer = TreeExplainer(model=xgb_model)
+    out = explainer.shap_values(X_test)
+
+    dtest = xgb.DMatrix(X_test)
+    ref_out = xgb_model.predict(dtest, pred_contribs=True, validate_features=False)
     if n_classes == 2:
         ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
     else:
@@ -450,11 +472,18 @@ def test_lightgbm_classifier_with_categorical(n_classes):
                           valid_sets=[dtrain], valid_names=['train'])
     assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
 
+    # Insert NaN randomly into X
+    X_test = X.values.copy()
+    n_nan = int(np.floor(X.size * 0.1))
+    rng = np.random.default_rng(seed=0)
+    index_nan = rng.choice(X.size, size=n_nan, replace=False)
+    X_test.ravel()[index_nan] = np.nan
+
     explainer = TreeExplainer(model=lgb_model)
-    out = explainer.shap_values(X)
+    out = explainer.shap_values(X_test)
 
     ref_explainer = shap.explainers.Tree(model=lgb_model)
-    ref_out = np.array(ref_explainer.shap_values(X))
+    ref_out = np.array(ref_explainer.shap_values(X_test))
     if n_classes == 2:
         ref_out = ref_out[1, :, :]
         ref_expected_value = ref_explainer.expected_value[1]
