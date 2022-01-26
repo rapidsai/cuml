@@ -68,6 +68,7 @@ conda config --set ssl_verify False
 # # install. This should eliminate a mismatch between different CUDA versions on
 # # cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
 if [ "$BUILD_LIBCUML" == '1' ]; then
+  echo "BUILD_LIBCUML=1: Setting BUILD_CUML to 1..."
   BUILD_CUML=1
 fi
 
@@ -85,7 +86,11 @@ else
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
     mkdir -p ${CONDA_BLD_DIR}/libcuml
-    mv ${CONDA_BLD_DIR}/ ${CONDA_BLD_DIR}/libcuml
+    mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
+    shopt -s extglob
+    cd ${CONDA_BLD_DIR}
+    cp -r !(libcuml) libcuml
+    cd "$WORKSPACE"
   fi
 fi
 
