@@ -24,7 +24,6 @@
 #include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace Bench {

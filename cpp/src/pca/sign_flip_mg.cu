@@ -18,8 +18,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 
-#include <common/allocatorAdapter.hpp>
-
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
