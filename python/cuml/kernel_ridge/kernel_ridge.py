@@ -122,7 +122,7 @@ PAIRWISE_KERNEL_FUNCTIONS = {
 }
 
 # cholesky solve with fallback to least squares for singular problems
-def _safe_solve(K,y):
+def _safe_solve(K, y):
     try:
         # we need to set the error mode of cupy to raise
         # otherwise we silently get an array of NaNs
@@ -138,6 +138,7 @@ def _safe_solve(K,y):
         dual_coef = linalg.lstsq(K, y, rcond=None)[0]
     return dual_coef
 
+
 def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
     # dual_coef = inv(X X^t + alpha*Id) y
     n_samples = K.shape[0]
@@ -146,7 +147,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
     K = cp.array(K, dtype=np.float64)
 
     alpha = cp.atleast_1d(alpha)
-    one_alpha = (alpha == alpha[0]).all()
+    one_alpha = alpha.size == 1
     has_sw = sample_weight is not None
 
     if has_sw:
@@ -160,7 +161,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         # Only one penalty, we can solve multi-target problems in one time.
         K.flat[:: n_samples + 1] += alpha[0]
 
-        dual_coef = _safe_solve(K,y)
+        dual_coef = _safe_solve(K, y)
 
         if has_sw:
             dual_coef *= sw[:, cp.newaxis]
@@ -173,7 +174,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         for dual_coef, target, current_alpha in zip(dual_coefs, y.T, alpha):
             K.flat[:: n_samples + 1] += current_alpha
 
-            dual_coef[:] = _safe_solve(K,target).ravel()        
+            dual_coef[:] = _safe_solve(K, target).ravel()
 
             K.flat[:: n_samples + 1] -= current_alpha
 
@@ -299,7 +300,7 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
     # 32 bit K results in serious numerical stability problems
     K = cp.zeros((X.shape[0], Y.shape[0]), dtype=np.float64)
 
-    key = (metric, filtered_kwds_tuple,X.dtype, Y.dtype)
+    key = (metric, filtered_kwds_tuple, X.dtype, Y.dtype)
     if key in _kernel_cache:
         compiled_kernel = _kernel_cache[key]
     else:
@@ -310,6 +311,8 @@ def pairwise_kernels(X, Y=None, metric="linear", *, filter_params=False, **kwds)
 
 
 class KernelRidge(Base, RegressorMixin):
+    dual_coef_ = CumlArrayDescriptor()
+
     def __init__(
         self,
         *,
@@ -332,7 +335,7 @@ class KernelRidge(Base, RegressorMixin):
         self.kernel_params = kernel_params
 
     def _get_kernel(self, X, Y=None):
-        if isinstance(self.kernel,str):
+        if isinstance(self.kernel, str):
             params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
         else:
             params = self.kernel_params or {}
@@ -389,9 +392,7 @@ class KernelRidge(Base, RegressorMixin):
             C : array of shape (n_samples,) or (n_samples, n_targets)
                 Returns predicted values.
             """
-        X_m, _, _, _ = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64]
-        )
+        X_m, _, _, _ = input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
         K = self._get_kernel(X_m, self.X_fit_)
         return cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_))

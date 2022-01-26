@@ -41,8 +41,10 @@ def gradient_norm(X, y, model, K, sw=None):
     K = cp.array(K, dtype=np.float64)
     betas = cp.array(model.dual_coef_, dtype=np.float64).reshape(y.shape)
 
-    grads = cp.zeros_like(y)
+    # initialise to NaN in case below loop has 0 iterations
+    grads = cp.full_like(y, np.NAN)
     for i, (beta, target, current_alpha) in enumerate(zip(betas.T, y.T, model.alpha)):
+        grads[:, i] = 0.0
         grads[:, i] = -cp.dot(K * sw, target)
         grads[:, i] += cp.dot(cp.dot(K * sw, K), beta)
         grads[:, i] += cp.dot(K * current_alpha, beta)
@@ -156,7 +158,7 @@ def array_strategy(draw):
 
 
 @given(kernel_arg_strategy(), array_strategy())
-@settings(deadline=5000, max_examples=20)
+@settings(deadline=None, max_examples=20)
 def test_pairwise_kernels(kernel_arg, XY):
     X, Y = XY
     kernel, args = kernel_arg
@@ -203,7 +205,7 @@ def X_y_alpha_strategy(draw):
     st.integers(1, 5),
     st.floats(1.0, 5.0),
 )
-@settings(deadline=5000, max_examples=100)
+@settings(deadline=None, max_examples=100)
 def test_estimator(kernel_arg, X_y_alpha, gamma, degree, coef0):
     kernel, args = kernel_arg
     X, y, alpha, sample_weight = X_y_alpha
