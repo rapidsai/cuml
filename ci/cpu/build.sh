@@ -85,6 +85,7 @@ else
   if [ "$BUILD_LIBCUML" == '1' ]; then
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
+    mkdir -p ${CONDA_BLD_DIR}/libcuml
     cp -rT ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
@@ -96,6 +97,7 @@ if [ "$BUILD_CUML" == '1' ]; then
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c $CONDA_BLD_DIR --dirty --no-remove-work-dir --python=${PYTHON}
+    mkdir -p ${CONDA_BLD_DIR}/libcuml
     cp -rT ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
