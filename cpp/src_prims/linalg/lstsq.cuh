@@ -20,7 +20,9 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/eig.hpp>
 #include <raft/linalg/eltwise.hpp>

@@ -31,6 +31,7 @@
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/label/classlabels.cuh>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>

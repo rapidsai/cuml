@@ -21,6 +21,7 @@
 #include "test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/subtract.hpp>
 #include <raft/linalg/transpose.hpp>

@@ -28,6 +28,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/cholesky_r1_update.hpp>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.hpp>
 #include <raft/linalg/map_then_reduce.hpp>

@@ -23,6 +23,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.hpp>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>

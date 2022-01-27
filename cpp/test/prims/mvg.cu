@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <random/mvg.cuh>
 #include <random>

@@ -22,6 +22,7 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.hpp>
 #include <raft/linalg/unary_op.hpp>

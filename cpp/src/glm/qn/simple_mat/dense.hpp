@@ -24,6 +24,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.hpp>
+// #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/map_then_reduce.hpp>
 #include <raft/linalg/norm.hpp>
