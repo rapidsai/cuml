@@ -49,7 +49,7 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 
 gpuci_logger "Install dependencies"
-gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly/label/testing -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
@@ -198,7 +198,7 @@ else
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    gpuci_mamba_retry install -c rapidsai-nightly/label/testing -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
     
     # FIXME: Project FLASH only builds for python version 3.7 which is the one used in 
     # the CUDA 11.0 job, need to change all versions to project flash 
@@ -208,7 +208,7 @@ else
         CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
         CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
         echo "Installing $CONDA_FILE"
-        gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+        gpuci_mamba_retry install -c rapidsai-nightly/label/testing -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     else
         gpuci_logger "Building cuml python in gpu job"
