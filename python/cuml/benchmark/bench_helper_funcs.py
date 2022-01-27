@@ -26,7 +26,7 @@ from cuml.benchmark import datagen
 from cuml.manifold import UMAP
 
 
-def call(m, func_name, x, y=None):
+def call(m, func_name, X, y=None):
     def unwrap_and_get_args(func):
         if hasattr(func, '__wrapped__'):
             return unwrap_and_get_args(func.__wrapped__)
@@ -38,9 +38,9 @@ def call(m, func_name, x, y=None):
     func = getattr(m, func_name)
     argnames = unwrap_and_get_args(func)
     if y is not None and 'y' in argnames:
-        func(X=x, y=y)
+        func(X, y=y)
     else:
-        func(X=x)
+        func(X)
 
 
 def pass_func(m, x, y=None):
