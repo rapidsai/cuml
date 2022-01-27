@@ -70,6 +70,9 @@ conda config --set ssl_verify False
 
 if [ "$BUILD_CUML" == '1' ]; then
   SIMPLE_BUILD=1
+  if [[ ${BUILD_MODE} != "branch" ]]; then
+    SINGLE_ARCH=1
+  fi
 fi
 BUILD_CUML=1
 BUILD_LIBCUML=1

@@ -11,6 +11,10 @@ else
     if [[ -z "$SIMPLE_BUILD" || "$SIMPLE_BUILD" == "0" ]]; then
         ./build.sh clean libcuml prims -v --allgpuarch
     else
-        ./build.sh clean libcuml -v --nolibcumltest --singlegpu
+        if [[ -z "$SINGLE_ARCH" || "$SINGLE_ARCH" == "0" ]]; then
+            ./build.sh clean libcuml -v --nolibcumltest --singlegpu
+        else
+            ./build.sh clean libcuml -v --nolibcumltest
+        fi
     fi
 fi
