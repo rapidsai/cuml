@@ -63,10 +63,10 @@ conda list --show-channel-urls
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
 
-# # Build python package in CUDA jobs so they are built on a
-# # machine with a single CUDA version, then have the gpu/build.sh script simply
-# # install. This should eliminate a mismatch between different CUDA versions on
-# # cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
+# Build python package in CUDA jobs so they are built on a
+# machine with a single CUDA version, then have the gpu/build.sh script simply
+# install. This should eliminate a mismatch between different CUDA versions on
+# cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
 if [ "$BUILD_LIBCUML" == '1' ]; then
   echo "BUILD_LIBCUML=1: Setting BUILD_CUML to 1..."
   BUILD_CUML=1
@@ -85,11 +85,7 @@ else
   if [ "$BUILD_LIBCUML" == '1' ]; then
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
-    mkdir -p ${CONDA_BLD_DIR}/libcuml
-    mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
-    cd ${CONDA_BLD_DIR}
-    cp -r `ls -A | grep -v "\blibcuml\b"` libcuml
-    cd "$WORKSPACE"
+    cp -rT ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
 
@@ -99,9 +95,8 @@ if [ "$BUILD_CUML" == '1' ]; then
     gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_BLD_DIR}/libcuml --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
-    mkdir -p ${CONDA_BLD_DIR}/cuml
-    mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/cuml/work
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c $CONDA_BLD_DIR --dirty --no-remove-work-dir --python=${PYTHON}
+    cp -rT ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
 
@@ -111,4 +106,3 @@ fi
 
 gpuci_logger "Upload conda pkgs"
 source ci/cpu/upload.sh
-
