@@ -79,14 +79,6 @@ void olsFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> norm2_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
 
-  if (sample_weight != nullptr) {
-    LinAlg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(labels, n_rows,
-      [] __device__(math_t a, math_t b) { return a * b; },
-      stream, labels, sample_weight);
-  }
-
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
@@ -102,7 +94,16 @@ void olsFit(const raft::handle_t& handle,
                    norm2_input.data(),
                    fit_intercept,
                    normalize,
-                   stream);
+                   stream,
+                   sample_weight);
+  }
+
+  if (sample_weight != nullptr) {
+    LinAlg::sqrt(sample_weight, sample_weight, n_rows, stream);
+    raft::matrix::matrixVectorBinaryMult(input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(labels, n_rows,
+      [] __device__(math_t a, math_t b) { return a * b; },
+      stream, labels, sample_weight);
   }
 
   int selectedAlgo = algo;

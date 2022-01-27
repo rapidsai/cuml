@@ -17,7 +17,10 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
@@ -44,16 +47,42 @@ void preProcessData(const raft::handle_t& handle,
                     math_t* norm2_input,
                     bool fit_intercept,
                     bool normalize,
-                    cudaStream_t stream)
+                    cudaStream_t stream,
+                    math_t* sample_weight = nullptr)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
-
+  rmm::device_uvector<math_t> mu_input2(n_cols, stream);
   if (fit_intercept) {
-    raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+    rmm::device_scalar<math_t> sum_sw(stream);
+    rmm::device_uvector<math_t> temp(0, stream);
+    rmm::device_uvector<math_t> temp_labels(0, stream);
+    if (sample_weight) {
+      temp.resize(n_rows * n_cols, stream);
+      raft::copy(temp.data(), input, n_rows * n_cols, stream);
+      raft::stats::sum(sum_sw.data(), sample_weight, 1, n_rows, false, stream);
+      raft::matrix::matrixVectorBinaryMult(temp.data(), sample_weight, n_rows, n_cols, false, false, stream);
+
+      raft::stats::mean(mu_input, temp.data(), n_cols, n_rows, false, false, stream);
+      math_t ratio = math_t(n_rows) / sum_sw.value(stream);
+      raft::linalg::scalarMultiply(mu_input, mu_input, ratio, n_cols, stream);
+    } else {
+      raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+    }
     raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
 
-    raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+    if (sample_weight) {
+      temp_labels.resize(n_rows, stream);
+      raft::copy(temp_labels.data(), labels, n_rows, stream);
+      raft::linalg::map(temp_labels.data(), n_rows,
+        [] __device__(math_t a, math_t b) { return a * b; },
+        stream, temp_labels.data(), sample_weight);
+      raft::stats::mean(mu_labels, temp_labels.data(), 1, n_rows, false, false, stream);
+      math_t ratio = math_t(n_rows) / sum_sw.value(stream);
+      raft::linalg::scalarMultiply(mu_labels, mu_labels, ratio, 1, stream);
+    } else {
+      raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+    }
     raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 
     if (normalize) {
