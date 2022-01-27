@@ -17,6 +17,7 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
+import pandas as pd
 
 from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
@@ -522,7 +523,7 @@ class StratifiedKFold:
             raise ValueError(
                 f'n_splits {n_splits} is not a integer at least 2')
 
-        if not isinstance(random_state, int):
+        if random_state is not None and not isinstance(random_state, int):
             raise ValueError(f'random_state {random_state} is not an integer')
 
         self.n_splits = n_splits
@@ -534,14 +535,15 @@ class StratifiedKFold:
         return self.n_splits
 
     def split(self, x, y):
-        assert x.shape[0] == y.shape[0]
+        if len(x) != len(y):
+            raise ValueError('Expecting same length of x and y')
+        y = self._to_cupy_array(y)
         df = cudf.DataFrame()
-        ids = cp.arange(x.shape[0])
+        ids = cp.arange(y.shape[0])
 
         if self.shuffle:
             cp.random.seed(self.seed)
             cp.random.shuffle(ids)
-            x = x[ids]
             y = y[ids]
 
         df['y'] = y
@@ -571,3 +573,36 @@ class StratifiedKFold:
             if len(test) == 0:
                 break
             yield train, test
+
+    def _to_cupy_array(self, y):
+        """
+        Convert input data with strings to cudf dataframe.
+        Supported data types are:
+            1D or 2D numpy/cupy arrays
+            pandas/cudf Series
+            pandas/cudf DataFrame
+        Input data could have one or more string columns.
+        """
+        self._check_array_shape(y)
+        if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
+            data = y.values.ravel()
+        elif isinstance(y, pd.DataFrame) or isinstance(y, pd.Series):
+            data = cp.asarray(y.values.ravel())
+        elif isinstance(y, np.ndarray) \
+            or isinstance(y, cp.ndarray) \
+                or isinstance(y, list):
+            data = cp.asarray(y)
+        else:
+            raise TypeError(
+                f"Input of type {type(y)} is not cudf.Series, cudf.DataFrame "
+                "or pandas.Series or pandas.DataFrame"
+                "or cupy.ndarray or numpy.ndarray")
+        return data
+
+    def _check_array_shape(self, y):
+        if y is None:
+            raise ValueError("Expecting 1D array, got None")
+        elif hasattr(y, 'shape') and len(y.shape) > 1 and y.shape[1] > 1:
+            raise ValueError(f"Expecting 1D array, got {y.shape}")
+        else:
+            pass

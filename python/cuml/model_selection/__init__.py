@@ -15,6 +15,7 @@
 #
 
 from cuml.model_selection._split import train_test_split
+from cuml.model_selection._split import StratifiedKFold
 from cuml.common.import_utils import has_sklearn
 
 if has_sklearn():
@@ -27,4 +28,4 @@ if has_sklearn():
     with CUDA-based data and cuML estimators, but all of the underlying code
     is due to the scikit-learn developers.\n\n""" + GridSearchCV.__doc__
 
-__all__ = ['train_test_split', 'GridSearchCV']
+__all__ = ['train_test_split', 'GridSearchCV', 'StratifiedKFold']
