@@ -8,5 +8,9 @@ fi
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ./build.sh clean libcuml -v --allgpuarch
 else
-    ./build.sh clean libcuml prims -v --allgpuarch
+    if [[ -z "$SIMPLE_BUILD" || "$SIMPLE_BUILD" == "0" ]]; then
+        ./build.sh clean libcuml prims -v --allgpuarch
+    else
+        ./build.sh clean libcuml -v --nolibcumltest --singlegpu
+    fi
 fi

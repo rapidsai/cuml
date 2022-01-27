@@ -67,10 +67,12 @@ conda config --set ssl_verify False
 # machine with a single CUDA version, then have the gpu/build.sh script simply
 # install. This should eliminate a mismatch between different CUDA versions on
 # cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
-if [ "$BUILD_LIBCUML" == '1' ]; then
-  echo "BUILD_LIBCUML=1: Setting BUILD_CUML to 1..."
-  BUILD_CUML=1
+
+if [ "$BUILD_CUML" == '1' ]; then
+  SIMPLE_BUILD=1
 fi
+BUILD_CUML=1
+BUILD_LIBCUML=1
 
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
@@ -85,7 +87,7 @@ else
   if [ "$BUILD_LIBCUML" == '1' ]; then
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
-    cp -rT ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
+    mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
 
@@ -96,7 +98,7 @@ if [ "$BUILD_CUML" == '1' ]; then
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
     gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c $CONDA_BLD_DIR --dirty --no-remove-work-dir --python=${PYTHON}
-    cp -rT ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
+     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/cuml/work
   fi
 fi
 
