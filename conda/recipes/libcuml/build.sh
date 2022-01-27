@@ -1,3 +1,4 @@
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     # C++11 requires 10.9
