@@ -70,6 +70,11 @@ conda config --set ssl_verify False
 if [ "$BUILD_LIBCUML" == '1' ]; then
   echo "BUILD_LIBCUML=1: Setting BUILD_CUML to 1..."
   BUILD_CUML=1
+  # If we are doing CUDA + Python builds, libcuml package is located at ${CONDA_BLD_DIR}
+  CONDA_LOCAL_CHANNEL="${CONDA_BLD_DIR}"
+else
+  # If we are doing Python builds only, libcuml package is placed here by Project Flash
+  CONDA_LOCAL_CHANNEL="ci/artifacts/cuml/cpu/.conda-bld/"
 fi
 
 ################################################################################
@@ -96,7 +101,7 @@ if [ "$BUILD_CUML" == '1' ]; then
     gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c $CONDA_BLD_DIR --dirty --no-remove-work-dir --python=${PYTHON}
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=${PYTHON}
     mkdir -p ${CONDA_BLD_DIR}/cuml
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/cuml/work
   fi
@@ -108,4 +113,3 @@ fi
 
 gpuci_logger "Upload conda pkgs"
 source ci/cpu/upload.sh
-
