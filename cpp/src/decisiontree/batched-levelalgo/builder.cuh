@@ -20,7 +20,7 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "kernels/builder_kernels.cuh"
+#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 
 #include <common/Timer.h>
 #include <cuml/common/pinned_host_vector.hpp>
