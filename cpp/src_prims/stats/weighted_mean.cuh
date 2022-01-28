@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,9 +72,14 @@ void rowWeightedMean(
  * @param stream cuda stream to launch work on
  */
 template <typename Type>
-void rowSampleWeightedMean(
-  Type* mu, const Type* data, const Type* weights, int D, int N,
-  bool row_major, bool along_rows, cudaStream_t stream)
+void rowSampleWeightedMean(Type* mu,
+                           const Type* data,
+                           const Type* weights,
+                           int D,
+                           int N,
+                           bool row_major,
+                           bool along_rows,
+                           cudaStream_t stream)
 {
   // sum the weights & copy back to CPU
   Type WS = 0;

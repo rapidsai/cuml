@@ -17,11 +17,11 @@
 #pragma once
 
 #include <linalg/lstsq.cuh>
-#include <linalg/sqrt.cuh>
 #include <linalg/power.cuh>
-#include <raft/linalg/map.cuh>
+#include <linalg/sqrt.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.hpp>
@@ -53,7 +53,8 @@ using namespace MLCommon;
  * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
- * @param sample_weight device pointer to sample weight vector of length n_rows
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
+ * weights)
  */
 template <typename math_t>
 void olsFit(const raft::handle_t& handle,
@@ -66,7 +67,7 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             cudaStream_t stream,
-            int algo = 0,
+            int algo              = 0,
             math_t* sample_weight = nullptr)
 {
   auto cublas_handle   = handle.get_cublas_handle();
@@ -100,10 +101,15 @@ void olsFit(const raft::handle_t& handle,
 
   if (sample_weight != nullptr) {
     LinAlg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult(input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(labels, n_rows,
+    raft::matrix::matrixVectorBinaryMult(
+      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(
+      labels,
+      n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
-      stream, labels, sample_weight);
+      stream,
+      labels,
+      sample_weight);
   }
 
   int selectedAlgo = algo;
@@ -122,10 +128,15 @@ void olsFit(const raft::handle_t& handle,
   raft::common::nvtx::pop_range();
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(labels, n_rows,
+    raft::matrix::matrixVectorBinaryDivSkipZero(
+      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(
+      labels,
+      n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },
-      stream, labels, sample_weight);
+      stream,
+      labels,
+      sample_weight);
     LinAlg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
   }
 

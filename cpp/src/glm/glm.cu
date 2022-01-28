@@ -38,7 +38,7 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             int algo,
-            float *sample_weight)
+            float* sample_weight)
 {
   olsFit(handle,
          input,
@@ -64,7 +64,7 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             int algo,
-            double *sample_weight)
+            double* sample_weight)
 {
   olsFit(handle,
          input,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,18 +50,19 @@ void preProcessData(const raft::handle_t& handle,
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
+
   if (fit_intercept) {
     if (sample_weight) {
-       MLCommon::Stats::rowSampleWeightedMean(mu_input, input,
-       sample_weight, n_cols, n_rows, false, false, stream);
+      MLCommon::Stats::rowSampleWeightedMean(
+        mu_input, input, sample_weight, n_cols, n_rows, false, false, stream);
     } else {
       raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
     }
     raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
 
     if (sample_weight) {
-      MLCommon::Stats::rowSampleWeightedMean(mu_labels, labels,
-        sample_weight, 1, n_rows, true, false, stream);
+      MLCommon::Stats::rowSampleWeightedMean(
+        mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
     } else {
       raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
     }
