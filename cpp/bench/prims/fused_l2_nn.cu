@@ -21,6 +21,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 namespace MLCommon {
 namespace Bench {

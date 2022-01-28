@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -283,6 +283,20 @@ class SVC(SVMBase,
 
     @property
     @cuml.internals.api_base_return_array_skipall
+    def support_(self):
+        if self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+            return cp.concatenate(
+                [cp.asarray(cls._support_) for cls in estimators])
+        else:
+            return self._support_
+
+    @support_.setter
+    def support_(self, value):
+        self._support_ = value
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
         if self.n_classes_ > 2:
             estimators = self.multiclass_svc.multiclass_estimator.estimators_
@@ -372,6 +386,27 @@ class SVC(SVMBase,
             estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
+
+        # if using one-vs-one we align support_ indices to those of
+        # full dataset
+        if strategy == 'ovo':
+            y = cp.array(y)
+            classes = cp.unique(y)
+            n_classes = len(classes)
+            estimator_index = 0
+            # Loop through multiclass estimators and re-align support_ indices
+            for i in range(n_classes):
+                for j in range(i + 1, n_classes):
+                    cond = cp.logical_or(y == classes[i], y == classes[j])
+                    ovo_support = cp.array(
+                        self.multiclass_svc.multiclass_estimator.estimators_[
+                            estimator_index
+                        ].support_)
+                    self.multiclass_svc.multiclass_estimator.estimators_[
+                        estimator_index
+                    ].support_ = cp.nonzero(cond)[0][ovo_support]
+                    estimator_index += 1
+
         self._fit_status_ = 0
         return self
 
