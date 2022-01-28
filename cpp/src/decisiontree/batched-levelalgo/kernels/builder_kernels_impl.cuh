@@ -86,13 +86,13 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
   }
 }
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(IdxT max_depth,
-                                IdxT min_samples_leaf,
-                                IdxT min_samples_split,
-                                IdxT max_leaves,
-                                DataT min_impurity_decrease,
-                                Dataset<DataT, LabelT, IdxT> dataset,
-                                NodeWorkItem* work_items,
+__global__ void nodeSplitKernel(const IdxT max_depth,
+                                const IdxT min_samples_leaf,
+                                const IdxT min_samples_split,
+                                const IdxT max_leaves,
+                                const DataT min_impurity_decrease,
+                                const Dataset<DataT, LabelT, IdxT> dataset,
+                                const NodeWorkItem* work_items,
                                 const Split<DataT, IdxT>* splits)
 {
   extern __shared__ char smem[];
@@ -349,13 +349,13 @@ __global__ void computeSplitKernel(BinT* hist,
 
 // "almost" instantiation templates to avoid code-duplication
 template __global__ void nodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
-  _IdxT max_depth,
-  _IdxT min_samples_leaf,
-  _IdxT min_samples_split,
-  _IdxT max_leaves,
-  _DataT min_impurity_decrease,
-  Dataset<_DataT, _LabelT, _IdxT> dataset,
-  NodeWorkItem* work_items,
+  const _IdxT max_depth,
+  const _IdxT min_samples_leaf,
+  const _IdxT min_samples_split,
+  const _IdxT max_leaves,
+  const _DataT min_impurity_decrease,
+  const Dataset<_DataT, _LabelT, _IdxT> dataset,
+  const NodeWorkItem* work_items,
   const Split<_DataT, _IdxT>* splits);
 
 template __global__ void leafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(

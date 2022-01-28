@@ -17,10 +17,8 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include <fstream>
 #include <iostream>
 #include <memory>
-#include <omp.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
@@ -36,18 +34,18 @@ namespace DT {
 
 template <typename T>
 __global__ void computeQuantilesKernel(
-  T* quantiles, int* n_bins_unique, const T* sorted_data, const int n_bins_max, const int n_rows);
+  T* quantiles, int* unique_nbins, const T* sorted_data, const int max_nbins, const int n_rows);
 
 template <typename T>
 auto computeQuantiles(
-  const raft::handle_t& handle, const T* data, int n_bins_max, int n_rows, int n_cols)
+  const raft::handle_t& handle, const T* data, int max_nbins, int n_rows, int n_cols)
 {
   raft::common::nvtx::push_range("computeQuantiles");
   auto stream               = handle.get_stream();
   size_t temp_storage_bytes = 0;  // for device radix sort
   rmm::device_uvector<T> sorted_column(n_rows, stream);
   // acquire device vectors to store the quantiles + offsets
-  auto quantiles_array    = std::make_shared<rmm::device_uvector<T>>(n_cols * n_bins_max, stream);
+  auto quantiles_array    = std::make_shared<rmm::device_uvector<T>>(n_cols * max_nbins, stream);
   auto n_uniquebins_array = std::make_shared<rmm::device_uvector<int>>(n_cols, stream);
 
   // get temp_storage_bytes for sorting
@@ -70,15 +68,15 @@ auto computeQuantiles(
     raft::common::nvtx::pop_range();  // sorting columns
 
     int n_blocks        = 1;
-    int n_threads       = min(1024, n_bins_max);
-    int quantile_offset = col * n_bins_max;
+    int n_threads       = min(1024, max_nbins);
+    int quantile_offset = col * max_nbins;
     int bins_offset     = col;
     raft::common::nvtx::push_range("computeQuantilesKernel @quantile.cuh");
     computeQuantilesKernel<<<n_blocks, n_threads, 0, stream>>>(
       quantiles_array->data() + quantile_offset,
       n_uniquebins_array->data() + bins_offset,
       sorted_column.data(),
-      n_bins_max,
+      max_nbins,
       n_rows);
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     RAFT_CUDA_TRY(cudaGetLastError());

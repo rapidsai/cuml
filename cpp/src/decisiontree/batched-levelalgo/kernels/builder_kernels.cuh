@@ -61,13 +61,13 @@ HDI bool SplitNotValid(const SplitT& split,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(IdxT max_depth,
-                                IdxT min_samples_leaf,
-                                IdxT min_samples_split,
-                                IdxT max_leaves,
-                                DataT min_impurity_decrease,
-                                Dataset<DataT, LabelT, IdxT> dataset,
-                                NodeWorkItem* work_items,
+__global__ void nodeSplitKernel(const IdxT max_depth,
+                                const IdxT min_samples_leaf,
+                                const IdxT min_samples_split,
+                                const IdxT max_leaves,
+                                const DataT min_impurity_decrease,
+                                const Dataset<DataT, LabelT, IdxT> dataset,
+                                const NodeWorkItem* work_items,
                                 const Split<DataT, IdxT>* splits);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>

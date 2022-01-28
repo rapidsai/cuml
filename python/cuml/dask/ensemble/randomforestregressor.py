@@ -98,7 +98,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
          * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
          * If ``None``, then ``max_features = 1.0``.
     n_bins : int (default = 128)
-        Number of bins used by the split algorithm.
+        Maximum number of bins used by the split algorithm per feature.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
          * If type ``int``, then ``min_samples_leaf`` represents the minimum

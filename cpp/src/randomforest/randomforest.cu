@@ -573,7 +573,7 @@ void validity_check(const RF_params rf_params)
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
-                        int n_bins,
+                        int max_nbins,
                         int min_samples_leaf,
                         int min_samples_split,
                         float min_impurity_decrease,
@@ -590,7 +590,7 @@ RF_params set_rf_params(int max_depth,
                       max_depth,
                       max_leaves,
                       max_features,
-                      n_bins,
+                      max_nbins,
                       min_samples_leaf,
                       min_samples_split,
                       min_impurity_decrease,
@@ -602,6 +602,7 @@ RF_params set_rf_params(int max_depth,
   rf_params.max_samples = max_samples;
   rf_params.seed        = seed;
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
+  if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
   rf_params.tree_params = tree_params;
   validity_check(rf_params);
   return rf_params;

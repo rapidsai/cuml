@@ -185,7 +185,7 @@ class RandomForestClassifier(BaseRandomForestModel,
          * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
          * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
     n_bins : int (default = 128)
-        Number of bins used by the split algorithm.
+        Maximum number of bins used by the split algorithm per feature.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
     n_streams : int (default = 4)

@@ -21,7 +21,6 @@
 #include <rmm/device_uvector.hpp>
 
 #include "kernels/builder_kernels.cuh"
-#include "quantiles.cuh"
 
 #include <common/Timer.h>
 #include <cuml/common/pinned_host_vector.hpp>
@@ -246,10 +245,9 @@ struct Builder {
   auto workspaceSize() const
   {
     size_t d_wsize = 0, h_wsize = 0;
-    raft::common::nvtx::range fun_scope(
-      "Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope("Builder::workspaceSize @builder.cuh [batched-levelalgo]");
     auto max_batch   = params.max_batch_size;
-    size_t nHistBins = max_batch * (params.n_bins) * n_blks_for_cols * dataset.numOutputs;
+    size_t nHistBins = max_batch * (params.max_nbins) * n_blks_for_cols * dataset.numOutputs;
 
     d_wsize += calculateAlignedBytes(sizeof(IdxT));                               // n_nodes
     d_wsize += calculateAlignedBytes(sizeof(BinT) * nHistBins);                   // hist
@@ -278,10 +276,10 @@ struct Builder {
   void assignWorkspace(char* d_wspace, char* h_wspace)
   {
     raft::common::nvtx::range fun_scope(
-      "Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
+      "Builder::assignWorkspace @builder.cuh [batched-levelalgo]");
     auto max_batch   = params.max_batch_size;
     auto n_col_blks  = n_blks_for_cols;
-    size_t nHistBins = max_batch * (params.n_bins) * n_blks_for_cols * dataset.numOutputs;
+    size_t nHistBins = max_batch * (params.max_nbins) * n_blks_for_cols * dataset.numOutputs;
     // device
     n_nodes = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT));
@@ -371,7 +369,7 @@ struct Builder {
 
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
-    raft::common::nvtx::push_range("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
     nodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(params.max_depth,
                                                                      params.min_samples_leaf,
@@ -390,9 +388,9 @@ struct Builder {
 
   auto computeSplitSmemSize()
   {
-    size_t smemSize1 = params.n_bins * dataset.numOutputs * sizeof(BinT) +  // pdf_shist size
-                       params.n_bins * sizeof(DataT) +                      // sbins size
-                       sizeof(int);                                         // sDone size
+    size_t smemSize1 = params.max_nbins * dataset.numOutputs * sizeof(BinT) +  // pdf_shist size
+                       params.max_nbins * sizeof(DataT) +                      // sbins size
+                       sizeof(int);                                            // sDone size
     // Extra room for alignment (see alignPointer in
     // computeSplitKernel)
     smemSize1 += sizeof(DataT) + 3 * sizeof(int);
@@ -401,16 +399,15 @@ struct Builder {
     // Pick the max of two
     auto available_smem = handle.get_device_properties().sharedMemPerBlock;
     size_t smemSize     = std::max(smemSize1, smemSize2);
-    ASSERT(available_smem >= smemSize, "Not enough shared memory. Consider reducing n_bins.");
+    ASSERT(available_smem >= smemSize, "Not enough shared memory. Consider reducing max_nbins.");
     return smemSize;
   }
 
   void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks)
   {
     if (total_blocks == 0) return;
-    raft::common::nvtx::range fun_scope(
-      "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
-    auto nbins    = params.n_bins;
+    raft::common::nvtx::range fun_scope("Builder::computeSplit @builder.cuh [batched-levelalgo]");
+    auto nbins    = params.max_nbins;
     auto nclasses = dataset.numOutputs;
     auto colBlks  = std::min(n_blks_for_cols, dataset.nSampledCols - col);
 
@@ -418,12 +415,11 @@ struct Builder {
     dim3 grid(total_blocks, colBlks, 1);
     int nHistBins = large_blocks * nbins * colBlks * nclasses;
     RAFT_CUDA_TRY(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, builder_stream));
-    raft::common::nvtx::range kernel_scope(
-      "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
     ObjectiveT objective(dataset.numOutputs, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, builder_stream>>>(hist,
-                                                        params.n_bins,
+                                                        params.max_nbins,
                                                         params.max_depth,
                                                         params.min_samples_split,
                                                         params.max_leaves,
