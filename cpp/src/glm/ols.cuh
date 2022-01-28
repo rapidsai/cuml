@@ -121,6 +121,14 @@ void olsFit(const raft::handle_t& handle,
   }
   raft::common::nvtx::pop_range();
 
+  if (sample_weight != nullptr) {
+    raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(labels, n_rows,
+      [] __device__(math_t a, math_t b) { return a / b; },
+      stream, labels, sample_weight);
+    LinAlg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
+  }
+
   if (fit_intercept) {
     postProcessData(handle,
                     input,
@@ -137,14 +145,6 @@ void olsFit(const raft::handle_t& handle,
                     stream);
   } else {
     *intercept = math_t(0);
-  }
-
-  if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(labels, n_rows,
-      [] __device__(math_t a, math_t b) { return a / b; },
-      stream, labels, sample_weight);
-    LinAlg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
   }
 }
 

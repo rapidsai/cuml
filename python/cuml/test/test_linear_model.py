@@ -131,7 +131,8 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
 @pytest.mark.parametrize("fit_intercept", [True, False])
-def test_weighted_linear_regression(datatype, algorithm, fit_intercept):
+@pytest.mark.parametrize("normalize", [True, False])
+def test_weighted_linear_regression(datatype, algorithm, fit_intercept, normalize):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
@@ -144,7 +145,7 @@ def test_weighted_linear_regression(datatype, algorithm, fit_intercept):
     
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(fit_intercept=fit_intercept,
-                               normalize=False,
+                               normalize=normalize,
                                algorithm=algorithm)
 
     # fit and predict cuml linear regression model
@@ -152,7 +153,7 @@ def test_weighted_linear_regression(datatype, algorithm, fit_intercept):
     cuols_predict = cuols.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skols = skLinearRegression(fit_intercept=fit_intercept, normalize=False)
+    skols = skLinearRegression(fit_intercept=fit_intercept, normalize=normalize)
     skols.fit(X_train, y_train, sample_weight=wt)
 
     skols_predict = skols.predict(X_test)

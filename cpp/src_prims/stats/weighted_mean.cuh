@@ -18,7 +18,9 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/coalesced_reduction.cuh>
+#include <raft/linalg/reduce.cuh>
 #include <raft/linalg/strided_reduction.cuh>
+#include <raft/stats/sum.hpp>
 
 namespace MLCommon {
 namespace Stats {
@@ -49,6 +51,44 @@ void rowWeightedMean(
     D,
     N,
     (Type)0,
+    stream,
+    false,
+    [weights] __device__(Type v, int i) { return v * weights[i]; },
+    [] __device__(Type a, Type b) { return a + b; },
+    [WS] __device__(Type v) { return v / WS; });
+}
+
+/**
+ * @brief Compute the row-wise weighted mean of the input matrix
+ *
+ * @tparam Type the data type
+ * @param mu the output mean vector
+ * @param data the input matrix
+ * @param weights per-sample weight
+ * @param D number of columns of data
+ * @param N number of rows of data
+ * @param row_major input matrix is row-major or not
+ * @param along_rows whether to reduce along rows or columns
+ * @param stream cuda stream to launch work on
+ */
+template <typename Type>
+void rowSampleWeightedMean(
+  Type* mu, const Type* data, const Type* weights, int D, int N,
+  bool row_major, bool along_rows, cudaStream_t stream)
+{
+  // sum the weights & copy back to CPU
+  Type WS = 0;
+  raft::stats::sum(mu, weights, 1, N, row_major, stream);
+  raft::update_host(&WS, mu, 1, stream);
+
+  raft::linalg::reduce(
+    mu,
+    data,
+    D,
+    N,
+    (Type)0,
+    row_major,
+    along_rows,
     stream,
     false,
     [weights] __device__(Type v, int i) { return v * weights[i]; },
