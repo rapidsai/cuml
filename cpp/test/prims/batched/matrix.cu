@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,8 +161,8 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
       Z[i] = udis(gen);
 
     // Create handles, stream
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUBLAS_TRY(cublasCreate(&handle));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     // Created batched matrices
     Matrix<T> AbM(params.m, params.n, params.batch_size, handle, stream);
@@ -203,7 +203,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         // Check that H is in Hessenberg form
         std::vector<T> H = std::vector<T>(n * n * params.batch_size);
         raft::update_host(H.data(), HbM.raw_data(), H.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
@@ -215,7 +215,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
         raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(), UUt.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
@@ -240,7 +240,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         // Check that S is in Schur form
         std::vector<T> S = std::vector<T>(n * n * params.batch_size);
         raft::update_host(S.data(), SbM.raw_data(), S.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
@@ -259,7 +259,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
         raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(), UUt.size(), stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
@@ -369,14 +369,14 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         break;
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override
   {
     delete res_bM;
-    CUBLAS_CHECK(cublasDestroy(handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUBLAS_TRY(cublasDestroy(handle));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,9 +109,9 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
       res_h[i] = udis(gen);
 
     // Create handles, stream
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    CUSOLVER_CHECK(cusolverSpCreate(&cusolverSpHandle));
+    RAFT_CUBLAS_TRY(cublasCreate(&handle));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    RAFT_CUSOLVER_TRY(cusolverSpCreate(&cusolverSpHandle));
 
     // Created batched dense matrices
     LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size, handle, stream);
@@ -162,15 +162,15 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
         break;
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override
   {
     delete res_bM;
-    CUBLAS_CHECK(cublasDestroy(handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUSOLVER_CHECK(cusolverSpDestroy(cusolverSpHandle));
+    RAFT_CUBLAS_TRY(cublasDestroy(handle));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    RAFT_CUSOLVER_TRY(cusolverSpDestroy(cusolverSpHandle));
   }
 
  protected:

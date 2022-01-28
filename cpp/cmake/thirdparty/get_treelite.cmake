@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,43 +16,79 @@
 
 function(find_and_configure_treelite)
 
-    set(oneValueArgs VERSION PINNED_TAG)
+    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    rapids_cpm_find(Treelite ${PKG_VERSION}
-        GLOBAL_TARGETS  treelite::treelite treelite
-        CPM_ARGS
-            GIT_REPOSITORY  https://github.com/dmlc/treelite.git
-            GIT_TAG         ${PKG_PINNED_TAG}
-            OPTIONS
-              "USE_OPENMP ON"
-              "BUILD_STATIC_LIBS ON"
-    )
-
-    set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
-
-    if(Treelite_ADDED)
-        target_include_directories(treelite
-            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
-                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        target_include_directories(treelite_static
-            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
-                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        target_include_directories(treelite_runtime
-            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
-                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        target_include_directories(treelite_runtime_static
-            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
-                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-
-        if(NOT TARGET treelite::treelite_static)
-            add_library(treelite::treelite_static ALIAS treelite_static)
-            add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
-        endif()
+    if(NOT BUILD_STATIC_LIBS)
+        list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
+    else()
+        list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
     endif()
 
+    rapids_cpm_find(Treelite ${PKG_VERSION}
+        GLOBAL_TARGETS       ${TREELITE_LIBS}
+        INSTALL_EXPORT_SET   cuml-exports
+        CPM_ARGS
+            GIT_REPOSITORY   https://github.com/dmlc/treelite.git
+            GIT_TAG          ${PKG_PINNED_TAG}
+            OPTIONS
+              "USE_OPENMP ON"
+              "BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS}"
+    )
+
+
+    list(APPEND TREELITE_LIBS_NO_PREFIX treelite treelite_runtime)
+    if(Treelite_ADDED AND BUILD_STATIC_LIBS)
+        list(APPEND TREELITE_LIBS_NO_PREFIX treelite_static treelite_runtime_static)
+    endif()
+
+    set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
+    set(TREELITE_LIBS ${TREELITE_LIBS} PARENT_SCOPE)
+
+    if(Treelite_ADDED)
+        if (NOT BUILD_STATIC_LIBS)
+            target_include_directories(treelite
+                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                       $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+            target_include_directories(treelite_runtime
+                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                       $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+            if(NOT TARGET treelite::treelite)
+                add_library(treelite::treelite ALIAS treelite)
+            endif()
+            if(NOT TARGET treelite::treelite_runtime)
+                add_library(treelite::treelite_runtime ALIAS treelite_runtime)
+            endif()
+        else()
+            target_include_directories(treelite_static
+                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                       $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+            target_include_directories(treelite_runtime_static
+                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                       $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+            if(NOT TARGET treelite::treelite_static)
+                add_library(treelite::treelite_static ALIAS treelite_static)
+            endif()
+            if(NOT TARGET treelite::treelite_runtime_static)
+                add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
+            endif()
+        endif()
+
+        rapids_export(BUILD Treelite
+            EXPORT_SET TreeliteTargets
+            GLOBAL_TARGETS ${TREELITE_LIBS_NO_PREFIX}
+            NAMESPACE treelite::)
+    endif()
+
+    # We generate the treelite-config files when we built treelite locally, so always do `find_dependency`
+    rapids_export_package(BUILD Treelite cuml-exports)
+
+    # Tell cmake where it can find the generated treelite-config.cmake we wrote.
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
 endfunction()
 
-find_and_configure_treelite(VERSION     2.1.0
-                        PINNED_TAG  e5248931c62e3807248e0b150e27b2530a510634)
+find_and_configure_treelite(VERSION     2.2.1
+                        PINNED_TAG  1f9c5054ad7433fa88623fccf0ae46a6ba6a27c6
+                        BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})

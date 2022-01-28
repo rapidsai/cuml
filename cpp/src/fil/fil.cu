@@ -22,7 +22,7 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 
 #include <cuml/fil/fil.h>  // for algo_t,
 
-#include <raft/cudart_utils.h>     // for CUDA_CHECK, cudaStream_t,
+#include <raft/cudart_utils.h>     // for RAFT_CUDA_TRY, cudaStream_t,
 #include <raft/error.hpp>          // for ASSERT
 #include <raft/handle.hpp>         // for handle_t
 #include <rmm/device_uvector.hpp>  // for device_uvector
@@ -79,7 +79,8 @@ struct forest {
   void init_shmem_size(int device)
   {
     /// the most shared memory a kernel can request on the GPU in question
-    CUDA_CHECK(cudaDeviceGetAttribute(&max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+    RAFT_CUDA_TRY(
+      cudaDeviceGetAttribute(&max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     /* Our GPUs have been growing the shared memory size generation after
        generation. Eventually, a CUDA GPU might come by that supports more
        shared memory that would fit into unsigned 16-bit int. For such a GPU,
@@ -120,10 +121,10 @@ struct forest {
   void init_fixed_block_count(int device, int blocks_per_sm)
   {
     int max_threads_per_sm, sm_count;
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaDeviceGetAttribute(&max_threads_per_sm, cudaDevAttrMaxThreadsPerMultiProcessor, device));
     blocks_per_sm = std::min(blocks_per_sm, max_threads_per_sm / FIL_TPB);
-    CUDA_CHECK(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
@@ -156,11 +157,11 @@ struct forest {
     if (!vector_leaf.empty()) {
       vector_leaf_.resize(vector_leaf.size(), stream);
 
-      CUDA_CHECK(cudaMemcpyAsync(vector_leaf_.data(),
-                                 vector_leaf.data(),
-                                 vector_leaf.size() * sizeof(float),
-                                 cudaMemcpyHostToDevice,
-                                 stream));
+      RAFT_CUDA_TRY(cudaMemcpyAsync(vector_leaf_.data(),
+                                    vector_leaf.data(),
+                                    vector_leaf.size() * sizeof(float),
+                                    cudaMemcpyHostToDevice,
+                                    stream));
     }
 
     // categorical features
@@ -305,7 +306,7 @@ struct forest {
         threshold_,
         global_bias,
         complement_proba);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
 
@@ -346,7 +347,8 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
                           storage_type>;
     // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
     // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
-    CUDA_CHECK(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
+    RAFT_CUDA_TRY(
+      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
   }
 };
 
@@ -399,17 +401,17 @@ struct dense_forest : forest {
     } else {
       transform_trees(nodes);
     }
-    CUDA_CHECK(cudaMemcpyAsync(nodes_.data(),
-                               h_nodes_.data(),
-                               num_nodes * sizeof(dense_node),
-                               cudaMemcpyHostToDevice,
-                               h.get_stream()));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(nodes_.data(),
+                                  h_nodes_.data(),
+                                  num_nodes * sizeof(dense_node),
+                                  cudaMemcpyHostToDevice,
+                                  h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
     dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<dense_storage>(max_shm_),
                                     static_cast<predict_params>(class_ssp_));
     // copy must be finished before freeing the host data
-    CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
     h_nodes_.shrink_to_fit();
   }
@@ -456,12 +458,12 @@ struct sparse_forest : forest {
 
     // trees
     trees_.resize(num_trees_, h.get_stream());
-    CUDA_CHECK(cudaMemcpyAsync(
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
       trees_.data(), trees, sizeof(int) * num_trees_, cudaMemcpyHostToDevice, h.get_stream()));
 
     // nodes
     nodes_.resize(num_nodes_, h.get_stream());
-    CUDA_CHECK(cudaMemcpyAsync(
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional

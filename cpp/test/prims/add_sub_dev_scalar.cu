@@ -59,7 +59,7 @@ class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType
   {
     params = ::testing::TestWithParam<DevScalarInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     auto len = params.len;
 
@@ -75,7 +75,7 @@ class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType
     } else {
       subtractDevScalar(out.data(), in.data(), scalar.data(), len, stream);
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

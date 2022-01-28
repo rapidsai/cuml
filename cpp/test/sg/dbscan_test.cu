@@ -109,7 +109,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     raft::copy(labels_ref.data(), l.data(), params.n_row, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     Dbscan::fit(handle,
                 params.metric == raft::distance::Precomputed ? dist.data() : out.data(),
@@ -122,7 +122,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                 nullptr,
                 params.max_bytes_per_batch);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     score = adjusted_rand_index(handle, labels_ref.data(), labels.data(), params.n_row);
 
@@ -226,7 +226,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     raft::copy(inputs.data(), params.points, params.n_row * 2, stream);
     raft::copy(labels_ref.data(), params.out, params.n_out, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     Dbscan::fit(handle,
                 inputs.data(),
@@ -238,7 +238,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
                 labels.data(),
                 core_sample_indices_d.data());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     score = adjusted_rand_index(handle, labels_ref.data(), labels.data(), (int)params.n_out);
 

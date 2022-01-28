@@ -272,7 +272,7 @@ void jones_transform(const DataT* params,
     default: ASSERT(false, "Unsupported parameter '%d'!", parameter);
   }
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace TimeSeries

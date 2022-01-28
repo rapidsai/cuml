@@ -111,9 +111,9 @@ class MultiSumTest : public testing::TestWithParam<int> {
     int* error_p            = error_d.data().get();
 
     test_multi_sum_k<<<params_h.size(), block_dim_x>>>(data_p, p_p, error_p);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     error = error_d;
-    CUDA_CHECK(cudaDeviceSynchronize());
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
     for (std::size_t i = 0; i < params_h.size(); ++i) {
       ASSERT(error[i] == 0,
              "test # %lu: block_dim_x %d multi_sum<%d>(on %d sets sized"

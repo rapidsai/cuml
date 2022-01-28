@@ -427,7 +427,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
       data_d.data(), mask_d.data(), num_data, std::numeric_limits<float>::quiet_NaN());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // copy to host
     data_h.resize(num_data);
@@ -867,7 +867,7 @@ class TreeliteFilTest : public BaseFilTest {
     params.n_items           = ps.n_items;
     params.pforest_shape_str = ps.print_forest_shape ? &forest_shape_str : nullptr;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     if (ps.print_forest_shape) {
       std::string str(forest_shape_str);
       for (const char* substr : {"model size",
