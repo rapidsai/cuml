@@ -82,13 +82,19 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
-Preprocessing (Single-GPU)
+Feature Scaling and Normalization (Single-GPU)
 -------------
 .. automodule:: cuml.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, MissingIndicator,
-             Normalizer, PolynomialFeatures, RobustScaler, SimpleImputer,
-             StandardScaler, add_dummy_feature,binarize, maxabs_scale,
-             minmax_scale,normalize, robust_scale, scale
+   :members: MaxAbsScaler, MinMaxScaler, Normalizer, RobustScaler,
+             StandardScaler, maxabs_scale, minmax_scale, normalize,
+             robust_scale, scale
+
+Other preprocessing methods (Single-GPU)
+-------------
+.. automodule:: cuml.preprocessing
+   :members: Binarizer, KBinsDiscretizer, MissingIndicator,
+             PolynomialFeatures, SimpleImputer,
+             add_dummy_feature, binarize
 
 .. automodule:: cuml.compose
    :members: ColumnTransformer, FunctionTransformer, make_column_transformer,
