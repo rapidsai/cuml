@@ -84,7 +84,7 @@ fi
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
-
+sccache --zero-stats
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
   if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     gpuci_logger "Build conda pkg for libcuml"
@@ -98,6 +98,8 @@ else
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
+gpuci_logger "sccache stats"
+sccache --show-stats
 
 if [ "$BUILD_CUML" == '1' ]; then
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
