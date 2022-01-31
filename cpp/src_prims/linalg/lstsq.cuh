@@ -51,7 +51,7 @@ struct DeviceEvent {
   DeviceEvent(bool concurrent)
   {
     if (concurrent)
-      RAFT_CUDA_TRY(cudaEventCreate(&e));
+      RAFT_CUDA_TRY(cudaEventCreateWithFlags(&e, cudaEventDisableTiming));
     else
       e = nullptr;
   }
@@ -59,18 +59,13 @@ struct DeviceEvent {
   {
     if (e != nullptr) RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(e));
   }
-  operator cudaEvent_t() const { return e; }
   void record(cudaStream_t stream)
   {
     if (e != nullptr) RAFT_CUDA_TRY(cudaEventRecord(e, stream));
   }
-  void wait(cudaStream_t stream)
+  void wait_by(cudaStream_t stream)
   {
     if (e != nullptr) RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, e, 0u));
-  }
-  void wait()
-  {
-    if (e != nullptr) RAFT_CUDA_TRY(cudaEventSynchronize(e));
   }
   DeviceEvent& operator=(const DeviceEvent& other) = delete;
 };
@@ -263,17 +258,19 @@ void lstsqEig(const raft::handle_t& handle,
       if (!are_implicitly_synchronized(mainStream, multAbStream)) {
         concurrent = true;
       } else if (sp_size > 1) {
-        mainStream   = multAbStream;
-        multAbStream = handle.get_stream_from_stream_pool(1);
-        concurrent   = true;
+        mainStream = handle.get_stream_from_stream_pool(1);
+        concurrent = true;
+      } else {
+        multAbStream = mainStream;
       }
     }
   }
-  // the event is created only if the given raft handle is capable of running
-  // at least two CUDA streams without implicit synchronization.
-  DeviceEvent multAbDone(concurrent);
 
   rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, mainStream);
+  // the event is created only if the given raft handle is capable of running
+  // at least two CUDA streams without implicit synchronization.
+  DeviceEvent worksetDone(concurrent);
+  worksetDone.record(mainStream);
   math_t* Q    = workset.data();
   math_t* QS   = Q + n_cols * n_cols;
   math_t* covA = QS + n_cols * n_cols;
@@ -298,7 +295,9 @@ void lstsqEig(const raft::handle_t& handle,
                      mainStream);
 
   // Ab <- A* b
+  worksetDone.wait_by(multAbStream);
   raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAbStream);
+  DeviceEvent multAbDone(concurrent);
   multAbDone.record(multAbStream);
 
   // Q S Q* <- covA
@@ -323,9 +322,14 @@ void lstsqEig(const raft::handle_t& handle,
                      alpha,
                      beta,
                      mainStream);
-  multAbDone.wait(mainStream);
+
+  // This event is created only if we use two worker streams.
+  DeviceEvent mainDone(mainStream.value() != stream);
+  mainDone.record(mainStream);
+  mainDone.wait_by(stream);
+  multAbDone.wait_by(stream);
   // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
-  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, mainStream);
+  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
