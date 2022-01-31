@@ -14,10 +14,13 @@
 #
 
 import numpy as np
+import cupy as cp
 import pytest
 import os
 import pandas as pd
 from math import ceil
+import nvtx
+import cudf
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -490,6 +493,7 @@ def test_output_args(small_classifier_and_preds):
 
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
+from cudf._lib.reshape import interleave_columns
 
 def to_categorical(features, n_categorical, invalid_frac, random_state):
     """ returns data in two formats: pandas (for LightGBM) and numpy (for FIL)
@@ -510,6 +514,9 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
     # round into rough_n_categories bins
     cat_cols = (cat_cols * rough_n_categories).astype(int)
 
+    # no timedelta or complex numbers for code simplicity
+    allowed_dtypes = np.array([t + str(s) for t in ['i', 'u', 'f'] for s in [1, 2, 4, 8] if s != 1 or t != 'f'])
+
     # mix categorical and numerical columns
     new_col_idx = \
         rng.choice(n_features, n_features, replace=False, shuffle=True)
@@ -519,8 +526,10 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
         df_cols[new_col_idx[icol]] = pd.Series(pd.Categorical(col,
                                                categories=np.unique(col)))
     # all numerical columns
+    dtypes = ['f2'] * n_features #rng.choice(a=allowed_dtypes, size=n_features)
     for icol in range(n_categorical, n_features):
-        df_cols[new_col_idx[icol]] = pd.Series(features[:, icol])
+        col = np.abs(features[:, icol]) if dtypes[icol][0] == 'u' else features[:, icol]
+        df_cols[new_col_idx[icol]] = pd.Series(col, dtype=dtypes[icol])
     fit_df = pd.DataFrame(df_cols)
 
     # randomly inject invalid categories only into predict_matrix
@@ -534,23 +543,36 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
     predict_matrix = np.concatenate([cat_cols, features[:, n_categorical:]],
                                     axis=1)
     predict_matrix[:, new_col_idx] = predict_matrix
+    fil = cudf.DataFrame(df_cols)
 
-    return fit_df, predict_matrix
+    return fit_df, fil, predict_matrix
 
 
 @pytest.mark.parametrize('num_classes', [2, 5])
-@pytest.mark.parametrize('n_categorical', [0, 5])
+@pytest.mark.parametrize('n_categorical', [0, 20])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
+    import rmm
+    pool = rmm.mr.PoolMemoryResource(
+        rmm.mr.CudaMemoryResource(),
+        initial_pool_size=2**30,
+        maximum_pool_size=2**32
+    )
+    rmm.mr.set_current_device_resource(pool)
+    #rmm.reinitialize(pool_allocator=True)
+    import cupy
+    cupy.cuda.set_allocator(rmm.rmm_cupy_allocator)
+    from numba import cuda
+    cuda.set_memory_manager(rmm.RMMNumbaManager)
 
+    n_rows = int(1e2)
+    n_fit = int(1e2)
     if n_categorical > 0:
-        n_features = 10
-        n_rows = 1000
+        n_features = 100
         n_informative = n_features
     else:
-        n_features = 10 if num_classes == 2 else 50
-        n_rows = 500
+        n_features = 100 if num_classes == 2 else 500
         n_informative = 'auto'
 
     X, y = simulate_data(n_rows,
@@ -560,21 +582,25 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                          random_state=43210,
                          classification=True)
     if n_categorical > 0:
-        X_fit, X_predict = to_categorical(X,
+        X_fit, X_predict_FIL, X_predict = to_categorical(X,
                                           n_categorical=n_categorical,
                                           invalid_frac=0.1,
                                           random_state=43210)
     else:
         X_fit, X_predict = X, X
+    del X
 
-    train_data = lgb.Dataset(X_fit, label=y)
+    train_data = lgb.Dataset(X_fit[:n_fit], label=y[:n_fit])
     num_round = 5
+    tmp_path = '/home/ldolgovs/others-libs/rapids/host-envs/cuml'
     model_path = str(os.path.join(tmp_path, 'lgb.model'))
 
     if num_classes == 2:
         param = {'objective': 'binary',
                  'metric': 'binary_logloss',
-                 'num_class': 1}
+                 'num_class': 1,
+                 'num_iterations' : 1,
+                 'num_leaves' : 2}
         bst = lgb.train(param, train_data, num_round)
         bst.save_model(model_path)
         fm = ForestInference.load(model_path,
@@ -585,16 +611,24 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         gbm_proba = bst.predict(X_predict)
         fil_proba = fm.predict_proba(X_predict)[:, 1]
         gbm_preds = (gbm_proba > 0.5).astype(float)
-        fil_preds = fm.predict(X_predict)
-        assert array_equal(gbm_preds, fil_preds)
-        np.testing.assert_allclose(gbm_proba, fil_proba,
-                                   atol=proba_atol[num_classes > 2])
+        range_name = "total {} n_features {}".format('cudf', n_features)
+        #fil2 = X_predict_FIL.astype(np.float32)
+        #f3 = fil2.stack()
+        #from cuml.common import input_to_cuml_array
+        #input_to_cuml_array(f3)
+        #fil_preds = fm.predict(f3)
+        for i in range(321):
+            with nvtx.annotate(range_name, color="yellow"):
+                fil_preds = fm.predict(X_predict_FIL)
+        #assert array_equal(gbm_preds, fil_preds)
+        #np.testing.assert_allclose(gbm_proba, fil_proba,
+        #                           atol=proba_atol[num_classes > 2])
     else:
         # multi-class classification
         lgm = lgb.LGBMClassifier(objective='multiclass',
                                  boosting_type='gbdt',
                                  n_estimators=num_round)
-        lgm.fit(X_fit, y)
+        lgm.fit(X_fit[:n_fit], y[:n_fit])
         lgm.booster_.save_model(model_path)
         lgm_preds = lgm.predict(X_predict).astype(int)
         fm = ForestInference.load(model_path,

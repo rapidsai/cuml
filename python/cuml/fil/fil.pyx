@@ -230,6 +230,12 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                                 ModelHandle,
                                 treelite_params_t*) except +
 
+    cdef void cudf_to_row_major(const raft::handle_t& h,
+                                float** row_major,
+                                size_t* n_cols,
+                                size_t* n_rows,
+                                const vector<column_view>& cols) except +
+
 cdef class ForestInference_impl():
 
     cdef object handle
@@ -326,11 +332,16 @@ cdef class ForestInference_impl():
                                       " set `output_class=True` while creating"
                                       " the FIL model.")
         cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=np.float32,
-                                safe_dtype_conversion=safe_dtype_conversion,
-                                check_dtype=np.float32)
+        cdef size_t n_rows, n_cols
+        if X is cudf.DataFrame:
+            cdef vector[column_view] cols = make_column_views(X.columns)
+            cudf_to_row_major(handle_[0], &row_major, &n_cols, &n_rows, cols);
+        else:
+            X_m, n_rows, n_cols, dtype = \
+                input_to_cuml_array(X, order='C',
+                                    convert_to_dtype=np.float32,
+                                    safe_dtype_conversion=safe_dtype_conversion,
+                                    check_dtype=np.float32)
         X_ptr = X_m.ptr
 
         cdef handle_t* handle_ =\
