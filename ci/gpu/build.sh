@@ -68,12 +68,6 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_mamba_retry install -y "your-pkg=1.0.0"
 
-gpuci_logger "Install contextvars if needed"
-py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
-if [ "$py_ver" == "3.6" ];then
-    conda install contextvars
-fi
-
 gpuci_logger "Check compiler versions"
 python --version
 $CC --version
