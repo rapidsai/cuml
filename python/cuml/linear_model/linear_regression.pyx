@@ -243,7 +243,8 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "LinearRegression":
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -263,8 +264,8 @@ class LinearRegression(Base,
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \
                 input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                    convert_to_dtype=(self.dtype if convert_dtype
-                                                    else None),
+                                    convert_to_dtype=(
+                                        self.dtype if convert_dtype else None),
                                     check_rows=n_rows, check_cols=1)
             sample_weight_ptr = sample_weight_m.ptr
         else:
