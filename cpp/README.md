@@ -45,7 +45,7 @@ Current cmake offers the following configuration options:
 | SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCX-py and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
 | CMAKE_CUDA_ARCHITECTURES |  List of GPU architectures, semicolon-separated | Empty  | List the GPU architectures to compile the GPU targets for. Set to "NATIVE" to auto detect GPU architecture of the system, set to "ALL" to compile for all RAPIDS supported archs: ["60" "62" "70" "72" "75" "80" "86"].  |
-| USE_CCACHE | [ON, OFF]  | ON  | Cache build artifacts with ccache. |
+| USE_SCCACHE | [ON, OFF]  | ON  | Cache build artifacts with sccache. |
 
 - Debug configuration options:
 
