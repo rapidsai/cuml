@@ -32,7 +32,7 @@ if [ "${IS_STABLE_BUILD}" != "true" ] ; then
 fi
 
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
 
 ################################################################################
 # SETUP - Check environment
