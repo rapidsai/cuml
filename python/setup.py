@@ -179,10 +179,6 @@ class cuml_build(_build):
         self.distribution.packages = find_packages(include=['cuml', 'cuml.*'],
                                                    exclude=python_exc_list)
 
-        print("--DBG:: libs")
-        print(libs)
-        print("--END")
-
         # Build the extensions list
         extensions = [
             Extension("*",
@@ -198,10 +194,6 @@ class cuml_build(_build):
                       language='c++',
                       extra_compile_args=['-std=c++17'])
         ]
-
-        print("--DBG:: extensions")
-        print(extensions)
-        print("--END")
 
         self.distribution.ext_modules = extensions
 
