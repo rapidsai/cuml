@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../quantiles.cuh"
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 
 namespace ML {
 namespace DT {
@@ -36,7 +36,8 @@ __global__ void computeQuantilesKernel(
 
   if (threadIdx.x == 0) {
     // make quantiles unique, in-place
-    auto new_last = thrust::unique(thrust::device, quantiles, quantiles + max_nbins);
+    // thrust::seq to explicitly disable cuda dynamic parallelism here
+    auto new_last = thrust::unique(thrust::seq, quantiles, quantiles + max_nbins);
     // get the unique count
     *unique_nbins = new_last - quantiles;
   }

@@ -277,8 +277,7 @@ __global__ void computeSplitKernel(BinT* hist,
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();
-  for (IdxT b = threadIdx.x; b < max_nbins; b += blockDim.x) {
-    if (b >= nbins) break;
+  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x) {
     sbins[b] = quantiles.quantiles_array[max_nbins * col + b];
   }
 
