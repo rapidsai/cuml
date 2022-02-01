@@ -236,6 +236,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # FIL components
   target_sources(${CUML_CPP_TARGET}
     PRIVATE
+      src/fil/cudf_to_matrix.cu
       src/fil/fil.cu
       src/fil/infer.cu
       src/fil/treelite_import.cu)
@@ -267,8 +268,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
         src/explainer/tree_shap.cu
-        src/fil/fil.cu
-        src/fil/infer.cu
+        src/fil/cudf_to_matrix.cu
         src/glm/glm.cu
         src/genetic/genetic.cu
         src/genetic/program.cu
