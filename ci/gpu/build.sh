@@ -182,10 +182,13 @@ else
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
     done
 
+    # TODO: Move boa install to gpuci/rapidsai
+    gpuci_mamba_retry install boa
+
     gpuci_logger "Building and installing cuml"
     export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
     export VERSION_SUFFIX=""
-    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
     gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} -c ${CONDA_BLD_DIR} cuml
 
     gpuci_logger "Install the main version of dask, distributed, and dask-glm"
