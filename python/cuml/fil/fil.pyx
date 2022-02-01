@@ -30,6 +30,7 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+from libcpp.vector cimport vector
 
 import cuml.internals
 from cuml.common.array import CumlArray
@@ -38,6 +39,9 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
+
+from cudf._lib.cpp.column.column cimport column_view
+from cudf._lib.utils import make_column_views
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -230,11 +234,11 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                                 ModelHandle,
                                 treelite_params_t*) except +
 
-    cdef void cudf_to_row_major(const raft::handle_t& h,
+    cdef void cudf_to_row_major(handle_t& h,
                                 float** row_major,
                                 size_t* n_cols,
                                 size_t* n_rows,
-                                const vector<column_view>& cols) except +
+                                vector[column_view]& cols) except +
 
 cdef class ForestInference_impl():
 
@@ -333,8 +337,10 @@ cdef class ForestInference_impl():
                                       " the FIL model.")
         cdef uintptr_t X_ptr
         cdef size_t n_rows, n_cols
+        cdef vector[column_view] cols
+        cdef float* row_major
         if X is cudf.DataFrame:
-            cdef vector[column_view] cols = make_column_views(X.columns)
+            cols = make_column_views(X.columns)
             cudf_to_row_major(handle_[0], &row_major, &n_cols, &n_rows, cols);
         else:
             X_m, n_rows, n_cols, dtype = \
@@ -372,6 +378,7 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
+        free(row_major)
 
         # special case due to predict and predict_proba
         # both coming from the same CUDA/C++ function

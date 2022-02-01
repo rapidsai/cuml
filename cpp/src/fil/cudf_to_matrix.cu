@@ -138,7 +138,7 @@ void cudf_to_row_major(const raft::handle_t& h,
   CUDA_CHECK(cudaSetDevice(h.get_device()));
   rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
   device_col* d_cols                  = (device_col*)mr->allocate(h_cols.size() * sizeof *d_cols);
-  *row_major                          = (float*)mr->allocate(*n_cols * *n_rows * sizeof *row_major);
+  *row_major                          = (float*)mr->allocate(*n_cols * *n_rows * sizeof **row_major);
   CUDA_CHECK(cudaMemcpyAsync(
     d_cols, h_cols.data(), h_cols.size() * sizeof *d_cols, cudaMemcpyHostToDevice, 0));
 
