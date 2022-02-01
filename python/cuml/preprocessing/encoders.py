@@ -224,7 +224,7 @@ class OneHotEncoder(Base):
         """Check if X_cat has categories that are not present in encoder_cat"""
         return not X_cat.isin(encoder_cat).all()
 
-    def fit(self, X):
+    def fit(self, X, y=None):
         """
         Fit OneHotEncoder to X.
 
@@ -232,6 +232,8 @@ class OneHotEncoder(Base):
         ----------
         X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
             The data to determine the categories of each feature.
+        y : None
+            Ignored. This parameter exists for compatibility only.
 
         Returns
         -------
