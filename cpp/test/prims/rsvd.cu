@@ -66,7 +66,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenPC);
     int m = params.n_row, n = params.n_col;
     T eig_svd_tol  = 1.e-7;
     int max_sweeps = 100;

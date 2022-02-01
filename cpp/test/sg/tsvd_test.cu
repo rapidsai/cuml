@@ -63,7 +63,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
  protected:
   void basicTest()
   {
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenPC);
     int len = params.len;
 
     rmm::device_uvector<T> data(len, stream);
@@ -97,7 +97,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
 
   void advancedTest()
   {
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenPC);
     int len = params.len2;
 
     paramsTSVD prms;
