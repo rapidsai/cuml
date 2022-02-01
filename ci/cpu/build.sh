@@ -84,7 +84,6 @@ fi
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
-sccache --zero-stats
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
   if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     gpuci_logger "Build conda pkg for libcuml"
