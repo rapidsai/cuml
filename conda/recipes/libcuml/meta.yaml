@@ -33,6 +33,7 @@ build:
     - SCCACHE_BUCKET=rapids-sccache
     - SCCACHE_REGION=us-west-2
     - SCCACHE_IDLE_TIMEOUT=32768
+    - SCCACHE_SERVER_PORT
 
 requirements:
   build:
