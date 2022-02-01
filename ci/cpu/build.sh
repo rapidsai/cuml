@@ -40,10 +40,11 @@ export CMAKE_C_COMPILER_LAUNCHER="sccache"
 
 wget \
   "https://github.com/ajschmidt8/freeport/releases/download/1.0.4/freeport_1.0.4_linux_$(uname -m)" \
-  -O freeport \
-  --quiet
+  -O freeport
 chmod +x ./freeport
-export SCCACHE_SERVER_PORT=$(./freeport)
+set -x
+export SCCACHE_SERVER_PORT=$(freeport)
+set +x
 
 ################################################################################
 # SETUP - Check environment
