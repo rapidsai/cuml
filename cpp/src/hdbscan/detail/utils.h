@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
-
 #include <cub/cub.cuh>
 
 #include <raft/cudart_utils.h>
@@ -27,7 +25,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include <algorithm>
 

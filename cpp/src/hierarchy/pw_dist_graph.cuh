@@ -25,7 +25,6 @@
 #include <rmm/exec_policy.hpp>
 
 #include <raft/linalg/distance_type.h>
-#include <raft/mr/device/buffer.hpp>
 
 // TODO: Not a good strategy for pluggability but will be
 // removed once our dense pairwise distance API is in RAFT

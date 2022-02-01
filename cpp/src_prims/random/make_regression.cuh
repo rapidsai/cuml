@@ -31,7 +31,6 @@
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.h>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 

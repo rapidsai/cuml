@@ -30,7 +30,7 @@
 #include <cuml/svm/svm_parameter.h>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.hpp>

@@ -20,7 +20,6 @@
 #include "hw_utils.cuh"
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/buffer.hpp>
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c)

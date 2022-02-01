@@ -26,7 +26,6 @@
 #include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>

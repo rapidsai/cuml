@@ -26,7 +26,6 @@
 #include <raft/linalg/transpose.h>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 
 namespace MLCommon {
