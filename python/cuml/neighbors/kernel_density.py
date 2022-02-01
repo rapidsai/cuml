@@ -1,6 +1,7 @@
 import cupy as cp
 import numpy as np
 import math
+from numba import cuda
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.base import Base
 from cuml.metrics import pairwise_distances
@@ -28,8 +29,7 @@ def tophat_log_kernel(x, h):
     else:
         return -FLOAT_MIN
     '''
-    y = (x >= h)*x.dtype.type(1.0)
-    y *= np.finfo(x.dtype).min
+    y = (x >= h)*np.finfo(x.dtype).min
     return y
 
 
@@ -113,6 +113,21 @@ def norm_log_probabilities(log_probabilities, kernel, h, d):
         raise ValueError("Unsupported kernel.")
 
     return log_probabilities - (factor + d*np.log(h))
+
+
+@cuda.jit()
+def logsumexp_kernel(distances, log_probabilities):
+    i = cuda.grid(1)
+    if i >= log_probabilities.size:
+        return
+    max_exp = distances[i, 0]
+    for j in range(1, distances.shape[1]):
+        if distances[i, j] > max_exp:
+            max_exp = distances[i, j]
+    sum = 0.0
+    for j in range(0, distances.shape[1]):
+        sum += math.exp(distances[i, j] - max_exp)
+    log_probabilities[i] = math.log(sum) + max_exp
 
 
 class KernelDensity(Base):
@@ -207,8 +222,10 @@ class KernelDensity(Base):
         distances = cp.asarray(distances)
         h = self.bandwidth
         distances = apply_log_kernel(distances, self.kernel, h)
-        log_probabilities = np.logaddexp.reduce(distances.get(), axis=1)
 
+        log_probabilities = cp.zeros(distances.shape[0])
+        logsumexp_kernel.forall(log_probabilities.size)(
+            distances, log_probabilities)
         # Note that sklearns user guide is wrong
         # It says the (unnormalised) probability output for the kernel density is sum(K(x,h))
         # In fact what they implment is (1/n)*sum(K(x,h))

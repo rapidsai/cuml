@@ -1,4 +1,4 @@
-from cuml.neighbors import KernelDensity, VALID_KERNELS
+from cuml.neighbors import KernelDensity, VALID_KERNELS, logsumexp_kernel
 from sklearn.neighbors import KernelDensity as sklKernelDensity
 import numpy as np
 from hypothesis import given, settings, assume, strategies as st
@@ -18,13 +18,12 @@ def array_strategy(draw):
 
 
 metrics_strategy = st.sampled_from(
-    ['euclidean', 'manhattan', 'chebyshev', 'minkowski', 'hamming', 'canberra', 'braycurtis'])
+    ['euclidean', 'manhattan', 'chebyshev', 'minkowski', 'hamming', 'canberra'])
 
 
 @settings(deadline=None)
-@given(array_strategy(), st.sampled_from(VALID_KERNELS), metrics_strategy, st.floats(0.5, 5))
+@given(array_strategy(), st.sampled_from(VALID_KERNELS), metrics_strategy, st.floats(0.2, 5))
 def test_kernel_density(arrays, kernel, metric, bandwidth):
-
     X, X_test = arrays
     if kernel == 'cosine':
         # cosine is numerically unstable at high dimensions
@@ -39,9 +38,20 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
     skl_prob_test = np.maximum(skl_kde.score_samples(
         X_test), np.finfo(X.dtype).min)
 
-    tol = 1e-3
-    if X.dtype is np.float64:
+    tol = 1e-2
+    if X.dtype == np.float64:
         assert np.allclose(kde.score_samples(X), skl_prob,
                            rtol=tol, atol=tol, equal_nan=True)
         assert np.allclose(kde.score_samples(X_test),
                            skl_prob_test, rtol=tol, atol=tol, equal_nan=True)
+
+
+def test_logaddexp():
+    X = np.array([[0.0, 0.0],[0.0, 0.0]])
+    out = np.zeros(X.shape[0])
+    logsumexp_kernel.forall(out.size)(X, out)
+    assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
+
+    X = np.array([[3.0, 1.0],[0.2, 0.7]])
+    logsumexp_kernel.forall(out.size)(X, out)
+    assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
