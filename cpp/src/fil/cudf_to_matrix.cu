@@ -119,6 +119,8 @@ __global__ void cast_and_transpose(
 
 // similar to interleave_columns()
 
+namespace ML {
+
 void cudf_to_row_major(const raft::handle_t& h,
                        float** row_major,
                        std::size_t* n_cols,
@@ -148,3 +150,5 @@ void cudf_to_row_major(const raft::handle_t& h,
 
   mr->deallocate(d_cols, h_cols.size() * sizeof *d_cols);
 }
+
+} // namespace ML

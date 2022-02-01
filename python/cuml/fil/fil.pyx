@@ -41,7 +41,7 @@ from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
 
 from cudf._lib.cpp.column.column cimport column_view
-from cudf._lib.utils import make_column_views
+from cudf._lib.utils cimport make_column_views
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -234,6 +234,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                                 ModelHandle,
                                 treelite_params_t*) except +
 
+cdef extern from "cuml/fil/fil.h" namespace "ML":
     cdef void cudf_to_row_major(handle_t& h,
                                 float** row_major,
                                 size_t* n_cols,
@@ -335,13 +336,16 @@ cdef class ForestInference_impl():
                                       " using a Classification model, please "
                                       " set `output_class=True` while creating"
                                       " the FIL model.")
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
+
         cdef uintptr_t X_ptr
         cdef size_t n_rows, n_cols
         cdef vector[column_view] cols
         cdef float* row_major
         if X is cudf.DataFrame:
             cols = make_column_views(X.columns)
-            cudf_to_row_major(handle_[0], &row_major, &n_cols, &n_rows, cols);
+            cudf_to_row_major(handle_[0], &row_major, &n_cols, &n_rows, cols)
         else:
             X_m, n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C',
@@ -349,9 +353,6 @@ cdef class ForestInference_impl():
                                     safe_dtype_conversion=safe_dtype_conversion,
                                     check_dtype=np.float32)
         X_ptr = X_m.ptr
-
-        cdef handle_t* handle_ =\
-            <handle_t*><size_t>self.handle.getHandle()
 
         if preds is None:
             shape = (n_rows, )

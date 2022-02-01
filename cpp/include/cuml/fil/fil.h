@@ -21,12 +21,21 @@
 #include <stddef.h>
 
 #include <cuml/ensemble/treelite_defs.hpp>
+#include <cudf/column/column_view.hpp>
+#include <cudf/types.hpp>
 
 namespace raft {
 class handle_t;
 }
 
 namespace ML {
+
+void cudf_to_row_major(const raft::handle_t& h,
+                       float** row_major,
+                       std::size_t* n_cols,
+                       std::size_t* n_rows,
+                       const std::vector<cudf::column_view>& cols);
+
 namespace fil {
 
 /** @note FIL only supports inference with single precision.
