@@ -23,7 +23,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <raft/sparse/cusparse_wrappers.h>
+
+// TODO: This needs to be removed.
+#include <raft/sparse/detail/cusparse_wrappers.h>
 
 #include <cstddef>
 #include <random>
@@ -179,7 +181,7 @@ void RPROJtransform(const raft::handle_t& handle,
                                              stream));
 
   } else if (random_matrix->type == sparse) {
-    cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
+    auto cusparse_handle = handle.get_cusparse_handle();
 
     const math_t alfa = 1;
     const math_t beta = 0;
@@ -192,21 +194,22 @@ void RPROJtransform(const raft::handle_t& handle,
     auto& lda = m;
     auto& ldc = m;
 
-    RAFT_CUSPARSE_TRY(raft::sparse::cusparsegemmi(cusparse_handle,
-                                                  m,
-                                                  n,
-                                                  k,
-                                                  nnz,
-                                                  &alfa,
-                                                  input,
-                                                  lda,
-                                                  random_matrix->sparse_data.data(),
-                                                  random_matrix->indptr.data(),
-                                                  random_matrix->indices.data(),
-                                                  &beta,
-                                                  output,
-                                                  ldc,
-                                                  stream));
+    // TODO: Need to wrap this in a RAFT public API.
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsegemmi(cusparse_handle,
+                                                          m,
+                                                          n,
+                                                          k,
+                                                          nnz,
+                                                          &alfa,
+                                                          input,
+                                                          lda,
+                                                          random_matrix->sparse_data.data(),
+                                                          random_matrix->indptr.data(),
+                                                          random_matrix->indices.data(),
+                                                          &beta,
+                                                          output,
+                                                          ldc,
+                                                          stream));
   } else {
     ASSERT(false,
            "Could not find a random matrix. Please perform a fit operation "
