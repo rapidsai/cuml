@@ -179,6 +179,10 @@ class cuml_build(_build):
         self.distribution.packages = find_packages(include=['cuml', 'cuml.*'],
                                                    exclude=python_exc_list)
 
+        print("--DBG:: libs")
+        print(libs)
+        print("--END")
+
         # Build the extensions list
         extensions = [
             Extension("*",
@@ -194,6 +198,10 @@ class cuml_build(_build):
                       language='c++',
                       extra_compile_args=['-std=c++17'])
         ]
+
+        print("--DBG:: extensions")
+        print(extensions)
+        print("--END")
 
         self.distribution.ext_modules = extensions
 
@@ -223,6 +231,10 @@ class cuml_build_ext(cython_build_ext, object):
 
         # Ignore deprecation declaraction warnings
         self.compiler.compiler_so.append("-Wno-deprecated-declarations")
+
+        # adding flags to always add symbols/link of libcuml++ and transitive
+        # dependencies to Cython extensions
+        self.compiler.linker_so.append("-Wl,--no-as-needed")
 
         # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
         remove_flags(
@@ -277,8 +289,8 @@ setup(name='cuml',
       classifiers=[
           "Intended Audience :: Developers",
           "Programming Language :: Python",
-          "Programming Language :: Python :: 3.7",
-          "Programming Language :: Python :: 3.8"
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
