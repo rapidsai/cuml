@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ void iota(DataT* out, DataT start, DataT step, IdxT len, cudaStream_t stream)
   static const int TPB = 512;
   IdxT nblks           = raft::ceildiv<IdxT>(len, TPB);
   iotaKernel<DataT, IdxT><<<nblks, TPB, 0, stream>>>(out, start, step, len);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // namespace MLCommon

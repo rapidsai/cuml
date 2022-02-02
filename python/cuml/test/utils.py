@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
-    s = cuml.cuda.Stream()
+    s = cuml.raft.common.cuda.Stream()
     h = cuml.Handle(stream=s, n_streams=n_streams)
     return h, s
 

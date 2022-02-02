@@ -87,7 +87,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     /* Copy to device */
     raft::update_device(
       y.data(), h_y.data(), params.n_obs * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     fillna(y.data(), params.batch_size, params.n_obs, handle.get_stream());

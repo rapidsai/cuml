@@ -63,7 +63,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
 
     // allocating and initializing memory to the GPU
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
@@ -96,7 +96,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
                                                                lowerLabelRange,
                                                                upperLabelRange,
                                                                stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   // declaring the data values

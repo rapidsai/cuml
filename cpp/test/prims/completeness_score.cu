@@ -63,7 +63,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
 
     // allocating and initializing memory to the GPU
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
@@ -99,7 +99,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
   }
 
   // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   completenessParam params;

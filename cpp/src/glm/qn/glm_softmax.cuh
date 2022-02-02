@@ -151,8 +151,8 @@ template <typename T>
 void launchLogsoftmax(
   T* loss_val, T* dldZ, const T* Z, const T* labels, int C, int N, cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));
@@ -170,7 +170,7 @@ void launchLogsoftmax(
     dim3 gs(ceildiv(N, 8));
     logSoftmaxKernel<T, 32, 8><<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
