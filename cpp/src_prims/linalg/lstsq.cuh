@@ -323,13 +323,14 @@ void lstsqEig(const raft::handle_t& handle,
                      beta,
                      mainStream);
 
+  multAbDone.wait_by(mainStream);
+  // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
+  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, mainStream);
+
   // This event is created only if we use two worker streams.
   DeviceEvent mainDone(mainStream.value() != stream);
   mainDone.record(mainStream);
   mainDone.wait_by(stream);
-  multAbDone.wait_by(stream);
-  // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
-  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
