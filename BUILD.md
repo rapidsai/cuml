@@ -38,7 +38,7 @@ As a convenience, a `build.sh` script is provided which can be used to execute t
 $ ./build.sh                           # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
 ```
-For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install [ccache](https://ccache.dev/) and make use of it by passing the `--ccache` flag to `build.sh`.
+For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install [sccache](https://github.com/mozilla/sccache) and make use of it by passing the `--sccache` flag to `build.sh`.
 
 To build individual components, specify them as arguments to `build.sh`
 ```bash
@@ -58,7 +58,7 @@ $ PARALLEL_LEVEL=8 ./build.sh libcuml  # build and install libcuml limiting para
 $ ./build.sh libcuml -n                # build libcuml but do not install
 $ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
 $ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
-$ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
+$ ./build.sh --sccache                  # use sccache to cache compilations, speeding up subsequent builds
 ```
 
 By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:

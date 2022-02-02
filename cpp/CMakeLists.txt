@@ -87,7 +87,7 @@ message(VERBOSE "CUML: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
 message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
-message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_SCCACHE}")
+message(VERBOSE "CUML: Cache build artifacts with sccache: ${USE_SCCACHE}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
