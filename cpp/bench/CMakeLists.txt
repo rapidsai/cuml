@@ -97,4 +97,13 @@ if(BUILD_CUML_PRIMS_BENCH)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
+
+  set_target_properties(
+    ${PRIMS_BENCH_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../lib")
+
+  install(
+    TARGETS ${PRIMS_BENCH_TARGET}
+    COMPONENT testing
+    EXCLUDE_FROM_ALL)
 endif()

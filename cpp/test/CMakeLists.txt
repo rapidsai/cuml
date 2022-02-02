@@ -222,6 +222,14 @@ if(BUILD_PRIMS_TESTS)
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 
+  set_target_properties(
+    ${PRIMS_TEST_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../lib")
+
+  install(
+    TARGETS ${PRIMS_TEST_TARGET}
+    COMPONENT testing
+    EXCLUDE_FROM_ALL)
 endif()
 
 ##############################################################################
