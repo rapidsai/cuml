@@ -26,7 +26,8 @@ namespace MLCommon {
 namespace Stats {
 
 /**
- * @brief Compute the row-wise weighted mean of the input matrix
+ * @brief Compute the row-wise weighted mean of the input matrix with a
+ * vector of column weights
  *
  * @tparam Type the data type
  * @param mu the output mean vector
@@ -59,7 +60,8 @@ void rowWeightedMean(
 }
 
 /**
- * @brief Compute the row-wise weighted mean of the input matrix
+ * @brief Compute the row-wise weighted mean of the input matrix with a
+ * vector of sample weights
  *
  * @tparam Type the data type
  * @param mu the output mean vector
@@ -102,7 +104,8 @@ void rowSampleWeightedMean(Type* mu,
 }
 
 /**
- * @brief Compute the column-wise weighted mean of the input matrix
+ * @brief Compute the column-wise weighted mean of the input matrix with a
+ * vector of column weights
  *
  * @tparam Type the data type
  * @param mu the output mean vector

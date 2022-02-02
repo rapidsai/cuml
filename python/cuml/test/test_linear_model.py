@@ -133,10 +133,18 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
-@pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.parametrize(
+    "fit_intercept, normalize, distribution", [
+        (True, True, "lognormal"),
+        (True, True, "exponential"),
+        (True, False, "uniform"),
+        (True, False, "exponential"),
+        (False, True, "lognormal"),
+        (False, False, "uniform"),
+    ]
+)
 def test_weighted_linear_regression(datatype, algorithm, fit_intercept,
-                                    normalize):
+                                    normalize, distribution):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
@@ -145,7 +153,12 @@ def test_weighted_linear_regression(datatype, algorithm, fit_intercept,
     )
 
     # set weight per sample to be from 1 to max_weight
-    wt = np.random.randint(1, high=max_weight, size=len(X_train))
+    if distribution == "uniform":
+        wt = np.random.randint(1, high=max_weight, size=len(X_train))
+    elif distribution == "exponential":
+        wt = np.random.exponential(size=len(X_train))
+    else:
+        wt = np.random.lognormal(size=len(X_train))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(fit_intercept=fit_intercept,
