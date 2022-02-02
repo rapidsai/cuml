@@ -208,7 +208,7 @@ class KernelRidge(Base, RegressorMixin):
                       "degree": self.degree, "coef0": self.coef0}
         else:
             params = self.kernel_params or {}
-        return pairwise_kernels(X, metric=self.kernel,
+        return pairwise_kernels(X, Y, metric=self.kernel,
                                 filter_params=True, **params)
 
     @generate_docstring()
@@ -235,7 +235,7 @@ class KernelRidge(Base, RegressorMixin):
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
-        K = self._get_kernel(X_m, self.kernel)
+        K = self._get_kernel(X_m)
         self.dual_coef_ = _solve_cholesky_kernel(
             K, cp.asarray(y_m), self.alpha, sample_weight
         )

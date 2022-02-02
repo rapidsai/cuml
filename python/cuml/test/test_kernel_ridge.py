@@ -175,12 +175,13 @@ def test_pairwise_kernels(kernel_arg, XY):
 
 
 @st.composite
-def X_y_alpha_strategy(draw):
+def estimator_array_strategy(draw):
     X_m = draw(st.integers(5, 20))
     X_n = draw(st.integers(2, 10))
     dtype = draw(st.sampled_from([np.float64, np.float32]))
     rs = np.random.RandomState(draw(st.integers(1, 10)))
     X = rs.rand(X_m, X_n).astype(dtype)
+    X_test = rs.rand(draw(st.integers(5, 20)), X_n).astype(dtype)
 
     n_targets = draw(st.integers(1, 3))
     a = draw(
@@ -204,20 +205,20 @@ def X_y_alpha_strategy(draw):
             ]
         )
     )
-    return (X, y, alpha, sample_weight)
+    return (X, y, X_test,alpha, sample_weight)
 
 
 @given(
     kernel_arg_strategy(),
-    X_y_alpha_strategy(),
+    estimator_array_strategy(),
     st.floats(1.0, 5.0),
     st.integers(1, 5),
     st.floats(1.0, 5.0),
 )
 @settings(deadline=None, max_examples=100)
-def test_estimator(kernel_arg, X_y_alpha, gamma, degree, coef0):
+def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     kernel, args = kernel_arg
-    X, y, alpha, sample_weight = X_y_alpha
+    X, y, X_test, alpha, sample_weight = arrays
     model = cuKernelRidge(
         kernel=kernel,
         alpha=alpha,
@@ -246,16 +247,16 @@ def test_estimator(kernel_arg, X_y_alpha, gamma, degree, coef0):
     grad_norm = gradient_norm(X, y, model, K, sample_weight)
 
     assert grad_norm < 1e-2
-    pred = model.predict(X).get()
+    pred = model.predict(X_test).get()
     if X.dtype == np.float64:
         try:
             skl_model.fit(X, y, sample_weight)
         except np.linalg.LinAlgError:
             # sklearn can fail to fit multiclass models
-            #  with singular kernel matrices
+            # with singular kernel matrices
             assume(False)
 
-        skl_pred = skl_model.predict(X)
+        skl_pred = skl_model.predict(X_test)
         assert np.allclose(pred, skl_pred, atol=1e-3, rtol=1e-3)
 
 
