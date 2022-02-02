@@ -94,7 +94,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
 
 
 class KernelRidge(Base, RegressorMixin):
-    """Kernel ridge regression.
+    """
     Kernel ridge regression (KRR) performs l2 regularised ridge regression
     using the kernel trick. The kernel trick allows the estimator to learn a
     linear function in the space induced by the kernel. This may be a
@@ -134,6 +134,21 @@ class KernelRidge(Base, RegressorMixin):
     kernel_params : mapping of str to any, default=None
         Additional parameters (keyword arguments) for kernel function passed
         as callable object.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     Attributes
     ----------
     dual_coef_ : ndarray of shape (n_samples,) or (n_samples, n_targets)
@@ -189,8 +204,8 @@ class KernelRidge(Base, RegressorMixin):
         degree=3,
         coef0=1,
         kernel_params=None,
-        handle=None,
         output_type=None,
+        handle=None,
         verbose=False
     ):
         super().__init__(handle=handle, verbose=verbose,
@@ -201,6 +216,16 @@ class KernelRidge(Base, RegressorMixin):
         self.degree = degree
         self.coef0 = coef0
         self.kernel_params = kernel_params
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "alpha",
+            "kernel",
+            "gamma",
+            "degree",
+            "coef0",
+            "kernel_params",
+        ]
 
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
