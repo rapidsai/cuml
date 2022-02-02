@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <linalg/reduce_rows_by_key.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -85,60 +85,74 @@ template <typename T>
 
 template <typename T>
 class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
+ public:
+  ReduceRowTest()
+    : params(::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      in(params.nobs * params.cols, stream),
+      out(params.nkeys * params.cols, stream),
+      out_ref(params.nkeys * params.cols, stream),
+      keys(params.nobs, stream),
+      scratch_buf(params.nobs, stream)
+  {
+  }
+
  protected:
   void SetUp() override
   {
-    params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     raft::random::Rng r_int(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
 
     int nobs       = params.nobs;
     uint32_t cols  = params.cols;
     uint32_t nkeys = params.nkeys;
-    raft::allocate(in, nobs * cols, stream);
-    raft::allocate(keys, nobs, stream);
-    raft::allocate(scratch_buf, nobs, stream);
-    raft::allocate(out_ref, nkeys * cols, stream);
-    raft::allocate(out, nkeys * cols, stream);
-    r.uniform(in, nobs * cols, T(0.0), T(2.0 / nobs), stream);
-    r_int.uniformInt(keys, nobs, (uint32_t)0, nkeys, stream);
+    r.uniform(in.data(), nobs * cols, T(0.0), T(2.0 / nobs), stream);
+    r_int.uniformInt(keys.data(), nobs, (uint32_t)0, nkeys, stream);
 
+    rmm::device_uvector<T> weight(0, stream);
     if (params.weighted) {
-      raft::allocate(weight, nobs, stream);
+      weight.resize(nobs, stream);
       raft::random::Rng r(params.seed, raft::random::GeneratorType::GenPhilox);
-      r.uniform(weight, nobs, T(1), params.max_weight, stream);
-    } else {
-      weight = nullptr;
+      r.uniform(weight.data(), nobs, T(1), params.max_weight, stream);
     }
 
-    naiveReduceRowsByKey(in, cols, keys, weight, scratch_buf, nobs, cols, nkeys, out_ref, stream);
+    naiveReduceRowsByKey(in.data(),
+                         cols,
+                         keys.data(),
+                         params.weighted ? weight.data() : nullptr,
+                         scratch_buf.data(),
+                         nobs,
+                         cols,
+                         nkeys,
+                         out_ref.data(),
+                         stream);
     if (params.weighted) {
-      reduce_rows_by_key(in, cols, keys, weight, scratch_buf, nobs, cols, nkeys, out, stream);
+      reduce_rows_by_key(in.data(),
+                         cols,
+                         keys.data(),
+                         params.weighted ? weight.data() : nullptr,
+                         scratch_buf.data(),
+                         nobs,
+                         cols,
+                         nkeys,
+                         out.data(),
+                         stream);
     } else {
-      reduce_rows_by_key(in, cols, keys, scratch_buf, nobs, cols, nkeys, out, stream);
+      reduce_rows_by_key(
+        in.data(), cols, keys.data(), scratch_buf.data(), nobs, cols, nkeys, out.data(), stream);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(keys));
-    CUDA_CHECK(cudaFree(scratch_buf));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
-  cudaStream_t stream = 0;
   ReduceRowsInputs<T> params;
-  T *in, *out_ref, *out;
-  T* weight;
-  uint32_t* keys;
-  char* scratch_buf;
+  raft::handle_t handle;
+  cudaStream_t stream = 0;
+
   int device_count = 0;
+  rmm::device_uvector<T> in, out, out_ref;
+  rmm::device_uvector<uint32_t> keys;
+  rmm::device_uvector<char> scratch_buf;
 };
 
 // ReduceRowTestF
@@ -149,8 +163,10 @@ const std::vector<ReduceRowsInputs<float>> inputsf2 = {{0.000001f, 128, 32, 6, 1
 typedef ReduceRowTest<float> ReduceRowTestF;
 TEST_P(ReduceRowTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.cols * params.nkeys, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestF, ::testing::ValuesIn(inputsf2));
 
@@ -163,8 +179,10 @@ const std::vector<ReduceRowsInputs<double>> inputsd2 = {
 typedef ReduceRowTest<double> ReduceRowTestD;
 TEST_P(ReduceRowTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.cols * params.nkeys, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.cols * params.nkeys,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestD, ::testing::ValuesIn(inputsd2));
 
@@ -177,8 +195,10 @@ const std::vector<ReduceRowsInputs<float>> inputsf_small_nkey = {
 typedef ReduceRowTest<float> ReduceRowTestSmallnKey;
 TEST_P(ReduceRowTestSmallnKey, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.cols * params.nkeys, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests,
                         ReduceRowTestSmallnKey,
@@ -193,8 +213,10 @@ const std::vector<ReduceRowsInputs<double>> inputsd_big_space = {
 typedef ReduceRowTest<double> ReduceRowTestBigSpace;
 TEST_P(ReduceRowTestBigSpace, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.cols * params.nkeys, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.cols * params.nkeys,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests,
                         ReduceRowTestBigSpace,
@@ -209,8 +231,10 @@ const std::vector<ReduceRowsInputs<float>> inputsf_many_obs = {
 typedef ReduceRowTest<float> ReduceRowTestManyObs;
 TEST_P(ReduceRowTestManyObs, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.cols * params.nkeys, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests,
                         ReduceRowTestManyObs,
@@ -225,8 +249,10 @@ const std::vector<ReduceRowsInputs<float>> inputsf_many_cluster = {
 typedef ReduceRowTest<float> ReduceRowTestManyClusters;
 TEST_P(ReduceRowTestManyClusters, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.cols * params.nkeys, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.cols * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceRowTests,
                         ReduceRowTestManyClusters,

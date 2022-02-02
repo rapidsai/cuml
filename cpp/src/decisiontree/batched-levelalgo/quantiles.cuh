@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
  */
 
 #pragma once
-#include <thrust/fill.h>
+
 #include <cub/cub.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+#include <thrust/fill.h>
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 namespace ML {
 namespace DT {
@@ -32,16 +33,7 @@ template <typename T>
 __global__ void computeQuantilesSorted(T* quantiles,
                                        const int n_bins,
                                        const T* sorted_data,
-                                       const int length)
-{
-  int tid          = threadIdx.x + blockIdx.x * blockDim.x;
-  double bin_width = static_cast<double>(length) / n_bins;
-  int index        = int(round((tid + 1) * bin_width)) - 1;
-  index            = min(max(0, index), length - 1);
-  if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
-
-  return;
-}
+                                       const int length);
 
 template <typename T>
 std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
@@ -57,14 +49,14 @@ std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
 
   rmm::device_uvector<T> single_column_sorted(n_rows, handle.get_stream());
 
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
-                                            temp_storage_bytes,
-                                            data,
-                                            single_column_sorted.data(),
-                                            n_rows,
-                                            0,
-                                            8 * sizeof(T),
-                                            handle.get_stream()));
+  RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys(nullptr,
+                                               temp_storage_bytes,
+                                               data,
+                                               single_column_sorted.data(),
+                                               n_rows,
+                                               0,
+                                               8 * sizeof(T),
+                                               handle.get_stream()));
 
   // Allocate temporary storage for sorting
   rmm::device_uvector<char> d_temp_storage(temp_storage_bytes, handle.get_stream());
@@ -74,14 +66,14 @@ std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
     int col_offset      = col * n_rows;
     int quantile_offset = col * n_bins;
 
-    CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)d_temp_storage.data(),
-                                              temp_storage_bytes,
-                                              data + col_offset,
-                                              single_column_sorted.data(),
-                                              n_rows,
-                                              0,
-                                              8 * sizeof(T),
-                                              handle.get_stream()));
+    RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys((void*)d_temp_storage.data(),
+                                                 temp_storage_bytes,
+                                                 data + col_offset,
+                                                 single_column_sorted.data(),
+                                                 n_rows,
+                                                 0,
+                                                 8 * sizeof(T),
+                                                 handle.get_stream()));
 
     int blocks = raft::ceildiv(n_bins, 128);
 
@@ -89,7 +81,7 @@ std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
     computeQuantilesSorted<<<blocks, 128, 0, s>>>(
       quantiles->data() + quantile_offset, n_bins, single_column_sorted.data(), n_rows);
 
-    CUDA_CHECK(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
   }
 
   return quantiles;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,10 @@
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
 
-#include <raft/cudart_utils.h>
+#include "shuffle.h"
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -34,7 +35,6 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include "shuffle.h"
 
 #include <cstddef>
 
@@ -104,7 +104,7 @@ void fit_impl(raft::handle_t& handle,
 
   size_t memsize = input_desc.N * sizeof(int);
   int* ri_h      = (int*)malloc(memsize);
-  CUDA_CHECK(cudaHostRegister(ri_h, memsize, cudaHostRegisterDefault));
+  RAFT_CUDA_TRY(cudaHostRegister(ri_h, memsize, cudaHostRegisterDefault));
 
   if (comm.get_rank() == 0) {
     ML::Solver::initShuffle(ri, g);
@@ -192,7 +192,7 @@ void fit_impl(raft::handle_t& handle,
       }
 
       for (int k = 0; k < n_streams; k++) {
-        CUDA_CHECK(cudaStreamSynchronize(streams[k]));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(streams[k]));
       }
 
       coef_loc_data.ptr       = coef_loc;
@@ -206,7 +206,7 @@ void fit_impl(raft::handle_t& handle,
 
       coef_prev = h_coef[ci];
       raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
-      CUDA_CHECK(cudaStreamSynchronize(streams[0]));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(streams[0]));
 
       T diff = abs(coef_prev - h_coef[ci]);
 
@@ -231,7 +231,7 @@ void fit_impl(raft::handle_t& handle,
       }
 
       for (int k = 0; k < n_streams; k++) {
-        CUDA_CHECK(cudaStreamSynchronize(streams[k]));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(streams[k]));
       }
     }
 
@@ -243,7 +243,7 @@ void fit_impl(raft::handle_t& handle,
     if (!flag_continue) { break; }
   }
 
-  CUDA_CHECK(cudaHostUnregister(ri_h));
+  RAFT_CUDA_TRY(cudaHostUnregister(ri_h));
   free(ri_h);
 
   for (std::size_t i = 0; i < partsToRanks.size(); i++) {
@@ -309,7 +309,7 @@ void fit_impl(raft::handle_t& handle,
   ;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   fit_impl(handle,
@@ -330,11 +330,11 @@ void fit_impl(raft::handle_t& handle,
            verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 
@@ -398,18 +398,18 @@ void predict_impl(raft::handle_t& handle,
   int n_streams = n_parts;
   cudaStream_t streams[n_streams];
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamCreate(&streams[i]));
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
   predict_impl(
     handle, input_data, input_desc, coef, intercept, preds_data, streams, n_streams, verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
   }
 
   for (int i = 0; i < n_streams; i++) {
-    CUDA_CHECK(cudaStreamDestroy(streams[i]));
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
   }
 }
 

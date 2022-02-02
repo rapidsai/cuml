@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include <decisiontree/quantile/quantile.h>
-#include <gtest/gtest.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <test_utils.h>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder.cuh>
+#include <gtest/gtest.h>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
+#include <test_utils.h>
 
 namespace ML {
 namespace DT {
@@ -46,9 +45,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   void SetUp()
   {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
-    handle.reset(new raft::handle_t);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->set_stream(stream);
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    handle.reset(new raft::handle_t{stream});
     set_tree_params(params,
                     inparams.max_depth,
                     1 << inparams.max_depth,
@@ -65,21 +63,21 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     prepareDataset(tmp.data());
     auto alpha = T(1.0) auto beta = T(0.0);
     auto cublas                   = handle->get_cublas_handle();
-    CUBLAS_CHECK(raft::linalg::cublasgeam(cublas,
-                                          CUBLAS_OP_T,
-                                          CUBLAS_OP_N,
-                                          inparams.M,
-                                          inparams.N,
-                                          &alpha,
-                                          tmp.data(),
-                                          inparams.N,
-                                          &beta,
-                                          tmp.data(),
-                                          inparams.M,
-                                          data.data(),
-                                          inparams.M,
-                                          stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgeam(cublas,
+                                             CUBLAS_OP_T,
+                                             CUBLAS_OP_N,
+                                             inparams.M,
+                                             inparams.N,
+                                             &alpha,
+                                             tmp.data(),
+                                             inparams.N,
+                                             &beta,
+                                             tmp.data(),
+                                             inparams.M,
+                                             data.data(),
+                                             inparams.M,
+                                             stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     rowids.resize(inparams.M, stream);
     MLCommon::iota(rowids.data(), 0, 1, inparams.M, stream);
     quantiles.resize(inparams.nbins * inparams.N, stream);
@@ -89,7 +87,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
       quantiles, inparams.nbins, data.data(), inparams.M, inparams.N, allocator, stream);
   }
 
-  void TearDown() { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   cudaStream_t stream = 0;
   std::shared_ptr<raft::handle_t> handle;

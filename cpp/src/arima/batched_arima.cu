@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
-#include <raft/cudart_utils.h>
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
+#include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <rmm/device_uvector.hpp>
@@ -104,7 +105,7 @@ void predict(raft::handle_t& handle,
              double* d_lower,
              double* d_upper)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
   const auto stream = handle.get_stream();
 
   bool diff     = order.need_diff() && pre_diff && level == 0;
@@ -245,8 +246,6 @@ void predict(raft::handle_t& handle,
       });
     /// TODO: 2D copy kernel?
   }
-
-  ML::POP_RANGE();
 }
 
 /**
@@ -360,7 +359,7 @@ void conditional_sum_of_squares(raft::handle_t& handle,
                                 double* d_loglike,
                                 int truncate)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
   auto stream = handle.get_stream();
 
   int n_phi     = order.n_phi();
@@ -392,9 +391,7 @@ void conditional_sum_of_squares(raft::handle_t& handle,
                                                                                start_sum,
                                                                                start_y,
                                                                                start_v);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  ML::POP_RANGE();
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void batched_loglike(raft::handle_t& handle,
@@ -417,7 +414,7 @@ void batched_loglike(raft::handle_t& handle,
                      double* d_lower,
                      double* d_upper)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
 
   auto stream = handle.get_stream();
 
@@ -473,7 +470,6 @@ void batched_loglike(raft::handle_t& handle,
     /* Tranfer log-likelihood device -> host */
     raft::update_host(loglike, d_loglike, batch_size, stream);
   }
-  ML::POP_RANGE();
 }
 
 void batched_loglike(raft::handle_t& handle,
@@ -490,7 +486,7 @@ void batched_loglike(raft::handle_t& handle,
                      LoglikeMethod method,
                      int truncate)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
 
   // unpack parameters
   auto stream = handle.get_stream();
@@ -518,8 +514,6 @@ void batched_loglike(raft::handle_t& handle,
                   host_loglike,
                   method,
                   truncate);
-
-  ML::POP_RANGE();
 }
 
 void batched_loglike_grad(raft::handle_t& handle,
@@ -536,7 +530,7 @@ void batched_loglike_grad(raft::handle_t& handle,
                           LoglikeMethod method,
                           int truncate)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
   auto stream   = handle.get_stream();
   auto counting = thrust::make_counting_iterator(0);
   int N         = order.complexity();
@@ -597,8 +591,6 @@ void batched_loglike_grad(raft::handle_t& handle,
         d_x_pert[N * bid + i] = d_x[N * bid + i];
       });
   }
-
-  ML::POP_RANGE();
 }
 
 void information_criterion(raft::handle_t& handle,
@@ -612,7 +604,7 @@ void information_criterion(raft::handle_t& handle,
                            double* d_ic,
                            int ic_type)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
   auto stream = handle.get_stream();
 
   /* Compute log-likelihood in d_ic */
@@ -628,8 +620,6 @@ void information_criterion(raft::handle_t& handle,
     batch_size,
     n_obs - order.n_diff(),
     stream);
-
-  ML::POP_RANGE();
 }
 
 /**
@@ -702,9 +692,9 @@ void _arma_least_squares(raft::handle_t& handle,
 
   if ((q && p_ar >= n_obs - p_ar) || p + q + k >= n_obs - r) {
     // Too few observations for the estimate, fill with 0 (1 for sigma2)
-    if (k) CUDA_CHECK(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
-    if (p) CUDA_CHECK(cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
-    if (q) CUDA_CHECK(cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
+    if (k) RAFT_CUDA_TRY(cudaMemsetAsync(d_mu, 0, sizeof(double) * batch_size, stream));
+    if (p) RAFT_CUDA_TRY(cudaMemsetAsync(d_ar, 0, sizeof(double) * p * batch_size, stream));
+    if (q) RAFT_CUDA_TRY(cudaMemsetAsync(d_ma, 0, sizeof(double) * q * batch_size, stream));
     if (estimate_sigma2) {
       thrust::device_ptr<double> sigma2_thrust = thrust::device_pointer_cast(d_sigma2);
       thrust::fill(thrust::cuda::par.on(stream), sigma2_thrust, sigma2_thrust + batch_size, 1.0);
@@ -921,7 +911,7 @@ void _start_params(raft::handle_t& handle,
     }
     // In other cases, we initialize to zero
     else {
-      CUDA_CHECK(
+      RAFT_CUDA_TRY(
         cudaMemsetAsync(params.beta, 0, order.n_exog * batch_size * sizeof(double), stream));
     }
   }
@@ -962,7 +952,7 @@ void estimate_x0(raft::handle_t& handle,
                  const ARIMAOrder& order,
                  bool missing)
 {
-  ML::PUSH_RANGE(__func__);
+  raft::common::nvtx::range fun_scope(__func__);
   const auto& handle_impl = handle;
   auto stream             = handle_impl.get_stream();
   auto cublas_handle      = handle_impl.get_cublas_handle();
@@ -1007,7 +997,6 @@ void estimate_x0(raft::handle_t& handle,
 
   // Do the computation of the initial parameters
   _start_params(handle, params, bm_yd, bm_exog_diff, order);
-  ML::POP_RANGE();
 }
 
 }  // namespace ML

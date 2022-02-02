@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <math.h>
-#include <raft/linalg/distance_type.h>
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>
+#include <math.h>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/distance_type.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -116,27 +116,27 @@ void countLabels(LabelT* labels,
 
   rmm::device_uvector<int> countArray(nUniqueLabels, stream);
 
-  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(nullptr,
-                                                 temp_storage_bytes,
-                                                 labels,
-                                                 binCountArray,
-                                                 num_levels,
-                                                 lower_level,
-                                                 upper_level,
-                                                 nRows,
-                                                 stream));
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
+                                                    temp_storage_bytes,
+                                                    labels,
+                                                    binCountArray,
+                                                    num_levels,
+                                                    lower_level,
+                                                    upper_level,
+                                                    nRows,
+                                                    stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(workspace.data(),
-                                                 temp_storage_bytes,
-                                                 labels,
-                                                 binCountArray,
-                                                 num_levels,
-                                                 lower_level,
-                                                 upper_level,
-                                                 nRows,
-                                                 stream));
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(workspace.data(),
+                                                    temp_storage_bytes,
+                                                    labels,
+                                                    binCountArray,
+                                                    num_levels,
+                                                    lower_level,
+                                                    upper_level,
+                                                    nRows,
+                                                    stream));
 }
 
 /**
@@ -233,16 +233,16 @@ DataT silhouette_score(
   } else {
     perSampleSilScore = silhouette_scorePerSample;
   }
-  CUDA_CHECK(cudaMemsetAsync(perSampleSilScore, 0, nRows * sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(perSampleSilScore, 0, nRows * sizeof(DataT), stream));
 
   // getting the sample count per cluster
   rmm::device_uvector<DataT> binCountArray(nLabels, stream);
-  CUDA_CHECK(cudaMemsetAsync(binCountArray.data(), 0, nLabels * sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(binCountArray.data(), 0, nLabels * sizeof(DataT), stream));
   countLabels(labels, binCountArray.data(), nRows, nLabels, workspace, stream);
 
   // calculating the sample-cluster-distance-sum-array
   rmm::device_uvector<DataT> sampleToClusterSumOfDistances(nRows * nLabels, stream);
-  CUDA_CHECK(cudaMemsetAsync(
+  RAFT_CUDA_TRY(cudaMemsetAsync(
     sampleToClusterSumOfDistances.data(), 0, nRows * nLabels * sizeof(DataT), stream));
   MLCommon::LinAlg::reduce_cols_by_key(distanceMatrix.data(),
                                        labels,
@@ -255,8 +255,8 @@ DataT silhouette_score(
   // creating the a array and b array
   rmm::device_uvector<DataT> d_aArray(nRows, stream);
   rmm::device_uvector<DataT> d_bArray(nRows, stream);
-  CUDA_CHECK(cudaMemsetAsync(d_aArray.data(), 0, nRows * sizeof(DataT), stream));
-  CUDA_CHECK(cudaMemsetAsync(d_bArray.data(), 0, nRows * sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_aArray.data(), 0, nRows * sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_bArray.data(), 0, nRows * sizeof(DataT), stream));
 
   // kernel that populates the d_aArray
   // kernel configuration
@@ -275,7 +275,7 @@ DataT silhouette_score(
 
   // elementwise dividing by bincounts
   rmm::device_uvector<DataT> averageDistanceBetweenSampleAndCluster(nRows * nLabels, stream);
-  CUDA_CHECK(cudaMemsetAsync(
+  RAFT_CUDA_TRY(cudaMemsetAsync(
     averageDistanceBetweenSampleAndCluster.data(), 0, nRows * nLabels * sizeof(DataT), stream));
 
   raft::linalg::matrixVectorOp<DataT, DivOp<DataT>>(averageDistanceBetweenSampleAndCluster.data(),
@@ -309,7 +309,7 @@ DataT silhouette_score(
 
   // calculating the sum of all the silhouette score
   rmm::device_scalar<DataT> d_avgSilhouetteScore(stream);
-  CUDA_CHECK(cudaMemsetAsync(d_avgSilhouetteScore.data(), 0, sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_avgSilhouetteScore.data(), 0, sizeof(DataT), stream));
 
   raft::linalg::mapThenSumReduce<double, raft::Nop<DataT>>(d_avgSilhouetteScore.data(),
                                                            nRows,
@@ -320,7 +320,7 @@ DataT silhouette_score(
 
   DataT avgSilhouetteScore = d_avgSilhouetteScore.value(stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   avgSilhouetteScore /= nRows;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
 #include <cstddef>
+#include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>
 
 #include <cub/cub.cuh>
@@ -194,9 +194,9 @@ void sortColumnsPerRow(const InType* in,
 
   // @ToDo: Figure out dynamic shared memory for block sort kernel - better for volta and beyond
   // int currDevice = 0, smemLimit = 0;
-  // CUDA_CHECK(cudaGetDevice(&currDevice));
-  // CUDA_CHECK(cudaDeviceGetAttribute(&smemLimit, cudaDevAttrMaxSharedMemoryPerBlock, currDevice));
-  // size_t maxElementsForBlockSort = smemLimit / perElementSmemUsage;
+  // RAFT_CUDA_TRY(cudaGetDevice(&currDevice));
+  // RAFT_CUDA_TRY(cudaDeviceGetAttribute(&smemLimit, cudaDevAttrMaxSharedMemoryPerBlock,
+  // currDevice)); size_t maxElementsForBlockSort = smemLimit / perElementSmemUsage;
 
   // for 48KB smem/block, can fit in 6144 4byte key-value pair
   // assuming key-value sort for now - smem computation will change for value only sort
@@ -237,16 +237,16 @@ void sortColumnsPerRow(const InType* in,
       int* tmpOffsetBuffer = nullptr;
 
       // first call is to get size of workspace
-      CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr,
-                                                          workspaceSize,
-                                                          in,
-                                                          sortedKeys,
-                                                          tmpValIn,
-                                                          out,
-                                                          totalElements,
-                                                          numSegments,
-                                                          tmpOffsetBuffer,
-                                                          tmpOffsetBuffer + 1));
+      RAFT_CUDA_TRY(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr,
+                                                             workspaceSize,
+                                                             in,
+                                                             sortedKeys,
+                                                             tmpValIn,
+                                                             out,
+                                                             totalElements,
+                                                             numSegments,
+                                                             tmpOffsetBuffer,
+                                                             tmpOffsetBuffer + 1));
       bAllocWorkspace = true;
       // more staging space for temp output of keys
       if (!sortedKeys)
@@ -275,24 +275,24 @@ void sortColumnsPerRow(const InType* in,
       workspacePtr         = (void*)((size_t)workspacePtr + workspaceOffset);
 
       // layout idx
-      CUDA_CHECK(layoutIdx(dValuesIn, n_rows, n_columns, stream));
+      RAFT_CUDA_TRY(layoutIdx(dValuesIn, n_rows, n_columns, stream));
 
       // layout segment lengths - spread out column length
-      CUDA_CHECK(layoutSortOffset(dSegmentOffsets, n_columns, numSegments, stream));
+      RAFT_CUDA_TRY(layoutSortOffset(dSegmentOffsets, n_columns, numSegments, stream));
 
-      CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr,
-                                                          workspaceSize,
-                                                          in,
-                                                          sortedKeys,
-                                                          dValuesIn,
-                                                          out,
-                                                          totalElements,
-                                                          numSegments,
-                                                          dSegmentOffsets,
-                                                          dSegmentOffsets + 1,
-                                                          0,
-                                                          sizeof(InType) * 8,
-                                                          stream));
+      RAFT_CUDA_TRY(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr,
+                                                             workspaceSize,
+                                                             in,
+                                                             sortedKeys,
+                                                             dValuesIn,
+                                                             out,
+                                                             totalElements,
+                                                             numSegments,
+                                                             dSegmentOffsets,
+                                                             dSegmentOffsets + 1,
+                                                             0,
+                                                             sizeof(InType) * 8,
+                                                             stream));
     }
   } else {
     // batched per row device wide sort
@@ -300,7 +300,7 @@ void sortColumnsPerRow(const InType* in,
       OutType* tmpValIn = nullptr;
 
       // first call is to get size of workspace
-      CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
+      RAFT_CUDA_TRY(cub::DeviceRadixSort::SortPairs(
         workspacePtr, workspaceSize, in, sortedKeys, tmpValIn, out, n_columns));
       bAllocWorkspace = true;
 
@@ -324,7 +324,7 @@ void sortColumnsPerRow(const InType* in,
       workspacePtr       = (void*)((size_t)workspacePtr + workspaceOffset);
 
       // layout idx
-      CUDA_CHECK(layoutIdx(dValuesIn, 1, n_columns, stream));
+      RAFT_CUDA_TRY(layoutIdx(dValuesIn, 1, n_columns, stream));
 
       for (int i = 0; i < n_rows; i++) {
         InType* rowIn =
@@ -332,7 +332,7 @@ void sortColumnsPerRow(const InType* in,
         OutType* rowOut =
           reinterpret_cast<OutType*>((size_t)out + (i * sizeof(OutType) * (size_t)n_columns));
 
-        CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
+        RAFT_CUDA_TRY(cub::DeviceRadixSort::SortPairs(
           workspacePtr, workspaceSize, rowIn, sortedKeys, dValuesIn, rowOut, n_columns));
 
         if (userKeyOutputBuffer)

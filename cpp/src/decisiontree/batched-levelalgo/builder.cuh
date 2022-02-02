@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,23 +20,14 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "metrics.cuh"
-
+#include "kernels/builder_kernels.cuh"
 #include <common/Timer.h>
-#include <cuml/tree/flatnode.h>
-#include <common/grid_sync.cuh>
-#include <common/nvtx.hpp>
-#include <cuml/common/logger.hpp>
 #include <cuml/common/pinned_host_vector.hpp>
-#include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/flatnode.h>
 #include <raft/cuda_utils.cuh>
-#include "input.cuh"
-#include "kernels.cuh"
-#include "metrics.cuh"
-#include "split.cuh"
 
-#include <common/nvtx.hpp>
 #include <deque>
+#include <raft/common/nvtx.hpp>
 #include <utility>
 
 namespace ML {
@@ -252,7 +243,8 @@ struct Builder {
   auto workspaceSize() const
   {
     size_t d_wsize = 0, h_wsize = 0;
-    ML::PUSH_RANGE("Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope(
+      "Builder::workspaceSize @builder_base.cuh [batched-levelalgo]");
     auto max_batch   = params.max_batch_size;
     size_t nHistBins = max_batch * (params.n_bins) * n_blks_for_cols * input.numOutputs;
 
@@ -270,7 +262,6 @@ struct Builder {
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
 
-    ML::POP_RANGE();
     return std::make_pair(d_wsize, h_wsize);
   }
 
@@ -283,7 +274,8 @@ struct Builder {
    */
   void assignWorkspace(char* d_wspace, char* h_wspace)
   {
-    ML::PUSH_RANGE("Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope(
+      "Builder::assignWorkspace @builder_base.cuh [batched-levelalgo]");
     auto max_batch   = params.max_batch_size;
     auto n_col_blks  = n_blks_for_cols;
     size_t nHistBins = max_batch * (params.n_bins) * n_blks_for_cols * input.numOutputs;
@@ -303,21 +295,20 @@ struct Builder {
     workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
 
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, builder_stream));
-    CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, builder_stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, builder_stream));
 
     // host
     h_workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_splits = reinterpret_cast<SplitT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
-    ML::POP_RANGE();
   }
 
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
-    ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows, input.numOutputs);
     while (queue.HasWork()) {
@@ -328,7 +319,6 @@ struct Builder {
     auto tree = queue.GetTree();
     this->SetLeafPredictions(tree, queue.GetInstanceRanges());
     tree->train_time = timer.getElapsedMilliseconds();
-    ML::POP_RANGE();
     return tree;
   }
 
@@ -358,9 +348,9 @@ struct Builder {
 
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
   {
-    ML::PUSH_RANGE("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
     // start fresh on the number of *new* nodes created in this batch
-    CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), builder_stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), builder_stream));
     initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
 
     // get the current set of nodes to be worked upon
@@ -372,13 +362,13 @@ struct Builder {
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
       computeSplit(c, work_items.size(), total_blocks, large_blocks);
-      CUDA_CHECK(cudaGetLastError());
+      RAFT_CUDA_TRY(cudaGetLastError());
     }
 
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
-    ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
-    nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, TPB_DEFAULT>
+    raft::common::nvtx::push_range("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
+    nodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(params.max_depth,
                                                                      params.min_samples_leaf,
                                                                      params.min_samples_split,
@@ -387,11 +377,10 @@ struct Builder {
                                                                      input,
                                                                      d_work_items,
                                                                      splits);
-    CUDA_CHECK(cudaGetLastError());
-    ML::POP_RANGE();
+    RAFT_CUDA_TRY(cudaGetLastError());
+    raft::common::nvtx::pop_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
-    CUDA_CHECK(cudaStreamSynchronize(builder_stream));
-    ML::POP_RANGE();
+    RAFT_CUDA_TRY(cudaStreamSynchronize(builder_stream));
     return std::make_tuple(h_splits, work_items.size());
   }
 
@@ -415,7 +404,8 @@ struct Builder {
   void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks)
   {
     if (total_blocks == 0) return;
-    ML::PUSH_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope(
+      "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins    = params.n_bins;
     auto nclasses = input.numOutputs;
     auto colBlks  = std::min(n_blks_for_cols, input.nSampledCols - col);
@@ -423,8 +413,9 @@ struct Builder {
     auto smemSize = computeSplitSmemSize();
     dim3 grid(total_blocks, colBlks, 1);
     int nHistBins = large_blocks * nbins * colBlks * nclasses;
-    CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, builder_stream));
-    ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
+    RAFT_CUDA_TRY(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, builder_stream));
+    raft::common::nvtx::range kernel_scope(
+      "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, builder_stream>>>(hist,
@@ -442,8 +433,6 @@ struct Builder {
                                                         treeid,
                                                         workload_info,
                                                         seed);
-    ML::POP_RANGE();  // computeSplitKernel
-    ML::POP_RANGE();  // Builder::computeSplit
   }
 
   // Set the leaf value predictions in batch
@@ -469,7 +458,7 @@ struct Builder {
       raft::update_device(
         d_instance_ranges.data(), instance_ranges.data() + batch_begin, batch_size, builder_stream);
 
-      CUDA_CHECK(
+      RAFT_CUDA_TRY(
         cudaMemsetAsync(d_leaves.data(), 0, sizeof(DataT) * d_leaves.size(), builder_stream));
       size_t smemSize = sizeof(BinT) * input.numOutputs;
       int num_blocks  = batch_size;

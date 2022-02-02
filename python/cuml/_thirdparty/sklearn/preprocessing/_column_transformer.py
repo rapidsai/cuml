@@ -30,6 +30,9 @@ import numpy as cpu_np
 import cupy as np
 import numba
 
+import pandas as pd
+import cudf
+
 import cuml
 from cuml.internals.global_settings import _global_settings_data
 from cuml.common.array_sparse import SparseCumlArray
@@ -219,6 +222,9 @@ def _safe_indexing(X, indices, *, axis=0):
             "'axis' should be either 0 (to index rows) or 1 (to index "
             " column). Got {} instead.".format(axis)
         )
+
+    if isinstance(indices, (pd.Index, cudf.Index)):
+        indices = list(indices)
 
     indices_dtype = _determine_key_type(indices)
 

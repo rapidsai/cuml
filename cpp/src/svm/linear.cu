@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,28 @@
 #include <random>
 #include <type_traits>
 
+#include <common/nvtx.hpp>
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+#include <label/classlabels.cuh>
+#include <matrix/kernelfactory.cuh>
 #include <omp.h>
+#include <raft/common/nvtx.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/transpose.h>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.hpp>
+#include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/nvtx.hpp>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.hpp>
-#include <rmm/device_uvector.hpp>
 
 #include <glm/ols.cuh>
 #include <glm/qn/qn.cuh>
@@ -301,10 +302,10 @@ class WorkerHandle {
   }
 
   WorkerHandle(const raft::handle_t& h, int stream_id)
-    : handle_ptr(new raft::handle_t(h, stream_id, 0)),
+    : handle_ptr{new raft::handle_t{h.get_next_usable_stream(stream_id)}},
       stream_id(stream_id),
       handle(*handle_ptr),
-      stream(h.get_internal_stream(stream_id))
+      stream(h.get_next_usable_stream(stream_id))
   {
   }
 
@@ -322,7 +323,7 @@ LinearSVMModel<T> LinearSVMModel<T>::allocate(const raft::handle_t& handle,
                                               const std::size_t nCols,
                                               const std::size_t nClasses)
 {
-  auto stream                = handle.get_stream_view();
+  auto stream                = handle.get_stream();
   auto res                   = rmm::mr::get_current_device_resource();
   const std::size_t coefRows = nCols + params.fit_intercept;
   const std::size_t coefCols = nClasses <= 2 ? 1 : nClasses;
@@ -340,7 +341,7 @@ LinearSVMModel<T> LinearSVMModel<T>::allocate(const raft::handle_t& handle,
 template <typename T>
 void LinearSVMModel<T>::free(const raft::handle_t& handle, LinearSVMModel<T>& model)
 {
-  auto stream                = handle.get_stream_view();
+  auto stream                = handle.get_stream();
   auto res                   = rmm::mr::get_current_device_resource();
   const std::size_t coefRows = model.coefRows;
   const std::size_t coefCols = model.coefCols();
@@ -376,7 +377,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   const int coefCols         = narrowDown(model.coefCols());
   const std::size_t coefRows = model.coefRows;
 
-  ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
+  raft::common::nvtx::range fun_scope("Trace::LinearSVMModel::fit");
 
   auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
   T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;
@@ -418,7 +419,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       ps1 = psBuf.data();
     }
   }
-  CUDA_CHECK(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
   if (params.probability) {
     thrust::device_ptr<thrust::tuple<T, T>> p((thrust::tuple<T, T>*)ps1);
     thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, thrust::make_tuple(T(1), T(0)));
@@ -427,7 +428,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   // one-vs-rest logic goes over each class
   std::vector<T> targets(coefCols);
   std::vector<int> num_iters(coefCols);
-  const int n_streams = coefCols > 1 ? handle.get_num_internal_streams() : 1;
+  const int n_streams = coefCols > 1 ? handle.get_stream_pool_size() : 1;
   bool parallel       = n_streams > 1;
 #pragma omp parallel for num_threads(n_streams) if (parallel)
   for (int class_i = 0; class_i < coefCols; class_i++) {
@@ -496,7 +497,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   worker.stream,
                   (T*)sampleWeight);
   }
-  if (parallel) handle.wait_on_internal_streams();
+  if (parallel) handle.sync_stream_pool();
 
   if (coefCols > 1) {
     raft::linalg::transpose(handle, w1, model.w, coefRows, coefCols, stream);
@@ -504,7 +505,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
       raft::linalg::transpose(handle, ps1, model.probScale, 2, coefCols, stream);
   }
 
-  ML::POP_RANGE();
   return model;
 }
 
@@ -517,7 +517,7 @@ void LinearSVMModel<T>::predict(const raft::handle_t& handle,
                                 const std::size_t nCols,
                                 T* out)
 {
-  auto stream         = handle.get_stream_view();
+  auto stream         = handle.get_stream();
   const auto coefCols = model.coefCols();
   if (isRegression(params.loss))
     return predictLinear(
@@ -547,7 +547,7 @@ void LinearSVMModel<T>::predictProba(const raft::handle_t& handle,
   ASSERT(model.probScale != nullptr,
          "The model was not trained to output probabilities (model.probScale == nullptr).");
 
-  auto stream         = handle.get_stream_view();
+  auto stream         = handle.get_stream();
   const auto coefCols = model.coefCols();
   rmm::device_uvector<T> temp(nRows * coefCols, stream);
 

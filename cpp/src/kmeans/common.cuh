@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>
@@ -28,8 +29,8 @@
 #include <matrix/gather.cuh>
 #include <random/permute.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -169,27 +170,27 @@ void countLabels(const raft::handle_t& handle,
   int upper_level = n_clusters;
 
   size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(nullptr,
-                                                 temp_storage_bytes,
-                                                 labels,
-                                                 count,
-                                                 num_levels,
-                                                 lower_level,
-                                                 upper_level,
-                                                 n_samples,
-                                                 stream));
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
+                                                    temp_storage_bytes,
+                                                    labels,
+                                                    count,
+                                                    num_levels,
+                                                    lower_level,
+                                                    upper_level,
+                                                    n_samples,
+                                                    stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(workspace.data(),
-                                                 temp_storage_bytes,
-                                                 labels,
-                                                 count,
-                                                 num_levels,
-                                                 lower_level,
-                                                 upper_level,
-                                                 n_samples,
-                                                 stream));
+  RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(workspace.data(),
+                                                    temp_storage_bytes,
+                                                    labels,
+                                                    count,
+                                                    num_levels,
+                                                    lower_level,
+                                                    upper_level,
+                                                    n_samples,
+                                                    stream));
 }
 
 template <typename DataT, typename IndexT>
@@ -210,29 +211,29 @@ Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
   Tensor<cub::KeyValuePair<ptrdiff_t, DataT>, 1> sampledMinClusterDistance({n_local_samples},
                                                                            stream);
   size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cub::DeviceSelect::If(nullptr,
-                                   temp_storage_bytes,
-                                   ip_itr,
-                                   sampledMinClusterDistance.data(),
-                                   nSelected.data(),
-                                   n_local_samples,
-                                   select_op,
-                                   stream));
+  RAFT_CUDA_TRY(cub::DeviceSelect::If(nullptr,
+                                      temp_storage_bytes,
+                                      ip_itr,
+                                      sampledMinClusterDistance.data(),
+                                      nSelected.data(),
+                                      n_local_samples,
+                                      select_op,
+                                      stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceSelect::If(workspace.data(),
-                                   temp_storage_bytes,
-                                   ip_itr,
-                                   sampledMinClusterDistance.data(),
-                                   nSelected.data(),
-                                   n_local_samples,
-                                   select_op,
-                                   stream));
+  RAFT_CUDA_TRY(cub::DeviceSelect::If(workspace.data(),
+                                      temp_storage_bytes,
+                                      ip_itr,
+                                      sampledMinClusterDistance.data(),
+                                      nSelected.data(),
+                                      n_local_samples,
+                                      select_op,
+                                      stream));
 
   int nPtsSampledInRank = 0;
   raft::copy(&nPtsSampledInRank, nSelected.data(), nSelected.numElements(), stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   int* rawPtr_isSampleCentroid = isSampleCentroid.data();
   thrust::for_each_n(handle.get_thrust_policy(),
@@ -268,25 +269,25 @@ void computeClusterCost(const raft::handle_t& handle,
                         cudaStream_t stream)
 {
   size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cub::DeviceReduce::Reduce(nullptr,
-                                       temp_storage_bytes,
-                                       minClusterDistance.data(),
-                                       clusterCost,
-                                       minClusterDistance.numElements(),
-                                       reduction_op,
-                                       DataT(),
-                                       stream));
+  RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(nullptr,
+                                          temp_storage_bytes,
+                                          minClusterDistance.data(),
+                                          clusterCost,
+                                          minClusterDistance.numElements(),
+                                          reduction_op,
+                                          DataT(),
+                                          stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceReduce::Reduce(workspace.data(),
-                                       temp_storage_bytes,
-                                       minClusterDistance.data(),
-                                       clusterCost,
-                                       minClusterDistance.numElements(),
-                                       reduction_op,
-                                       DataT(),
-                                       stream));
+  RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(workspace.data(),
+                                          temp_storage_bytes,
+                                          minClusterDistance.data(),
+                                          clusterCost,
+                                          minClusterDistance.numElements(),
+                                          reduction_op,
+                                          DataT(),
+                                          stream));
 }
 
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
@@ -768,7 +769,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     // Choose 'n_trials' centroid candidates from X with probability proportional to the squared
     // distance to the nearest existing cluster
     raft::copy(h_wt.data(), minClusterDistance.data(), minClusterDistance.numElements(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Note - n_trials is relative small here, we don't need MLCommon::gather call
     std::discrete_distribution<> d(h_wt.begin(), h_wt.end());
@@ -869,17 +870,17 @@ void checkWeights(const raft::handle_t& handle,
 
   int n_samples             = weight.getSize(0);
   size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cub::DeviceReduce::Sum(
+  RAFT_CUDA_TRY(cub::DeviceReduce::Sum(
     nullptr, temp_storage_bytes, weight.data(), wt_aggr.data(), n_samples, stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceReduce::Sum(
+  RAFT_CUDA_TRY(cub::DeviceReduce::Sum(
     workspace.data(), temp_storage_bytes, weight.data(), wt_aggr.data(), n_samples, stream));
 
   DataT wt_sum = 0;
   raft::copy(&wt_sum, wt_aggr.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   if (wt_sum != n_samples) {
     LOG(handle,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
 #include "exact_kernels.cuh"
 #include "utils.cuh"
+#include <cuml/common/logger.hpp>
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace TSNE {
@@ -62,7 +62,7 @@ value_t Exact_TSNE(value_t* VAL,
   rmm::device_uvector<value_t> repel(n * dim, stream);
 
   rmm::device_uvector<value_t> velocity(n * dim, stream);
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemsetAsync(velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
   rmm::device_uvector<value_t> gains(n * dim, stream);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 
-#include <cuml/svm/svm_parameter.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/svm/svm_parameter.h>
 
 #include <linalg/init.h>
 
-#include <thrust/device_ptr.h>
-#include <thrust/iterator/permutation_iterator.h>
+#include "smo_sets.cuh"
+#include "ws_util.cuh"
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -33,8 +33,8 @@
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "smo_sets.cuh"
-#include "ws_util.cuh"
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/permutation_iterator.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
@@ -165,7 +165,7 @@ class WorkingSet {
     int n_needed = n_ws - n_already_selected;
 
     // Zero the priority of the elements that will be newly selected
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(ws_priority.data() + n_already_selected, 0, n_needed * sizeof(int), stream));
 
     cub::DeviceRadixSort::SortPairs((void*)cub_storage.data(),
@@ -187,12 +187,12 @@ class WorkingSet {
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool* available = this->available.data();
     set_upper<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(available, n_train, alpha, y, C);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     n_already_selected += GatherAvailable(n_already_selected, n_needed / 2, true);
 
     // Select n_ws/2 elements from the lower set with the highest f values
     set_lower<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(available, n_train, alpha, y, C);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     n_already_selected += GatherAvailable(n_already_selected, n_ws - n_already_selected, false);
 
     // In case we could not find enough elements, then we just fill using the
@@ -203,7 +203,7 @@ class WorkingSet {
         " elements",
         n_already_selected);
       CUML_LOG_DEBUG("Filling up with unused elements");
-      CUDA_CHECK(cudaMemset(available, 1, sizeof(bool) * n_train));
+      RAFT_CUDA_TRY(cudaMemset(available, 1, sizeof(bool) * n_train));
       n_already_selected += GatherAvailable(n_already_selected, n_ws - n_already_selected, true);
     }
   }
@@ -409,7 +409,7 @@ class WorkingSet {
     if (n_already_selected > 0) {
       set_unavailable<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
         available, n_train, idx.data(), n_already_selected);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
@@ -440,7 +440,7 @@ class WorkingSet {
                                d_num_selected.data(),
                                n_train);
     int n_selected = d_num_selected.value(stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Copy to output
     int n_copy = n_selected > n_needed ? n_needed : n_selected;
@@ -487,7 +487,7 @@ class WorkingSet {
                           n_ws,
                           op);
     int n_selected = d_num_selected.value(stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
     raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy, stream);
     return n_copy;

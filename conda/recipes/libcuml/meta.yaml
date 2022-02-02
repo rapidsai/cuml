@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai -c pytorch
@@ -6,6 +6,7 @@
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0] %}
+{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 package:
   name: libcuml
   version: {{ version }}
@@ -38,11 +39,11 @@ requirements:
     - nccl>=2.9.9
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py 0.23
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - lapack
-    - treelite=2.1.0
+    - treelite=2.2.1
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - gmock
@@ -51,10 +52,10 @@ requirements:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.9.9
-    - ucx-py 0.23
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - treelite=2.1.0
+    - treelite=2.2.1
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
     - libcusolver>=11.2.1

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <distance/epsilon_neighborhood.cuh>
+#include <gtest/gtest.h>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Distance {
@@ -45,13 +45,13 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   void SetUp() override
   {
     param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     data.resize(param.n_row * param.n_col, stream);
     labels.resize(param.n_row, stream);
     batchSize = param.n_row / param.n_batches;
     adj.resize(param.n_row * batchSize, stream);
     vd.resize(batchSize + 1, stream);
-    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
     Random::make_blobs<T, IdxT>(data.data(),
                                 labels.data(),
                                 param.n_row,
@@ -65,7 +65,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
@@ -91,8 +91,8 @@ typedef EpsNeighTest<float, int> EpsNeighTestFI;
 TEST_P(EpsNeighTestFI, Result)
 {
   for (int i = 0; i < param.n_batches; ++i) {
-    CUDA_CHECK(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
-    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
     epsUnexpL2SqNeighborhood<float, int>(adj.data(),
                                          vd.data(),
                                          data.data(),

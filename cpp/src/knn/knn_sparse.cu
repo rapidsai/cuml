@@ -17,7 +17,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 
-#include <raft/sparse/selection/knn.cuh>
+#include <raft/sparse/selection/knn.hpp>
 
 #include <cusparse_v2.h>
 

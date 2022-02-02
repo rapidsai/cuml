@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,17 @@
 
 #include "reachability_faiss.cuh"
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <raft/mr/device/buffer.hpp>
 
 #include <raft/linalg/unary_op.cuh>
 
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/hierarchy/detail/connectivities.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/selection/knn_graph.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,14 @@
  *   on the same dataset when the real ground truth is not known.
  */
 
-#include <math.h>
-#include <raft/cudart_utils.h>
+#include "contingencyMatrix.cuh"
 #include <cub/cub.cuh>
+#include <math.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/reduce.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "contingencyMatrix.cuh"
 
 namespace MLCommon {
 
@@ -107,7 +107,7 @@ double mutual_info_score(const T* firstClusterArray,
 
   // declaring, allocating and initializing memory for the contingency marix
   rmm::device_uvector<int> dContingencyMatrix(numUniqueClasses * numUniqueClasses, stream);
-  CUDA_CHECK(cudaMemsetAsync(
+  RAFT_CUDA_TRY(cudaMemsetAsync(
     dContingencyMatrix.data(), 0, numUniqueClasses * numUniqueClasses * sizeof(int), stream));
 
   // workspace allocation
@@ -136,9 +136,9 @@ double mutual_info_score(const T* firstClusterArray,
   double h_MI;
 
   // initializing device memory
-  CUDA_CHECK(cudaMemsetAsync(a.data(), 0, numUniqueClasses * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(b.data(), 0, numUniqueClasses * sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(a.data(), 0, numUniqueClasses * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(b.data(), 0, numUniqueClasses * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
 
   // calculating the row-wise sums
   raft::linalg::reduce<int, int, int>(
@@ -167,7 +167,7 @@ double mutual_info_score(const T* firstClusterArray,
   // updating in the host memory
   h_MI = d_MI.value(stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   return h_MI / size;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <linalg/rsvd.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -106,9 +106,9 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     U.resize(m * params.k, stream);
     S.resize(params.k, stream);
     V.resize(n * params.k, stream);
-    CUDA_CHECK(cudaMemsetAsync(U.data(), 0, U.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(U.data(), 0, U.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
 
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio

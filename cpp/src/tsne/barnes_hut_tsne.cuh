@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <raft/linalg/eltwise.cuh>
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/tsne.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/eltwise.cuh>
 
 namespace ML {
 namespace TSNE {
@@ -72,7 +73,7 @@ value_t Barnes_Hut(value_t* VAL,
                                                 limiter.data(),
                                                 maxdepthd.data(),
                                                 radiusd.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   const value_idx FOUR_NNODES = 4 * nnodes;
   const value_idx FOUR_N      = 4 * n;
@@ -113,7 +114,7 @@ value_t Barnes_Hut(value_t* VAL,
   thrust::fill(handle.get_thrust_policy(), begin_gains_bh, begin_gains_bh + (n * 2), 1.0f);
 
   rmm::device_uvector<value_t> old_forces(n * 2, stream);
-  CUDA_CHECK(cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
   rmm::device_uvector<value_t> YY((nnodes + 1) * 2, stream);
   if (params.initialize_embeddings) {
@@ -129,20 +130,21 @@ value_t Barnes_Hut(value_t* VAL,
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaFuncSetCacheConfig(BH::BoundingBoxKernel<value_idx, value_t>, cudaFuncCachePreferShared));
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaFuncSetCacheConfig(BH::TreeBuildingKernel<value_idx, value_t>, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(BH::ClearKernel1<value_idx>, cudaFuncCachePreferL1));
-  CUDA_CHECK(cudaFuncSetCacheConfig(BH::ClearKernel2<value_idx, value_t>, cudaFuncCachePreferL1));
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(cudaFuncSetCacheConfig(BH::ClearKernel1<value_idx>, cudaFuncCachePreferL1));
+  RAFT_CUDA_TRY(
+    cudaFuncSetCacheConfig(BH::ClearKernel2<value_idx, value_t>, cudaFuncCachePreferL1));
+  RAFT_CUDA_TRY(
     cudaFuncSetCacheConfig(BH::SummarizationKernel<value_idx, value_t>, cudaFuncCachePreferShared));
-  CUDA_CHECK(cudaFuncSetCacheConfig(BH::SortKernel<value_idx>, cudaFuncCachePreferL1));
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(cudaFuncSetCacheConfig(BH::SortKernel<value_idx>, cudaFuncCachePreferL1));
+  RAFT_CUDA_TRY(
     cudaFuncSetCacheConfig(BH::RepulsionKernel<value_idx, value_t>, cudaFuncCachePreferL1));
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaFuncSetCacheConfig(BH::attractive_kernel_bh<value_idx, value_t>, cudaFuncCachePreferL1));
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaFuncSetCacheConfig(BH::IntegrationKernel<value_idx, value_t>, cudaFuncCachePreferL1));
   // Do gradient updates
   //---------------------------------------------------
@@ -152,18 +154,18 @@ value_t Barnes_Hut(value_t* VAL,
   value_t learning_rate = params.pre_learning_rate;
 
   for (int iter = 0; iter < params.max_iter; iter++) {
-    CUDA_CHECK(cudaMemsetAsync(static_cast<void*>(rep_forces.data()),
-                               0,
-                               rep_forces.size() * sizeof(*rep_forces.data()),
-                               stream));
-    CUDA_CHECK(cudaMemsetAsync(static_cast<void*>(attr_forces.data()),
-                               0,
-                               attr_forces.size() * sizeof(*attr_forces.data()),
-                               stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(rep_forces.data()),
+                                  0,
+                                  rep_forces.size() * sizeof(*rep_forces.data()),
+                                  stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(attr_forces.data()),
+                                  0,
+                                  attr_forces.size() * sizeof(*attr_forces.data()),
+                                  stream));
 
     BH::Reset_Normalization<<<1, 1, 0, stream>>>(
       Z_norm.data(), radiusd_squared.data(), bottomd.data(), NNODES, radiusd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     if (iter == params.exaggeration_iter) {
       momentum = params.post_momentum;
@@ -190,13 +192,13 @@ value_t Barnes_Hut(value_t* VAL,
                                                                      n,
                                                                      limiter.data(),
                                                                      radiusd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(BoundingBoxKernel_time);
 
     START_TIMER;
     BH::ClearKernel1<<<blocks, 1024, 0, stream>>>(childl.data(), FOUR_NNODES, FOUR_N);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(ClearKernel1_time);
 
@@ -210,14 +212,14 @@ value_t Barnes_Hut(value_t* VAL,
       maxdepthd.data(),
       bottomd.data(),
       radiusd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(TreeBuildingKernel_time);
 
     START_TIMER;
     BH::ClearKernel2<<<blocks * 1, 1024, 0, stream>>>(
       startl.data(), massl.data(), NNODES, bottomd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(ClearKernel2_time);
 
@@ -230,14 +232,14 @@ value_t Barnes_Hut(value_t* VAL,
                                                                        NNODES,
                                                                        n,
                                                                        bottomd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(SummarizationKernel_time);
 
     START_TIMER;
     BH::SortKernel<<<blocks * FACTOR4, THREADS4, 0, stream>>>(
       sortl.data(), countl.data(), startl.data(), childl.data(), NNODES, n, bottomd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(SortKernel_time);
 
@@ -259,13 +261,13 @@ value_t Barnes_Hut(value_t* VAL,
       n,
       radiusd_squared.data(),
       maxdepthd.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(RepulsionTime);
 
     START_TIMER;
     BH::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm.data(), n);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     END_TIMER(Reduction_time);
 
     START_TIMER;
@@ -284,12 +286,12 @@ value_t Barnes_Hut(value_t* VAL,
       last_iter ? Qs : nullptr,
       NNZ,
       fmaxf(params.dim - 1, 1));
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     if (last_iter) {
       kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
 
     START_TIMER;
@@ -308,7 +310,7 @@ value_t Barnes_Hut(value_t* VAL,
                                                                      old_forces.data() + n,
                                                                      Z_norm.data(),
                                                                      n);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     END_TIMER(IntegrationKernel_time);
   }

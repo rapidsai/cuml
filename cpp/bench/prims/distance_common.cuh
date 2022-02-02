@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -40,9 +41,9 @@ struct Distance : public Fixture {
     x.resize(params.m * params.k, stream);
     y.resize(params.n * params.k, stream);
     out.resize(params.m * params.n, stream);
-    CUDA_CHECK(cudaMemsetAsync(x.data(), 0, x.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, y.size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, x.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, y.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(T), stream));
     worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(
       x.data(), y.data(), params.m, params.n, params.k);
     workspace.resize(worksize, stream);

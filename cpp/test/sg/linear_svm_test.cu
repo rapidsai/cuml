@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/linalg/transpose.h>
-#include <test_utils.h>
 #include <cmath>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
+#include <gtest/gtest.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/linalg/transpose.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 
 namespace ML {
 namespace SVM {
@@ -48,14 +48,14 @@ template <typename T, typename ParamsReader>
 struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
   const LinearSVMTestParams params;
   const raft::handle_t handle;
-  rmm::cuda_stream_view stream;
+  cudaStream_t stream;
 
   LinearSVMTest()
     : testing::TestWithParam<typename ParamsReader::Params>(),
       params(
         ParamsReader::read(::testing::TestWithParam<typename ParamsReader::Params>::GetParam())),
-      handle(8),
-      stream(handle.get_stream_view())
+      handle(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(8)),
+      stream(handle.get_stream())
   {
   }
 
@@ -306,22 +306,22 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     const int dropNRows = nRows - takeNRows;
     rmm::device_uvector<T> x1(takeNRows * nCols, stream);
     rmm::device_uvector<T> x2(dropNRows * nCols, stream);
-    CUDA_CHECK(cudaMemcpy2DAsync(x1.data(),
-                                 sizeof(T) * takeNRows,
-                                 x.data(),
-                                 sizeof(T) * nRows,
-                                 sizeof(T) * takeNRows,
-                                 nCols,
-                                 cudaMemcpyDeviceToDevice,
-                                 stream));
-    CUDA_CHECK(cudaMemcpy2DAsync(x2.data(),
-                                 sizeof(T) * dropNRows,
-                                 x.data() + takeNRows,
-                                 sizeof(T) * nRows,
-                                 sizeof(T) * dropNRows,
-                                 nCols,
-                                 cudaMemcpyDeviceToDevice,
-                                 stream));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(x1.data(),
+                                    sizeof(T) * takeNRows,
+                                    x.data(),
+                                    sizeof(T) * nRows,
+                                    sizeof(T) * takeNRows,
+                                    nCols,
+                                    cudaMemcpyDeviceToDevice,
+                                    stream));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(x2.data(),
+                                    sizeof(T) * dropNRows,
+                                    x.data() + takeNRows,
+                                    sizeof(T) * nRows,
+                                    sizeof(T) * dropNRows,
+                                    nCols,
+                                    cudaMemcpyDeviceToDevice,
+                                    stream));
     return std::make_tuple(std::move(x1), std::move(x2));
   }
 };

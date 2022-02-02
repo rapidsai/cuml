@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
-#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <sstream>
 #include <string>
@@ -51,14 +51,14 @@ struct CudaEventTimer {
   CudaEventTimer(::benchmark::State& st, char* ptr, int l2CacheSize, cudaStream_t s)
     : state(&st), stream(s)
   {
-    CUDA_CHECK(cudaEventCreate(&start));
-    CUDA_CHECK(cudaEventCreate(&stop));
+    RAFT_CUDA_TRY(cudaEventCreate(&start));
+    RAFT_CUDA_TRY(cudaEventCreate(&stop));
     // flush L2?
     if (ptr != nullptr && l2CacheSize > 0) {
-      CUDA_CHECK(cudaMemsetAsync(ptr, 0, sizeof(char) * l2CacheSize, s));
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, sizeof(char) * l2CacheSize, s));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     }
-    CUDA_CHECK(cudaEventRecord(start, stream));
+    RAFT_CUDA_TRY(cudaEventRecord(start, stream));
   }
   CudaEventTimer() = delete;
 
@@ -69,13 +69,13 @@ struct CudaEventTimer {
    */
   ~CudaEventTimer()
   {
-    CUDA_CHECK_NO_THROW(cudaEventRecord(stop, stream));
-    CUDA_CHECK_NO_THROW(cudaEventSynchronize(stop));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventRecord(stop, stream));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventSynchronize(stop));
     float milliseconds = 0.0f;
-    CUDA_CHECK_NO_THROW(cudaEventElapsedTime(&milliseconds, start, stop));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventElapsedTime(&milliseconds, start, stop));
     state->SetIterationTime(milliseconds / 1000.f);
-    CUDA_CHECK_NO_THROW(cudaEventDestroy(start));
-    CUDA_CHECK_NO_THROW(cudaEventDestroy(stop));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(start));
+    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(stop));
   }
 
  private:
@@ -93,27 +93,27 @@ class Fixture : public ::benchmark::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     allocateBuffers(state);
     int devId = 0;
-    CUDA_CHECK(cudaGetDevice(&devId));
+    RAFT_CUDA_TRY(cudaGetDevice(&devId));
     l2CacheSize = 0;
-    CUDA_CHECK(cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2CacheSize, cudaDevAttrL2CacheSize, devId));
     if (l2CacheSize > 0) {
       alloc(scratchBuffer, l2CacheSize, false);
     } else {
       scratchBuffer = nullptr;
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void TearDown(const ::benchmark::State& state) override
   {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     if (l2CacheSize > 0) { dealloc(scratchBuffer, l2CacheSize); }
     deallocateBuffers(state);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   // to keep compiler happy
@@ -162,7 +162,7 @@ class Fixture : public ::benchmark::Fixture {
     auto nBytes  = len * sizeof(T);
     auto d_alloc = rmm::mr::get_current_device_resource();
     ptr          = (T*)d_alloc->allocate(nBytes, stream);
-    if (init) { CUDA_CHECK(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
+    if (init) { RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
   }
 
   template <typename T>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,17 @@
 
 #pragma once
 
-#include <cufft_utils.h>
-#include <linalg/init.h>
+#include "fft_kernels.cuh"
+#include "utils.cuh"
 #include <cmath>
 #include <common/device_utils.cuh>
+#include <cufft_utils.h>
+#include <linalg/init.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "fft_kernels.cuh"
-#include "utils.cuh"
 
 namespace ML {
 namespace TSNE {
@@ -135,7 +135,7 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
   min_h = min_d.value(stream);
   max_h = max_d.value(stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   return std::make_pair(std::move(min_h), std::move(max_h));
 }
@@ -273,17 +273,17 @@ value_t FFT_TSNE(value_t* VAL,
   }
 
   DB(value_t, y_tilde_spacings_device, n_interpolation_points);
-  CUDA_CHECK(cudaMemcpyAsync(y_tilde_spacings_device.data(),
-                             y_tilde_spacings,
-                             n_interpolation_points * sizeof(value_t),
-                             cudaMemcpyHostToDevice,
-                             stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(y_tilde_spacings_device.data(),
+                                y_tilde_spacings,
+                                n_interpolation_points * sizeof(value_t),
+                                cudaMemcpyHostToDevice,
+                                stream));
   DB(value_t, denominator_device, n_interpolation_points);
-  CUDA_CHECK(cudaMemcpyAsync(denominator_device.data(),
-                             denominator,
-                             n_interpolation_points * sizeof(value_t),
-                             cudaMemcpyHostToDevice,
-                             stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(denominator_device.data(),
+                                denominator,
+                                n_interpolation_points * sizeof(value_t),
+                                cudaMemcpyHostToDevice,
+                                stream));
 #undef DB
 
   cufftHandle plan_kernel_tilde;

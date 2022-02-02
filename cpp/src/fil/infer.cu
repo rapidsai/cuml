@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@
 
 #include <cuml/fil/multi_sum.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <thrust/functional.h>
 
@@ -883,7 +883,7 @@ struct infer_k_storage_template : dispatch_functor<void> {
             KernelParams::COLS_IN_SHMEM,
             KernelParams::CATS_SUPPORTED>
       <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(forest, params);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 

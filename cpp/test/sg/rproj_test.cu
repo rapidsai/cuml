@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,35 +14,34 @@
  * limitations under the License.
  */
 
+#include <cuml/metrics/metrics.hpp>
 #include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <test_utils.h>
-#include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/transpose.h>
 #include <random>
+#include <test_utils.h>
 #include <vector>
 
 namespace ML {
 
 template <typename T, int N, int M>
 class RPROJTest : public ::testing::Test {
- protected:
-  T* transpose(T* in, int n_rows, int n_cols)
+ public:
+  RPROJTest()
+    : stream(handle.get_stream()),
+      random_matrix1(stream),
+      random_matrix2(stream),
+      d_input(0, stream),
+      d_output1(0, stream),
+      d_output2(0, stream)
   {
-    cudaStream_t stream          = h.get_stream();
-    cublasHandle_t cublas_handle = h.get_cublas_handle();
-    T* result;
-    raft::allocate(result, n_rows * n_cols, stream);
-    raft::linalg::transpose(h, in, result, n_rows, n_cols, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaFree(in));
-    return result;
   }
 
+ protected:
   void generate_data()
   {
     std::random_device rd;
@@ -53,16 +52,15 @@ class RPROJTest : public ::testing::Test {
     for (auto& i : h_input) {
       i = dist(rng);
     }
-    raft::allocate(d_input, h_input.size(), h.get_stream());
-    raft::update_device(d_input, h_input.data(), h_input.size(), h.get_stream());
-    // d_input = transpose(d_input, N, M);
+    d_input.resize(h_input.size(), stream);
+    raft::update_device(d_input.data(), h_input.data(), h_input.size(), stream);
+    // transpose(d_input, d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
   }
 
   void gaussianTest()
   {
-    params1  = new paramsRPROJ();
-    *params1 = {
+    params1 = {
       N,        // number of samples
       M,        // number of features
       -1,       // number of components
@@ -73,18 +71,25 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    cudaStream_t stream = h.get_stream();
-    random_matrix1      = std::make_unique<rand_mat<T>>(stream);
-    RPROJfit(h, random_matrix1.get(), params1);
-    raft::allocate(d_output1, N * params1->n_components, stream);
-    RPROJtransform(h, d_input, random_matrix1.get(), d_output1, params1);
-    d_output1 = transpose(d_output1, N, params1->n_components);  // From column major to row major
+    RPROJfit(handle, &random_matrix1, &params1);
+
+    d_output1.resize(N * params1.n_components, stream);
+    rmm::device_uvector<T> tmp(d_output1.size(), stream);
+    RPROJtransform(handle, d_input.data(), &random_matrix1, tmp.data(), &params1);
+
+    raft::linalg::transpose(handle,
+                            tmp.data(),
+                            d_output1.data(),
+                            N,
+                            params1.n_components,
+                            stream);  // From column major to row major
+
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void sparseTest()
   {
-    params2  = new paramsRPROJ();
-    *params2 = {
+    params2 = {
       N,        // number of samples
       M,        // number of features
       -1,       // number of components (-1: auto-deduction)
@@ -95,15 +100,20 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    cudaStream_t stream = h.get_stream();
-    random_matrix2      = std::make_unique<rand_mat<T>>(stream);
-    RPROJfit(h, random_matrix2.get(), params2);
+    RPROJfit(handle, &random_matrix2, &params2);
 
-    raft::allocate(d_output2, N * params2->n_components, stream);
+    d_output2.resize(N * params2.n_components, stream);
+    rmm::device_uvector<T> tmp(d_output2.size(), stream);
+    RPROJtransform(handle, d_input.data(), &random_matrix2, tmp.data(), &params2);
 
-    RPROJtransform(h, d_input, random_matrix2.get(), d_output2, params2);
+    raft::linalg::transpose(handle,
+                            tmp.data(),
+                            d_output2.data(),
+                            N,
+                            params2.n_components,
+                            stream);  // From column major to row major
 
-    d_output2 = transpose(d_output2, N, params2->n_components);  // From column major to row major
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override
@@ -114,65 +124,50 @@ class RPROJTest : public ::testing::Test {
     sparseTest();
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_input));
-    CUDA_CHECK(cudaFree(d_output1));
-    CUDA_CHECK(cudaFree(d_output2));
-    delete params1;
-    delete params2;
-  }
-
   void random_matrix_check()
   {
-    size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
+    int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
-    ASSERT_TRUE(params1->n_components == D);
-    ASSERT_TRUE(random_matrix1->dense_data.size() > 0);
-    ASSERT_TRUE(random_matrix1->type == dense);
+    ASSERT_TRUE(params1.n_components == D);
+    ASSERT_TRUE(random_matrix1.dense_data.size() > 0);
+    ASSERT_TRUE(random_matrix1.type == dense);
 
-    ASSERT_TRUE(params2->n_components == D);
-    ASSERT_TRUE(params2->density == 1 / sqrt(M));
-    ASSERT_TRUE(random_matrix2->indices.size() > 0);
-    ASSERT_TRUE(random_matrix2->indptr.size() > 0);
-    ASSERT_TRUE(random_matrix2->sparse_data.size() > 0);
-    ASSERT_TRUE(random_matrix2->type == sparse);
+    ASSERT_TRUE(params2.n_components == D);
+    ASSERT_TRUE(params2.density == 1 / sqrt(M));
+    ASSERT_TRUE(random_matrix2.indices.size() > 0);
+    ASSERT_TRUE(random_matrix2.indptr.size() > 0);
+    ASSERT_TRUE(random_matrix2.sparse_data.size() > 0);
+    ASSERT_TRUE(random_matrix2.type == sparse);
   }
 
   void epsilon_check()
   {
-    int D = johnson_lindenstrauss_min_dim(N, epsilon);
-
+    int D                        = johnson_lindenstrauss_min_dim(N, epsilon);
     constexpr auto distance_type = raft::distance::DistanceType::L2SqrtUnexpanded;
 
-    cudaStream_t stream = h.get_stream();
-
-    T* d_pdist;
-    raft::allocate(d_pdist, N * N, stream);
-    ML::Metrics::pairwise_distance(h, d_input, d_input, d_pdist, N, N, M, distance_type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    rmm::device_uvector<T> d_pdist(N * N, stream);
+    ML::Metrics::pairwise_distance(
+      handle, d_input.data(), d_input.data(), d_pdist.data(), N, N, M, distance_type);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     T* h_pdist = new T[N * N];
-    raft::update_host(h_pdist, d_pdist, N * N, stream);
-    CUDA_CHECK(cudaFree(d_pdist));
+    raft::update_host(h_pdist, d_pdist.data(), N * N, stream);
 
-    T* d_pdist1;
-    raft::allocate(d_pdist1, N * N, stream);
-    ML::Metrics::pairwise_distance(h, d_output1, d_output1, d_pdist1, N, N, D, distance_type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    rmm::device_uvector<T> d_pdist1(N * N, stream);
+    ML::Metrics::pairwise_distance(
+      handle, d_output1.data(), d_output1.data(), d_pdist1.data(), N, N, D, distance_type);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     T* h_pdist1 = new T[N * N];
-    raft::update_host(h_pdist1, d_pdist1, N * N, stream);
-    CUDA_CHECK(cudaFree(d_pdist1));
+    raft::update_host(h_pdist1, d_pdist1.data(), N * N, stream);
 
-    T* d_pdist2;
-    raft::allocate(d_pdist2, N * N, stream);
-    ML::Metrics::pairwise_distance(h, d_output2, d_output2, d_pdist2, N, N, D, distance_type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    rmm::device_uvector<T> d_pdist2(N * N, stream);
+    ML::Metrics::pairwise_distance(
+      handle, d_output2.data(), d_output2.data(), d_pdist2.data(), N, N, D, distance_type);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     T* h_pdist2 = new T[N * N];
-    raft::update_host(h_pdist2, d_pdist2, N * N, stream);
-    CUDA_CHECK(cudaFree(d_pdist2));
+    raft::update_host(h_pdist2, d_pdist2.data(), N * N, stream);
 
     for (size_t i = 0; i < N; i++) {
       for (size_t j = 0; j <= i; j++) {
@@ -194,19 +189,21 @@ class RPROJTest : public ::testing::Test {
   }
 
  protected:
-  raft::handle_t h;
-  paramsRPROJ* params1;
+  raft::handle_t handle;
+  cudaStream_t stream = 0;
+
   T epsilon;
 
   std::vector<T> h_input;
-  T* d_input;
+  rmm::device_uvector<T> d_input;
 
-  std::unique_ptr<rand_mat<T>> random_matrix1;
-  T* d_output1;
+  paramsRPROJ params1;
+  rand_mat<T> random_matrix1;
+  rmm::device_uvector<T> d_output1;
 
-  paramsRPROJ* params2;
-  std::unique_ptr<rand_mat<T>> random_matrix2;
-  T* d_output2;
+  paramsRPROJ params2;
+  rand_mat<T> random_matrix2;
+  rmm::device_uvector<T> d_output2;
 };
 
 typedef RPROJTest<float, 500, 2000> RPROJTestF1;

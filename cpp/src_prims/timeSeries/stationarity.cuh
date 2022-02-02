@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,13 @@
 #include <thrust/scan.h>
 #include <vector>
 
+#include "arima_helpers.cuh"
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
-#include "arima_helpers.cuh"
 
 namespace MLCommon {
 
@@ -258,7 +258,7 @@ static void _kpss_test(const DataT* d_y,
     n_obs,
     -coeff_base / (lags_f + static_cast<DataT>(1.0)),
     coeff_base);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   rmm::device_uvector<DataT> s2B(batch_size, stream);
   raft::linalg::reduce(s2B.data(),
                        accumulator.data(),
@@ -298,7 +298,7 @@ static void _kpss_test(const DataT* d_y,
    * s^2 and eta */
   kpss_stationarity_check_kernel<<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
     results, s2A.data(), s2B.data(), eta.data(), batch_size, n_obs_f, pval_threshold);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**

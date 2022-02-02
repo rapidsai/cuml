@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <vector>
 
-#include <raft/linalg/distance_type.h>
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.hpp>
+#include <raft/linalg/distance_type.h>
 
+#include <raft/handle.hpp>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <raft/handle.hpp>
 
 #include <test_utils.h>
 
@@ -104,12 +104,12 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                                      raft::distance::L2SqrtUnexpanded);
     }
 
-    raft::allocate(labels, params.n_row, stream);
-    raft::allocate(labels_ref, params.n_row, stream);
+    rmm::device_uvector<IdxT> labels(params.n_row, stream);
+    rmm::device_uvector<IdxT> labels_ref(params.n_row, stream);
 
-    raft::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
+    raft::copy(labels_ref.data(), l.data(), params.n_row, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     Dbscan::fit(handle,
                 params.metric == raft::distance::Precomputed ? dist.data() : out.data(),
@@ -118,18 +118,18 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                 params.eps,
                 params.min_pts,
                 params.metric,
-                labels,
+                labels.data(),
                 nullptr,
                 params.max_bytes_per_batch);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
-    score = adjusted_rand_index(handle, labels_ref, labels, params.n_row);
+    score = adjusted_rand_index(handle, labels_ref.data(), labels.data(), params.n_row);
 
     if (score < 1.0) {
-      auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref", handle.get_stream());
+      auto str = raft::arr2Str(labels_ref.data(), params.n_row, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
+      str = raft::arr2Str(labels.data(), params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -137,15 +137,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(labels_ref));
-  }
-
  protected:
   DbscanInputs<T, IdxT> params;
-  IdxT *labels, *labels_ref;
 
   double score;
 };
@@ -226,59 +219,48 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 
-    raft::allocate(inputs, params.n_row * 2, stream);
-    raft::allocate(labels, params.n_row, stream);
-    raft::allocate(labels_ref, params.n_out, stream);
-    raft::allocate(core_sample_indices_d, params.n_row, stream);
+    rmm::device_uvector<T> inputs(params.n_row * 2, stream);
+    rmm::device_uvector<int> labels(params.n_row, stream);
+    rmm::device_uvector<int> labels_ref(params.n_out, stream);
+    rmm::device_uvector<int> core_sample_indices_d(params.n_row, stream);
 
-    raft::copy(inputs, params.points, params.n_row * 2, handle.get_stream());
-    raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    raft::copy(inputs.data(), params.points, params.n_row * 2, stream);
+    raft::copy(labels_ref.data(), params.out, params.n_out, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     Dbscan::fit(handle,
-                inputs,
+                inputs.data(),
                 (int)params.n_row,
                 2,
                 params.eps,
                 params.min_pts,
                 raft::distance::L2SqrtUnexpanded,
-                labels,
-                core_sample_indices_d);
+                labels.data(),
+                core_sample_indices_d.data());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
-    score = adjusted_rand_index(handle, labels_ref, labels, (int)params.n_out);
+    score = adjusted_rand_index(handle, labels_ref.data(), labels.data(), (int)params.n_out);
 
     if (score < 1.0) {
-      auto str = raft::arr2Str(labels_ref, params.n_out, "labels_ref", handle.get_stream());
+      auto str = raft::arr2Str(labels_ref.data(), params.n_out, "labels_ref", stream);
       CUML_LOG_DEBUG("y: %s", str.c_str());
-      str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
+      str = raft::arr2Str(labels.data(), params.n_row, "labels", stream);
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
     EXPECT_TRUE(raft::devArrMatchHost(params.core_indices,
-                                      core_sample_indices_d,
+                                      core_sample_indices_d.data(),
                                       params.n_row,
                                       raft::Compare<int>(),
-                                      handle.get_stream()));
+                                      stream));
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(labels_ref));
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(inputs));
-    CUDA_CHECK(cudaFree(core_sample_indices_d));
-  }
-
  protected:
   DBScan2DArrayInputs<T> params;
-  int *labels, *labels_ref;
-  int* core_sample_indices_d;
-  T* inputs;
 
   double score;
 };

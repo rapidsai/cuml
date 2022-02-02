@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
@@ -7,6 +7,7 @@
 {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0] %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
+{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 
 package:
   name: cuml
@@ -29,28 +30,36 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.20.1
-    - treelite=2.1.0
+    - treelite=2.2.1
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py 0.23
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
+    - cuda-python >=11.5,<12.0
   run:
     - python x.x
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - cupy>=7.8.0,<10.0.0a0
-    - treelite=2.1.0
+    - cupy>=7.8.0,<11.0.0a0
+    - treelite=2.2.1
     - nccl>=2.9.9
-    - ucx-py 0.23
+    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2021.11.1,<=2021.11.2
-    - distributed>=2021.11.1,<=2021.11.2
+    - dask>=2021.11.1,<=2022.01.0
+    - distributed>=2021.11.1,<=2022.01.0
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cuda-python >=11.5,<12.0
+
+tests:                                 # [linux64]
+  requirements:                        # [linux64]
+    - cudatoolkit {{ cuda_version }}.* # [linux64]
+  imports:                             # [linux64]
+    - cuml                             # [linux64]
 
 about:
   home: http://rapids.ai/

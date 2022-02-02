@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
+#include "test_utils.h"
 #include <algorithm>
 #include <cuml/metrics/metrics.hpp>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -42,7 +42,12 @@ struct silhouetteScoreParam {
 template <typename LabelT, typename DataT>
 class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
-  silhouetteScoreTest() : d_X(0, stream), sampleSilScore(0, stream), d_labels(0, stream) {}
+  silhouetteScoreTest()
+    : d_X(0, handle.get_stream()),
+      sampleSilScore(0, handle.get_stream()),
+      d_labels(0, handle.get_stream())
+  {
+  }
 
   void host_silhouette_score()
   {
@@ -58,11 +63,11 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     std::generate(h_labels.begin(), h_labels.end(), [&]() { return intGenerator(dre); });
 
     // allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
     d_X.resize(nElements, stream);
     d_labels.resize(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
     sampleSilScore.resize(nElements, stream);
 
     raft::update_device(d_X.data(), &h_X[0], (int)nElements, stream);
@@ -76,7 +81,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     ML::Metrics::pairwise_distance(
       handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
 
@@ -172,7 +177,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
                                                                   d_labels.data(),
                                                                   nLabels,
                                                                   sampleSilScore.data(),
-                                                                  stream,
+                                                                  handle.get_stream(),
                                                                   params.metric);
 
     batchedSilhouetteScore = Batched::silhouette_score(handle,
@@ -186,9 +191,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
                                                        params.metric);
   }
 
-  // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   // declaring the data values
   silhouetteScoreParam params;
   int nLabels;
@@ -201,7 +203,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   double truthSilhouetteScore    = 0;
   double computedSilhouetteScore = 0;
   double batchedSilhouetteScore  = 0;
-  cudaStream_t stream            = 0;
   raft::handle_t handle;
   int chunk;
 };

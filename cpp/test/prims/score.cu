@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Score {
@@ -39,7 +40,7 @@ TEST(ScoreTestHighScore, Result)
   float y_hat[5] = {0.12, 0.22, 0.32, 0.42, 0.52};
 
   cudaStream_t stream = 0;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   rmm::device_uvector<float> d_y(5, stream);
   rmm::device_uvector<float> d_y_hat(5, stream);
@@ -49,7 +50,7 @@ TEST(ScoreTestHighScore, Result)
 
   auto result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
   ASSERT_TRUE(result == 0.98f);
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 typedef ScoreTest ScoreTestLowScore;
@@ -59,7 +60,7 @@ TEST(ScoreTestLowScore, Result)
   float y_hat[5] = {0.012, 0.022, 0.032, 0.042, 0.052};
 
   cudaStream_t stream = 0;
-  CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   rmm::device_uvector<float> d_y(5, stream);
   rmm::device_uvector<float> d_y_hat(5, stream);
@@ -71,7 +72,7 @@ TEST(ScoreTestLowScore, Result)
 
   std::cout << "Result: " << result - -3.4012f << std::endl;
   ASSERT_TRUE(result - -3.4012f < 0.00001);
-  CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 // Tests for accuracy_score
@@ -118,13 +119,13 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
     ASSERT((params.changed_n <= params.n) && (params.changed_n >= 0), "Invalid params.");
 
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
-    raft::allocate(predictions, params.n, stream);
-    raft::allocate(ref_predictions, params.n, stream);
-    r.normal(ref_predictions, params.n, (T)0.0, (T)1.0, stream);
-    raft::copy_async(predictions, ref_predictions, params.n, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    rmm::device_uvector<T> predictions(params.n, stream);
+    rmm::device_uvector<T> ref_predictions(params.n, stream);
+    r.normal(ref_predictions.data(), params.n, (T)0.0, (T)1.0, stream);
+    raft::copy_async(predictions.data(), ref_predictions.data(), params.n, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Modify params.changed_n unique predictions to a different value. New value is irrelevant.
     if (params.changed_n > 0) {
@@ -132,14 +133,14 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
       int blocks  = raft::ceildiv(params.changed_n, threads);
       //@todo Could also generate params.changed_n unique random positions in [0, n) range, instead
       // of changing the first ones.
-      change_vals<T>
-        <<<blocks, threads, 0, stream>>>(predictions, ref_predictions, params.changed_n);
-      CUDA_CHECK(cudaGetLastError());
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      change_vals<T><<<blocks, threads, 0, stream>>>(
+        predictions.data(), ref_predictions.data(), params.changed_n);
+      RAFT_CUDA_TRY(cudaGetLastError());
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     }
 
-    computed_accuracy =
-      MLCommon::Score::accuracy_score<T>(predictions, ref_predictions, params.n, stream);
+    computed_accuracy = MLCommon::Score::accuracy_score<T>(
+      predictions.data(), ref_predictions.data(), params.n, stream);
     ref_accuracy = (params.n - params.changed_n) * 1.0f / params.n;
     // std::cout << "computed_accuracy is " << computed_accuracy << " ref_accuracy is " <<
     // ref_accuracy << std::endl;
@@ -147,15 +148,12 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
 
   void TearDown() override
   {
-    CUDA_CHECK(cudaFree(predictions));
-    CUDA_CHECK(cudaFree(ref_predictions));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
     computed_accuracy = -1.0f;
     ref_accuracy      = -1.0f;
   }
 
   AccuracyInputs params;
-  T *predictions, *ref_predictions;
   float computed_accuracy, ref_accuracy;
   cudaStream_t stream = 0;
 };
@@ -256,34 +254,38 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
     computed_regression_metrics.assign(3, -1.0);
     ref_regression_metrics.assign(3, -1.0);
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
-    raft::allocate(d_predictions, params.n, stream);
-    raft::allocate(d_ref_predictions, params.n, stream);
+    rmm::device_uvector<T> d_predictions(params.n, stream);
+    rmm::device_uvector<T> d_ref_predictions(params.n, stream);
 
     if (params.hardcoded_preds) {
-      raft::update_device(d_predictions, params.predictions.data(), params.n, stream);
-      raft::update_device(d_ref_predictions, params.ref_predictions.data(), params.n, stream);
+      raft::update_device(d_predictions.data(), params.predictions.data(), params.n, stream);
+      raft::update_device(
+        d_ref_predictions.data(), params.ref_predictions.data(), params.n, stream);
     } else {
       params.predictions.resize(params.n);
       params.ref_predictions.resize(params.n);
       raft::random::Rng r(params.seed);
       // randomly generate arrays
-      r.uniform(
-        d_predictions, params.n, params.predictions_range[0], params.predictions_range[1], stream);
-      r.uniform(d_ref_predictions,
+      r.uniform(d_predictions.data(),
+                params.n,
+                params.predictions_range[0],
+                params.predictions_range[1],
+                stream);
+      r.uniform(d_ref_predictions.data(),
                 params.n,
                 params.ref_predictions_range[0],
                 params.ref_predictions_range[1],
                 stream);
       // copy to host to compute reference regression metrics
-      raft::update_host(params.predictions.data(), d_predictions, params.n, stream);
-      raft::update_host(params.ref_predictions.data(), d_ref_predictions, params.n, stream);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      raft::update_host(params.predictions.data(), d_predictions.data(), params.n, stream);
+      raft::update_host(params.ref_predictions.data(), d_ref_predictions.data(), params.n, stream);
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     }
 
-    MLCommon::Score::regression_metrics(d_predictions,
-                                        d_ref_predictions,
+    MLCommon::Score::regression_metrics(d_predictions.data(),
+                                        d_ref_predictions.data(),
                                         params.n,
                                         stream,
                                         computed_regression_metrics[0],
@@ -292,18 +294,12 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
 
     host_regression_computations(
       params.predictions, params.ref_predictions, params.n, ref_regression_metrics);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(d_predictions));
-    CUDA_CHECK(cudaFree(d_ref_predictions));
-  }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   RegressionInputs<T> params;
-  T *d_predictions, *d_ref_predictions;
   std::vector<double> computed_regression_metrics;
   std::vector<double> ref_regression_metrics;
   cudaStream_t stream = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <cmath>
+#include <gtest/gtest.h>
 #include <iostream>
+#include <raft/cudart_utils.h>
 #include <random/mvg.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)
@@ -101,9 +101,9 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     corr      = params.corr;
     tolerance = params.tolerance;
 
-    CUBLAS_CHECK(cublasCreate(&cublasH));
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUBLAS_TRY(cublasCreate(&cublasH));
+    RAFT_CUSOLVER_TRY(cusolverDnCreate(&cusolverH));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     // preparing to store stuff
     P.resize(dim * dim);
@@ -152,39 +152,39 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean
-    CUDA_CHECK(cudaMemset(Rand_mean.data(), 0, dim * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMemset(Rand_mean.data(), 0, dim * sizeof(T)));
     dim3 block = (64);
     dim3 grid  = (raft::ceildiv(nPoints * dim, (int)block.x));
     En_KF_accumulate<<<grid, block>>>(nPoints, dim, X_d.data(), Rand_mean.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     grid = (raft::ceildiv(dim, (int)block.x));
     En_KF_normalize<<<grid, block>>>(nPoints, dim, Rand_mean.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // storing the error wrt random point mean in X_d
     grid = (raft::ceildiv(dim * nPoints, (int)block.x));
     En_KF_dif<<<grid, block>>>(nPoints, dim, X_d.data(), Rand_mean.data(), X_d.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // finding the cov matrix, placing in Rand_cov
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
     cublasHandle_t handle;
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUBLAS_CHECK(raft::linalg::cublasgemm(handle,
-                                          CUBLAS_OP_N,
-                                          CUBLAS_OP_T,
-                                          dim,
-                                          dim,
-                                          nPoints,
-                                          &alfa,
-                                          X_d.data(),
-                                          dim,
-                                          X_d.data(),
-                                          dim,
-                                          &beta,
-                                          Rand_cov.data(),
-                                          dim,
-                                          stream));
+    RAFT_CUBLAS_TRY(cublasCreate(&handle));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(handle,
+                                             CUBLAS_OP_N,
+                                             CUBLAS_OP_T,
+                                             dim,
+                                             dim,
+                                             nPoints,
+                                             &alfa,
+                                             X_d.data(),
+                                             dim,
+                                             X_d.data(),
+                                             dim,
+                                             &beta,
+                                             Rand_cov.data(),
+                                             dim,
+                                             stream));
 
     // restoring cov provided into P_d
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
@@ -196,9 +196,9 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     mvg->deinit();
     delete mvg;
 
-    CUBLAS_CHECK(cublasDestroy(cublasH));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUBLAS_TRY(cublasDestroy(cublasH));
+    RAFT_CUSOLVER_TRY(cusolverDnDestroy(cusolverH));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

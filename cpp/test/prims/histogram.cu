@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <stats/histogram.cuh>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Stats {
@@ -48,7 +48,7 @@ void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols, cudaStream_t
   int nblksx    = raft::ceildiv(nrows, TPB);
   dim3 blks(nblksx, ncols);
   naiveHistKernel<<<blks, TPB, 0, stream>>>(bins, nbins, in, nrows);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 struct HistInputs {
@@ -67,7 +67,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     int len = params.nrows * params.ncols;
     in.resize(len, stream);
     if (params.isNormal) {
@@ -77,15 +77,15 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     }
     bins.resize(params.nbins * params.ncols, stream);
     ref_bins.resize(params.nbins * params.ncols, stream);
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(ref_bins.data(), 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(
       params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   cudaStream_t stream = 0;

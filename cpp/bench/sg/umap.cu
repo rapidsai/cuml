@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
+#include "benchmark.cuh"
 #include <cuml/manifold/umap.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <raft/cuda_utils.cuh>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -42,7 +42,7 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream)
   static const int TPB = 256;
   auto nblks           = raft::ceildiv<IdxT>(len, TPB);
   castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 class UmapBase : public BlobsFixture<float, int> {

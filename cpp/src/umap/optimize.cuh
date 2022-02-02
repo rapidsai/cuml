@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 
-#include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -85,7 +85,7 @@ void abLossGrads(
 
   f<T, TPB_X>(input, n_rows, coef, residuals.data());
   raft::linalg::eltwiseSub(residuals.data(), residuals.data(), labels, n_rows, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /**
    * Gradient w/ respect to a
@@ -98,7 +98,7 @@ void abLossGrads(
     });
 
   raft::linalg::eltwiseMultiply(a_deriv.data(), a_deriv.data(), residuals.data(), n_rows, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /**
    * Gradient w/ respect to b
@@ -114,7 +114,7 @@ void abLossGrads(
    * Multiply partial derivs by residuals
    */
   raft::linalg::eltwiseMultiply(b_deriv.data(), b_deriv.data(), residuals.data(), n_rows, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /**
    * Finally, take the mean
@@ -122,7 +122,7 @@ void abLossGrads(
   raft::stats::mean(grads, a_deriv.data(), 1, n_rows, false, false, stream);
   raft::stats::mean(grads + 1, b_deriv.data(), 1, n_rows, false, false, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -147,7 +147,7 @@ void optimize_params(T* input,
   do {
     tol_grads = 0;
     rmm::device_uvector<T> grads(2, stream);
-    CUDA_CHECK(cudaMemsetAsync(grads.data(), 0, 2 * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(grads.data(), 0, 2 * sizeof(T), stream));
 
     abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads.data(), params, stream);
 
@@ -157,7 +157,7 @@ void optimize_params(T* input,
     T* grads_h = (T*)malloc(2 * sizeof(T));
     raft::update_host(grads_h, grads.data(), 2, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < 2; i++) {
       if (abs(grads_h[i]) - tolerance <= 0) tol_grads += 1;
@@ -177,8 +177,10 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   float step = (spread * 3.0) / 300.0;
 
-  float* X = (float*)malloc(300 * sizeof(float));
-  float* y = (float*)malloc(300 * sizeof(float));
+  auto const X_uptr = std::make_unique<float[]>(300);
+  auto const y_uptr = std::make_unique<float[]>(300);
+  auto* const X     = X_uptr.get();
+  auto* const y     = y_uptr.get();
 
   for (int i = 0; i < 300; i++) {
     X[i] = i * step;
@@ -194,12 +196,13 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
 
   rmm::device_uvector<float> y_d(300, stream);
   raft::update_device(y_d.data(), y, 300, stream);
-  float* coeffs_h = (float*)malloc(2 * sizeof(float));
-  coeffs_h[0]     = 1.0;
-  coeffs_h[1]     = 1.0;
+  auto const coeffs_h_uptr = std::make_unique<float[]>(2);
+  auto* const coeffs_h     = coeffs_h_uptr.get();
+  coeffs_h[0]              = 1.0;
+  coeffs_h[1]              = 1.0;
 
   rmm::device_uvector<float> coeffs(2, stream);
-  CUDA_CHECK(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(coeffs.data(), 0, 2 * sizeof(float), stream));
 
   raft::update_device(coeffs.data(), coeffs_h, 2, stream);
 
@@ -208,11 +211,9 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
   raft::update_host(&(params->a), coeffs.data(), 1, stream);
   raft::update_host(&(params->b), coeffs.data() + 1, 1, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   CUML_LOG_DEBUG("a=%f, b=%f", params->a, params->b);
-
-  delete coeffs_h;
 }
 }  // namespace Optimize
 }  // namespace UMAPAlgo

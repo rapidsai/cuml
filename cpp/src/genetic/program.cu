@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -151,7 +151,7 @@ void execute(const raft::handle_t& h,
 
   dim3 blks(raft::ceildiv(n_rows, GENE_TPB), n_progs, 1);
   execute_kernel<<<blks, GENE_TPB, 0, stream>>>(d_progs, data, y_pred, (uint64_t)n_rows);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void find_fitness(const raft::handle_t& h,
@@ -208,7 +208,7 @@ void set_fitness(const raft::handle_t& h,
   find_fitness(h, d_prog, score.data(), params, n_rows, data, y, sample_weights);
 
   // Update host and device score for program
-  CUDA_CHECK(cudaMemcpyAsync(
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
     &d_prog[0].raw_fitness_, score.data(), sizeof(float), cudaMemcpyDeviceToDevice, stream));
   h_prog.raw_fitness_ = score.front_element(stream);
 }
@@ -232,11 +232,11 @@ void set_batched_fitness(const raft::handle_t& h,
   // Update scores on host and device
   // TODO: Find a way to reduce the number of implicit memory transfers
   for (auto i = 0; i < n_progs; ++i) {
-    CUDA_CHECK(cudaMemcpyAsync(&d_progs[i].raw_fitness_,
-                               score.element_ptr(i),
-                               sizeof(float),
-                               cudaMemcpyDeviceToDevice,
-                               stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(&d_progs[i].raw_fitness_,
+                                  score.element_ptr(i),
+                                  sizeof(float),
+                                  cudaMemcpyDeviceToDevice,
+                                  stream));
     h_progs[i].raw_fitness_ = score.element(i, stream);
   }
 }

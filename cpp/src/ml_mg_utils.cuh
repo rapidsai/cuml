@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <cuda_runtime.h>
 
@@ -52,7 +52,7 @@ void chunk_to_device(const OutType* ptr,
     if (length * (i + 1) > n) length = length - ((chunk_size * (i + 1)) - n);
 
     int device = devices[i];
-    CUDA_CHECK(cudaSetDevice(device));
+    RAFT_CUDA_TRY(cudaSetDevice(device));
     output.emplace_back(length * D, stream);
     raft::update_device(output.back().data(), ptr + (chunk_size * i), length * D, stream);
   }

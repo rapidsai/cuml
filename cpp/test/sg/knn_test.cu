@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 #include <vector>
 
 #include <cuml/datasets/make_blobs.hpp>
+
 #include <cuml/neighbors/knn.hpp>
 
 namespace ML {
@@ -123,15 +124,39 @@ __global__ void build_expected_output(int* output, int n_rows, int k, const int*
 
 template <typename T>
 class KNNTest : public ::testing::TestWithParam<KNNInputs> {
+ public:
+  KNNTest()
+    : params(::testing::TestWithParam<KNNInputs>::GetParam()),
+      stream(handle.get_stream()),
+      index_data(params.n_rows * params.n_cols * params.n_parts, stream),
+      index_labels(params.n_rows * params.n_parts, stream),
+      search_data(params.n_query_row * params.n_cols, stream),
+      search_labels(params.n_query_row, stream),
+      output_indices(params.n_query_row * params.n_neighbors * params.n_parts, stream),
+      output_dists(params.n_query_row * params.n_neighbors * params.n_parts, stream)
+
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(index_data.data(), 0, index_data.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(index_labels.data(), 0, index_labels.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(search_data.data(), 0, search_data.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(search_labels.data(), 0, search_labels.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(output_indices.data(), 0, output_indices.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(output_dists.data(), 0, output_dists.size() * sizeof(T), stream));
+  }
+
  protected:
   void testBruteForce()
   {
-    cudaStream_t stream = handle.get_stream();
-
-    raft::allocate(
-      actual_labels, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
-    raft::allocate(
-      expected_labels, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
+    rmm::device_uvector<int> actual_labels(params.n_query_row * params.n_neighbors * params.n_parts,
+                                           stream);
+    rmm::device_uvector<int> expected_labels(
+      params.n_query_row * params.n_neighbors * params.n_parts, stream);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(actual_labels.data(), 0, actual_labels.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(expected_labels.data(), 0, expected_labels.size() * sizeof(T), stream));
 
     create_data();
 
@@ -139,10 +164,10 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     part_inputs,
                     part_sizes,
                     params.n_cols,
-                    search_data,
+                    search_data.data(),
                     params.n_query_row,
-                    output_indices,
-                    output_dists,
+                    output_indices.data(),
+                    output_dists.data(),
                     params.n_neighbors,
                     true,
                     true);
@@ -150,24 +175,29 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     build_actual_output<<<raft::ceildiv(params.n_query_row * params.n_neighbors, 32),
                           32,
                           0,
-                          stream>>>(
-      actual_labels, params.n_query_row, params.n_neighbors, index_labels, output_indices);
+                          stream>>>(actual_labels.data(),
+                                    params.n_query_row,
+                                    params.n_neighbors,
+                                    index_labels.data(),
+                                    output_indices.data());
 
     build_expected_output<<<raft::ceildiv(params.n_query_row, 32), 32, 0, stream>>>(
-      expected_labels, params.n_query_row, params.n_neighbors, search_labels);
+      expected_labels.data(), params.n_query_row, params.n_neighbors, search_labels.data());
 
-    ASSERT_TRUE(devArrMatch(expected_labels,
-                            actual_labels,
+    ASSERT_TRUE(devArrMatch(expected_labels.data(),
+                            actual_labels.data(),
                             params.n_query_row * params.n_neighbors,
                             raft::Compare<int>()));
   }
 
   void testClassification()
   {
-    cudaStream_t stream = handle.get_stream();
-
-    raft::allocate(actual_labels, params.n_query_row, stream, true);
-    raft::allocate(expected_labels, params.n_query_row, stream, true);
+    rmm::device_uvector<int> actual_labels(params.n_query_row, stream);
+    rmm::device_uvector<int> expected_labels(params.n_query_row, stream);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(actual_labels.data(), 0, actual_labels.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(expected_labels.data(), 0, expected_labels.size() * sizeof(T), stream));
 
     create_data();
 
@@ -175,35 +205,37 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     part_inputs,
                     part_sizes,
                     params.n_cols,
-                    search_data,
+                    search_data.data(),
                     params.n_query_row,
-                    output_indices,
-                    output_dists,
+                    output_indices.data(),
+                    output_dists.data(),
                     params.n_neighbors,
                     true,
                     true);
 
     vector<int*> full_labels(1);
-    full_labels[0] = index_labels;
+    full_labels[0] = index_labels.data();
 
     knn_classify(handle,
-                 actual_labels,
-                 output_indices,
+                 actual_labels.data(),
+                 output_indices.data(),
                  full_labels,
                  params.n_rows * params.n_parts,
                  params.n_query_row,
                  params.n_neighbors);
 
-    ASSERT_TRUE(
-      devArrMatch(search_labels, actual_labels, params.n_query_row, raft::Compare<int>()));
+    ASSERT_TRUE(devArrMatch(
+      search_labels.data(), actual_labels.data(), params.n_query_row, raft::Compare<int>()));
   }
 
   void testRegression()
   {
-    cudaStream_t stream = handle.get_stream();
-
-    raft::allocate(actual_labels, params.n_query_row, stream, true);
-    raft::allocate(expected_labels, params.n_query_row, stream, true);
+    rmm::device_uvector<int> actual_labels(params.n_query_row, stream);
+    rmm::device_uvector<int> expected_labels(params.n_query_row, stream);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(actual_labels.data(), 0, actual_labels.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(expected_labels.data(), 0, expected_labels.size() * sizeof(T), stream));
 
     create_data();
 
@@ -211,10 +243,10 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     part_inputs,
                     part_sizes,
                     params.n_cols,
-                    search_data,
+                    search_data.data(),
                     params.n_query_row,
-                    output_indices,
-                    output_dists,
+                    output_indices.data(),
+                    output_dists.data(),
                     params.n_neighbors,
                     true,
                     true);
@@ -222,11 +254,11 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     rmm::device_uvector<float> index_labels_float(params.n_rows * params.n_parts, stream);
     rmm::device_uvector<float> query_labels_float(params.n_query_row, stream);
     to_float<<<raft::ceildiv((int)index_labels_float.size(), 32), 32, 0, stream>>>(
-      index_labels_float.data(), index_labels, index_labels_float.size());
+      index_labels_float.data(), index_labels.data(), index_labels_float.size());
     to_float<<<raft::ceildiv(params.n_query_row, 32), 32, 0, stream>>>(
-      query_labels_float.data(), search_labels, params.n_query_row);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaPeekAtLastError());
+      query_labels_float.data(), search_labels.data(), params.n_query_row);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     rmm::device_uvector<float> actual_labels_float(params.n_query_row, stream);
 
@@ -235,7 +267,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     knn_regress(handle,
                 actual_labels_float.data(),
-                output_indices,
+                output_indices.data(),
                 full_labels,
                 params.n_rows,
                 params.n_query_row,
@@ -245,36 +277,6 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                                   actual_labels_float.data(),
                                   params.n_query_row,
                                   raft::Compare<float>()));
-  }
-
-  void SetUp() override
-  {
-    cudaStream_t stream = handle.get_stream();
-
-    params = ::testing::TestWithParam<KNNInputs>::GetParam();
-
-    raft::allocate(index_data, params.n_rows * params.n_cols * params.n_parts, stream, true);
-    raft::allocate(index_labels, params.n_rows * params.n_parts, stream, true);
-
-    raft::allocate(search_data, params.n_query_row * params.n_cols, stream, true);
-    raft::allocate(search_labels, params.n_query_row, stream, true);
-
-    raft::allocate(
-      output_indices, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
-    raft::allocate(
-      output_dists, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(index_data));
-    CUDA_CHECK(cudaFree(index_labels));
-    CUDA_CHECK(cudaFree(search_data));
-    CUDA_CHECK(cudaFree(search_labels));
-    CUDA_CHECK(cudaFree(output_dists));
-    CUDA_CHECK(cudaFree(output_indices));
-    CUDA_CHECK(cudaFree(actual_labels));
-    CUDA_CHECK(cudaFree(expected_labels));
   }
 
  private:
@@ -288,8 +290,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     // Create index parts
     create_index_parts(handle,
-                       index_data,
-                       index_labels,
+                       index_data.data(),
+                       index_labels.data(),
                        part_inputs,
                        part_labels,
                        part_sizes,
@@ -297,8 +299,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                        rand_centers.data());
 
     gen_blobs(handle,
-              search_data,
-              search_labels,
+              search_data.data(),
+              search_labels.data(),
               params.n_query_row,
               params.n_cols,
               params.n_centers,
@@ -306,24 +308,22 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
   raft::handle_t handle;
+  cudaStream_t stream = 0;
 
   KNNInputs params;
 
-  float* index_data;
-  int* index_labels;
+  rmm::device_uvector<float> index_data;
+  rmm::device_uvector<int> index_labels;
 
   vector<float*> part_inputs;
   vector<int*> part_labels;
   vector<int> part_sizes;
 
-  float* search_data;
-  int* search_labels;
+  rmm::device_uvector<float> search_data;
+  rmm::device_uvector<int> search_labels;
 
-  float* output_dists;
-  int64_t* output_indices;
-
-  int* actual_labels;
-  int* expected_labels;
+  rmm::device_uvector<float> output_dists;
+  rmm::device_uvector<int64_t> output_indices;
 };
 
 const std::vector<KNNInputs> inputs = {{50, 5, 2, 25, 5, 2},

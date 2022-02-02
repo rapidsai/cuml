@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,9 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
 #include <linalg/power.cuh>
 #include <memory>
+#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/subtract.cuh>
@@ -29,6 +27,8 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
+#include <thrust/device_ptr.h>
+#include <thrust/reduce.h>
 
 #define N_THREADS 512
 
@@ -56,19 +56,19 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
   rmm::device_scalar<math_t> y_bar(stream);
 
   raft::stats::mean(y_bar.data(), y, 1, n, false, false, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<math_t> sse_arr(n, stream);
 
   raft::linalg::eltwiseSub(sse_arr.data(), y, y_hat, n, stream);
   MLCommon::LinAlg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<math_t> ssto_arr(n, stream);
 
   raft::linalg::subtractDevScalar(ssto_arr.data(), y, y_bar.data(), n, stream);
   MLCommon::LinAlg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<math_t> d_sse  = thrust::device_pointer_cast(sse_arr.data());
   thrust::device_ptr<math_t> d_ssto = thrust::device_pointer_cast(ssto_arr.data());
@@ -99,7 +99,7 @@ float accuracy_score(const math_t* predictions,
 
   // TODO could write a kernel instead
   raft::linalg::eltwiseSub(diffs_array.data(), predictions, ref_predictions, n, stream);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   correctly_predicted =
     thrust::count(thrust::cuda::par.on(stream), diffs_array.data(), diffs_array.data() + n, 0);
 
@@ -168,13 +168,13 @@ void regression_metrics(const T* predictions,
   rmm::device_uvector<double> abs_diffs_array(array_size, stream);
   rmm::device_uvector<double> sorted_abs_diffs(array_size, stream);
   rmm::device_uvector<double> tmp_sums(2 * sizeof(double), stream);
-  CUDA_CHECK(cudaMemsetAsync(tmp_sums.data(), 0, 2 * sizeof(double), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(tmp_sums.data(), 0, 2 * sizeof(double), stream));
 
   reg_metrics_kernel<T><<<block_cnt, thread_cnt, 0, stream>>>(
     predictions, ref_predictions, n, abs_diffs_array.data(), tmp_sums.data());
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   raft::update_host(&mean_errors[0], tmp_sums.data(), 2, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   mean_abs_error     = mean_errors[0] / n;
   mean_squared_error = mean_errors[1] / n;
@@ -182,27 +182,27 @@ void regression_metrics(const T* predictions,
   // Compute median error. Sort diffs_array and pick median value
   char* temp_storage = nullptr;
   size_t temp_storage_bytes;
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)temp_storage,
-                                            temp_storage_bytes,
-                                            abs_diffs_array.data(),
-                                            sorted_abs_diffs.data(),
-                                            n,
-                                            0,
-                                            8 * sizeof(double),
-                                            stream));
+  RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys((void*)temp_storage,
+                                               temp_storage_bytes,
+                                               abs_diffs_array.data(),
+                                               sorted_abs_diffs.data(),
+                                               n,
+                                               0,
+                                               8 * sizeof(double),
+                                               stream));
   rmm::device_uvector<char> temp_storage_v(temp_storage_bytes, stream);
   temp_storage = temp_storage_v.data();
-  CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)temp_storage,
-                                            temp_storage_bytes,
-                                            abs_diffs_array.data(),
-                                            sorted_abs_diffs.data(),
-                                            n,
-                                            0,
-                                            8 * sizeof(double),
-                                            stream));
+  RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys((void*)temp_storage,
+                                               temp_storage_bytes,
+                                               abs_diffs_array.data(),
+                                               sorted_abs_diffs.data(),
+                                               n,
+                                               0,
+                                               8 * sizeof(double),
+                                               stream));
 
   raft::update_host(h_sorted_abs_diffs.data(), sorted_abs_diffs.data(), n, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   int middle = n / 2;
   if (n % 2 == 1) {

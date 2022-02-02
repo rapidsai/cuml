@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,21 +23,22 @@
 
 #include <iostream>
 
+#include "kernelcache.cuh"
+#include "smosolver.cuh"
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <thrust/copy.h>
-#include <thrust/device_ptr.h>
-#include <thrust/iterator/counting_iterator.h>
+#include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/label/classlabels.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include "kernelcache.cuh"
-#include "smosolver.cuh"
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace ML {
 namespace SVM {
@@ -68,7 +69,7 @@ void svcFit(const raft::handle_t& handle,
     rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
     model.unique_labels = (math_t*)rmm_alloc->allocate(model.n_classes * sizeof(math_t), stream);
     raft::copy(model.unique_labels, unique_labels.data(), model.n_classes, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
@@ -125,7 +126,7 @@ void svcPredict(const raft::handle_t& handle,
   rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
   rmm::device_uvector<math_t> y(n_rows, stream);
   if (model.n_support == 0) {
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
   }
   rmm::device_uvector<math_t> x_rbf(0, stream);
   rmm::device_uvector<int> idx(0, stream);
@@ -175,19 +176,19 @@ void svcPredict(const raft::handle_t& handle,
                      n_batch);
     math_t one  = 1;
     math_t null = 0;
-    CUBLAS_CHECK(raft::linalg::cublasgemv(cublas_handle,
-                                          CUBLAS_OP_N,
-                                          n_batch,
-                                          model.n_support,
-                                          &one,
-                                          K.data(),
-                                          n_batch,
-                                          model.dual_coefs,
-                                          1,
-                                          &null,
-                                          y.data() + i,
-                                          1,
-                                          stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(cublas_handle,
+                                             CUBLAS_OP_N,
+                                             n_batch,
+                                             model.n_support,
+                                             &one,
+                                             K.data(),
+                                             n_batch,
+                                             model.dual_coefs,
+                                             1,
+                                             &null,
+                                             y.data() + i,
+                                             1,
+                                             stream));
   }
   math_t* labels = model.unique_labels;
   math_t b       = model.b;
@@ -205,7 +206,7 @@ void svcPredict(const raft::handle_t& handle,
     raft::linalg::unaryOp(
       preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; }, stream);
   }
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   delete kernel;
 }
 

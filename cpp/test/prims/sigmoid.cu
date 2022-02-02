@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <functions/sigmoid.cuh>
-#include <raft/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
+#include <functions/sigmoid.cuh>
+#include <gtest/gtest.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace Functions {
@@ -46,7 +46,7 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
     params = ::testing::TestWithParam<SigmoidInputs<T>>::GetParam();
 
     int len = params.len;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     data.resize(len, stream);
     T data_h[params.len] = {2.1, -4.5, -0.34, 10.0};
@@ -58,7 +58,7 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
     raft::update_device(result_ref.data(), result_ref_h, len, stream);
 
     sigmoid(result.data(), data.data(), len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
