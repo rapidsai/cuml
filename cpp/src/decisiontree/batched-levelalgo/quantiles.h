@@ -21,10 +21,10 @@ namespace DT {
 
 template <typename DataT, typename IdxT>
 struct Quantiles {
-  /** quantiles computed on the dataset in col-major */
+  /** quantiles computed for each feature of dataset in col-major */
   DataT* quantiles_array;
-  /** quantile offsets */
-  IdxT* n_uniquebins_array;
+  /** The number of bins used for quantiles of each feature*/
+  IdxT* n_bins_array;
 };
 
 }  // namespace DT

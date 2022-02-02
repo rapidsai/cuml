@@ -30,13 +30,13 @@ struct Dataset {
   /** total cols in dataset */
   IdxT N;
   /** total sampled rows in dataset */
-  IdxT nSampledRows;
+  IdxT n_sampled_rows;
   /** total sampled cols in dataset */
-  IdxT nSampledCols;
+  IdxT n_sampled_cols;
   /** indices of sampled rows */
-  IdxT* rowids;
+  IdxT* row_ids;
   /** Number of classes or regression outputs*/
-  IdxT numOutputs;
+  IdxT num_outputs;
 };
 
 }  // namespace DT

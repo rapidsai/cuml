@@ -24,7 +24,7 @@ namespace ML {
 namespace DT {
 
 // The range of instances belonging to a particular node
-// This structure refers to a range in the device array dataset.rowids
+// This structure refers to a range in the device array dataset.row_ids
 struct InstanceRange {
   std::size_t begin;
   std::size_t count;
@@ -93,15 +93,16 @@ HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
   return hash;
 }
 
+// returns the lowest index in `array` whose value is greater or equal to `element`
 template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
+HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 {
   IdxT start = 0;
-  IdxT end   = nbins - 1;
+  IdxT end   = len - 1;
   IdxT mid;
   while (start < end) {
     mid = (start + end) / 2;
-    if (sbins[mid] < d) {
+    if (array[mid] < element) {
       start = mid + 1;
     } else {
       end = mid;
@@ -116,8 +117,8 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-__global__ void computeSplitKernel(BinT* hist,
-                                   IdxT nbins,
+__global__ void computeSplitKernel(BinT* histograms,
+                                   IdxT n_bins,
                                    IdxT max_depth,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,

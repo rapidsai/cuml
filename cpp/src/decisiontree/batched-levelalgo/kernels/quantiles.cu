@@ -21,11 +21,11 @@ namespace DT {
 
 template <typename T>
 __global__ void computeQuantilesKernel(
-  T* quantiles, int* unique_nbins, const T* sorted_data, const int max_nbins, const int n_rows)
+  T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows)
 {
-  double bin_width = static_cast<double>(n_rows) / max_nbins;
+  double bin_width = static_cast<double>(n_rows) / max_n_bins;
 
-  for (int bin = threadIdx.x; bin < max_nbins; bin += blockDim.x) {
+  for (int bin = threadIdx.x; bin < max_n_bins; bin += blockDim.x) {
     // get index by interpolation
     int idx        = int(round((bin + 1) * bin_width)) - 1;
     idx            = min(max(0, idx), n_rows - 1);
@@ -37,9 +37,9 @@ __global__ void computeQuantilesKernel(
   if (threadIdx.x == 0) {
     // make quantiles unique, in-place
     // thrust::seq to explicitly disable cuda dynamic parallelism here
-    auto new_last = thrust::unique(thrust::seq, quantiles, quantiles + max_nbins);
+    auto new_last = thrust::unique(thrust::seq, quantiles, quantiles + max_n_bins);
     // get the unique count
-    *unique_nbins = new_last - quantiles;
+    *n_bins = new_last - quantiles;
   }
 
   __syncthreads();
@@ -47,15 +47,12 @@ __global__ void computeQuantilesKernel(
 }
 
 // instantiation
-template __global__ void computeQuantilesKernel<float>(float* quantiles,
-                                                       int* unique_nbins,
-                                                       const float* sorted_data,
-                                                       const int max_nbins,
-                                                       const int n_rows);
+template __global__ void computeQuantilesKernel<float>(
+  float* quantiles, int* n_bins, const float* sorted_data, const int max_n_bins, const int n_rows);
 template __global__ void computeQuantilesKernel<double>(double* quantiles,
-                                                        int* unique_nbins,
+                                                        int* n_bins,
                                                         const double* sorted_data,
-                                                        const int max_nbins,
+                                                        const int max_n_bins,
                                                         const int n_rows);
 
 }  // end namespace DT

@@ -42,7 +42,7 @@ struct DecisionTreeParams {
   /**
    * maximum number of bins used by the split algorithm per feature.
    */
-  int max_nbins;
+  int max_n_bins;
   /**
    * The minimum number of samples (rows) in each leaf node.
    */
@@ -74,7 +74,7 @@ struct DecisionTreeParams {
  * @param[in] cfg_max_depth: maximum tree depth; default -1
  * @param[in] cfg_max_leaves: maximum leaves; default -1
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
- * @param[in] cfg_max_nbins: maximum number of bins; default 128
+ * @param[in] cfg_max_n_bins: maximum number of bins; default 128
  * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
@@ -90,7 +90,7 @@ void set_tree_params(DecisionTreeParams& params,
                      int cfg_max_depth               = -1,
                      int cfg_max_leaves              = -1,
                      float cfg_max_features          = 1.0f,
-                     int cfg_max_nbins               = 128,
+                     int cfg_max_n_bins              = 128,
                      int cfg_min_samples_leaf        = 1,
                      int cfg_min_samples_split       = 2,
                      float cfg_min_impurity_decrease = 0.0f,

@@ -230,7 +230,7 @@ class DecisionTree {
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    rmm::device_uvector<int>* rowids,
+    rmm::device_uvector<int>* row_ids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
@@ -255,7 +255,7 @@ class DecisionTree {
                                                                  labels,
                                                                  nrows,
                                                                  ncols,
-                                                                 rowids,
+                                                                 row_ids,
                                                                  unique_labels,
                                                                  quantiles)
         .train();
@@ -270,7 +270,7 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    rowids,
+                                                                    row_ids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
@@ -284,7 +284,7 @@ class DecisionTree {
                                                                 labels,
                                                                 nrows,
                                                                 ncols,
-                                                                rowids,
+                                                                row_ids,
                                                                 unique_labels,
                                                                 quantiles)
         .train();
@@ -299,7 +299,7 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    rowids,
+                                                                    row_ids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
@@ -313,7 +313,7 @@ class DecisionTree {
                                                                   labels,
                                                                   nrows,
                                                                   ncols,
-                                                                  rowids,
+                                                                  row_ids,
                                                                   unique_labels,
                                                                   quantiles)
         .train();
@@ -328,7 +328,7 @@ class DecisionTree {
                                                                             labels,
                                                                             nrows,
                                                                             ncols,
-                                                                            rowids,
+                                                                            row_ids,
                                                                             unique_labels,
                                                                             quantiles)
         .train();

@@ -35,6 +35,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/logical.h>
+#include <thrust/shuffle.h>
 
 #include <gtest/gtest.h>
 
@@ -108,7 +109,7 @@ struct RfTestParams {
   int max_depth;
   int max_leaves;
   bool bootstrap;
-  int max_nbins;
+  int max_n_bins;
   int min_samples_leaf;
   int min_samples_split;
   float min_impurity_decrease;
@@ -144,7 +145,7 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
   os << ", n_trees = " << ps.n_trees << ", max_features = " << ps.max_features;
   os << ", max_samples = " << ps.max_samples << ", max_depth = " << ps.max_depth;
   os << ", max_leaves = " << ps.max_leaves << ", bootstrap = " << ps.bootstrap;
-  os << ", max_nbins = " << ps.max_nbins << ", min_samples_leaf = " << ps.min_samples_leaf;
+  os << ", max_n_bins = " << ps.max_n_bins << ", min_samples_leaf = " << ps.min_samples_leaf;
   os << ", min_samples_split = " << ps.min_samples_split;
   os << ", min_impurity_decrease = " << ps.min_impurity_decrease
      << ", n_streams = " << ps.n_streams;
@@ -203,7 +204,7 @@ auto TrainScore(
   RF_params rf_params = set_rf_params(params.max_depth,
                                       params.max_leaves,
                                       params.max_features,
-                                      params.max_nbins,
+                                      params.max_n_bins,
                                       params.min_samples_leaf,
                                       params.min_samples_split,
                                       params.min_impurity_decrease,
@@ -483,7 +484,7 @@ std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
 std::vector<int> max_depth               = {1, 10, 30};
 std::vector<int> max_leaves              = {-1, 16, 50};
 std::vector<bool> bootstrap              = {false, true};
-std::vector<int> max_nbins               = {2, 57, 128, 256};
+std::vector<int> max_n_bins              = {2, 57, 128, 256};
 std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
@@ -512,7 +513,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            max_depth,
                                                                            max_leaves,
                                                                            bootstrap,
-                                                                           max_nbins,
+                                                                           max_n_bins,
                                                                            min_samples_leaf,
                                                                            min_samples_split,
                                                                            min_impurity_decrease,
@@ -525,7 +526,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 //-------------------------------------------------------------------------------------------------------------------------------------
 struct QuantileTestParameters {
   int n_rows;
-  int max_nbins;
+  int max_n_bins;
   uint64_t seed;
 };
 
@@ -538,22 +539,22 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
 
     thrust::device_vector<T> data(params.n_rows);
     thrust::host_vector<T> h_data(params.n_rows);
-    thrust::host_vector<T> h_quantiles(params.max_nbins);
+    thrust::host_vector<T> h_quantiles(params.max_n_bins);
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // computing the quantiles
-    auto [quantiles, quantiles_array, n_uniquebins_array] =
-      DT::computeQuantiles(handle, data.data().get(), params.max_nbins, params.n_rows, 1);
+    auto [quantiles, quantiles_array, n_bins_array] =
+      DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
 
     raft::update_host(
-      h_quantiles.data(), quantiles.quantiles_array, params.max_nbins, handle.get_stream());
+      h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
 
-    int n_uniquebins;
-    raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());
-    if (n_uniquebins < params.max_nbins) {
+    int n_unique_bins;
+    raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
+    if (n_unique_bins < params.max_n_bins) {
       return;  // almost impossible that this happens, skip if so
     }
 
@@ -563,10 +564,10 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
       // golden lower bound from thrust
       auto golden_lb =
         thrust::lower_bound(
-          thrust::seq, h_quantiles.data(), h_quantiles.data() + params.max_nbins, d) -
+          thrust::seq, h_quantiles.data(), h_quantiles.data() + params.max_n_bins, d) -
         h_quantiles.data();
       // lower bound from custom lower_bound impl
-      auto lb = DT::lower_bound(h_quantiles.data(), params.max_nbins, d);
+      auto lb = DT::lower_bound(h_quantiles.data(), params.max_n_bins, d);
       ASSERT_EQ(golden_lb, lb)
         << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
     }
@@ -581,8 +582,8 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     thrust::device_vector<T> data(params.n_rows);
-    thrust::device_vector<int> histogram(params.max_nbins);
-    thrust::host_vector<int> h_histogram(params.max_nbins);
+    thrust::device_vector<int> histogram(params.max_n_bins);
+    thrust::host_vector<int> h_histogram(params.max_n_bins);
 
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
@@ -590,12 +591,12 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // computing the quantiles
-    auto [quantiles, quantiles_array, n_uniquebins_array] =
-      DT::computeQuantiles(handle, data.data().get(), params.max_nbins, params.n_rows, 1);
+    auto [quantiles, quantiles_array, n_bins_array] =
+      DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
 
-    int n_uniquebins;
-    raft::copy(&n_uniquebins, quantiles.n_uniquebins_array, 1, handle.get_stream());
-    if (n_uniquebins < params.max_nbins) {
+    int n_unique_bins;
+    raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
+    if (n_unique_bins < params.max_n_bins) {
       return;  // almost impossible that this happens, skip if so
     }
 
@@ -603,7 +604,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     auto d_histogram = histogram.data().get();
 
     thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
-      for (int j = 0; j < params.max_nbins; j++) {
+      for (int j = 0; j < params.max_n_bins; j++) {
         if (x <= d_quantiles[j]) {
           atomicAdd(&d_histogram[j], 1);
           break;
@@ -612,15 +613,87 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     });
 
     h_histogram           = histogram;
-    int max_items_per_bin = raft::ceildiv(params.n_rows, params.max_nbins);
+    int max_items_per_bin = raft::ceildiv(params.n_rows, params.max_n_bins);
     int min_items_per_bin = max_items_per_bin - 1;
     int total_items       = 0;
-    for (int b = 0; b < params.max_nbins; b++) {
+    for (int b = 0; b < params.max_n_bins; b++) {
       ASSERT_TRUE(h_histogram[b] == max_items_per_bin or h_histogram[b] == min_items_per_bin)
         << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
         << max_items_per_bin << " or " << min_items_per_bin << std::endl;
       total_items += h_histogram[b];
     }
+    ASSERT_EQ(params.n_rows, total_items)
+      << "Some samples from dataset are either missed of double counted in quantile bins"
+      << std::endl;
+  }
+};
+
+// test to make sure that the quantiles and offsets calculated implement
+// variable binning properly for categorical data, with unique values less than the `max_n_bins`
+template <typename T>
+class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    thrust::device_vector<T> data(params.n_rows);
+
+    // n_uniques gauranteed to be non-zero and smaller than `max_n_bins`
+    int n_uniques;
+    while (n_uniques = rand() % params.max_n_bins) {
+      if (n_uniques) break;
+    }
+
+    // populating random elements in data in [0, n_uniques)
+    thrust::counting_iterator<float> first(0);
+    thrust::copy(first, first + data.size(), data.begin());
+    thrust::transform(data.begin(), data.end(), data.begin(), [=] __device__(auto& x) {
+      x = T(int(x) % n_uniques);
+      return x;
+    });
+    thrust::shuffle(data.begin(), data.end(), thrust::default_random_engine(n_uniques));
+
+    // calling computeQuantiles
+    auto [quantiles, quantiles_array, n_bins_array] =
+      DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
+    int n_uniques_obtained;
+    raft::copy(&n_uniques_obtained, n_bins_array->data(), 1, handle.get_stream());
+
+    ASSERT_EQ(n_uniques_obtained, n_uniques) << "No. of unique bins is supposed to be " << n_uniques
+                                             << ", but got " << n_uniques_obtained << std::endl;
+
+    thrust::device_vector<int> histogram(n_uniques);
+    thrust::host_vector<int> h_histogram(n_uniques);
+    auto d_quantiles = quantiles.quantiles_array;
+    auto d_histogram = histogram.data().get();
+
+    // creating a cumulative histogram from data based on the quantiles
+    // where histogram[i] has number of elements that are less-than-equal quantiles[i]
+    thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
+      for (int j = 0; j < n_uniques; j++) {
+        if (x <= d_quantiles[j]) {
+          atomicAdd(&d_histogram[j], 1);
+          break;
+        }
+      }
+    });
+
+    // since the elements are randomly and equally distributed, we verify the calculated histogram
+    h_histogram           = histogram;
+    int max_items_per_bin = raft::ceildiv(params.n_rows, n_uniques);
+    int min_items_per_bin = max_items_per_bin - 1;
+    int total_items       = 0;
+    for (int b = 0; b < n_uniques; b++) {
+      ASSERT_TRUE(h_histogram[b] == max_items_per_bin or h_histogram[b] == min_items_per_bin)
+        << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
+        << max_items_per_bin << " or " << min_items_per_bin << std::endl;
+      total_items += h_histogram[b];
+    }
+
+    // recalculate the items for checking proper counting
     ASSERT_EQ(params.n_rows, total_items)
       << "Some samples from dataset are either missed of double counted in quantile bins"
       << std::endl;
@@ -648,10 +721,20 @@ typedef RFQuantileBinsLowerBoundTest<float> RFQuantileBinsLowerBoundTestF;
 TEST_P(RFQuantileBinsLowerBoundTestF, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::ValuesIn(inputs));
 
-// double type quantile bins lower bounds lest
+// double type quantile bins lower bounds test
 typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
 TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
+
+// float type quantile variable binning test
+typedef RFQuantileVariableBinsTest<float> RFQuantileVariableBinsTestF;
+TEST_P(RFQuantileVariableBinsTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestF, ::testing::ValuesIn(inputs));
+
+// double type quantile variable binning test
+typedef RFQuantileVariableBinsTest<double> RFQuantileVariableBinsTestD;
+TEST_P(RFQuantileVariableBinsTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestD, ::testing::ValuesIn(inputs));
 
 //------------------------------------------------------------------------------------------------------
 
@@ -697,7 +780,7 @@ namespace DT {
 struct ObjectiveTestParameters {
   uint64_t seed;
   int n_rows;
-  int max_nbins;
+  int max_n_bins;
   int n_classes;
   int min_samples_leaf;
   double tolerance;
@@ -743,8 +826,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     std::vector<BinT> cdf_hist, pdf_hist;
 
     for (auto c = 0; c < params.n_classes; ++c) {
-      for (auto b = 0; b < params.max_nbins; ++b) {
-        IdxT bin_width  = raft::ceildiv(params.n_rows, params.max_nbins);
+      for (auto b = 0; b < params.max_n_bins; ++b) {
+        IdxT bin_width  = raft::ceildiv(params.n_rows, params.max_n_bins);
         auto data_begin = data.begin() + b * bin_width;
         auto data_end   = data_begin + bin_width;
         if constexpr (std::is_same<BinT, CountBin>::value) {  // classification case
@@ -784,7 +867,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto MSEGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_nbins);
+    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
     std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
     std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
@@ -821,7 +904,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto InverseGaussianGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_nbins);
+    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
     std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
     std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
@@ -861,7 +944,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GammaGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_nbins);
+    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
     std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
     std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
@@ -900,7 +983,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto PoissonGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_nbins);
+    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
     std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
     std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
@@ -937,7 +1020,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto EntropyGroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_nbins);
+    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
     std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
     std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
@@ -974,7 +1057,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GiniGroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_nbins);
+    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
     std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
     std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
@@ -1032,10 +1115,10 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     for (auto c = 0; c < params.n_classes; ++c) {
       if constexpr (std::is_same<BinT, CountBin>::value)  // countbin
       {
-        count += cdf_hist[params.max_nbins * c + idx].x;
+        count += cdf_hist[params.max_n_bins * c + idx].x;
       } else  // aggregatebin
       {
-        count += cdf_hist[params.max_nbins * c + idx].count;
+        count += cdf_hist[params.max_n_bins * c + idx].count;
       }
     }
     return count;
@@ -1049,13 +1132,13 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
     auto data                 = GenRandomData();
     auto [cdf_hist, pdf_hist] = GenHist(data);
-    auto split_bin_index      = RandUnder(params.max_nbins);
+    auto split_bin_index      = RandUnder(params.max_n_bins);
     auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
 
     auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
                                                   split_bin_index,
-                                                  params.max_nbins,
-                                                  NumLeftOfBin(cdf_hist, params.max_nbins - 1),
+                                                  params.max_n_bins,
+                                                  NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
                                                   NumLeftOfBin(cdf_hist, split_bin_index));
 
     ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
