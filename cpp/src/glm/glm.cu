@@ -154,15 +154,15 @@ void ridgeFit(const raft::handle_t& handle,
            algo);
 }
 
-template <typename T>
+template <typename T, typename I>
 void qnFit(const raft::handle_t& cuml_handle,
            const qn_params& pams,
            T* X,
            bool X_col_major,
            T* y,
-           int N,
-           int D,
-           int C,
+           I N,
+           I D,
+           I C,
            T* w0,
            T* f,
            int* num_iters,
@@ -208,17 +208,17 @@ template void qnFit<double>(const raft::handle_t&,
                             int*,
                             double*);
 
-template <typename T>
+template <typename T, typename I>
 void qnFitSparse(const raft::handle_t& cuml_handle,
                  const qn_params& pams,
                  T* X_values,
-                 int* X_cols,
-                 int* X_row_ids,
-                 int X_nnz,
+                 I* X_cols,
+                 I* X_row_ids,
+                 I X_nnz,
                  T* y,
-                 int N,
-                 int D,
-                 int C,
+                 I N,
+                 I D,
+                 I C,
                  T* w0,
                  T* f,
                  int* num_iters,
@@ -270,14 +270,14 @@ template void qnFitSparse<double>(const raft::handle_t&,
                                   int*,
                                   double*);
 
-template <typename T>
+template <typename T, typename I>
 void qnDecisionFunction(const raft::handle_t& cuml_handle,
                         const qn_params& pams,
                         T* X,
                         bool X_col_major,
-                        int N,
-                        int D,
-                        int C,
+                        I N,
+                        I D,
+                        I C,
                         T* params,
                         T* scores)
 {
@@ -290,16 +290,16 @@ template void qnDecisionFunction<float>(
 template void qnDecisionFunction<double>(
   const raft::handle_t&, const qn_params&, double*, bool, int, int, int, double*, double*);
 
-template <typename T>
+template <typename T, typename I>
 void qnDecisionFunctionSparse(const raft::handle_t& cuml_handle,
                               const qn_params& pams,
                               T* X_values,
-                              int* X_cols,
-                              int* X_row_ids,
-                              int X_nnz,
-                              int N,
-                              int D,
-                              int C,
+                              I* X_cols,
+                              I* X_row_ids,
+                              I X_nnz,
+                              I N,
+                              I D,
+                              I C,
                               T* params,
                               T* scores)
 {
@@ -331,14 +331,14 @@ template void qnDecisionFunctionSparse<double>(const raft::handle_t&,
                                                double*,
                                                double*);
 
-template <typename T>
+template <typename T, typename I>
 void qnPredict(const raft::handle_t& cuml_handle,
                const qn_params& pams,
                T* X,
                bool X_col_major,
-               int N,
-               int D,
-               int C,
+               I N,
+               I D,
+               I C,
                T* params,
                T* scores)
 {
@@ -351,16 +351,16 @@ template void qnPredict<float>(
 template void qnPredict<double>(
   const raft::handle_t&, const qn_params&, double*, bool, int, int, int, double*, double*);
 
-template <typename T>
+template <typename T, typename I>
 void qnPredictSparse(const raft::handle_t& cuml_handle,
                      const qn_params& pams,
                      T* X_values,
-                     int* X_cols,
-                     int* X_row_ids,
-                     int X_nnz,
-                     int N,
-                     int D,
-                     int C,
+                     I* X_cols,
+                     I* X_row_ids,
+                     I X_nnz,
+                     I N,
+                     I D,
+                     I C,
                      T* params,
                      T* preds)
 {

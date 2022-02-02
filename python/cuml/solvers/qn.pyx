@@ -61,81 +61,81 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
         bool fit_intercept
         bool penalty_normalized
 
-    void qnFit[T](
+    void qnFit[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
         T *X,
         bool X_col_major,
         T *y,
-        int N,
-        int D,
-        int C,
+        I N,
+        I D,
+        I C,
         T *w0,
         T *f,
         int *num_iters,
         T *sample_weight) except +
 
-    void qnFitSparse[T](
+    void qnFitSparse[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
         T *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
+        I *X_cols,
+        I *X_row_ids,
+        I X_nnz,
         T *y,
-        int N,
-        int D,
-        int C,
+        I N,
+        I D,
+        I C,
         T *w0,
         T *f,
         int *num_iters,
         T *sample_weight) except +
 
-    void qnDecisionFunction[T](
+    void qnDecisionFunction[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
         T *X,
         bool X_col_major,
-        int N,
-        int D,
-        int C,
+        I N,
+        I D,
+        I C,
         T *params,
         T *scores) except +
 
-    void qnDecisionFunctionSparse[T](
+    void qnDecisionFunctionSparse[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
         T *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        int N,
-        int D,
-        int C,
+        I *X_cols,
+        I *X_row_ids,
+        I X_nnz,
+        I N,
+        I D,
+        I C,
         T *params,
         T *scores) except +
 
-    void qnPredict[T](
+    void qnPredict[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
         T *X,
         bool X_col_major,
-        int N,
-        int D,
-        int C,
+        I N,
+        I D,
+        I C,
         T *params,
         T *preds) except +
 
-    void qnPredictSparse[T](
+    void qnPredictSparse[T, I](
         const handle_t& cuml_handle,
         const qn_params& pams,
         T *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        int N,
-        int D,
-        int C,
+        I *X_cols,
+        I *X_row_ids,
+        I X_nnz,
+        I N,
+        I D,
+        I C,
         T *params,
         T *preds) except +
 
@@ -552,7 +552,7 @@ class QN(Base,
 
         if self.dtype == np.float32:
             if sparse_input:
-                qnFitSparse[float](
+                qnFitSparse[float, int](
                     handle_[0],
                     qnpams,
                     <float*><uintptr_t> X_m.data.ptr,
@@ -569,7 +569,7 @@ class QN(Base,
                     <float*> sample_weight_ptr)
 
             else:
-                qnFit[float](
+                qnFit[float, int](
                     handle_[0],
                     qnpams,
                     <float*><uintptr_t> X_m.ptr,
@@ -587,7 +587,7 @@ class QN(Base,
 
         else:
             if sparse_input:
-                qnFitSparse[double](
+                qnFitSparse[double, int](
                     handle_[0],
                     qnpams,
                     <double*><uintptr_t> X_m.data.ptr,
@@ -604,7 +604,7 @@ class QN(Base,
                     <double*> sample_weight_ptr)
 
             else:
-                qnFit[double](
+                qnFit[double, int](
                     handle_[0],
                     qnpams,
                     <double*><uintptr_t> X_m.ptr,
@@ -684,7 +684,7 @@ class QN(Base,
         cdef qn_params qnpams = self.qnparams.params
         if self.dtype == np.float32:
             if sparse_input:
-                qnDecisionFunctionSparse[float](
+                qnDecisionFunctionSparse[float, int](
                     handle_[0],
                     qnpams,
                     <float*><uintptr_t> X_m.data.ptr,
@@ -697,7 +697,7 @@ class QN(Base,
                     <float*> coef_ptr,
                     <float*> scores_ptr)
             else:
-                qnDecisionFunction[float](
+                qnDecisionFunction[float, int](
                     handle_[0],
                     qnpams,
                     <float*><uintptr_t> X_m.ptr,
@@ -710,7 +710,7 @@ class QN(Base,
 
         else:
             if sparse_input:
-                qnDecisionFunctionSparse[double](
+                qnDecisionFunctionSparse[double, int](
                     handle_[0],
                     qnpams,
                     <double*><uintptr_t> X_m.data.ptr,
@@ -723,7 +723,7 @@ class QN(Base,
                     <double*> coef_ptr,
                     <double*> scores_ptr)
             else:
-                qnDecisionFunction[double](
+                qnDecisionFunction[double, int](
                     handle_[0],
                     qnpams,
                     <double*><uintptr_t> X_m.ptr,
@@ -790,7 +790,7 @@ class QN(Base,
         cdef qn_params qnpams = self.qnparams.params
         if self.dtype == np.float32:
             if sparse_input:
-                qnPredictSparse[float](
+                qnPredictSparse[float, int](
                     handle_[0],
                     qnpams,
                     <float*><uintptr_t> X_m.data.ptr,
@@ -803,7 +803,7 @@ class QN(Base,
                     <float*> coef_ptr,
                     <float*> pred_ptr)
             else:
-                qnPredict[float](
+                qnPredict[float, int](
                     handle_[0],
                     qnpams,
                     <float*><uintptr_t> X_m.ptr,
@@ -816,7 +816,7 @@ class QN(Base,
 
         else:
             if sparse_input:
-                qnPredictSparse[double](
+                qnPredictSparse[double, int](
                     handle_[0],
                     qnpams,
                     <double*><uintptr_t> X_m.data.ptr,
@@ -829,7 +829,7 @@ class QN(Base,
                     <double*> coef_ptr,
                     <double*> pred_ptr)
             else:
-                qnPredict[double](
+                qnPredict[double, int](
                     handle_[0],
                     qnpams,
                     <double*><uintptr_t> X_m.ptr,
