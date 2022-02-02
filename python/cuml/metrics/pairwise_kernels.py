@@ -19,18 +19,71 @@ from numba import cuda
 import cupy as cp
 import numpy as np
 import cuml.internals
+from cuml.metrics import pairwise_distances
+
+
+def linear_kernel(X, Y):
+    return cp.dot(X, Y.T)
+
+
+def polynomial_kernel(X, Y, degree=3, gamma=None, coef0=1):
+    if gamma is None:
+        gamma = 1.0 / X.shape[1]
+    K = cp.dot(X, Y.T)
+    K *= gamma
+    K += coef0
+    K **= degree
+    return K
+
+
+def sigmoid_kernel(X, Y, gamma=None, coef0=1):
+    if gamma is None:
+        gamma = 1.0 / X.shape[1]
+
+    K = cp.dot(X, Y.T)
+    K *= gamma
+    K += coef0
+    cp.tanh(K, K)
+    return K
+
+
+def rbf_kernel(X, Y, gamma=None):
+    if gamma is None:
+        gamma = 1.0 / X.shape[1]
+
+    K = cp.asarray(pairwise_distances(X, Y, metric='sqeuclidean'))
+    K *= -gamma
+    cp.exp(K, K)
+    return K
+
+
+def laplacian_kernel(X, Y, gamma=None):
+    if gamma is None:
+        gamma = 1.0 / X.shape[1]
+
+    K = -gamma * cp.asarray(pairwise_distances(X, Y, metric='manhattan'))
+    cp.exp(K, K)
+    return K
 
 
 @cuda.jit(device=True)
-def linear_kernel(x, y):
-    sum = 0.0
+def cosine_similarity_element(x, y):
+    x_norm = 0.0
+    y_norm = 0.0
+    z = 0.0
     for i in range(len(x)):
-        sum += x[i] * y[i]
-    return sum
+        z += x[i]*y[i]
+        x_norm += x[i] * x[i]
+        y_norm += y[i] * y[i]
+    return z / math.sqrt(x_norm * y_norm)
+
+
+def cosine_similarity(X, Y):
+    return custom_kernel(X, Y, cosine_similarity_element)
 
 
 @cuda.jit(device=True)
-def additive_chi2_kernel(x, y):
+def additive_chi2_kernel_element(x, y):
     res = 0.0
     for i in range(len(x)):
         denom = x[i] - y[i]
@@ -40,58 +93,14 @@ def additive_chi2_kernel(x, y):
     return -res
 
 
-@cuda.jit(device=True)
-def chi2_kernel(x, y, gamma=1.0):
-    if gamma is None:
-        gamma = 1.0
-    k = additive_chi2_kernel(x, y)
-    k *= gamma
-    return math.exp(k)
+def additive_chi2_kernel(X, Y):
+    return custom_kernel(X, Y, additive_chi2_kernel_element)
 
 
-@cuda.jit(device=True)
-def cosine_similarity(x, y):
-    z = linear_kernel(x, y)
-    x_norm = 0.0
-    y_norm = 0.0
-    for i in range(len(x)):
-        x_norm += x[i] * x[i]
-        y_norm += y[i] * y[i]
-    return z / math.sqrt(x_norm * y_norm)
-
-
-@cuda.jit(device=True)
-def laplacian_kernel(x, y, gamma=None):
-    if gamma is None:
-        gamma = 1.0 / len(x)
-    manhattan = 0.0
-    for i in range(len(x)):
-        manhattan += abs(x[i] - y[i])
-    return math.exp(-gamma * manhattan)
-
-
-@cuda.jit(device=True)
-def polynomial_kernel(x, y, degree=3, gamma=None, coef0=1):
-    if gamma is None:
-        gamma = 1.0 / len(x)
-    return (gamma * linear_kernel(x, y) + coef0) ** degree
-
-
-@cuda.jit(device=True)
-def rbf_kernel(x, y, gamma=None):
-    if gamma is None:
-        gamma = 1.0 / len(x)
-    sum = 0.0
-    for i in range(len(x)):
-        sum += (x[i] - y[i]) ** 2
-    return math.exp(-gamma * sum)
-
-
-@cuda.jit(device=True)
-def sigmoid_kernel(x, y, gamma=None, coef0=1.0):
-    if gamma is None:
-        gamma = 1.0 / len(x)
-    return math.tanh(gamma * linear_kernel(x, y) + coef0)
+def chi2_kernel(X, Y, gamma=1.0):
+    K = additive_chi2_kernel(X, Y)
+    K *= gamma
+    return cp.exp(K, K)
 
 
 PAIRWISE_KERNEL_FUNCTIONS = {
@@ -107,8 +116,24 @@ PAIRWISE_KERNEL_FUNCTIONS = {
 }
 
 
-def _validate_kernel_function(func, filter_params=False, **kwds):
-    # Check if we have a valid kernel function correctly specified arguments
+def _filter_params(func, filter_params, **kwds):
+    # get all the possible extra function arguments, excluding x, y
+    py_func = func.py_func if hasattr(func, 'py_func') else func
+    all_func_kwargs = list(inspect.signature(
+        py_func).parameters.values())
+    if len(all_func_kwargs) < 2:
+        raise ValueError(
+            "Expected at least two arguments to kernel function.")
+
+    extra_arg_names = set(arg.name for arg in all_func_kwargs[2:])
+    if not filter_params:
+        if not set(kwds.keys()) <= extra_arg_names:
+            raise ValueError(
+                "kwds contains arguments not used by kernel function")
+    return {k: v for k, v in kwds.items() if k in extra_arg_names}
+
+
+def _kwds_to_tuple_args(func, **kwds):
     # Returns keyword arguments formed as a tuple
     # (numba kernels cannot deal with kwargs as a dict)
     if not hasattr(func, "py_func"):
@@ -126,21 +151,53 @@ def _validate_kernel_function(func, filter_params=False, **kwds):
         raise ValueError(
             "Extra kernel parameters must be passed as keyword arguments.")
     all_func_kwargs = [(k.name, k.default) for k in all_func_kwargs]
-    if all_func_kwargs and not filter_params:
-        # kwds must occur in the function signature
-        available_kwds = set(list(zip(*all_func_kwargs))[0])
-        # is kwds a subset of the valid func keyword arguments?
-        if not set(kwds.keys()) <= available_kwds:
-            raise ValueError(
-                "kwds contains arguments not used by kernel function")
 
-    filtered_kwds_tuple = tuple(
+    kwds_tuple = tuple(
         kwds[k] if k in kwds.keys() else v for (k, v) in all_func_kwargs
     )
-    return filtered_kwds_tuple
+    return kwds_tuple
 
 
 _kernel_cache = {}
+
+
+def custom_kernel(X, Y, func, **kwds):
+    kwds_tuple = _kwds_to_tuple_args(
+        func, **kwds)
+
+    def evaluate_pairwise_kernels(X, Y, K):
+        idx = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
+        X_m = X.shape[0]
+        Y_m = Y.shape[0]
+        row = idx // Y_m
+        col = idx % Y_m
+        if idx < X_m * Y_m:
+            if X is Y and row <= col:
+                # matrix is symmetric, reuse half the evaluations
+                k = func(X[row], Y[col], *kwds_tuple)
+                K[row, col] = k
+                K[col, row] = k
+            else:
+                k = func(X[row], Y[col], *kwds_tuple)
+                K[row, col] = k
+
+    if Y is None:
+        Y = X
+    if X.shape[1] != Y.shape[1]:
+        raise ValueError("X and Y have different dimensions.")
+
+    # Here we force K to use 64 bit, even if the input is 32 bit
+    # 32 bit K results in serious numerical stability problems
+    K = cp.zeros((X.shape[0], Y.shape[0]), dtype=np.float64)
+
+    key = (func, kwds_tuple, X.dtype, Y.dtype)
+    if key in _kernel_cache:
+        compiled_kernel = _kernel_cache[key]
+    else:
+        compiled_kernel = cuda.jit(evaluate_pairwise_kernels)
+        _kernel_cache[key] = compiled_kernel
+    compiled_kernel.forall(X.shape[0] * Y.shape[0])(X, Y, K)
+    return K
 
 
 @cuml.internals.api_return_array(get_output_type=True)
@@ -227,52 +284,24 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
         pairwise_kernels(X, Y, metric=custom_rbf_kernel)
 
     """
-    if metric == "precomputed":
-        return X
-    elif metric in PAIRWISE_KERNEL_FUNCTIONS:
-        func = PAIRWISE_KERNEL_FUNCTIONS[metric]
-    elif isinstance(metric, str):
-        raise ValueError("Unknown kernel %r" % metric)
-    else:
-        func = metric
-
-    filtered_kwds_tuple = _validate_kernel_function(
-        func, filter_params, **kwds)
-
-    def evaluate_pairwise_kernels(X, Y, K):
-        idx = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
-        X_m = X.shape[0]
-        Y_m = Y.shape[0]
-        row = idx // Y_m
-        col = idx % Y_m
-        if idx < X_m * Y_m:
-            if X is Y and row <= col:
-                # matrix is symmetric, reuse half the evaluations
-                k = func(X[row], Y[col], *filtered_kwds_tuple)
-                K[row, col] = k
-                K[col, row] = k
-            else:
-                k = func(X[row], Y[col], *filtered_kwds_tuple)
-                K[row, col] = k
-
+    X = cp.asarray(X)
     if Y is None:
         Y = X
+    else:
+        Y = cp.asarray(Y)
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
 
-    threadsperblock = 256
-    blockspergrid = (X.shape[0] * Y.shape[0] +
-                     (threadsperblock - 1)) // threadsperblock
+    if metric == "precomputed":
+        return X
 
-    # Here we force K to use 64 bit, even if the input is 32 bit
-    # 32 bit K results in serious numerical stability problems
-    K = cp.zeros((X.shape[0], Y.shape[0]), dtype=np.float64)
-
-    key = (metric, filtered_kwds_tuple, X.dtype, Y.dtype)
-    if key in _kernel_cache:
-        compiled_kernel = _kernel_cache[key]
+    if metric in PAIRWISE_KERNEL_FUNCTIONS:
+        kwds = _filter_params(
+            PAIRWISE_KERNEL_FUNCTIONS[metric], filter_params, **kwds)
+        return PAIRWISE_KERNEL_FUNCTIONS[metric](X, Y, **kwds)
+    elif isinstance(metric, str):
+        raise ValueError("Unknown kernel %r" % metric)
     else:
-        compiled_kernel = cuda.jit(evaluate_pairwise_kernels)
-        _kernel_cache[key] = compiled_kernel
-    compiled_kernel[blockspergrid, threadsperblock](X, Y, K)
-    return K
+        kwds = _filter_params(
+            metric, filter_params, **kwds)
+        return custom_kernel(X, Y, metric, **kwds)
