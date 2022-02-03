@@ -122,31 +122,28 @@ __global__ void cast_and_transpose(
 namespace ML {
 
 void cudf_to_row_major(const raft::handle_t& h,
-                       float** row_major,
-                       std::size_t* n_cols,
-                       std::size_t* n_rows,
+                       float* row_major,
                        const std::vector<cudf::column_view>& cols)
 {
-  *n_cols = cols.size();
-  *n_rows = cols[0].size();
+  std::size_t n_cols = cols.size();
+  std::size_t n_rows = cols[0].size();
 
   std::vector<device_col> h_cols;
   for (const cudf::column_view& cv : cols) {
     h_cols.push_back({cv.type(), cv.head(), reinterpret_cast<const uint8_t*>(cv.null_mask())});
-    ASSERT(static_cast<std::size_t>(cv.size()) == *n_rows,
+    ASSERT(static_cast<std::size_t>(cv.size()) == n_rows,
            "internal error: creating matrix out of unequally sized columns");
   }
 
   CUDA_CHECK(cudaSetDevice(h.get_device()));
   rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
   device_col* d_cols                  = (device_col*)mr->allocate(h_cols.size() * sizeof *d_cols);
-  *row_major                          = (float*)mr->allocate(*n_cols * *n_rows * sizeof **row_major);
   CUDA_CHECK(cudaMemcpyAsync(
     d_cols, h_cols.data(), h_cols.size() * sizeof *d_cols, cudaMemcpyHostToDevice, 0));
 
   dim3 block(TILE_SIZE, TILE_SIZE);
-  dim3 grid(raft::ceildiv(*n_rows, TILE_SIZE), raft::ceildiv(*n_cols, TILE_SIZE));
-  cast_and_transpose<<<grid, block>>>(*row_major, d_cols, h_cols.size(), *n_rows, nullptr);
+  dim3 grid(raft::ceildiv(n_rows, TILE_SIZE), raft::ceildiv(n_cols, TILE_SIZE));
+  cast_and_transpose<<<grid, block>>>(row_major, d_cols, h_cols.size(), n_rows, nullptr);
 
   mr->deallocate(d_cols, h_cols.size() * sizeof *d_cols);
 }

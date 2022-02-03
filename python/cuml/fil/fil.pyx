@@ -25,8 +25,6 @@ import warnings
 import pandas as pd
 from inspect import getdoc
 
-import rmm
-
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -236,9 +234,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 
 cdef extern from "cuml/fil/fil.h" namespace "ML":
     cdef void cudf_to_row_major(handle_t& h,
-                                float** row_major,
-                                size_t* n_cols,
-                                size_t* n_rows,
+                                float* row_major,
                                 vector[column_view]& cols) except +
 
 cdef class ForestInference_impl():
@@ -342,17 +338,20 @@ cdef class ForestInference_impl():
         cdef uintptr_t X_ptr
         cdef size_t n_rows, n_cols
         cdef vector[column_view] cols
-        cdef float* row_major
-        if X is cudf.DataFrame:
-            cols = make_column_views(X.columns)
-            cudf_to_row_major(handle_[0], &row_major, &n_cols, &n_rows, cols)
+        if type(X) == cudf.DataFrame:
+            print('cudf_to_row_major!')
+            cols = make_column_views(X._columns)
+            n_cols = cols.size()
+            n_rows = cols[0].size()
+            row_major = CumlArray.empty(shape=(n_rows, n_cols), dtype=np.float32, order='C')
+            cudf_to_row_major(handle_[0], <float*><uintptr_t>row_major.ptr, cols)
         else:
-            X_m, n_rows, n_cols, dtype = \
+            row_major, n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C',
                                     convert_to_dtype=np.float32,
                                     safe_dtype_conversion=safe_dtype_conversion,
                                     check_dtype=np.float32)
-        X_ptr = X_m.ptr
+        X_ptr = row_major.ptr
 
         if preds is None:
             shape = (n_rows, )
@@ -362,12 +361,12 @@ cdef class ForestInference_impl():
                 else:
                     shape += (self.num_class,)
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C',
-                                    index=X_m.index)
+                                    index=row_major.index)
         else:
             if not hasattr(preds, "__cuda_array_interface__"):
                 raise ValueError("Invalid type for output preds,"
                                  " need GPU array")
-            preds.index = X_m.index
+            preds.index = row_major.index
 
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
@@ -379,7 +378,6 @@ cdef class ForestInference_impl():
                 <size_t> n_rows,
                 <bool> predict_proba)
         self.handle.sync()
-        free(row_major)
 
         # special case due to predict and predict_proba
         # both coming from the same CUDA/C++ function
