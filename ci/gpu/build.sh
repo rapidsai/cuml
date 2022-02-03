@@ -58,7 +58,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.5.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.5.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
@@ -67,12 +67,6 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 # https://docs.rapids.ai/maintainers/depmgmt/
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_mamba_retry install -y "your-pkg=1.0.0"
-
-gpuci_logger "Install contextvars if needed"
-py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
-if [ "$py_ver" == "3.6" ];then
-    conda install contextvars
-fi
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -202,7 +196,7 @@ else
 
     # FIXME: Project FLASH only builds for python version 3.8 which is the one used in
     # the CUDA 11.0 job, need to change all versions to project flash
-    if [ "$py_ver" == "3.8" ];then
+    if [ "$PYTHON" == "3.8" ];then
         gpuci_logger "Using Project FLASH to install cuml python"
         CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
         CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -226,7 +220,7 @@ else
 
     # When installing cuml with project flash, we need to delete all folders except
     # cuml/test since we are not building cython extensions in place
-    if [ "$py_ver" == "3.8" ];then
+    if [ "$PYTHON" == "3.8" ];then
         find ./cuml -mindepth 1 ! -regex '^./cuml/test\(/.*\)?' -delete
     fi
 
