@@ -243,15 +243,14 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
         X = X + abs(X.min()) + 1.0
 
     model.fit(X, y, sample_weight)
-    # For a convex optimisation problem we should arrive at gradient norm 0
-    # If the solution has converged correctly
-    K = model._get_kernel(X)
-    grad_norm = gradient_norm(X, y, model, K, sample_weight)
-    # float32 can be very unstable
-    tol = 1e-2 if X.dtype == np.float64 else 100.0
-    assert grad_norm < tol
     pred = model.predict(X_test).get()
     if X.dtype == np.float64:
+        # For a convex optimisation problem we should arrive at gradient norm 0
+        # If the solution has converged correctly
+        K = model._get_kernel(X)
+        grad_norm = gradient_norm(X, y, model, K, sample_weight)
+        tol = 1e-2 
+        assert grad_norm < tol
         try:
             skl_model.fit(X, y, sample_weight)
         except np.linalg.LinAlgError:
