@@ -33,9 +33,6 @@ from cuml.common.memory_utils import class_with_cupy_rmm
 from numba import cuda
 
 
-import ctypes
-libc = ctypes.CDLL('libc.so.6')
-
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
 class CumlArray(Buffer):
 
@@ -147,8 +144,7 @@ class CumlArray(Buffer):
             # Convert to cupy array and manually specify the ptr, size and
             # owner. This is to avoid the restriction on Buffer that requires
             # all data be u8
-            with nvtx.annotate("CumlArray.__init__()::cupy.asarray()"):
-              cupy_data = cp.asarray(data)
+            cupy_data = cp.asarray(data)
             flattened_data = cupy_data.data.ptr
 
             # Size for Buffer is not the same as for cupy. Use nbytes

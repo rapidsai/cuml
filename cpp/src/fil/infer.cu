@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __noinline__
+#define INLINE_CONFIG __forceinline__
 
 namespace ML {
 namespace fil {

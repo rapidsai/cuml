@@ -327,17 +327,14 @@ def input_to_cuml_array(X,
     # converting pandas to numpy before sending it to CumlArray
     if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
         # pandas doesn't support custom order in to_numpy
-        with nvtx.annotate("input_to_cuml_array()::pandas: cp.asarray(X.to_numpy(copy=False)"):
-            X = cp.asarray(X.to_numpy(copy=False), order=order)
+        X = cp.asarray(X.to_numpy(copy=False), order=order)
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
-            with nvtx.annotate("input_to_cuml_array()::cudf.DataFrame: CumlArray(data=X.to_cupy()"):
-                X_m = CumlArray(data=X.to_cupy(), index=index)
+            X_m = CumlArray(data=X.to_cupy(), index=index)
         else:
-            with nvtx.annotate("input_to_cuml_array()::cudf.DataFrame: CumlArray(data=cp.array(X.to_cupy()"):
-                X_m = CumlArray(data=cp.array(X.to_cupy(), order=order),
-                                index=index)
+            X_m = CumlArray(data=cp.array(X.to_cupy(), order=order),
+                            index=index)
 
     elif isinstance(X, CumlArray):
         X_m = X
@@ -345,7 +342,7 @@ def input_to_cuml_array(X,
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
 
-        host_array = not hasattr(X, "__cuda_array_interface__")
+        host_array = hasattr(X, "__array_interface__")
 
         # Since we create the array with the correct order here, do the order
         # check now if necessary
@@ -366,14 +363,12 @@ def input_to_cuml_array(X,
 
         # If we have a host array, we copy it first before changing order
         # to transpose using the GPU
-        #if host_array:
-        #    with nvtx.annotate("input_to_cuml_array()::host_array: cp.array(X)"):
-        #        X = cp.array(X)
+        if host_array:
+            X = cp.array(X)
 
-        #with nvtx.annotate("input_to_cuml_array()::cp.array(X, copy=make_copy, order=order)"):
-        #    cp_arr = cp.array(X, copy=make_copy, order=order)
+        cp_arr = cp.array(X, copy=make_copy, order=order)
 
-        X_m = CumlArray(data=X,
+        X_m = CumlArray(data=cp_arr,
                         index=index)
 
         if deepcopy:
@@ -418,11 +413,9 @@ def input_to_cuml_array(X,
                              str(n_rows) + " rows.")
 
     if (check_order(X_m.order)):
-        with nvtx.annotate("input_to_cuml_array()::check_order(X_m.order): cp.array(X_m, copy=False, order=order)"):
-            X_m = cp.array(X_m, copy=False, order=order)
-        with nvtx.annotate("input_to_cuml_array()::check_order(X_m.order): CumlArray(data=X_m, index=index)"):
-            X_m = CumlArray(data=X_m,
-                            index=index)
+        X_m = cp.array(X_m, copy=False, order=order)
+        X_m = CumlArray(data=X_m,
+                        index=index)
 
     return cuml_array(array=X_m,
                       n_rows=n_rows,
@@ -596,8 +589,7 @@ def convert_dtype(X,
         return X.astype(to_dtype, copy=False)
 
     elif numba.cuda.is_cuda_array(X):
-        with nvtx.annotate("convert_dtype()::numba.cuda.is_cuda_array(X): cp.asarray(X)"):
-            X_m = cp.asarray(X)
+        X_m = cp.asarray(X)
         X_m = X_m.astype(to_dtype, copy=False)
 
         if legacy:
@@ -639,8 +631,7 @@ def _typecast_will_lose_information(X, target_dtype):
         return _typecast_will_lose_information(X_m, target_dtype)
 
     elif numba.cuda.is_cuda_array(X):
-        with nvtx.annotate("_typecast_will_lose_information({})::numba.cuda.is_cuda_array(X): cp.asarray(X)".format(target_dtype)):
-            X_m = cp.asarray(X)
+        X_m = cp.asarray(X)
         return _typecast_will_lose_information(X_m, target_dtype)
 
     else:
