@@ -248,22 +248,19 @@ void lstsqEig(const raft::handle_t& handle,
               cudaStream_t stream)
 {
   rmm::cuda_stream_view mainStream   = rmm::cuda_stream_view(stream);
-  rmm::cuda_stream_view multAbStream = mainStream;
-  bool concurrent                    = false;
-  {
-    int sp_size = handle.get_stream_pool_size();
-    if (sp_size > 0) {
-      multAbStream = handle.get_stream_from_stream_pool(0);
-      // check if the two streams can run concurrently
-      if (!are_implicitly_synchronized(mainStream, multAbStream)) {
-        concurrent = true;
-      } else if (sp_size > 1) {
-        mainStream = handle.get_stream_from_stream_pool(1);
-        concurrent = true;
-      } else {
-        multAbStream = mainStream;
-      }
-    }
+  rmm::cuda_stream_view multAbStream = handle.get_next_usable_stream();
+  bool concurrent;
+  // Check if the two streams can run concurrently. This is needed because a legacy default stream
+  // would synchronize with other blocking streams. To avoid synchronization in such case, we try to
+  // use an additional stream from the pool.
+  if (!are_implicitly_synchronized(mainStream, multAbStream)) {
+    concurrent = true;
+  } else if (handle.get_stream_pool_size() > 1) {
+    mainStream = handle.get_next_usable_stream();
+    concurrent = true;
+  } else {
+    multAbStream = mainStream;
+    concurrent   = false;
   }
 
   rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, mainStream);
@@ -327,8 +324,11 @@ void lstsqEig(const raft::handle_t& handle,
   // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
   raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, mainStream);
 
-  // This event is created only if we use two worker streams.
-  DeviceEvent mainDone(mainStream.value() != stream);
+  // This event is created only if we use two worker streams, and `stream` is not the legacy stream,
+  // and `mainStream` is not a non-blocking stream. In fact, with the current logic these conditions
+  // are impossible together, but it still makes sense to put this construct here to emphasize that
+  // `stream` must wait till the work here is done (for future refactorings).
+  DeviceEvent mainDone(!are_implicitly_synchronized(mainStream, stream));
   mainDone.record(mainStream);
   mainDone.wait_by(stream);
 }
