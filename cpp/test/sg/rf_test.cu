@@ -636,6 +636,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
   void SetUp() override
   {
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+    srand(params.seed);
 
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
@@ -643,9 +644,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
 
     // n_uniques gauranteed to be non-zero and smaller than `max_n_bins`
     int n_uniques;
-    while (n_uniques = rand() % params.max_n_bins) {
-      if (n_uniques) break;
-    }
+    while ((n_uniques = rand() % params.max_n_bins) == 0) {}
 
     // populating random elements in data in [0, n_uniques)
     thrust::counting_iterator<float> first(0);
