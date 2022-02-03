@@ -109,7 +109,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
     else
-      prms.n_components = params.n_col2 - 15;
+      prms.n_components = params.n_col2 - 5;
 
     data2.resize(len, stream);
     r.uniform(data2.data(), len, T(-1.0), T(1.0), stream);
