@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@
 
 #include "../bins.cuh"
 #include "../objectives.cuh"
+#include "../quantiles.h"
 
 namespace ML {
 namespace DT {
 
 // The range of instances belonging to a particular node
-// This structure refers to a range in the device array input.rowids
+// This structure refers to a range in the device array dataset.row_ids
 struct InstanceRange {
   std::size_t begin;
   std::size_t count;
@@ -60,18 +61,18 @@ HDI bool SplitNotValid(const SplitT& split,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(IdxT max_depth,
-                                IdxT min_samples_leaf,
-                                IdxT min_samples_split,
-                                IdxT max_leaves,
-                                DataT min_impurity_decrease,
-                                Input<DataT, LabelT, IdxT> input,
-                                NodeWorkItem* work_items,
+__global__ void nodeSplitKernel(const IdxT max_depth,
+                                const IdxT min_samples_leaf,
+                                const IdxT min_samples_split,
+                                const IdxT max_leaves,
+                                const DataT min_impurity_decrease,
+                                const Dataset<DataT, LabelT, IdxT> dataset,
+                                const NodeWorkItem* work_items,
                                 const Split<DataT, IdxT>* splits);
 
-template <typename InputT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 __global__ void leafKernel(ObjectiveT objective,
-                           InputT input,
+                           DatasetT dataset,
                            const NodeT* tree,
                            const InstanceRange* instance_ranges,
                            DataT* leaves);
@@ -92,15 +93,16 @@ HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
   return hash;
 }
 
+// returns the lowest index in `array` whose value is greater or equal to `element`
 template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
+HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 {
   IdxT start = 0;
-  IdxT end   = nbins - 1;
+  IdxT end   = len - 1;
   IdxT mid;
   while (start < end) {
     mid = (start + end) / 2;
-    if (sbins[mid] < d) {
+    if (array[mid] < element) {
       start = mid + 1;
     } else {
       end = mid;
@@ -115,12 +117,13 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-__global__ void computeSplitKernel(BinT* hist,
-                                   IdxT nbins,
+__global__ void computeSplitKernel(BinT* histograms,
+                                   IdxT n_bins,
                                    IdxT max_depth,
                                    IdxT min_samples_split,
                                    IdxT max_leaves,
-                                   Input<DataT, LabelT, IdxT> input,
+                                   const Dataset<DataT, LabelT, IdxT> dataset,
+                                   const Quantiles<DataT, IdxT> quantiles,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
                                    int* done_count,
