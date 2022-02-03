@@ -148,4 +148,4 @@ void cudf_to_row_major(const raft::handle_t& h,
   mr->deallocate(d_cols, h_cols.size() * sizeof *d_cols);
 }
 
-} // namespace ML
+}  // namespace ML

@@ -566,7 +566,7 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
     from numba import cuda
     cuda.set_memory_manager(rmm.RMMNumbaManager)
 
-    n_rows = int(1e2)
+    n_rows = int(5e5)
     n_fit = int(1e2)
     if n_categorical > 0:
         n_features = 100

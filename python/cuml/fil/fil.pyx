@@ -339,7 +339,6 @@ cdef class ForestInference_impl():
         cdef size_t n_rows, n_cols
         cdef vector[column_view] cols
         if type(X) == cudf.DataFrame:
-            print('cudf_to_row_major!')
             cols = make_column_views(X._columns)
             n_cols = cols.size()
             n_rows = cols[0].size()

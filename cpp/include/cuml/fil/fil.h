@@ -20,9 +20,9 @@
 
 #include <stddef.h>
 
-#include <cuml/ensemble/treelite_defs.hpp>
 #include <cudf/column/column_view.hpp>
 #include <cudf/types.hpp>
+#include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
 class handle_t;
