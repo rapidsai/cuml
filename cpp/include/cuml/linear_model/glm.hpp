@@ -167,8 +167,6 @@ void qnFit(const raft::handle_t& cuml_handle,
  * @param X_row_ids     feature matrix compressed row ids (CSR format),
  *                      length = N + 1, range = [0, ... X_nnz]
  * @param X_nnz         number of non-zero entries in the feature matrix (CSR format)
- * @param X             device pointer to a contiguous feature matrix of dimension [N, D]
- * @param X_col_major   true if X is stored column-major
  * @param y             device pointer to label vector of length N
  * @param N             number of examples
  * @param D             number of features
