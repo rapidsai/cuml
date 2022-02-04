@@ -96,6 +96,12 @@ if(BUILD_CUML_TESTS)
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
+    install(
+      TARGETS ${CUML_CPP_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml
+      EXCLUDE_FROM_ALL
+    )
 endif()
 
 #############################################################################
@@ -131,6 +137,13 @@ if(BUILD_CUML_MG_TESTS)
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
       cumlprims_mg::cumlprims_mg
+    )
+
+    install(
+      TARGETS ${CUML_MG_TEST_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml_mg
+      EXCLUDE_FROM_ALL
     )
 
   else(MPI_CXX_FOUND)
