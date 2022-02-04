@@ -61,7 +61,7 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
-option(USE_SCCACHE "Cache build artifacts with sccache" OFF)
+option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 
@@ -87,7 +87,7 @@ message(VERBOSE "CUML: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
 message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
-message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_SCCACHE}")
+message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -178,10 +178,10 @@ if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
   set(BUILD_CUML_MPI_COMMS ON)
 endif()
 
-if(USE_SCCACHE)
-  set(CMAKE_C_COMPILER_LAUNCHER sccache)
-  set(CMAKE_CXX_COMPILER_LAUNCHER sccache)
-  set(CMAKE_CUDA_COMPILER_LAUNCHER sccache)
+if(USE_CCACHE)
+  set(CMAKE_C_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+  set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
 endif()
 
 ##############################################################################
