@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import math
 import inspect
 from numba import cuda
 import cupy as cp
@@ -66,20 +65,9 @@ def laplacian_kernel(X, Y, gamma=None):
     return K
 
 
-@cuda.jit(device=True)
-def cosine_similarity_element(x, y):
-    x_norm = 0.0
-    y_norm = 0.0
-    z = 0.0
-    for i in range(len(x)):
-        z += x[i]*y[i]
-        x_norm += x[i] * x[i]
-        y_norm += y[i] * y[i]
-    return z / math.sqrt(x_norm * y_norm)
-
-
 def cosine_similarity(X, Y):
-    return custom_kernel(X, Y, cosine_similarity_element)
+    K = 1.0 - cp.asarray(pairwise_distances(X, Y, metric='cosine'))
+    return cp.nan_to_num(K, copy=False)
 
 
 @cuda.jit(device=True)
