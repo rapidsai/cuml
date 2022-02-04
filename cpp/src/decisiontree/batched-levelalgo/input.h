@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ namespace ML {
 namespace DT {
 
 template <typename DataT, typename LabelT, typename IdxT>
-struct Dataset {
+struct Input {
   /** input dataset (assumed to be col-major) */
   const DataT* data;
   /** input labels */
@@ -30,13 +30,15 @@ struct Dataset {
   /** total cols in dataset */
   IdxT N;
   /** total sampled rows in dataset */
-  IdxT n_sampled_rows;
+  IdxT nSampledRows;
   /** total sampled cols in dataset */
-  IdxT n_sampled_cols;
+  IdxT nSampledCols;
   /** indices of sampled rows */
-  IdxT* row_ids;
+  IdxT* rowids;
   /** Number of classes or regression outputs*/
-  IdxT num_outputs;
+  IdxT numOutputs;
+  /** quantiles/histogram computed on the dataset (col-major) */
+  const DataT* quantiles;
 };
 
 }  // namespace DT

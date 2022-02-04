@@ -37,7 +37,6 @@
 #include <vector>
 
 #include "batched-levelalgo/builder.cuh"
-#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
 
@@ -230,11 +229,11 @@ class DecisionTree {
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    rmm::device_uvector<int>* row_ids,
+    rmm::device_uvector<int>* rowids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    const Quantiles<DataT, int>& quantiles,
+    std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
     int treeid)
   {
     if (params.split_criterion ==
@@ -255,7 +254,7 @@ class DecisionTree {
                                                                  labels,
                                                                  nrows,
                                                                  ncols,
-                                                                 row_ids,
+                                                                 rowids,
                                                                  unique_labels,
                                                                  quantiles)
         .train();
@@ -270,7 +269,7 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    row_ids,
+                                                                    rowids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
@@ -284,7 +283,7 @@ class DecisionTree {
                                                                 labels,
                                                                 nrows,
                                                                 ncols,
-                                                                row_ids,
+                                                                rowids,
                                                                 unique_labels,
                                                                 quantiles)
         .train();
@@ -299,7 +298,7 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    row_ids,
+                                                                    rowids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
@@ -313,7 +312,7 @@ class DecisionTree {
                                                                   labels,
                                                                   nrows,
                                                                   ncols,
-                                                                  row_ids,
+                                                                  rowids,
                                                                   unique_labels,
                                                                   quantiles)
         .train();
@@ -328,7 +327,7 @@ class DecisionTree {
                                                                             labels,
                                                                             nrows,
                                                                             ncols,
-                                                                            row_ids,
+                                                                            rowids,
                                                                             unique_labels,
                                                                             quantiles)
         .train();
