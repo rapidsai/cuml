@@ -33,6 +33,24 @@ namespace GLM {
 
 using namespace MLCommon;
 
+/**
+ * @brief Center and scale the data, depending on the flags fit_intercept and normalize
+ *
+ * @tparam math_t the element type
+ * @param [inout] input the column-major data of size [n_rows, n_cols]
+ * @param [in] n_rows
+ * @param [in] n_cols
+ * @param [inout] labels vector of size [n_rows]
+ * @param [out] intercept
+ * @param [out] mu_input the column-wise means of the input of size [n_cols]
+ * @param [out] mu_labels the scalar mean of the target (labels vector)
+ * @param [out] norm2_input the column-wise standard deviations of the input of size [n_cols];
+ *                          note, the biased estimator is used to match sklearn's StandardScaler
+ *                          (dividing by n_rows, not by (n_rows - 1)).
+ * @param [in] fit_intercept whether to center the data / to fit the intercept
+ * @param [in] normalize whether to normalize the data
+ * @param [in] stream
+ */
 template <typename math_t>
 void preProcessData(const raft::handle_t& handle,
                     math_t* input,
@@ -53,7 +71,7 @@ void preProcessData(const raft::handle_t& handle,
 
   if (fit_intercept) {
     if (normalize) {
-      raft::stats::meanvar(mu_input, norm2_input, input, n_cols, n_rows, true, false, stream);
+      raft::stats::meanvar(mu_input, norm2_input, input, n_cols, n_rows, false, false, stream);
       raft::linalg::unaryOp(
         norm2_input,
         norm2_input,
