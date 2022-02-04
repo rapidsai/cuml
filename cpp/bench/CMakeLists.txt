@@ -107,7 +107,8 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   set_target_properties(
     ${PRIMS_BENCH_TARGET}
-    PROPERTIES INSTALL_RPATH "\$ORIGIN/../lib")
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
 
   install(
     TARGETS ${PRIMS_BENCH_TARGET}

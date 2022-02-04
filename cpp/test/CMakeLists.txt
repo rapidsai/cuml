@@ -237,7 +237,8 @@ if(BUILD_PRIMS_TESTS)
 
   set_target_properties(
     ${PRIMS_TEST_TARGET}
-    PROPERTIES INSTALL_RPATH "\$ORIGIN/../lib")
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
 
   install(
     TARGETS ${PRIMS_TEST_TARGET}
