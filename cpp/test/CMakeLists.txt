@@ -229,7 +229,9 @@ if(BUILD_PRIMS_TESTS)
   install(
     TARGETS ${PRIMS_TEST_TARGET}
     COMPONENT testing
-    EXCLUDE_FROM_ALL)
+    DESTINATION bin/gtests/libcuml_prims
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################
