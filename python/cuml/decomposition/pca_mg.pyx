@@ -35,30 +35,12 @@ import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
-from cuml.decomposition.utils cimport paramsSolver
+from cuml.decomposition.utils cimport *
 from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-
-ctypedef int underlying_type_t_solver
-
-
-cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
-
-    ctypedef enum mg_solver "ML::mg_solver":
-        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
-        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
-        QR "ML::mg_solver::QR"
-
-    cdef cppclass paramsTSVDMG(paramsSolver):
-        size_t n_components
-        mg_solver algorithm  # = solver::COV_EIG_DQ
-
-    cdef cppclass paramsPCAMG(paramsTSVDMG):
-        bool copy
-        bool whiten
 
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
@@ -87,13 +69,6 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
                   paramsPCAMG &prms,
                   bool verbose) except +
 
-
-class MGSolver(IntEnum):
-    COV_EIG_DQ = <underlying_type_t_solver> mg_solver.COV_EIG_DQ
-    COV_EIG_JACOBI = <underlying_type_t_solver> mg_solver.COV_EIG_JACOBI
-    QR = <underlying_type_t_solver> mg_solver.QR
-
-
 class PCAMG(BaseDecompositionMG, PCA):
 
     def __init__(self, **kwargs):
@@ -103,6 +78,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         algo_map = {
             'full': MGSolver.COV_EIG_DQ,
             'auto': MGSolver.COV_EIG_JACOBI,
+            'jacobi': MGSoler.COV_EIG_JACOBI,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
         }

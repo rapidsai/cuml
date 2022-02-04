@@ -48,7 +48,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
                             float *explained_var,
                             float *explained_var_ratio,
                             float *singular_vals,
-                            paramsTSVD &prms,
+                            paramsTSVDMG &prms,
                             bool verbose) except +
 
     cdef void fit_transform(handle_t& handle,
@@ -60,7 +60,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
                             double *explained_var,
                             double *explained_var_ratio,
                             double *singular_vals,
-                            paramsTSVD &prms,
+                            paramsTSVDMG &prms,
                             bool verbose) except +
 
 
@@ -68,6 +68,18 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
 
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)
+
+    def _build_params(self, n_rows, n_cols):
+        cpdef paramsPCAMG *params = new paramsTSVDMG()
+        params.n_components = self._n_components
+        params.n_rows = n_rows
+        params.n_cols = n_cols
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = <mg_solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
+
+        return <size_t>params
 
     @cuml.internals.api_base_return_any_skipall
     def _call_fit(self, X, trans, rank, input_desc,
@@ -80,7 +92,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
+        cdef paramsTSVDMG *params = <paramsTSVDMG*><size_t>arg_params
 
         if self.dtype == np.float32:
 

@@ -97,7 +97,7 @@ class TruncatedSVD(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
+    svd_solver : 'full', 'jacobi'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
     verbose : int or boolean, default=False
