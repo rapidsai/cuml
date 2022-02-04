@@ -55,6 +55,11 @@ if(BUILD_CUML_BENCH)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
 
+  set_target_properties(
+    ${CUML_CPP_BENCH_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
   install(
     TARGETS ${CUML_CPP_BENCH_TARGET}
     COMPONENT testing

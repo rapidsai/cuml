@@ -96,6 +96,11 @@ if(BUILD_CUML_TESTS)
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
+    set_target_properties(
+      ${CUML_CPP_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
     install(
       TARGETS ${CUML_CPP_TARGET}
       COMPONENT testing
@@ -137,6 +142,11 @@ if(BUILD_CUML_MG_TESTS)
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
       cumlprims_mg::cumlprims_mg
+    )
+
+    set_target_properties(
+      ${CUML_MG_TEST_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
     )
 
     install(
