@@ -105,5 +105,7 @@ if(BUILD_CUML_PRIMS_BENCH)
   install(
     TARGETS ${PRIMS_BENCH_TARGET}
     COMPONENT testing
-    EXCLUDE_FROM_ALL)
+    DESTINATION bin/benchmarks/libcuml_prims
+    EXCLUDE_FROM_ALL
+  )
 endif()
