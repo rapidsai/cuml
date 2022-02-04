@@ -215,6 +215,10 @@ else
     pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
     set +x
 
+    gpuci_logger "Install sklearn 1.0"
+    gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
+    gpuci_mamba_retry install -y "scikit-learn=1.0"
+
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
