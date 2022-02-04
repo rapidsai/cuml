@@ -54,6 +54,13 @@ if(BUILD_CUML_BENCH)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
+
+  install(
+    TARGETS ${CUML_CPP_BENCH_TARGET}
+    COMPONENT testing
+    DESTINATION bin/benchmarks/libcuml
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################
