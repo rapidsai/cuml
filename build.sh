@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov -h --help --cachetool"
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -45,7 +45,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --show_depr_warn  - show cmake deprecation warnings
    --codecov         - Enable code coverage support by compiling with Cython linetracing
                        and profiling enabled (WARNING: Impacts performance)
-   --ccache          - Use ccache to cache previous compilations
+   --cachetool       - Specify one of sccache | ccache.
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
    --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
@@ -72,7 +72,7 @@ BUILD_ALL_GPU_ARCH=0
 SINGLEGPU_CPP_FLAG=""
 CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
-CCACHE=OFF
+CACHE_TOOL=""
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
@@ -132,9 +132,9 @@ LONG_ARGUMENT_LIST=(
     "nvtx"
     "show_depr_warn"
     "codecov"
-    "ccache"
     "nolibcumltest"
     "nocloneraft"
+    "cachetool:"
 )
 
 # Short arguments
@@ -188,8 +188,9 @@ while true; do
         --codecov )
             CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
             ;;
-        --ccache )
-            CCACHE=ON
+        --cachetool )
+            CACHE_TOOL=$2
+            shift
             ;;
         --nolibcumltest )
             BUILD_CUML_TESTS=OFF
@@ -258,7 +259,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DDISABLE_FORCE_CLONE_RAFT=${DISABLE_FORCE_CLONE_RAFT} \
           -DNVTX=${NVTX} \
-          -DUSE_CCACHE=${CCACHE} \
+          -DCACHE_TOOL=$CACHE_TOOL \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
