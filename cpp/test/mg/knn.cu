@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <cuml/neighbors/knn_mg.hpp>
-#include <memory>
-#include <random/make_blobs.cuh>
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
+#include <cuml/neighbors/knn_mg.hpp>
+#include <gtest/gtest.h>
+#include <memory>
+#include <random/make_blobs.cuh>
 
 #include <raft/comms/mpi_comms.hpp>
 
@@ -148,7 +148,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     Matrix::PartDescriptor query_desc(
       params.min_rows * params.n_query_parts, params.n_cols, queryPartsToRanks, comm.get_rank());
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     /**
      * Execute brute_force_knn()
@@ -164,7 +164,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
                     params.batch_size,
                     true);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream) << std::endl;
     std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream) << std::endl;

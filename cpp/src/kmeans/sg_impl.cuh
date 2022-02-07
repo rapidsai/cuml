@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 #pragma once
 
+#include "common.cuh"
+#include <cuml/cluster/kmeans.hpp>
 #include <raft/cudart_utils.h>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "common.cuh"
 
 namespace ML {
 
@@ -231,7 +232,7 @@ void fit(const raft::handle_t& handle,
       DataT curClusteringCost = 0;
       raft::copy(&curClusteringCost, &(clusterCostD.data()->value), 1, stream);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
       ASSERT(curClusteringCost != (DataT)0.0,
              "Too few points and centriods being found is getting 0 cost from "
              "centers");
@@ -243,7 +244,7 @@ void fit(const raft::handle_t& handle,
       priorClusteringCost = curClusteringCost;
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
@@ -424,7 +425,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   // <<< End of Step-2 >>>
 
   // Scalable kmeans++ paper claims 8 rounds is sufficient
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   int niter = std::min(8, (int)ceil(log(psi)));
   LOG(handle, "KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
 

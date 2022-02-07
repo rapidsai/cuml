@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,39 +16,31 @@
 
 #pragma once
 
-#include <common/Timer.h>
-#include "batched-levelalgo/builder.cuh"
-#include "batched-levelalgo/quantile.cuh"
-#include "treelite_util.h"
-
-#include <cuml/tree/algo_helper.h>
-#include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/flatnode.h>
 
 #include <raft/cudart_utils.h>
-#include <memory>
 #include <raft/handle.hpp>
 
+#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
 #include <algorithm>
 #include <climits>
-#include <common/iota.cuh>
-#include <common/nvtx.hpp>
-#include <cuml/common/logger.hpp>
-#include <cuml/tree/decisiontree.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>
 #include <numeric>
+#include <raft/common/nvtx.hpp>
 #include <random>
-#include <type_traits>
 #include <vector>
-#include "treelite_util.h"
+
+#include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
+
 #define TREELITE_CHECK(call)                                                                     \
   do {                                                                                           \
     int status = call;                                                                           \
@@ -216,6 +208,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
+      tl_tree.SetDataCount(tl_node_id, q_node.InstanceCount());
     }
 
     cur_level_queue.swap(next_level_queue);
@@ -237,11 +230,11 @@ class DecisionTree {
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    rmm::device_uvector<int>* rowids,
+    rmm::device_uvector<int>* row_ids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
+    const Quantiles<DataT, int>& quantiles,
     int treeid)
   {
     if (params.split_criterion ==
@@ -252,7 +245,7 @@ class DecisionTree {
     }
     using IdxT = int;
     // Dispatch objective
-    if (params.split_criterion == CRITERION::GINI) {
+    if (not std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GINI) {
       return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                  s,
                                                                  treeid,
@@ -262,11 +255,12 @@ class DecisionTree {
                                                                  labels,
                                                                  nrows,
                                                                  ncols,
-                                                                 rowids,
+                                                                 row_ids,
                                                                  unique_labels,
                                                                  quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::ENTROPY) {
+    } else if (not std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::ENTROPY) {
       return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
@@ -276,11 +270,11 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    rowids,
+                                                                    row_ids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::MSE) {
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                 s,
                                                                 treeid,
@@ -290,11 +284,12 @@ class DecisionTree {
                                                                 labels,
                                                                 nrows,
                                                                 ncols,
-                                                                rowids,
+                                                                row_ids,
                                                                 unique_labels,
                                                                 quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::POISSON) {
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::POISSON) {
       return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
@@ -304,11 +299,11 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    rowids,
+                                                                    row_ids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::GAMMA) {
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                   s,
                                                                   treeid,
@@ -318,11 +313,12 @@ class DecisionTree {
                                                                   labels,
                                                                   nrows,
                                                                   ncols,
-                                                                  rowids,
+                                                                  row_ids,
                                                                   unique_labels,
                                                                   quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
       return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                             s,
                                                                             treeid,
@@ -332,7 +328,7 @@ class DecisionTree {
                                                                             labels,
                                                                             nrows,
                                                                             ncols,
-                                                                            rowids,
+                                                                            row_ids,
                                                                             unique_labels,
                                                                             quantiles)
         .train();

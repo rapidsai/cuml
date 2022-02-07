@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,17 @@
 
 #pragma once
 
-#include <cufft_utils.h>
-#include <linalg/init.h>
-#include <cmath>
-#include <common/device_utils.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/mr/device/buffer.hpp>
-#include <raft/stats/sum.cuh>
-#include <rmm/device_scalar.hpp>
-#include <rmm/device_uvector.hpp>
 #include "fft_kernels.cuh"
 #include "utils.cuh"
+#include <cmath>
+#include <common/device_utils.cuh>
+#include <cufft_utils.h>
+#include <linalg/init.h>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/stats/sum.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace TSNE {
@@ -135,7 +135,7 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
   min_h = min_d.value(stream);
   max_h = max_d.value(stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   return std::make_pair(std::move(min_h), std::move(max_h));
 }
@@ -152,14 +152,14 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
  * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
-void FFT_TSNE(value_t* VAL,
-              const value_idx* COL,
-              const value_idx* ROW,
-              const value_idx NNZ,
-              const raft::handle_t& handle,
-              value_t* Y,
-              const value_idx n,
-              const TSNEParams& params)
+value_t FFT_TSNE(value_t* VAL,
+                 const value_idx* COL,
+                 const value_idx* ROW,
+                 const value_idx NNZ,
+                 const raft::handle_t& handle,
+                 value_t* Y,
+                 const value_idx n,
+                 const TSNEParams& params)
 {
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
@@ -273,17 +273,17 @@ void FFT_TSNE(value_t* VAL,
   }
 
   DB(value_t, y_tilde_spacings_device, n_interpolation_points);
-  CUDA_CHECK(cudaMemcpyAsync(y_tilde_spacings_device.data(),
-                             y_tilde_spacings,
-                             n_interpolation_points * sizeof(value_t),
-                             cudaMemcpyHostToDevice,
-                             stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(y_tilde_spacings_device.data(),
+                                y_tilde_spacings,
+                                n_interpolation_points * sizeof(value_t),
+                                cudaMemcpyHostToDevice,
+                                stream));
   DB(value_t, denominator_device, n_interpolation_points);
-  CUDA_CHECK(cudaMemcpyAsync(denominator_device.data(),
-                             denominator,
-                             n_interpolation_points * sizeof(value_t),
-                             cudaMemcpyHostToDevice,
-                             stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(denominator_device.data(),
+                                denominator,
+                                n_interpolation_points * sizeof(value_t),
+                                cudaMemcpyHostToDevice,
+                                stream));
 #undef DB
 
   cufftHandle plan_kernel_tilde;
@@ -334,6 +334,7 @@ void FFT_TSNE(value_t* VAL,
     random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, params.random_state);
   }
 
+  value_t kl_div = 0;
   for (int iter = 0; iter < params.max_iter; iter++) {
     // Compute charges Q_ij
     {
@@ -513,8 +514,19 @@ void FFT_TSNE(value_t* VAL,
     // Compute attractive forces
     {
       auto num_blocks = raft::ceildiv(NNZ, (value_idx)NTHREADS_1024);
-      FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-        attractive_forces_device.data(), VAL, ROW, COL, Y, n, NNZ);
+      const float dof = fmaxf(params.dim - 1, 1);  // degree of freedom
+      if (iter == params.max_iter - 1) {           // last iteration
+        rmm::device_uvector<value_t> tmp(NNZ, stream);
+        value_t* Qs      = tmp.data();
+        value_t* KL_divs = tmp.data();
+
+        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+          attractive_forces_device.data(), Qs, VAL, ROW, COL, Y, n, NNZ, dof);
+        kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
+      } else {
+        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+          attractive_forces_device.data(), (value_t*)nullptr, VAL, ROW, COL, Y, n, NNZ, dof);
+      }
     }
 
     // Apply Forces
@@ -572,6 +584,7 @@ void FFT_TSNE(value_t* VAL,
   CUFFT_TRY(cufftDestroy(plan_kernel_tilde));
   CUFFT_TRY(cufftDestroy(plan_dft));
   CUFFT_TRY(cufftDestroy(plan_idft));
+  return kl_div;
 }
 
 }  // namespace TSNE

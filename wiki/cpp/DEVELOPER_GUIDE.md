@@ -210,7 +210,7 @@ python ./ci/checks/copyright.py --update-current-year
 Keep in mind that this only applies to files tracked by git and having been modified.
 
 ## Error handling
-Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
+Call CUDA APIs via the provided helper macros `RAFT_CUDA_TRY`, `RAFT_CUBLAS_TRY` and `RAFT_CUSOLVER_TRY`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `RAFT_CUDA_TRY_NO_THROW`, `RAFT_CUBLAS_TRY_NO_THROW ` and `RAFT_CUSOLVER_TRY_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
 
 ## Logging
 ### Introduction
@@ -353,19 +353,17 @@ When multiple streams are needed, e.g. to manage a pipeline, use the internal st
 ```cpp
 void foo(const double* const srcdata, double* const result)
 {
-    raft::handle_t raftHandle;
-
     cudaStream_t stream;
     CUDA_RT_CALL( cudaStreamCreate( &stream ) );
-    raftHandle.set_stream( stream );
+    raft::handle_t raftHandle( stream );
 
     ...
 
-    CUDA_CHECK( cudaMemcpyAsync( srcdata, h_srcdata.data(), n*sizeof(double), cudaMemcpyHostToDevice, stream ) );
+    RAFT_CUDA_TRY( cudaMemcpyAsync( srcdata, h_srcdata.data(), n*sizeof(double), cudaMemcpyHostToDevice, stream ) );
 
     ML::algo(raft::handle_t, dopredict, srcdata, result, ... );
 
-    CUDA_CHECK( cudaMemcpyAsync( h_result.data(), result, m*sizeof(int), cudaMemcpyDeviceToHost, stream ) );
+    RAFT_CUDA_TRY( cudaMemcpyAsync( h_result.data(), result, m*sizeof(int), cudaMemcpyDeviceToHost, stream ) );
 
     ...
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include "runner.cuh"
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>
@@ -108,7 +108,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    cudaStream_t stream,
                    int verbosity)
 {
-  ML::PUSH_RANGE("ML::Dbscan::Fit");
+  raft::common::nvtx::range fun_scope("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
   int algo_vd  = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;
@@ -140,7 +140,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
   if (max_mbytes_per_batch == 0) {
     // Query memory information to get the total memory on the device
     size_t free_memory, total_memory;
-    CUDA_CHECK(cudaMemGetInfo(&free_memory, &total_memory));
+    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
 
     // X can either be a feature matrix or distance matrix
     size_t dataset_memory = (metric == raft::distance::Precomputed)
@@ -201,7 +201,6 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               workspace.data(),
                               batch_size,
                               stream);
-  ML::POP_RANGE();
 }
 
 }  // namespace Dbscan

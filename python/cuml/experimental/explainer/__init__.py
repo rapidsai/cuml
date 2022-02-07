@@ -1,4 +1,4 @@
-#=============================================================================
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,13 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
+#
 
-function(find_and_configure_spdlog)
-
-    include(${rapids-cmake-dir}/cpm/spdlog.cmake)
-    rapids_cpm_spdlog()
-
-endfunction()
-
-find_and_configure_spdlog()
+from cuml.experimental.explainer.tree_shap import TreeExplainer

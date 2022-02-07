@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <math.h>
 #include <limits>
+#include <math.h>
 
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 namespace MLCommon {
 namespace Label {
@@ -135,20 +135,20 @@ void merge_labels(Index_* labels_a,
   // Step 1: compute connected components in the label equivalence graph
   bool host_m;
   do {
-    CUDA_CHECK(cudaMemsetAsync(m, false, sizeof(bool), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(m, false, sizeof(bool), stream));
 
     propagate_label_kernel<Index_, TPB_X>
       <<<blocks, threads, 0, stream>>>(labels_a, labels_b, R, mask, m, N);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     raft::update_host(&host_m, m, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   } while (host_m);
 
   // Step 2: re-assign minimum equivalent label
   reassign_label_kernel<Index_, TPB_X>
     <<<blocks, threads, 0, stream>>>(labels_a, labels_b, R, N, MAX_LABEL);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // namespace Label

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <random>
 #include <vector>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
@@ -87,7 +87,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     /* Copy to device */
     raft::update_device(
       y.data(), h_y.data(), params.n_obs * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
     fillna(y.data(), params.batch_size, params.n_obs, handle.get_stream());

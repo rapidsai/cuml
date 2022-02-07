@@ -112,6 +112,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     cpp_order.p, cpp_order.d, cpp_order.q = order
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
     cpp_order.k = <int>intercept
+    cpp_order.n_exog = 0
 
     # Set the default output type to "cupy". This will be ignored if the user
     # has set `cuml.global_settings.output_type`. Only necessary for array

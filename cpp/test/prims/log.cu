@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "test_utils.h"
+#include <functions/log.cuh>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <functions/log.cuh>
 #include <rmm/device_uvector.hpp>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Functions {
@@ -43,7 +43,7 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<LogInputs<T>>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     int len = params.len;
 
@@ -57,7 +57,7 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
     raft::update_device(result_ref.data(), result_ref_h, len, stream);
 
     f_log(result.data(), data.data(), T(1), len, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

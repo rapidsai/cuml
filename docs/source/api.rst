@@ -315,6 +315,12 @@ Support Vector Machines
 .. autoclass:: cuml.svm.SVR
     :members:
 
+.. autoclass:: cuml.svm.LinearSVC
+    :members:
+
+.. autoclass:: cuml.svm.LinearSVR
+    :members:
+
 Nearest Neighbors Classification
 --------------------------------
 
@@ -577,4 +583,9 @@ Preprocessing
 Linear Models
 -------------
 .. autoclass:: cuml.experimental.linear_model.Lars
+   :members:
+
+Model Explainability
+--------------------
+.. autoclass:: cuml.experimental.explainer.TreeExplainer
    :members:

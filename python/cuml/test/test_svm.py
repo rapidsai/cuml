@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import cudf
 
 
 def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
-    diff = np.abs(a-b)
+    diff = np.abs(a - b)
     if relative_diff:
         idx = np.nonzero(abs(b) > tol)
         diff[idx] = diff[idx] / abs(b[idx])
@@ -102,7 +102,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
         # Set tolerance to include the 95% confidence interval of svm2's
         # accuracy. In practice this gives 0.9% tolerance for a 90% accurate
         # model (assuming n_test = 4000).
-        accuracy_tol = 1.96 * np.sqrt(accuracy2 * (1-accuracy2) / n)
+        accuracy_tol = 1.96 * np.sqrt(accuracy2 * (1 - accuracy2) / n)
         if accuracy_tol < accuracy_tol_min:
             accuracy_tol = accuracy_tol_min
     else:
@@ -111,7 +111,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     assert accuracy1 >= accuracy2 - accuracy_tol
 
     if b_tol is None:
-        b_tol = 100*svm1.tol  # Using the deafult tol=1e-3 leads to b_tol=0.1
+        b_tol = 100 * svm1.tol  # Using deafult tol=1e-3 leads to b_tol=0.1
 
     if accuracy2 < 0.5:
         # Increase error margin for classifiers that are not accurate.
@@ -139,10 +139,10 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     # different sign convention for intercept in that case.
     if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
         if abs(svm2.intercept_) > 1e-6:
-            assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) \
+            assert abs((svm1.intercept_ - svm2.intercept_) / svm2.intercept_) \
                 <= b_tol
         else:
-            assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
+            assert abs((svm1.intercept_ - svm2.intercept_)) <= b_tol
 
     # For linear kernels we can compare the normal vector of the separating
     # hyperplane w, which is stored in the coef_ attribute.
@@ -166,10 +166,18 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             print("Skipping decision function test due to low  accuracy",
                   accuracy2)
 
+    # Compare support_ (dataset indicies of points that form the support
+    # vectors) and ensure that some overlap (~1/8) between two exists
+    support1 = set(svm1.support_)
+    support2 = set(svm2.support_)
+    intersection_len = len(support1.intersection(support2))
+    average_len = (len(support1) + len(support2)) / 2
+    assert intersection_len > average_len / 8
+
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
     np.random.seed(137)
-    if n_rows*0.25 < 4000:
+    if n_rows * 0.25 < 4000:
         # Use at least 4000 test samples
         n_test = 4000
         if n_rows > 1000:
@@ -434,7 +442,7 @@ def test_svm_gamma(params):
     x_arraytype = params.pop('x_arraytype', 'numpy')
     n_rows = 500
     n_cols = 380
-    centers = [10*np.ones(380), -10*np.ones(380)]
+    centers = [10 * np.ones(380), -10 * np.ones(380)]
     X, y = make_blobs(n_samples=n_rows, n_features=n_cols, random_state=137,
                       centers=centers)
     X = X.astype(np.float32)
@@ -465,7 +473,7 @@ def test_svm_numeric_arraytype(x_dtype, y_dtype):
     n_sv_exp = 15
     assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
     assert cuSVC.n_support_ == n_sv_exp
-    n_pred_wrong = np.sum(cuSVC.predict(X)-y)
+    n_pred_wrong = np.sum(cuSVC.predict(X) - y)
     assert n_pred_wrong == 0
 
 
@@ -483,7 +491,7 @@ def get_memsize(svc):
     ms = 0
     for a in ['dual_coef_', 'support_', 'support_vectors_']:
         x = getattr(svc, a)
-        ms += np.prod(x[0].shape)*x[0].dtype.itemsize
+        ms += np.prod(x[0].shape) * x[0].dtype.itemsize
     return ms
 
 
@@ -509,15 +517,15 @@ def test_svm_memleak(params, n_rows, n_iter, n_cols,
     """
     X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
     stream = cuml.cuda.Stream()
-    handle = cuml.Handle()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
     # before the first call to get_memory_info.
     tmp = cu_svm.SVC(handle=handle, **params)
     tmp.fit(X_train, y_train)
     ms = get_memsize(tmp)
-    print("Memory consumtion of SVC object is {} MiB".format(ms/(1024*1024.0)))
+    print("Memory consumtion of SVC object is {} MiB".format(
+        ms / (1024 * 1024.0)))
 
     free_mem = cuda.current_context().get_memory_info()[0]
 
@@ -559,8 +567,7 @@ def test_svm_memleak_on_exception(params, n_rows=1000, n_iter=10,
                                   random_state=137, centers=2)
     X_train = X_train.astype(np.float32)
     stream = cuml.cuda.Stream()
-    handle = cuml.Handle()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
 
     # Warmup. Some modules that are used in SVC allocate space on the device
     # and consume memory. Here we make sure that this allocation is done
@@ -613,13 +620,13 @@ def compare_svr(svr1, svr2, X_test, y_test, tol=1e-3):
     if X_test.shape[0] > 1:
         score1 = svr1.score(X_test, y_test)
         score2 = svr2.score(X_test, y_test)
-        assert abs(score1-score2) < tol
+        assert abs(score1 - score2) < tol
     else:
         y_pred1 = svr1.predict(X_test)
         y_pred2 = svr2.predict(X_test)
         mse1 = mean_squared_error(y_test, y_pred1)
         mse2 = mean_squared_error(y_test, y_pred2)
-        assert (mse1-mse2)/mse2 < tol
+        assert (mse1 - mse2) / mse2 < tol
 
 
 @pytest.mark.parametrize('params', [
@@ -653,7 +660,7 @@ def test_svr_skl_cmp_weighted():
     X, y = make_regression(
         n_samples=100, n_features=5, n_informative=2, n_targets=1,
         random_state=137, noise=10)
-    sample_weights = 10*np.sin(np.linspace(0, 2*np.pi, len(y))) + 10.1
+    sample_weights = 10 * np.sin(np.linspace(0, 2 * np.pi, len(y))) + 10.1
 
     params = {'kernel': 'linear', 'C': 10, 'gamma': 1}
     cuSVR = cu_svm.SVR(**params)

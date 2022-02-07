@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import pytest
 import cudf
 import cupy as cp
 import numpy as np
-from pandas import DataFrame as pdDF
 
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_host_array
@@ -28,6 +27,8 @@ from cuml.common import has_cupy
 from cuml.common.input_utils import convert_dtype
 from cuml.common.memory_utils import _check_array_contiguity
 from numba import cuda as nbcuda
+from pandas import DataFrame as pdDF
+from pandas import Series as pdSeries
 
 
 ###############################################################################
@@ -248,7 +249,7 @@ def test_convert_input_dtype(from_dtype, to_dtype, input_type, num_rows,
     if input_type == 'numpy':
         np.testing.assert_equal(converted_data, real_data)
     elif input_type == 'cudf':
-        np.testing.assert_equal(converted_data.as_matrix(), real_data)
+        np.testing.assert_equal(converted_data.to_numpy(), real_data)
     elif input_type == 'pandas':
         np.testing.assert_equal(converted_data.to_numpy(), real_data)
     else:
@@ -288,6 +289,33 @@ def test_non_contiguous_to_contiguous_input(dtype, input_type, order,
     np.testing.assert_equal(real_data, cumlary.to_output('numpy'))
 
 
+@pytest.mark.parametrize('input_type', ['cudf', 'pandas'])
+@pytest.mark.parametrize('num_rows', test_num_rows)
+@pytest.mark.parametrize('num_cols', test_num_cols)
+@pytest.mark.parametrize('order', ['C', 'F'])
+def test_indexed_inputs(input_type, num_rows, num_cols, order):
+    if num_cols == 1:
+        input_type += '-series'
+
+    index = np.arange(num_rows, 2 * num_rows)
+
+    input_data, real_data = get_input(input_type, num_rows, num_cols,
+                                      np.float32, index=index)
+
+    X, n_rows, n_cols, res_dtype = input_to_cuml_array(input_data,
+                                                       order=order)
+
+    # testing the index in the cuml array
+    np.testing.assert_equal(X.index.to_numpy(), index)
+
+    # testing the index in the converted outputs
+    cudf_output = X.to_output('cudf')
+    np.testing.assert_equal(cudf_output.index.to_numpy(), index)
+
+    pandas_output = X.to_output('pandas')
+    np.testing.assert_equal(pandas_output.index.to_numpy(), index)
+
+
 ###############################################################################
 #                           Utility Functions                                 #
 ###############################################################################
@@ -318,7 +346,8 @@ def check_ptr(a, b, input_type):
         assert get_ptr(a) == get_ptr(b)
 
 
-def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
+def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False,
+              index=None):
     rand_mat = (cp.random.rand(nrows, ncols) * 10)
     rand_mat = cp.array(rand_mat, dtype=dtype, order=order)
 
@@ -332,10 +361,16 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
         result = nbcuda.as_cuda_array(rand_mat)
 
     if type == 'cudf':
-        result = cudf.DataFrame(rand_mat)
+        result = cudf.DataFrame(rand_mat, index=index)
+
+    if type == 'cudf-series':
+        result = cudf.Series(rand_mat, index=index)
 
     if type == 'pandas':
-        result = pdDF(cp.asnumpy(rand_mat))
+        result = pdDF(cp.asnumpy(rand_mat), index=index)
+
+    if type == 'pandas-series':
+        result = pdSeries(cp.asnumpy(rand_mat).reshape(nrows,), index=index)
 
     if type == 'cuml':
         result = CumlArray(data=rand_mat)

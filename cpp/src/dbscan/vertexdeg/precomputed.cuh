@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include <cub/cub.cuh>
 #include <cuda_runtime.h>
 #include <math.h>
-#include <raft/cudart_utils.h>
-#include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/device_atomics.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/reduce.cuh>
 
@@ -71,7 +72,7 @@ void launcher(const raft::handle_t& handle,
 
   // Reduction to compute the vertex degrees
   index_t* d_nnz = data.vd + batch_size;
-  CUDA_CHECK(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
   raft::linalg::coalescedReduction<value_t, index_t, long_index_t>(
     data.vd,
     data.x + start_vertex_id * data.N,
@@ -95,7 +96,7 @@ void launcher(const raft::handle_t& handle,
     (long_index_t)start_vertex_id,
     (long_index_t)batch_size,
     data.eps);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Precomputed

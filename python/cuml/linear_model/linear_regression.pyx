@@ -209,7 +209,7 @@ class LinearRegression(Base,
         if handle is None and algorithm == 'eig':
             # if possible, create two streams, so that eigenvalue decomposition
             # can benefit from running independent operations concurrently.
-            handle = Handle(2)
+            handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)

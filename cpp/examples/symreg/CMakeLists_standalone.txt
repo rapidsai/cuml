@@ -1,4 +1,4 @@
-#=============================================================================
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,17 +12,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
+#
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+include(ExternalProject)
 
-function(find_and_configure_thrust)
-  include(${rapids-cmake-dir}/cpm/thrust.cmake)
+project(symreg_example VERSION 0.1.0 LANGUAGES CXX CUDA )
 
-  rapids_cpm_thrust(
-    NAMESPACE cuml
-    BUILD_EXPORT_SET cuml-exports
-    INSTALL_EXPORT_SET cuml-exports
-  )
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-endfunction()
+find_package(CUDAToolkit)
+find_package(cuml)
 
-find_and_configure_thrust()
+add_executable(symreg_example symreg_example.cpp)
+
+# Need to set linker language to CUDA to link the CUDA Runtime
+set_target_properties(symreg_example PROPERTIES LINKER_LANGUAGE "CUDA")
+
+# Link cuml and cudart
+target_link_libraries(symreg_example cuml::cuml++ CUDA::cudart)
