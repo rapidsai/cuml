@@ -80,7 +80,15 @@ __global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
 }  // namespace
 
 /**
- * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver.
+ *
+ * i.e. finds coefficients that minimize the following loss function:
+ *
+ * f(coef) = 1/2 * || labels - input * coef ||^2
+ *         + 1/2 * alpha * (1 - l1_ratio) * ||coef||^2
+ *         +       alpha *    l1_ratio    * ||coef||_1
+ *
+ *
  * @param handle
  *        Reference of raft::handle_t
  * @param input
@@ -173,7 +181,9 @@ void cdFit(const raft::handle_t& handle,
   math_t l2_alpha = (1 - l1_ratio) * alpha * n_rows;
   math_t l1_alpha = l1_ratio * alpha * n_rows;
 
+  // Precompute the residual
   if (normalize) {
+    // if we normalized the data during preprocessing, no need to compute the norm again.
     math_t scalar = math_t(1.0) + l2_alpha;
     raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
   } else {
@@ -204,10 +214,14 @@ void cdFit(const raft::handle_t& handle,
       math_t* squared_loc   = squared.data() + ci;
       math_t* input_col_loc = input + (ci * n_rows);
 
+      // remember current coef
       raft::copy(&(convStateLoc->coef), coef_loc, 1, stream);
+      // calculate the residual without the contribution from column ci
+      // residual[:] += coef[ci] * X[:, ci]
       raft::linalg::axpy<math_t, true>(
         handle, n_rows, coef_loc, input_col_loc, 1, residual.data(), 1, stream);
 
+      // coef[ci] = dot(X[:, ci], residual[:])
       raft::linalg::gemv<math_t, true>(handle,
                                        false,
                                        1,
@@ -222,10 +236,14 @@ void cdFit(const raft::handle_t& handle,
                                        1,
                                        stream);
 
+      // Calculate the new coefficient that minimizes f along coordinate line ci
+      // coef[ci] = SoftTreshold(dot(X[:, ci], residual[:]), l1_alpha) /  dot(X[:, ci], X[:, ci]))
+      // Also, update the convergence criteria.
       cdUpdateCoefKernel<math_t><<<dim3(1, 1, 1), dim3(1, 1, 1), 0, stream>>>(
         coef_loc, squared_loc, convStateLoc, l1_alpha);
       RAFT_CUDA_TRY(cudaGetLastError());
 
+      // Restore the residual using the updated coeffecient
       raft::linalg::axpy<math_t, true>(
         handle, n_rows, &(convStateLoc->coef), input_col_loc, 1, residual.data(), 1, stream);
     }
