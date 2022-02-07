@@ -666,7 +666,6 @@ Tree #0
 ]}
 ])";
 
-    // printf("%s", get_rf_json(forest_ptr).c_str());
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
 }
 

@@ -112,13 +112,17 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
 
     data2.resize(len, stream);
     int redundant_cols = int(params.redundancy * params.n_col2);
-    int redundant_len = params.n_row2 * redundant_cols;
+    int redundant_len  = params.n_row2 * redundant_cols;
 
     int informative_cols = params.n_col2 - redundant_cols;
-    int informative_len = params.n_row2 * informative_cols;
+    int informative_len  = params.n_row2 * informative_cols;
 
     r.uniform(data2.data(), informative_len, T(-1.0), T(1.0), stream);
-    CUDA_CHECK(cudaMemcpyAsync(data2.data() + informative_len, data2.data(), redundant_len * sizeof(T), cudaMemcpyDeviceToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(data2.data() + informative_len,
+                               data2.data(),
+                               redundant_len * sizeof(T),
+                               cudaMemcpyDeviceToDevice,
+                               stream));
     rmm::device_uvector<T> data2_trans(prms.n_rows * prms.n_components, stream);
 
     int len_comp = params.n_col2 * prms.n_components;
@@ -150,17 +154,15 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   rmm::device_uvector<T> components, components_ref, data2, data2_back;
 };
 
-const std::vector<TsvdInputs<float>> inputsf2 = {
-  {0.01f, 4, 3, 1024, 128, 0.25f, 1234ULL, 0},
-  {0.01f, 4, 3, 1024, 128, 0.25f, 1234ULL, 1},
-  {0.04f, 4, 3, 512, 64, 0.25f, 1234ULL, 2},
-  {0.04f, 4, 3, 512, 64, 0.25f, 1234ULL, 2}};
+const std::vector<TsvdInputs<float>> inputsf2 = {{0.01f, 4, 3, 1024, 128, 0.25f, 1234ULL, 0},
+                                                 {0.01f, 4, 3, 1024, 128, 0.25f, 1234ULL, 1},
+                                                 {0.04f, 4, 3, 512, 64, 0.25f, 1234ULL, 2},
+                                                 {0.04f, 4, 3, 512, 64, 0.25f, 1234ULL, 2}};
 
-const std::vector<TsvdInputs<double>> inputsd2 = {
-  {0.01, 4, 3, 1024, 128, 0.25f, 1234ULL, 0},
-  {0.01, 4, 3, 1024, 128, 0.25f, 1234ULL, 1},
-  {0.05, 4, 3, 512, 64, 0.25f, 1234ULL, 2},
-  {0.05, 4, 3, 512, 64, 0.25f, 1234ULL, 2}};
+const std::vector<TsvdInputs<double>> inputsd2 = {{0.01, 4, 3, 1024, 128, 0.25f, 1234ULL, 0},
+                                                  {0.01, 4, 3, 1024, 128, 0.25f, 1234ULL, 1},
+                                                  {0.05, 4, 3, 512, 64, 0.25f, 1234ULL, 2},
+                                                  {0.05, 4, 3, 512, 64, 0.25f, 1234ULL, 2}};
 
 typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result)

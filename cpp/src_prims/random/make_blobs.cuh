@@ -152,7 +152,7 @@ void generate_data(DataT* out,
                    const DataT cluster_std_scalar,
                    raft::random::Rng& rng)
 {
-  IdxT items = n_rows * n_cols;
+  IdxT items   = n_rows * n_cols;
   IdxT nBlocks = (items + 127) / 128;
   generate_data_kernel<<<nBlocks, 128, 0, stream>>>(
     out, labels, n_rows, n_cols, n_clusters, row_major, centers, cluster_std, cluster_std_scalar);

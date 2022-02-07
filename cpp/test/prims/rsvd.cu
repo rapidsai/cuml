@@ -92,15 +92,19 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
       raft::update_device(right_eig_vectors_ref.data(), right_eig_vectors_ref_h, n * 1, stream);
       raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, 1, stream);
 
-    } else {  // Other normal tests
-      int n_informative = int(0.25f * n); // Informative cols
+    } else {                                 // Other normal tests
+      int n_informative   = int(0.25f * n);  // Informative cols
       int len_informative = m * n_informative;
 
-      int n_redundant = n - n_informative; // Redundant cols
+      int n_redundant   = n - n_informative;  // Redundant cols
       int len_redundant = m * n_redundant;
 
       r.normal(A.data(), len_informative, mu, sigma, stream);
-      CUDA_CHECK(cudaMemcpyAsync(A.data() + len_informative, A.data(), len_redundant * sizeof(T), cudaMemcpyDeviceToDevice, stream));
+      CUDA_CHECK(cudaMemcpyAsync(A.data() + len_informative,
+                                 A.data(),
+                                 len_redundant * sizeof(T),
+                                 cudaMemcpyDeviceToDevice,
+                                 stream));
     }
     std::vector<T> A_backup_cpu(m *
                                 n);  // Backup A matrix as svdJacobi will destroy the content of A
@@ -174,7 +178,7 @@ const std::vector<RsvdInputs<float>> inputs_fx = {
   {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Square + non-BBT
   {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL}  // Tall + non-BBT
 
-  ,                                                         // Test with fixed ranks
+  ,                                                                // Test with fixed ranks
   {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},     // Square + BBT
   {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},    // Tall + BBT
   {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},    // Square + non-BBT
@@ -196,7 +200,7 @@ const std::vector<RsvdInputs<double>> inputs_dx = {
   {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},  // Square + non-BBT
   {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL}  // Tall + non-BBT
 
-  ,                                                      // Test with fixed ranks
+  ,                                                             // Test with fixed ranks
   {0.10, 256, 256, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},     // Square + BBT
   {0.12, 2048, 256, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},    // Tall + BBT
   {0.10, 256, 256, 0.25f, 0.0, 0.0, 100, 5, false, 4321ULL},    // Square + non-BBT
