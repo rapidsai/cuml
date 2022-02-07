@@ -89,7 +89,7 @@ struct qn_params {
    * Whether to divide the L1 and L2 regularization parameters by the sample size.
    *
    * Note, the defined QN loss functions normally are scaled for the sample size,
-   * e.g. the average across the data rows is calculated wherever the shall may be used.
+   * e.g. the average across the data rows is calculated.
    * Enabling `penalty_normalized` makes this solver's behavior compatible to those solvers,
    * which do not scale the loss functions (like sklearn.LogisticRegression()).
    */
