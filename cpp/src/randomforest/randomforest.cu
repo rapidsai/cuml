@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include "randomforest.cuh"
-
-#include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/tree/flatnode.h>
 
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
@@ -33,6 +31,8 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
+#include "randomforest.cuh"
 
 namespace ML {
 
@@ -444,7 +444,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  ML::PUSH_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -453,7 +453,6 @@ void fit(const raft::handle_t& user_handle,
   std::shared_ptr<RandomForest<float, int>> rf_classifier =
     std::make_shared<RandomForest<float, int>>(rf_params, RF_type::CLASSIFICATION);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
-  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -466,7 +465,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  ML::PUSH_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -475,7 +474,6 @@ void fit(const raft::handle_t& user_handle,
   std::shared_ptr<RandomForest<double, int>> rf_classifier =
     std::make_shared<RandomForest<double, int>>(rf_params, RF_type::CLASSIFICATION);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels, forest);
-  ML::POP_RANGE();
 }
 /** @} */
 
@@ -575,7 +573,7 @@ void validity_check(const RF_params rf_params)
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
-                        int n_bins,
+                        int max_n_bins,
                         int min_samples_leaf,
                         int min_samples_split,
                         float min_impurity_decrease,
@@ -592,7 +590,7 @@ RF_params set_rf_params(int max_depth,
                       max_depth,
                       max_leaves,
                       max_features,
-                      n_bins,
+                      max_n_bins,
                       min_samples_leaf,
                       min_samples_split,
                       min_impurity_decrease,
@@ -636,7 +634,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  ML::PUSH_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -645,7 +643,6 @@ void fit(const raft::handle_t& user_handle,
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
     std::make_shared<RandomForest<float, float>>(rf_params, RF_type::REGRESSION);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
-  ML::POP_RANGE();
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -657,7 +654,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          int verbosity)
 {
-  ML::PUSH_RANGE("RF::fit @randomforest.cu");
+  raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
@@ -666,7 +663,6 @@ void fit(const raft::handle_t& user_handle,
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
     std::make_shared<RandomForest<double, double>>(rf_params, RF_type::REGRESSION);
   rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
-  ML::POP_RANGE();
 }
 /** @} */
 

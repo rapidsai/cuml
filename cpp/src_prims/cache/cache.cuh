@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include "cache_util.cuh"
+#include <cub/cub.cuh>
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -148,8 +148,9 @@ class Cache {
       cache.resize(n_cache_vecs * n_vec, stream);
       cached_keys.resize(n_cache_vecs, stream);
       cache_time.resize(n_cache_vecs, stream);
-      CUDA_CHECK(cudaMemsetAsync(cached_keys.data(), 0, cached_keys.size() * sizeof(int), stream));
-      CUDA_CHECK(cudaMemsetAsync(cache_time.data(), 0, cache_time.size() * sizeof(int), stream));
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(cached_keys.data(), 0, cached_keys.size() * sizeof(int), stream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(cache_time.data(), 0, cache_time.size() * sizeof(int), stream));
     } else {
       if (cache_size > 0) {
         CUML_LOG_WARN(
@@ -189,7 +190,7 @@ class Cache {
   {
     if (n > 0) {
       get_vecs<<<raft::ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(cache.data(), n_vec, idx, n, out);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
 
@@ -225,7 +226,7 @@ class Cache {
     if (n > 0) {
       store_vecs<<<raft::ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
         tile, n_tile, n_vec, tile_idx, n, cache_idx, cache.data(), cache.size() / n_vec);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
   }
 
@@ -264,7 +265,7 @@ class Cache {
                                                              cache_idx,
                                                              is_cached,
                                                              n_iter);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   /** @brief Map a set of keys to cache indices.
@@ -312,7 +313,7 @@ class Cache {
                                   n,
                                   stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
   /**
@@ -344,14 +345,14 @@ class Cache {
     raft::copy(keys, idx_tmp.data(), n, stream);
 
     // set it to -1
-    CUDA_CHECK(cudaMemsetAsync(cidx, 255, n * sizeof(int), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(cidx, 255, n * sizeof(int), stream));
     const int nthreads = associativity <= 32 ? associativity : 32;
 
     assign_cache_idx<nthreads, associativity><<<n_cache_sets, nthreads, 0, stream>>>(
       keys, n, ws_tmp.data(), cached_keys.data(), n_cache_sets, cache_time.data(), n_iter, cidx);
 
-    CUDA_CHECK(cudaPeekAtLastError());
-    if (debug_mode) CUDA_CHECK(cudaDeviceSynchronize());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    if (debug_mode) RAFT_CUDA_TRY(cudaDeviceSynchronize());
   }
 
   /** Return approximate cache size in MiB. */

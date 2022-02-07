@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include <cuda_runtime.h>
 
+#include <cub/device/device_scan.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/functional.h>
@@ -25,10 +26,9 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 #include <thrust/transform.h>
-#include <cub/device/device_scan.cuh>
 
-#include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -105,7 +105,7 @@ inline int divide_by_mask_build_index(const bool* d_mask,
   // Compute and return the number of true elements in the mask
   int true_elements;
   raft::update_host(&true_elements, index1.data() + batch_size - 1, 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   return true_elements;
 }
 
@@ -168,7 +168,7 @@ inline void divide_by_mask_execute(const DataT* d_in,
     int TPB = std::min(64, n_obs);
     divide_by_mask_kernel<<<batch_size, TPB, 0, stream>>>(
       d_in, d_mask, d_index, d_out0, d_out1, n_obs);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -212,7 +212,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
   // minimum of each row, else 0)
   rmm::device_uvector<int> cumul(batch_size * n_sub, stream);
   int* d_cumul = cumul.data();
-  CUDA_CHECK(cudaMemsetAsync(d_cumul, 0, batch_size * n_sub * sizeof(int), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_cumul, 0, batch_size * n_sub * sizeof(int), stream));
   thrust::for_each(
     thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
       int min_id      = 0;
@@ -246,7 +246,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
     d_size[j] = d_cumul[(j + 1) * batch_size - 1];
   });
   raft::update_host(h_size, d_size, n_sub, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
 
 /**
@@ -307,7 +307,7 @@ inline void divide_by_min_execute(const DataT* d_in,
   } else {
     int TPB = std::min(64, n_obs);
     divide_by_min_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_batch, d_index, d_out, n_obs);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
@@ -373,7 +373,7 @@ inline void build_division_map(const int* const* hd_id,
   int avg_size = batch_size / n_sub;
   int TPB      = avg_size > 256 ? 256 : (avg_size > 128 ? 128 : (avg_size > 64 ? 64 : 32));
   build_division_map_kernel<<<n_sub, TPB, 0, stream>>>(d_id, d_size, d_id_to_pos, d_id_to_model);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -433,7 +433,7 @@ inline void merge_series(const DataT* const* hd_in,
 
   int TPB = std::min(64, n_obs);
   merge_series_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_id_to_pos, d_id_to_sub, d_out, n_obs);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace TimeSeries

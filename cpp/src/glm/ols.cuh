@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 
 #pragma once
 
-#include <raft/linalg/gemv.h>
 #include <linalg/lstsq.cuh>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/gemv.h>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
-#include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
+#include <raft/stats/stddev.hpp>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
+
 #include "preprocess.cuh"
 
 namespace ML {
@@ -43,7 +44,7 @@ using namespace MLCommon;
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
  * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param stream        cuda stream
@@ -94,7 +95,7 @@ void olsFit(const raft::handle_t& handle,
   int selectedAlgo = algo;
   if (n_cols > n_rows || n_cols == 1) selectedAlgo = 0;
 
-  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::ols-lstsq*", stream);
+  raft::common::nvtx::push_range("ML::GLM::olsFit/algo-%d", selectedAlgo);
   switch (selectedAlgo) {
     case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
     case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
@@ -104,7 +105,7 @@ void olsFit(const raft::handle_t& handle,
       ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
       break;
   }
-  ML::POP_RANGE(stream);
+  raft::common::nvtx::pop_range();
 
   if (fit_intercept) {
     postProcessData(handle,

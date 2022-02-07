@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-21.10/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.12.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.04.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -57,12 +57,13 @@ option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
-option(DISABLE_FORCE_CLONE_RAFT "By default, CPM will clone RAFT even if it's already in the environment. Set to disable that behavior." OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
+option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 
 message(VERBOSE "CUML: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -182,15 +183,9 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-include(cmake/thirdparty/get_thrust.cmake)
-include(cmake/thirdparty/get_rmm.cmake)
-
-if(LINK_FAISS)
-  include(cmake/thirdparty/get_faiss.cmake)
-endif()
-
-include(cmake/thirdparty/get_treelite.cmake)
 include(cmake/thirdparty/get_raft.cmake)
+include(cmake/thirdparty/get_treelite.cmake)
+include(cmake/thirdparty/get_gputreeshap.cmake)
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
@@ -205,7 +200,7 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_CUML_BENCH)
+if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   include(cmake/thirdparty/get_gbench.cmake)
 endif()
 
@@ -290,6 +285,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR hdbscan_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
+        src/genetic/program.cu
+        src/genetic/node.cu
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu)
   endif()
@@ -448,7 +445,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
-      $<$<BOOL:${NVTX}>:NVTX_ENABLED>
       DISABLE_CUSPARSE_DEPRECATED
     PRIVATE
       CUML_CPP_API
@@ -475,20 +471,13 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      rmm::rmm
-      cuml::Thrust
       raft::raft
+      raft::nn
+      raft::distance
     PRIVATE
-      CUDA::cublas
       CUDA::cufft
-      CUDA::curand
-      CUDA::cusolver
-      CUDA::cudart
-      CUDA::cusparse
-      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-      $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+      ${TREELITE_LIBS}
+      GPUTreeShap::GPUTreeShap
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
@@ -533,8 +522,6 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
-    PRIVATE
-      FAISS::FAISS
   )
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
@@ -593,14 +580,34 @@ functions that share compatible APIs with other RAPIDS projects.
 
 ]=])
 
-set(code_string
+set(code_string )
+
+if (TARGET treelite::treelite)
+    string(APPEND code_string
 [=[
-thrust_create_target(cuml::Thrust FROM_OPTIONS)
+if (TARGET treelite::treelite AND (NOT TARGET treelite))
+    add_library(treelite ALIAS treelite::treelite)
+endif()
+if (TARGET treelite::treelite_runtime AND (NOT TARGET treelite_runtime))
+    add_library(treelite_runtime ALIAS treelite::treelite_runtime)
+endif()
+]=])
+else()
+    string(APPEND code_string
+[=[
+if (TARGET treelite::treelite_static AND (NOT TARGET treelite_static))
+    add_library(treelite_static ALIAS treelite::treelite_static)
+endif()
+if (TARGET treelite::treelite_runtime_static AND (NOT TARGET treelite_runtime_static))
+    add_library(treelite_runtime_static ALIAS treelite::treelite_runtime_static)
+endif()
 ]=])
 
- rapids_export(INSTALL cuml
+endif()
+
+rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
-    GLOBAL_TARGETS cuml
+    GLOBAL_TARGETS ${CUML_C_TARGET} ${CUML_CPP_TARGET}
     NAMESPACE cuml::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -611,7 +618,7 @@ thrust_create_target(cuml::Thrust FROM_OPTIONS)
 
 rapids_export(BUILD cuml
     EXPORT_SET cuml-exports
-    GLOBAL_TARGETS cuml
+    GLOBAL_TARGETS ${CUML_C_TARGET} ${CUML_CPP_TARGET}
     NAMESPACE cuml::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string

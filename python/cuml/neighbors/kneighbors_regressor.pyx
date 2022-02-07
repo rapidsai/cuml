@@ -205,7 +205,8 @@ class KNeighborsRegressor(NearestNeighbors,
         res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
-                                  order="C")
+                                  order="C",
+                                  index=knn_indices.index)
 
         cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr

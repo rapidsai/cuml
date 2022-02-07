@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 #include <vector>
 
-#include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/mr/device/allocator.hpp>
+#include <thrust/fill.h>
 
 namespace ML {
 
@@ -100,7 +100,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     T inertia  = 0;
     int n_iter = 0;
@@ -116,7 +116,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         inertia,
                         n_iter);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 

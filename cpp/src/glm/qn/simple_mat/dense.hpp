@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,17 @@
 #include <iostream>
 #include <vector>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
+#include "base.hpp"
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
-#include "base.hpp"
 
 namespace ML {
 
@@ -222,7 +222,7 @@ struct SimpleDenseMat : SimpleMat<T> {
     ASSERT((ord == other.ord) && (this->m == other.m) && (this->n == other.n),
            "SimpleDenseMat::copy: matrices not compatible");
 
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemcpyAsync(data, other.data, len * sizeof(T), cudaMemcpyDeviceToDevice, stream));
   }
 
@@ -331,7 +331,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleVec<T>& v)
 {
   std::vector<T> out(v.len);
   raft::update_host(&out[0], v.data, v.len, 0);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
   int it = 0;
   for (; it < v.len - 1;) {
     os << out[it] << " ";
@@ -347,7 +347,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleDenseMat<T>& mat)
   os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
   std::vector<T> out(mat.len);
   raft::update_host(&out[0], mat.data, mat.len, rmm::cuda_stream_default);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
       int idx = r;

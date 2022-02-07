@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/sparse/op/sort.h>
 #include <raft/label/classlabels.cuh>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -119,7 +119,7 @@ void do_labelling_on_host(const raft::handle_t& handle,
   raft::update_host(
     lambda_h.data(), condensed_tree.get_lambdas(), condensed_tree.get_n_edges(), stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   auto parents       = thrust::device_pointer_cast(condensed_tree.get_parents());
   auto thrust_policy = handle.get_thrust_policy();
@@ -230,7 +230,7 @@ value_idx extract_clusters(const raft::handle_t& handle,
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(), stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   std::set<value_idx> clusters;
   for (std::size_t i = 0; i < is_cluster_h.size(); i++) {

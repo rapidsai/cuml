@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,24 @@
 
 #include "cumlHandle.hpp"
 
+#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <cuml/common/logger.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
+#include <raft/sparse/cusparse_wrappers.h>
 
 namespace ML {
 
 HandleMap handleMap;
 
-std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle()
+std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle(cudaStream_t stream)
 {
   cumlError_t status = CUML_SUCCESS;
   cumlHandle_t chosen_handle;
   try {
-    auto handle_ptr = new raft::handle_t();
+    auto handle_ptr = new raft::handle_t{stream};
     bool inserted;
     {
       std::lock_guard<std::mutex> guard(_mapMutex);

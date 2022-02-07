@@ -89,6 +89,11 @@ struct node {
   };  // enum type
 
   /**
+   * @brief Default constructor for node
+   */
+  explicit node();
+
+  /**
    * @brief Construct a function node
    *
    * @param[in] ft function type

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
  */
 
 #pragma once
+#include "curand_wrappers.h"
+#include <cmath>
+#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
-#include <stdio.h>
-#include <cmath>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include "curand_wrappers.h"
+#include <stdio.h>
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)
@@ -163,16 +163,16 @@ class MultiVarGaussian {
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28));  // SEED
     if (method == chol_decomp) {
-      CUSOLVER_CHECK(
+      RAFT_CUSOLVER_TRY(
         raft::linalg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo, dim, P, dim, &Lwork));
     } else if (method == jacobi) {  // jacobi init
-      CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
-      CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
-      CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps));
-      CUSOLVER_CHECK(raft::linalg::cusolverDnsyevj_bufferSize(
+      RAFT_CUSOLVER_TRY(cusolverDnCreateSyevjInfo(&syevj_params));
+      RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetTolerance(syevj_params, tol));
+      RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps));
+      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnsyevj_bufferSize(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork, syevj_params));
     } else {  // method == qr
-      CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd_bufferSize(
+      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnsyevd_bufferSize(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork));
     }
     return give_buffer_size();
@@ -189,10 +189,10 @@ class MultiVarGaussian {
   {
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
-      CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(
+      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf(
         cusolverHandle, uplo, dim, P, dim, workspace_decomp, Lwork, info, cudaStream));
     } else if (method == jacobi) {
-      CUSOLVER_CHECK(
+      RAFT_CUSOLVER_TRY(
         raft::linalg::cusolverDnsyevj(cusolverHandle,
                                       jobz,
                                       uplo,
@@ -206,11 +206,11 @@ class MultiVarGaussian {
                                       syevj_params,
                                       cudaStream));  // vectors stored as cols. & col major
     } else {                                         // qr
-      CUSOLVER_CHECK(raft::linalg::cusolverDnsyevd(
+      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnsyevd(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork, info, cudaStream));
     }
     raft::update_host(&info_h, info, 1, cudaStream);
-    CUDA_CHECK(cudaStreamSynchronize(cudaStream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(cudaStream));
     ASSERT(info_h == 0, "mvg: error in syevj/syevd/potrf, info=%d | expected=0", info_h);
     T mean = 0.0, stddv = 1.0;
     // generate nxN gaussian nums in X
@@ -221,54 +221,54 @@ class MultiVarGaussian {
       dim3 block(32, 32);
       dim3 grid(raft::ceildiv(dim, (int)block.x), raft::ceildiv(dim, (int)block.y));
       fill_uplo<T><<<grid, block, 0, cudaStream>>>(dim, UPPER, (T)0.0, P);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       // P is lower triangular chol decomp mtrx
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublasHandle,
-                                            CUBLAS_OP_N,
-                                            CUBLAS_OP_N,
-                                            dim,
-                                            nPoints,
-                                            dim,
-                                            &alfa,
-                                            P,
-                                            dim,
-                                            X,
-                                            dim,
-                                            &beta,
-                                            X,
-                                            dim,
-                                            cudaStream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublasHandle,
+                                               CUBLAS_OP_N,
+                                               CUBLAS_OP_N,
+                                               dim,
+                                               nPoints,
+                                               dim,
+                                               &alfa,
+                                               P,
+                                               dim,
+                                               X,
+                                               dim,
+                                               &beta,
+                                               X,
+                                               dim,
+                                               cudaStream));
     } else {
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
       dim3 grid(raft::ceildiv(dim, (int)block.x));
-      CUDA_CHECK(cudaMemsetAsync(info, 0, sizeof(int), cudaStream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(info, 0, sizeof(int), cudaStream));
       grid.x = raft::ceildiv(dim * dim, (int)block.x);
       combined_dot_product<T><<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative
       raft::update_host(&info_h, info, 1, cudaStream);
-      CUDA_CHECK(cudaStreamSynchronize(cudaStream));
+      RAFT_CUDA_TRY(cudaStreamSynchronize(cudaStream));
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublasHandle,
-                                            CUBLAS_OP_N,
-                                            CUBLAS_OP_N,
-                                            dim,
-                                            nPoints,
-                                            dim,
-                                            &alfa,
-                                            P,
-                                            dim,
-                                            X,
-                                            dim,
-                                            &beta,
-                                            X,
-                                            dim,
-                                            cudaStream));
+      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublasHandle,
+                                               CUBLAS_OP_N,
+                                               CUBLAS_OP_N,
+                                               dim,
+                                               nPoints,
+                                               dim,
+                                               &alfa,
+                                               P,
+                                               dim,
+                                               X,
+                                               dim,
+                                               &beta,
+                                               X,
+                                               dim,
+                                               cudaStream));
     }
     // working to make mean not 0
     // since we are working with column-major, nPoints and dim are swapped
@@ -279,7 +279,7 @@ class MultiVarGaussian {
   {
     if (deinitilized) return;
     CURAND_CHECK(curandDestroyGenerator(gen));
-    CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
+    RAFT_CUSOLVER_TRY(cusolverDnDestroySyevjInfo(syevj_params));
     deinitilized = true;
   }
 

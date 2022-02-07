@@ -14,13 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_rmm)
-
-    include(${rapids-cmake-dir}/cpm/rmm.cmake)
-    rapids_cpm_rmm(
-        BUILD_EXPORT_SET    cuml-exports
-        INSTALL_EXPORT_SET  cuml-exports
-    )
-
-endfunction()
-find_and_configure_rmm()
+add_executable(symreg_example symreg_example.cpp)
+target_include_directories(symreg_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+target_link_libraries(symreg_example cuml++)

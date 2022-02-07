@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@
 #pragma once
 
 #include <math.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <rmm/device_scalar.hpp>
 
@@ -65,7 +65,7 @@ template <typename DataT>
 DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
 {
   rmm::device_scalar<DataT> d_KLDVal(stream);
-  CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 
   raft::linalg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
     d_KLDVal.data(), (size_t)size, KLDOp<DataT>(), stream, modelPDF, candidatePDF);
@@ -74,7 +74,7 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
 
   raft::update_host(&h_KLDVal, d_KLDVal.data(), 1, stream);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   return h_KLDVal;
 }

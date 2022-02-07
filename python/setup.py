@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -220,6 +220,14 @@ class cuml_build_ext(cython_build_ext, object):
                     pass
         # Full optimization
         self.compiler.compiler_so.append("-O3")
+
+        # Ignore deprecation declaraction warnings
+        self.compiler.compiler_so.append("-Wno-deprecated-declarations")
+
+        # adding flags to always add symbols/link of libcuml++ and transitive
+        # dependencies to Cython extensions
+        self.compiler.linker_so.append("-Wl,--no-as-needed")
+
         # No debug symbols, full optimization, no '-Wstrict-prototypes' warning
         remove_flags(
             self.compiler, "-g", "-G", "-O1", "-O2", "-Wstrict-prototypes"
@@ -273,8 +281,8 @@ setup(name='cuml',
       classifiers=[
           "Intended Audience :: Developers",
           "Programming Language :: Python",
-          "Programming Language :: Python :: 3.7",
-          "Programming Language :: Python :: 3.8"
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],

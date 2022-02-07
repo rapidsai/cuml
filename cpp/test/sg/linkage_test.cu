@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>
@@ -26,7 +26,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>
 
@@ -80,7 +80,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
     raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, handle.get_stream());
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
     out_arrs.labels = labels.data();
@@ -107,7 +107,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                   params.n_clusters);
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }

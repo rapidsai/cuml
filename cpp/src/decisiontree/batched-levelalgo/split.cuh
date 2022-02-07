@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
            ptr->nLeft);
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
-  CUDA_CHECK(cudaDeviceSynchronize());
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 
 }  // namespace DT

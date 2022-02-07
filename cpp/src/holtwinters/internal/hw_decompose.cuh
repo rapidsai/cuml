@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,12 @@
  */
 
 #pragma once
+
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
 #include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
@@ -177,58 +180,58 @@ void batched_ls(const raft::handle_t& handle,
   }
   raft::update_device(A_d.data(), A_h.data(), 2 * trend_len, stream);
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize<Dtype>(
+  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngeqrf_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, A_d.data(), 2, &geqrf_buffer));
 
-  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr_bufferSize<Dtype>(
+  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnorgqr_bufferSize<Dtype>(
     cusolver_h, trend_len, 2, 2, A_d.data(), 2, tau_d.data(), &orgqr_buffer));
 
   lwork_size = geqrf_buffer > orgqr_buffer ? geqrf_buffer : orgqr_buffer;
   rmm::device_uvector<Dtype> lwork_d(lwork_size, stream);
 
   // QR decomposition of A
-  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf<Dtype>(cusolver_h,
-                                                      trend_len,
-                                                      2,
-                                                      A_d.data(),
-                                                      trend_len,
-                                                      tau_d.data(),
-                                                      lwork_d.data(),
-                                                      lwork_size,
-                                                      dev_info_d.data(),
-                                                      stream));
+  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngeqrf<Dtype>(cusolver_h,
+                                                         trend_len,
+                                                         2,
+                                                         A_d.data(),
+                                                         trend_len,
+                                                         tau_d.data(),
+                                                         lwork_d.data(),
+                                                         lwork_size,
+                                                         dev_info_d.data(),
+                                                         stream));
 
   // Single thread kenrel to inverse R
   RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d.data(), Rinv_d.data(), trend_len);
 
   // R1QT = inv(R)*transpose(Q)
-  CUSOLVER_CHECK(raft::linalg::cusolverDnorgqr<Dtype>(cusolver_h,
-                                                      trend_len,
-                                                      2,
-                                                      2,
-                                                      A_d.data(),
-                                                      trend_len,
-                                                      tau_d.data(),
-                                                      lwork_d.data(),
-                                                      lwork_size,
-                                                      dev_info_d.data(),
-                                                      stream));
+  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnorgqr<Dtype>(cusolver_h,
+                                                         trend_len,
+                                                         2,
+                                                         2,
+                                                         A_d.data(),
+                                                         trend_len,
+                                                         tau_d.data(),
+                                                         lwork_d.data(),
+                                                         lwork_size,
+                                                         dev_info_d.data(),
+                                                         stream));
 
-  CUBLAS_CHECK(raft::linalg::cublasgemm<Dtype>(cublas_h,
-                                               CUBLAS_OP_N,
-                                               CUBLAS_OP_T,
-                                               2,
-                                               trend_len,
-                                               2,
-                                               &one,
-                                               Rinv_d.data(),
-                                               2,
-                                               A_d.data(),
-                                               trend_len,
-                                               &zero,
-                                               R1Qt_d.data(),
-                                               2,
-                                               stream));
+  RAFT_CUBLAS_TRY(raft::linalg::cublasgemm<Dtype>(cublas_h,
+                                                  CUBLAS_OP_N,
+                                                  CUBLAS_OP_T,
+                                                  2,
+                                                  trend_len,
+                                                  2,
+                                                  &one,
+                                                  Rinv_d.data(),
+                                                  2,
+                                                  A_d.data(),
+                                                  trend_len,
+                                                  &zero,
+                                                  R1Qt_d.data(),
+                                                  2,
+                                                  stream));
 
   batched_ls_solver_kernel<Dtype>
     <<<GET_NUM_BLOCKS(batch_size), GET_THREADS_PER_BLOCK(batch_size), 0, stream>>>(
@@ -274,20 +277,20 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
   if (seasonal == ML::SeasonalType::ADDITIVE) {
     const Dtype one       = 1.;
     const Dtype minus_one = -1.;
-    CUBLAS_CHECK(raft::linalg::cublasgeam<Dtype>(cublas_h,
-                                                 CUBLAS_OP_N,
-                                                 CUBLAS_OP_N,
-                                                 trend_len,
-                                                 batch_size,
-                                                 &one,
-                                                 ts + ts_offset,
-                                                 trend_len,
-                                                 &minus_one,
-                                                 trend_d.data(),
-                                                 trend_len,
-                                                 season_d.data(),
-                                                 trend_len,
-                                                 stream));
+    RAFT_CUBLAS_TRY(raft::linalg::cublasgeam<Dtype>(cublas_h,
+                                                    CUBLAS_OP_N,
+                                                    CUBLAS_OP_N,
+                                                    trend_len,
+                                                    batch_size,
+                                                    &one,
+                                                    ts + ts_offset,
+                                                    trend_len,
+                                                    &minus_one,
+                                                    trend_d.data(),
+                                                    trend_len,
+                                                    season_d.data(),
+                                                    trend_len,
+                                                    stream));
   } else {
     rmm::device_uvector<Dtype> aligned_ts(batch_size * trend_len, stream);
     raft::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len, stream);
