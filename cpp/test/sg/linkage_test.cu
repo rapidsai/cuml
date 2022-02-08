@@ -24,8 +24,8 @@
 #include <hierarchy/pw_dist_graph.cuh>
 #include <raft/mr/device/allocator.hpp>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>

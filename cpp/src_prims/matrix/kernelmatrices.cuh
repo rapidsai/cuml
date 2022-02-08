@@ -19,7 +19,7 @@
 #include "grammatrix.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemm.hpp>
 
 namespace MLCommon {
 namespace Matrix {
