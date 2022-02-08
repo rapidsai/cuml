@@ -22,8 +22,7 @@
 #include <cuml/svm/svc.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 
 namespace ML {
 namespace SVM {

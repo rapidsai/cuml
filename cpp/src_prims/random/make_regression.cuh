@@ -26,10 +26,11 @@
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/qr.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/add.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/qr.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
@@ -90,36 +91,38 @@ static void _make_low_rank_matrix(const raft::handle_t& handle,
   rmm::device_uvector<DataT> temp_q0s(n_rows * n, stream);
   rmm::device_uvector<DataT> temp_out(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
-  raft::linalg::cublasgemm(cublas_handle,
-                           CUBLAS_OP_N,
-                           CUBLAS_OP_N,
-                           n_rows,
-                           n,
-                           n,
-                           &alpha,
-                           q0.data(),
-                           n_rows,
-                           singular_mat.data(),
-                           n,
-                           &beta,
-                           temp_q0s.data(),
-                           n_rows,
-                           stream);
-  raft::linalg::cublasgemm(cublas_handle,
-                           CUBLAS_OP_N,
-                           CUBLAS_OP_T,
-                           n_rows,
-                           n_cols,
-                           n,
-                           &alpha,
-                           temp_q0s.data(),
-                           n_rows,
-                           q1.data(),
-                           n_cols,
-                           &beta,
-                           temp_out.data(),
-                           n_rows,
-                           stream);
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                   CUBLAS_OP_N,
+                                                   CUBLAS_OP_N,
+                                                   n_rows,
+                                                   n,
+                                                   n,
+                                                   &alpha,
+                                                   q0.data(),
+                                                   n_rows,
+                                                   singular_mat.data(),
+                                                   n,
+                                                   &beta,
+                                                   temp_q0s.data(),
+                                                   n_rows,
+                                                   stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                   CUBLAS_OP_N,
+                                                   CUBLAS_OP_T,
+                                                   n_rows,
+                                                   n_cols,
+                                                   n,
+                                                   &alpha,
+                                                   temp_q0s.data(),
+                                                   n_rows,
+                                                   q1.data(),
+                                                   n_cols,
+                                                   &beta,
+                                                   temp_out.data(),
+                                                   n_rows,
+                                                   stream));
 
   // Transpose from column-major to row-major
   raft::linalg::transpose(handle, temp_out.data(), out, n_rows, n_cols, stream);
@@ -254,21 +257,22 @@ void make_regression(const raft::handle_t& handle,
 
   // Compute the output values
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
-                                           CUBLAS_OP_T,
-                                           CUBLAS_OP_T,
-                                           n_rows,
-                                           n_targets,
-                                           n_informative,
-                                           &alpha,
-                                           out,
-                                           n_cols,
-                                           _coef,
-                                           n_targets,
-                                           &beta,
-                                           _values_col,
-                                           n_rows,
-                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                   CUBLAS_OP_T,
+                                                   CUBLAS_OP_T,
+                                                   n_rows,
+                                                   n_targets,
+                                                   n_informative,
+                                                   &alpha,
+                                                   out,
+                                                   n_cols,
+                                                   _coef,
+                                                   n_targets,
+                                                   &beta,
+                                                   _values_col,
+                                                   n_rows,
+                                                   stream));
 
   // Transpose the values from column-major to row-major if needed
   if (n_targets > 1) {
