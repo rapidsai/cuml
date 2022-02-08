@@ -58,6 +58,9 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "libcumlprims=${MINOR_VERSION}" \
+      "libraft-headers=${MINOR_VERSION}" \
+      "libraft-distance=${MINOR_VERSION}" \
+      "libraft-nn=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \

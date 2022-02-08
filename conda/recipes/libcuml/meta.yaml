@@ -44,6 +44,9 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
+    - raft-headers {{ minor_version }}
+    - raft-distance {{ minor_version }}
+    - raft-nn {{ minor_version }}
     - lapack
     - treelite=2.2.1
     - faiss-proc=*=cuda
@@ -52,6 +55,9 @@ requirements:
     - libfaiss 1.7.0 *_cuda
   run:
     - libcumlprims {{ minor_version }}
+    - libraft-headers {{ minor_version }}
+    - libraft-distance {{ minor_version }}
+    - libraft-nn {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
