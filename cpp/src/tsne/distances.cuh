@@ -39,6 +39,14 @@ namespace TSNE {
 
 auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
 
+struct FunctionalSquare {
+  template <typename value_t>
+  __host__ __device__ float operator()(const value_t& x) const
+  {
+    return x * x;
+  }
+};
+
 /**
  * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
  * @param[in] input: dense/sparse manifold input
@@ -180,6 +188,23 @@ void symmetrize_perplexity(float* P,
   // Symmetrize to form P + P.T
   raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
     indices, P, n, k, COO_Matrix, stream);
+}
+
+template <typename value_t>
+value_t compute_grad_norm(const raft::handle_t& handle,
+                          value_t* old_forces_device,
+                          std::size_t n_pts)
+{
+  value_t grad_norm = thrust::transform_reduce(handle.get_thrust_policy(),
+                                               old_forces_device,
+                                               old_forces_device + n_pts,
+                                               FunctionalSquare(),
+                                               0.0,
+                                               thrust::plus<value_t>());
+
+  std::cout << "grad norm: " << std::sqrt(grad_norm) << std::endl;
+
+  return std::sqrt(grad_norm);
 }
 
 }  // namespace TSNE
