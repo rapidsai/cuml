@@ -21,7 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 #include <random>
 #include <test_utils.h>
 #include <vector>

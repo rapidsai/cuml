@@ -16,7 +16,7 @@
 
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/linalg/map.cuh>
+#include <raft/linalg/map.hpp>
 
 #include <cuml/common/logger.hpp>
 #include <datasets/boston.h>

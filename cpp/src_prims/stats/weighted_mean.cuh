@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/linalg/strided_reduction.cuh>
+#include <raft/linalg/coalesced_reduction.hpp>
+#include <raft/linalg/strided_reduction.hpp>
 
 namespace MLCommon {
 namespace Stats {

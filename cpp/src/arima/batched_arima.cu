@@ -35,7 +35,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/matrix_vector_op.hpp>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>

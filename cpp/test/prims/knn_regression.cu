@@ -20,8 +20,7 @@
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>

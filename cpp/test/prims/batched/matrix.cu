@@ -20,7 +20,7 @@
 #include <linalg/batched/matrix.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
+#include <raft/linalg/add.hpp>
 #include <raft/mr/device/allocator.hpp>
 
 #include <gtest/gtest.h>

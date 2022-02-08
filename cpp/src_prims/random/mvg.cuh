@@ -20,10 +20,12 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <stdio.h>
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)
@@ -164,16 +166,19 @@ class MultiVarGaussian {
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28));  // SEED
     if (method == chol_decomp) {
-      RAFT_CUSOLVER_TRY(
-        raft::linalg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo, dim, P, dim, &Lwork));
+      // #TODO: Call from public API when ready
+      RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf_bufferSize(
+        cusolverHandle, uplo, dim, P, dim, &Lwork));
     } else if (method == jacobi) {  // jacobi init
       RAFT_CUSOLVER_TRY(cusolverDnCreateSyevjInfo(&syevj_params));
       RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetTolerance(syevj_params, tol));
       RAFT_CUSOLVER_TRY(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps));
-      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnsyevj_bufferSize(
+      // #TODO: Call from public API when ready
+      RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnsyevj_bufferSize(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork, syevj_params));
     } else {  // method == qr
-      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnsyevd_bufferSize(
+      // #TODO: Call from public API when ready
+      RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnsyevd_bufferSize(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork));
     }
     return give_buffer_size();
@@ -190,24 +195,27 @@ class MultiVarGaussian {
   {
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
-      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf(
+      // #TODO: Call from public API when ready
+      RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(
         cusolverHandle, uplo, dim, P, dim, workspace_decomp, Lwork, info, cudaStream));
     } else if (method == jacobi) {
+      // #TODO: Call from public API when ready
       RAFT_CUSOLVER_TRY(
-        raft::linalg::cusolverDnsyevj(cusolverHandle,
-                                      jobz,
-                                      uplo,
-                                      dim,
-                                      P,
-                                      dim,
-                                      eig,
-                                      workspace_decomp,
-                                      Lwork,
-                                      info,
-                                      syevj_params,
-                                      cudaStream));  // vectors stored as cols. & col major
-    } else {                                         // qr
-      RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnsyevd(
+        raft::linalg::detail::cusolverDnsyevj(cusolverHandle,
+                                              jobz,
+                                              uplo,
+                                              dim,
+                                              P,
+                                              dim,
+                                              eig,
+                                              workspace_decomp,
+                                              Lwork,
+                                              info,
+                                              syevj_params,
+                                              cudaStream));  // vectors stored as cols. & col major
+    } else {
+      // #TODO: Call from public API when ready                                  // qr
+      RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnsyevd(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork, info, cudaStream));
     }
     raft::update_host(&info_h, info, 1, cudaStream);
@@ -225,21 +233,22 @@ class MultiVarGaussian {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       // P is lower triangular chol decomp mtrx
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublasHandle,
-                                               CUBLAS_OP_N,
-                                               CUBLAS_OP_N,
-                                               dim,
-                                               nPoints,
-                                               dim,
-                                               &alfa,
-                                               P,
-                                               dim,
-                                               X,
-                                               dim,
-                                               &beta,
-                                               X,
-                                               dim,
-                                               cudaStream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasHandle,
+                                                       CUBLAS_OP_N,
+                                                       CUBLAS_OP_N,
+                                                       dim,
+                                                       nPoints,
+                                                       dim,
+                                                       &alfa,
+                                                       P,
+                                                       dim,
+                                                       X,
+                                                       dim,
+                                                       &beta,
+                                                       X,
+                                                       dim,
+                                                       cudaStream));
     } else {
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
@@ -255,21 +264,22 @@ class MultiVarGaussian {
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublasHandle,
-                                               CUBLAS_OP_N,
-                                               CUBLAS_OP_N,
-                                               dim,
-                                               nPoints,
-                                               dim,
-                                               &alfa,
-                                               P,
-                                               dim,
-                                               X,
-                                               dim,
-                                               &beta,
-                                               X,
-                                               dim,
-                                               cudaStream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasHandle,
+                                                       CUBLAS_OP_N,
+                                                       CUBLAS_OP_N,
+                                                       dim,
+                                                       nPoints,
+                                                       dim,
+                                                       &alfa,
+                                                       P,
+                                                       dim,
+                                                       X,
+                                                       dim,
+                                                       &beta,
+                                                       X,
+                                                       dim,
+                                                       cudaStream));
     }
     // working to make mean not 0
     // since we are working with column-major, nPoints and dim are swapped

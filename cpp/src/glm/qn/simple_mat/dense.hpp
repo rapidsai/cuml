@@ -23,11 +23,12 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -89,21 +90,22 @@ struct SimpleDenseMat : SimpleMat<T> {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (A.ord == COL_MAJOR && B.ord == COL_MAJOR && C.ord == COL_MAJOR) {
-      raft::linalg::cublasgemm(handle.get_cublas_handle(),          // handle
-                               transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
-                               transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
-                               C.m,
-                               C.n,
-                               kA,  // dimensions m,n,k
-                               &alpha,
-                               A.data,
-                               A.m,  // lda
-                               B.data,
-                               B.m,  // ldb
-                               &beta,
-                               C.data,
-                               C.m,  // ldc,
-                               stream);
+      // #TODO: Call from public API when ready
+      raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),          // handle
+                                       transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
+                                       transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
+                                       C.m,
+                                       C.n,
+                                       kA,  // dimensions m,n,k
+                                       &alpha,
+                                       A.data,
+                                       A.m,  // lda
+                                       B.data,
+                                       B.m,  // ldb
+                                       &beta,
+                                       C.data,
+                                       C.m,  // ldc,
+                                       stream);
       return;
     }
     if (A.ord == ROW_MAJOR) {

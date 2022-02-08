@@ -19,7 +19,7 @@
 #include <float.h>
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 
 #define restrict __restrict__
 
