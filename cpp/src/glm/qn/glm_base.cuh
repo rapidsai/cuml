@@ -19,12 +19,10 @@
 #include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/map.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/stats/mean.hpp>
 #include <vector>
 

@@ -18,8 +18,8 @@
 
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/eltwise.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.hpp>
 #include <raft/sparse/selection/knn.hpp>

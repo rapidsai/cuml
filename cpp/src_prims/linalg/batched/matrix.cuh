@@ -22,9 +22,10 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
@@ -389,9 +390,11 @@ class Matrix {
   {
     int n = A.m_shape.first;
 
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgetrfBatched(
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgetrfBatched(
       A.m_cublasHandle, n, A.data(), n, d_P, d_info, A.m_batch_size, A.m_stream));
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgetriBatched(
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgetriBatched(
       A.m_cublasHandle, n, A.data(), n, d_P, Ainv.data(), n, d_info, A.m_batch_size, A.m_stream));
   }
 
@@ -579,25 +582,26 @@ void b_gemm(bool aT,
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
   // Call cuBLAS
-  RAFT_CUBLAS_TRY(raft::linalg::cublasgemmStridedBatched(A.cublasHandle(),
-                                                         opA,
-                                                         opB,
-                                                         m,
-                                                         n,
-                                                         k,
-                                                         &alpha,
-                                                         A.raw_data(),
-                                                         A.shape().first,
-                                                         A.shape().first * A.shape().second,
-                                                         B.raw_data(),
-                                                         B.shape().first,
-                                                         B.shape().first * B.shape().second,
-                                                         &beta,
-                                                         C.raw_data(),
-                                                         C.shape().first,
-                                                         C.shape().first * C.shape().second,
-                                                         A.batches(),
-                                                         A.stream()));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemmStridedBatched(A.cublasHandle(),
+                                                                 opA,
+                                                                 opB,
+                                                                 m,
+                                                                 n,
+                                                                 k,
+                                                                 &alpha,
+                                                                 A.raw_data(),
+                                                                 A.shape().first,
+                                                                 A.shape().first * A.shape().second,
+                                                                 B.raw_data(),
+                                                                 B.shape().first,
+                                                                 B.shape().first * B.shape().second,
+                                                                 &beta,
+                                                                 C.raw_data(),
+                                                                 C.shape().first,
+                                                                 C.shape().first * C.shape().second,
+                                                                 A.batches(),
+                                                                 A.stream()));
 }
 
 /**
@@ -658,19 +662,20 @@ void b_gels(const Matrix<T>& A, Matrix<T>& C, int* devInfoArray = nullptr)
   Matrix<T> Acopy(A);
 
   int info;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasgelsBatched(A.cublasHandle(),
-                                                  CUBLAS_OP_N,
-                                                  m,
-                                                  n,
-                                                  nrhs,
-                                                  Acopy.data(),
-                                                  m,
-                                                  C.data(),
-                                                  m,
-                                                  &info,
-                                                  devInfoArray,
-                                                  A.batches(),
-                                                  A.stream()));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgelsBatched(A.cublasHandle(),
+                                                          CUBLAS_OP_N,
+                                                          m,
+                                                          n,
+                                                          nrhs,
+                                                          Acopy.data(),
+                                                          m,
+                                                          C.data(),
+                                                          m,
+                                                          &info,
+                                                          devInfoArray,
+                                                          A.batches(),
+                                                          A.stream()));
 }
 
 /**
