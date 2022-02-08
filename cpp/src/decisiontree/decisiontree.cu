@@ -32,8 +32,8 @@ void validity_check(const DecisionTreeParams params)
   ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
          "max_features value %f outside permitted (0, 1] range",
          params.max_features);
-  ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
-  ASSERT((params.n_bins <= 1024), "n_bins should not be larger than 1024");
+  ASSERT((params.max_n_bins > 0), "Invalid max_n_bins %d", params.max_n_bins);
+  ASSERT((params.max_n_bins <= 1024), "max_n_bins should not be larger than 1024");
   ASSERT((params.split_criterion != 3), "MAE not supported.");
   ASSERT((params.min_samples_leaf >= 1),
          "Invalid value for min_samples_leaf %d. Should be >= 1.",
@@ -49,7 +49,7 @@ void validity_check(const DecisionTreeParams params)
  * @param[in] cfg_max_depth: maximum tree depth; default -1
  * @param[in] cfg_max_leaves: maximum leaves; default -1
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
- * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_max_n_bins: maximum number of bins; default 128
  * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
@@ -61,7 +61,7 @@ void set_tree_params(DecisionTreeParams& params,
                      int cfg_max_depth,
                      int cfg_max_leaves,
                      float cfg_max_features,
-                     int cfg_n_bins,
+                     int cfg_max_n_bins,
                      int cfg_min_samples_leaf,
                      int cfg_min_samples_split,
                      float cfg_min_impurity_decrease,
@@ -71,7 +71,7 @@ void set_tree_params(DecisionTreeParams& params,
   params.max_depth             = cfg_max_depth;
   params.max_leaves            = cfg_max_leaves;
   params.max_features          = cfg_max_features;
-  params.n_bins                = cfg_n_bins;
+  params.max_n_bins            = cfg_max_n_bins;
   params.min_samples_leaf      = cfg_min_samples_leaf;
   params.min_samples_split     = cfg_min_samples_split;
   params.split_criterion       = cfg_split_criterion;
