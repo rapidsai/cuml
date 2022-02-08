@@ -34,7 +34,7 @@
 #include <cstdlib>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/sparse/coo.hpp>
 #include <rmm/device_uvector.hpp>
 

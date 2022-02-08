@@ -31,8 +31,9 @@
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/label/classlabels.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/unary_op.cuh>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -176,19 +177,20 @@ void svcPredict(const raft::handle_t& handle,
                      n_batch);
     math_t one  = 1;
     math_t null = 0;
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(cublas_handle,
-                                             CUBLAS_OP_N,
-                                             n_batch,
-                                             model.n_support,
-                                             &one,
-                                             K.data(),
-                                             n_batch,
-                                             model.dual_coefs,
-                                             1,
-                                             &null,
-                                             y.data() + i,
-                                             1,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas_handle,
+                                                     CUBLAS_OP_N,
+                                                     n_batch,
+                                                     model.n_support,
+                                                     &one,
+                                                     K.data(),
+                                                     n_batch,
+                                                     model.dual_coefs,
+                                                     1,
+                                                     &null,
+                                                     y.data() + i,
+                                                     1,
+                                                     stream));
   }
   math_t* labels = model.unique_labels;
   math_t b       = model.b;

@@ -22,7 +22,8 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/sparse/cusparse_wrappers.h>
 
 #include <cstddef>
@@ -162,21 +163,22 @@ void RPROJtransform(const raft::handle_t& handle,
     auto& ldb = k;
     auto& ldc = m;
 
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
-                                             CUBLAS_OP_N,
-                                             CUBLAS_OP_N,
-                                             params->n_samples,
-                                             n,
-                                             k,
-                                             &alfa,
-                                             input,
-                                             lda,
-                                             random_matrix->dense_data.data(),
-                                             ldb,
-                                             &beta,
-                                             output,
-                                             ldc,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_N,
+                                                     params->n_samples,
+                                                     n,
+                                                     k,
+                                                     &alfa,
+                                                     input,
+                                                     lda,
+                                                     random_matrix->dense_data.data(),
+                                                     ldb,
+                                                     &beta,
+                                                     output,
+                                                     ldc,
+                                                     stream));
 
   } else if (random_matrix->type == sparse) {
     cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
