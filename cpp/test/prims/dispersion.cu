@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdio.h>
@@ -85,7 +86,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
       }
     }
     expectedVal = sqrt(expectedVal);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }

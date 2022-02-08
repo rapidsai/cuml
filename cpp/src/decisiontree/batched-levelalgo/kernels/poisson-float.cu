@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ using _LabelT     = float;
 using _IdxT       = int;
 using _ObjectiveT = PoissonObjectiveFunction<_DataT, _LabelT, _IdxT>;
 using _BinT       = AggregateBin;
-using _InputT     = Input<_DataT, _LabelT, _IdxT>;
+using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML

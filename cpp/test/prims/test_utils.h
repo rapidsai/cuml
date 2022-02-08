@@ -20,6 +20,7 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 
 namespace raft {
 
@@ -84,7 +85,7 @@ testing::AssertionResult devArrMatch(
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(exp_h.get(), expected, size, stream);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (size_t i(0); i < size; ++i) {
     auto exp = exp_h.get()[i];
     auto act = act_h.get()[i];
@@ -101,7 +102,7 @@ testing::AssertionResult devArrMatch(
 {
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (size_t i(0); i < size; ++i) {
     auto act = act_h.get()[i];
     if (!eq_compare(expected, act)) {
@@ -125,7 +126,7 @@ testing::AssertionResult devArrMatch(const T* expected,
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(exp_h.get(), expected, size, stream);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j;  // row major assumption!
@@ -147,7 +148,7 @@ testing::AssertionResult devArrMatch(
   size_t size = rows * cols;
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j;  // row major assumption!
@@ -178,7 +179,7 @@ testing::AssertionResult devArrMatchHost(
 {
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual_d, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   bool ok   = true;
   auto fail = testing::AssertionFailure();
   for (size_t i(0); i < size; ++i) {
@@ -210,7 +211,7 @@ testing::AssertionResult diagonalMatch(
   size_t size = rows * cols;
   std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       if (i != j) continue;

@@ -30,8 +30,8 @@
 
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.hpp>
@@ -105,7 +105,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
             hdbscan_params,
             out);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
 
     score = MLCommon::Metrics::compute_adjusted_rand_index(
       out.get_labels(), labels_ref.data(), params.n_row, handle.get_stream());
@@ -184,7 +184,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
                                                          params.n_row,
                                                          condensed_tree);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
 
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
     rmm::device_uvector<T> stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
@@ -294,7 +294,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    0,
                                                    params.cluster_selection_epsilon);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
 
     ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
                                   params.probabilities.data(),
@@ -306,7 +306,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
     raft::update_device(labels_ref.data(), params.labels.data(), params.n_row, handle.get_stream());
     score = MLCommon::Metrics::compute_adjusted_rand_index(
       labels.data(), labels_ref.data(), params.n_row, handle.get_stream());
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }

@@ -162,7 +162,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
         break;
     }
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override

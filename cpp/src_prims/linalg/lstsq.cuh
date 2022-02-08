@@ -20,15 +20,17 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/linalg/eig.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/qr.cuh>
-#include <raft/linalg/svd.cuh>
-#include <raft/linalg/transpose.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
+#include <raft/linalg/eig.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/qr.hpp>
+#include <raft/linalg/svd.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/random/rng.hpp>
@@ -69,7 +71,7 @@ struct DeviceEvent {
   }
   void wait()
   {
-    if (e != nullptr) RAFT_CUDA_TRY(cudaEventSynchronize(e));
+    if (e != nullptr) raft::interruptible::synchronize(e);
   }
   DeviceEvent& operator=(const DeviceEvent& other) = delete;
 };
@@ -128,7 +130,8 @@ void lstsqSvdQR(const raft::handle_t& handle,
   const int minmn              = min(n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   int cusolverWorkSetSize      = 0;
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngesvd_bufferSize<math_t>(
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngesvd_bufferSize<math_t>(
     cusolverH, n_rows, n_cols, &cusolverWorkSetSize));
 
   rmm::device_uvector<math_t> workset(cusolverWorkSetSize  // cuSolver
@@ -146,23 +149,24 @@ void lstsqSvdQR(const raft::handle_t& handle,
   math_t* Ub              = S + minmn;
   int* devInfo            = reinterpret_cast<int*>(Ub + minmn);
 
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngesvd<math_t>(cusolverH,
-                                                          'S',
-                                                          'S',
-                                                          n_rows,
-                                                          n_cols,
-                                                          A,
-                                                          n_rows,
-                                                          S,
-                                                          U,
-                                                          n_rows,
-                                                          Vt,
-                                                          n_cols,
-                                                          cusolverWorkSet,
-                                                          cusolverWorkSetSize,
-                                                          nullptr,
-                                                          devInfo,
-                                                          stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngesvd<math_t>(cusolverH,
+                                                                  'S',
+                                                                  'S',
+                                                                  n_rows,
+                                                                  n_cols,
+                                                                  A,
+                                                                  n_rows,
+                                                                  S,
+                                                                  U,
+                                                                  n_rows,
+                                                                  Vt,
+                                                                  n_cols,
+                                                                  cusolverWorkSet,
+                                                                  cusolverWorkSetSize,
+                                                                  nullptr,
+                                                                  devInfo,
+                                                                  stream));
   raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
   raft::linalg::binaryOp(Ub, Ub, S, minmn, DivideByNonZero<math_t>(), stream);
   raft::linalg::gemv(handle, Vt, minmn, n_cols, n_cols, Ub, w, true, stream);
@@ -188,20 +192,22 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
   RAFT_CUSOLVER_TRY(cusolverDnCreateGesvdjInfo(&gesvdj_params));
   int cusolverWorkSetSize      = 0;
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngesvdj_bufferSize<math_t>(cusolverH,
-                                                                      CUSOLVER_EIG_MODE_VECTOR,
-                                                                      1,
-                                                                      n_rows,
-                                                                      n_cols,
-                                                                      A,
-                                                                      n_rows,
-                                                                      nullptr,
-                                                                      nullptr,
-                                                                      n_rows,
-                                                                      nullptr,
-                                                                      n_cols,
-                                                                      &cusolverWorkSetSize,
-                                                                      gesvdj_params));
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(
+    raft::linalg::detail::cusolverDngesvdj_bufferSize<math_t>(cusolverH,
+                                                              CUSOLVER_EIG_MODE_VECTOR,
+                                                              1,
+                                                              n_rows,
+                                                              n_cols,
+                                                              A,
+                                                              n_rows,
+                                                              nullptr,
+                                                              nullptr,
+                                                              n_rows,
+                                                              nullptr,
+                                                              n_cols,
+                                                              &cusolverWorkSetSize,
+                                                              gesvdj_params));
   rmm::device_uvector<math_t> workset(cusolverWorkSetSize  // cuSolver
                                         + n_rows * minmn   // U
                                         + n_cols * minmn   // V
@@ -216,23 +222,24 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
   math_t* S               = V + n_cols * minmn;
   math_t* Ub              = S + minmn;
   int* devInfo            = reinterpret_cast<int*>(Ub + minmn);
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngesvdj<math_t>(cusolverH,
-                                                           CUSOLVER_EIG_MODE_VECTOR,
-                                                           1,
-                                                           n_rows,
-                                                           n_cols,
-                                                           A,
-                                                           n_rows,
-                                                           S,
-                                                           U,
-                                                           n_rows,
-                                                           V,
-                                                           n_cols,
-                                                           cusolverWorkSet,
-                                                           cusolverWorkSetSize,
-                                                           devInfo,
-                                                           gesvdj_params,
-                                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngesvdj<math_t>(cusolverH,
+                                                                   CUSOLVER_EIG_MODE_VECTOR,
+                                                                   1,
+                                                                   n_rows,
+                                                                   n_cols,
+                                                                   A,
+                                                                   n_rows,
+                                                                   S,
+                                                                   U,
+                                                                   n_rows,
+                                                                   V,
+                                                                   n_cols,
+                                                                   cusolverWorkSet,
+                                                                   cusolverWorkSetSize,
+                                                                   devInfo,
+                                                                   gesvdj_params,
+                                                                   stream));
   raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
   raft::linalg::binaryOp(Ub, Ub, S, minmn, DivideByNonZero<math_t>(), stream);
   raft::linalg::gemv(handle, V, n_cols, minmn, Ub, w, false, stream);
@@ -365,48 +372,52 @@ void lstsqQR(const raft::handle_t& handle,
   const int lda = m;
   const int ldb = m;
 
+  // #TODO: Call from public API when ready
   RAFT_CUSOLVER_TRY(
-    raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, m, n, A, lda, &lwork_geqrf));
+    raft::linalg::detail::cusolverDngeqrf_bufferSize(cusolverH, m, n, A, lda, &lwork_geqrf));
 
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnormqr_bufferSize(cusolverH,
-                                                             side,
-                                                             trans,
-                                                             m,
-                                                             1,
-                                                             n,
-                                                             A,
-                                                             lda,
-                                                             d_tau.data(),
-                                                             b,    // C,
-                                                             lda,  // ldc,
-                                                             &lwork_ormqr));
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnormqr_bufferSize(cusolverH,
+                                                                     side,
+                                                                     trans,
+                                                                     m,
+                                                                     1,
+                                                                     n,
+                                                                     A,
+                                                                     lda,
+                                                                     d_tau.data(),
+                                                                     b,    // C,
+                                                                     lda,  // ldc,
+                                                                     &lwork_ormqr));
 
   lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
   rmm::device_uvector<math_t> d_work(lwork, stream);
 
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDngeqrf(
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngeqrf(
     cusolverH, m, n, A, lda, d_tau.data(), d_work.data(), lwork, d_info.data(), stream));
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(&info, d_info.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
-  RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnormqr(cusolverH,
-                                                  side,
-                                                  trans,
-                                                  m,
-                                                  1,
-                                                  n,
-                                                  A,
-                                                  lda,
-                                                  d_tau.data(),
-                                                  b,
-                                                  ldb,
-                                                  d_work.data(),
-                                                  lwork,
-                                                  d_info.data(),
-                                                  stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnormqr(cusolverH,
+                                                          side,
+                                                          trans,
+                                                          m,
+                                                          1,
+                                                          n,
+                                                          A,
+                                                          lda,
+                                                          d_tau.data(),
+                                                          b,
+                                                          ldb,
+                                                          d_work.data(),
+                                                          lwork,
+                                                          d_info.data(),
+                                                          stream));
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(&info, d_info.data(), sizeof(int), cudaMemcpyDeviceToHost, stream));
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
@@ -414,19 +425,20 @@ void lstsqQR(const raft::handle_t& handle,
 
   const math_t one = 1;
 
-  RAFT_CUBLAS_TRY(raft::linalg::cublastrsm(cublasH,
-                                           side,
-                                           CUBLAS_FILL_MODE_UPPER,
-                                           CUBLAS_OP_N,
-                                           CUBLAS_DIAG_NON_UNIT,
-                                           n,
-                                           1,
-                                           &one,
-                                           A,
-                                           lda,
-                                           b,
-                                           ldb,
-                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublastrsm(cublasH,
+                                                   side,
+                                                   CUBLAS_FILL_MODE_UPPER,
+                                                   CUBLAS_OP_N,
+                                                   CUBLAS_DIAG_NON_UNIT,
+                                                   n,
+                                                   1,
+                                                   &one,
+                                                   A,
+                                                   lda,
+                                                   b,
+                                                   ldb,
+                                                   stream));
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice, stream));
 }
