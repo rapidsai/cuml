@@ -211,8 +211,8 @@ class RandomForest {
     std::vector<L> h_predictions(n_rows);
     cudaStream_t stream = user_handle.get_stream();
 
-    std::vector<T> h_input(n_rows * n_cols);
-    raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
+    std::vector<T> h_input(std::size_t(n_rows) * n_cols);
+    raft::update_host(h_input.data(), input, std::size_t(n_rows) * n_cols, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     int row_size = n_cols;
