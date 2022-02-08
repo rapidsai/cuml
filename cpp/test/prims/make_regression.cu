@@ -21,9 +21,10 @@
 #include "test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/subtract.cuh>
-#include <raft/linalg/transpose.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/subtract.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <random/make_regression.cuh>
 
 namespace MLCommon {
@@ -80,21 +81,22 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(handle.get_cublas_handle(),
-                                             CUBLAS_OP_T,
-                                             CUBLAS_OP_T,
-                                             params.n_samples,
-                                             params.n_targets,
-                                             params.n_features,
-                                             &alpha,
-                                             data.data(),
-                                             params.n_features,
-                                             coef.data(),
-                                             params.n_targets,
-                                             &beta,
-                                             values_cm.data(),
-                                             params.n_samples,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
+                                                     CUBLAS_OP_T,
+                                                     CUBLAS_OP_T,
+                                                     params.n_samples,
+                                                     params.n_targets,
+                                                     params.n_features,
+                                                     &alpha,
+                                                     data.data(),
+                                                     params.n_features,
+                                                     coef.data(),
+                                                     params.n_targets,
+                                                     &beta,
+                                                     values_cm.data(),
+                                                     params.n_samples,
+                                                     stream));
 
     // Transpose the values to row-major
     raft::linalg::transpose(
