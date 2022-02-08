@@ -20,8 +20,8 @@
 #include <memory>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/subtract.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_scalar.hpp>

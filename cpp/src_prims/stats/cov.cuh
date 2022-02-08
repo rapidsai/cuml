@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemm.hpp>
 #include <raft/stats/mean_center.hpp>
 
 namespace MLCommon {
@@ -65,21 +64,22 @@ void cov(const raft::handle_t& handle,
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta  = Type(0);
     if (rowMajor) {
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_h,
-                                               CUBLAS_OP_N,
-                                               CUBLAS_OP_T,
-                                               D,
-                                               D,
-                                               N,
-                                               &alpha,
-                                               data,
-                                               D,
-                                               data,
-                                               D,
-                                               &beta,
-                                               covar,
-                                               D,
-                                               stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_h,
+                                                       CUBLAS_OP_N,
+                                                       CUBLAS_OP_T,
+                                                       D,
+                                                       D,
+                                                       N,
+                                                       &alpha,
+                                                       data,
+                                                       D,
+                                                       data,
+                                                       D,
+                                                       &beta,
+                                                       covar,
+                                                       D,
+                                                       stream));
     } else {
       raft::linalg::gemm(
         handle, data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);

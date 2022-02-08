@@ -17,10 +17,10 @@
 #pragma once
 
 #include <linalg/lstsq.cuh>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/subtract.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>

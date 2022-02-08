@@ -22,8 +22,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <random/make_regression.cuh>
 #include <sstream>
 #include <string>

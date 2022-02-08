@@ -20,12 +20,11 @@
 #include <linalg/rsvd.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/eig.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/eig.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
