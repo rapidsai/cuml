@@ -320,7 +320,7 @@ DataT silhouette_score(
 
   DataT avgSilhouetteScore = d_avgSilhouetteScore.value(stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   avgSilhouetteScore /= nRows;
 

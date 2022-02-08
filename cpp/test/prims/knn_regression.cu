@@ -115,7 +115,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     knn_regress(
       handle, pred_labels.data(), knn_indices.data(), y, params.rows, params.rows, params.k);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void SetUp() override { basicTest(); }
