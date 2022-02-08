@@ -90,7 +90,7 @@ LarsFitStatus selectMostCorrelated(idx_t n_active,
   thrust::device_ptr<math_t> ptr(workspace.data() + n_active - start);
   auto max_ptr = thrust::max_element(thrust::cuda::par.on(stream), ptr, ptr + n - n_active);
   raft::update_host(cj, max_ptr.get(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   *max_idx = n_active + (max_ptr - ptr);  // the index of the maximum element
 
@@ -505,7 +505,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
   raft::update_host(&ws_host, ws, 1, stream);
   math_t diag_host;  // U[n_active-1, n_active-1]
   raft::update_host(&diag_host, U + ld_U * (n_active - 1) + n_active - 1, 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   if (diag_host < 1e-7) {
     CUML_LOG_WARN(
       "Vanising diagonal in Cholesky factorization (%e). This indicates "

@@ -81,7 +81,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     ML::Metrics::pairwise_distance(
       handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
 

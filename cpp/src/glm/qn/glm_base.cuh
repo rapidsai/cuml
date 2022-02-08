@@ -219,7 +219,7 @@ struct GLMWithData : GLMDims {
     objective->loss_grad(dev_scalar, G, W, *X, *y, *Z, stream);
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
     return loss_host;
   }
 };

@@ -289,7 +289,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   math_t scalar = math_t(1) / total_vars_h;
 
   raft::linalg::scalarMultiply(

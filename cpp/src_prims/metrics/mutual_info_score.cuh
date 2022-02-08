@@ -167,7 +167,7 @@ double mutual_info_score(const T* firstClusterArray,
   // updating in the host memory
   h_MI = d_MI.value(stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   return h_MI / size;
 }

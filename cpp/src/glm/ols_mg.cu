@@ -153,7 +153,7 @@ void fit_impl(raft::handle_t& handle,
            verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -227,7 +227,7 @@ void predict_impl(raft::handle_t& handle,
     handle, input_data, input_desc, coef, intercept, preds_data, streams, n_streams, verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (int i = 0; i < n_streams; i++) {

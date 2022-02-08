@@ -440,7 +440,7 @@ class WorkingSet {
                                d_num_selected.data(),
                                n_train);
     int n_selected = d_num_selected.value(stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // Copy to output
     int n_copy = n_selected > n_needed ? n_needed : n_selected;
@@ -487,7 +487,7 @@ class WorkingSet {
                           n_ws,
                           op);
     int n_selected = d_num_selected.value(stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
     raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy, stream);
     return n_copy;

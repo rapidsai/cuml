@@ -273,7 +273,7 @@ void sgdFit(const raft::handle_t& handle,
       }
 
       raft::update_host(&curr_loss_value, loss_value.data(), 1, stream);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       if (i > 0) {
         if (curr_loss_value > (prev_loss_value - tol)) {
