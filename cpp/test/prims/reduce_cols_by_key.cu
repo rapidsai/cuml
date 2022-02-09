@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 
 namespace MLCommon {
@@ -36,7 +37,7 @@ void naiveReduceColsByKey(const T* in,
   raft::copy(&(h_keys[0]), keys, ncols, stream);
   std::vector<T> h_in(nrows * ncols);
   raft::copy(&(h_in[0]), in, nrows * ncols, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   std::vector<T> out(nrows * nkeys, T(0));
   for (uint32_t i = 0; i < nrows; ++i) {
     for (uint32_t j = 0; j < ncols; ++j) {
@@ -44,7 +45,7 @@ void naiveReduceColsByKey(const T* in,
     }
   }
   raft::copy(out_ref, &(out[0]), nrows * nkeys, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 }
 
 template <typename T>
@@ -83,7 +84,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     r.uniformInt(keys.data(), ncols, 0u, params.nkeys, stream);
     naiveReduceColsByKey(in.data(), keys.data(), out_ref.data(), nrows, ncols, nkeys, stream);
     reduce_cols_by_key(in.data(), keys.data(), out.data(), nrows, ncols, nkeys, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }

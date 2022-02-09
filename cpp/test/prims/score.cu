@@ -19,6 +19,7 @@
 #include <iostream>
 #include <metrics/scores.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -125,7 +126,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
     rmm::device_uvector<T> ref_predictions(params.n, stream);
     r.normal(ref_predictions.data(), params.n, (T)0.0, (T)1.0, stream);
     raft::copy_async(predictions.data(), ref_predictions.data(), params.n, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
 
     // Modify params.changed_n unique predictions to a different value. New value is irrelevant.
     if (params.changed_n > 0) {
@@ -136,7 +137,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
       change_vals<T><<<blocks, threads, 0, stream>>>(
         predictions.data(), ref_predictions.data(), params.changed_n);
       RAFT_CUDA_TRY(cudaGetLastError());
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      raft::interruptible::synchronize(stream);
     }
 
     computed_accuracy = MLCommon::Score::accuracy_score<T>(
@@ -281,7 +282,7 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
       // copy to host to compute reference regression metrics
       raft::update_host(params.predictions.data(), d_predictions.data(), params.n, stream);
       raft::update_host(params.ref_predictions.data(), d_ref_predictions.data(), params.n, stream);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      raft::interruptible::synchronize(stream);
     }
 
     MLCommon::Score::regression_metrics(d_predictions.data(),
@@ -294,7 +295,7 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
 
     host_regression_computations(
       params.predictions, params.ref_predictions, params.n, ref_regression_metrics);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }

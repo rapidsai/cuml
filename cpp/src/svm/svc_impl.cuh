@@ -70,7 +70,7 @@ void svcFit(const raft::handle_t& handle,
     rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
     model.unique_labels = (math_t*)rmm_alloc->allocate(model.n_classes * sizeof(math_t), stream);
     raft::copy(model.unique_labels, unique_labels.data(), model.n_classes, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle_impl.sync_stream(stream);
   }
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
@@ -208,7 +208,7 @@ void svcPredict(const raft::handle_t& handle,
     raft::linalg::unaryOp(
       preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; }, stream);
   }
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle_impl.sync_stream(stream);
   delete kernel;
 }
 

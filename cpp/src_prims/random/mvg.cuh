@@ -19,6 +19,7 @@
 #include <cmath>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 // #TODO: Replace with public header when ready
@@ -218,7 +219,7 @@ class MultiVarGaussian {
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork, info, cudaStream));
     }
     raft::update_host(&info_h, info, 1, cudaStream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(cudaStream));
+    raft::interruptible::synchronize(cudaStream);
     ASSERT(info_h == 0, "mvg: error in syevj/syevd/potrf, info=%d | expected=0", info_h);
     T mean = 0.0, stddv = 1.0;
     // generate nxN gaussian nums in X
@@ -259,7 +260,7 @@ class MultiVarGaussian {
 
       // checking if any eigen vals were negative
       raft::update_host(&info_h, info, 1, cudaStream);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(cudaStream));
+      raft::interruptible::synchronize(cudaStream);
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below

@@ -72,7 +72,7 @@ struct DeviceEvent {
   }
   void wait()
   {
-    if (e != nullptr) RAFT_CUDA_TRY(cudaEventSynchronize(e));
+    if (e != nullptr) raft::interruptible::synchronize(e);
   }
   DeviceEvent& operator=(const DeviceEvent& other) = delete;
 };

@@ -10,50 +10,48 @@ Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Threading Model
 
-With the exception of the raft::handle_t, cuML algorithms should maintain thread-safety and are, in general, 
-assumed to be single threaded. This means they should be able to be called from multiple host threads so 
+With the exception of the raft::handle_t, cuML algorithms should maintain thread-safety and are, in general,
+assumed to be single threaded. This means they should be able to be called from multiple host threads so
 long as different instances of `raft::handle_t` are used.
 
 Exceptions are made for algorithms that can take advantage of multiple CUDA streams within multiple host threads
-in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host 
-threads within cuML algorithms should be used only to maintain concurrency of the underlying CUDA streams. 
-Multiple host threads should be used sparingly, be bounded, and should steer clear of performing CPU-intensive 
+in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host
+threads within cuML algorithms should be used only to maintain concurrency of the underlying CUDA streams.
+Multiple host threads should be used sparingly, be bounded, and should steer clear of performing CPU-intensive
 computations.
 
 A good example of an acceptable use of host threads within a cuML algorithm might look like the following
 
 ```
-cudaStreamSynchronize(handle.get_stream());
+handle.sync_stream();
 
 int n_streams = handle.get_num_internal_streams();
 
 #pragma omp parallel for num_threads(n_threads)
 for(int i = 0; i < n; i++) {
     int thread_num = omp_get_thread_num() % n_threads;
-    cudaStream_t s = handle.getInternalStream(thread_num);
+    cudaStream_t s = handle.get_stream_from_stream_pool(thread_num);
     ... possible light cpu pre-processing ...
     my_kernel1<<<b, tpb, 0, s>>>(...);
     ...
     ... some possible async d2h / h2d copies ...
     my_kernel2<<<b, tpb, 0, s>>>(...);
     ...
-    cudaStreamSynchronize(s);
+    handle.sync_stream(s);
     ... possible light cpu post-processing ...
 }
 ```
 
 In the example above, if there is no CPU pre-processing at the beginning of the for-loop, an event can be registered in
-each of the streams within the for-loop to make them wait on the stream from the handle. 
-
-This can be done easily by replacing `cudaStreamSynchronize(handle.get_stream())` with `handle.wait_on_user_stream()` 
-for a lighter-weight synchronization. If there is no CPU post-processing at the end of each for-loop iteration, 
-`cudaStreamSynchronize(s)` can be replaced with a single `handle.wait_on_internal_streams()` after the for-loop. 
+each of the streams within the for-loop to make them wait on the stream from the handle. If there is no CPU post-processing
+at the end of each for-loop iteration, `handle.sync_stream(s)` can be replaced with a single `handle.sync_stream_pool()`
+after the for-loop.
 
 To avoid compatibility issues between different threading models, the only threading programming allowed in cuML is OpenMP.
 Though cuML's build enables OpenMP by default, cuML algorithms should still function properly even when OpenMP has been
 disabled. If the CPU pre- and post-processing were not needed in the example above, OpenMP would not be needed.
 
-The use of threads in third-party libraries is allowed, though they should still avoid depending on a specific OpenMP runtime. 
+The use of threads in third-party libraries is allowed, though they should still avoid depending on a specific OpenMP runtime.
 
 ## Public cuML interface
 ### Terminology
@@ -302,7 +300,7 @@ void foo(const raft::handle_t& h, ..., cudaStream_t stream )
 {
     ...
     MLCommon::device_buffer<T> temp( h.get_device_allocator(), stream, 0 )
-    
+
     temp.resize(n, stream);
     kernelA<<<grid, block, 0, stream>>>(..., temp.data(), ...);
     kernelB<<<grid, block, 0, stream>>>(..., temp.data(), ...);
@@ -349,7 +347,7 @@ void foo(const raft::handle_t& h, ...)
     cudaStream_t stream = h.get_stream();
 }
 ```
-When multiple streams are needed, e.g. to manage a pipeline, use the internal streams available in `raft::handle_t` (see [CUDA Resources](#cuda-resources)). If multiple streams are used all operations still must be ordered according to `raft::handle_t::get_stream()`. Before any operation in any of the internal CUDA streams is started, all previous work in `raft::handle_t::get_stream()` must have completed. Any work enqueued in `raft::handle_t::get_stream()` after a cuML function returns should not start before all work enqueued in the internal streams has completed. E.g. if a cuML algorithm is called like this: 
+When multiple streams are needed, e.g. to manage a pipeline, use the internal streams available in `raft::handle_t` (see [CUDA Resources](#cuda-resources)). If multiple streams are used all operations still must be ordered according to `raft::handle_t::get_stream()`. Before any operation in any of the internal CUDA streams is started, all previous work in `raft::handle_t::get_stream()` must have completed. Any work enqueued in `raft::handle_t::get_stream()` after a cuML function returns should not start before all work enqueued in the internal streams has completed. E.g. if a cuML algorithm is called like this:
 ```cpp
 void foo(const double* const srcdata, double* const result)
 {
@@ -370,7 +368,7 @@ void foo(const double* const srcdata, double* const result)
 ```
 No work in any stream should start in `ML::algo` before the `cudaMemcpyAsync` in `stream` launched before the call to `ML::algo` is done. And all work in all streams used in `ML::algo` should be done before the `cudaMemcpyAsync` in `stream` launched after the call to `ML::algo` starts.
 
-This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t:get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API: 
+This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t:get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API:
 
 ```cpp
 void cumlAlgo(const raft::handle_t& handle, ...)
@@ -444,9 +442,9 @@ int main(int argc, char * argv[])
     {
         raft::handle_t raftHandle;
         initialize_mpi_comms(raftHandle, raft_mpi_comms);
-        
+
         ...
-        
+
         ML::mlalgo(raftHandle, ... );
     }
 

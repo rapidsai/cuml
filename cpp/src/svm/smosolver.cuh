@@ -178,7 +178,7 @@ class SmoSolver {
 
       UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(), cacheTile);
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       math_t diff = host_return_buff[0];
       keep_going  = CheckStoppingCondition(diff);
