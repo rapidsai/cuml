@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/strided_reduction.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/strided_reduction.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>

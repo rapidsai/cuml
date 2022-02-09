@@ -141,6 +141,14 @@ class RandomForest {
            n_streams,
            handle.get_stream_pool_size());
 
+    // computing the quantiles: last two return values are shared pointers to device memory
+    // encapsulated by quantiles struct
+    auto [quantiles, quantiles_array, n_bins_array] =
+      DT::computeQuantiles(handle, input, this->rf_params.tree_params.max_n_bins, n_rows, n_cols);
+
+    // n_streams should not be less than n_trees
+    if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;
+
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
     // ptr.
@@ -150,10 +158,6 @@ class RandomForest {
     for (int i = 0; i < n_streams; i++) {
       selected_rows.emplace_back(n_sampled_rows, handle.get_stream_from_stream_pool(i));
     }
-
-    auto global_quantiles =
-      DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -181,12 +185,12 @@ class RandomForest {
                                                n_unique_labels,
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
-                                               global_quantiles,
+                                               quantiles,
                                                i);
     }
     // Cleanup
     handle.sync_stream_pool();
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream();
   }
 
   /**
@@ -213,7 +217,7 @@ class RandomForest {
 
     std::vector<T> h_input(n_rows * n_cols);
     raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    user_handle.sync_stream(stream);
 
     int row_size = n_cols;
 
@@ -250,7 +254,7 @@ class RandomForest {
     }
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    user_handle.sync_stream(stream);
   }
 
   /**

@@ -22,8 +22,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/device_atomics.cuh>
-#include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/coalesced_reduction.hpp>
+#include <raft/linalg/reduce.hpp>
 
 #include "pack.h"
 

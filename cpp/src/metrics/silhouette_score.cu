@@ -18,7 +18,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 namespace ML {
 

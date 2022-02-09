@@ -68,7 +68,7 @@ class SVC : public BlobsFixture<D, D> {
                       this->kernel,
                       this->model,
                       static_cast<D*>(nullptr));
-      RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
+      this->handle->sync_stream(this->stream);
       ML::SVM::svmFreeBuffers(*this->handle, this->model);
     });
   }

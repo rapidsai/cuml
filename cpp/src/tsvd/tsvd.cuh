@@ -20,12 +20,11 @@
 #include <linalg/rsvd.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/eig.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/eig.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
@@ -290,7 +289,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   math_t scalar = math_t(1) / total_vars_h;
 
   raft::linalg::scalarMultiply(

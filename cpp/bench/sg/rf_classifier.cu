@@ -68,7 +68,7 @@ class RFClassifier : public BlobsFixture<D> {
           this->data.y.data(),
           this->params.nclasses,
           rfParams);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
+      this->handle->sync_stream(this->stream);
     });
   }
 
@@ -95,7 +95,7 @@ std::vector<Params> getInputs()
   p.rf = set_rf_params(10,                  /*max_depth */
                        (1 << 20),           /* max_leaves */
                        0.3,                 /* max_features */
-                       32,                  /* n_bins */
+                       32,                  /* max_n_bins */
                        3,                   /* min_samples_leaf */
                        3,                   /* min_samples_split */
                        0.0f,                /* min_impurity_decrease */
