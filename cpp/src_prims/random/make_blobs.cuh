@@ -98,10 +98,11 @@ __global__ void generate_data_kernel(DataT* out,
                                      bool row_major,
                                      const DataT* centers,
                                      const DataT* cluster_std,
-                                     const DataT cluster_std_scalar)
+                                     const DataT cluster_std_scalar,
+                                     raft::random::RngState rng_state)
 {
-  IdxT tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  raft::random::PhiloxGenerator gen(1234, (uint64_t)tid, 0);
+  uint64_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  raft::random::PhiloxGenerator gen(rng_state, tid);
   const IdxT stride = gridDim.x * blockDim.x;
   IdxT len          = n_rows * n_cols;
   for (IdxT idx = tid; idx < len; idx += stride) {
@@ -150,12 +151,20 @@ void generate_data(DataT* out,
                    const DataT* centers,
                    const DataT* cluster_std,
                    const DataT cluster_std_scalar,
-                   raft::random::Rng& rng)
+                   raft::random::RngState& rng_state)
 {
   IdxT items   = n_rows * n_cols;
   IdxT nBlocks = (items + 127) / 128;
-  generate_data_kernel<<<nBlocks, 128, 0, stream>>>(
-    out, labels, n_rows, n_cols, n_clusters, row_major, centers, cluster_std, cluster_std_scalar);
+  generate_data_kernel<<<nBlocks, 128, 0, stream>>>(out,
+                                                    labels,
+                                                    n_rows,
+                                                    n_cols,
+                                                    n_clusters,
+                                                    row_major,
+                                                    centers,
+                                                    cluster_std,
+                                                    cluster_std_scalar,
+                                                    rng_state);
 }
 
 }  // namespace
@@ -233,7 +242,7 @@ void make_blobs(DataT* out,
                 _centers,
                 cluster_std,
                 cluster_std_scalar,
-                r);
+                r.state);
 }
 
 }  // end namespace Random
