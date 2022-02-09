@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
+cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
 
     ctypedef enum DistanceType:
         L2Expanded "raft::distance::DistanceType::L2Expanded"

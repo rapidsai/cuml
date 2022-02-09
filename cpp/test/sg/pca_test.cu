@@ -19,7 +19,6 @@
 #include <pca/pca.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/random/rng.hpp>
 #include <test_utils.h>
 #include <vector>

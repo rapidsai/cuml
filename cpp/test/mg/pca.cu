@@ -22,7 +22,6 @@
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/matrix/matrix.hpp>
 #include <test_utils.h>
 
