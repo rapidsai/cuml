@@ -37,16 +37,18 @@ class BenchmarkTimer:
         print(np.min(timer.timings))
     """
 
-    def __init__(self, reps=1):
+    def __init__(self, reps=1, warmup=0):
+        self.warmup = warmup
         self.reps = reps
         self.timings = []
 
     def benchmark_runs(self):
-        for r in range(self.reps):
+        for r in range(self.reps + self.warmup):
             t0 = time.time()
             yield r
             t1 = time.time()
-            self.timings.append(t1 - t0)
+            if r >= self.warmup:
+                self.timings.append(t1 - t0)
 
 
 class SpeedupComparisonRunner:
@@ -60,12 +62,14 @@ class SpeedupComparisonRunner:
         dataset_name="blobs",
         input_type="numpy",
         n_reps=1,
+        n_warmups=0
     ):
         self.bench_rows = bench_rows
         self.bench_dims = bench_dims
         self.dataset_name = dataset_name
         self.input_type = input_type
         self.n_reps = n_reps
+        self.n_warmups = n_warmups
 
     def _run_one_size(
         self,
@@ -89,7 +93,7 @@ class SpeedupComparisonRunner:
             data, **param_overrides, **cuml_param_overrides
         )
 
-        cuml_timer = BenchmarkTimer(self.n_reps)
+        cuml_timer = BenchmarkTimer(self.n_reps, self.n_warmups)
         for rep in cuml_timer.benchmark_runs():
             algo_pair.run_cuml(
                 data,
@@ -104,7 +108,7 @@ class SpeedupComparisonRunner:
                                                   **param_overrides,
                                                   **cpu_param_overrides)
 
-            cpu_timer = BenchmarkTimer(self.n_reps)
+            cpu_timer = BenchmarkTimer(self.n_reps, self.n_warmups)
             for rep in cpu_timer.benchmark_runs():
                 algo_pair.run_cpu(data, **param_overrides,
                                   **cpu_param_overrides,
@@ -131,6 +135,9 @@ class SpeedupComparisonRunner:
 
         return dict(
             cu_time=cu_elapsed,
+            cu_mean=np.mean(cuml_timer.timings),
+            cu_max=np.max(cuml_timer.timings),
+            cu_std=np.std(cuml_timer.timings),
             cpu_time=cpu_elapsed,
             speedup=speedup,
             n_samples=n_samples,
@@ -196,9 +203,11 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         input_type="numpy",
         test_fraction=0.10,
         n_reps=1,
+        n_warmups=0,
     ):
         super().__init__(
-            bench_rows, bench_dims, dataset_name, input_type, n_reps
+            bench_rows, bench_dims, dataset_name, input_type,
+            n_reps, n_warmups
         )
         self.test_fraction = test_fraction
 
@@ -229,7 +238,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             data, **{**param_overrides, **cuml_param_overrides}
         )
 
-        cuml_timer = BenchmarkTimer(self.n_reps)
+        cuml_timer = BenchmarkTimer(self.n_reps, self.n_warmups)
         for _ in cuml_timer.benchmark_runs():
             cuml_model = algo_pair.run_cuml(
                 data,
@@ -261,7 +270,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                                                  **param_overrides,
                                                  **cpu_param_overrides)
 
-            cpu_timer = BenchmarkTimer(self.n_reps)
+            cpu_timer = BenchmarkTimer(self.n_reps, self.n_warmups)
             for rep in cpu_timer.benchmark_runs():
                 cpu_model = algo_pair.run_cpu(
                     data, **param_overrides,
@@ -287,6 +296,9 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
 
         return dict(
             cu_time=cu_elapsed,
+            cu_mean=np.mean(cuml_timer.timings),
+            cu_max=np.max(cuml_timer.timings),
+            cu_std=np.std(cuml_timer.timings),
             cpu_time=cpu_elapsed,
             cuml_acc=cuml_accuracy,
             cpu_acc=cpu_accuracy,
@@ -315,6 +327,7 @@ def run_variations(
     run_cpu=True,
     raise_on_error=False,
     n_reps=1,
+    n_warmups=0
 ):
     """
     Runs each algo in `algos` once per
@@ -350,7 +363,7 @@ def run_variations(
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
         bench_rows, bench_dims, dataset_name, input_type,
-        test_fraction=test_fraction, n_reps=n_reps
+        test_fraction=test_fraction, n_reps=n_reps, n_warmups=n_warmups
     )
     all_results = []
     for algo in algos:

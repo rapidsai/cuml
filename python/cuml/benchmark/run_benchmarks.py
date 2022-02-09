@@ -199,6 +199,10 @@ if __name__ == '__main__':
         type=int,
         default=1)
     parser.add_argument(
+        '--n-warmups',
+        type=int,
+        default=0)
+    parser.add_argument(
         '--dtype',
         choices=['fp32', 'fp64'],
         default='fp32',
@@ -272,7 +276,8 @@ if __name__ == '__main__':
         dtype=args.dtype,
         run_cpu=(not args.skip_cpu),
         raise_on_error=args.raise_on_error,
-        n_reps=args.n_reps
+        n_reps=args.n_reps,
+        n_warmups=args.n_warmups
     )
 
     if args.csv:
