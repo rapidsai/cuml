@@ -41,7 +41,7 @@ void launcher(const raft::handle_t& handle,
   ML::pinned_host_vector<Index_> host_ex_scan(batch_size);
   raft::update_host((bool*)host_adj.data(), data.adj, batch_size * N, stream);
   raft::update_host(host_vd.data(), data.vd, batch_size + 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   size_t adjgraph_size = size_t(host_vd[batch_size]);
   ML::pinned_host_vector<Index_> host_adj_graph(adjgraph_size);
   for (Index_ i = 0; i < batch_size; i++) {

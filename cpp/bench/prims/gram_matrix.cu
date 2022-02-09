@@ -19,7 +19,8 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/linalg/cublas_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>

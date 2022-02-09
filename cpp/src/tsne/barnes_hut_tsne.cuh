@@ -20,7 +20,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 
 namespace ML {
 namespace TSNE {
