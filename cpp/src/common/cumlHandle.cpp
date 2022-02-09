@@ -24,7 +24,6 @@
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
 
 namespace ML {
 

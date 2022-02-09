@@ -257,7 +257,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       index_labels_float.data(), index_labels.data(), index_labels_float.size());
     to_float<<<raft::ceildiv(params.n_query_row, 32), 32, 0, stream>>>(
       query_labels_float.data(), search_labels.data(), params.n_query_row);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     rmm::device_uvector<float> actual_labels_float(params.n_query_row, stream);

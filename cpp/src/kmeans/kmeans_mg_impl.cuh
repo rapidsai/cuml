@@ -426,7 +426,7 @@ void checkWeights(const raft::handle_t& handle,
                         raft::comms::op_t::SUM,
                         stream);
   DataT wt_sum = wt_aggr.value(stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   if (wt_sum != n_samples) {
     LOG(handle,
@@ -662,7 +662,7 @@ void fit(const raft::handle_t& handle,
       priorClusteringCost = curClusteringCost;
     }
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {

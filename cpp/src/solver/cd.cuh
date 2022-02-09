@@ -248,7 +248,7 @@ void cdFit(const raft::handle_t& handle,
         handle, n_rows, &(convStateLoc->coef), input_col_loc, 1, residual.data(), 1, stream);
     }
     raft::update_host(&h_convState, convStateLoc, 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
   }

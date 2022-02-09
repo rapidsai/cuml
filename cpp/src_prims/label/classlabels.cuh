@@ -49,7 +49,7 @@ int getUniqueLabels(math_t* y, size_t n, math_t* unique, cudaStream_t stream)
   rmm::device_uvector<math_t> unique_v(0, stream);
   auto n_unique = raft::label::getUniquelabels(unique_v, y, n, stream);
   raft::copy(unique, unique_v.data(), n_unique, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   return n_unique;
 }
 

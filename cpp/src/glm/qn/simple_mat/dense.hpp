@@ -289,7 +289,8 @@ inline T dot(const SimpleVec<T>& u, const SimpleVec<T>& v, T* tmp_dev, cudaStrea
   raft::linalg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
   raft::update_host(&tmp_host, tmp_dev, 1, stream);
-  cudaStreamSynchronize(stream);
+
+  raft::interruptible::synchronize(stream);
   return tmp_host;
 }
 
@@ -307,7 +308,7 @@ inline T nrmMax(const SimpleVec<T>& u, T* tmp_dev, cudaStream_t stream)
   raft::linalg::mapThenReduce(tmp_dev, u.len, T(0), f, r, stream, u.data);
   T tmp_host;
   raft::update_host(&tmp_host, tmp_dev, 1, stream);
-  cudaStreamSynchronize(stream);
+  raft::interruptible::synchronize(stream);
   return tmp_host;
 }
 
@@ -324,7 +325,7 @@ inline T nrm1(const SimpleVec<T>& u, T* tmp_dev, cudaStream_t stream)
     tmp_dev, u.data, u.len, 1, raft::linalg::L1Norm, true, stream, raft::Nop<T>());
   T tmp_host;
   raft::update_host(&tmp_host, tmp_dev, 1, stream);
-  cudaStreamSynchronize(stream);
+  raft::interruptible::synchronize(stream);
   return tmp_host;
 }
 
@@ -333,7 +334,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleVec<T>& v)
 {
   std::vector<T> out(v.len);
   raft::update_host(&out[0], v.data, v.len, 0);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
+  raft::interruptible::synchronize(rmm::cuda_stream_view());
   int it = 0;
   for (; it < v.len - 1;) {
     os << out[it] << " ";
@@ -349,7 +350,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleDenseMat<T>& mat)
   os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
   std::vector<T> out(mat.len);
   raft::update_host(&out[0], mat.data, mat.len, rmm::cuda_stream_default);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(0));
+  raft::interruptible::synchronize(rmm::cuda_stream_view());
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
       int idx = r;

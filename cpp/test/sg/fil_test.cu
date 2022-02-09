@@ -867,7 +867,7 @@ class TreeliteFilTest : public BaseFilTest {
     params.n_items           = ps.n_items;
     params.pforest_shape_str = ps.print_forest_shape ? &forest_shape_str : nullptr;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     if (ps.print_forest_shape) {
       std::string str(forest_shape_str);
       for (const char* substr : {"model size",

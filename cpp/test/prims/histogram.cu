@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 #include <stats/histogram.cuh>
 
@@ -82,7 +83,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(
       params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
