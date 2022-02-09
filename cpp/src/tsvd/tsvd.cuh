@@ -17,13 +17,13 @@
 #pragma once
 
 #include <cuml/decomposition/params.hpp>
-#include <raft/linalg/rsvd.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/eig.hpp>
 #include <raft/linalg/eltwise.hpp>
 #include <raft/linalg/gemm.hpp>
+#include <raft/linalg/rsvd.cuh>
 #include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>

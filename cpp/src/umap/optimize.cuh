@@ -19,11 +19,11 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/linalg/power.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/eltwise.hpp>
 #include <raft/linalg/multiply.hpp>
+#include <raft/linalg/power.cuh>
 #include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean.hpp>

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/linalg/lstsq.hpp>
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/gemv.hpp>
+#include <raft/linalg/lstsq.hpp>
 #include <raft/linalg/norm.hpp>
 #include <raft/linalg/subtract.hpp>
 #include <raft/matrix/math.hpp>

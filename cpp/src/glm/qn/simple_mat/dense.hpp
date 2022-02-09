@@ -19,11 +19,11 @@
 #include <vector>
 
 #include "base.hpp"
-#include <raft/linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.hpp>
+#include <raft/linalg/ternary_op.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/map_then_reduce.hpp>

@@ -24,9 +24,9 @@
 
 #include <common/tensor.hpp>
 
+#include <matrix/gather.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <matrix/gather.cuh>
 #include <random/permute.cuh>
 
 #include <raft/comms/comms.hpp>

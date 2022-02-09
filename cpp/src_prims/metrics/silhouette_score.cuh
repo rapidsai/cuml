@@ -20,7 +20,6 @@
 #include <cub/cub.cuh>
 #include <cuml/metrics/metrics.hpp>
 #include <iostream>
-#include <raft/linalg/reduce_cols_by_key.cuh>
 #include <math.h>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
@@ -31,6 +30,7 @@
 #include <raft/linalg/map_then_reduce.hpp>
 #include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce_cols_by_key.cuh>
 #include <rmm/device_scalar.hpp>
 
 namespace MLCommon {
