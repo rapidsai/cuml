@@ -692,8 +692,8 @@ void from_treelite(const raft::handle_t& handle,
   }
 
   switch (storage_type) {
-    case storage_type_t::DENSE: convert<dense_node>(handle, pforest, model, *tl_params); break;
-    case storage_type_t::SPARSE: convert<sparse_node16>(handle, pforest, model, *tl_params); break;
+    case storage_type_t::DENSE: convert<dense_node<float>>(handle, pforest, model, *tl_params); break;
+    case storage_type_t::SPARSE: convert<sparse_node16<float>>(handle, pforest, model, *tl_params); break;
     case storage_type_t::SPARSE8: convert<sparse_node8>(handle, pforest, model, *tl_params); break;
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }

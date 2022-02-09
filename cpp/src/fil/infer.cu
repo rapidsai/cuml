@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __forceinline__
+#define INLINE_CONFIG __noinline__
 
 namespace ML {
 namespace fil {
@@ -893,13 +893,13 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
   dispatch_on_fil_template_params(infer_k_storage_template<storage_type>(forest, stream), params);
 }
 
-template void infer<dense_storage>(dense_storage forest,
+template void inferstorage<dense_node<float>>(storage<dense_node<float>> forest,
                                    predict_params params,
                                    cudaStream_t stream);
-template void infer<sparse_storage16>(sparse_storage16 forest,
+template void infer<storage<sparse_node16<float>>>(storage<sparse_node16<float>> forest,
                                       predict_params params,
                                       cudaStream_t stream);
-template void infer<sparse_storage8>(sparse_storage8 forest,
+template void infer<storage<sparse_node8>>(storage<sparse_node8> forest,
                                      predict_params params,
                                      cudaStream_t stream);
 

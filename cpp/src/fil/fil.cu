@@ -17,7 +17,7 @@
 /** @file fil.cu fil.cu implements the forest data types (dense and sparse), including their
 creation and prediction (the main inference kernel is defined in infer.cu). */
 
-#include "common.cuh"    // for predict_params, sparse_storage, dense_storage
+#include "common.cuh"    // for predict_params, storage, storage
 #include "internal.cuh"  // for cat_sets_device_owner, categorical_sets, output_t,
 
 #include <cuml/fil/fil.h>  // for algo_t,
@@ -352,10 +352,12 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   }
 };
 
-struct dense_forest : forest {
+template <typename F>
+struct dense_forest<dense_node<F>> : forest {
+  using node_t = dense_node<F>;
   dense_forest(const raft::handle_t& h) : forest(h), nodes_(0, h.get_stream()) {}
 
-  void transform_trees(const dense_node* nodes)
+  void transform_trees(const node_t* nodes)
   {
     /* Populate node information:
        For each tree, the nodes are still stored in the breadth-first,
@@ -385,9 +387,9 @@ struct dense_forest : forest {
   /// sparse_forest<node_t>::init()
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
-            const std::vector<float>& vector_leaf,
+            const std::vector<F>& vector_leaf,
             const int* trees,
-            const dense_node* nodes,
+            const node_t* nodes,
             const forest_params_t* params)
   {
     init_common(h, cat_sets, vector_leaf, params);
@@ -403,12 +405,12 @@ struct dense_forest : forest {
     }
     RAFT_CUDA_TRY(cudaMemcpyAsync(nodes_.data(),
                                   h_nodes_.data(),
-                                  num_nodes * sizeof(dense_node),
+                                  num_nodes * sizeof(node_t),
                                   cudaMemcpyHostToDevice,
                                   h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<dense_storage>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage>(max_shm_),
                                     static_cast<predict_params>(class_ssp_));
     // copy must be finished before freeing the host data
     RAFT_CUDA_TRY(cudaStreamSynchronize(h.get_stream()));
@@ -418,7 +420,7 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    dense_storage forest(cat_sets_.accessor(),
+    storage forest(cat_sets_.accessor(),
                          vector_leaf_.data(),
                          nodes_.data(),
                          num_trees_,
@@ -433,8 +435,8 @@ struct dense_forest : forest {
     forest::free(h);
   }
 
-  rmm::device_uvector<dense_node> nodes_;
-  thrust::host_vector<dense_node> h_nodes_;
+  rmm::device_uvector<node_t> nodes_;
+  thrust::host_vector<node_t> h_nodes_;
 };
 
 template <typename node_t>
@@ -446,7 +448,7 @@ struct sparse_forest : forest {
 
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
-            const std::vector<float>& vector_leaf,
+            const std::vector<typename node_t::F>& vector_leaf,
             const int* trees,
             const node_t* nodes,
             const forest_params_t* params)
@@ -467,13 +469,13 @@ struct sparse_forest : forest {
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<sparse_storage<node_t>>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(max_shm_),
                                     static_cast<predict_params>(class_ssp_));
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    sparse_storage<node_t> forest(
+    storage<node_t> forest(
       cat_sets_.accessor(), vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
     fil::infer(forest, params, stream);
   }
@@ -572,7 +574,7 @@ template <typename fil_node_t>
 void init(const raft::handle_t& h,
           forest_t* pf,
           const categorical_sets& cat_sets,
-          const std::vector<float>& vector_leaf,
+          const std::vector<typename fil_node_t::F>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params)
@@ -584,30 +586,20 @@ void init(const raft::handle_t& h,
   *pf = f;
 }
 
-// explicit instantiations for init_sparse()
-template void init<sparse_node16>(const raft::handle_t& h,
-                                  forest_t* pf,
-                                  const categorical_sets& cat_sets,
-                                  const std::vector<float>& vector_leaf,
-                                  const int* trees,
-                                  const sparse_node16* nodes,
-                                  const forest_params_t* params);
+struct instantiate_forest_init {
+  template <typename fil_node_t>
+  void operator()(fil_node_t) {
+    init(raft::handle_t{},
+         (forest_t*)nullptr,
+         categorical_sets{},
+         std::vector<typename fil_node_t::F>{},
+         (int*)nullptr,
+         (fil_node_t*)nullptr,
+         (forest_params_t*)nullptr);
+  }
+};
 
-template void init<sparse_node8>(const raft::handle_t& h,
-                                 forest_t* pf,
-                                 const categorical_sets& cat_sets,
-                                 const std::vector<float>& vector_leaf,
-                                 const int* trees,
-                                 const sparse_node8* nodes,
-                                 const forest_params_t* params);
-
-template void init<dense_node>(const raft::handle_t& h,
-                               forest_t* pf,
-                               const categorical_sets& cat_sets,
-                               const std::vector<float>& vector_leaf,
-                               const int* trees,
-                               const dense_node* nodes,
-                               const forest_params_t* params);
+template void instantiate_for_all_node_types(instantiate_forest_init);
 
 void free(const raft::handle_t& h, forest_t f)
 {

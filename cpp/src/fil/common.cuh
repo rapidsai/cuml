@@ -44,23 +44,27 @@ struct storage_base {
   bool cats_present() const { return sets_.cats_present(); }
 };
 
-/** dense_tree represents a dense tree */
-
-struct dense_tree : tree_base {
-  __host__ __device__ dense_tree(categorical_sets cat_sets, dense_node* nodes, int node_pitch)
+/** represents a dense tree */
+template <typename F>
+struct tree<dense_node<F>> : tree_base {
+  __host__ __device__ tree(categorical_sets cat_sets, dense_node<F>* nodes, int node_pitch)
     : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
   {
   }
-  __host__ __device__ const dense_node& operator[](int i) const { return nodes_[i * node_pitch_]; }
-  dense_node* nodes_ = nullptr;
+  __host__ __device__ const dense_node<F>& operator[](int i) const { return nodes_[i * node_pitch_]; }
+  dense_node<F>* nodes_ = nullptr;
   int node_pitch_    = 0;
 };
 
+using std::enable_if;
+
 /** dense_storage stores the forest as a collection of dense nodes */
-struct dense_storage : storage_base {
-  __host__ __device__ dense_storage(categorical_sets cat_sets,
+template <typename F>
+struct storage<dense_node<F>> : storage_base {
+  using node_t = dense_node<F>;
+  __host__ __device__ storage(categorical_sets cat_sets,
                                     float* vector_leaf,
-                                    dense_node* nodes,
+                                    node_t* nodes,
                                     int num_trees,
                                     int tree_stride,
                                     int node_pitch)
@@ -72,20 +76,20 @@ struct dense_storage : storage_base {
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ dense_tree operator[](int i) const
+  __host__ __device__ tree<node_t> operator[](int i) const
   {
-    return dense_tree(sets_, nodes_ + i * tree_stride_, node_pitch_);
+    return tree<node_t>(sets_, nodes_ + i * tree_stride_, node_pitch_);
   }
-  dense_node* nodes_ = nullptr;
+  node_t* nodes_ = nullptr;
   int num_trees_     = 0;
   int tree_stride_   = 0;
   int node_pitch_    = 0;
 };
 
-/** sparse_tree is a sparse tree */
+/** sparse tree */
 template <typename node_t>
-struct sparse_tree : tree_base {
-  __host__ __device__ sparse_tree(categorical_sets cat_sets, node_t* nodes)
+struct tree : tree_base {
+  __host__ __device__ tree(categorical_sets cat_sets, node_t* nodes)
     : tree_base{cat_sets}, nodes_(nodes)
   {
   }
@@ -95,24 +99,24 @@ struct sparse_tree : tree_base {
 
 /** sparse_storage stores the forest as a collection of sparse nodes */
 template <typename node_t>
-struct sparse_storage : storage_base {
+struct storage : storage_base {
   int* trees_    = nullptr;
   node_t* nodes_ = nullptr;
   int num_trees_ = 0;
-  __host__ __device__ sparse_storage(
+  __host__ __device__ storage(
     categorical_sets cat_sets, float* vector_leaf, int* trees, node_t* nodes, int num_trees)
     : storage_base{cat_sets, vector_leaf}, trees_(trees), nodes_(nodes), num_trees_(num_trees)
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ sparse_tree<node_t> operator[](int i) const
+  __host__ __device__ tree<node_t> operator[](int i) const
   {
-    return sparse_tree<node_t>(sets_, &nodes_[trees_[i]]);
+    return tree<node_t>(sets_, &nodes_[trees_[i]]);
   }
 };
 
-typedef sparse_storage<sparse_node16> sparse_storage16;
-typedef sparse_storage<sparse_node8> sparse_storage8;
+typedef storage<sparse_node16<float>> sparse_storage16;
+typedef storage<sparse_node8> sparse_storage8;
 
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
