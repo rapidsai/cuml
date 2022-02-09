@@ -58,7 +58,7 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             vinaydes
-                        PINNED_TAG       77364bd4adf8047272bdb8eb29a0ff475dae41ef
+                        PINNED_TAG       5b322c0962f17d3c891a39dbdabad23fd3be6d2b
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )
