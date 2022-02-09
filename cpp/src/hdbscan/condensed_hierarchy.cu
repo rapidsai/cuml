@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include <cub/cub.cuh>
 
