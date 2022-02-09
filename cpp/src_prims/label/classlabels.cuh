@@ -21,7 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 #include <raft/linalg/unary_op.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
