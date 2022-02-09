@@ -29,6 +29,7 @@ log
 .DS_Store
 dask-worker-space/
 tmp/
+.hypothesis
 
 ## files pickled in notebook when ran during python docstring generation
 docs/source/*.model
