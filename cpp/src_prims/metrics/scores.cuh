@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/power.cuh>
+#include <raft/linalg/power.cuh>
 #include <memory>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>

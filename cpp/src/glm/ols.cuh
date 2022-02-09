@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <linalg/lstsq.cuh>
+#include <raft/linalg/lstsq.hpp>
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/gemv.hpp>
 #include <raft/linalg/norm.hpp>

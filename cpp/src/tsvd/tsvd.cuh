@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/decomposition/params.hpp>
-#include <linalg/rsvd.cuh>
+#include <raft/linalg/rsvd.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.hpp>

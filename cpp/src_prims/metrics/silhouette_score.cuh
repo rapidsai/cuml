@@ -20,7 +20,7 @@
 #include <cub/cub.cuh>
 #include <cuml/metrics/metrics.hpp>
 #include <iostream>
-#include <linalg/reduce_cols_by_key.cuh>
+#include <raft/linalg/reduce_cols_by_key.cuh>
 #include <math.h>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
