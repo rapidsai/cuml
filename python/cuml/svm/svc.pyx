@@ -35,6 +35,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
@@ -90,7 +91,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
@@ -482,17 +483,25 @@ class SVC(SVMBase,
         cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0], <float*>sample_weight_ptr)
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <float*>X_ptr, n_rows,
+                        n_cols, <float*>y_ptr, param, _kernel_params,
+                        deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0], <double*>sample_weight_ptr)
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <double*>X_ptr, n_rows,
+                        n_cols, <double*>y_ptr, param, _kernel_params,
+                        deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')

@@ -257,7 +257,7 @@ void smooth_knn_dist(int n,
 
   value_t mean_dist = 0.0;
   raft::update_host(&mean_dist, dist_means_dev.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   /**
    * Smooth kNN distances to be continuous

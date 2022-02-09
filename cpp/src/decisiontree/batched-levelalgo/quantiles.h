@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 
-#include <cuml/tree/flatnode.h>
-
-#include "../bins.cuh"
-#include "../objectives.cuh"
+#pragma once
 
 namespace ML {
 namespace DT {
-using _DataT      = float;
-using _LabelT     = int;
-using _IdxT       = int;
-using _ObjectiveT = GiniObjectiveFunction<_DataT, _LabelT, _IdxT>;
-using _BinT       = CountBin;
-using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
-using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
+
+template <typename DataT, typename IdxT>
+struct Quantiles {
+  /** quantiles computed for each feature of dataset in col-major */
+  DataT* quantiles_array;
+  /** The number of bins used for quantiles of each feature*/
+  IdxT* n_bins_array;
+};
+
 }  // namespace DT
 }  // namespace ML
-
-#include "builder_kernels_impl.cuh"

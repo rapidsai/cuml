@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -191,7 +191,7 @@ RF_metrics score(const raft::handle_t& user_handle,
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
-                        int n_bins,
+                        int max_n_bins,
                         int min_samples_leaf,
                         int min_samples_split,
                         float min_impurity_decrease,

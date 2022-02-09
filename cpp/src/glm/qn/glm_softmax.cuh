@@ -19,7 +19,7 @@
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/add.hpp>
 
 namespace ML {
 namespace GLM {
@@ -152,7 +152,7 @@ void launchLogsoftmax(
   T* loss_val, T* dldZ, const T* Z, const T* labels, int C, int N, cudaStream_t stream)
 {
   RAFT_CUDA_TRY(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));

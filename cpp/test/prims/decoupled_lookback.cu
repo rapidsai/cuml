@@ -18,6 +18,7 @@
 #include <decoupled_lookback.cuh>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -76,7 +77,7 @@ template <typename T, typename L>
 {
   std::vector<T> act_h(size);
   raft::update_host<T>(&(act_h[0]), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (size_t i(0); i < size; ++i) {
     auto act      = act_h[i];
     auto expected = (T)i;

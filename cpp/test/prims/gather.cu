@@ -19,6 +19,7 @@
 #include <matrix/gather.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -107,7 +108,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     // launch device version of the kernel
     gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 

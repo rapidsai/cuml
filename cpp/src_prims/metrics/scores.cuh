@@ -20,8 +20,8 @@
 #include <memory>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/subtract.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_scalar.hpp>
@@ -174,7 +174,7 @@ void regression_metrics(const T* predictions,
     predictions, ref_predictions, n, abs_diffs_array.data(), tmp_sums.data());
   RAFT_CUDA_TRY(cudaGetLastError());
   raft::update_host(&mean_errors[0], tmp_sums.data(), 2, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   mean_abs_error     = mean_errors[0] / n;
   mean_squared_error = mean_errors[1] / n;
@@ -202,7 +202,7 @@ void regression_metrics(const T* predictions,
                                                stream));
 
   raft::update_host(h_sorted_abs_diffs.data(), sorted_abs_diffs.data(), n, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   int middle = n / 2;
   if (n % 2 == 1) {

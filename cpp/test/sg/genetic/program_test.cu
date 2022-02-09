@@ -650,7 +650,7 @@ TEST_F(GeneticProgramTest, ProgramExecution)
                                 n_progs * n_samples * sizeof(float),
                                 cudaMemcpyDeviceToHost,
                                 stream));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   // Check results
 
@@ -690,7 +690,7 @@ TEST_F(GeneticProgramTest, ProgramFitnessScore)
                          dx2.data(),
                          dy2.data(),
                          dw2.data());
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   RAFT_CUDA_TRY(cudaMemcpyAsync(hactualscores.data(),

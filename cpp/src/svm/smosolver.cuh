@@ -22,9 +22,10 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/unary_op.cuh>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/unary_op.hpp>
 
 #include <iostream>
 #include <limits>
@@ -44,9 +45,8 @@
 #include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/unary_op.hpp>
 
 #include "results.cuh"
 
@@ -178,7 +178,7 @@ class SmoSolver {
 
       UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(), cacheTile);
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       math_t diff = host_return_buff[0];
       keep_going  = CheckStoppingCondition(diff);
@@ -218,35 +218,37 @@ class SmoSolver {
   {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     math_t one = 1;
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                             CUBLAS_OP_N,
-                                             n_rows,
-                                             n_ws,
-                                             &one,
-                                             cacheTile,
-                                             n_rows,
-                                             delta_alpha,
-                                             1,
-                                             &one,
-                                             f,
-                                             1,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                     CUBLAS_OP_N,
+                                                     n_rows,
+                                                     n_ws,
+                                                     &one,
+                                                     cacheTile,
+                                                     n_rows,
+                                                     delta_alpha,
+                                                     1,
+                                                     &one,
+                                                     f,
+                                                     1,
+                                                     stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                               CUBLAS_OP_N,
-                                               n_rows,
-                                               n_ws,
-                                               &one,
-                                               cacheTile,
-                                               n_rows,
-                                               delta_alpha,
-                                               1,
-                                               &one,
-                                               f + n_rows,
-                                               1,
-                                               stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                       CUBLAS_OP_N,
+                                                       n_rows,
+                                                       n_ws,
+                                                       &one,
+                                                       cacheTile,
+                                                       n_rows,
+                                                       delta_alpha,
+                                                       1,
+                                                       &one,
+                                                       f + n_rows,
+                                                       1,
+                                                       stream));
     }
   }
 
