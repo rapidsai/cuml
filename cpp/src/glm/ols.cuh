@@ -95,10 +95,12 @@ void olsFit(const raft::handle_t& handle,
 
   raft::common::nvtx::push_range("ML::GLM::olsFit/algo-%d", selectedAlgo);
   switch (selectedAlgo) {
-    case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 2: LinAlg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 3: LinAlg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 0:
+      raft::linalg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream);
+      break;
+    case 1: raft::linalg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 2: raft::linalg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 3: raft::linalg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
     default:
       ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
       break;
