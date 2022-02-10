@@ -33,7 +33,6 @@
 #include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
@@ -53,7 +52,7 @@ struct DeviceEvent {
   DeviceEvent(bool concurrent)
   {
     if (concurrent)
-      RAFT_CUDA_TRY(cudaEventCreate(&e));
+      RAFT_CUDA_TRY(cudaEventCreateWithFlags(&e, cudaEventDisableTiming));
     else
       e = nullptr;
   }
@@ -61,18 +60,13 @@ struct DeviceEvent {
   {
     if (e != nullptr) RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(e));
   }
-  operator cudaEvent_t() const { return e; }
   void record(cudaStream_t stream)
   {
     if (e != nullptr) RAFT_CUDA_TRY(cudaEventRecord(e, stream));
   }
-  void wait(cudaStream_t stream)
+  void wait_by(cudaStream_t stream)
   {
     if (e != nullptr) RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, e, 0u));
-  }
-  void wait()
-  {
-    if (e != nullptr) RAFT_CUDA_TRY(cudaEventSynchronize(e));
   }
   DeviceEvent& operator=(const DeviceEvent& other) = delete;
 };
@@ -260,27 +254,26 @@ void lstsqEig(const raft::handle_t& handle,
               cudaStream_t stream)
 {
   rmm::cuda_stream_view mainStream   = rmm::cuda_stream_view(stream);
-  rmm::cuda_stream_view multAbStream = mainStream;
-  bool concurrent                    = false;
-  {
-    int sp_size = handle.get_stream_pool_size();
-    if (sp_size > 0) {
-      multAbStream = handle.get_stream_from_stream_pool(0);
-      // check if the two streams can run concurrently
-      if (!are_implicitly_synchronized(mainStream, multAbStream)) {
-        concurrent = true;
-      } else if (sp_size > 1) {
-        mainStream   = multAbStream;
-        multAbStream = handle.get_stream_from_stream_pool(1);
-        concurrent   = true;
-      }
-    }
+  rmm::cuda_stream_view multAbStream = handle.get_next_usable_stream();
+  bool concurrent;
+  // Check if the two streams can run concurrently. This is needed because a legacy default stream
+  // would synchronize with other blocking streams. To avoid synchronization in such case, we try to
+  // use an additional stream from the pool.
+  if (!are_implicitly_synchronized(mainStream, multAbStream)) {
+    concurrent = true;
+  } else if (handle.get_stream_pool_size() > 1) {
+    mainStream = handle.get_next_usable_stream();
+    concurrent = true;
+  } else {
+    multAbStream = mainStream;
+    concurrent   = false;
   }
-  // the event is created only if the given raft handle is capable of running
-  // at least two CUDA streams without implicit synchronization.
-  DeviceEvent multAbDone(concurrent);
 
   rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, mainStream);
+  // the event is created only if the given raft handle is capable of running
+  // at least two CUDA streams without implicit synchronization.
+  DeviceEvent worksetDone(concurrent);
+  worksetDone.record(mainStream);
   math_t* Q    = workset.data();
   math_t* QS   = Q + n_cols * n_cols;
   math_t* covA = QS + n_cols * n_cols;
@@ -305,7 +298,9 @@ void lstsqEig(const raft::handle_t& handle,
                      mainStream);
 
   // Ab <- A* b
+  worksetDone.wait_by(multAbStream);
   raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAbStream);
+  DeviceEvent multAbDone(concurrent);
   multAbDone.record(multAbStream);
 
   // Q S Q* <- covA
@@ -330,9 +325,18 @@ void lstsqEig(const raft::handle_t& handle,
                      alpha,
                      beta,
                      mainStream);
-  multAbDone.wait(mainStream);
+
+  multAbDone.wait_by(mainStream);
   // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
   raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, mainStream);
+
+  // This event is created only if we use two worker streams, and `stream` is not the legacy stream,
+  // and `mainStream` is not a non-blocking stream. In fact, with the current logic these conditions
+  // are impossible together, but it still makes sense to put this construct here to emphasize that
+  // `stream` must wait till the work here is done (for future refactorings).
+  DeviceEvent mainDone(!are_implicitly_synchronized(mainStream, stream));
+  mainDone.record(mainStream);
+  mainDone.wait_by(stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`

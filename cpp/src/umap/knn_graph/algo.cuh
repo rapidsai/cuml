@@ -28,7 +28,6 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/error.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
 
 namespace UMAPAlgo {
 namespace kNNGraph {

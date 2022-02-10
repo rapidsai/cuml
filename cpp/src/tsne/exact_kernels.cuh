@@ -159,7 +159,7 @@ void perplexity_search(const value_t* restrict distances,
     sigmas_kernel<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, epochs, tol, n, dim);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
+  handle.sync_stream(stream);
 }
 
 /****************************************/

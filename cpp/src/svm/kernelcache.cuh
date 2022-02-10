@@ -378,7 +378,7 @@ class KernelCache {
                               n_ws,
                               stream);
     raft::update_host(n_unique, d_num_selected_out.data(), 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 };
 

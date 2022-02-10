@@ -19,7 +19,7 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
@@ -103,7 +103,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  uniq_labels,
                  n_unique);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 #include <random/permute.cuh>
 #include <vector>
@@ -67,7 +68,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       r.uniform(in_ptr, len, T(-1.0), T(1.0), stream);
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
@@ -88,7 +89,7 @@ template <typename T, typename L>
 {
   std::vector<T> act_h(size);
   raft::update_host<T>(&(act_h[0]), actual, size, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   if (doSort) std::sort(act_h.begin(), act_h.end());
   for (size_t i(0); i < size; ++i) {
     auto act      = act_h[i];
@@ -116,7 +117,7 @@ template <typename T, typename L>
   std::vector<T> h_out(N * D), h_in(N * D);
   raft::update_host<T>(&(h_out[0]), out, N * D, stream);
   raft::update_host<T>(&(h_in[0]), in, N * D, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < D; ++j) {
       int outPos    = rowMajor ? i * D + j : j * N + i;

@@ -96,6 +96,17 @@ if(BUILD_CUML_TESTS)
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
+    set_target_properties(
+      ${CUML_CPP_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_CPP_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml
+      EXCLUDE_FROM_ALL
+    )
 endif()
 
 #############################################################################
@@ -131,6 +142,18 @@ if(BUILD_CUML_MG_TESTS)
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
       cumlprims_mg::cumlprims_mg
+    )
+
+    set_target_properties(
+      ${CUML_MG_TEST_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_MG_TEST_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml_mg
+      EXCLUDE_FROM_ALL
     )
 
   else(MPI_CXX_FOUND)
@@ -222,6 +245,17 @@ if(BUILD_PRIMS_TESTS)
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 
+  set_target_properties(
+    ${PRIMS_TEST_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${PRIMS_TEST_TARGET}
+    COMPONENT testing
+    DESTINATION bin/gtests/libcuml_prims
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################

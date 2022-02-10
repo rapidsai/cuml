@@ -54,6 +54,18 @@ if(BUILD_CUML_BENCH)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
+
+  set_target_properties(
+    ${CUML_CPP_BENCH_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${CUML_CPP_BENCH_TARGET}
+    COMPONENT testing
+    DESTINATION bin/benchmarks/libcuml
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################
@@ -96,5 +108,17 @@ if(BUILD_CUML_PRIMS_BENCH)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  )
+
+  set_target_properties(
+    ${PRIMS_BENCH_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${PRIMS_BENCH_TARGET}
+    COMPONENT testing
+    DESTINATION bin/benchmarks/libcuml_prims
+    EXCLUDE_FROM_ALL
   )
 endif()
