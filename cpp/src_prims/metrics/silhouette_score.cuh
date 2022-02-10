@@ -244,7 +244,7 @@ DataT silhouette_score(
   rmm::device_uvector<DataT> sampleToClusterSumOfDistances(nRows * nLabels, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(
     sampleToClusterSumOfDistances.data(), 0, nRows * nLabels * sizeof(DataT), stream));
-  MLCommon::LinAlg::reduce_cols_by_key(distanceMatrix.data(),
+  raft::linalg::reduce_cols_by_key(distanceMatrix.data(),
                                        labels,
                                        sampleToClusterSumOfDistances.data(),
                                        nRows,

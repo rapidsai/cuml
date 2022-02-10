@@ -38,8 +38,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template <typename math_t>
 void calCompExpVarsSvd(const raft::handle_t& handle,
                        math_t* in,
@@ -69,7 +67,7 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
 
   rmm::device_uvector<math_t> components_temp(prms.n_cols * prms.n_components, stream);
   math_t* left_eigvec = nullptr;
-  LinAlg::rsvdFixedRank(handle,
+  raft::linalg::rsvdFixedRank(handle,
                         in,
                         prms.n_rows,
                         prms.n_cols,

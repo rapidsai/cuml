@@ -24,8 +24,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template <typename T>
 struct TsvdInputs {
   T tolerance;

@@ -26,8 +26,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 enum class hconf { SINGLE, LEGACY_ONE, LEGACY_TWO, NON_BLOCKING_ONE, NON_BLOCKING_TWO };
 
 raft::handle_t create_handle(hconf type)

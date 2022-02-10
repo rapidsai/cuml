@@ -61,7 +61,7 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
   rmm::device_uvector<math_t> sse_arr(n, stream);
 
   raft::linalg::eltwiseSub(sse_arr.data(), y, y_hat, n, stream);
-  MLCommon::LinAlg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
+  raft::linalg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<math_t> ssto_arr(n, stream);
