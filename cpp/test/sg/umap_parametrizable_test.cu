@@ -296,7 +296,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     handle.sync_stream(stream);
 
-    MLCommon::LinAlg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
+    raft::linalg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
 
     handle.sync_stream(stream);
 
