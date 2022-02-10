@@ -68,21 +68,21 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
   rmm::device_uvector<math_t> components_temp(prms.n_cols * prms.n_components, stream);
   math_t* left_eigvec = nullptr;
   raft::linalg::rsvdFixedRank(handle,
-                        in,
-                        prms.n_rows,
-                        prms.n_cols,
-                        singular_vals,
-                        left_eigvec,
-                        components_temp.data(),
-                        prms.n_components,
-                        p,
-                        true,
-                        false,
-                        true,
-                        false,
-                        (math_t)prms.tol,
-                        prms.n_iterations,
-                        stream);
+                              in,
+                              prms.n_rows,
+                              prms.n_cols,
+                              singular_vals,
+                              left_eigvec,
+                              components_temp.data(),
+                              prms.n_components,
+                              p,
+                              true,
+                              false,
+                              true,
+                              false,
+                              (math_t)prms.tol,
+                              prms.n_iterations,
+                              stream);
 
   raft::linalg::transpose(
     handle, components_temp.data(), components, prms.n_cols, prms.n_components, stream);

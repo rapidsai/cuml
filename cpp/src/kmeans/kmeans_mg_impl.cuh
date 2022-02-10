@@ -527,15 +527,15 @@ void fit(const raft::handle_t& handle,
     // Calculates weighted sum of all the samples assigned to cluster-i and
     // store the result in newCentroids[i]
     raft::linalg::reduce_rows_by_key(X.data(),
-                                         X.getSize(1),
-                                         itr,
-                                         weight.data(),
-                                         workspace.data(),
-                                         X.getSize(0),
-                                         X.getSize(1),
-                                         n_clusters,
-                                         newCentroids.data(),
-                                         stream);
+                                     X.getSize(1),
+                                     itr,
+                                     weight.data(),
+                                     workspace.data(),
+                                     X.getSize(0),
+                                     X.getSize(1),
+                                     n_clusters,
+                                     newCentroids.data(),
+                                     stream);
 
     // Reduce weights by key to compute weight in each cluster
     raft::linalg::reduce_cols_by_key(

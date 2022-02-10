@@ -245,12 +245,12 @@ DataT silhouette_score(
   RAFT_CUDA_TRY(cudaMemsetAsync(
     sampleToClusterSumOfDistances.data(), 0, nRows * nLabels * sizeof(DataT), stream));
   raft::linalg::reduce_cols_by_key(distanceMatrix.data(),
-                                       labels,
-                                       sampleToClusterSumOfDistances.data(),
-                                       nRows,
-                                       nRows,
-                                       nLabels,
-                                       stream);
+                                   labels,
+                                   sampleToClusterSumOfDistances.data(),
+                                   nRows,
+                                   nRows,
+                                   nLabels,
+                                   stream);
 
   // creating the a array and b array
   rmm::device_uvector<DataT> d_aArray(nRows, stream);
