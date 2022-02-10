@@ -58,7 +58,7 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             cjnolet
-                        PINNED_TAG       imp-2204-moving_remaining_linalg
+                        PINNED_TAG       imp-2204_moving_remaining_linalg
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )
