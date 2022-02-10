@@ -179,7 +179,7 @@ struct SimpleDenseMat : SimpleMat<T> {
   }
 
   template <typename Lambda>
-  inline void assign_unary(const SimpleDenseMat<T>& other, Lambda& f, cudaStream_t stream)
+  inline void assign_unary(const SimpleDenseMat<T>& other, Lambda f, cudaStream_t stream)
   {
     ASSERT(ord == other.ord, "SimpleDenseMat::assign_unary: Storage orders must match");
 
