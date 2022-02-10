@@ -34,8 +34,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 /**
  * @brief fit an ordinary least squares model
  * @param handle        cuml handle

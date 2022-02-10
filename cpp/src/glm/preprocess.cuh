@@ -30,8 +30,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 template <typename math_t>
 void preProcessData(const raft::handle_t& handle,
                     math_t* input,

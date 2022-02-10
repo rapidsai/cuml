@@ -67,7 +67,7 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
   rmm::device_uvector<math_t> ssto_arr(n, stream);
 
   raft::linalg::subtractDevScalar(ssto_arr.data(), y, y_bar.data(), n, stream);
-  MLCommon::LinAlg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
+  raft::linalg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<math_t> d_sse  = thrust::device_pointer_cast(sse_arr.data());

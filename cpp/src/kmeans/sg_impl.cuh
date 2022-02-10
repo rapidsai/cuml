@@ -135,19 +135,19 @@ void fit(const raft::handle_t& handle,
 
     // Calculates weighted sum of all the samples assigned to cluster-i and store the
     // result in newCentroids[i]
-    MLCommon::LinAlg::reduce_rows_by_key(X.data(),
-                                         X.getSize(1),
-                                         itr,
-                                         weight.data(),
-                                         workspace.data(),
-                                         X.getSize(0),
-                                         X.getSize(1),
-                                         n_clusters,
-                                         newCentroids.data(),
-                                         stream);
+    raft::linalg::reduce_rows_by_key(X.data(),
+                                     X.getSize(1),
+                                     itr,
+                                     weight.data(),
+                                     workspace.data(),
+                                     X.getSize(0),
+                                     X.getSize(1),
+                                     n_clusters,
+                                     newCentroids.data(),
+                                     stream);
 
     // Reduce weights by key to compute weight in each cluster
-    MLCommon::LinAlg::reduce_cols_by_key(
+    raft::linalg::reduce_cols_by_key(
       weight.data(), itr, wtInCluster.data(), 1, weight.getSize(0), n_clusters, stream);
 
     // Computes newCentroids[i] = newCentroids[i]/wtInCluster[i] where
