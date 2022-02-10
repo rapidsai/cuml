@@ -51,7 +51,7 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
   auto* rcomp      = reinterpret_cast<IdxT*>(smem + smemSize);
   auto range_start = work_item.instances.begin;
   auto range_len   = work_item.instances.count;
-  auto* col        = dataset.data + split.colid * dataset.M;
+  auto* col        = dataset.data + split.colid * std::size_t(dataset.M);
   auto loffset = range_start, part = loffset + split.nLeft, roffset = part;
   auto end  = range_start + range_len;
   int lflag = 0, rflag = 0, llen = 0, rlen = 0, minlen = 0;
@@ -286,7 +286,9 @@ __global__ void computeSplitKernel(BinT* histograms,
   __syncthreads();
 
   // compute pdf shared histogram for all bins for all classes in shared mem
-  auto col_offset = col * dataset.M;
+
+  // Must be 64 bit - can easily grow larger than a 32 bit int
+  std::size_t col_offset = std::size_t(col) * dataset.M;
   for (auto i = range_start + tid; i < end; i += stride) {
     // each thread works over a data point and strides to the next
     auto row   = dataset.row_ids[i];
