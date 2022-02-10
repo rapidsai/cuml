@@ -222,6 +222,22 @@ struct GLMWithData : GLMDims {
     raft::interruptible::synchronize(stream);
     return loss_host;
   }
+
+  /**
+   * @brief Calculate a norm of the gradient computed using the given Loss instance.
+   *
+   * This function is intended to be used in `check_convergence`; it's output is supposed
+   * to be proportional to the loss value w.r.t. the number of features (D).
+   *
+   * Different loss functions may scale differently with the number of features (D).
+   * This has an effect on the convergence criteria. To account for that, we let a
+   * loss function define its preferred metric. Normally, we differentiate between the
+   * L2 norm (e.g. for Squared loss) and LInf norm (e.g. for Softmax loss).
+   */
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return objective->gradNorm(grad, dev_scalar, stream);
+  }
 };
 
 };  // namespace GLM
