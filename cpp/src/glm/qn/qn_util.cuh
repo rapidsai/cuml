@@ -143,18 +143,9 @@ HDI T project_orth(T x, T y)
 }
 
 template <typename T>
-inline bool check_convergence(const LBFGSParam<T>& param,
-                              const int k,
-                              const T fx,
-                              SimpleVec<T>& x,
-                              SimpleVec<T>& grad,
-                              std::vector<T>& fx_hist,
-                              T* dev_scalar,
-                              cudaStream_t stream)
+inline bool check_convergence(
+  const LBFGSParam<T>& param, const int k, const T fx, const T gnorm, std::vector<T>& fx_hist)
 {
-  // Gradient norm is now in Linf to match the reference implementation
-  // (originally it was L2-norm)
-  T gnorm = nrmMax(grad, dev_scalar, stream);
   // Positive scale factor for the stop condition
   T fmag = std::max(fx, param.epsilon);
 
