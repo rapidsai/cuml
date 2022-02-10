@@ -31,7 +31,7 @@
 #include <raft/linalg/reduce.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <stats/histogram.cuh>
+#include <raft/stats/histogram.hpp>
 
 namespace MLCommon {
 namespace Metrics {

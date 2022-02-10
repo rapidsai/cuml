@@ -219,14 +219,13 @@ if(BUILD_PRIMS_TESTS)
     prims/reverse.cu
     prims/rsvd.cu
     prims/score.cu
-    prims/seive.cu
-    prims/sigmoid.cu
+          prims/sigmoid.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu
     prims/trustworthiness.cu
     prims/v_measure.cu
-    prims/weighted_mean.cu)
+          )
 
   target_compile_options(${PRIMS_TEST_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"

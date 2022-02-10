@@ -27,7 +27,7 @@
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
-#include <stats/cov.cuh>
+#include <raft/stats/cov.hpp>
 #include <tsvd/tsvd.cuh>
 
 namespace ML {
