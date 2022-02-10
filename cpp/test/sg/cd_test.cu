@@ -76,7 +76,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     T labels_h[params.n_row] = {6.0, 8.3, 9.8, 11.2};
     raft::update_device(labels.data(), labels_h, params.n_row, stream);
 
-    /* How to get the coefficients:
+    /* How to reproduce the coefficients for this test:
 
     from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler(with_mean=True, with_std=True)

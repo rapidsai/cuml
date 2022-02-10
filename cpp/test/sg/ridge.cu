@@ -72,7 +72,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     rmm::device_uvector<T> labels(params.n_row, stream);
     T alpha = params.alpha;
 
-    /* How to get the coefficients:
+    /* How to reproduce the coefficients for this test:
 
     from sklearn.preprocessing import StandardScaler
     from sklearn.linear_model import Ridge
