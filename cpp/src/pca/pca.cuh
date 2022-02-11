@@ -110,7 +110,8 @@ void pcaFit(const raft::handle_t& handle,
   auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
 
-  raft::stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
+  raft::stats::cov(
+    handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
   truncCompExpVars(
     handle, cov.data(), components, explained_var, explained_var_ratio, prms, stream);
 

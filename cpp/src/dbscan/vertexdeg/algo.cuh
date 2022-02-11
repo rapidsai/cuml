@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuda_runtime.h>
-#include <raft/spatial/knn/epsilon_neighborhood.hpp>
 #include <math.h>
+#include <raft/spatial/knn/epsilon_neighborhood.hpp>
 
 #include "pack.h"
 
