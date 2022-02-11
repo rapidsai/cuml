@@ -178,20 +178,17 @@ if(BUILD_PRIMS_TESTS)
     prims/columnSort.cu
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
-    prims/cov.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
     prims/eltwise2d.cu
     prims/entropy.cu
-    prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
     prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
-    prims/histogram.cu
     prims/homogeneity_score.cu
     prims/jones_transform.cu
     prims/kl_divergence.cu
@@ -205,18 +202,16 @@ if(BUILD_PRIMS_TESTS)
     prims/logisticReg.cu
     prims/make_arima.cu
     prims/merge_labels.cu
-    prims/minmax.cu
     prims/mutual_info_score.cu
     prims/penalty.cu
     prims/rand_index.cu
     prims/reverse.cu
     prims/score.cu
-    prims/seive.cu
     prims/sigmoid.cu
     prims/silhouette_score.cu
     prims/trustworthiness.cu
     prims/v_measure.cu
-    prims/weighted_mean.cu)
+          )
 
   target_compile_options(${PRIMS_TEST_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
