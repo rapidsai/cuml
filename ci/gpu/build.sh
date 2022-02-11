@@ -190,7 +190,14 @@ else
     cp _deps/raft-build/libraft_distance.so $PWD
 
     gpuci_logger "Running libcuml binaries"
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
+    for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
+        test_name=$(basename $gt)
+        echo "Running gtest $test_name"
+        ${gt} ${GTEST_ARGS}
+        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    done
+
 
     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -252,7 +259,15 @@ else
     cd $LIBCUML_BUILD_DIR
     chrpath -d ./test/prims
     patchelf --replace-needed `patchelf --print-needed ./test/prims | grep faiss` libfaiss.so ./test/prims
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+    gpuci_logger "Running libcuml binaries"
+    GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
+    for gt in $(find ./test -name "*_TEST" | grep -v "SG_\|MG_" || true); do
+        test_name=$(basename $gt)
+        echo "Running gtest $test_name"
+        ${gt} ${GTEST_ARGS}
+        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    done
+
 
     ################################################################################
     # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled

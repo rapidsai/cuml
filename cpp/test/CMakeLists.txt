@@ -47,7 +47,7 @@ function(ConfigureTest)
     raft::raft
     GTest::gtest
     GTest::gtest_main
-    OpenMP::OpenMP_CXX
+    ${OpenMP_CXX_LIB_NAMES}
     Threads::Threads
     $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
     $<$<BOOL:${ConfigureTest_NCCL}>:NCCL::NCCL>
