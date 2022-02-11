@@ -24,10 +24,10 @@
 #include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
+#include <raft/stats/cov.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
-#include <raft/stats/cov.hpp>
 #include <tsvd/tsvd.cuh>
 
 namespace ML {

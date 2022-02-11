@@ -29,9 +29,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/map_then_reduce.hpp>
 #include <raft/linalg/reduce.hpp>
+#include <raft/stats/histogram.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <raft/stats/histogram.hpp>
 
 namespace MLCommon {
 namespace Metrics {
