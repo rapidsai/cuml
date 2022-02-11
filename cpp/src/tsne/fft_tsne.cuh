@@ -30,7 +30,6 @@
 #include <cufft_utils.h>
 #include <linalg/init.h>
 #include <raft/linalg/eltwise.hpp>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

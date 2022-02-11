@@ -44,7 +44,7 @@ struct KNNRegressionInputs {
 void generate_data(
   float* out_samples, float* out_labels, int n_rows, int n_cols, cudaStream_t stream)
 {
-  raft::random::Rng r(0ULL, raft::random::GenTaps);
+  raft::random::Rng r(0ULL, raft::random::GenPC);
 
   r.uniform(out_samples, n_rows * n_cols, 0.0f, 1.0f, stream);
 

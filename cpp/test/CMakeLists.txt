@@ -96,6 +96,17 @@ if(BUILD_CUML_TESTS)
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
+    set_target_properties(
+      ${CUML_CPP_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_CPP_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml
+      EXCLUDE_FROM_ALL
+    )
 endif()
 
 #############################################################################
@@ -131,6 +142,18 @@ if(BUILD_CUML_MG_TESTS)
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
       cumlprims_mg::cumlprims_mg
+    )
+
+    set_target_properties(
+      ${CUML_MG_TEST_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_MG_TEST_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml_mg
+      EXCLUDE_FROM_ALL
     )
 
   else(MPI_CXX_FOUND)
@@ -189,19 +212,13 @@ if(BUILD_PRIMS_TESTS)
     prims/mutual_info_score.cu
     prims/penalty.cu
     prims/permute.cu
-    prims/power.cu
-    prims/rand_index.cu
-    prims/reduce_cols_by_key.cu
-    prims/reduce_rows_by_key.cu
-    prims/reverse.cu
-    prims/rsvd.cu
-    prims/score.cu
+          prims/rand_index.cu
+          prims/reverse.cu
+          prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
     prims/silhouette_score.cu
-    prims/sqrt.cu
-    prims/ternary_op.cu
-    prims/trustworthiness.cu
+          prims/trustworthiness.cu
     prims/v_measure.cu
     prims/weighted_mean.cu)
 
@@ -222,6 +239,17 @@ if(BUILD_PRIMS_TESTS)
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 
+  set_target_properties(
+    ${PRIMS_TEST_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${PRIMS_TEST_TARGET}
+    COMPONENT testing
+    DESTINATION bin/gtests/libcuml_prims
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################

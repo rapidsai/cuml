@@ -19,11 +19,11 @@
 #include <vector>
 
 #include "base.hpp"
-#include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.hpp>
+#include <raft/linalg/ternary_op.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/map_then_reduce.hpp>
@@ -179,7 +179,7 @@ struct SimpleDenseMat : SimpleMat<T> {
   }
 
   template <typename Lambda>
-  inline void assign_unary(const SimpleDenseMat<T>& other, Lambda& f, cudaStream_t stream)
+  inline void assign_unary(const SimpleDenseMat<T>& other, Lambda f, cudaStream_t stream)
   {
     ASSERT(ord == other.ord, "SimpleDenseMat::assign_unary: Storage orders must match");
 
@@ -209,7 +209,7 @@ struct SimpleDenseMat : SimpleMat<T> {
     ASSERT(ord == other2.ord, "SimpleDenseMat::assign_ternary: Storage orders must match");
     ASSERT(ord == other3.ord, "SimpleDenseMat::assign_ternary: Storage orders must match");
 
-    MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data, len, f, stream);
+    raft::linalg::ternaryOp(data, other1.data, other2.data, other3.data, len, f, stream);
   }
 
   inline void fill(const T val, cudaStream_t stream)

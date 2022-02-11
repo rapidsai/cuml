@@ -19,10 +19,10 @@
 #include <vector>
 
 #include "base.hpp"
-#include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/linalg/ternary_op.cuh>
 
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/map_then_reduce.hpp>
@@ -31,6 +31,8 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
+
+#include <raft/sparse/detail/cusparse_wrappers.h>
 
 namespace ML {
 

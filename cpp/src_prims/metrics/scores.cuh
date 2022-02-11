@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <linalg/power.cuh>
 #include <memory>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/power.cuh>
 #include <raft/linalg/subtract.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/stats/mean.hpp>
@@ -61,13 +61,13 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
   rmm::device_uvector<math_t> sse_arr(n, stream);
 
   raft::linalg::eltwiseSub(sse_arr.data(), y, y_hat, n, stream);
-  MLCommon::LinAlg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
+  raft::linalg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<math_t> ssto_arr(n, stream);
 
   raft::linalg::subtractDevScalar(ssto_arr.data(), y, y_bar.data(), n, stream);
-  MLCommon::LinAlg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
+  raft::linalg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<math_t> d_sse  = thrust::device_pointer_cast(sse_arr.data());
