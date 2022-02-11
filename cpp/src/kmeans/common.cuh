@@ -24,9 +24,9 @@
 
 #include <common/tensor.hpp>
 
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+#include <raft/linalg/reduce_cols_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <random/permute.cuh>
 
 #include <raft/comms/comms.hpp>
@@ -40,7 +40,6 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <random/permute.cuh>
 #include <random>
 
 #include <thrust/equal.h>
@@ -55,9 +54,6 @@
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
-#include <matrix/gather.cuh>
 
 #include <fstream>
 #include <numeric>

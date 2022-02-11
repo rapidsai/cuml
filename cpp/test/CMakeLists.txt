@@ -212,19 +212,13 @@ if(BUILD_PRIMS_TESTS)
     prims/mutual_info_score.cu
     prims/penalty.cu
     prims/permute.cu
-    prims/power.cu
-    prims/rand_index.cu
-    prims/reduce_cols_by_key.cu
-    prims/reduce_rows_by_key.cu
-    prims/reverse.cu
-    prims/rsvd.cu
-    prims/score.cu
+          prims/rand_index.cu
+          prims/reverse.cu
+          prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
     prims/silhouette_score.cu
-    prims/sqrt.cu
-    prims/ternary_op.cu
-    prims/trustworthiness.cu
+          prims/trustworthiness.cu
     prims/v_measure.cu
     prims/weighted_mean.cu)
 
