@@ -15,7 +15,7 @@
  */
 
 #include <cuml/datasets/make_blobs.hpp>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 namespace ML {
 namespace Datasets {
@@ -35,7 +35,7 @@ void make_blobs(const raft::handle_t& handle,
                 float center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
+  raft::random::make_blobs(out,
                                labels,
                                n_rows,
                                n_cols,
@@ -66,7 +66,7 @@ void make_blobs(const raft::handle_t& handle,
                 double center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
+  raft::random::make_blobs(out,
                                labels,
                                n_rows,
                                n_cols,
@@ -97,7 +97,7 @@ void make_blobs(const raft::handle_t& handle,
                 float center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
+  raft::random::make_blobs(out,
                                labels,
                                n_rows,
                                n_cols,
@@ -128,7 +128,7 @@ void make_blobs(const raft::handle_t& handle,
                 double center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
+  raft::random::make_blobs(out,
                                labels,
                                n_rows,
                                n_cols,

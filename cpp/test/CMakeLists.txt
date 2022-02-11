@@ -204,15 +204,11 @@ if(BUILD_PRIMS_TESTS)
     prims/log.cu
     prims/logisticReg.cu
     prims/make_arima.cu
-    prims/make_blobs.cu
-    prims/make_regression.cu
-    prims/merge_labels.cu
+          prims/merge_labels.cu
     prims/minmax.cu
-    prims/mvg.cu
-    prims/mutual_info_score.cu
+          prims/mutual_info_score.cu
     prims/penalty.cu
-    prims/permute.cu
-    prims/power.cu
+          prims/power.cu
     prims/rand_index.cu
     prims/reduce_cols_by_key.cu
     prims/reduce_rows_by_key.cu

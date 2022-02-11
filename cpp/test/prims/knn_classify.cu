@@ -21,7 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/label/classlabels.hpp>
 #include <raft/spatial/knn/knn.hpp>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
@@ -54,7 +54,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest()
   {
-    MLCommon::Random::make_blobs<float, int>(train_samples.data(),
+    raft::random::make_blobs<float, int>(train_samples.data(),
                                              train_labels.data(),
                                              params.rows,
                                              params.cols,

@@ -19,7 +19,7 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <gtest/gtest.h>
 #include <memory>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
 
@@ -52,7 +52,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   {
     rmm::device_uvector<int> labels(n_rows, stream);
 
-    Random::make_blobs<float, int>(part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, stream);
+    raft::random::make_blobs<float, int>(part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, stream);
   }
 
   bool runTest(const KNNParams& params)

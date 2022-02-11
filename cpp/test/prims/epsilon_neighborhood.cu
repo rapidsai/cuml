@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/cudart_utils.h>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -52,7 +52,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
     adj.resize(param.n_row * batchSize, stream);
     vd.resize(batchSize + 1, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
-    Random::make_blobs<T, IdxT>(data.data(),
+    raft::random::make_blobs<T, IdxT>(data.data(),
                                 labels.data(),
                                 param.n_row,
                                 param.n_col,

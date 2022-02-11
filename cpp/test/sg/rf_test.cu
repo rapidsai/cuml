@@ -24,8 +24,6 @@
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
 
-#include <random/make_blobs.cuh>
-
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
