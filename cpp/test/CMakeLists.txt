@@ -24,6 +24,11 @@ function(ConfigureTest)
                           "${multiValueArgs}" ${ARGN} )
 
   set(TEST_NAME ${ConfigureTest_PREFIX}_${ConfigureTest_NAME})
+  if(ConfigureTest_PREFIX STREQUAL "PRIMS")
+    set(TEST_INSTALL_PATH bin/gtests/libcuml_prims)
+  else()
+    set(TEST_INSTALL_PATH bin/gtests/libcuml)
+  endif()
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
@@ -76,7 +81,7 @@ function(ConfigureTest)
     install(
       TARGETS ${TEST_NAME}
       COMPONENT testing
-      DESTINATION bin/gtests/libcuml
+      DESTINATION ${TEST_INSTALL_PATH}
       EXCLUDE_FROM_ALL
     )
 
@@ -253,17 +258,6 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME V_MEASURE_TEST PATH prims/v_measure.cu)
   ConfigureTest(PREFIX PRIMS NAME WEIGHTED_MEAN_TEST PATH prims/weighted_mean.cu)
 
-  set_target_properties(
-    ${PRIMS_TEST_TARGET}
-    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
-  )
-
-  install(
-    TARGETS ${PRIMS_TEST_TARGET}
-    COMPONENT testing
-    DESTINATION bin/gtests/libcuml_prims
-    EXCLUDE_FROM_ALL
-  )
 endif()
 
 ##############################################################################
