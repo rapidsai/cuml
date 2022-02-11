@@ -27,8 +27,8 @@
 #include <rmm/device_uvector.hpp>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace raft {
 class handle_t;
@@ -90,7 +90,7 @@ enum output_t {
 };
 
 /** val_t is the payload within a FIL leaf */
-template<typename F>
+template <typename F>
 union val_t {
   /** floating-point threshold value for parent node or output value
       (e.g. class probability or regression summand) for leaf node */
@@ -100,9 +100,9 @@ union val_t {
 };
 
 /** base_node contains common implementation details for dense and sparse nodes */
-template<typename F_>
+template <typename F_>
 struct base_node {
-  using F = F_; // floating-point type
+  using F = F_;  // floating-point type
   /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
   val_t<F> val;
@@ -119,10 +119,11 @@ struct base_node {
   static const int IS_CATEGORICAL_MASK   = 1 << IS_CATEGORICAL_OFFSET;
   static const int FID_MASK              = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
-  __host__ __device__ o_t output() const {
-    if constexpr(std::is_same<o_t, int>()) {
+  __host__ __device__ o_t output() const
+  {
+    if constexpr (std::is_same<o_t, int>()) {
       return val.idx;
-    } else if constexpr(std::is_same<o_t, F>()) {
+    } else if constexpr (std::is_same<o_t, F>()) {
       return val.f;
     } else {
       return val;
@@ -136,7 +137,8 @@ struct base_node {
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
   __host__ __device__ base_node() : val{}, bits(0) {}
-  base_node(val_t<F> output, val_t<F> split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  base_node(
+    val_t<F> output, val_t<F> split, int fid, bool def_left, bool is_leaf, bool is_categorical)
   {
     RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
@@ -149,7 +151,7 @@ struct base_node {
 };
 
 /** dense_node is a single node of a dense forest */
-template<typename F>
+template <typename F>
 struct alignas(8) dense_node : base_node<F> {
   dense_node() = default;
   /// ignoring left_index, this is useful to unify import from treelite
@@ -160,7 +162,7 @@ struct alignas(8) dense_node : base_node<F> {
              bool is_leaf,
              bool is_categorical,
              int left_index = -1)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
+    : base_node<F>(output, split, fid, def_left, is_leaf, is_categorical)
   {
   }
   /** index of the left child, where curr is the index of the current node */
@@ -168,10 +170,10 @@ struct alignas(8) dense_node : base_node<F> {
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-template<typename F>
+template <typename F>
 struct alignas(16) sparse_node16 : base_node<F> {
   int left_idx;
-  __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
+  __host__ __device__ sparse_node16() : left_idx(0) {}
   sparse_node16(val_t<F> output,
                 val_t<F> split,
                 int fid,
@@ -179,8 +181,7 @@ struct alignas(16) sparse_node16 : base_node<F> {
                 bool is_leaf,
                 bool is_categorical,
                 int left_index)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical),
-      left_idx(left_index)
+    : base_node<F>(output, split, fid, def_left, is_leaf, is_categorical), left_idx(left_index)
   {
   }
   __host__ __device__ int left_index() const { return left_idx; }
@@ -205,7 +206,7 @@ struct alignas(8) sparse_node8 : base_node<float> {
                bool is_leaf,
                bool is_categorical,
                int left_index)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
+    : base_node<float>(output, split, fid, def_left, is_leaf, is_categorical)
   {
     RAFT_EXPECTS((fid & FID_MASK) == fid,
                  "internal error: feature ID doesn't fit into sparse_node8");
@@ -218,8 +219,9 @@ struct alignas(8) sparse_node8 : base_node<float> {
 };
 
 /// pass a functor with a templated operator()(fil_node_t), i.e. accepting one node as parameter
-template<typename Stuff>
-void instantiate_for_all_node_types(Stuff stuff) {
+template <typename Stuff>
+void instantiate_for_all_node_types(Stuff stuff)
+{
   stuff(dense_node<float>{});
   stuff(dense_node<double>{});
   stuff(sparse_node16<float>{});
@@ -237,7 +239,7 @@ struct sparse_forest;
 
 template <typename node_t>
 struct node_traits {
-  using F = typename node_t::F;
+  using F                    = typename node_t::F;
   using storage              = ML::fil::storage<node_t>;
   using forest               = sparse_forest<node_t>;
   static const bool IS_DENSE = false;

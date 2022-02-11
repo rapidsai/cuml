@@ -87,7 +87,7 @@ struct forest {
        we would have otherwise silently overflowed the index calculation due
        to short division. It would have failed cpp tests, but we might forget
        about this source of bugs, if not for the failing assert. */
-    ASSERT(max_shm_ < int(sizeof(float)) * std::numeric_limits<uint16_t>::max(),
+    ASSERT(max_shm_ < int(proba_ssp_.sizeof_fp_vars) * std::numeric_limits<uint16_t>::max(),
            "internal error: please use a larger type inside"
            " infer_k for column count");
   }
@@ -128,9 +128,10 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
+  template <typename F>
   void init_common(const raft::handle_t& h,
                    const categorical_sets& cat_sets,
-                   const std::vector<float>& vector_leaf,
+                   const std::vector<F>& vector_leaf,
                    const forest_params_t* params)
   {
     depth_                           = params->depth;
@@ -145,6 +146,7 @@ struct forest {
     proba_ssp_.num_cols              = params->num_cols;
     proba_ssp_.num_classes           = params->num_classes;
     proba_ssp_.cats_present          = cat_sets.cats_present();
+    proba_ssp_.sizeof_fp_vars        = sizeof(F);
     class_ssp_                       = proba_ssp_;
 
     int device          = h.get_device();
@@ -155,11 +157,11 @@ struct forest {
 
     // vector leaf
     if (!vector_leaf.empty()) {
-      vector_leaf_.resize(vector_leaf.size(), stream);
+      vector_leaf_.resize(vector_leaf.size() * sizeof(F), stream);
 
       RAFT_CUDA_TRY(cudaMemcpyAsync(vector_leaf_.data(),
                                     vector_leaf.data(),
-                                    vector_leaf.size() * sizeof(float),
+                                    vector_leaf.size() * sizeof(F),
                                     cudaMemcpyHostToDevice,
                                     stream));
     }
@@ -328,7 +330,7 @@ struct forest {
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
   // Optionally used
-  rmm::device_uvector<float> vector_leaf_;
+  rmm::device_uvector<char> vector_leaf_;
   cat_sets_device_owner cat_sets_;
 };
 
@@ -410,7 +412,7 @@ struct dense_forest<dense_node<F>> : forest {
                                   h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(max_shm_),
                                     static_cast<predict_params>(class_ssp_));
     // copy must be finished before freeing the host data
     RAFT_CUDA_TRY(cudaStreamSynchronize(h.get_stream()));
@@ -420,12 +422,12 @@ struct dense_forest<dense_node<F>> : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    storage forest(cat_sets_.accessor(),
-                         vector_leaf_.data(),
-                         nodes_.data(),
-                         num_trees_,
-                         algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
-                         algo_ == algo_t::NAIVE ? 1 : num_trees_);
+    storage<node_t> forest(cat_sets_.accessor(),
+                           reinterpret_cast<F*>(vector_leaf_.data()),
+                           nodes_.data(),
+                           num_trees_,
+                           algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
+                           algo_ == algo_t::NAIVE ? 1 : num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -475,8 +477,11 @@ struct sparse_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    storage<node_t> forest(
-      cat_sets_.accessor(), vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
+    storage<node_t> forest(cat_sets_.accessor(),
+                           reinterpret_cast<typename node_t::F*>(vector_leaf_.data()),
+                           trees_.data(),
+                           nodes_.data(),
+                           num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -570,11 +575,11 @@ void check_params(const forest_params_t* params, bool dense)
 /** initializes a forest of any type
  * When fil_node_t == dense_node, const int* trees is ignored
  */
-template <typename fil_node_t>
+template <typename fil_node_t, typename F>
 void init(const raft::handle_t& h,
           forest_t* pf,
           const categorical_sets& cat_sets,
-          const std::vector<typename fil_node_t::F>& vector_leaf,
+          const std::vector<F>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params)
@@ -588,14 +593,12 @@ void init(const raft::handle_t& h,
 
 struct instantiate_forest_init {
   template <typename fil_node_t>
-  void operator()(fil_node_t) {
-    init(raft::handle_t{},
-         (forest_t*)nullptr,
-         categorical_sets{},
-         std::vector<typename fil_node_t::F>{},
-         (int*)nullptr,
-         (fil_node_t*)nullptr,
-         (forest_params_t*)nullptr);
+  void operator()(fil_node_t)
+  {
+    if constexpr (std::is_same<typename fil_node_t::F, float>())
+      init<fil_node_t>({}, {}, {}, std::vector<float>(), {}, {}, {});
+    else
+      init<fil_node_t>({}, {}, {}, std::vector<double>(), {}, {}, {});
   }
 };
 

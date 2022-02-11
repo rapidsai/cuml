@@ -800,7 +800,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
        block_row0 += rows_per_block * gridDim.x) {
     int block_num_rows =
       max(0, (int)min((int64_t)rows_per_block, (int64_t)params.num_rows - block_row0));
-    const float* block_input = params.data + block_row0 * num_cols;
+    const float* block_input = reinterpret_cast<const float*>(params.data) + block_row0 * num_cols;
     if constexpr (cols_in_shmem)
       load_data(sdata, block_input, params, rows_per_block, block_num_rows);
 
@@ -820,7 +820,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
          and is made exact below.
          Same with thread_num_rows > 0
       */
-      typedef typename leaf_output_t<leaf_algo>::T pred_t;
+      typedef typename leaf_output_t<leaf_algo, decltype(forest[0])>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
         prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
@@ -833,7 +833,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       // Dummy threads can be marked as having 0 rows
       acc.accumulate(prediction, tree, tree < forest.num_trees() ? thread_num_rows : 0);
     }
-    acc.finalize(params.preds + params.num_outputs * block_row0,
+    acc.finalize(reinterpret_cast<float*>(params.preds) + params.num_outputs * block_row0,
                  block_num_rows,
                  params.num_outputs,
                  params.transform,
@@ -893,15 +893,15 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
   dispatch_on_fil_template_params(infer_k_storage_template<storage_type>(forest, stream), params);
 }
 
-template void inferstorage<dense_node<float>>(storage<dense_node<float>> forest,
-                                   predict_params params,
-                                   cudaStream_t stream);
+template void infer<storage<dense_node<float>>>(storage<dense_node<float>> forest,
+                                                predict_params params,
+                                                cudaStream_t stream);
 template void infer<storage<sparse_node16<float>>>(storage<sparse_node16<float>> forest,
-                                      predict_params params,
-                                      cudaStream_t stream);
+                                                   predict_params params,
+                                                   cudaStream_t stream);
 template void infer<storage<sparse_node8>>(storage<sparse_node8> forest,
-                                     predict_params params,
-                                     cudaStream_t stream);
+                                           predict_params params,
+                                           cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML
