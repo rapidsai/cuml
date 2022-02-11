@@ -95,7 +95,6 @@ if(BUILD_CUML_TESTS)
 
   # general tests
     ConfigureTest(PREFIX SG NAME LOGGER_TEST PATH sg/logger.cpp OPTIONAL ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME NVTX_TEST PATH sg/nvtx_test.cpp OPTIONAL ML_INCLUDE)
 
   # trustworthines tests
     ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
@@ -250,7 +249,6 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME PERMUTE_TEST PATH prims/permute.cu)
   ConfigureTest(PREFIX PRIMS NAME RAND_INDEX_TEST PATH prims/rand_index.cu)
   ConfigureTest(PREFIX PRIMS NAME REVERSE_TEST PATH prims/reverse.cu)
-  ConfigureTest(PREFIX PRIMS NAME RSVD_TEST PATH prims/rsvd.cu)
   ConfigureTest(PREFIX PRIMS NAME SEIVE_TEST PATH prims/seive.cu)
   ConfigureTest(PREFIX PRIMS NAME SIGMOID_TEST PATH prims/sigmoid.cu)
   ConfigureTest(PREFIX PRIMS NAME SILHOUETTE_SCORE_TEST PATH prims/silhouette_score.cu)
