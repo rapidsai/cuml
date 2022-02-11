@@ -820,7 +820,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
          and is made exact below.
          Same with thread_num_rows > 0
       */
-      typedef typename leaf_output_t<leaf_algo, decltype(forest[0])>::T pred_t;
+      typedef typename leaf_output_t<leaf_algo, float>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
         prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(

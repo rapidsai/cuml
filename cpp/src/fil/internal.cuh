@@ -300,27 +300,27 @@ enum leaf_algo_t {
 template <typename node_t>
 struct tree;
 
-template <leaf_algo_t leaf_algo, typename tree_t>
+template <leaf_algo_t leaf_algo, typename F>
 struct leaf_output_t {
 };
-template <typename node_t>
-struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY, tree<node_t>> {
-  typedef typename node_t::F T;
+template <typename F>
+struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY, F> {
+  typedef F T;
 };
-template <typename node_t>
-struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF, tree<node_t>> {
+template <typename F>
+struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF, F> {
   typedef int T;
 };
-template <typename node_t>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES, tree<node_t>> {
-  typedef typename node_t::F T;
+template <typename F>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES, F> {
+  typedef F T;
 };
-template <typename node_t>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES, tree<node_t>> {
-  typedef typename node_t::F T;
+template <typename F>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES, F> {
+  typedef F T;
 };
-template <typename node_t>
-struct leaf_output_t<leaf_algo_t::VECTOR_LEAF, tree<node_t>> {
+template <typename F>
+struct leaf_output_t<leaf_algo_t::VECTOR_LEAF, F> {
   typedef int T;
 };
 
