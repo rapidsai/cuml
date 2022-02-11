@@ -27,6 +27,7 @@ function(ConfigureTest)
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
+  # PR 4296 will improve conditional links here
   target_link_libraries(${TEST_NAME}
   PRIVATE
     ${CUML_CPP_TARGET}
@@ -67,6 +68,18 @@ function(ConfigureTest)
 
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
+    set_target_properties(
+      ${TEST_NAME}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${TEST_NAME}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml
+      EXCLUDE_FROM_ALL
+    )
+
 endfunction()
 
 
@@ -75,99 +88,79 @@ endfunction()
 
 if(BUILD_CUML_TESTS)
 
-  if(all_algo)
+  # general tests
     ConfigureTest(PREFIX SG NAME LOGGER_TEST PATH sg/logger.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME NVTX_TEST PATH sg/nvtx_test.cpp OPTIONAL ML_INCLUDE)
-    # todo: add trustworthiness algo
+
+  # trustworthines tests
     ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
 
-  endif()
-
-  if(all_algo OR dbscan_algo)
+  # DBSCAN tests
     ConfigureTest(PREFIX SG NAME DBSCAN_TEST PATH sg/dbscan_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR explainer_algo)
+  # Explainer tests
     ConfigureTest(PREFIX SG NAME SHAP_KERNEL_TEST PATH sg/shap_kernel.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR fil_algo)
+  # FIL tests
     ConfigureTest(PREFIX SG NAME FIL_CHILD_INDEX_TEST PATH sg/fil_child_index_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FIL_TEST PATH sg/fil_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FNV_HASH_TEST PATH sg/fnv_hash_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME MULTI_SUM_TEST PATH sg/multi_sum_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  # todo: organize linear models better
-  if(all_algo OR linearregression_algo OR ridge_algo OR lasso_algo OR logisticregression_algo)
+  # Linear models tests
     ConfigureTest(PREFIX SG NAME OLS_TEST PATH sg/ols.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME RIDGE_TEST PATH sg/ridge.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR genetic_algo)
+  # Genetic algorithms tests
     ConfigureTest(PREFIX SG NAME GENETIC_NODE_TEST PATH sg/genetic/node_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST PATH sg/genetic/param_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR hdbscan_algo)
+  # HDBSCAN tests
     ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR holtwinters_algo)
+  # Holtwinters tests
     ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST PATH sg/holtwinters_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR kmeans_algo)
+  # KMeans tests
     ConfigureTest(PREFIX SG NAME KMEANS_TEST PATH sg/kmeans_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR knn_algo)
+  # KNN tests
     ConfigureTest(PREFIX SG NAME KNN_TEST PATH sg/knn_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR hierarchicalclustering_algo)
+  # Hierarchical clustering tests
     ConfigureTest(PREFIX SG NAME LINKAGE_TEST PATH sg/linkage_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR pca_algo)
+  # PCA tests
     ConfigureTest(PREFIX SG NAME PCA_TEST PATH sg/pca_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR randomforest_algo)
+  # RF tests
     ConfigureTest(PREFIX SG NAME RF_TEST PATH sg/rf_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR randomprojection_algo)
+  # Random Projection tests
     ConfigureTest(PREFIX SG NAME RPROJ_TEST PATH sg/rproj_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  # todo: separate solvers better
-  if(all_algo OR solvers_algo)
+  # Solvers tests
     ConfigureTest(PREFIX SG NAME CD_TEST PATH sg/cd_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME LARS_TEST PATH sg/lars_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME QUASI_NEWTON PATH sg/quasi_newton.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME SGD_TEST PATH sg/sgd.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR svm_algo)
+  # SVM tests
     ConfigureTest(PREFIX SG NAME SVC_TEST PATH sg/svc_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR tsne_algo)
+  # TSNE tests
     ConfigureTest(PREFIX SG NAME TSNE_TEST PATH sg/tsne_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR tsvd_algo)
+  # TSVD tests
     ConfigureTest(PREFIX SG NAME TSVD_TEST PATH sg/tsvd_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR umap_algo)
+  # UMAP tests
     ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST PATH sg/umap_parametrizable_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
   if(BUILD_CUML_C_LIBRARY)
     ConfigureTest(PREFIX SG NAME HANDLE_TEST PATH sg/handle_test.cu OPTIONAL ML_INCLUDE)
   endif()
+
 endif()
 
 #############################################################################
@@ -182,6 +175,18 @@ if(BUILD_CUML_MG_TESTS)
     ConfigureTest(PREFIX MG NAME KNN_REGRESS_TEST PATH knn_regress.cu OPTIONAL NCCL CUMLPRIMS MPI ML_INCLUDE)
     ConfigureTest(PREFIX MG NAME MAIN_TEST PATH main.cu OPTIONAL NCCL CUMLPRIMS MPI ML_INCLUDE)
     ConfigureTest(PREFIX MG NAME PCA_TEST PATH pca.cu OPTIONAL NCCL CUMLPRIMS MPI ML_INCLUDE)
+
+    set_target_properties(
+      ${CUML_MG_TEST_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_MG_TEST_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml_mg
+      EXCLUDE_FROM_ALL
+    )
 
   else(MPI_CXX_FOUND)
    message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
@@ -238,22 +243,27 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME MUTUAL_INFO_SCORE_TEST PATH prims/mutual_info_score.cu)
   ConfigureTest(PREFIX PRIMS NAME PENALTY_TEST PATH prims/penalty.cu)
   ConfigureTest(PREFIX PRIMS NAME PERMUTE_TEST PATH prims/permute.cu)
-  ConfigureTest(PREFIX PRIMS NAME POWER_TEST PATH prims/power.cu)
   ConfigureTest(PREFIX PRIMS NAME RAND_INDEX_TEST PATH prims/rand_index.cu)
-  ConfigureTest(PREFIX PRIMS NAME REDUCE_COLS_BY_KEY_TEST PATH prims/reduce_cols_by_key.cu)
-  ConfigureTest(PREFIX PRIMS NAME REDUCE_ROWS_BY_KEY_TEST PATH prims/reduce_rows_by_key.cu)
   ConfigureTest(PREFIX PRIMS NAME REVERSE_TEST PATH prims/reverse.cu)
   ConfigureTest(PREFIX PRIMS NAME RSVD_TEST PATH prims/rsvd.cu)
-  ConfigureTest(PREFIX PRIMS NAME SCORE_TEST PATH prims/score.cu)
   ConfigureTest(PREFIX PRIMS NAME SEIVE_TEST PATH prims/seive.cu)
   ConfigureTest(PREFIX PRIMS NAME SIGMOID_TEST PATH prims/sigmoid.cu)
   ConfigureTest(PREFIX PRIMS NAME SILHOUETTE_SCORE_TEST PATH prims/silhouette_score.cu)
-  ConfigureTest(PREFIX PRIMS NAME SQRT_TEST PATH prims/sqrt.cu)
-  ConfigureTest(PREFIX PRIMS NAME TERNARY_OP_TEST PATH prims/ternary_op.cu)
   ConfigureTest(PREFIX PRIMS NAME TRUSTWORTHINESS_TEST PATH prims/trustworthiness.cu)
   ConfigureTest(PREFIX PRIMS NAME V_MEASURE_TEST PATH prims/v_measure.cu)
   ConfigureTest(PREFIX PRIMS NAME WEIGHTED_MEAN_TEST PATH prims/weighted_mean.cu)
 
+  set_target_properties(
+    ${PRIMS_TEST_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${PRIMS_TEST_TARGET}
+    COMPONENT testing
+    DESTINATION bin/gtests/libcuml_prims
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################

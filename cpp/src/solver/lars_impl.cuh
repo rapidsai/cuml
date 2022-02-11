@@ -26,12 +26,13 @@
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/cholesky_r1_update.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
@@ -89,7 +90,7 @@ LarsFitStatus selectMostCorrelated(idx_t n_active,
   thrust::device_ptr<math_t> ptr(workspace.data() + n_active - start);
   auto max_ptr = thrust::max_element(thrust::cuda::par.on(stream), ptr, ptr + n - n_active);
   raft::update_host(cj, max_ptr.get(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   *max_idx = n_active + (max_ptr - ptr);  // the index of the maximum element
 
@@ -150,17 +151,22 @@ void swapFeatures(cublasHandle_t handle,
 {
   std::swap(indices[j], indices[k]);
   if (G) {
+    // #TODO: Call from public API when ready
     RAFT_CUBLAS_TRY(
-      raft::linalg::cublasSwap(handle, n_cols, G + ld_G * j, 1, G + ld_G * k, 1, stream));
-    RAFT_CUBLAS_TRY(raft::linalg::cublasSwap(handle, n_cols, G + j, ld_G, G + k, ld_G, stream));
+      raft::linalg::detail::cublasSwap(handle, n_cols, G + ld_G * j, 1, G + ld_G * k, 1, stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(
+      raft::linalg::detail::cublasSwap(handle, n_cols, G + j, ld_G, G + k, ld_G, stream));
   } else {
     // Only swap X if G is nullptr. Only in that case will we use the feature
     // columns, otherwise all the necessary information is already there in G.
+    // #TODO: Call from public API when ready
     RAFT_CUBLAS_TRY(
-      raft::linalg::cublasSwap(handle, n_rows, X + ld_X * j, 1, X + ld_X * k, 1, stream));
+      raft::linalg::detail::cublasSwap(handle, n_rows, X + ld_X * j, 1, X + ld_X * k, 1, stream));
   }
   // swap (c[j], c[k])
-  RAFT_CUBLAS_TRY(raft::linalg::cublasSwap(handle, 1, cor + j, 1, cor + k, 1, stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasSwap(handle, 1, cor + j, 1, cor + k, 1, stream));
 }
 
 /**
@@ -280,19 +286,20 @@ void updateCholesky(const raft::handle_t& handle,
     const math_t* X_row = X + (n_active - 1) * ld_X;
     math_t one          = 1;
     math_t zero         = 0;
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                             CUBLAS_OP_T,
-                                             n_rows,
-                                             n_cols,
-                                             &one,
-                                             X,
-                                             n_rows,
-                                             X_row,
-                                             1,
-                                             &zero,
-                                             G_row,
-                                             1,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                     CUBLAS_OP_T,
+                                                     n_rows,
+                                                     n_cols,
+                                                     &one,
+                                                     X,
+                                                     n_rows,
+                                                     X_row,
+                                                     1,
+                                                     &zero,
+                                                     G_row,
+                                                     1,
+                                                     stream));
   } else if (G0 != U) {
     // Copy the new column of G0 into U, because the factorization works in
     // place.
@@ -342,34 +349,36 @@ void calcW0(const raft::handle_t& handle,
   // First we calculate x by solving equation U.T x = sign_A.
   raft::copy(ws, sign, n_active, stream);
   math_t alpha = 1;
-  RAFT_CUBLAS_TRY(raft::linalg::cublastrsm(handle.get_cublas_handle(),
-                                           CUBLAS_SIDE_LEFT,
-                                           fillmode,
-                                           CUBLAS_OP_T,
-                                           CUBLAS_DIAG_NON_UNIT,
-                                           n_active,
-                                           1,
-                                           &alpha,
-                                           U,
-                                           ld_U,
-                                           ws,
-                                           ld_U,
-                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublastrsm(handle.get_cublas_handle(),
+                                                   CUBLAS_SIDE_LEFT,
+                                                   fillmode,
+                                                   CUBLAS_OP_T,
+                                                   CUBLAS_DIAG_NON_UNIT,
+                                                   n_active,
+                                                   1,
+                                                   &alpha,
+                                                   U,
+                                                   ld_U,
+                                                   ws,
+                                                   ld_U,
+                                                   stream));
 
   // ws stores x, the solution of U.T x = sign_A. Now we solve U * ws = x
-  RAFT_CUBLAS_TRY(raft::linalg::cublastrsm(handle.get_cublas_handle(),
-                                           CUBLAS_SIDE_LEFT,
-                                           fillmode,
-                                           CUBLAS_OP_N,
-                                           CUBLAS_DIAG_NON_UNIT,
-                                           n_active,
-                                           1,
-                                           &alpha,
-                                           U,
-                                           ld_U,
-                                           ws,
-                                           ld_U,
-                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublastrsm(handle.get_cublas_handle(),
+                                                   CUBLAS_SIDE_LEFT,
+                                                   fillmode,
+                                                   CUBLAS_OP_N,
+                                                   CUBLAS_DIAG_NON_UNIT,
+                                                   n_active,
+                                                   1,
+                                                   &alpha,
+                                                   U,
+                                                   ld_U,
+                                                   ws,
+                                                   ld_U,
+                                                   stream));
   // Now ws = G0^(-1) sign_A = S GA^{-1} 1_A.
 }
 
@@ -496,7 +505,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
   raft::update_host(&ws_host, ws, 1, stream);
   math_t diag_host;  // U[n_active-1, n_active-1]
   raft::update_host(&diag_host, U + ld_U * (n_active - 1) + n_active - 1, 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   if (diag_host < 1e-7) {
     CUML_LOG_WARN(
       "Vanising diagonal in Cholesky factorization (%e). This indicates "
@@ -513,19 +522,20 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
     // Calculate u_eq only in the case if the Gram matrix is not stored.
     math_t one  = 1;
     math_t zero = 0;
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                             CUBLAS_OP_N,
-                                             n_rows,
-                                             n_active,
-                                             &one,
-                                             X,
-                                             ld_X,
-                                             ws,
-                                             1,
-                                             &zero,
-                                             u_eq,
-                                             1,
-                                             stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                     CUBLAS_OP_N,
+                                                     n_rows,
+                                                     n_active,
+                                                     &one,
+                                                     X,
+                                                     ld_X,
+                                                     ws,
+                                                     1,
+                                                     &zero,
+                                                     u_eq,
+                                                     1,
+                                                     stream));
   }
   return LarsFitStatus::kOk;
 }
@@ -601,37 +611,39 @@ void calcMaxStep(const raft::handle_t& handle,
       // Calculate a = X.T[:,n_active:] * u                              (2.11)
       math_t one  = 1;
       math_t zero = 0;
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                               CUBLAS_OP_T,
-                                               n_rows,
-                                               n_inactive,
-                                               &one,
-                                               X + n_active * ld_X,
-                                               ld_X,
-                                               u,
-                                               1,
-                                               &zero,
-                                               a_vec,
-                                               1,
-                                               stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                       CUBLAS_OP_T,
+                                                       n_rows,
+                                                       n_inactive,
+                                                       &one,
+                                                       X + n_active * ld_X,
+                                                       ld_X,
+                                                       u,
+                                                       1,
+                                                       &zero,
+                                                       a_vec,
+                                                       1,
+                                                       stream));
     } else {
       // Calculate a = X.T[:,n_A:] * u = X.T[:, n_A:] * X[:,:n_A] * ws
       //             = G[n_A:,:n_A] * ws                                 (2.11)
       math_t one  = 1;
       math_t zero = 0;
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                               CUBLAS_OP_N,
-                                               n_inactive,
-                                               n_active,
-                                               &one,
-                                               G + n_active,
-                                               ld_G,
-                                               ws,
-                                               1,
-                                               &zero,
-                                               a_vec,
-                                               1,
-                                               stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                       CUBLAS_OP_N,
+                                                       n_inactive,
+                                                       n_active,
+                                                       &one,
+                                                       G + n_active,
+                                                       ld_G,
+                                                       ws,
+                                                       1,
+                                                       &zero,
+                                                       a_vec,
+                                                       1,
+                                                       stream));
     }
     const math_t tiny = std::numeric_limits<math_t>::min();
     const math_t huge = std::numeric_limits<math_t>::max();
@@ -719,19 +731,20 @@ void larsInit(const raft::handle_t& handle,
   math_t one  = 1;
   math_t zero = 0;
   // Set initial correlation to X.T * y
-  RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                           CUBLAS_OP_T,
-                                           n_rows,
-                                           n_cols,
-                                           &one,
-                                           X,
-                                           ld_X,
-                                           y,
-                                           1,
-                                           &zero,
-                                           cor.data(),
-                                           1,
-                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                   CUBLAS_OP_T,
+                                                   n_rows,
+                                                   n_cols,
+                                                   &one,
+                                                   X,
+                                                   ld_X,
+                                                   y,
+                                                   1,
+                                                   &zero,
+                                                   cor.data(),
+                                                   1,
+                                                   stream));
   if (coef_path) {
     RAFT_CUDA_TRY(
       cudaMemsetAsync(coef_path, 0, sizeof(math_t) * (*max_iter + 1) * (*max_iter), stream));
@@ -1110,19 +1123,20 @@ void larsPredict(const raft::handle_t& handle,
   thrust::device_ptr<math_t> pred_ptr(preds);
   thrust::fill(execution_policy, pred_ptr, pred_ptr + n_rows, intercept);
   math_t one = 1;
-  RAFT_CUBLAS_TRY(raft::linalg::cublasgemv(handle.get_cublas_handle(),
-                                           CUBLAS_OP_N,
-                                           n_rows,
-                                           n_active,
-                                           &one,
-                                           X,
-                                           ld_X,
-                                           beta,
-                                           1,
-                                           &one,
-                                           preds,
-                                           1,
-                                           stream));
+  // #TODO: Call from public API when ready
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                   CUBLAS_OP_N,
+                                                   n_rows,
+                                                   n_active,
+                                                   &one,
+                                                   X,
+                                                   ld_X,
+                                                   beta,
+                                                   1,
+                                                   &one,
+                                                   preds,
+                                                   1,
+                                                   stream));
 }
 };  // namespace Lars
 };  // namespace Solver

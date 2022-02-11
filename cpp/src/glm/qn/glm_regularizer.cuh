@@ -19,8 +19,8 @@
 #include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
 #include <raft/stats/mean.hpp>
 
 namespace ML {
@@ -81,9 +81,14 @@ struct RegularizedGLM : GLMDims {
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
     raft::update_host(&loss_host, lossVal.data, 1, stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
 
     lossVal.fill(loss_host + reg_host, stream);
+  }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return loss->gradNorm(grad, dev_scalar, stream);
   }
 };
 };  // namespace GLM

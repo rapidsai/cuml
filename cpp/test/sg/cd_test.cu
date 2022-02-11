@@ -16,11 +16,14 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/cd.cuh>
 #include <test_utils.h>
+
+#include <raft/stats/mean.hpp>
+#include <raft/stats/meanvar.hpp>
+#include <raft/stats/stddev.hpp>
 
 namespace ML {
 namespace Solver {
@@ -73,6 +76,16 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     T labels_h[params.n_row] = {6.0, 8.3, 9.8, 11.2};
     raft::update_device(labels.data(), labels_h, params.n_row, stream);
 
+    /* How to reproduce the coefficients for this test:
+
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler(with_mean=True, with_std=True)
+    x_norm = scaler.fit_transform(data_h)
+    m = ElasticNet(fit_intercept=, normalize=, alpha=, l1_ratio=)
+    m.fit(x_norm, y)
+    print(m.coef_ / scaler.scale_ if normalize else m.coef_)
+     */
+
     T coef_ref_h[params.n_col] = {4.90832, 0.35031};
     raft::update_device(coef_ref.data(), coef_ref_h, params.n_col, stream);
 
@@ -82,7 +95,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     T coef3_ref_h[params.n_col] = {2.932841, 1.15248};
     raft::update_device(coef3_ref.data(), coef3_ref_h, params.n_col, stream);
 
-    T coef4_ref_h[params.n_col] = {0.569439, -0.00542};
+    T coef4_ref_h[params.n_col] = {1.75420431, -0.16215289};
     raft::update_device(coef4_ref.data(), coef4_ref_h, params.n_col, stream);
 
     bool fit_intercept  = false;
@@ -203,6 +216,25 @@ TEST_P(CdTestF, Fit)
   ASSERT_TRUE(raft::devArrMatch(
     coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
+  rmm::device_uvector<float> means_1(params.n_col, stream);
+  rmm::device_uvector<float> means_2(params.n_col, stream);
+  rmm::device_uvector<float> vars_1(params.n_col, stream);
+  rmm::device_uvector<float> vars_2(params.n_col, stream);
+
+  raft::stats::mean(means_1.data(), data.data(), params.n_col, params.n_row, false, false, stream);
+  raft::stats::vars(
+    vars_1.data(), data.data(), means_1.data(), params.n_col, params.n_row, false, false, stream);
+  raft::stats::meanvar(
+    means_2.data(), vars_2.data(), data.data(), params.n_col, params.n_row, false, false, stream);
+
+  ASSERT_TRUE(raft::devArrMatch(
+    means_1.data(), means_2.data(), params.n_col, raft::CompareApprox<float>(0.0001)));
+  ASSERT_TRUE(raft::devArrMatch(
+    vars_1.data(), vars_2.data(), params.n_col, raft::CompareApprox<float>(0.0001)));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+
   ASSERT_TRUE(raft::devArrMatch(
     coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 }
@@ -218,6 +250,22 @@ TEST_P(CdTestD, Fit)
 
   ASSERT_TRUE(raft::devArrMatch(
     coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+
+  rmm::device_uvector<double> means_1(params.n_col, stream);
+  rmm::device_uvector<double> means_2(params.n_col, stream);
+  rmm::device_uvector<double> vars_1(params.n_col, stream);
+  rmm::device_uvector<double> vars_2(params.n_col, stream);
+
+  raft::stats::mean(means_1.data(), data.data(), params.n_col, params.n_row, false, false, stream);
+  raft::stats::vars(
+    vars_1.data(), data.data(), means_1.data(), params.n_col, params.n_row, false, false, stream);
+  raft::stats::meanvar(
+    means_2.data(), vars_2.data(), data.data(), params.n_col, params.n_row, false, false, stream);
+
+  ASSERT_TRUE(raft::devArrMatch(
+    means_1.data(), means_2.data(), params.n_col, raft::CompareApprox<double>(0.0001)));
+  ASSERT_TRUE(raft::devArrMatch(
+    vars_1.data(), vars_2.data(), params.n_col, raft::CompareApprox<double>(0.0001)));
 
   ASSERT_TRUE(raft::devArrMatch(
     coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));

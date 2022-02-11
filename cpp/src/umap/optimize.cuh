@@ -19,13 +19,12 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <linalg/power.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/multiply.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/multiply.hpp>
+#include <raft/linalg/power.cuh>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
@@ -157,7 +156,7 @@ void optimize_params(T* input,
     T* grads_h = (T*)malloc(2 * sizeof(T));
     raft::update_host(grads_h, grads.data(), 2, stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
 
     for (int i = 0; i < 2; i++) {
       if (abs(grads_h[i]) - tolerance <= 0) tol_grads += 1;
@@ -211,7 +210,7 @@ void find_params_ab(UMAPParams* params, cudaStream_t stream)
   raft::update_host(&(params->a), coeffs.data(), 1, stream);
   raft::update_host(&(params->b), coeffs.data() + 1, 1, stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   CUML_LOG_DEBUG("a=%f, b=%f", params->a, params->b);
 }

@@ -20,6 +20,7 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -262,7 +263,7 @@ TEST_F(CacheTest, TestStoreCollect)
   raft::update_host(cache_idx_host, cache_idx_dev.data(), n_cached, stream);
   int keys_host[10];
   raft::update_host(keys_host, keys_dev.data(), n_cached, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   for (int i = 0; i < n_cached; i++) {
     EXPECT_TRUE(devArrMatch(x_dev.data() + keys_host[i] * n_cols,
                             tile_dev.data() + i * n_cols,
@@ -292,7 +293,7 @@ TEST_F(CacheTest, TestStoreCollect)
 
     raft::update_host(cache_idx_host, cache_idx_dev.data(), 10, stream);
     raft::update_host(keys_host, keys_dev.data(), 10, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
     for (int i = 0; i < 10; i++) {
       if (cache_idx_host[i] >= 0) {
         EXPECT_TRUE(devArrMatch(x_dev.data() + keys_host[i] * n_cols,
