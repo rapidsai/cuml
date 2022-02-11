@@ -19,7 +19,7 @@
 #include "permute.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -90,23 +90,29 @@ DI void get_mu_sigma(DataT& mu,
 }
 
 template <typename DataT, typename IdxT>
-void generate_data(DataT* out,
-                   const IdxT* labels,
-                   IdxT n_rows,
-                   IdxT n_cols,
-                   IdxT n_clusters,
-                   cudaStream_t stream,
-                   bool row_major,
-                   const DataT* centers,
-                   const DataT* cluster_std,
-                   const DataT cluster_std_scalar,
-                   raft::random::Rng& rng)
+__global__ void generate_data_kernel(DataT* out,
+                                     const IdxT* labels,
+                                     IdxT n_rows,
+                                     IdxT n_cols,
+                                     IdxT n_clusters,
+                                     bool row_major,
+                                     const DataT* centers,
+                                     const DataT* cluster_std,
+                                     const DataT cluster_std_scalar,
+                                     raft::random::RngState rng_state)
 {
-  auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
+  uint64_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  raft::random::PhiloxGenerator gen(rng_state, tid);
+  const IdxT stride = gridDim.x * blockDim.x;
+  IdxT len          = n_rows * n_cols;
+  for (IdxT idx = tid; idx < len; idx += stride) {
+    DataT val1, val2;
+    gen.next(val1);
+    gen.next(val2);
     DataT mu1, sigma1, mu2, sigma2;
     get_mu_sigma(mu1,
                  sigma1,
-                 idx1,
+                 idx,
                  labels,
                  row_major,
                  centers,
@@ -117,7 +123,7 @@ void generate_data(DataT* out,
                  n_clusters);
     get_mu_sigma(mu2,
                  sigma2,
-                 idx2,
+                 idx + stride,
                  labels,
                  row_major,
                  centers,
@@ -127,8 +133,38 @@ void generate_data(DataT* out,
                  n_cols,
                  n_clusters);
     raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
-  };
-  rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
+
+    if (idx < len) out[idx] = val1;
+    idx += stride;
+    if (idx < len) out[idx] = val2;
+  }
+}
+
+template <typename DataT, typename IdxT>
+void generate_data(DataT* out,
+                   const IdxT* labels,
+                   IdxT n_rows,
+                   IdxT n_cols,
+                   IdxT n_clusters,
+                   cudaStream_t stream,
+                   bool row_major,
+                   const DataT* centers,
+                   const DataT* cluster_std,
+                   const DataT cluster_std_scalar,
+                   raft::random::RngState& rng_state)
+{
+  IdxT items   = n_rows * n_cols;
+  IdxT nBlocks = (items + 127) / 128;
+  generate_data_kernel<<<nBlocks, 128, 0, stream>>>(out,
+                                                    labels,
+                                                    n_rows,
+                                                    n_cols,
+                                                    n_clusters,
+                                                    row_major,
+                                                    centers,
+                                                    cluster_std,
+                                                    cluster_std_scalar,
+                                                    rng_state);
 }
 
 }  // namespace
@@ -206,7 +242,7 @@ void make_blobs(DataT* out,
                 _centers,
                 cluster_std,
                 cluster_std_scalar,
-                r);
+                r.state);
 }
 
 }  // end namespace Random

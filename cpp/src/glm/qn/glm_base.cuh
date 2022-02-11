@@ -19,12 +19,10 @@
 #include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/map.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/stats/mean.hpp>
 #include <vector>
 
@@ -221,8 +219,24 @@ struct GLMWithData : GLMDims {
     objective->loss_grad(dev_scalar, G, W, *X, *y, *Z, stream);
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
     return loss_host;
+  }
+
+  /**
+   * @brief Calculate a norm of the gradient computed using the given Loss instance.
+   *
+   * This function is intended to be used in `check_convergence`; it's output is supposed
+   * to be proportional to the loss value w.r.t. the number of features (D).
+   *
+   * Different loss functions may scale differently with the number of features (D).
+   * This has an effect on the convergence criteria. To account for that, we let a
+   * loss function define its preferred metric. Normally, we differentiate between the
+   * L2 norm (e.g. for Squared loss) and LInf norm (e.g. for Softmax loss).
+   */
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return objective->gradNorm(grad, dev_scalar, stream);
   }
 };
 

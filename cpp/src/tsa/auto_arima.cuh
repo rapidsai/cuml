@@ -105,7 +105,7 @@ inline int divide_by_mask_build_index(const bool* d_mask,
   // Compute and return the number of true elements in the mask
   int true_elements;
   raft::update_host(&true_elements, index1.data() + batch_size - 1, 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   return true_elements;
 }
 
@@ -246,7 +246,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
     d_size[j] = d_cumul[(j + 1) * batch_size - 1];
   });
   raft::update_host(h_size, d_size, n_sub, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 }
 
 /**

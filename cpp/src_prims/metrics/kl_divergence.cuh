@@ -24,7 +24,7 @@
 #include <math.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/map_then_reduce.hpp>
 #include <rmm/device_scalar.hpp>
 
 namespace MLCommon {
@@ -74,7 +74,7 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
 
   raft::update_host(&h_KLDVal, d_KLDVal.data(), 1, stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   return h_KLDVal;
 }

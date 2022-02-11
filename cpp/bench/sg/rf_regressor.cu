@@ -67,7 +67,7 @@ class RFRegressor : public RegressionFixture<D> {
           this->params.ncols,
           this->data.y,
           rfParams);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
+      handle->sync_stream(this->stream);
     });
   }
 

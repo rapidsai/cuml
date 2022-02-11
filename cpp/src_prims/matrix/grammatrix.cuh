@@ -17,8 +17,9 @@
 #pragma once
 
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemm.cuh>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemm.hpp>
 
 namespace MLCommon {
 namespace Matrix {
@@ -146,37 +147,39 @@ class GramMatrixBase {
     math_t alpha = 1.0;
     math_t beta  = 0.0;
     if (is_row_major) {
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
-                                               CUBLAS_OP_T,
-                                               CUBLAS_OP_N,
-                                               n2,
-                                               n1,
-                                               n_cols,
-                                               &alpha,
-                                               x2,
-                                               ld2,
-                                               x1,
-                                               ld1,
-                                               &beta,
-                                               out,
-                                               ld_out,
-                                               stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                       CUBLAS_OP_T,
+                                                       CUBLAS_OP_N,
+                                                       n2,
+                                                       n1,
+                                                       n_cols,
+                                                       &alpha,
+                                                       x2,
+                                                       ld2,
+                                                       x1,
+                                                       ld1,
+                                                       &beta,
+                                                       out,
+                                                       ld_out,
+                                                       stream));
     } else {
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemm(cublas_handle,
-                                               CUBLAS_OP_N,
-                                               CUBLAS_OP_T,
-                                               n1,
-                                               n2,
-                                               n_cols,
-                                               &alpha,
-                                               x1,
-                                               ld1,
-                                               x2,
-                                               ld2,
-                                               &beta,
-                                               out,
-                                               ld_out,
-                                               stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                       CUBLAS_OP_N,
+                                                       CUBLAS_OP_T,
+                                                       n1,
+                                                       n2,
+                                                       n_cols,
+                                                       &alpha,
+                                                       x1,
+                                                       ld1,
+                                                       x2,
+                                                       ld2,
+                                                       &beta,
+                                                       out,
+                                                       ld_out,
+                                                       stream));
     }
   }
 
