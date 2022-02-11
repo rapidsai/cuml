@@ -1,9 +1,24 @@
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import cupy as cp
 import numpy as np
 import math
 from numba import cuda
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.base import Base
 from cuml.metrics import pairwise_distances
 from cuml.common.import_utils import has_scipy
@@ -30,7 +45,7 @@ def gaussian_log_kernel(x, h):
 
 @cp.fuse()
 def tophat_log_kernel(x, h):
-    ''' 
+    '''
     if x < h:
         return 0.0
     else:
@@ -175,11 +190,11 @@ class KernelDensity(Base):
         kernel="gaussian",
         metric="euclidean",
         metric_params=None,
-                 output_type=None, handle=None, verbose=False
+        output_type=None, handle=None, verbose=False
     ):
         super(KernelDensity, self).__init__(verbose=verbose,
-                                      handle=handle,
-                                      output_type=output_type)
+                                            handle=handle,
+                                            output_type=output_type)
         self.bandwidth = bandwidth
         self.kernel = kernel
         self.metric = metric
@@ -197,7 +212,7 @@ class KernelDensity(Base):
                 "kernel",
                 "metric",
                 "metric_params"
-            ]
+        ]
 
     def fit(self, X, y=None, sample_weight=None):
         """Fit the Kernel Density model on the data.
@@ -218,15 +233,18 @@ class KernelDensity(Base):
             Returns the instance itself.
         """
         if sample_weight is not None:
-            self.sample_weight_ = input_to_cupy_array(sample_weight, check_dtype=[cp.float32, cp.float64
-                                                                                  ]).array
+            self.sample_weight_ = input_to_cupy_array(sample_weight,
+                                                      check_dtype=[cp.float32,
+                                                                   cp.float64
+                                                                   ]).array
             if self.sample_weight_.min() <= 0:
                 raise ValueError("sample_weight must have positive values")
         else:
             self.sample_weight_ = None
 
-        self.X_ = input_to_cupy_array(X, order='C', check_dtype=[cp.float32, cp.float64
-                                                                 ]).array
+        self.X_ = input_to_cupy_array(X, order='C',
+                                      check_dtype=[cp.float32, cp.float64
+                                                   ]).array
 
         return self
 
@@ -259,12 +277,14 @@ class KernelDensity(Base):
         logsumexp_kernel.forall(log_probabilities.size)(
             distances, log_probabilities)
         # Note that sklearns user guide is wrong
-        # It says the (unnormalised) probability output for the kernel density is sum(K(x,h))
+        # It says the (unnormalised) probability output for
+        #  the kernel density is sum(K(x,h)).
         # In fact what they implment is (1/n)*sum(K(x,h))
         # Here we divide by n in normal probability space
         # Which becomes -log(n) in log probability space
-        sum_weights = cp.sum(
-            self.sample_weight_) if self.sample_weight_ is not None else distances.shape[1]
+        sum_weights = (cp.sum(
+            self.sample_weight_) if self.sample_weight_
+            is not None else distances.shape[1])
         log_probabilities -= np.log(sum_weights)
 
         # norm
@@ -309,9 +329,8 @@ class KernelDensity(Base):
         X : array-like of shape (n_samples, n_features)
             List of samples.
         """
-        if not hasattr(self,'X_'):
+        if not hasattr(self, 'X_'):
             raise NotFittedError()
-
 
         if self.kernel not in ["gaussian", "tophat"]:
             raise NotImplementedError()
