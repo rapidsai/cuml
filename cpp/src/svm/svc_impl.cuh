@@ -30,9 +30,10 @@
 #include <cuml/svm/svm_parameter.h>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>

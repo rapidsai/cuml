@@ -19,7 +19,7 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>

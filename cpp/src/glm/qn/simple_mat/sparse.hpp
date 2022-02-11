@@ -32,8 +32,6 @@
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/detail/cusparse_wrappers.h>
-
 namespace ML {
 
 /**

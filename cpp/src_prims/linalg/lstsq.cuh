@@ -33,6 +33,7 @@
 #include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
+#include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
