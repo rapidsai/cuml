@@ -77,7 +77,11 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
-
 typedef paramsPCATemplate<> paramsPCA;
+
+enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
+
+typedef paramsPCATemplate<mg_solver> paramsPCAMG;
+typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;
 
 };  // end namespace ML

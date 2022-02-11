@@ -37,6 +37,14 @@ from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *
 
+from enum import IntEnum
+
+
+class MGSolver(IntEnum):
+    COV_EIG_DQ = <underlying_type_t_solver> mg_solver.COV_EIG_DQ
+    COV_EIG_JACOBI = <underlying_type_t_solver> mg_solver.COV_EIG_JACOBI
+    QR = <underlying_type_t_solver> mg_solver.QR
+
 
 class BaseDecompositionMG(object):
 

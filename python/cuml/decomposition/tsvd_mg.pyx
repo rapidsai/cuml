@@ -70,7 +70,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         super(TSVDMG, self).__init__(**kwargs)
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsPCAMG *params = new paramsTSVDMG()
+        cpdef paramsTSVDMG *params = new paramsTSVDMG()
         params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -106,7 +106,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                           <float*> explained_var_ratio_ptr,
                           <float*> singular_vals_ptr,
                           deref(params),
-                          False)
+                          <bool>False)
         else:
 
             fit_transform(handle_[0],
@@ -119,6 +119,6 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                           <double*> explained_var_ratio_ptr,
                           <double*> singular_vals_ptr,
                           deref(params),
-                          False)
+                          <bool>False)
 
         self.handle.sync()

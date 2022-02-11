@@ -34,9 +34,9 @@ class PCA(BaseDecomposition,
 
     cuML's multi-node multi-gpu (MNMG) PCA expects a dask-cuDF object as input
     and provides 2 algorithms, Full and Jacobi. Full (default) uses a full
-    eigendecomposition then selects the top K eigenvectors. The Jacobi algorithm
-    can be much faster as it iteratively tries to correct the top K eigenvectors,
-    but might be less accurate.
+    eigendecomposition then selects the top K eigenvectors. The Jacobi
+    algorithm can be much faster as it iteratively tries to correct the top K
+    eigenvectors, but might be less accurate.
 
     Examples
     --------

@@ -25,14 +25,11 @@ from libcpp cimport bool
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.raft.common.handle cimport handle_t
 
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
-
-cdef extern from * nogil:
-    ctypedef void* _Stream "cudaStream_t"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 

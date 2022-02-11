@@ -39,8 +39,7 @@ from cuml.decomposition.utils cimport *
 from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import PCA
-from cuml.decomposition.base_mg import BaseDecompositionMG
-
+from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
 
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
@@ -69,6 +68,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
                   paramsPCAMG &prms,
                   bool verbose) except +
 
+
 class PCAMG(BaseDecompositionMG, PCA):
 
     def __init__(self, **kwargs):
@@ -78,7 +78,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         algo_map = {
             'full': MGSolver.COV_EIG_DQ,
             'auto': MGSolver.COV_EIG_JACOBI,
-            'jacobi': MGSoler.COV_EIG_JACOBI,
+            'jacobi': MGSolver.COV_EIG_JACOBI,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
         }
