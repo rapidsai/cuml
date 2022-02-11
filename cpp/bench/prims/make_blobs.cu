@@ -15,7 +15,7 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -43,13 +43,13 @@ struct MakeBlobs : public Fixture {
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {
-      MLCommon::Random::make_blobs(data.data(),
-                                   labels.data(),
-                                   params.rows,
-                                   params.cols,
-                                   params.clusters,
-                                   this->stream,
-                                   params.row_major);
+      raft::random::make_blobs(data.data(),
+                               labels.data(),
+                               params.rows,
+                               params.cols,
+                               params.clusters,
+                               this->stream,
+                               params.row_major);
     });
   }
 

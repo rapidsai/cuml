@@ -53,16 +53,16 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
     vd.resize(batchSize + 1, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
     raft::random::make_blobs<T, IdxT>(data.data(),
-                                labels.data(),
-                                param.n_row,
-                                param.n_col,
-                                param.n_centers,
-                                stream,
-                                true,
-                                nullptr,
-                                nullptr,
-                                T(0.01),
-                                false);
+                                      labels.data(),
+                                      param.n_row,
+                                      param.n_col,
+                                      param.n_centers,
+                                      stream,
+                                      true,
+                                      nullptr,
+                                      nullptr,
+                                      T(0.01),
+                                      false);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }

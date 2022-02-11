@@ -28,7 +28,7 @@
 #include <test_utils.h>
 
 #include <datasets/digits.h>
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/cuda_utils.cuh>

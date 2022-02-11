@@ -29,8 +29,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 struct QuasiNewtonTest : ::testing::Test {
   static constexpr int N = 10;
   static constexpr int D = 2;

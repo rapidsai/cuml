@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -150,9 +150,12 @@ class LinearRegression(Base,
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
-        If True, the predictors in X will be normalized by dividing by it's
-        L2 norm.
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
         If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA

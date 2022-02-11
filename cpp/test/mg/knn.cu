@@ -52,7 +52,8 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   {
     rmm::device_uvector<int> labels(n_rows, stream);
 
-    raft::random::make_blobs<float, int>(part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, stream);
+    raft::random::make_blobs<float, int>(
+      part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, stream);
   }
 
   bool runTest(const KNNParams& params)

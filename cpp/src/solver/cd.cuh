@@ -108,7 +108,8 @@ __global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  * @param fit_intercept
  *        boolean parameter to control if the intercept will be fitted or not
  * @param normalize
- *        boolean parameter to control if the data will be normalized or not
+ *        boolean parameter to control if the data will be normalized or not;
+ *        NB: the input is scaled by the column-wise biased sample standard deviation estimator.
  * @param epochs
  *        Maximum number of iterations that solver will run
  * @param loss
@@ -183,8 +184,9 @@ void cdFit(const raft::handle_t& handle,
 
   // Precompute the residual
   if (normalize) {
-    // if we normalized the data during preprocessing, no need to compute the norm again.
-    math_t scalar = math_t(1.0) + l2_alpha;
+    // if we normalized the data, we know sample variance for each column is 1,
+    // thus no need to compute the norm again.
+    math_t scalar = math_t(n_rows) + l2_alpha;
     raft::matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
   } else {
     raft::linalg::colNorm(

@@ -20,8 +20,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/label/classlabels.hpp>
-#include <raft/spatial/knn/knn.hpp>
 #include <raft/random/make_blobs.hpp>
+#include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
@@ -55,15 +55,15 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
   void basicTest()
   {
     raft::random::make_blobs<float, int>(train_samples.data(),
-                                             train_labels.data(),
-                                             params.rows,
-                                             params.cols,
-                                             params.n_labels,
-                                             stream,
-                                             true,
-                                             nullptr,
-                                             nullptr,
-                                             params.cluster_std);
+                                         train_labels.data(),
+                                         params.rows,
+                                         params.cols,
+                                         params.n_labels,
+                                         stream,
+                                         true,
+                                         nullptr,
+                                         nullptr,
+                                         params.cluster_std);
 
     rmm::device_uvector<int> unique_labels(0, stream);
     auto n_classes =

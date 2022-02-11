@@ -23,7 +23,7 @@
 
 #include <raft/comms/mpi_comms.hpp>
 
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/mr/device/allocator.hpp>
