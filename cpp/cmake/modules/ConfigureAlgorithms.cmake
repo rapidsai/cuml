@@ -16,15 +16,17 @@
 
 
 if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
-    set(LINK_FAISS ON)
+    set(CUML_USE_RAFT_NN ON)
+    set(CUML_USE_RAFT_DIST ON)
     set(LINK_TREELITE ON)
-
+    set(LINK_CUFFT ON)
 else()
 
     # Initial configurable version only supports single GPU, no C API and no
     # example compilation
     set(SINGLEGPU ON)
     set(BUILD_CUML_C_LIBRARY OFF)
+    set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_EXAMPLES OFF)
 
     foreach(algo ${CUML_CPP_ALGORITHMS})
@@ -34,7 +36,7 @@ else()
 
     ###### Set groups of algorithms based on include/scikit-learn #######
 
-    if(algo_cluster)
+    if(cluster_algo)
       set(dbscan_algo ON)
       set(hdbscan_algo ON)
       set(kmeans_algo ON)
@@ -82,6 +84,10 @@ else()
 
     ###### Set linking options and algorithms that require other algorithms #######
 
+    if(fil_algo OR treeshap_algo)
+      set(LINK_TREELITE ON)
+    endif()
+
     if(hdbscan_algo)
         set(hierarchicalclustering_algo ON)
     endif()
@@ -90,9 +96,12 @@ else()
         set(knn_algo ON)
     endif()
 
+    if(tsne_algo)
+      set(LINK_CUFFT ON)
+    endif()
+
     if(knn_algo)
-        set(metrics_algo ON)
-        set(LINK_FAISS ON)
+        set(CUML_USE_RAFT_NN ON)
     endif()
 
     if(randomforest_algo)
@@ -100,5 +109,12 @@ else()
         set(LINK_TREELITE ON)
     endif()
 
+    if(hierarchicalclustering_algo OR kmeans_algo)
+      set(metrics_algo ON)
+    endif()
+
+    if(metrics_algo)
+      set(CUML_USE_RAFT_DIST ON)
+    endif()
 endif()
 

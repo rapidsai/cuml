@@ -16,13 +16,21 @@
 
 function(find_and_configure_raft)
 
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_FAISS_STATIC)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_RAFT_DIST USE_FAISS_STATIC)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    string(APPEND RAFT_COMPONENTS "distance")
+    if(PKG_USE_RAFT_DIST)
+        string(APPEND RAFT_COMPONENTS "distance")
+    endif()
     if(PKG_USE_RAFT_NN)
         string(APPEND RAFT_COMPONENTS " nn")
+    endif()
+
+    if(PKG_USE_RAFT_DIST AND PKG_USE_RAFT_NN)
+        set(RAFT_COMPILE_LIBRARIES ON)
+    else()
+        set(RAFT_COMPILE_LIBRARIES OFF)
     endif()
 
     message("CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
@@ -38,6 +46,9 @@ function(find_and_configure_raft)
             FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
+              "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
+              "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
+              "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
               "NVTX ${NVTX}"
     )
@@ -60,5 +71,6 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             rapidsai
                         PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
+                        USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )

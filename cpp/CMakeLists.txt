@@ -84,6 +84,8 @@ message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
+message(VERBOSE "CUML: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
+message(VERBOSE "CUML: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
 message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_CPP_ALGORITHMS}'.")
@@ -139,7 +141,10 @@ include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
-
+set(CUML_USE_RAFT_NN OFF)
+set(CUML_USE_RAFT_DIST OFF)
+set(LINK_TREELITE OFF)
+set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
 
 # Enabling libcuml enables building libcuml++
@@ -184,8 +189,14 @@ endif()
 rapids_cpm_init()
 
 include(cmake/thirdparty/get_raft.cmake)
-include(cmake/thirdparty/get_treelite.cmake)
-include(cmake/thirdparty/get_gputreeshap.cmake)
+
+if(LINK_TREELITE)
+  include(cmake/thirdparty/get_treelite.cmake)
+endif()
+
+if(treeshap_algo)
+  include(cmake/thirdparty/get_gputreeshap.cmake)
+endif()
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
@@ -223,8 +234,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # single GPU components
   # common components
   add_library(${CUML_CPP_TARGET} SHARED
-              src/common/logger.cpp
-              src/common/nvtx.cu)
+              src/common/logger.cpp)
 
   if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
@@ -260,12 +270,19 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/explainer/permutation_shap.cu)
   endif()
 
+  if(all_algo OR treeshap_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/explainer/tree_shap.cu)
+  endif()
+
   # FIL components
   if(all_algo OR fil_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/fil/fil.cu
-        src/fil/infer.cu)
+        src/fil/infer.cu
+        src/fil/treelite_import.cu)
   endif()
 
   # todo: organize linear models better
@@ -472,12 +489,12 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
       raft::raft
-      raft::nn
-      raft::distance
+      $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
+      $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     PRIVATE
-      CUDA::cufft
-      ${TREELITE_LIBS}
-      GPUTreeShap::GPUTreeShap
+      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
+      $<$<BOOL:${LINK_TREELITE}>:${TREELITE_LIBS}>
+      $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
