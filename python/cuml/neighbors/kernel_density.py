@@ -3,8 +3,15 @@ import numpy as np
 import math
 from numba import cuda
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.base import Base
 from cuml.metrics import pairwise_distances
+from cuml.common.import_utils import has_scipy
+from sklearn.exceptions import NotFittedError
+
+if has_scipy():
+    from scipy.special import gammainc
+
 
 VALID_KERNELS = [
     "gaussian",
@@ -168,16 +175,29 @@ class KernelDensity(Base):
         kernel="gaussian",
         metric="euclidean",
         metric_params=None,
+                 output_type=None, handle=None, verbose=False
     ):
+        super(KernelDensity, self).__init__(verbose=verbose,
+                                      handle=handle,
+                                      output_type=output_type)
         self.bandwidth = bandwidth
         self.kernel = kernel
         self.metric = metric
-        self.metric_params = metric_params or {}
+        self.metric_params = metric_params
 
         if bandwidth <= 0:
             raise ValueError("bandwidth must be positive")
         if kernel not in VALID_KERNELS:
             raise ValueError("invalid kernel: '{0}'".format(kernel))
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "bandwidth",
+                "kernel",
+                "metric",
+                "metric_params"
+            ]
 
     def fit(self, X, y=None, sample_weight=None):
         """Fit the Kernel Density model on the data.
@@ -197,6 +217,13 @@ class KernelDensity(Base):
         self : object
             Returns the instance itself.
         """
+        if sample_weight is not None:
+            self.sample_weight_ = input_to_cupy_array(sample_weight, check_dtype=[cp.float32, cp.float64
+                                                                                  ]).array
+            if self.sample_weight_.min() <= 0:
+                raise ValueError("sample_weight must have positive values")
+        else:
+            self.sample_weight_ = None
 
         self.X_ = input_to_cupy_array(X, order='C', check_dtype=[cp.float32, cp.float64
                                                                  ]).array
@@ -217,13 +244,18 @@ class KernelDensity(Base):
             probability densities, so values will be low for high-dimensional
             data.
         """
+        metric_params = self.metric_params if self.metric_params else {}
         distances = pairwise_distances(
-            X, self.X_, metric=self.metric, **self.metric_params)
+            X, self.X_, metric=self.metric, **metric_params)
         distances = cp.asarray(distances)
+
         h = self.bandwidth
         distances = apply_log_kernel(distances, self.kernel, h)
 
         log_probabilities = cp.zeros(distances.shape[0])
+        if self.sample_weight_ is not None:
+            distances += cp.log(self.sample_weight_)
+
         logsumexp_kernel.forall(log_probabilities.size)(
             distances, log_probabilities)
         # Note that sklearns user guide is wrong
@@ -231,7 +263,9 @@ class KernelDensity(Base):
         # In fact what they implment is (1/n)*sum(K(x,h))
         # Here we divide by n in normal probability space
         # Which becomes -log(n) in log probability space
-        log_probabilities -= np.log(distances.shape[1])
+        sum_weights = cp.sum(
+            self.sample_weight_) if self.sample_weight_ is not None else distances.shape[1]
+        log_probabilities -= np.log(sum_weights)
 
         # norm
         log_probabilities = norm_log_probabilities(
@@ -275,4 +309,40 @@ class KernelDensity(Base):
         X : array-like of shape (n_samples, n_features)
             List of samples.
         """
-        pass
+        if not hasattr(self,'X_'):
+            raise NotFittedError()
+
+
+        if self.kernel not in ["gaussian", "tophat"]:
+            raise NotImplementedError()
+
+        if isinstance(random_state, cp.random.RandomState):
+            rng = random_state
+        else:
+            rng = cp.random.RandomState(random_state)
+
+        u = rng.uniform(0, 1, size=n_samples)
+        if self.sample_weight_ is None:
+            i = (u * self.X_.shape[0]).astype(np.int64)
+        else:
+            cumsum_weight = cp.cumsum(self.sample_weight_)
+            sum_weight = cumsum_weight[-1]
+            i = cp.searchsorted(cumsum_weight, u * sum_weight)
+        if self.kernel == "gaussian":
+            return cp.atleast_2d(rng.normal(self.X_[i], self.bandwidth))
+
+        elif self.kernel == "tophat":
+            # we first draw points from a d-dimensional normal distribution,
+            # then use an incomplete gamma function to map them to a uniform
+            # d-dimensional tophat distribution.
+            if not has_scipy():
+                raise RuntimeError("Scipy is required")
+            dim = self.X_.shape[1]
+            X = rng.normal(size=(n_samples, dim))
+            s_sq = cp.einsum("ij,ij->i", X, X)
+            correction = (
+                gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)
+                * self.bandwidth
+                / np.sqrt(s_sq)
+            )
+            return self.X_[i] + X * correction[:, np.newaxis]
