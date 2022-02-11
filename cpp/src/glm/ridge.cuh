@@ -35,8 +35,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 template <typename math_t>
 void ridgeSolve(const raft::handle_t& handle,
                 math_t* S,

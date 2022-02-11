@@ -24,8 +24,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 template <typename T>
 struct RidgeInputs {
   T tol;

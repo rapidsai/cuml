@@ -31,8 +31,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 /**
  * @brief Center and scale the data, depending on the flags fit_intercept and normalize
  *
