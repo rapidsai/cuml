@@ -415,7 +415,7 @@ struct dense_forest<dense_node<F>> : forest {
     dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(max_shm_),
                                     static_cast<predict_params>(class_ssp_));
     // copy must be finished before freeing the host data
-    RAFT_CUDA_TRY(cudaStreamSynchronize(h.get_stream()));
+    h.sync_stream();
     h_nodes_.clear();
     h_nodes_.shrink_to_fit();
   }

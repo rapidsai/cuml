@@ -86,7 +86,7 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p, int random_s
 
   int ret = 0;
   raft::update_host(&ret, successes.data(), 1, h.get_stream());
-  cudaStreamSynchronize(h.get_stream());
+  h.sync_stream();
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   return n - ret;

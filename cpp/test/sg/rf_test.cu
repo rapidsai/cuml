@@ -29,7 +29,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>
@@ -101,8 +101,8 @@ std::vector<ParamT> SampleParameters(int num_samples, size_t seed, Args... args)
 }
 
 struct RfTestParams {
-  int n_rows;
-  int n_cols;
+  std::size_t n_rows;
+  std::size_t n_cols;
   int n_trees;
   float max_features;
   float max_samples;
@@ -120,8 +120,8 @@ struct RfTestParams {
   bool double_precision;
   // c++ has no reflection, so we enumerate the types here
   // This must be updated if new fields are added
-  using types = std::tuple<int,
-                           int,
+  using types = std::tuple<std::size_t,
+                           std::size_t,
                            int,
                            float,
                            float,
@@ -333,7 +333,7 @@ class RfSpecialisedTest {
 
       EXPECT_LE(forest->trees[i]->depth_counter, params.max_depth);
       EXPECT_LE(forest->trees[i]->leaf_counter,
-                raft::ceildiv(params.n_rows, params.min_samples_leaf));
+                raft::ceildiv(int(params.n_rows), params.min_samples_leaf));
     }
   }
 
@@ -522,6 +522,46 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            seed,
                                                                            n_labels,
                                                                            double_precision)));
+
+TEST(RfTests, IntegerOverflow)
+{
+  std::size_t m = 1000000;
+  std::size_t n = 2150;
+  EXPECT_GE(m * n, 1ull << 31);
+  thrust::device_vector<float> X(m * n);
+  thrust::device_vector<float> y(m);
+  raft::random::Rng r(4);
+  r.normal(X.data().get(), X.size(), 0.0f, 2.0f, nullptr);
+  r.normal(y.data().get(), y.size(), 0.0f, 2.0f, nullptr);
+  auto forest      = std::make_shared<RandomForestMetaData<float, float>>();
+  auto forest_ptr  = forest.get();
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(4);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, 4, 128);
+  fit(handle, forest_ptr, X.data().get(), m, n, y.data().get(), rf_params);
+
+  // Check we have actually learned something
+  EXPECT_GT(forest->trees[0]->leaf_counter, 1);
+
+  // See if fil overflows
+  thrust::device_vector<float> pred(m);
+  ModelHandle model;
+  build_treelite_forest(&model, forest_ptr, n);
+
+  std::size_t num_outputs = 1;
+  fil::treelite_params_t tl_params{fil::algo_t::ALGO_AUTO,
+                                   num_outputs > 1,
+                                   1.f / num_outputs,
+                                   fil::storage_type_t::AUTO,
+                                   8,
+                                   1,
+                                   0,
+                                   nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred.data().get(), X.data().get(), m, false);
+}
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 struct QuantileTestParameters {

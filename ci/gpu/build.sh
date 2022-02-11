@@ -34,6 +34,10 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 # ucx-py version
 export UCX_PY_VERSION='0.25.*'
 
+export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
+export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
+export CMAKE_C_COMPILER_LAUNCHER="sccache"
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -119,8 +123,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -211,8 +215,8 @@ else
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"

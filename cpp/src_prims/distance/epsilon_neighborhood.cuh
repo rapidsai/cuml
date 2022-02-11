@@ -17,7 +17,7 @@
 #pragma once
 
 #include <common/device_utils.cuh>
-#include <raft/linalg/contractions.cuh>
+#include <raft/linalg/contractions.hpp>
 
 namespace MLCommon {
 namespace Distance {

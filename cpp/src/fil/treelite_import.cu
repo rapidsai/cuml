@@ -637,7 +637,7 @@ struct tl2fil_t {
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
     // sync is necessary as nodes_ are used in init(),
     // but destructed at the end of this function
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
     if (tl_params_.pforest_shape_str) {
       *tl_params_.pforest_shape_str = sprintf_shape(model_, nodes_, roots_, cat_sets_);
     }

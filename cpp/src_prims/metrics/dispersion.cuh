@@ -20,7 +20,8 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/interruptible.hpp>
+#include <raft/linalg/eltwise.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -127,7 +128,7 @@ DataT dispersion(const DataT* centroids,
   RAFT_CUDA_TRY(cudaGetLastError());
   DataT h_result;
   raft::update_host(&h_result, result.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   return sqrt(h_result);
 }
 
