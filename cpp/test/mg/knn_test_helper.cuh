@@ -19,7 +19,7 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <gtest/gtest.h>
 #include <memory>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
 

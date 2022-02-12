@@ -23,8 +23,8 @@
 #include <decisiontree/treelite_util.h>
 
 #include <metrics/scores.cuh>
+#include <raft/random/permute.hpp>
 #include <raft/random/rng.hpp>
-#include <random/permute.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
