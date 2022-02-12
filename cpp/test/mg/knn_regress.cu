@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ void generate_partitions(float* data,
                                  -10.0,
                                  10.0,
                                  my_rank);
-  MLCommon::LinAlg::convert_array(outputs, (int*)outputs, n_rows, stream);
+  raft::linalg::convert_array(outputs, (int*)outputs, n_rows, stream);
 }
 
 class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {

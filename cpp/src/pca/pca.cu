@@ -19,8 +19,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 void pcaFit(raft::handle_t& handle,
             float* input,
             float* components,
