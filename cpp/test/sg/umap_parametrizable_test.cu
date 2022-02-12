@@ -28,7 +28,7 @@
 #include <test_utils.h>
 
 #include <datasets/digits.h>
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/cuda_utils.cuh>
@@ -296,7 +296,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     handle.sync_stream(stream);
 
-    MLCommon::LinAlg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
+    raft::linalg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
 
     handle.sync_stream(stream);
 
