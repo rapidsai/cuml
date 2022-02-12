@@ -42,7 +42,7 @@ void generate_partitions(float* data,
                                  -10.0,
                                  10.0,
                                  my_rank);
-  raft::linalg::convert_array(outputs, (int*)outputs, n_rows, stream);
+  MLCommon::LinAlg::convert_array(outputs, (int*)outputs, n_rows, stream);
 }
 
 class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {
