@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/interruptible.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdio.h>
@@ -50,7 +51,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.clusters * params.dim;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> counts(params.clusters, stream);
     exp_mean.resize(params.dim, stream);
@@ -85,10 +86,10 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
       }
     }
     expectedVal = sqrt(expectedVal);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
   DispersionInputs<T> params;

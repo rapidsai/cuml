@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,16 @@
 #=============================================================================
 
 set(COMMON_TEST_LINK_LIBRARIES
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
   CUDA::cufft
   rmm::rmm
   raft::raft
-  raft::raft_nn
-  raft::raft_distance
-  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
+  raft::nn
+  raft::distance
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX
   Threads::Threads
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+  ${TREELITE_LIBS}
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )
 
@@ -98,11 +91,22 @@ if(BUILD_CUML_TESTS)
 
   target_link_libraries(${CUML_CPP_TEST_TARGET}
     PRIVATE
-        ${CUML_CPP_TARGET}
+        cuml::${CUML_CPP_TARGET}
         $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:${CUML_C_TARGET}>
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
+    set_target_properties(
+      ${CUML_CPP_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_CPP_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml
+      EXCLUDE_FROM_ALL
+    )
 endif()
 
 #############################################################################
@@ -133,11 +137,23 @@ if(BUILD_CUML_MG_TESTS)
       )
 
     target_link_libraries(${CUML_MG_TEST_TARGET}
-      ${CUML_CPP_TARGET}
+      cuml::${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
       cumlprims_mg::cumlprims_mg
+    )
+
+    set_target_properties(
+      ${CUML_MG_TEST_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_MG_TEST_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml_mg
+      EXCLUDE_FROM_ALL
     )
 
   else(MPI_CXX_FOUND)
@@ -162,20 +178,17 @@ if(BUILD_PRIMS_TESTS)
     prims/columnSort.cu
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
-    prims/cov.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
     prims/eltwise2d.cu
     prims/entropy.cu
-    prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
     prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
-    prims/histogram.cu
     prims/homogeneity_score.cu
     prims/jones_transform.cu
     prims/kl_divergence.cu
@@ -188,29 +201,17 @@ if(BUILD_PRIMS_TESTS)
     prims/log.cu
     prims/logisticReg.cu
     prims/make_arima.cu
-    prims/make_blobs.cu
-    prims/make_regression.cu
     prims/merge_labels.cu
-    prims/minmax.cu
-    prims/mvg.cu
     prims/mutual_info_score.cu
     prims/penalty.cu
-    prims/permute.cu
-    prims/power.cu
     prims/rand_index.cu
-    prims/reduce_cols_by_key.cu
-    prims/reduce_rows_by_key.cu
     prims/reverse.cu
-    prims/rsvd.cu
     prims/score.cu
-    prims/seive.cu
     prims/sigmoid.cu
     prims/silhouette_score.cu
-    prims/sqrt.cu
-    prims/ternary_op.cu
     prims/trustworthiness.cu
     prims/v_measure.cu
-    prims/weighted_mean.cu)
+          )
 
   target_compile_options(${PRIMS_TEST_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
@@ -225,10 +226,21 @@ if(BUILD_PRIMS_TESTS)
 
   target_link_libraries(${PRIMS_TEST_TARGET}
     PRIVATE
-      ${CUML_CPP_TARGET}
+      cuml::${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 
+  set_target_properties(
+    ${PRIMS_TEST_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${PRIMS_TEST_TARGET}
+    COMPONENT testing
+    DESTINATION bin/gtests/libcuml_prims
+    EXCLUDE_FROM_ALL
+  )
 endif()
 
 ##############################################################################

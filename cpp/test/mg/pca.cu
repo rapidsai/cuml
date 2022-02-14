@@ -22,7 +22,6 @@
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/matrix/matrix.hpp>
 #include <test_utils.h>
 
@@ -61,7 +60,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     totalRanks = comm.get_size();
     raft::random::Rng r(params.seed + myRank);
 
-    CUBLAS_CHECK(cublasSetStream(cublasHandle, stream));
+    RAFT_CUBLAS_TRY(cublasSetStream(cublasHandle, stream));
 
     if (myRank == 0) {
       std::cout << "Testing PCA of " << params.M << " x " << params.N << " matrix" << std::endl;

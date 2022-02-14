@@ -19,11 +19,11 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <gtest/gtest.h>
 #include <memory>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
 
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/mr/device/allocator.hpp>
@@ -163,12 +163,12 @@ class KNNTestHelper {
       this->out_i_parts.push_back(out_i);
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void display_results()
   {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     std::cout << "Finished!" << std::endl;
 

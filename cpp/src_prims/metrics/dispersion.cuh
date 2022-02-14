@@ -20,7 +20,8 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/interruptible.hpp>
+#include <raft/linalg/eltwise.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -112,11 +113,11 @@ DataT dispersion(const DataT* centroids,
     mean.resize(dim, stream);
     mu = mean.data();
   }
-  CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(DataT) * dim, stream));
-  CUDA_CHECK(cudaMemsetAsync(result.data(), 0, sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(mu, 0, sizeof(DataT) * dim, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(result.data(), 0, sizeof(DataT), stream));
   weightedMeanKernel<DataT, IdxT, TPB, ColsPerBlk>
     <<<grid, TPB, 0, stream>>>(mu, centroids, clusterSizes, dim, nClusters);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   DataT ratio = DataT(1) / DataT(nPoints);
   raft::linalg::scalarMultiply(mu, mu, ratio, dim, stream);
   // finally, compute the dispersion
@@ -124,10 +125,10 @@ DataT dispersion(const DataT* centroids,
   int nblks                    = raft::ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);
   dispersionKernel<DataT, IdxT, TPB>
     <<<nblks, TPB, 0, stream>>>(result.data(), centroids, clusterSizes, mu, dim, nClusters);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
   DataT h_result;
   raft::update_host(&h_result, result.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   return sqrt(h_result);
 }
 

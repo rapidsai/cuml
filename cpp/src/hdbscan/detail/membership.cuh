@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include <algorithm>
 
@@ -80,7 +80,7 @@ void get_probabilities(const raft::handle_t& handle,
     n_clusters,
     sorted_parents_offsets.data(),
     stream,
-    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*>);
+    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>);
 
   // Calculate probability per point
   thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);

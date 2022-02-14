@@ -22,8 +22,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/device_atomics.cuh>
-#include <raft/linalg/coalesced_reduction.cuh>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/coalesced_reduction.hpp>
+#include <raft/linalg/reduce.hpp>
 
 #include "pack.h"
 
@@ -72,7 +72,7 @@ void launcher(const raft::handle_t& handle,
 
   // Reduction to compute the vertex degrees
   index_t* d_nnz = data.vd + batch_size;
-  CUDA_CHECK(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
   raft::linalg::coalescedReduction<value_t, index_t, long_index_t>(
     data.vd,
     data.x + start_vertex_id * data.N,
@@ -96,7 +96,7 @@ void launcher(const raft::handle_t& handle,
     (long_index_t)start_vertex_id,
     (long_index_t)batch_size,
     data.eps);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Precomputed

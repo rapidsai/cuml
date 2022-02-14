@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ void make_arima(DataT* out,
     gpu_gen.uniform(params_temp.sma, batch_size * order.Q, (DataT)-1.0, (DataT)1.0, stream);
   }
   // Note: sigma2 is unused, we just memset it to zero
-  CUDA_CHECK(cudaMemsetAsync(params_temp.sigma2, 0, batch_size * sizeof(DataT), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(params_temp.sigma2, 0, batch_size * sizeof(DataT), stream));
   // No need to copy, just reuse the pointer
   params.mu = params_temp.mu;
   TimeSeries::batched_jones_transform(order, batch_size, false, params_temp, params, stream);
@@ -233,7 +233,7 @@ void make_arima(DataT* out,
                                                                            order.Q,
                                                                            order.s,
                                                                            order.k);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Final time series
   if (d_sD) {

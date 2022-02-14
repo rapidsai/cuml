@@ -22,8 +22,8 @@
 #include <stdio.h>
 
 #include <cuml/common/logger.hpp>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/norm.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/norm.hpp>
 
 #include <cuda_runtime.h>
 

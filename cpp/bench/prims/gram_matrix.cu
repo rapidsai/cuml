@@ -19,7 +19,8 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/linalg/cublas_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/random/rng.hpp>
 #include <sstream>
 #include <string>
@@ -50,12 +51,12 @@ struct GramMatrix : public Fixture {
         << p.n << "/" << (p.is_row_major ? "row_major" : "col_major");
     this->SetName(oss.str().c_str());
 
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
+    RAFT_CUBLAS_TRY(cublasCreate(&cublas_handle));
     kernel =
       std::unique_ptr<GramMatrixBase<T>>(KernelFactory<T>::create(p.kernel_params, cublas_handle));
   }
 
-  ~GramMatrix() { CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle)); }
+  ~GramMatrix() { RAFT_CUBLAS_TRY_NO_THROW(cublasDestroy(cublas_handle)); }
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

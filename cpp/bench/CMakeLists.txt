@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,16 +44,27 @@ if(BUILD_CUML_BENCH)
     PUBLIC
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
+      ${TREELITE_LIBS}
       raft::raft
-      raft::raft_nn
-      raft::raft_distance
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+      raft::nn
+      raft::distance
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+  )
+
+  set_target_properties(
+    ${CUML_CPP_BENCH_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${CUML_CPP_BENCH_TARGET}
+    COMPONENT testing
+    DESTINATION bin/benchmarks/libcuml
+    EXCLUDE_FROM_ALL
   )
 endif()
 
@@ -85,19 +96,29 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   target_link_libraries(${PRIMS_BENCH_TARGET}
     PUBLIC
-      cuml
-      CUDA::cublas
+      cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
+      ${TREELITE_LIBS}
       raft::raft
-      raft::raft_nn
-      raft::raft_distance
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+      raft::nn
+      raft::distance
   )
 
   target_include_directories(${PRIMS_BENCH_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  )
+
+  set_target_properties(
+    ${PRIMS_BENCH_TARGET}
+    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+  )
+
+  install(
+    TARGETS ${PRIMS_BENCH_TARGET}
+    COMPONENT testing
+    DESTINATION bin/benchmarks/libcuml_prims
+    EXCLUDE_FROM_ALL
   )
 endif()

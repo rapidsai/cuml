@@ -17,9 +17,9 @@
 #include "test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/subtract.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/subtract.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -59,7 +59,7 @@ class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType
   {
     params = ::testing::TestWithParam<DevScalarInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     auto len = params.len;
 
@@ -75,7 +75,7 @@ class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType
     } else {
       subtractDevScalar(out.data(), in.data(), scalar.data(), len, stream);
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
