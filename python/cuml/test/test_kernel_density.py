@@ -95,6 +95,13 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
                            rtol=tol, atol=tol, equal_nan=True)
         assert np.allclose(np.exp(cuml_prob_test),
                            ref_prob_test, rtol=tol, atol=tol, equal_nan=True)
+    
+    if kernel in ["gaussian",
+    "tophat"]:
+        pass
+    else:
+        with pytest.raises(NotImplementedError()):
+            kde.sample(100)
 
 
 def test_logaddexp():
