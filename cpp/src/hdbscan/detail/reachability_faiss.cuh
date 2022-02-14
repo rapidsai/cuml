@@ -2,7 +2,7 @@
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
- * LICENSE file thirdparty/LICENSE.faiss
+ * LICENSE file thirdparty/LICENSES/LICENSE.faiss
  */
 
 /*
