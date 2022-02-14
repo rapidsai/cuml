@@ -24,7 +24,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/transpose.hpp>
 #include <raft/linalg/unary_op.hpp>
-#include <random/make_regression.cuh>
+#include <raft/random/make_regression.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -158,21 +158,21 @@ struct Dataset {
       tmpX_vec.resize(p.nrows * p.ncols, stream);
       tmpX = tmpX_vec.data();
     }
-    MLCommon::Random::make_regression(handle,
-                                      tmpX,
-                                      y.data(),
-                                      p.nrows,
-                                      p.ncols,
-                                      r.n_informative,
-                                      stream,
-                                      (D*)nullptr,
-                                      1,
-                                      D(r.bias),
-                                      r.effective_rank,
-                                      D(r.tail_strength),
-                                      D(r.noise),
-                                      r.shuffle,
-                                      r.seed);
+    raft::random::make_regression(handle,
+                                  tmpX,
+                                  y.data(),
+                                  p.nrows,
+                                  p.ncols,
+                                  r.n_informative,
+                                  stream,
+                                  (D*)nullptr,
+                                  1,
+                                  D(r.bias),
+                                  r.effective_rank,
+                                  D(r.tail_strength),
+                                  D(r.noise),
+                                  r.shuffle,
+                                  r.seed);
     if (!p.rowMajor) { raft::linalg::transpose(handle, tmpX, X.data(), p.nrows, p.ncols, stream); }
   }
 
