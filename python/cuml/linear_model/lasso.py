@@ -154,3 +154,6 @@ class Lasso(ElasticNet):
             normalize=normalize, max_iter=max_iter, tol=tol,
             solver=solver, selection=selection,
             handle=handle, output_type=output_type, verbose=verbose)
+
+    def get_param_names(self):
+        return list(set(super().get_param_names()) - {'l1_ratio'})
