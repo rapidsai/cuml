@@ -24,8 +24,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 template <typename T>
 struct RidgeInputs {
   T tol;
@@ -72,31 +70,55 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     rmm::device_uvector<T> labels(params.n_row, stream);
     T alpha = params.alpha;
 
+    /* How to reproduce the coefficients for this test:
+
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.linear_model import Ridge
+    scaler = StandardScaler(with_mean=True, with_std=True)
+    x_norm = scaler.fit_transform(x_train)
+
+    m = Ridge(
+        fit_intercept=False, normalize=False, alpha=0.5)
+    m.fit(x_train, y)
+    print(m.coef_, m.predict(x_test))
+
+    m = Ridge(
+        fit_intercept=True, normalize=False, alpha=0.5)
+    m.fit(x_train, y)
+    print(m.coef_, m.predict(x_test))
+
+    m = Ridge(
+        fit_intercept=True, normalize=False, alpha=0.5)
+    m.fit(x_norm, y)
+    print(m.coef_ / scaler.scale_, m.predict(scaler.transform(x_test)))
+
+     */
+
     T data_h[len] = {0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
     raft::update_device(data.data(), data_h, len, stream);
 
     T labels_h[params.n_row] = {0.0, 0.1, 1.0};
     raft::update_device(labels.data(), labels_h, params.n_row, stream);
 
-    T coef_ref_h[params.n_col] = {0.39999998, 0.4};
+    T coef_ref_h[params.n_col] = {0.4, 0.4};
     raft::update_device(coef_ref.data(), coef_ref_h, params.n_col, stream);
 
     T coef2_ref_h[params.n_col] = {0.3454546, 0.34545454};
     raft::update_device(coef2_ref.data(), coef2_ref_h, params.n_col, stream);
 
-    T coef3_ref_h[params.n_col] = {0.3799999, 0.38000008};
+    T coef3_ref_h[params.n_col] = {0.43846154, 0.43846154};
     raft::update_device(coef3_ref.data(), coef3_ref_h, params.n_col, stream);
 
     T pred_data_h[len2] = {0.5, 2.0, 0.2, 1.0};
     raft::update_device(pred_data.data(), pred_data_h, len2, stream);
 
-    T pred_ref_h[params.n_row_2] = {0.28, 1.1999999};
+    T pred_ref_h[params.n_row_2] = {0.28, 1.2};
     raft::update_device(pred_ref.data(), pred_ref_h, params.n_row_2, stream);
 
-    T pred2_ref_h[params.n_row_2] = {0.37818184, 1.1727273};
+    T pred2_ref_h[params.n_row_2] = {0.37818182, 1.17272727};
     raft::update_device(pred2_ref.data(), pred2_ref_h, params.n_row_2, stream);
 
-    T pred3_ref_h[params.n_row_2] = {0.37933332, 1.2533332};
+    T pred3_ref_h[params.n_row_2] = {0.38128205, 1.38974359};
     raft::update_device(pred3_ref.data(), pred3_ref_h, params.n_row_2, stream);
 
     intercept = T(0);

@@ -21,9 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 
-#include <raft/mr/device/buffer.hpp>
-
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/hierarchy/detail/connectivities.cuh>

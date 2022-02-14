@@ -18,7 +18,8 @@
 #include <iomanip>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cusolver_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
@@ -111,20 +112,22 @@ class LarsTest : public ::testing::Test {
     rmm::device_uvector<math_t> workspace(0, stream);
     int n_work;
     const int ld_U = n_cols;
-    RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf_bufferSize(
+    // #TODO: Call from public API when ready
+    RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf_bufferSize(
       handle.get_cusolver_dn_handle(), CUBLAS_FILL_MODE_UPPER, n_cols, U_dev_exp, ld_U, &n_work));
     workspace.resize(n_work, stream);
     // Expected solution using Cholesky factorization from scratch
     raft::copy(U_dev_exp, G, n_cols * ld_U, stream);
-    RAFT_CUSOLVER_TRY(raft::linalg::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
-                                                    CUBLAS_FILL_MODE_UPPER,
-                                                    n_cols,
-                                                    U_dev_exp,
-                                                    ld_U,
-                                                    workspace.data(),
-                                                    n_work,
-                                                    devInfo.data(),
-                                                    stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
+                                                            CUBLAS_FILL_MODE_UPPER,
+                                                            n_cols,
+                                                            U_dev_exp,
+                                                            ld_U,
+                                                            workspace.data(),
+                                                            n_work,
+                                                            devInfo.data(),
+                                                            stream));
   }
 
   // Initialize a mix of G and U matrices to test updateCholesky

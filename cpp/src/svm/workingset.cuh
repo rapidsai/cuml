@@ -29,8 +29,8 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
@@ -440,7 +440,7 @@ class WorkingSet {
                                d_num_selected.data(),
                                n_train);
     int n_selected = d_num_selected.value(stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // Copy to output
     int n_copy = n_selected > n_needed ? n_needed : n_selected;
@@ -487,7 +487,7 @@ class WorkingSet {
                           n_ws,
                           op);
     int n_selected = d_num_selected.value(stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
     raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy, stream);
     return n_copy;

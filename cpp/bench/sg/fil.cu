@@ -79,7 +79,7 @@ class FIL : public RegressionFixture<float> {
     auto* mPtr         = &rf_model;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle->sync_stream(stream);
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
     ML::fil::treelite_params_t tl_params = {
@@ -148,7 +148,7 @@ std::vector<Params> getInputs()
   p.rf = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
                        1.f,                /* max_features */
-                       32,                 /* n_bins */
+                       32,                 /* max_n_bins */
                        3,                  /* min_samples_leaf */
                        3,                  /* min_samples_split */
                        0.0f,               /* min_impurity_decrease */
