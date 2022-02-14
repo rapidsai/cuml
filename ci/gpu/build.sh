@@ -32,7 +32,11 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # ucx-py version
-export UCX_PY_VERSION='0.24.*'
+export UCX_PY_VERSION='0.25.*'
+
+export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
+export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
+export CMAKE_C_COMPILER_LAUNCHER="sccache"
 
 ################################################################################
 # SETUP - Check environment
@@ -58,21 +62,15 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.5.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.5.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
       "shap>=0.37,<=0.39"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
-# gpuci_mamba_retry remove --force rapids-build-env rapids-notebook-env
+# gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_mamba_retry install -y "your-pkg=1.0.0"
-
-gpuci_logger "Install contextvars if needed"
-py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
-if [ "$py_ver" == "3.6" ];then
-    conda install contextvars
-fi
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -199,10 +197,10 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
-    
-    # FIXME: Project FLASH only builds for python version 3.7 which is the one used in 
-    # the CUDA 11.0 job, need to change all versions to project flash 
-    if [ "$py_ver" == "3.7" ];then
+
+    # FIXME: Project FLASH only builds for python version 3.8 which is the one used in
+    # the CUDA 11.0 job, need to change all versions to project flash
+    if [ "$PYTHON" == "3.8" ];then
         gpuci_logger "Using Project FLASH to install cuml python"
         CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
         CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -212,21 +210,21 @@ else
 
     else
         gpuci_logger "Building cuml python in gpu job"
-        "$WORKSPACE/build.sh" -v cuml --codecov   
+        "$WORKSPACE/build.sh" -v cuml --codecov
     fi
-    
+
     gpuci_logger "Install the main version of dask and distributed"
     set -x
     pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
-    
+
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
-    
+
     # When installing cuml with project flash, we need to delete all folders except
-    # cuml/test since we are not building cython extensions in place 
-    if [ "$py_ver" == "3.7" ];then
+    # cuml/test since we are not building cython extensions in place
+    if [ "$PYTHON" == "3.8" ];then
         find ./cuml -mindepth 1 ! -regex '^./cuml/test\(/.*\)?' -delete
     fi
 

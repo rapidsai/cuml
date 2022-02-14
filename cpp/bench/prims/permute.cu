@@ -16,8 +16,8 @@
 
 #include <common/ml_benchmark.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/random/permute.hpp>
 #include <raft/random/rng.hpp>
-#include <random/permute.cuh>
 
 namespace MLCommon {
 namespace Bench {
@@ -67,7 +67,7 @@ struct Permute : public Fixture {
   {
     raft::random::Rng r(123456ULL);
     loopOnState(state, [this, &r]() {
-      MLCommon::Random::permute(perms, out, in, params.cols, params.rows, params.rowMajor, stream);
+      raft::random::permute(perms, out, in, params.cols, params.rows, params.rowMajor, stream);
     });
   }
 

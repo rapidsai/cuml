@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <linalg/power.cuh>
 #include <memory>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/power.cuh>
+#include <raft/linalg/subtract.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_scalar.hpp>
@@ -61,13 +61,13 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
   rmm::device_uvector<math_t> sse_arr(n, stream);
 
   raft::linalg::eltwiseSub(sse_arr.data(), y, y_hat, n, stream);
-  MLCommon::LinAlg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
+  raft::linalg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   rmm::device_uvector<math_t> ssto_arr(n, stream);
 
   raft::linalg::subtractDevScalar(ssto_arr.data(), y, y_bar.data(), n, stream);
-  MLCommon::LinAlg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
+  raft::linalg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   thrust::device_ptr<math_t> d_sse  = thrust::device_pointer_cast(sse_arr.data());
@@ -174,7 +174,7 @@ void regression_metrics(const T* predictions,
     predictions, ref_predictions, n, abs_diffs_array.data(), tmp_sums.data());
   RAFT_CUDA_TRY(cudaGetLastError());
   raft::update_host(&mean_errors[0], tmp_sums.data(), 2, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   mean_abs_error     = mean_errors[0] / n;
   mean_squared_error = mean_errors[1] / n;
@@ -202,7 +202,7 @@ void regression_metrics(const T* predictions,
                                                stream));
 
   raft::update_host(h_sorted_abs_diffs.data(), sorted_abs_diffs.data(), n, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   int middle = n / 2;
   if (n % 2 == 1) {

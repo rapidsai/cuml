@@ -25,7 +25,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemm.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -378,7 +378,7 @@ class KernelCache {
                               n_ws,
                               stream);
     raft::update_host(n_unique, d_num_selected_out.data(), 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 };
 

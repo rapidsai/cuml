@@ -16,7 +16,7 @@
 
 #include "common.cuh"
 
-#include <fil/internal.cuh>
+#include "internal.cuh"
 
 #include <cuml/fil/multi_sum.cuh>
 

@@ -21,7 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 #include <random>
 #include <test_utils.h>
 #include <vector>
@@ -84,7 +84,7 @@ class RPROJTest : public ::testing::Test {
                             params1.n_components,
                             stream);  // From column major to row major
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void sparseTest()
@@ -113,7 +113,7 @@ class RPROJTest : public ::testing::Test {
                             params2.n_components,
                             stream);  // From column major to row major
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void SetUp() override

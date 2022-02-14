@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,29 +20,40 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesSorted(T* quantiles,
-                                       const int n_bins,
-                                       const T* sorted_data,
-                                       const int length)
+__global__ void computeQuantilesKernel(
+  T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows)
 {
-  int tid          = threadIdx.x + blockIdx.x * blockDim.x;
-  double bin_width = static_cast<double>(length) / n_bins;
-  int index        = int(round((tid + 1) * bin_width)) - 1;
-  index            = min(max(0, index), length - 1);
-  if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
+  double bin_width = static_cast<double>(n_rows) / max_n_bins;
 
+  for (int bin = threadIdx.x; bin < max_n_bins; bin += blockDim.x) {
+    // get index by interpolation
+    int idx        = int(round((bin + 1) * bin_width)) - 1;
+    idx            = min(max(0, idx), n_rows - 1);
+    quantiles[bin] = sorted_data[idx];
+  }
+
+  __syncthreads();
+
+  if (threadIdx.x == 0) {
+    // make quantiles unique, in-place
+    // thrust::seq to explicitly disable cuda dynamic parallelism here
+    auto new_last = thrust::unique(thrust::seq, quantiles, quantiles + max_n_bins);
+    // get the unique count
+    *n_bins = new_last - quantiles;
+  }
+
+  __syncthreads();
   return;
 }
 
 // instantiation
-template __global__ void computeQuantilesSorted<float>(float* quantiles,
-                                                       const int n_bins,
-                                                       const float* sorted_data,
-                                                       const int length);
-template __global__ void computeQuantilesSorted<double>(double* quantiles,
-                                                        const int n_bins,
+template __global__ void computeQuantilesKernel<float>(
+  float* quantiles, int* n_bins, const float* sorted_data, const int max_n_bins, const int n_rows);
+template __global__ void computeQuantilesKernel<double>(double* quantiles,
+                                                        int* n_bins,
                                                         const double* sorted_data,
-                                                        const int length);
+                                                        const int max_n_bins,
+                                                        const int n_rows);
 
 }  // end namespace DT
 }  // end namespace ML

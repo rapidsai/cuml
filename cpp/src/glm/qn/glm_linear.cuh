@@ -19,7 +19,7 @@
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/add.hpp>
 
 namespace ML {
 namespace GLM {
@@ -44,6 +44,11 @@ struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
     : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
   }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return squaredNorm(grad, dev_scalar, stream) * 0.5;
+  }
 };
 
 template <typename T>
@@ -64,6 +69,11 @@ struct AbsLoss : GLMBase<T, AbsLoss<T>> {
   AbsLoss(const raft::handle_t& handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
+  }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return nrm1(grad, dev_scalar, stream);
   }
 };
 

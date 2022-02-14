@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class TreePathInfo {
 };
 
 std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
-void gpu_treeshap(const TreePathInfo* path_info,
+void gpu_treeshap(TreePathInfo* path_info,
                   const float* data,
                   std::size_t n_rows,
                   std::size_t n_cols,
