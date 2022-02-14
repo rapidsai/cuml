@@ -21,8 +21,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/label/classlabels.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/label/classlabels.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -49,7 +49,7 @@ int getUniqueLabels(math_t* y, size_t n, math_t* unique, cudaStream_t stream)
   rmm::device_uvector<math_t> unique_v(0, stream);
   auto n_unique = raft::label::getUniquelabels(unique_v, y, n, stream);
   raft::copy(unique, unique_v.data(), n_unique, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   return n_unique;
 }
 

@@ -26,8 +26,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/add.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <linalg/batched/matrix.cuh>
@@ -1222,48 +1223,50 @@ void _batched_kalman_filter(raft::handle_t& handle,
 
     double alpha = 1.0;
     double beta  = 0.0;
-    RAFT_CUBLAS_TRY(raft::linalg::cublasgemmStridedBatched(cublasHandle,
-                                                           CUBLAS_OP_N,
-                                                           CUBLAS_OP_N,
-                                                           nobs,
-                                                           1,
-                                                           order.n_exog,
-                                                           &alpha,
-                                                           d_exog,
-                                                           nobs,
-                                                           nobs * order.n_exog,
-                                                           d_beta,
-                                                           order.n_exog,
-                                                           order.n_exog,
-                                                           &beta,
-                                                           obs_intercept.data(),
-                                                           nobs,
-                                                           nobs,
-                                                           batch_size,
-                                                           stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemmStridedBatched(cublasHandle,
+                                                                   CUBLAS_OP_N,
+                                                                   CUBLAS_OP_N,
+                                                                   nobs,
+                                                                   1,
+                                                                   order.n_exog,
+                                                                   &alpha,
+                                                                   d_exog,
+                                                                   nobs,
+                                                                   nobs * order.n_exog,
+                                                                   d_beta,
+                                                                   order.n_exog,
+                                                                   order.n_exog,
+                                                                   &beta,
+                                                                   obs_intercept.data(),
+                                                                   nobs,
+                                                                   nobs,
+                                                                   batch_size,
+                                                                   stream));
 
     if (fc_steps > 0) {
       obs_intercept_fut.resize(fc_steps * batch_size, stream);
 
-      RAFT_CUBLAS_TRY(raft::linalg::cublasgemmStridedBatched(cublasHandle,
-                                                             CUBLAS_OP_N,
-                                                             CUBLAS_OP_N,
-                                                             fc_steps,
-                                                             1,
-                                                             order.n_exog,
-                                                             &alpha,
-                                                             d_exog_fut,
-                                                             fc_steps,
-                                                             fc_steps * order.n_exog,
-                                                             d_beta,
-                                                             order.n_exog,
-                                                             order.n_exog,
-                                                             &beta,
-                                                             obs_intercept_fut.data(),
-                                                             fc_steps,
-                                                             fc_steps,
-                                                             batch_size,
-                                                             stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemmStridedBatched(cublasHandle,
+                                                                     CUBLAS_OP_N,
+                                                                     CUBLAS_OP_N,
+                                                                     fc_steps,
+                                                                     1,
+                                                                     order.n_exog,
+                                                                     &alpha,
+                                                                     d_exog_fut,
+                                                                     fc_steps,
+                                                                     fc_steps * order.n_exog,
+                                                                     d_beta,
+                                                                     order.n_exog,
+                                                                     order.n_exog,
+                                                                     &beta,
+                                                                     obs_intercept_fut.data(),
+                                                                     fc_steps,
+                                                                     fc_steps,
+                                                                     batch_size,
+                                                                     stream));
     }
   }
 

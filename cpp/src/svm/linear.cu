@@ -26,13 +26,12 @@
 #include <omp.h>
 #include <raft/common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/transpose.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/map.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
@@ -392,14 +391,32 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
     thrust::fill(thrust::cuda::par.on(stream), p, p + nRows, 1.0);
   }
 
-  auto qn_loss = (ML::GLM::QN_LOSS_TYPE)99;
+  ML::GLM::qn_params qn_pams;
   switch (params.loss) {
-    case LinearSVMParams::HINGE: qn_loss = ML::GLM::QN_LOSS_SVC_L1; break;
-    case LinearSVMParams::SQUARED_HINGE: qn_loss = ML::GLM::QN_LOSS_SVC_L2; break;
-    case LinearSVMParams::EPSILON_INSENSITIVE: qn_loss = ML::GLM::QN_LOSS_SVR_L1; break;
-    case LinearSVMParams::SQUARED_EPSILON_INSENSITIVE: qn_loss = ML::GLM::QN_LOSS_SVR_L2; break;
+    case LinearSVMParams::HINGE: qn_pams.loss = ML::GLM::QN_LOSS_SVC_L1; break;
+    case LinearSVMParams::SQUARED_HINGE: qn_pams.loss = ML::GLM::QN_LOSS_SVC_L2; break;
+    case LinearSVMParams::EPSILON_INSENSITIVE: qn_pams.loss = ML::GLM::QN_LOSS_SVR_L1; break;
+    case LinearSVMParams::SQUARED_EPSILON_INSENSITIVE:
+      qn_pams.loss = ML::GLM::QN_LOSS_SVR_L2;
+      break;
     default: break;
   }
+  qn_pams.fit_intercept       = params.fit_intercept && !params.penalized_intercept;
+  qn_pams.penalty_l1          = params.penalty == LinearSVMParams::L1 ? iC : 0.0;
+  qn_pams.penalty_l2          = params.penalty == LinearSVMParams::L2 ? iC : 0.0;
+  qn_pams.penalty_normalized  = true;
+  qn_pams.max_iter            = params.max_iter;
+  qn_pams.grad_tol            = params.grad_tol;
+  qn_pams.change_tol          = params.change_tol;
+  qn_pams.linesearch_max_iter = params.linesearch_max_iter;
+  qn_pams.lbfgs_memory        = params.lbfgs_memory;
+  qn_pams.verbose             = params.verbose;
+
+  ML::GLM::qn_params qn_pams_logistic = qn_pams;
+  qn_pams_logistic.loss               = ML::GLM::QN_LOSS_LOGISTIC;
+  qn_pams_logistic.fit_intercept      = true;
+  qn_pams_logistic.penalty_l1         = 0;
+  qn_pams_logistic.penalty_l2 = 1 / T(1 + nRows);  // L2 regularization reflects the flat prior.
 
   T* y1  = (T*)y;
   T* w1  = model.w;
@@ -443,25 +460,17 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
     T target;
     int num_iters;
     GLM::qnFit<T>(worker.handle,
+                  qn_pams,
                   X1,
                   true,
                   yi,
                   narrowDown(nRows),
                   narrowDown(nCols1),
-                  1,
-                  params.fit_intercept && !params.penalized_intercept,
-                  T(params.penalty == LinearSVMParams::L1 ? iC : 0.0),
-                  T(params.penalty == LinearSVMParams::L2 ? iC : 0.0),
-                  params.max_iter,
-                  T(params.grad_tol),
-                  T(params.change_tol),
-                  params.linesearch_max_iter,
-                  params.lbfgs_memory,
-                  params.verbose,
+                  // regression: C == 1; classification: C == 2
+                  nClasses == 0 ? 1 : 2,
                   wi,
                   &target,
                   &num_iters,
-                  qn_loss,
                   worker.stream,
                   (T*)sampleWeight,
                   T(params.epsilon));
@@ -474,26 +483,16 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
     predictLinear(worker.handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, worker.stream);
 
     GLM::qnFit<T>(worker.handle,
+                  qn_pams_logistic,
                   xw,
                   false,
                   yi,
                   narrowDown(nRows),
                   1,
                   2,
-                  true,
-                  0,
-                  /** L2 regularization reflects the flat prior. */
-                  1 / T(1 + nRows),
-                  params.max_iter,
-                  T(params.grad_tol),
-                  T(params.change_tol),
-                  params.linesearch_max_iter,
-                  params.lbfgs_memory,
-                  params.verbose,
                   psi,
                   &target,
                   &num_iters,
-                  ML::GLM::QN_LOSS_LOGISTIC,
                   worker.stream,
                   (T*)sampleWeight);
   }

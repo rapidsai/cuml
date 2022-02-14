@@ -28,7 +28,7 @@
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean_center.hpp>
 
@@ -114,7 +114,7 @@ void fit_impl(raft::handle_t& handle,
     handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -158,7 +158,7 @@ void transform_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 }
 
@@ -201,7 +201,7 @@ void transform_impl(raft::handle_t& handle,
     handle, input_data, input_desc, components, trans_data, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -243,7 +243,7 @@ void inverse_transform_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 }
 
@@ -287,7 +287,7 @@ void inverse_transform_impl(raft::handle_t& handle,
     handle, trans_data, trans_desc, components, input_data, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
   for (std::uint32_t i = 0; i < n_streams; i++) {
     RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
@@ -366,14 +366,14 @@ void fit_transform_impl(raft::handle_t& handle,
 
   T total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), std::size_t(1), streams[0]);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(streams[0]));
+  handle.sync_stream(streams[0]);
   T scalar = T(1) / total_vars_h;
 
   raft::linalg::scalarMultiply(
     explained_var_ratio, explained_var, scalar, prms.n_components, streams[0]);
 
   for (std::size_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
   for (std::size_t i = 0; i < n_streams; i++) {
     RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));

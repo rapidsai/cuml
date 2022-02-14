@@ -19,7 +19,7 @@
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/add.hpp>
 
 namespace ML {
 namespace GLM {
@@ -56,6 +56,11 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   LogisticLoss(const raft::handle_t& handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
+  }
+
+  inline T gradNorm(const SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream)
+  {
+    return nrmMax(grad, dev_scalar, stream);
   }
 };
 };  // namespace GLM

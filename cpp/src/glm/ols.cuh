@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <linalg/lstsq.cuh>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/lstsq.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/subtract.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
@@ -33,8 +33,6 @@
 
 namespace ML {
 namespace GLM {
-
-using namespace MLCommon;
 
 /**
  * @brief fit an ordinary least squares model
@@ -97,10 +95,12 @@ void olsFit(const raft::handle_t& handle,
 
   raft::common::nvtx::push_range("ML::GLM::olsFit/algo-%d", selectedAlgo);
   switch (selectedAlgo) {
-    case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 2: LinAlg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 3: LinAlg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 0:
+      raft::linalg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream);
+      break;
+    case 1: raft::linalg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 2: raft::linalg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 3: raft::linalg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
     default:
       ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
       break;

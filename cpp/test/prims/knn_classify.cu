@@ -19,9 +19,9 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
+#include <raft/random/make_blobs.hpp>
 #include <raft/spatial/knn/knn.hpp>
-#include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
@@ -54,16 +54,16 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest()
   {
-    MLCommon::Random::make_blobs<float, int>(train_samples.data(),
-                                             train_labels.data(),
-                                             params.rows,
-                                             params.cols,
-                                             params.n_labels,
-                                             stream,
-                                             true,
-                                             nullptr,
-                                             nullptr,
-                                             params.cluster_std);
+    raft::random::make_blobs<float, int>(train_samples.data(),
+                                         train_labels.data(),
+                                         params.rows,
+                                         params.cols,
+                                         params.n_labels,
+                                         stream,
+                                         true,
+                                         nullptr,
+                                         nullptr,
+                                         params.cluster_std);
 
     rmm::device_uvector<int> unique_labels(0, stream);
     auto n_classes =
@@ -103,7 +103,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  uniq_labels,
                  n_unique);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
