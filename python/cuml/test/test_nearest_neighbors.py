@@ -516,7 +516,9 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize('distance_dims', [("euclidean", 2), ("euclidean", 3), ("haversine", 2)])
+@pytest.mark.parametrize('distance_dims', [("euclidean", 2),
+                                           ("euclidean", 3),
+                                           ("haversine", 2)])
 @pytest.mark.parametrize('n_neighbors', [4, 25])
 @pytest.mark.parametrize('nrows', [unit_param(10000), stress_param(70000)])
 def test_nearest_neighbors_rbc(distance_dims, n_neighbors, nrows):
