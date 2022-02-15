@@ -258,12 +258,12 @@ else
 
     gpuci_logger "Run ml-prims test"
     cd $LIBCUML_BUILD_DIR
-    chrpath -d ./test/prims
-    patchelf --replace-needed `patchelf --print-needed ./test/prims | grep faiss` libfaiss.so ./test/prims
-    gpuci_logger "Running libcuml binaries"
     GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
     for gt in $(find ./test -name "*_TEST" | grep -v "SG_\|MG_" || true); do
         test_name=$(basename $gt)
+        echo "Patching gtest $test_name"
+        chrpath -d ${gt}
+        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
         echo "Running gtest $test_name"
         ${gt} ${GTEST_ARGS}
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
