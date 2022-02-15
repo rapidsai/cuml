@@ -183,8 +183,6 @@ else
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
     cd $LIBCUML_BUILD_DIR
-    chrpath -d ./test/ml
-    patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     cp _deps/raft-build/libraft_nn.so $PWD
     patchelf --replace-needed `patchelf --print-needed libraft_nn.so | grep faiss` libfaiss.so libraft_nn.so
     cp _deps/raft-build/libraft_distance.so $PWD
@@ -193,6 +191,9 @@ else
     GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
     for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
         test_name=$(basename $gt)
+        echo "Patching gtest $test_name"
+        chrpath -d ${gt}
+        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
         echo "Running gtest $test_name"
         ${gt} ${GTEST_ARGS}
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
