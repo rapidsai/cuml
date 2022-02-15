@@ -366,15 +366,15 @@ class NearestNeighbors(Base,
         self.n_dims = X.shape[1]
 
         if self.algorithm == "auto":
-            if self.n_dims == 2 and self.metric in \
+            if (self.n_dims == 2 or self.n_dims == 3) and self.metric in \
                     cuml.neighbors.VALID_METRICS["rbc"]:
                 self.working_algorithm_ = "rbc"
             else:
                 self.working_algorithm_ = "brute"
 
-        if self.algorithm == "rbc" and self.n_dims > 2:
+        if self.algorithm == "rbc" and self.n_dims > 3:
             raise ValueError("The rbc algorithm is not supported for"
-                             " >2 dimensions currently.")
+                             " >3 dimensions currently.")
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE

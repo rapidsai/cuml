@@ -516,21 +516,23 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
         assert isspmatrix_csr(sparse_cu)
 
 
-@pytest.mark.parametrize('distance', ["euclidean", "haversine"])
+@pytest.mark.parametrize('distance_dims', [("euclidean", 2), ("euclidean", 3), ("haversine", 2)])
 @pytest.mark.parametrize('n_neighbors', [4, 25])
 @pytest.mark.parametrize('nrows', [unit_param(10000), stress_param(70000)])
-def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
+def test_nearest_neighbors_rbc(distance_dims, n_neighbors, nrows):
+    distance, dims = distance_dims
+
     X, y = make_blobs(n_samples=nrows,
                       centers=25,
                       shuffle=True,
-                      n_features=2,
+                      n_features=dims,
                       cluster_std=3.0,
                       random_state=42)
 
     knn_cu = cuKNN(metric=distance, algorithm="rbc")
     knn_cu.fit(X)
 
-    query_rows = int(nrows/2)
+    query_rows = int(nrows / 2)
 
     rbc_d, rbc_i = knn_cu.kneighbors(X[:query_rows, :],
                                      n_neighbors=n_neighbors)
@@ -547,14 +549,15 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
         brute_d, brute_i = knn_cu_brute.kneighbors(
             X[:query_rows, :], n_neighbors=n_neighbors)
 
-    rbc_i = cp.sort(rbc_i, axis=1)
-    brute_i = cp.sort(brute_i, axis=1)
+    # rbc_i = cp.sort(rbc_i, axis=1)
+    # brute_i = cp.sort(brute_i, axis=1)
 
     # TODO: These are failing with 1 or 2 mismatched elements
     # for very small values of k:
     # https://github.com/rapidsai/cuml/issues/4262
-    assert len(brute_d[brute_d != rbc_d]) <= 3
-    assert len(brute_i[brute_i != rbc_i]) <= 3
+
+    assert len(brute_d[brute_d != rbc_d]) == 0
+    assert len(brute_i[brute_i != rbc_i]) == 0
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
