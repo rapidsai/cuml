@@ -29,7 +29,7 @@
 
 #include <algorithm>
 
-#include <hdbscan/condensed_hierarchy.cu>
+#include "../condensed_hierarchy.cu"
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>

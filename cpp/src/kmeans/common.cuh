@@ -27,7 +27,7 @@
 #include <matrix/gather.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <random/permute.cuh>
+#include <raft/random/permute.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cudart_utils.h>
@@ -587,7 +587,7 @@ void shuffleAndGather(const raft::handle_t& handle,
 
   if (workspace) {
     // shuffle indices on device using ml-prims
-    MLCommon::Random::permute<DataT>(
+    raft::random::permute<DataT>(
       indices.data(), nullptr, nullptr, in.getSize(1), in.getSize(0), true, stream);
   } else {
     // shuffle indices on host and copy to device...
