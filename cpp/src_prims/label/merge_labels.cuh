@@ -22,6 +22,7 @@
 #include <linalg/init.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 
 namespace MLCommon {
 namespace Label {
@@ -142,7 +143,7 @@ void merge_labels(Index_* labels_a,
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     raft::update_host(&host_m, m, 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   } while (host_m);
 
   // Step 2: re-assign minimum equivalent label

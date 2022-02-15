@@ -22,7 +22,9 @@
 #include "internal/hw_optim.cuh"
 #include <cuml/tsa/holtwinters_params.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -89,8 +91,9 @@ void HoltWintersDecompose(const raft::handle_t& handle,
     raft::copy(start_level, ts + batch_size, batch_size, stream);
     raft::copy(start_trend, ts + batch_size, batch_size, stream);
     const Dtype alpha = -1.;
-    RAFT_CUBLAS_TRY(
-      raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts, 1, start_trend, 1, stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasaxpy(
+      cublas_h, batch_size, &alpha, ts, 1, start_trend, 1, stream));
     // cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
   } else if (start_level != nullptr && start_trend != nullptr && start_season != nullptr) {
     stl_decomposition_gpu(handle_impl,

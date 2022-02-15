@@ -20,8 +20,7 @@
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
@@ -45,7 +44,7 @@ struct KNNRegressionInputs {
 void generate_data(
   float* out_samples, float* out_labels, int n_rows, int n_cols, cudaStream_t stream)
 {
-  raft::random::Rng r(0ULL, raft::random::GenTaps);
+  raft::random::Rng r(0ULL, raft::random::GenPC);
 
   r.uniform(out_samples, n_rows * n_cols, 0.0f, 1.0f, stream);
 
@@ -116,7 +115,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     knn_regress(
       handle, pred_labels.data(), knn_indices.data(), y, params.rows, params.rows, params.k);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void SetUp() override { basicTest(); }

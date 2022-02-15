@@ -34,6 +34,10 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 # ucx-py version
 export UCX_PY_VERSION='0.25.*'
 
+export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
+export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
+export CMAKE_C_COMPILER_LAUNCHER="sccache"
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -119,8 +123,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -179,14 +183,22 @@ else
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
     cd $LIBCUML_BUILD_DIR
-    chrpath -d ./test/ml
-    patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
     cp _deps/raft-build/libraft_nn.so $PWD
     patchelf --replace-needed `patchelf --print-needed libraft_nn.so | grep faiss` libfaiss.so libraft_nn.so
     cp _deps/raft-build/libraft_distance.so $PWD
 
     gpuci_logger "Running libcuml binaries"
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
+    for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
+        test_name=$(basename $gt)
+        echo "Patching gtest $test_name"
+        chrpath -d ${gt}
+        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
+        echo "Running gtest $test_name"
+        ${gt} ${GTEST_ARGS}
+        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    done
+
 
     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -211,8 +223,8 @@ else
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.01.0" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.01.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -246,9 +258,17 @@ else
 
     gpuci_logger "Run ml-prims test"
     cd $LIBCUML_BUILD_DIR
-    chrpath -d ./test/prims
-    patchelf --replace-needed `patchelf --print-needed ./test/prims | grep faiss` libfaiss.so ./test/prims
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+    GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
+    for gt in $(find ./test -name "*_TEST" | grep -v "SG_\|MG_" || true); do
+        test_name=$(basename $gt)
+        echo "Patching gtest $test_name"
+        chrpath -d ${gt}
+        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
+        echo "Running gtest $test_name"
+        ${gt} ${GTEST_ARGS}
+        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    done
+
 
     ################################################################################
     # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled

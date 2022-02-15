@@ -23,13 +23,12 @@
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-
-#include <random/make_blobs.cuh>
+#include <raft/random/rng.hpp>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>
@@ -101,8 +100,8 @@ std::vector<ParamT> SampleParameters(int num_samples, size_t seed, Args... args)
 }
 
 struct RfTestParams {
-  int n_rows;
-  int n_cols;
+  std::size_t n_rows;
+  std::size_t n_cols;
   int n_trees;
   float max_features;
   float max_samples;
@@ -120,8 +119,8 @@ struct RfTestParams {
   bool double_precision;
   // c++ has no reflection, so we enumerate the types here
   // This must be updated if new fields are added
-  using types = std::tuple<int,
-                           int,
+  using types = std::tuple<std::size_t,
+                           std::size_t,
                            int,
                            float,
                            float,
@@ -333,7 +332,7 @@ class RfSpecialisedTest {
 
       EXPECT_LE(forest->trees[i]->depth_counter, params.max_depth);
       EXPECT_LE(forest->trees[i]->leaf_counter,
-                raft::ceildiv(params.n_rows, params.min_samples_leaf));
+                raft::ceildiv(int(params.n_rows), params.min_samples_leaf));
     }
   }
 
@@ -522,6 +521,46 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            seed,
                                                                            n_labels,
                                                                            double_precision)));
+
+TEST(RfTests, IntegerOverflow)
+{
+  std::size_t m = 1000000;
+  std::size_t n = 2150;
+  EXPECT_GE(m * n, 1ull << 31);
+  thrust::device_vector<float> X(m * n);
+  thrust::device_vector<float> y(m);
+  raft::random::Rng r(4);
+  r.normal(X.data().get(), X.size(), 0.0f, 2.0f, nullptr);
+  r.normal(y.data().get(), y.size(), 0.0f, 2.0f, nullptr);
+  auto forest      = std::make_shared<RandomForestMetaData<float, float>>();
+  auto forest_ptr  = forest.get();
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(4);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, 4, 128);
+  fit(handle, forest_ptr, X.data().get(), m, n, y.data().get(), rf_params);
+
+  // Check we have actually learned something
+  EXPECT_GT(forest->trees[0]->leaf_counter, 1);
+
+  // See if fil overflows
+  thrust::device_vector<float> pred(m);
+  ModelHandle model;
+  build_treelite_forest(&model, forest_ptr, n);
+
+  std::size_t num_outputs = 1;
+  fil::treelite_params_t tl_params{fil::algo_t::ALGO_AUTO,
+                                   num_outputs > 1,
+                                   1.f / num_outputs,
+                                   fil::storage_type_t::AUTO,
+                                   8,
+                                   1,
+                                   0,
+                                   nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred.data().get(), X.data().get(), m, false);
+}
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 struct QuantileTestParameters {
@@ -739,7 +778,7 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestD, ::testing::ValuesI
 
 TEST(RfTest, TextDump)
 {
-  RF_params rf_params = set_rf_params(2, 2, 1.0, 2, 1, 2, 0.0, true, 1, 1.0, 0, GINI, 1, 128);
+  RF_params rf_params = set_rf_params(2, 2, 1.0, 2, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
   auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
 
   std::vector<float> X_host      = {1, 2, 3, 6, 7, 8};
@@ -757,19 +796,19 @@ Tree #0
  Decision Tree depth --> 1 and n_leaves --> 2
  Tree Fitting - Overall time -->)";
 
-  std::string expected_end_text = R"(└(colid: 0, quesval: 3, best_metric_val: 0.25)
-    ├(leaf, prediction: [0.75, 0.25], best_metric_val: 0)
-    └(leaf, prediction: [0, 1], best_metric_val: 0))";
+  std::string expected_end_text = R"(└(colid: 0, quesval: 3, best_metric_val: 0.0555556)
+    ├(leaf, prediction: [0.666667, 0.333333], best_metric_val: 0)
+    └(leaf, prediction: [0.333333, 0.666667], best_metric_val: 0))";
 
   EXPECT_TRUE(get_rf_detailed_text(forest_ptr).find(expected_start_text) != std::string::npos);
   EXPECT_TRUE(get_rf_detailed_text(forest_ptr).find(expected_end_text) != std::string::npos);
-
   std::string expected_json = R"([
-{"nodeid": 0, "split_feature": 0, "split_threshold": 3, "gain": 0.25, "instance_count": 6, "yes": 1, "no": 2, "children": [
-  {"nodeid": 1, "leaf_value": [0.75, 0.25], "instance_count": 4},
-  {"nodeid": 2, "leaf_value": [0, 1], "instance_count": 2}
+{"nodeid": 0, "split_feature": 0, "split_threshold": 3, "gain": 0.055555582, "instance_count": 6, "yes": 1, "no": 2, "children": [
+  {"nodeid": 1, "leaf_value": [0.666666687, 0.333333343], "instance_count": 3},
+  {"nodeid": 2, "leaf_value": [0.333333343, 0.666666687], "instance_count": 3}
 ]}
 ])";
+
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
 }
 

@@ -20,7 +20,7 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include "kernels/builder_kernels.cuh"
 
 #include <common/Timer.h>
 #include <cuml/common/pinned_host_vector.hpp>
@@ -410,7 +410,7 @@ struct Builder {
     RAFT_CUDA_TRY(cudaGetLastError());
     raft::common::nvtx::pop_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(builder_stream));
+    handle.sync_stream(builder_stream);
     return std::make_tuple(h_splits, work_items.size());
   }
 

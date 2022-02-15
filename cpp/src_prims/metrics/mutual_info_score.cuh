@@ -29,7 +29,7 @@
 #include <math.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/reduce.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -167,7 +167,7 @@ double mutual_info_score(const T* firstClusterArray,
   // updating in the host memory
   h_MI = d_MI.value(stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   return h_MI / size;
 }

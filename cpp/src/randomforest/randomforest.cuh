@@ -23,8 +23,8 @@
 #include <decisiontree/treelite_util.h>
 
 #include <metrics/scores.cuh>
+#include <raft/random/permute.hpp>
 #include <raft/random/rng.hpp>
-#include <random/permute.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
@@ -58,7 +58,7 @@ class RandomForest {
     auto rs = DT::fnv1a32_basis;
     rs      = DT::fnv1a32(rs, rf_params.seed);
     rs      = DT::fnv1a32(rs, tree_id);
-    raft::random::Rng rng(rs, raft::random::GeneratorType::GenKiss99);
+    raft::random::Rng rng(rs, raft::random::GenPhilox);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
       rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
@@ -190,7 +190,7 @@ class RandomForest {
     }
     // Cleanup
     handle.sync_stream_pool();
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream();
   }
 
   /**
@@ -215,9 +215,9 @@ class RandomForest {
     std::vector<L> h_predictions(n_rows);
     cudaStream_t stream = user_handle.get_stream();
 
-    std::vector<T> h_input(n_rows * n_cols);
-    raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    std::vector<T> h_input(std::size_t(n_rows) * n_cols);
+    raft::update_host(h_input.data(), input, std::size_t(n_rows) * n_cols, stream);
+    user_handle.sync_stream(stream);
 
     int row_size = n_cols;
 
@@ -254,7 +254,7 @@ class RandomForest {
     }
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    user_handle.sync_stream(stream);
   }
 
   /**

@@ -115,7 +115,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY.data(), stream, minLabel, maxLabel);
     pWorkspace.resize(workspaceSz, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }

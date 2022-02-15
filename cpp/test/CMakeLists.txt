@@ -24,9 +24,15 @@ function(ConfigureTest)
                           "${multiValueArgs}" ${ARGN} )
 
   set(TEST_NAME ${ConfigureTest_PREFIX}_${ConfigureTest_NAME})
+  if(ConfigureTest_PREFIX STREQUAL "PRIMS")
+    set(TEST_INSTALL_PATH bin/gtests/libcuml_prims)
+  else()
+    set(TEST_INSTALL_PATH bin/gtests/libcuml)
+  endif()
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
+  # PR 4296 will improve conditional links here
   target_link_libraries(${TEST_NAME}
   PRIVATE
     ${CUML_CPP_TARGET}
@@ -41,7 +47,7 @@ function(ConfigureTest)
     raft::raft
     GTest::gtest
     GTest::gtest_main
-    OpenMP::OpenMP_CXX
+    ${OpenMP_CXX_LIB_NAMES}
     Threads::Threads
     $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
     $<$<BOOL:${ConfigureTest_NCCL}>:NCCL::NCCL>
@@ -67,6 +73,18 @@ function(ConfigureTest)
 
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
+    set_target_properties(
+      ${TEST_NAME}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${TEST_NAME}
+      COMPONENT testing
+      DESTINATION ${TEST_INSTALL_PATH}
+      EXCLUDE_FROM_ALL
+    )
+
 endfunction()
 
 
@@ -75,99 +93,78 @@ endfunction()
 
 if(BUILD_CUML_TESTS)
 
-  if(all_algo)
+  # general tests
     ConfigureTest(PREFIX SG NAME LOGGER_TEST PATH sg/logger.cpp OPTIONAL ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME NVTX_TEST PATH sg/nvtx_test.cpp OPTIONAL ML_INCLUDE)
-    # todo: add trustworthiness algo
+
+  # trustworthines tests
     ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
 
-  endif()
-
-  if(all_algo OR dbscan_algo)
+  # DBSCAN tests
     ConfigureTest(PREFIX SG NAME DBSCAN_TEST PATH sg/dbscan_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR explainer_algo)
+  # Explainer tests
     ConfigureTest(PREFIX SG NAME SHAP_KERNEL_TEST PATH sg/shap_kernel.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR fil_algo)
+  # FIL tests
     ConfigureTest(PREFIX SG NAME FIL_CHILD_INDEX_TEST PATH sg/fil_child_index_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FIL_TEST PATH sg/fil_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FNV_HASH_TEST PATH sg/fnv_hash_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME MULTI_SUM_TEST PATH sg/multi_sum_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  # todo: organize linear models better
-  if(all_algo OR linearregression_algo OR ridge_algo OR lasso_algo OR logisticregression_algo)
+  # Linear models tests
     ConfigureTest(PREFIX SG NAME OLS_TEST PATH sg/ols.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME RIDGE_TEST PATH sg/ridge.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR genetic_algo)
+  # Genetic algorithms tests
     ConfigureTest(PREFIX SG NAME GENETIC_NODE_TEST PATH sg/genetic/node_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST PATH sg/genetic/param_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR hdbscan_algo)
+  # HDBSCAN tests
     ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR holtwinters_algo)
+  # Holtwinters tests
     ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST PATH sg/holtwinters_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR kmeans_algo)
+  # KMeans tests
     ConfigureTest(PREFIX SG NAME KMEANS_TEST PATH sg/kmeans_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR knn_algo)
+  # KNN tests
     ConfigureTest(PREFIX SG NAME KNN_TEST PATH sg/knn_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR hierarchicalclustering_algo)
+  # Hierarchical clustering tests
     ConfigureTest(PREFIX SG NAME LINKAGE_TEST PATH sg/linkage_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR pca_algo)
+  # PCA tests
     ConfigureTest(PREFIX SG NAME PCA_TEST PATH sg/pca_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR randomforest_algo)
+  # RF tests
     ConfigureTest(PREFIX SG NAME RF_TEST PATH sg/rf_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR randomprojection_algo)
+  # Random Projection tests
     ConfigureTest(PREFIX SG NAME RPROJ_TEST PATH sg/rproj_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  # todo: separate solvers better
-  if(all_algo OR solvers_algo)
+  # Solvers tests
     ConfigureTest(PREFIX SG NAME CD_TEST PATH sg/cd_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME LARS_TEST PATH sg/lars_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME QUASI_NEWTON PATH sg/quasi_newton.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME SGD_TEST PATH sg/sgd.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR svm_algo)
+  # SVM tests
     ConfigureTest(PREFIX SG NAME SVC_TEST PATH sg/svc_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR tsne_algo)
+  # TSNE tests
     ConfigureTest(PREFIX SG NAME TSNE_TEST PATH sg/tsne_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR tsvd_algo)
+  # TSVD tests
     ConfigureTest(PREFIX SG NAME TSVD_TEST PATH sg/tsvd_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
-  if(all_algo OR umap_algo)
+  # UMAP tests
     ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST PATH sg/umap_parametrizable_test.cu OPTIONAL ML_INCLUDE)
-  endif()
 
   if(BUILD_CUML_C_LIBRARY)
     ConfigureTest(PREFIX SG NAME HANDLE_TEST PATH sg/handle_test.cu OPTIONAL ML_INCLUDE)
   endif()
+
 endif()
 
 #############################################################################
@@ -183,6 +180,18 @@ if(BUILD_CUML_MG_TESTS)
     ConfigureTest(PREFIX MG NAME MAIN_TEST PATH main.cu OPTIONAL NCCL CUMLPRIMS MPI ML_INCLUDE)
     ConfigureTest(PREFIX MG NAME PCA_TEST PATH pca.cu OPTIONAL NCCL CUMLPRIMS MPI ML_INCLUDE)
 
+    set_target_properties(
+      ${CUML_MG_TEST_TARGET}
+      PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+    )
+
+    install(
+      TARGETS ${CUML_MG_TEST_TARGET}
+      COMPONENT testing
+      DESTINATION bin/gtests/libcuml_mg
+      EXCLUDE_FROM_ALL
+    )
+
   else(MPI_CXX_FOUND)
    message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
   endif()
@@ -197,27 +206,24 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME ADJUSTED_RAND_INDEX_TEST PATH prims/adjusted_rand_index.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_CSR_TEST PATH prims/batched/csr.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_GEMV_TEST PATH prims/batched/gemv.cu)
-  ConfigureTest(PREFIX PRIMS NAME BATCHED_INFORMATION_CRITERION_TEST PATH prims/batched/information_criterion.cu)
+  ConfigureTest(PREFIX PRIMS NAME  PATH prims/batched/information_criterion.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_MAKE_SYMM_TEST PATH prims/batched/make_symm.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_MATRIX_TEST PATH prims/batched/matrix.cu)
   ConfigureTest(PREFIX PRIMS NAME CACHE_TEST PATH prims/cache.cu)
   ConfigureTest(PREFIX PRIMS NAME COLUMNSORT_TEST PATH prims/columnSort.cu)
   ConfigureTest(PREFIX PRIMS NAME COMPLETENESS_SCORE_TEST PATH prims/completeness_score.cu)
   ConfigureTest(PREFIX PRIMS NAME CONTINGENCYMATRIX_TEST PATH prims/contingencyMatrix.cu)
-  ConfigureTest(PREFIX PRIMS NAME COV_TEST PATH prims/cov.cu)
   ConfigureTest(PREFIX PRIMS NAME DECOUPLED_LOOKBACK_TEST PATH prims/decoupled_lookback.cu)
   ConfigureTest(PREFIX PRIMS NAME DEVICE_UTILS_TEST PATH prims/device_utils.cu)
   ConfigureTest(PREFIX PRIMS NAME DISPERSION_TEST PATH prims/dispersion.cu)
   ConfigureTest(PREFIX PRIMS NAME ELTWISE2D_TEST PATH prims/eltwise2d.cu)
   ConfigureTest(PREFIX PRIMS NAME ENTROPY_TEST PATH prims/entropy.cu)
-  ConfigureTest(PREFIX PRIMS NAME EPSILON_NEIGHBORHOOD_TEST PATH prims/epsilon_neighborhood.cu)
   ConfigureTest(PREFIX PRIMS NAME FAST_INT_DIV_TEST PATH prims/fast_int_div.cu)
   ConfigureTest(PREFIX PRIMS NAME FILLNA_TEST PATH prims/fillna.cu)
   ConfigureTest(PREFIX PRIMS NAME GATHER_TEST PATH prims/gather.cu)
   ConfigureTest(PREFIX PRIMS NAME GRAM_TEST PATH prims/gram.cu)
   ConfigureTest(PREFIX PRIMS NAME GRID_SYNC_TEST PATH prims/grid_sync.cu)
   ConfigureTest(PREFIX PRIMS NAME HINGE_TEST PATH prims/hinge.cu)
-  ConfigureTest(PREFIX PRIMS NAME HISTOGRAM_TEST PATH prims/histogram.cu)
   ConfigureTest(PREFIX PRIMS NAME HOMOGENEITY_SCORE_TEST PATH prims/homogeneity_score.cu)
   ConfigureTest(PREFIX PRIMS NAME JONES_TRANSFORM_TEST PATH prims/jones_transform.cu)
   ConfigureTest(PREFIX PRIMS NAME KL_DIVERGENCE_TEST PATH prims/kl_divergence.cu)
@@ -230,29 +236,16 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME LOG_TEST PATH prims/log.cu)
   ConfigureTest(PREFIX PRIMS NAME LOGISTICREG_TEST PATH prims/logisticReg.cu)
   ConfigureTest(PREFIX PRIMS NAME MAKE_ARIMA_TEST PATH prims/make_arima.cu)
-  ConfigureTest(PREFIX PRIMS NAME MAKE_BLOBS_TEST PATH prims/make_blobs.cu)
-  ConfigureTest(PREFIX PRIMS NAME MAKE_REGRESSION_TEST PATH prims/make_regression.cu)
   ConfigureTest(PREFIX PRIMS NAME MERGE_LABELS_TEST PATH prims/merge_labels.cu)
-  ConfigureTest(PREFIX PRIMS NAME MINMAX_TEST PATH prims/minmax.cu)
-  ConfigureTest(PREFIX PRIMS NAME MVG_TEST PATH prims/mvg.cu)
   ConfigureTest(PREFIX PRIMS NAME MUTUAL_INFO_SCORE_TEST PATH prims/mutual_info_score.cu)
   ConfigureTest(PREFIX PRIMS NAME PENALTY_TEST PATH prims/penalty.cu)
-  ConfigureTest(PREFIX PRIMS NAME PERMUTE_TEST PATH prims/permute.cu)
-  ConfigureTest(PREFIX PRIMS NAME POWER_TEST PATH prims/power.cu)
   ConfigureTest(PREFIX PRIMS NAME RAND_INDEX_TEST PATH prims/rand_index.cu)
-  ConfigureTest(PREFIX PRIMS NAME REDUCE_COLS_BY_KEY_TEST PATH prims/reduce_cols_by_key.cu)
-  ConfigureTest(PREFIX PRIMS NAME REDUCE_ROWS_BY_KEY_TEST PATH prims/reduce_rows_by_key.cu)
   ConfigureTest(PREFIX PRIMS NAME REVERSE_TEST PATH prims/reverse.cu)
-  ConfigureTest(PREFIX PRIMS NAME RSVD_TEST PATH prims/rsvd.cu)
   ConfigureTest(PREFIX PRIMS NAME SCORE_TEST PATH prims/score.cu)
-  ConfigureTest(PREFIX PRIMS NAME SEIVE_TEST PATH prims/seive.cu)
   ConfigureTest(PREFIX PRIMS NAME SIGMOID_TEST PATH prims/sigmoid.cu)
   ConfigureTest(PREFIX PRIMS NAME SILHOUETTE_SCORE_TEST PATH prims/silhouette_score.cu)
-  ConfigureTest(PREFIX PRIMS NAME SQRT_TEST PATH prims/sqrt.cu)
-  ConfigureTest(PREFIX PRIMS NAME TERNARY_OP_TEST PATH prims/ternary_op.cu)
   ConfigureTest(PREFIX PRIMS NAME TRUSTWORTHINESS_TEST PATH prims/trustworthiness.cu)
   ConfigureTest(PREFIX PRIMS NAME V_MEASURE_TEST PATH prims/v_measure.cu)
-  ConfigureTest(PREFIX PRIMS NAME WEIGHTED_MEAN_TEST PATH prims/weighted_mean.cu)
 
 endif()
 

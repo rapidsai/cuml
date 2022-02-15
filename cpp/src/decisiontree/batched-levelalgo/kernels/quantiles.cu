@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <decisiontree/batched-levelalgo/quantiles.cuh>
+#include "../quantiles.cuh"
 
 namespace ML {
 namespace DT {

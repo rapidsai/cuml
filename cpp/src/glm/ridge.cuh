@@ -17,11 +17,11 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/subtract.cuh>
-#include <raft/linalg/svd.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/subtract.hpp>
+#include <raft/linalg/svd.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
@@ -34,8 +34,6 @@
 
 namespace ML {
 namespace GLM {
-
-using namespace MLCommon;
 
 template <typename math_t>
 void ridgeSolve(const raft::handle_t& handle,

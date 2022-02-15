@@ -19,7 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/distance/fused_l2_nn.hpp>
 #include <raft/handle.hpp>
-#include <raft/linalg/norm.cuh>
+#include <raft/linalg/norm.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/spatial/knn/specializations.hpp>
 
