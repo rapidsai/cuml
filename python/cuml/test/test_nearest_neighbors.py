@@ -547,14 +547,8 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
         brute_d, brute_i = knn_cu_brute.kneighbors(
             X[:query_rows, :], n_neighbors=n_neighbors)
 
-    rbc_i = cp.sort(rbc_i, axis=1)
-    brute_i = cp.sort(brute_i, axis=1)
-
-    # TODO: These are failing with 1 or 2 mismatched elements
-    # for very small values of k:
-    # https://github.com/rapidsai/cuml/issues/4262
-    assert len(brute_d[brute_d != rbc_d]) <= 5
-    assert len(brute_i[brute_i != rbc_i]) <= 5
+    assert len(brute_d[brute_d != rbc_d]) == 0
+    assert len(brute_i[brute_i != rbc_i]) == 0
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
