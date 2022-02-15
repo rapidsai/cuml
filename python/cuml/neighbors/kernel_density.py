@@ -40,18 +40,18 @@ VALID_KERNELS = [
 
 @cp.fuse()
 def gaussian_log_kernel(x, h):
-    return -(x*x)/(2*h*h)
+    return -(x * x) / (2 * h * h)
 
 
 @cp.fuse()
 def tophat_log_kernel(x, h):
-    '''
+    """
     if x < h:
         return 0.0
     else:
         return -FLOAT_MIN
-    '''
-    y = (x >= h)*np.finfo(x.dtype).min
+    """
+    y = (x >= h) * np.finfo(x.dtype).min
     return y
 
 
@@ -59,21 +59,21 @@ def tophat_log_kernel(x, h):
 def epanechnikov_log_kernel(x, h):
     # don't call log(0) otherwise we get NaNs
     z = cp.maximum(1.0 - (x * x) / (h * h), 1e-30)
-    y = (x < h)*cp.log(z)
+    y = (x < h) * cp.log(z)
     y += (x >= h) * np.finfo(y.dtype).min
     return y
 
 
 @cp.fuse()
 def exponential_log_kernel(x, h):
-    return -x/h
+    return -x / h
 
 
 @cp.fuse()
 def linear_log_kernel(x, h):
     # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(1.0 - x/h, 1e-30)
-    y = (x < h)*cp.log(z)
+    z = cp.maximum(1.0 - x / h, 1e-30)
+    y = (x < h) * cp.log(z)
     y += (x >= h) * np.finfo(y.dtype).min
     return y
 
@@ -81,8 +81,8 @@ def linear_log_kernel(x, h):
 @cp.fuse()
 def cosine_log_kernel(x, h):
     # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(cp.cos(0.5*np.pi*x/h), 1e-30)
-    y = (x < h)*cp.log(z)
+    z = cp.maximum(cp.cos(0.5 * np.pi * x / h), 1e-30)
+    y = (x < h) * cp.log(z)
     y += (x >= h) * np.finfo(y.dtype).min
     return y
 
@@ -105,36 +105,36 @@ def apply_log_kernel(distances, kernel, h):
 
 
 def logVn(n):
-    return 0.5*n*np.log(np.pi)-math.lgamma(0.5*n+1)
+    return 0.5 * n * np.log(np.pi) - math.lgamma(0.5 * n + 1)
 
 
 def logSn(n):
-    return np.log(2*np.pi) + logVn(n - 1)
+    return np.log(2 * np.pi) + logVn(n - 1)
 
 
 def norm_log_probabilities(log_probabilities, kernel, h, d):
     factor = 0.0
     if kernel == "gaussian":
-        factor = 0.5*d*np.log(2*np.pi)
+        factor = 0.5 * d * np.log(2 * np.pi)
     elif kernel == "tophat":
         factor = logVn(d)
     elif kernel == "epanechnikov":
-        factor = logVn(d) + np.log(2.0/(d+2.0))
+        factor = logVn(d) + np.log(2.0 / (d + 2.0))
     elif kernel == "exponential":
         factor = logSn(d - 1) + math.lgamma(d)
     elif kernel == "linear":
-        factor = logVn(d) - np.log(d + 1.)
+        factor = logVn(d) - np.log(d + 1.0)
     elif kernel == "cosine":
         factor = 0.0
-        tmp = 2. / np.pi
+        tmp = 2.0 / np.pi
         for k in range(1, d + 1, 2):
             factor += tmp
-            tmp *= -(d - k) * (d - k - 1) * (2. / np.pi) ** 2
+            tmp *= -(d - k) * (d - k - 1) * (2.0 / np.pi) ** 2
         factor = np.log(factor) + logSn(d - 1)
     else:
         raise ValueError("Unsupported kernel.")
 
-    return log_probabilities - (factor + d*np.log(h))
+    return log_probabilities - (factor + d * np.log(h))
 
 
 @cuda.jit()
@@ -190,11 +190,13 @@ class KernelDensity(Base):
         kernel="gaussian",
         metric="euclidean",
         metric_params=None,
-        output_type=None, handle=None, verbose=False
+        output_type=None,
+        handle=None,
+        verbose=False
     ):
-        super(KernelDensity, self).__init__(verbose=verbose,
-                                            handle=handle,
-                                            output_type=output_type)
+        super(KernelDensity, self).__init__(
+            verbose=verbose, handle=handle, output_type=output_type
+        )
         self.bandwidth = bandwidth
         self.kernel = kernel
         self.metric = metric
@@ -206,12 +208,11 @@ class KernelDensity(Base):
             raise ValueError("invalid kernel: '{0}'".format(kernel))
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "bandwidth",
-                "kernel",
-                "metric",
-                "metric_params"
+        return super().get_param_names() + [
+            "bandwidth",
+            "kernel",
+            "metric",
+            "metric_params",
         ]
 
     def fit(self, X, y=None, sample_weight=None):
@@ -233,18 +234,17 @@ class KernelDensity(Base):
             Returns the instance itself.
         """
         if sample_weight is not None:
-            self.sample_weight_ = input_to_cupy_array(sample_weight,
-                                                      check_dtype=[cp.float32,
-                                                                   cp.float64
-                                                                   ]).array
+            self.sample_weight_ = input_to_cupy_array(
+                sample_weight, check_dtype=[cp.float32, cp.float64]
+            ).array
             if self.sample_weight_.min() <= 0:
                 raise ValueError("sample_weight must have positive values")
         else:
             self.sample_weight_ = None
 
-        self.X_ = input_to_cupy_array(X, order='C',
-                                      check_dtype=[cp.float32, cp.float64
-                                                   ]).array
+        self.X_ = input_to_cupy_array(
+            X, order="C", check_dtype=[cp.float32, cp.float64]
+        ).array
 
         return self
 
@@ -263,8 +263,8 @@ class KernelDensity(Base):
             data.
         """
         metric_params = self.metric_params if self.metric_params else {}
-        distances = pairwise_distances(
-            X, self.X_, metric=self.metric, **metric_params)
+        distances = pairwise_distances(X, self.X_, metric=self.metric,
+                                       **metric_params)
         distances = cp.asarray(distances)
 
         h = self.bandwidth
@@ -282,14 +282,17 @@ class KernelDensity(Base):
         # In fact what they implment is (1/n)*sum(K(x,h))
         # Here we divide by n in normal probability space
         # Which becomes -log(n) in log probability space
-        sum_weights = (cp.sum(
-            self.sample_weight_) if self.sample_weight_
-            is not None else distances.shape[1])
+        sum_weights = (
+            cp.sum(self.sample_weight_)
+            if self.sample_weight_ is not None
+            else distances.shape[1]
+        )
         log_probabilities -= np.log(sum_weights)
 
         # norm
         log_probabilities = norm_log_probabilities(
-            log_probabilities, self.kernel, h, X.shape[1])
+            log_probabilities, self.kernel, h, X.shape[1]
+        )
 
         return log_probabilities
 
@@ -329,10 +332,11 @@ class KernelDensity(Base):
         X : array-like of shape (n_samples, n_features)
             List of samples.
         """
-        if not hasattr(self, 'X_'):
+        if not hasattr(self, "X_"):
             raise NotFittedError()
 
-        if self.kernel not in ["gaussian", "tophat"]:
+        if (self.kernel not in ["gaussian", "tophat"]
+                or self.metric != "euclidian"):
             raise NotImplementedError()
 
         if isinstance(random_state, cp.random.RandomState):
@@ -358,8 +362,11 @@ class KernelDensity(Base):
                 raise RuntimeError("Scipy is required")
             dim = self.X_.shape[1]
             X = rng.normal(size=(n_samples, dim))
-            s_sq = cp.einsum("ij,ij->i", X, X)
-            correction = (
+            s_sq = cp.einsum("ij,ij->i", X, X).get()
+
+            # do this on the CPU becaause we don't have
+            # a gammainc function  readily available
+            correction = cp.array(
                 gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)
                 * self.bandwidth
                 / np.sqrt(s_sq)

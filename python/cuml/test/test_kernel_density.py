@@ -95,12 +95,17 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
                            rtol=tol, atol=tol, equal_nan=True)
         assert np.allclose(np.exp(cuml_prob_test),
                            ref_prob_test, rtol=tol, atol=tol, equal_nan=True)
-    
-    if kernel in ["gaussian",
-    "tophat"]:
-        pass
+
+    if kernel in ["gaussian", "tophat"] and metric == "euclidian":
+        sample = kde.sample(100, random_state=32).get()
+        nearest = skl_pairwise_distances(sample, X, metric=metric)
+        nearest = nearest.min(axis=1)
+        if kernel == "gaussian":
+            assert np.all(nearest < 5 * bandwidth)
+        elif kernel == "tophat":
+            assert np.all(nearest <= bandwidth)
     else:
-        with pytest.raises(NotImplementedError()):
+        with pytest.raises(NotImplementedError):
             kde.sample(100)
 
 
