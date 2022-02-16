@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,10 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
-from cuml.solvers import CD
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import FMajorInputTagMixin
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.elastic_net import ElasticNet
 
 
-class Lasso(Base,
-            LinearPredictMixin,
-            RegressorMixin,
-            FMajorInputTagMixin):
+class Lasso(ElasticNet):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
@@ -92,23 +82,34 @@ class Lasso(Base,
     alpha : float (default = 1.0)
         Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
-        LinearRegression class.
-        For numerical reasons, using alpha = 0 with the Lasso class is not
+        LinearRegression object.
+        For numerical reasons, using alpha = 0 with the Lasso object is not
         advised.
-        Given this, you should use the LinearRegression class.
+        Given this, you should use the LinearRegression object.
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's L2
-        norm.
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
         If False, no scaling will be done.
-    max_iter : int
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
+    max_iter : int (default = 1000)
         The maximum number of iterations
     tol : float (default = 1e-3)
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
+    solver : {'cd', 'qn'} (default='cd')
+        Choose an algorithm:
+
+          * 'cd' - coordinate descent
+          * 'qn' - quasi-newton
+
+        You may find the alternative 'qn' algorithm is faster when the number
+        of features is sufficiently large, but the sample size is small.
     selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
@@ -143,69 +144,16 @@ class Lasso(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, *, alpha=1.0, fit_intercept=True, normalize=False,
-                 max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
-                 output_type=None, verbose=False):
-
-        # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
-        self._check_alpha(alpha)
-        self.alpha = alpha
-        self.fit_intercept = fit_intercept
-        self.normalize = normalize
-        self.max_iter = max_iter
-        self.tol = tol
-        self.solver_model = None
-        if selection in ['cyclic', 'random']:
-            self.selection = selection
-        else:
-            msg = "selection {!r} is not supported"
-            raise TypeError(msg.format(selection))
-
-        self.intercept_value = 0.0
-
-        shuffle = False
-        if self.selection == 'random':
-            shuffle = True
-
-        self.solver_model = CD(fit_intercept=self.fit_intercept,
-                               normalize=self.normalize, alpha=self.alpha,
-                               l1_ratio=1.0, shuffle=shuffle,
-                               max_iter=self.max_iter, handle=self.handle,
-                               tol=self.tol)
-
-    def _check_alpha(self, alpha):
-        if alpha <= 0.0:
-            msg = "alpha value has to be positive"
-            raise ValueError(msg.format(alpha))
-
-    def set_params(self, **params):
-        super().set_params(**params)
-        if 'selection' in params:
-            params.pop('selection')
-            params['shuffle'] = self.selection == 'random'
-        self.solver_model.set_params(**params)
-        return self
-
-    @generate_docstring()
-    def fit(self, X, y, convert_dtype=True) -> "Lasso":
-        """
-        Fit the model with X and y.
-
-        """
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
-
-        return self
+    def __init__(self, *, alpha=1.0, fit_intercept=True,
+                 normalize=False, max_iter=1000, tol=1e-3,
+                 solver='cd', selection='cyclic',
+                 handle=None, output_type=None, verbose=False):
+        # Lasso is just a special case of ElasticNet
+        super().__init__(
+            l1_ratio=1.0, alpha=alpha, fit_intercept=fit_intercept,
+            normalize=normalize, max_iter=max_iter, tol=tol,
+            solver=solver, selection=selection,
+            handle=handle, output_type=output_type, verbose=verbose)
 
     def get_param_names(self):
-        return super().get_param_names() + [
-            "alpha",
-            "fit_intercept",
-            "normalize",
-            "max_iter",
-            "tol",
-            "selection",
-        ]
+        return list(set(super().get_param_names()) - {'l1_ratio'})
