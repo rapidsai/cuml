@@ -655,7 +655,9 @@ void convert(const raft::handle_t& handle,
   tl2fil.init_forest(handle, pforest);
 }
 
-template<typename F> constexpr bool type_supported() {
+template <typename F>
+constexpr bool type_supported()
+{
   // not using std::is_floating_point because we did not instantiate fp16-based nodes/trees/forests
   return std::is_same<F, float>() || std::is_same<F, double>();
 }
@@ -669,8 +671,7 @@ void from_treelite(const raft::handle_t& handle,
   // Invariants on threshold and leaf types
   static_assert(type_supported<threshold_t>(),
                 "Model must contain float32 or float64 thresholds for splits");
-  ASSERT(type_supported<leaf_t>(),
-         "Models with integer leaf output are not yet supported");
+  ASSERT(type_supported<leaf_t>(), "Models with integer leaf output are not yet supported");
   // Display appropriate warnings when float64 values are being casted into
   // float32, as FIL only supports inferencing with float32 for the time being
   if (std::is_same<threshold_t, double>::value || std::is_same<leaf_t, double>::value) {

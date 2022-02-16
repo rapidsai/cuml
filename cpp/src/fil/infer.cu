@@ -96,7 +96,7 @@ struct vec {
   }
 };
 
-template<typename F>
+template <typename F>
 struct best_margin_label : cub::KeyValuePair<int, F> {
   __host__ __device__ best_margin_label(cub::KeyValuePair<int, F> pair)
     : cub::KeyValuePair<int, F>(pair)
@@ -155,10 +155,8 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
 }
 
 template <int NITEMS, bool CATS_SUPPORTED, typename output_type, typename tree_type>
-__device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tree,
-                                                                   const typename tree_type::F* input,
-                                                                   int cols,
-                                                                   int n_rows)
+__device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
+  tree_type tree, const typename tree_type::F* input, int cols, int n_rows)
 {
   // find the leaf nodes for each row
   int curr[NITEMS];
@@ -759,12 +757,9 @@ struct tree_aggregator_t<NITEMS, F, CATEGORICAL_LEAF> {
   }
 };
 
-template<typename F>
-__device__ INLINE_CONFIG void load_data(F* sdata,
-                                        const F* block_input,
-                                        predict_params params,
-                                        int rows_per_block,
-                                        int block_num_rows)
+template <typename F>
+__device__ INLINE_CONFIG void load_data(
+  F* sdata, const F* block_input, predict_params params, int rows_per_block, int block_num_rows)
 {
   int num_cols     = params.num_cols;
   int sdata_stride = params.sdata_stride();
@@ -796,7 +791,7 @@ template <int NITEMS,
 __global__ void infer_k(storage_type forest, predict_params params)
 {
   extern __shared__ char smem[];
-  F* sdata       = (F*)smem;
+  F* sdata           = (F*)smem;
   int sdata_stride   = params.sdata_stride();
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols       = params.num_cols;
@@ -902,9 +897,8 @@ struct instantiate_infer {
   template <typename fil_node_t>
   void operator()(fil_node_t)
   {
-    infer<storage<fil_node_t>>(storage<fil_node_t> forest,
-                               predict_params params,
-                               cudaStream_t stream);
+    infer<storage<fil_node_t>>(
+      storage<fil_node_t> forest, predict_params params, cudaStream_t stream);
   }
 };
 

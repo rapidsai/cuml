@@ -394,7 +394,8 @@ struct categorical_sets {
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int category_matches(node_t node, typename node_t::F category) const
+  __host__ __device__ __forceinline__ int category_matches(node_t node,
+                                                           typename node_t::F category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed

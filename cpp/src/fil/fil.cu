@@ -42,7 +42,7 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
     sigmoid and applying threshold. in case of complement_proba,
     fills in the complement probability */
-template<typename F>
+template <typename F>
 __global__ void transform_k(F* preds,
                             size_t n,
                             output_t output,
@@ -174,7 +174,7 @@ struct forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
-  template<typename F>
+  template <typename F>
   void predict(
     const raft::handle_t& h, F* preds, const F* data, size_t num_rows, bool predict_proba)
   {
@@ -255,7 +255,7 @@ struct forest {
     // Simulating treelite order, which cancels out bias.
     // If non-proba prediction used, it still will not matter
     // for the same reason softmax will not.
-    F global_bias     = (ot & output_t::SOFTMAX) != 0 ? F(0.0) : global_bias_;
+    F global_bias         = (ot & output_t::SOFTMAX) != 0 ? F(0.0) : global_bias_;
     bool complement_proba = false, do_transform;
 
     if (predict_proba) {
@@ -323,10 +323,10 @@ struct forest {
 
   virtual ~forest() {}
 
-  int num_trees_     = 0;
-  int depth_         = 0;
-  algo_t algo_       = algo_t::NAIVE;
-  output_t output_   = output_t::RAW;
+  int num_trees_      = 0;
+  int depth_          = 0;
+  algo_t algo_        = algo_t::NAIVE;
+  output_t output_    = output_t::RAW;
   double threshold_   = 0.5;
   double global_bias_ = 0;
   shmem_size_params class_ssp_, proba_ssp_;
