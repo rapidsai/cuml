@@ -394,7 +394,7 @@ struct categorical_sets {
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int category_matches(node_t node, float category) const
+  __host__ __device__ __forceinline__ int category_matches(node_t node, typename node_t::F category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed
@@ -410,7 +410,7 @@ struct categorical_sets {
     FIL will reject a model where an integer within [0, fid_num_cats] cannot be represented
     precisely as a 32-bit float.
     */
-    return category < fid_num_cats[node.fid()] && category >= 0.0f &&
+    return static_cast<float>(category) < fid_num_cats[node.fid()] && category >= 0.0f &&
            fetch_bit(bits + node.set(), static_cast<uint32_t>(static_cast<int>(category)));
   }
   static int sizeof_mask_from_num_cats(int num_cats)
@@ -561,11 +561,11 @@ struct cat_sets_device_owner {
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
-template <typename fil_node_t>
+template <typename fil_node_t, typename F>
 void init(const raft::handle_t& h,
           forest_t* pf,
           const categorical_sets& cat_sets,
-          const std::vector<float>& vector_leaf,
+          const std::vector<F>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params);

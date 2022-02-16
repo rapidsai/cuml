@@ -34,6 +34,7 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 namespace ML {
 namespace fil {
 
+__host__ __device__ double sigmoid(double x) { return 1.0 / (1.0 + exp(-x)); }
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /** performs additional transformations on the array of forest predictions
@@ -41,19 +42,20 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
     sigmoid and applying threshold. in case of complement_proba,
     fills in the complement probability */
-__global__ void transform_k(float* preds,
+template<typename F>
+__global__ void transform_k(F* preds,
                             size_t n,
                             output_t output,
-                            float inv_num_trees,
-                            float threshold,
-                            float global_bias,
+                            F inv_num_trees,
+                            F threshold,
+                            F global_bias,
                             bool complement_proba)
 {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
   if (complement_proba && i % 2 != 0) return;
 
-  float result = preds[i];
+  F result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
@@ -172,8 +174,9 @@ struct forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
+  template<typename F>
   void predict(
-    const raft::handle_t& h, float* preds, const float* data, size_t num_rows, bool predict_proba)
+    const raft::handle_t& h, F* preds, const F* data, size_t num_rows, bool predict_proba)
   {
     // Initialize prediction parameters.
     predict_params params(predict_proba ? proba_ssp_ : class_ssp_);
@@ -252,7 +255,7 @@ struct forest {
     // Simulating treelite order, which cancels out bias.
     // If non-proba prediction used, it still will not matter
     // for the same reason softmax will not.
-    float global_bias     = (ot & output_t::SOFTMAX) != 0 ? 0.0f : global_bias_;
+    F global_bias     = (ot & output_t::SOFTMAX) != 0 ? F(0.0) : global_bias_;
     bool complement_proba = false, do_transform;
 
     if (predict_proba) {
@@ -269,17 +272,17 @@ struct forest {
           // for GROVE_PER_CLASS, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
+          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != F(0.0);
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = params.num_classes;
-          do_transform       = ot != output_t::RAW || global_bias_ != 0.0f;
+          do_transform       = ot != output_t::RAW || global_bias_ != F(0.0);
           break;
         case leaf_algo_t::VECTOR_LEAF:
           // for VECTOR_LEAF, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
+          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != F(0.0);
           break;
         default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
@@ -304,9 +307,9 @@ struct forest {
         preds,
         num_values_to_transform,
         ot,
-        num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
-        threshold_,
-        global_bias,
+        num_trees_ > 0 ? (F(1.0) / num_trees_) : F(1.0),
+        F(threshold_),
+        F(global_bias),
         complement_proba);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
@@ -324,8 +327,8 @@ struct forest {
   int depth_         = 0;
   algo_t algo_       = algo_t::NAIVE;
   output_t output_   = output_t::RAW;
-  float threshold_   = 0.5;
-  float global_bias_ = 0;
+  double threshold_   = 0.5;
+  double global_bias_ = 0;
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
@@ -610,6 +613,18 @@ void free(const raft::handle_t& h, forest_t f)
   delete f;
 }
 
+/// part of C API - overload instead of template
+void predict(const raft::handle_t& h,
+             forest_t f,
+             double* preds,
+             const double* data,
+             size_t num_rows,
+             bool predict_proba)
+{
+  f->predict(h, preds, data, num_rows, predict_proba);
+}
+
+/// part of C API - overload instead of template
 void predict(const raft::handle_t& h,
              forest_t f,
              float* preds,

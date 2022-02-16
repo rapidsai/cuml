@@ -655,6 +655,11 @@ void convert(const raft::handle_t& handle,
   tl2fil.init_forest(handle, pforest);
 }
 
+template<typename F> constexpr bool type_supported() {
+  // not using std::is_floating_point because we did not instantiate fp16-based nodes/trees/forests
+  return std::is_same<F, float>() || std::is_same<F, double>();
+}
+
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle,
                    forest_t* pforest,
@@ -662,9 +667,9 @@ void from_treelite(const raft::handle_t& handle,
                    const treelite_params_t* tl_params)
 {
   // Invariants on threshold and leaf types
-  static_assert(std::is_same<threshold_t, float>::value || std::is_same<threshold_t, double>::value,
+  static_assert(type_supported<threshold_t>(),
                 "Model must contain float32 or float64 thresholds for splits");
-  ASSERT((std::is_same<leaf_t, float>::value || std::is_same<leaf_t, double>::value),
+  ASSERT(type_supported<leaf_t>(),
          "Models with integer leaf output are not yet supported");
   // Display appropriate warnings when float64 values are being casted into
   // float32, as FIL only supports inferencing with float32 for the time being
@@ -674,6 +679,8 @@ void from_treelite(const raft::handle_t& handle,
       "doesn't support inferencing models with float64 values. "
       "This may lead to predictions with reduced accuracy.");
   }
+  // same as std::common_type: float+double=double, float+int64_t=float
+  typedef decltype(threshold_t{} + leaf_t{}) F;
 
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default

@@ -46,8 +46,9 @@ struct storage_base {
 };
 
 /** represents a dense tree */
-template <typename F>
-struct tree<dense_node<F>> : tree_base {
+template <typename F_>
+struct tree<dense_node<F_>> : tree_base {
+  using F = F_;
   __host__ __device__ tree(categorical_sets cat_sets, dense_node<F>* nodes, int node_pitch)
     : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
   {
@@ -92,6 +93,7 @@ struct storage<dense_node<F>> : storage_base<F> {
 /** sparse tree */
 template <typename node_t>
 struct tree : tree_base {
+  using F = typename node_t::F;
   __host__ __device__ tree(categorical_sets cat_sets, node_t* nodes)
     : tree_base{cat_sets}, nodes_(nodes)
   {
@@ -163,7 +165,7 @@ struct shmem_size_params {
   {
     return cols_in_shmem ? sizeof_fp_vars * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
-  template <int NITEMS, leaf_algo_t leaf_algo>
+  template <int NITEMS, typename F, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
 };
 
