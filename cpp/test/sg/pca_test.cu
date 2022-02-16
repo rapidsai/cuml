@@ -25,8 +25,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template <typename T>
 struct PcaInputs {
   T tolerance;

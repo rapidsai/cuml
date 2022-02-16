@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1381,8 +1381,6 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
             assert isinstance(S, cp.ndarray)
 
 
-@pytest.mark.xfail(reason='Temporarily disabling this test. '
-                          'See rapidsai/cuml#3569')
 @pytest.mark.parametrize("nrows, ncols, n_info",
                          [
                              unit_param(30, 10, 7),
