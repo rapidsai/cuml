@@ -200,7 +200,7 @@ else
 
     # FIXME: Project FLASH only builds for python version 3.8 which is the one used in
     # the CUDA 11.0 job, need to change all versions to project flash
-    if [ "$PYTHON" == "3.8" ];then
+    if [ "$CUDA_REL" == "11.0" ];then
         gpuci_logger "Using Project FLASH to install cuml python"
         CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
         CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
