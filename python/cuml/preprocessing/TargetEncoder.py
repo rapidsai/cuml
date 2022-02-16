@@ -394,7 +394,7 @@ class TargetEncoder:
                 "or pandas.Series or pandas.DataFrame"
                 "or cupy.ndarray or numpy.ndarray")
         df[self.id_col] = cp.arange(len(x))
-        return df
+        return df.reset_index(drop=True)
 
     def _get_output_type(self, x):
         """
