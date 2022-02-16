@@ -561,11 +561,11 @@ struct cat_sets_device_owner {
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
-template <typename fil_node_t>
+template <typename fil_node_t, typename F>
 void init(const raft::handle_t& h,
           forest_t* pf,
           const categorical_sets& cat_sets,
-          const std::vector<float>& vector_leaf,
+          const std::vector<F>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params);
