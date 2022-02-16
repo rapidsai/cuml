@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/homogeneity_score.cuh>
+#include <raft/stats/homogeneity_score.hpp>
 
 namespace ML {
 
@@ -29,7 +29,7 @@ double homogeneity_score(const raft::handle_t& handle,
                          const int lower_class_range,
                          const int upper_class_range)
 {
-  return MLCommon::Metrics::homogeneity_score(
+  return raft::stats::homogeneity_score(
     y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 }  // namespace Metrics

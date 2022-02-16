@@ -18,7 +18,7 @@
 #include <raft/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/mutual_info_score.cuh>
+#include <raft/stats/mutual_info_score.hpp>
 
 namespace ML {
 
@@ -31,7 +31,7 @@ double mutual_info_score(const raft::handle_t& handle,
                          const int lower_class_range,
                          const int upper_class_range)
 {
-  return MLCommon::Metrics::mutual_info_score(
+  return raft::stats::mutual_info_score(
     y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 

@@ -18,7 +18,7 @@
 #include <raft/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/rand_index.cuh>
+#include <raft/stats/rand_index.hpp>
 
 namespace ML {
 
@@ -26,7 +26,7 @@ namespace Metrics {
 
 double rand_index(const raft::handle_t& handle, const double* y, const double* y_hat, int n)
 {
-  return MLCommon::Metrics::compute_rand_index(y, y_hat, (uint64_t)n, handle.get_stream());
+  return raft::stats::rand_index(y, y_hat, (uint64_t)n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

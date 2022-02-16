@@ -16,9 +16,8 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/batched/silhouette_score.cuh>
-#include <metrics/silhouette_score.cuh>
 #include <raft/distance/distance_type.hpp>
+#include <raft/stats/silhouette_score.hpp>
 
 namespace ML {
 
@@ -32,7 +31,7 @@ double silhouette_score(const raft::handle_t& handle,
                         double* silScores,
                         raft::distance::DistanceType metric)
 {
-  return MLCommon::Metrics::silhouette_score<double, int>(
+  return raft::stats::silhouette_score<double, int>(
     handle, y, nRows, nCols, labels, nLabels, silScores, handle.get_stream(), metric);
 }
 
@@ -48,7 +47,7 @@ float silhouette_score(const raft::handle_t& handle,
                        int chunk,
                        raft::distance::DistanceType metric)
 {
-  return MLCommon::Metrics::Batched::silhouette_score<float, int, int>(
+  return raft::stats::Batched::silhouette_score_batched<float, int, int>(
     handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
 
@@ -62,7 +61,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int chunk,
                         raft::distance::DistanceType metric)
 {
-  return MLCommon::Metrics::Batched::silhouette_score<double, int, int>(
+  return raft::stats::silhouette_score_batched<double, int, int>(
     handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
 

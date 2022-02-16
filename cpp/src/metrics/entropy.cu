@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/entropy.cuh>
+#include <raft/stats/entropy.hpp>
 
 namespace ML {
 
@@ -27,8 +27,7 @@ double entropy(const raft::handle_t& handle,
                const int lower_class_range,
                const int upper_class_range)
 {
-  return MLCommon::Metrics::entropy(
-    y, n, lower_class_range, upper_class_range, handle.get_stream());
+  return raft::stats::entropy(y, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

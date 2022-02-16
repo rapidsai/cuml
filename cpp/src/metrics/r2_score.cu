@@ -15,7 +15,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/scores.cuh>
+#include <raft/stats/r2_score.hpp>
 
 namespace ML {
 
@@ -23,12 +23,12 @@ namespace Metrics {
 
 float r2_score_py(const raft::handle_t& handle, float* y, float* y_hat, int n)
 {
-  return MLCommon::Score::r2_score(y, y_hat, n, handle.get_stream());
+  return raft::stats::r2_score(y, y_hat, n, handle.get_stream());
 }
 
 double r2_score_py(const raft::handle_t& handle, double* y, double* y_hat, int n)
 {
-  return MLCommon::Score::r2_score(y, y_hat, n, handle.get_stream());
+  return raft::stats::r2_score(y, y_hat, n, handle.get_stream());
 }
 
 }  // namespace Metrics

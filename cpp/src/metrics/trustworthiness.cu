@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <metrics/trustworthiness_score.cuh>
+#include <raft/stats/trustworthiness_score.hpp>
 
 #include <cuml/metrics/metrics.hpp>
 
@@ -50,7 +50,7 @@ double trustworthiness_score(const raft::handle_t& h,
                              int n_neighbors,
                              int batchSize)
 {
-  return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
+  return raft::stats::trustworthiness_score<math_t, distance_type>(
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
 

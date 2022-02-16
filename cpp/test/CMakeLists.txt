@@ -168,31 +168,24 @@ if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(${PRIMS_TEST_TARGET}
     prims/add_sub_dev_scalar.cu
-    prims/adjusted_rand_index.cu
-    prims/batched/csr.cu
+          prims/batched/csr.cu
     prims/batched/gemv.cu
     prims/batched/information_criterion.cu
     prims/batched/make_symm.cu
     prims/batched/matrix.cu
     prims/cache.cu
     prims/columnSort.cu
-    prims/completeness_score.cu
-    prims/contingencyMatrix.cu
-    prims/decoupled_lookback.cu
+          prims/decoupled_lookback.cu
     prims/device_utils.cu
-    prims/dispersion.cu
-    prims/eltwise2d.cu
-    prims/entropy.cu
-    prims/fast_int_div.cu
+          prims/eltwise2d.cu
+          prims/fast_int_div.cu
     prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
-    prims/homogeneity_score.cu
-    prims/jones_transform.cu
-    prims/kl_divergence.cu
-    prims/knn_classify.cu
+          prims/jones_transform.cu
+          prims/knn_classify.cu
     prims/knn_regression.cu
     prims/kselection.cu
     prims/label.cu
@@ -202,15 +195,9 @@ if(BUILD_PRIMS_TESTS)
     prims/logisticReg.cu
     prims/make_arima.cu
     prims/merge_labels.cu
-    prims/mutual_info_score.cu
-    prims/penalty.cu
-    prims/rand_index.cu
-    prims/reverse.cu
-    prims/score.cu
-    prims/sigmoid.cu
-    prims/silhouette_score.cu
-    prims/trustworthiness.cu
-    prims/v_measure.cu
+          prims/penalty.cu
+          prims/reverse.cu
+          prims/sigmoid.cu
           )
 
   target_compile_options(${PRIMS_TEST_TARGET}

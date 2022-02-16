@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/v_measure.cuh>
+#include <raft/stats/v_measure.hpp>
 
 namespace ML {
 
@@ -29,7 +29,7 @@ double v_measure(const raft::handle_t& handle,
                  const int lower_class_range,
                  const int upper_class_range)
 {
-  return MLCommon::Metrics::v_measure(
+  return raft::stats::v_measure(
     y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 }  // namespace Metrics
