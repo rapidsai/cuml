@@ -26,7 +26,7 @@
 #include <hdbscan/detail/extract.cuh>
 #include <hdbscan/detail/utils.h>
 
-#include <metrics/adjusted_rand_index.cuh>
+#include <raft/stats/adjusted_rand_index.hpp>
 
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
@@ -107,7 +107,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     handle.sync_stream(handle.get_stream());
 
-    score = MLCommon::Metrics::compute_adjusted_rand_index(
+    score = raft::stats::adjusted_rand_index(
       out.get_labels(), labels_ref.data(), params.n_row, handle.get_stream());
   }
 
@@ -304,7 +304,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
     raft::update_device(labels_ref.data(), params.labels.data(), params.n_row, handle.get_stream());
-    score = MLCommon::Metrics::compute_adjusted_rand_index(
+    score = raft::stats::adjusted_rand_index(
       labels.data(), labels_ref.data(), params.n_row, handle.get_stream());
     handle.sync_stream(handle.get_stream());
   }

@@ -170,11 +170,9 @@ if(BUILD_PRIMS_TESTS)
     prims/add_sub_dev_scalar.cu
           prims/batched/csr.cu
     prims/batched/gemv.cu
-    prims/batched/information_criterion.cu
-    prims/batched/make_symm.cu
+          prims/batched/make_symm.cu
     prims/batched/matrix.cu
     prims/cache.cu
-    prims/columnSort.cu
           prims/decoupled_lookback.cu
     prims/device_utils.cu
           prims/eltwise2d.cu

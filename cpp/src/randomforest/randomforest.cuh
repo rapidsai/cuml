@@ -22,9 +22,10 @@
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 
-#include <metrics/scores.cuh>
 #include <raft/random/permute.hpp>
 #include <raft/random/rng.hpp>
+#include <raft/stats/accuracy.hpp>
+#include <raft/stats/regression_metrics.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
@@ -279,7 +280,7 @@ class RandomForest {
     cudaStream_t stream = user_handle.get_stream();
     RF_metrics stats;
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
-      float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, stream);
+      float accuracy = raft::stats::accuracy(predictions, ref_labels, n_rows, stream);
       stats          = set_rf_metrics_classification(accuracy);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
@@ -288,13 +289,13 @@ class RandomForest {
         for each of these metrics */
     } else {  // regression task: get regression metrics
       double mean_abs_error, mean_squared_error, median_abs_error;
-      MLCommon::Score::regression_metrics(predictions,
-                                          ref_labels,
-                                          n_rows,
-                                          stream,
-                                          mean_abs_error,
-                                          mean_squared_error,
-                                          median_abs_error);
+      raft::stats::regression_metrics(predictions,
+                                      ref_labels,
+                                      n_rows,
+                                      stream,
+                                      mean_abs_error,
+                                      mean_squared_error,
+                                      median_abs_error);
       stats = set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
     }

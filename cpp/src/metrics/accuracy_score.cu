@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/accuracy_score.hpp>
+#include <raft/stats/accuracy.hpp>
 
 namespace ML {
 
@@ -27,7 +27,7 @@ float accuracy_score_py(const raft::handle_t& handle,
                         const int* ref_predictions,
                         int n)
 {
-  return raft::stats::accuracy_score(predictions, ref_predictions, n, handle.get_stream());
+  return raft::stats::accuracy(predictions, ref_predictions, n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

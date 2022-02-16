@@ -47,7 +47,7 @@ float silhouette_score(const raft::handle_t& handle,
                        int chunk,
                        raft::distance::DistanceType metric)
 {
-  return raft::stats::Batched::silhouette_score_batched<float, int, int>(
+  return raft::stats::silhouette_score_batched<float, int, int>(
     handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
 
