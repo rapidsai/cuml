@@ -345,15 +345,17 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    auto kernel = infer_k<KernelParams::N_ITEMS,
-                          KernelParams::LEAF_ALGO,
-                          KernelParams::COLS_IN_SHMEM,
-                          KernelParams::CATS_SUPPORTED,
-                          storage_type>;
-    // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
-    // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
-    RAFT_CUDA_TRY(
-      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
+    if constexpr (std::is_same<typename storage_type::F, float>()) {
+      auto kernel = infer_k<KernelParams::N_ITEMS,
+                            KernelParams::LEAF_ALGO,
+                            KernelParams::COLS_IN_SHMEM,
+                            KernelParams::CATS_SUPPORTED,
+                            storage_type>;
+      // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
+      // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
+      RAFT_CUDA_TRY(
+        cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
+    }
   }
 };
 
@@ -431,7 +433,8 @@ struct dense_forest<dense_node<F>> : forest {
                            num_trees_,
                            algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
                            algo_ == algo_t::NAIVE ? 1 : num_trees_);
-    fil::infer(forest, params, stream);
+    if constexpr (std::is_same<F, float>())  // to remove in next PR
+      fil::infer(forest, params, stream);
   }
 
   virtual void free(const raft::handle_t& h) override
@@ -485,7 +488,8 @@ struct sparse_forest : forest {
                            trees_.data(),
                            nodes_.data(),
                            num_trees_);
-    fil::infer(forest, params, stream);
+    if constexpr (std::is_same<typename node_t::F, float>())  // to remove in next PR
+      fil::infer(forest, params, stream);
   }
 
   void free(const raft::handle_t& h) override

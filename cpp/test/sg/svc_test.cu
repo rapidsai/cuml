@@ -31,7 +31,6 @@
 #include <raft/linalg/map_then_reduce.hpp>
 #include <raft/linalg/transpose.hpp>
 #include <raft/random/rng.hpp>
-#include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <string>
 #include <svm/smoblocksolve.cuh>

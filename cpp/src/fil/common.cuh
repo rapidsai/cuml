@@ -62,8 +62,9 @@ struct tree<dense_node<F_>> : tree_base {
 };
 
 /** partial specialization of storage. Stores the forest on GPU as a collection of dense nodes */
-template <typename F>
-struct storage<dense_node<F>> : storage_base<F> {
+template <typename F_>
+struct storage<dense_node<F_>> : storage_base<F_> {
+  using F      = F_;
   using node_t = dense_node<F>;
   __host__ __device__ storage(categorical_sets cat_sets,
                               F* vector_leaf,
@@ -103,8 +104,9 @@ struct tree : tree_base {
 };
 
 /** storage stores the forest on GPU as a collection of sparse nodes */
-template <typename node_t>
-struct storage : storage_base<typename node_t::F> {
+template <typename node_t_>
+struct storage : storage_base<typename node_t_::F> {
+  using node_t   = node_t_;
   using F        = typename node_t::F;
   int* trees_    = nullptr;
   node_t* nodes_ = nullptr;

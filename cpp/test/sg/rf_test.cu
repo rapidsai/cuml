@@ -23,8 +23,7 @@
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-
-#include <random/make_blobs.cuh>
+#include <raft/random/rng.hpp>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
