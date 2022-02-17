@@ -243,6 +243,9 @@ class TargetEncoder:
             y_cols = [self.y_col, self.y_col2]
             train[self.y_col2] = self._make_y_column(y*y)
             self.mean2 = train[self.y_col2].mean()
+            var = self.mean2 - self.mean**2
+            n = train.shape[0]
+            self.var = var * n / (n-1)
         else:
             y_cols = [self.y_col]
 
@@ -341,6 +344,9 @@ class TargetEncoder:
                                      smooth)
             df_sum[self.out_col] = df_sum[self.out_col2] - \
                 df_sum[self.out_col]**2
+            df_sum[self.out_col] = df_sum[self.out_col] * \
+                df_sum[f'{y_col2}_y'] / \
+                (df_sum[f'{y_col2}_y'] - 1)
         return df_sum
 
     def _groupby_agg(self, train, x_cols, op, y_cols):
@@ -386,9 +392,7 @@ class TargetEncoder:
         """
         Impute and sort the result encoding in the same row order as input
         """
-        impute_val = self.mean
-        if self.stat == 'var':
-            impute_val = self.mean2 - self.mean**2
+        impute_val = self.var if self.stat == 'var' else self.mean
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(impute_val)
         df = df.sort_values(self.id_col)
