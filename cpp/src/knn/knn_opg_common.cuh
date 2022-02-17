@@ -29,6 +29,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <cstddef>
 #include <memory>
