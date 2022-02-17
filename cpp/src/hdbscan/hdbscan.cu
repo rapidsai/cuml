@@ -16,6 +16,7 @@
 
 #include "detail/condense.cuh"
 #include <cuml/cluster/hdbscan.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include "runner.h"
 
