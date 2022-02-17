@@ -22,6 +22,7 @@
 #include <raft/label/classlabels.hpp>
 #include <raft/random/make_blobs.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>

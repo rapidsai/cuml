@@ -23,6 +23,7 @@
 #include <raft/linalg/reduce.hpp>
 #include <raft/random/rng.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
