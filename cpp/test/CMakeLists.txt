@@ -45,6 +45,8 @@ function(ConfigureTest)
     CUDA::cufft
     rmm::rmm
     raft::raft
+    raft::nn
+    raft::distance
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}
