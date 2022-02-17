@@ -45,6 +45,8 @@ function(ConfigureTest)
     CUDA::cufft
     rmm::rmm
     raft::raft
+    raft::nn
+    raft::distance
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}
@@ -206,7 +208,7 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME ADJUSTED_RAND_INDEX_TEST PATH prims/adjusted_rand_index.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_CSR_TEST PATH prims/batched/csr.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_GEMV_TEST PATH prims/batched/gemv.cu)
-  ConfigureTest(PREFIX PRIMS NAME  PATH prims/batched/information_criterion.cu)
+  ConfigureTest(PREFIX PRIMS NAME BATCHED_INFORMATION_CRIT_TEST PATH prims/batched/information_criterion.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_MAKE_SYMM_TEST PATH prims/batched/make_symm.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_MATRIX_TEST PATH prims/batched/matrix.cu)
   ConfigureTest(PREFIX PRIMS NAME CACHE_TEST PATH prims/cache.cu)
