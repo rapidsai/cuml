@@ -260,6 +260,7 @@ class TfidfVectorizer(CountVectorizer):
     def get_feature_names(self):
         """
         Array mapping from feature integer indices to feature name.
+
         Returns
         -------
         feature_names : Series
