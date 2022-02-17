@@ -26,8 +26,8 @@
 #include <hdbscan/detail/extract.cuh>
 #include <hdbscan/detail/utils.h>
 
-#include <raft/stats/adjusted_rand_index.hpp>
 #include <raft/spatial/knn/specializations.hpp>
+#include <raft/stats/adjusted_rand_index.hpp>
 
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
