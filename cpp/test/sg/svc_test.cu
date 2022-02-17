@@ -27,11 +27,10 @@
 #include <matrix/kernelmatrices.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/random/rng.hpp>
-#include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <string>
 #include <svm/smoblocksolve.cuh>
@@ -198,7 +197,7 @@ class KernelCacheTest : public ::testing::Test {
     raft::update_host(ws_idx_h.data(), ws_idx, n_ws, stream);
     std::vector<int> kidx_h(n_ws);
     raft::update_host(kidx_h.data(), kColIdx, n_ws, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     // Note: kernel cache can permute the working set, so we have to look
     // up which rows we compare
     for (int i = 0; i < n_ws; i++) {
@@ -618,7 +617,7 @@ void checkResults(SvmModel<math_t> model,
   }
   math_t* dual_coefs_host = new math_t[model.n_support];
   raft::update_host(dual_coefs_host, model.dual_coefs, model.n_support, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   math_t ay = 0;
   for (int i = 0; i < model.n_support; i++) {
     ay += dual_coefs_host[i];
@@ -641,7 +640,7 @@ void checkResults(SvmModel<math_t> model,
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
   raft::update_host(x_support_host, model.x_support, model.n_support * model.n_cols, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   if (w_exp) {
     std::vector<math_t> w(model.n_cols, 0);
@@ -725,7 +724,7 @@ class SmoSolverTest : public ::testing::Test {
 
     math_t return_buff[2];
     raft::update_host(return_buff, return_buff_dev.data(), 2, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     EXPECT_FLOAT_EQ(return_buff[0], 2.0f) << return_buff[0];
     EXPECT_LT(return_buff[1], 100) << return_buff[1];
 
@@ -802,7 +801,7 @@ class SmoSolverTest : public ::testing::Test {
 
     math_t return_buff[2];
     raft::update_host(return_buff, return_buff_dev.data(), 2, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     EXPECT_LT(return_buff[1], 10) << return_buff[1];
 
     math_t alpha_exp[] = {0, 0.8, 0.8, 0};
@@ -1188,7 +1187,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
     } else {
       svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
       rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      raft::interruptible::synchronize(stream);
       RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
       float delta = (free1 - free2);
       // Just to make sure that we measure any mem consumption at all:
@@ -1197,7 +1196,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       // it (one could additionally control the exec time by the max_iter arg to
       // SVC).
       EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      raft::interruptible::synchronize(stream);
       svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
     }
   }

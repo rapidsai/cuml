@@ -23,8 +23,8 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/random/rng.hpp>
 
 #include <algorithm>
@@ -191,7 +191,7 @@ void parallel_evolve(const raft::handle_t& h,
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // Make sure tournaments have finished running before copying win indices
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    h.sync_stream(stream);
 
     // Perform host mutations
 
@@ -242,7 +242,7 @@ void parallel_evolve(const raft::handle_t& h,
   }
 
   // Make sure all copying is done
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  h.sync_stream(stream);
 
   // Update raw fitness for all programs
   set_batched_fitness(

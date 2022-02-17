@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 from distutils.version import LooseVersion
 import cudf
+from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
@@ -722,3 +723,37 @@ def test_linear_models_set_params(algo):
 
     assert not array_equal(coef_before, coef_after)
     assert array_equal(coef_after, coef_test)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("alpha", [0.1, 1.0, 10.0])
+@pytest.mark.parametrize("l1_ratio", [0.1, 0.5, 0.9])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500])
+    ],
+)
+def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
+
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info
+    )
+
+    kwargs = {'alpha': alpha, 'l1_ratio': l1_ratio}
+    cd = cuElasticNet(solver='cd', **kwargs)
+    cd.fit(X_train, y_train)
+    cd_res = cd.predict(X_test)
+
+    qn = cuElasticNet(solver='qn', **kwargs)
+    qn.fit(X_train, y_train)
+    # the results of the two models should be close (even if both are bad)
+    assert qn.score(X_test, cd_res) > 0.95
+    # coefficients of the two models should be close
+    assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98

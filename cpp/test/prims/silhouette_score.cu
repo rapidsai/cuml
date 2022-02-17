@@ -21,7 +21,7 @@
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
@@ -81,7 +81,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     ML::Metrics::pairwise_distance(
       handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
 

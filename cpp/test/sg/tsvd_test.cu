@@ -24,17 +24,14 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template <typename T>
 struct TsvdInputs {
   T tolerance;
-  int len;
   int n_row;
   int n_col;
-  int len2;
   int n_row2;
   int n_col2;
+  float redundancy;
   unsigned long long int seed;
   int algo;
 };
@@ -63,8 +60,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
  protected:
   void basicTest()
   {
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
-    int len = params.len;
+    raft::random::Rng r(params.seed, raft::random::GenPC);
+    int len = params.n_row * params.n_col;
 
     rmm::device_uvector<T> data(len, stream);
 
@@ -97,8 +94,8 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
 
   void advancedTest()
   {
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
-    int len = params.len2;
+    raft::random::Rng r(params.seed, raft::random::GenPC);
+    int len = params.n_row2 * params.n_col2;
 
     paramsTSVD prms;
     prms.n_cols       = params.n_col2;
@@ -112,7 +109,18 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
       prms.n_components = params.n_col2 - 15;
 
     data2.resize(len, stream);
-    r.uniform(data2.data(), len, T(-1.0), T(1.0), stream);
+    int redundant_cols = int(params.redundancy * params.n_col2);
+    int redundant_len  = params.n_row2 * redundant_cols;
+
+    int informative_cols = params.n_col2 - redundant_cols;
+    int informative_len  = params.n_row2 * informative_cols;
+
+    r.uniform(data2.data(), informative_len, T(-1.0), T(1.0), stream);
+    CUDA_CHECK(cudaMemcpyAsync(data2.data() + informative_len,
+                               data2.data(),
+                               redundant_len * sizeof(T),
+                               cudaMemcpyDeviceToDevice,
+                               stream));
     rmm::device_uvector<T> data2_trans(prms.n_rows * prms.n_components, stream);
 
     int len_comp = params.n_col2 * prms.n_components;
@@ -144,17 +152,15 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   rmm::device_uvector<T> components, components_ref, data2, data2_back;
 };
 
-const std::vector<TsvdInputs<float>> inputsf2 = {
-  {0.01f, 4 * 3, 4, 3, 1024 * 128, 1024, 128, 1234ULL, 0},
-  {0.01f, 4 * 3, 4, 3, 1024 * 128, 1024, 128, 1234ULL, 1},
-  {0.05f, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2},
-  {0.05f, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2}};
+const std::vector<TsvdInputs<float>> inputsf2 = {{0.01f, 4, 3, 1024, 128, 0.25f, 1234ULL, 0},
+                                                 {0.01f, 4, 3, 1024, 128, 0.25f, 1234ULL, 1},
+                                                 {0.04f, 4, 3, 512, 64, 0.25f, 1234ULL, 2},
+                                                 {0.04f, 4, 3, 512, 64, 0.25f, 1234ULL, 2}};
 
-const std::vector<TsvdInputs<double>> inputsd2 = {
-  {0.01, 4 * 3, 4, 3, 1024 * 128, 1024, 128, 1234ULL, 0},
-  {0.01, 4 * 3, 4, 3, 1024 * 128, 1024, 128, 1234ULL, 1},
-  {0.05, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2},
-  {0.05, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2}};
+const std::vector<TsvdInputs<double>> inputsd2 = {{0.01, 4, 3, 1024, 128, 0.25f, 1234ULL, 0},
+                                                  {0.01, 4, 3, 1024, 128, 0.25f, 1234ULL, 1},
+                                                  {0.05, 4, 3, 512, 64, 0.25f, 1234ULL, 2},
+                                                  {0.05, 4, 3, 512, 64, 0.25f, 1234ULL, 2}};
 
 typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result)
