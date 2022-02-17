@@ -16,11 +16,15 @@
 
 # distutils: language = c++
 
-from cuml.solvers import CD
+from inspect import signature
+
+from cuml.solvers import CD, QN
 from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.logger import warn
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
@@ -117,6 +121,14 @@ class ElasticNet(Base,
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
+    solver : {'cd', 'qn'} (default='cd')
+        Choose an algorithm:
+
+          * 'cd' - coordinate descent
+          * 'qn' - quasi-newton
+
+        You may find the alternative 'qn' algorithm is faster when the number
+        of features is sufficiently large, but the sample size is small.
     selection : {'cyclic', 'random'} (default='cyclic')
         If set to ‘random’, a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
@@ -154,7 +166,8 @@ class ElasticNet(Base,
     coef_ = CumlArrayDescriptor()
 
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
-                 normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
+                 normalize=False, max_iter=1000, tol=1e-3,
+                 solver='cd', selection='cyclic',
                  handle=None, output_type=None, verbose=False):
         """
         Initializes the elastic-net regression class.
@@ -167,6 +180,7 @@ class ElasticNet(Base,
         normalize: boolean.
         max_iter: int
         tol: float or double.
+        solver: str, 'cd' or 'qn'
         selection : str, ‘cyclic’, or 'random'
 
         For additional docs, see `scikitlearn's ElasticNet
@@ -184,6 +198,7 @@ class ElasticNet(Base,
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
+        self.solver = solver
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
@@ -200,11 +215,31 @@ class ElasticNet(Base,
         if self.selection == 'random':
             shuffle = True
 
-        self.solver_model = CD(fit_intercept=self.fit_intercept,
-                               normalize=self.normalize, alpha=self.alpha,
-                               l1_ratio=self.l1_ratio, shuffle=shuffle,
-                               max_iter=self.max_iter, handle=self.handle,
-                               tol=self.tol)
+        if solver == 'qn':
+            pams = signature(self.__init__).parameters
+            if (pams['selection'].default != selection):
+                warn("Parameter 'selection' has no effect "
+                     "when 'qn' solver is used.")
+            if (pams['normalize'].default != normalize):
+                warn("Parameter 'normalize' has no effect "
+                     "when 'qn' solver is used.")
+
+            self.solver_model = QN(
+                fit_intercept=self.fit_intercept,
+                l1_strength=self.alpha * self.l1_ratio,
+                l2_strength=self.alpha * (1.0 - self.l1_ratio),
+                max_iter=self.max_iter, handle=self.handle,
+                loss='l2', tol=self.tol, penalty_normalized=False,
+                verbose=self.verbose)
+        elif solver == 'cd':
+            self.solver_model = CD(
+                fit_intercept=self.fit_intercept,
+                normalize=self.normalize, alpha=self.alpha,
+                l1_ratio=self.l1_ratio, shuffle=shuffle,
+                max_iter=self.max_iter, handle=self.handle,
+                tol=self.tol)
+        else:
+            raise TypeError(f"solver {solver} is not supported")
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
@@ -223,6 +258,15 @@ class ElasticNet(Base,
 
         """
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
+        if isinstance(self.solver_model, QN):
+            self.coef_ = CumlArray(
+                data=self.solver_model.coef_,
+                index=self.solver_model.coef_._index,
+                dtype=self.solver_model.coef_.dtype,
+                order=self.solver_model.coef_.order,
+                shape=(self.solver_model.coef_.shape[0],)
+            )
+            self.intercept_ = self.solver_model.intercept_.item()
 
         return self
 
@@ -242,5 +286,6 @@ class ElasticNet(Base,
             "normalize",
             "max_iter",
             "tol",
+            "solver",
             "selection",
         ]

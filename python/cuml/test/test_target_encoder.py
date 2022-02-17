@@ -243,3 +243,23 @@ def test_targetencoder_var():
     train_encoded = encoder.transform(train.category)
 
     assert array_equal(train_encoded, answer)
+
+
+def test_transform_with_index():
+    df = cudf.DataFrame(
+        {
+            "a": [1, 1, 2, 3],
+            "b": [True, False, False, True]
+        },
+        index=[9, 4, 5, 3]
+    )
+
+    t_enc = TargetEncoder()
+
+    t_enc.fit(df.a, y=df.b)
+    train_encoded = t_enc.transform(df.a)
+    ans = cp.asarray([0, 1, 0.5, 0.5])
+    assert array_equal(train_encoded, ans)
+
+    train_encoded = t_enc.transform(df[["a"]])
+    assert array_equal(train_encoded, ans)
