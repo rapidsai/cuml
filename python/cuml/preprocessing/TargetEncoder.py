@@ -18,11 +18,12 @@ import cudf
 import pandas
 import cupy as cp
 import numpy as np
+from cuml import Base
 from cuml.common.exceptions import NotFittedError
 import warnings
 
 
-class TargetEncoder:
+class TargetEncoder(Base):
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or mulitple categorical variables, 'Xs', with the average of
@@ -42,7 +43,7 @@ class TargetEncoder:
         Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
-    split_method : {'random', 'continuous', 'interleaved'},
+    split : {'random', 'continuous', 'interleaved'},
         default='interleaved'
         Method to split train data into `n_folds`.
         'random': random split.
@@ -83,8 +84,8 @@ class TargetEncoder:
         [1.   0.75 0.5  1.  ]
 
     """
-    def __init__(self, n_folds=4, smooth=0, seed=42,
-                 split_method='interleaved', output_type='auto'):
+    def __init__(self, *, n_folds=4, smooth=0, seed=42,
+                 split='interleaved', output_type='auto'):
         if smooth < 0:
             raise ValueError(f'smooth {smooth} is not zero or positive')
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -99,17 +100,17 @@ class TargetEncoder:
         if not isinstance(seed, int):
             raise ValueError('seed {} is not an integer'.format(seed))
 
-        if split_method not in {'random', 'continuous', 'interleaved',
-                                'customize'}:
-            msg = ("split_method should be either 'random'"
+        if split not in {'random', 'continuous', 'interleaved',
+                         'customize'}:
+            msg = ("split should be either 'random'"
                    " or 'continuous' or 'interleaved', or 'customize'"
-                   "got {0}.".format(self.split))
+                   "got {0}.".format(split))
             raise ValueError(msg)
 
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
-        self.split = split_method
+        self.split = split
         self.y_col = '__TARGET__'
         self.x_col = '__FEA__'
         self.out_col = '__TARGET_ENCODE__'
@@ -133,7 +134,7 @@ class TargetEncoder:
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
-            fold_ids is generated based on `split_method`.
+            fold_ids is generated based on `split`.
         Returns
         -------
         self : TargetEncoder
@@ -141,11 +142,11 @@ class TargetEncoder:
         """
         if self.split == 'customize' and fold_ids is None:
             raise ValueError("`fold_ids` is required "
-                             "since split_method is set to"
+                             "since split is set to"
                              "'customize'.")
         if fold_ids is not None and self.split != 'customize':
             self.split == 'customize'
-            warnings.warn("split_method is set to 'customize'"
+            warnings.warn("split is set to 'customize'"
                           "since `fold_ids` are provided.")
         if fold_ids is not None and len(fold_ids) != len(x):
             raise ValueError(f"`fold_ids` length {len(fold_ids)}"
@@ -176,7 +177,7 @@ class TargetEncoder:
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
-            fold_ids is generated based on `split_method`.
+            fold_ids is generated based on `split`.
 
         Returns
         -------
@@ -279,7 +280,7 @@ class TargetEncoder:
 
     def _make_fold_column(self, len_train, fold_ids):
         """
-        Create a fold id column for each split_method
+        Create a fold id column for each split
         """
 
         if self.split == 'random':
@@ -292,7 +293,7 @@ class TargetEncoder:
         elif self.split == 'customize':
             if fold_ids is None:
                 raise ValueError("fold_ids can't be None"
-                                 "since split_method is set to"
+                                 "since split is set to"
                                  "'customize'.")
             return fold_ids
         else:
@@ -407,3 +408,8 @@ class TargetEncoder:
                 or isinstance(x, pandas.Series):
             return 'numpy'
         return 'cupy'
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_folds", "smooth", "seed", "split"
+        ]
