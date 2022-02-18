@@ -53,7 +53,8 @@ decomposition_models = decomposition_config.get_models()
 decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
 decomposition_models_xfail = decomposition_config_xfail.get_models()
 
-neighbor_config = ClassEnumerator(module=cuml.neighbors)
+neighbor_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
+    cuml.neighbors.KernelDensity])
 neighbor_models = neighbor_config.get_models()
 
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
@@ -68,7 +69,7 @@ rf_module = ClassEnumerator(module=cuml.ensemble)
 rf_models = rf_module.get_models()
 
 k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
-    cuml.neighbors.NearestNeighbors])
+    cuml.neighbors.NearestNeighbors, cuml.neighbors.KernelDensity])
 k_neighbors_models = k_neighbors_config.get_models()
 
 unfit_pickle_xfail = [

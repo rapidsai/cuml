@@ -173,6 +173,21 @@ class KernelDensity(Base):
     metric_params : dict, default=None
         Additional parameters to be passed to the tree for use with the
         metric.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Examples
     --------
