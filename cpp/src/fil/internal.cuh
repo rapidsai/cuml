@@ -101,7 +101,7 @@ union val_t {
 
 /** base_node contains common implementation details for dense and sparse nodes */
 template <typename F_>
-struct base_node {
+struct alignas(std::is_same<F_, float>() ? 8 : 16) base_node {
   using F = F_;  // floating-point type
   /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
@@ -152,7 +152,7 @@ struct base_node {
 
 /** dense_node is a single node of a dense forest */
 template <typename F>
-struct alignas(8) dense_node : base_node<F> {
+struct dense_node : base_node<F> {
   dense_node() = default;
   /// ignoring left_index, this is useful to unify import from treelite
   dense_node(val_t<F> output,
@@ -217,17 +217,6 @@ struct alignas(8) sparse_node8 : base_node<float> {
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
 };
-
-/// pass a functor with a templated operator()(fil_node_t), i.e. accepting one node as parameter
-template <typename Stuff>
-void instantiate_for_all_node_types(Stuff stuff)
-{
-  stuff(dense_node<float>{});
-  stuff(dense_node<double>{});
-  stuff(sparse_node16<float>{});
-  stuff(sparse_node16<double>{});
-  stuff(sparse_node8{});
-}
 
 template <typename node_t>
 struct storage;
@@ -561,11 +550,11 @@ struct cat_sets_device_owner {
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
-template <typename fil_node_t, typename F>
+template <typename fil_node_t>
 void init(const raft::handle_t& h,
           forest_t* pf,
           const categorical_sets& cat_sets,
-          const std::vector<F>& vector_leaf,
+          const std::vector<float>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params);

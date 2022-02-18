@@ -41,7 +41,7 @@
 namespace ML {
 namespace fil {
 
-// vec wraps float[N] for cub::BlockReduce
+// vec wraps float[N], int[N] or double[N] for cub::BlockReduce
 template <int N, typename T>
 struct vec;
 
@@ -96,13 +96,14 @@ struct vec {
   }
 };
 
-struct best_margin_label : cub::KeyValuePair<int, float> {
-  __host__ __device__ best_margin_label(cub::KeyValuePair<int, float> pair)
-    : cub::KeyValuePair<int, float>(pair)
+template <typename F>
+struct best_margin_label : cub::KeyValuePair<int, F> {
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, F> pair)
+    : cub::KeyValuePair<int, F>(pair)
   {
   }
-  __host__ __device__ best_margin_label(int c = 0, float f = -INFINITY)
-    : cub::KeyValuePair<int, float>({c, f})
+  __host__ __device__ best_margin_label(int c = 0, F f = -INFINITY)
+    : cub::KeyValuePair<int, F>({c, f})
   {
   }
 };

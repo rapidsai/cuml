@@ -579,11 +579,11 @@ void check_params(const forest_params_t* params, bool dense)
 /** initializes a forest of any type
  * When fil_node_t == dense_node, const int* trees is ignored
  */
-template <typename fil_node_t, typename F>
+template <typename fil_node_t>
 void init(const raft::handle_t& h,
           forest_t* pf,
           const categorical_sets& cat_sets,
-          const std::vector<F>& vector_leaf,
+          const std::vector<float>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params)
@@ -591,22 +591,10 @@ void init(const raft::handle_t& h,
   check_params(params, node_traits<fil_node_t>::IS_DENSE);
   using forest_type = typename node_traits<fil_node_t>::forest;
   forest_type* f    = new forest_type(h);
-  f->init(h, cat_sets, vector_leaf, trees, nodes, params);
+  if constexpr (std::is_same<typename fil_node_t::F, float>())  // to remove in next PR
+    f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
-
-struct instantiate_forest_init {
-  template <typename fil_node_t>
-  void operator()(fil_node_t)
-  {
-    if constexpr (std::is_same<typename fil_node_t::F, float>())
-      init<fil_node_t>({}, {}, {}, std::vector<float>(), {}, {}, {});
-    else
-      init<fil_node_t>({}, {}, {}, std::vector<double>(), {}, {}, {});
-  }
-};
-
-template void instantiate_for_all_node_types(instantiate_forest_init);
 
 void free(const raft::handle_t& h, forest_t f)
 {

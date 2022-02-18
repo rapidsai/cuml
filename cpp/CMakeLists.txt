@@ -267,8 +267,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
         src/explainer/tree_shap.cu
-        src/fil/fil.cu
-        src/fil/infer.cu
         src/glm/glm.cu
         src/genetic/genetic.cu
         src/genetic/program.cu
