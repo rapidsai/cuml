@@ -107,7 +107,7 @@ class TargetEncoder:
             raise ValueError('seed {} is not an integer'.format(seed))
 
         if split not in {'random', 'continuous', 'interleaved',
-                                'customize'}:
+                         'customize'}:
             msg = ("split should be either 'random'"
                    " or 'continuous' or 'interleaved', or 'customize'"
                    "got {0}.".format(self.split))
