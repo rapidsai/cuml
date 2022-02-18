@@ -63,14 +63,14 @@ void launcher(const raft::handle_t& handle,
   sizes[0] = inputsA.n;
 
   raft::spatial::knn::brute_force_knn<long, float, int>(handle,
-                                      ptrs,
-                                      sizes,
-                                      inputsA.d,
-                                      inputsB.X,
-                                      inputsB.n,
-                                      out.knn_indices,
-                                      out.knn_dists,
-                                      n_neighbors);
+                                                        ptrs,
+                                                        sizes,
+                                                        inputsA.d,
+                                                        inputsB.X,
+                                                        inputsB.n,
+                                                        out.knn_indices,
+                                                        out.knn_dists,
+                                                        n_neighbors);
 }
 
 // Instantiation for dense inputs, int indices

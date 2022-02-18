@@ -23,9 +23,9 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <raft/spatial/knn/specializations.hpp>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
+#include <raft/spatial/knn/specializations.hpp>
 #include <test_utils.h>
 
 #include <datasets/digits.h>
@@ -144,14 +144,14 @@ class UMAPParametrizableTest : public ::testing::Test {
       sizes[0] = n_samples;
 
       raft::spatial::knn::brute_force_knn<long, float, int>(handle,
-                                          ptrs,
-                                          sizes,
-                                          n_features,
-                                          X,
-                                          n_samples,
-                                          knn_indices,
-                                          knn_dists,
-                                          umap_params.n_neighbors);
+                                                            ptrs,
+                                                            sizes,
+                                                            n_features,
+                                                            X,
+                                                            n_samples,
+                                                            knn_indices,
+                                                            knn_dists,
+                                                            umap_params.n_neighbors);
 
       handle.sync_stream(stream);
     }

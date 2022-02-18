@@ -55,7 +55,6 @@ double trustworthiness_score(const raft::handle_t& h,
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
 
-
 template double trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
   const raft::handle_t& h,
   const float* X,
