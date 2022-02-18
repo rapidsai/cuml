@@ -98,7 +98,7 @@ void olsFit(const raft::handle_t& handle,
   }
 
   if (sample_weight != nullptr) {
-    LinAlg::sqrt(sample_weight, sample_weight, n_rows, stream);
+    raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(
       input, sample_weight, n_rows, n_cols, false, false, stream);
     raft::linalg::map(
@@ -137,7 +137,7 @@ void olsFit(const raft::handle_t& handle,
       stream,
       labels,
       sample_weight);
-    LinAlg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
+      raft::linalg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
   }
 
   if (fit_intercept) {

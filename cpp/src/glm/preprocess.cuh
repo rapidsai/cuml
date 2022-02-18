@@ -25,9 +25,9 @@
 #include <raft/stats/mean_center.hpp>
 #include <raft/stats/meanvar.hpp>
 #include <raft/stats/stddev.hpp>
+#include <raft/stats/weighted_mean.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <stats/weighted_mean.cuh>
 
 namespace ML {
 namespace GLM {
@@ -90,15 +90,13 @@ void preProcessData(const raft::handle_t& handle,
         norm2_input);
     } else {
       if (sample_weight != nullptr) {
-        MLCommon::Stats::rowSampleWeightedMean(
+        raft::stats::rowSampleWeightedMean(
           mu_input, input, sample_weight, n_cols, n_rows, false, false, stream);
       } else {
         raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
       }
       raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
       if (normalize) {
-        /*
-        */
         raft::linalg::colNorm(norm2_input,
           input,
           n_cols,
@@ -113,7 +111,7 @@ void preProcessData(const raft::handle_t& handle,
     }
 
     if (sample_weight != nullptr) {
-      MLCommon::Stats::rowSampleWeightedMean(
+      raft::stats::rowSampleWeightedMean(
         mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
     } else {
       raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
