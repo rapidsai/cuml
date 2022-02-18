@@ -23,6 +23,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
@@ -142,7 +143,7 @@ class UMAPParametrizableTest : public ::testing::Test {
       ptrs[0]  = X;
       sizes[0] = n_samples;
 
-      raft::spatial::knn::brute_force_knn(handle,
+      raft::spatial::knn::brute_force_knn<long, float, int>(handle,
                                           ptrs,
                                           sizes,
                                           n_features,

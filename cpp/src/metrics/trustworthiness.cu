@@ -20,6 +20,7 @@
 
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <raft/handle.hpp>
 
@@ -53,6 +54,7 @@ double trustworthiness_score(const raft::handle_t& h,
   return raft::stats::trustworthiness_score<math_t, distance_type>(
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
+
 
 template double trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
   const raft::handle_t& h,

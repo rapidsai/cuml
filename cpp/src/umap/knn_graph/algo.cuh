@@ -23,6 +23,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/unary_op.hpp>
 #include <raft/sparse/selection/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
@@ -61,7 +62,7 @@ void launcher(const raft::handle_t& handle,
   ptrs[0]  = inputsA.X;
   sizes[0] = inputsA.n;
 
-  raft::spatial::knn::brute_force_knn(handle,
+  raft::spatial::knn::brute_force_knn<long, float, int>(handle,
                                       ptrs,
                                       sizes,
                                       inputsA.d,

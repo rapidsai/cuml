@@ -100,7 +100,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     ptrs[0]  = train_samples.data();
     sizes[0] = params.rows;
 
-    raft::spatial::knn::brute_force_knn(handle,
+    raft::spatial::knn::brute_force_knn<long, float, int>(handle,
                                         ptrs,
                                         sizes,
                                         params.cols,

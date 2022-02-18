@@ -32,6 +32,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cuml/neighbors/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <raft/distance/distance.hpp>
 
 #include <thrust/transform.h>

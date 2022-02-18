@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <tsne/distances.cuh>
+#include <raft/spatial/knn/specializations.hpp>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
 #include <vector>
