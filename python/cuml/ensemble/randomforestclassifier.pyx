@@ -159,6 +159,7 @@ class RandomForestClassifier(BaseRandomForestModel,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+
         only ``0``/``'gini'`` and ``1``/``'entropy'`` valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
