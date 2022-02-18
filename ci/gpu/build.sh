@@ -269,6 +269,9 @@ else
     unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
 
+    gpuci_logger "Building python docs"
+    $WORKSPACE/build.sh pydocs
+
 fi
 
 if [ -n "${CODECOV_TOKEN}" ]; then
