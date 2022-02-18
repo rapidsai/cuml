@@ -109,7 +109,8 @@ struct best_margin_label : cub::KeyValuePair<int, F> {
 };
 
 template <int NITEMS>
-__device__ __forceinline__ vec<NITEMS, best_margin_label<float>> to_vec(int c, vec<NITEMS, float> margin)
+__device__ __forceinline__ vec<NITEMS, best_margin_label<float>> to_vec(int c,
+                                                                        vec<NITEMS, float> margin)
 {
   vec<NITEMS, best_margin_label<float>> ret;
   CUDA_PRAGMA_UNROLL
