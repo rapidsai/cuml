@@ -410,6 +410,6 @@ class TargetEncoder(Base):
         return 'cupy'
 
     def get_param_names(self):
-        return super().get_param_names() + [
+        return [
             "n_folds", "smooth", "seed", "split"
         ]
