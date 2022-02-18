@@ -137,7 +137,7 @@ void olsFit(const raft::handle_t& handle,
       stream,
       labels,
       sample_weight);
-      raft::linalg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
+    raft::linalg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
   }
 
   if (fit_intercept) {
