@@ -341,7 +341,6 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         See the documentation for scipy.spatial.distance for details on these
         metrics.
     - ['inner_product', 'hellinger']
-
     Parameters
     ----------
     X : array-like (device or host) of shape (n_samples_x, n_features)

@@ -75,7 +75,6 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
-
         ``0``, ``'gini'``, ``1``, ``'entropy'`` not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.\n

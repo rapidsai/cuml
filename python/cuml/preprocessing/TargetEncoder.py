@@ -49,7 +49,7 @@ class TargetEncoder:
         'continuous': consecutive samples are grouped into one folds.
         'interleaved': samples are assign to each fold in a round robin way.
         'customize': customize splitting by providing a `fold_ids` array
-        in `fit()` or `fit_transform()` functions.
+                     in `fit()` or `fit_transform()` functions.
     output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
 
