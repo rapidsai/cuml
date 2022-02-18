@@ -17,6 +17,8 @@
 #pragma once
 
 #include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
+
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemm.hpp>
