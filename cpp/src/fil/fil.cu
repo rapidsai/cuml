@@ -597,12 +597,12 @@ void init(const raft::handle_t& h,
 }
 
 // explicit instantiations for init_sparse()
-template void init<sparse_node16>(const raft::handle_t& h,
+template void init<sparse_node16<float>>(const raft::handle_t& h,
                                   forest_t* pf,
                                   const categorical_sets& cat_sets,
                                   const std::vector<float>& vector_leaf,
                                   const int* trees,
-                                  const sparse_node16* nodes,
+                                  const sparse_node16<float>* nodes,
                                   const forest_params_t* params);
 
 template void init<sparse_node8>(const raft::handle_t& h,
@@ -613,12 +613,12 @@ template void init<sparse_node8>(const raft::handle_t& h,
                                  const sparse_node8* nodes,
                                  const forest_params_t* params);
 
-template void init<dense_node>(const raft::handle_t& h,
+template void init<dense_node<float>>(const raft::handle_t& h,
                                forest_t* pf,
                                const categorical_sets& cat_sets,
                                const std::vector<float>& vector_leaf,
                                const int* trees,
-                               const dense_node* nodes,
+                               const dense_node<float>* nodes,
                                const forest_params_t* params);
 
 void free(const raft::handle_t& h, forest_t f)

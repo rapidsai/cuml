@@ -109,21 +109,21 @@ struct best_margin_label : cub::KeyValuePair<int, F> {
 };
 
 template <int NITEMS>
-__device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(int c, vec<NITEMS, float> margin)
+__device__ __forceinline__ vec<NITEMS, best_margin_label<float>> to_vec(int c, vec<NITEMS, float> margin)
 {
-  vec<NITEMS, best_margin_label> ret;
+  vec<NITEMS, best_margin_label<float>> ret;
   CUDA_PRAGMA_UNROLL
   for (int i = 0; i < NITEMS; ++i)
-    ret[i] = best_margin_label(c, margin[i]);
+    ret[i] = best_margin_label<float>(c, margin[i]);
   return ret;
 }
 
 struct ArgMax {
   template <int NITEMS>
-  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label> operator()(
-    vec<NITEMS, best_margin_label> a, vec<NITEMS, best_margin_label> b) const
+  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label<float>> operator()(
+    vec<NITEMS, best_margin_label<float>> a, vec<NITEMS, best_margin_label<float>> b) const
   {
-    vec<NITEMS, best_margin_label> c;
+    vec<NITEMS, best_margin_label<float>> c;
     CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = cub::ArgMax()(a[i], b[i]);
@@ -232,7 +232,7 @@ size_t block_reduce_footprint_host()
 template <int NITEMS>
 size_t block_reduce_best_class_footprint_host()
 {
-  return sizeof(typename cub::BlockReduce<vec<NITEMS, best_margin_label>,
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, best_margin_label<float>>,
                                           FIL_TPB,
                                           cub::BLOCK_REDUCE_WARP_REDUCTIONS,
                                           1,
@@ -356,7 +356,7 @@ __device__ __forceinline__ void write_best_class(
 {
   // reduce per-class candidate margins to one best class candidate
   // per thread (for each of the NITEMS rows)
-  auto best = vec<begin->NITEMS, best_margin_label>();
+  auto best = vec<begin->NITEMS, best_margin_label<float>>();
   for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
     best = vectorized(cub::ArgMax())(best, to_vec(c, begin[c]));
   // [begin, end) may overlap tmp_storage
