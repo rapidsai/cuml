@@ -17,13 +17,13 @@
 #pragma once
 
 #include <cuml/decomposition/params.hpp>
-#include <linalg/rsvd.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/eig.hpp>
 #include <raft/linalg/eltwise.hpp>
 #include <raft/linalg/gemm.hpp>
+#include <raft/linalg/rsvd.cuh>
 #include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
@@ -37,8 +37,6 @@
 #include <thrust/execution_policy.h>
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename math_t>
 void calCompExpVarsSvd(const raft::handle_t& handle,
@@ -69,22 +67,22 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
 
   rmm::device_uvector<math_t> components_temp(prms.n_cols * prms.n_components, stream);
   math_t* left_eigvec = nullptr;
-  LinAlg::rsvdFixedRank(handle,
-                        in,
-                        prms.n_rows,
-                        prms.n_cols,
-                        singular_vals,
-                        left_eigvec,
-                        components_temp.data(),
-                        prms.n_components,
-                        p,
-                        true,
-                        false,
-                        true,
-                        false,
-                        (math_t)prms.tol,
-                        prms.n_iterations,
-                        stream);
+  raft::linalg::rsvdFixedRank(handle,
+                              in,
+                              prms.n_rows,
+                              prms.n_cols,
+                              singular_vals,
+                              left_eigvec,
+                              components_temp.data(),
+                              prms.n_components,
+                              p,
+                              true,
+                              false,
+                              true,
+                              false,
+                              (math_t)prms.tol,
+                              prms.n_iterations,
+                              stream);
 
   raft::linalg::transpose(
     handle, components_temp.data(), components, prms.n_cols, prms.n_components, stream);

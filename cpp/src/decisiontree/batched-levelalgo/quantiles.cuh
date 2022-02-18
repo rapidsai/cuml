@@ -27,7 +27,7 @@
 
 #include <raft/common/nvtx.hpp>
 
-#include <decisiontree/batched-levelalgo/quantiles.h>
+#include "quantiles.h"
 
 namespace ML {
 namespace DT {

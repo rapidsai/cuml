@@ -24,10 +24,10 @@
 
 #include <common/tensor.hpp>
 
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
-#include <random/permute.cuh>
+#include <raft/linalg/reduce_cols_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
+#include <raft/random/permute.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cudart_utils.h>
@@ -40,7 +40,6 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <random/permute.cuh>
 #include <random>
 
 #include <thrust/equal.h>
@@ -55,9 +54,6 @@
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
-#include <matrix/gather.cuh>
 
 #include <fstream>
 #include <numeric>
@@ -591,7 +587,7 @@ void shuffleAndGather(const raft::handle_t& handle,
 
   if (workspace) {
     // shuffle indices on device using ml-prims
-    MLCommon::Random::permute<DataT>(
+    raft::random::permute<DataT>(
       indices.data(), nullptr, nullptr, in.getSize(1), in.getSize(0), true, stream);
   } else {
     // shuffle indices on host and copy to device...

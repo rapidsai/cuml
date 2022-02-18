@@ -26,8 +26,6 @@ class handle_t;
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
 void olsFit(const raft::handle_t& handle,
             float* input,
             int n_rows,
