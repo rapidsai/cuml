@@ -14,11 +14,22 @@
 # limitations under the License.
 #=============================================================================
 
+set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
+set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+
 function(find_and_configure_raft)
 
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_FAISS_STATIC)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_FAISS_STATIC CLONE_ON_PIN)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
+
+    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
+        message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+        execute_process(
+                COMMAND git clone "https://github.com/${PKG_FORK}/raft.git" --branch ${PKG_PINNED_TAG} raft-source
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps)
+        set(CPM_raft_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/_deps/raft-source)
+    endif()
 
     string(APPEND RAFT_COMPONENTS "distance")
     if(PKG_USE_RAFT_NN)
@@ -48,10 +59,8 @@ function(find_and_configure_raft)
         message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
     endif()
 
-endfunction()
 
-set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+endfunction()
 
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
@@ -59,6 +68,11 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             rapidsai
                         PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+
+                        # When PINNED_TAG above doesn't match cuml,
+                        # force local raft clone in build directory
+                        # even if it's already installed.
+                        CLONE_ON_PIN     ON
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )
