@@ -22,7 +22,7 @@ from cuml.common.exceptions import NotFittedError
 import warnings
 
 
-class TargetEncoder():
+class TargetEncoder:
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or mulitple categorical variables, 'Xs', with the average of
@@ -87,7 +87,7 @@ class TargetEncoder():
         [1.   0.75 0.5  1.  ]
 
     """
-    def __init__(self, *, n_folds=4, smooth=0, seed=42,
+    def __init__(self, n_folds=4, smooth=0, seed=42,
                  split='interleaved', output_type='auto'):
         if smooth < 0:
             raise ValueError(f'smooth {smooth} is not zero or positive')
