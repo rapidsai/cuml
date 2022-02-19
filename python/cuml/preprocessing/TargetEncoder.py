@@ -18,12 +18,11 @@ import cudf
 import pandas
 import cupy as cp
 import numpy as np
-from cuml import Base
 from cuml.common.exceptions import NotFittedError
 import warnings
 
 
-class TargetEncoder(Base):
+class TargetEncoder():
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or mulitple categorical variables, 'Xs', with the average of
@@ -53,6 +52,10 @@ class TargetEncoder(Base):
                      in `fit()` or `fit_transform()` functions.
     output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    handle : cuml.Handle
 
     References
     ----------
@@ -411,5 +414,16 @@ class TargetEncoder(Base):
 
     def get_param_names(self):
         return [
-            "n_folds", "smooth", "seed", "split"
+            "n_folds", "smooth", "seed", "split",
         ]
+
+    def get_params(self):
+        """
+        Returns a dict of all params owned by this class.
+        """
+        params = dict()
+        variables = self.get_param_names()
+        for key in variables:
+            var_value = getattr(self, key, None)
+            params[key] = var_value
+        return params
