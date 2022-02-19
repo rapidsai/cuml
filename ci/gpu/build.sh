@@ -185,11 +185,6 @@ else
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
-    cd $LIBCUML_BUILD_DIR
-    cp _deps/raft-build/libraft_nn.so $PWD
-    patchelf --replace-needed `patchelf --print-needed libraft_nn.so | grep faiss` libfaiss.so libraft_nn.so
-    cp _deps/raft-build/libraft_distance.so $PWD
-
     gpuci_logger "Running libcuml binaries"
     GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
     for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
