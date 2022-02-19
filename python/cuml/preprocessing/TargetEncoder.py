@@ -52,10 +52,6 @@ class TargetEncoder:
                      in `fit()` or `fit_transform()` functions.
     output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle
 
     References
     ----------
