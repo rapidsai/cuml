@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 

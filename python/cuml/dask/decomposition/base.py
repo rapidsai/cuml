@@ -14,8 +14,8 @@
 #
 
 from cuml.dask.common import raise_exception_from_futures
-from cuml.raft.dask.common.comms import get_raft_comm_state
-from cuml.raft.dask.common.comms import Comms
+from raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import Comms
 
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks

@@ -25,8 +25,8 @@ import cudf
 import cuml.internals
 
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":

@@ -40,7 +40,7 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    stream = cuml.raft.common.cuda.Stream()
+    stream = raft.common.cuda.Stream()
     handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()

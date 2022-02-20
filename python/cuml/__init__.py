@@ -93,7 +93,7 @@ from cuml.common.memory_utils import set_global_output_type, using_output_type
 
 # RAFT
 
-from cuml.raft import raft_include_test
+from raft import raft_include_test
 
 # Import verion. Remove at end of file
 from ._version import get_versions

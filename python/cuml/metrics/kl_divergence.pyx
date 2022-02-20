@@ -20,8 +20,8 @@ import cuml.internals
 from cuml.common.input_utils import determine_array_type
 from cuml.common import (input_to_cuml_array, CumlArray, logger)
 from libc.stdint cimport uintptr_t
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     double c_kl_divergence "ML::Metrics::kl_divergence"(

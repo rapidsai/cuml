@@ -33,7 +33,7 @@ from cuml.explainer.common import get_tag_from_model_func
 from cuml.explainer.common import model_func_call
 from cuml.explainer.common import output_list_shap_values
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -89,7 +89,7 @@ class SHAPBase():
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.raft.common.handle
+    handle : raft.common.handle
         Specifies the handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can

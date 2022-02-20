@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 
-import cuml.raft
+import raft
 
 
 def test_raft():
-    assert cuml.raft.raft_include_test()
+    assert raft.raft_include_test()

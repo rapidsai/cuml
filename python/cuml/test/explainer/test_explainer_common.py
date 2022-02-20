@@ -147,7 +147,7 @@ def test_get_handle_from_cuml_model_func(model):
     handle = get_handle_from_cuml_model_func(mod.get_param_names,
                                              create_new=True)
 
-    assert isinstance(handle, cuml.raft.common.handle.Handle)
+    assert isinstance(handle, raft.common.handle.Handle)
 
 
 @pytest.mark.parametrize("create_new", [True, False])
@@ -155,7 +155,7 @@ def test_get_handle_from_dummy_func(create_new):
     handle = get_handle_from_cuml_model_func(dummy_func,
                                              create_new=create_new)
 
-    res = isinstance(handle, cuml.raft.common.handle.Handle)
+    res = isinstance(handle, raft.common.handle.Handle)
 
     assert res == create_new
 

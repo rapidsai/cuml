@@ -35,7 +35,7 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool

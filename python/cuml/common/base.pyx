@@ -24,7 +24,7 @@ import cuml.common
 import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
-import cuml.raft.common.handle
+import raft.common.handle
 import cuml.common.input_utils
 
 from cuml.common.doc_utils import generate_docstring
@@ -164,7 +164,7 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.raft.common.handle.Handle() if handle is None \
+        self.handle = raft.common.handle.Handle() if handle is None \
             else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
