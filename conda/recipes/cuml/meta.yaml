@@ -44,6 +44,7 @@ requirements:
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
+    - pyraft {{ minor_version }}
     - cupy>=7.8.0,<11.0.0a0
     - treelite=2.2.1
     - nccl>=2.9.9
