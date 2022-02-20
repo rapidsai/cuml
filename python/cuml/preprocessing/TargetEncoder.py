@@ -42,7 +42,7 @@ class TargetEncoder:
         Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
-    split : {'random', 'continuous', 'interleaved'},
+    split_method : {'random', 'continuous', 'interleaved'},
         default='interleaved'
         Method to split train data into `n_folds`.
         'random': random split.
@@ -84,7 +84,7 @@ class TargetEncoder:
 
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
-                 split='interleaved', output_type='auto'):
+                 split_method='interleaved', output_type='auto'):
         if smooth < 0:
             raise ValueError(f'smooth {smooth} is not zero or positive')
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -99,17 +99,17 @@ class TargetEncoder:
         if not isinstance(seed, int):
             raise ValueError('seed {} is not an integer'.format(seed))
 
-        if split not in {'random', 'continuous', 'interleaved',
-                         'customize'}:
-            msg = ("split should be either 'random'"
+        if split_method not in {'random', 'continuous', 'interleaved',
+                                'customize'}:
+            msg = ("split_method should be either 'random'"
                    " or 'continuous' or 'interleaved', or 'customize'"
-                   "got {0}.".format(split))
+                   "got {0}.".format(split_method))
             raise ValueError(msg)
 
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
-        self.split = split
+        self.split_method = split_method
         self.y_col = '__TARGET__'
         self.x_col = '__FEA__'
         self.out_col = '__TARGET_ENCODE__'
@@ -133,19 +133,19 @@ class TargetEncoder:
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
-            fold_ids is generated based on `split`.
+            fold_ids is generated based on `split_method`.
         Returns
         -------
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-        if self.split == 'customize' and fold_ids is None:
+        if self.split_method == 'customize' and fold_ids is None:
             raise ValueError("`fold_ids` is required "
-                             "since split is set to"
+                             "since split_method is set to"
                              "'customize'.")
-        if fold_ids is not None and self.split != 'customize':
-            self.split == 'customize'
-            warnings.warn("split is set to 'customize'"
+        if fold_ids is not None and self.split_method != 'customize':
+            self.split_method == 'customize'
+            warnings.warn("split_method is set to 'customize'"
                           "since `fold_ids` are provided.")
         if fold_ids is not None and len(fold_ids) != len(x):
             raise ValueError(f"`fold_ids` length {len(fold_ids)}"
@@ -176,7 +176,7 @@ class TargetEncoder:
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
-            fold_ids is generated based on `split`.
+            fold_ids is generated based on `split_method`.
 
         Returns
         -------
@@ -282,23 +282,23 @@ class TargetEncoder:
         Create a fold id column for each split
         """
 
-        if self.split == 'random':
+        if self.split_method == 'random':
             return cp.random.randint(0, self.n_folds, len_train)
-        elif self.split == 'continuous':
+        elif self.split_method == 'continuous':
             return (cp.arange(len_train) /
                     (len_train/self.n_folds)) % self.n_folds
-        elif self.split == 'interleaved':
+        elif self.split_method == 'interleaved':
             return cp.arange(len_train) % self.n_folds
-        elif self.split == 'customize':
+        elif self.split_method == 'customize':
             if fold_ids is None:
                 raise ValueError("fold_ids can't be None"
-                                 "since split is set to"
+                                 "since split_method is set to"
                                  "'customize'.")
             return fold_ids
         else:
-            msg = ("split should be either 'random'"
+            msg = ("split_method should be either 'random'"
                    " or 'continuous' or 'interleaved', "
-                   "got {0}.".format(self.split))
+                   "got {0}.".format(self.split_method))
             raise ValueError(msg)
 
     def _compute_output(self, df_sum, df_count, cols, y_col):
@@ -410,7 +410,7 @@ class TargetEncoder:
 
     def get_param_names(self):
         return [
-            "n_folds", "smooth", "seed", "split",
+            "n_folds", "smooth", "seed", "split_method",
         ]
 
     def get_params(self):
