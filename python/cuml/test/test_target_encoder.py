@@ -217,13 +217,13 @@ def test_targetencoder_customized_fold_id():
     train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
                             'label': [1, 0, 1, 1]})
     fold_ids = [0, 1, 1, 2]
-    encoder = TargetEncoder(split='customize')
+    encoder = TargetEncoder(split_method='customize')
     train_encoded = encoder.fit_transform(train.category, train.label,
                                           fold_ids=fold_ids)
     answer = np.array([1., 0.75, 0.75, 1.])
     assert array_equal(train_encoded, answer)
 
-    encoder = TargetEncoder(split='customize')
+    encoder = TargetEncoder(split_method='customize')
     encoder.fit(train.category, train.label,
                 fold_ids=fold_ids)
     train_encoded = encoder.transform(train.category)
