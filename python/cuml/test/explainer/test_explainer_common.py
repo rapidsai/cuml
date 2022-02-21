@@ -32,6 +32,8 @@ from cuml.test.utils import ClassEnumerator
 from cuml.datasets import make_regression
 from sklearn.linear_model import LinearRegression as skreg
 
+from raft.common.handle import Handle
+
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
@@ -147,7 +149,7 @@ def test_get_handle_from_cuml_model_func(model):
     handle = get_handle_from_cuml_model_func(mod.get_param_names,
                                              create_new=True)
 
-    assert isinstance(handle, raft.common.handle.Handle)
+    assert isinstance(handle, Handle)
 
 
 @pytest.mark.parametrize("create_new", [True, False])
@@ -155,7 +157,7 @@ def test_get_handle_from_dummy_func(create_new):
     handle = get_handle_from_cuml_model_func(dummy_func,
                                              create_new=create_new)
 
-    res = isinstance(handle, raft.common.handle.Handle)
+    res = isinstance(handle, Handle)
 
     assert res == create_new
 

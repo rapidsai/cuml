@@ -22,6 +22,8 @@ from numba import cuda
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
+from raft.common.cuda import Stream
+
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
@@ -171,7 +173,7 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
-    s = raft.common.cuda.Stream()
+    s = Stream()
     h = cuml.Handle(stream=s, n_streams=n_streams)
     return h, s
 

@@ -97,7 +97,6 @@ if clean_artifacts:
         sys.exit(0)
 
 
-
 if "--multigpu" in sys.argv:
     warnings.warn("Flag --multigpu is deprecated. By default cuML is"
                   "built with multi GPU support. To disable it use the flag"
