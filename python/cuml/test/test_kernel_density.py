@@ -15,6 +15,7 @@
 #
 
 from cuml.neighbors import KernelDensity, VALID_KERNELS, logsumexp_kernel
+from cuml.common.exceptions import NotFittedError
 from sklearn.metrics import pairwise_distances as skl_pairwise_distances
 from sklearn.neighbors._ball_tree import kernel_norm
 import numpy as np
@@ -25,7 +26,7 @@ from sklearn.model_selection import GridSearchCV
 
 
 # not in log probability space
-def compute_kernel_naive(Y, X, kernel, metric, h, sample_weights):
+def compute_kernel_naive(Y, X, kernel, metric, h, sample_weight):
     d = skl_pairwise_distances(Y, X, metric)
     norm = kernel_norm(h, X.shape[1], kernel)
 
@@ -43,7 +44,7 @@ def compute_kernel_naive(Y, X, kernel, metric, h, sample_weights):
         k = (np.cos(0.5 * np.pi * d / h) * (d < h))
     else:
         raise ValueError("kernel not recognized")
-    return norm*np.average(k, -1, sample_weights)
+    return norm*np.average(k, -1, sample_weight)
 
 
 @st.composite
@@ -57,12 +58,12 @@ def array_strategy(draw):
     X_test = rng.randn(n_test, m).astype(dtype)
 
     if draw(st.booleans()):
-        sample_weights = None
+        sample_weight = None
     else:
-        sample_weights = draw(arrays(dtype=np.float64, shape=n,
-                                     elements=st.floats(0.1, 2.0),))
+        sample_weight = draw(arrays(dtype=np.float64, shape=n,
+                                    elements=st.floats(0.1, 2.0),))
 
-    return X, X_test, sample_weights
+    return X, X_test, sample_weight
 
 
 metrics_strategy = st.sampled_from(
@@ -74,22 +75,22 @@ metrics_strategy = st.sampled_from(
 @given(array_strategy(), st.sampled_from(VALID_KERNELS),
        metrics_strategy, st.floats(0.2, 10))
 def test_kernel_density(arrays, kernel, metric, bandwidth):
-    X, X_test, sample_weights = arrays
+    X, X_test, sample_weight = arrays
     if kernel == 'cosine':
         # cosine is numerically unstable at high dimensions
         # for both cuml and sklearn
         assume(X.shape[1] <= 20)
     kde = KernelDensity(kernel=kernel, metric=metric,
                         bandwidth=bandwidth).fit(X,
-                                                 sample_weight=sample_weights)
+                                                 sample_weight=sample_weight)
     cuml_prob = kde.score_samples(X)
     cuml_prob_test = kde.score_samples(X_test)
 
     if X.dtype == np.float64:
         ref_prob = compute_kernel_naive(
-            X, X, kernel, metric, bandwidth, sample_weights)
+            X, X, kernel, metric, bandwidth, sample_weight)
         ref_prob_test = compute_kernel_naive(
-            X_test, X, kernel, metric, bandwidth, sample_weights)
+            X_test, X, kernel, metric, bandwidth, sample_weight)
         tol = 1e-3
         assert np.allclose(np.exp(cuml_prob), ref_prob,
                            rtol=tol, atol=tol, equal_nan=True)
@@ -120,16 +121,13 @@ def test_logaddexp():
     assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 
-@pytest.mark.xfail(
-    reason="cuml's pairwise_distances does"
-    "not process metric_params as expected")
 def test_metric_params():
     X = np.array([[0.0, 1.0], [2.0, 0.5]])
     kde = KernelDensity(metric='minkowski', metric_params={'p': 1.0}
                         ).fit(X)
     kde2 = KernelDensity(metric='minkowski', metric_params={'p': 2.0}
                          ).fit(X)
-    assert np.all(kde.score_samples(X) != kde2.score_samples(X))
+    assert not np.allclose(kde.score_samples(X), kde2.score_samples(X))
 
 
 def test_grid_search():
@@ -138,3 +136,15 @@ def test_grid_search():
     params = {"bandwidth": np.logspace(-1, 1, 20)}
     grid = GridSearchCV(KernelDensity(), params)
     grid.fit(X)
+
+
+def test_not_fitted():
+    rs = np.random.RandomState(3)
+    kde = KernelDensity()
+    X = rs.normal(size=(30, 5))
+    with pytest.raises(NotFittedError):
+        kde.score(X)
+    with pytest.raises(NotFittedError):
+        kde.sample(X)
+    with pytest.raises(NotFittedError):
+        kde.score_samples(X)

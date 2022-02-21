@@ -22,7 +22,7 @@ from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.base import Base
 from cuml.metrics import pairwise_distances
 from cuml.common.import_utils import has_scipy
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 if has_scipy():
     from scipy.special import gammainc
@@ -87,21 +87,8 @@ def cosine_log_kernel(x, h):
     return y
 
 
-def apply_log_kernel(distances, kernel, h):
-    if kernel == "gaussian":
-        return gaussian_log_kernel(distances, h)
-    elif kernel == "tophat":
-        return tophat_log_kernel(distances, h)
-    elif kernel == "epanechnikov":
-        return epanechnikov_log_kernel(distances, h)
-    elif kernel == "exponential":
-        return exponential_log_kernel(distances, h)
-    elif kernel == "linear":
-        return linear_log_kernel(distances, h)
-    elif kernel == "cosine":
-        return cosine_log_kernel(distances, h)
-    else:
-        raise ValueError("Unsupported kernel.")
+log_probability_kernels_ = {"gaussian": gaussian_log_kernel, "tophat": tophat_log_kernel, "epanechnikov": epanechnikov_log_kernel,
+                            "exponential": exponential_log_kernel, "linear": linear_log_kernel, "cosine": cosine_log_kernel}
 
 
 def logVn(n):
@@ -113,7 +100,6 @@ def logSn(n):
 
 
 def norm_log_probabilities(log_probabilities, kernel, h, d):
-    factor = 0.0
     if kernel == "gaussian":
         factor = 0.5 * d * np.log(2 * np.pi)
     elif kernel == "tophat":
@@ -288,13 +274,26 @@ class KernelDensity(Base):
             probability densities, so values will be low for high-dimensional
             data.
         """
-        metric_params = self.metric_params if self.metric_params else {}
-        distances = pairwise_distances(X, self.X_, metric=self.metric,
-                                       **metric_params)
+        if not hasattr(self, "X_"):
+            raise NotFittedError()
+
+        if self.metric_params:
+            if len(self.metric_params) != 1:
+                raise ValueError(
+                    "Cuml only supports metrics with a single arg.")
+            metric_arg = list(self.metric_params.values())[0]
+            distances = pairwise_distances(X, self.X_, metric=self.metric,
+                                           metric_arg=metric_arg)
+        else:
+            distances = pairwise_distances(X, self.X_, metric=self.metric)
+
         distances = cp.asarray(distances)
 
         h = self.bandwidth
-        distances = apply_log_kernel(distances, self.kernel, h)
+        if self.kernel in log_probability_kernels_:
+            distances = log_probability_kernels_[self.kernel](distances, h)
+        else:
+            raise ValueError("Unsupported kernel.")
 
         log_probabilities = cp.zeros(distances.shape[0])
         if self.sample_weight_ is not None:
