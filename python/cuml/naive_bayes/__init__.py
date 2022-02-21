@@ -17,4 +17,5 @@
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 from cuml.naive_bayes.naive_bayes import BernoulliNB
 from cuml.naive_bayes.naive_bayes import GaussianNB
+from cuml.naive_bayes.naive_bayes import ComplementNB
 from cuml.naive_bayes.naive_bayes import CategoricalNB
