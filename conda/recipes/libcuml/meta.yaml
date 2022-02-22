@@ -48,7 +48,7 @@ requirements:
     - libraft-distance {{ minor_version }}
     - libraft-nn {{ minor_version }}
     - lapack
-    - treelite=2.2.1
+    - treelite=2.3.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - gmock
@@ -63,7 +63,7 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - treelite=2.2.1
+    - treelite=2.3.0
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
     - libcusolver>=11.2.1
