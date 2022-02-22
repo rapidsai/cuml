@@ -19,7 +19,7 @@
 #include <iostream>
 #include <metrics/trustworthiness_score.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <vector>
 
 namespace MLCommon {

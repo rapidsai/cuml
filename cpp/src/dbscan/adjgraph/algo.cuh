@@ -23,7 +23,7 @@
 #include "pack.h"
 
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 
 namespace ML {
 namespace Dbscan {

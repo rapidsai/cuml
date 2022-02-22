@@ -25,16 +25,16 @@
 #include <glm/preprocess.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/norm.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

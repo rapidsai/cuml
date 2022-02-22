@@ -17,7 +17,7 @@
 #include <cuml/decomposition/params.hpp>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <test_utils.h>
 #include <tsvd/tsvd.cuh>
 #include <vector>

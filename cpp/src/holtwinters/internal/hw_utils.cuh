@@ -19,7 +19,7 @@
 #include <cuml/tsa/holtwinters_params.h>
 #include <iostream>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <vector>
 

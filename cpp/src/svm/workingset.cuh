@@ -29,8 +29,8 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>

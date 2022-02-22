@@ -27,10 +27,10 @@
 #include <matrix/kernelmatrices.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include <string>
 #include <svm/smoblocksolve.cuh>

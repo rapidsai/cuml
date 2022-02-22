@@ -29,7 +29,7 @@
 #include <math.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

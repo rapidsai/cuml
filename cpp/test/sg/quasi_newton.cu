@@ -22,7 +22,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <test_utils.h>
 #include <vector>
 

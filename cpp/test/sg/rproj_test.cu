@@ -20,8 +20,8 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/linalg/transpose.cuh>
 #include <random>
 #include <test_utils.h>
 #include <vector>

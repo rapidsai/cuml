@@ -31,10 +31,10 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/op/sort.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "../prims/test_utils.h"

@@ -23,12 +23,12 @@
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 
 #include <thrust/binary_search.h>
 #include <thrust/device_vector.h>

@@ -24,9 +24,9 @@
 #include <raft/cudart_utils.h>
 
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/symmetrize.hpp>
-#include <raft/sparse/op/sort.hpp>
-#include <raft/stats/mean.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/sort.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <cuda_runtime.h>
 

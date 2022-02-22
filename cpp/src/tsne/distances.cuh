@@ -19,10 +19,10 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/symmetrize.hpp>
-#include <raft/sparse/selection/knn.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
 
 #include <cuml/manifold/common.hpp>

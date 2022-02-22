@@ -16,14 +16,14 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <solver/cd.cuh>
 #include <test_utils.h>
 
-#include <raft/stats/mean.hpp>
-#include <raft/stats/meanvar.hpp>
-#include <raft/stats/stddev.hpp>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/meanvar.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace ML {
 namespace Solver {

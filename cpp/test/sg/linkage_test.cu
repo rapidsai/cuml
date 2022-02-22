@@ -25,7 +25,7 @@
 #include <raft/mr/device/allocator.hpp>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>

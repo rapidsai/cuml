@@ -19,14 +19,14 @@
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/eig.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/stats/cov.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/cov.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include <rmm/device_uvector.hpp>
 #include <tsvd/tsvd.cuh>
 

@@ -20,6 +20,8 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
+    set(CPM_DOWNLOAD_raft ON)
+
     string(APPEND RAFT_COMPONENTS "distance")
     if(PKG_USE_RAFT_NN)
         string(APPEND RAFT_COMPONENTS " nn")
@@ -57,8 +59,8 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        FORK             cjnolet
+                        PINNED_TAG       imp-2204-raft_header_cuh_extensions
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )

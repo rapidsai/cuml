@@ -28,11 +28,11 @@
 #include "pairwise_distance_minkowski.cuh"
 #include "pairwise_distance_russell_rao.cuh"
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/distance.hpp>
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/distance/specializations.cuh>
 #include <raft/handle.hpp>
 #include <raft/sparse/distance/common.h>
-#include <raft/sparse/distance/distance.hpp>
+#include <raft/sparse/distance/distance.cuh>
 
 namespace ML {
 

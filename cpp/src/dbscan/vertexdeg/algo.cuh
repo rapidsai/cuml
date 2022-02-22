@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <math.h>
-#include <raft/spatial/knn/epsilon_neighborhood.hpp>
+#include <raft/spatial/knn/epsilon_neighborhood.cuh>
 
 #include "pack.h"
 

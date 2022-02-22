@@ -24,7 +24,7 @@
 #include <raft/cudart_utils.h>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

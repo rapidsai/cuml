@@ -30,8 +30,8 @@
 #include <cuml/svm/svm_parameter.h>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>

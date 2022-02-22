@@ -22,10 +22,10 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
 

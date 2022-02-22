@@ -22,7 +22,7 @@
 #include <opg/matrix/matrix_utils.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <test_utils.h>
 
 #include <raft/comms/mpi_comms.hpp>

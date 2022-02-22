@@ -18,17 +18,17 @@
 
 #include "penalty.cuh"
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

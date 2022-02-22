@@ -16,7 +16,7 @@
 
 #include <raft/sparse/coo.hpp>
 
-#include <raft/sparse/linalg/spectral.hpp>
+#include <raft/sparse/linalg/spectral.cuh>
 
 namespace raft {
 class handle_t;

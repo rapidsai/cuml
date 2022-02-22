@@ -23,9 +23,9 @@
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/matrix/math.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/matrix/math.cuh>
 #include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;

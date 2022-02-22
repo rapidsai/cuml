@@ -34,14 +34,14 @@
 #include <cstdlib>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "optimize_batch_kernel.cuh"
 #include <string>
 
-#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/filter.cuh>
 #include <thrust/iterator/discard_iterator.h>
 #pragma once
 

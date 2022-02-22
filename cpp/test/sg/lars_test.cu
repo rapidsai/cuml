@@ -20,7 +20,7 @@
 #include <raft/handle.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
 #include <sstream>

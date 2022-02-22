@@ -22,7 +22,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <test_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>

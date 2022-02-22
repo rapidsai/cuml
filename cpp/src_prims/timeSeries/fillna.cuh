@@ -24,8 +24,8 @@
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 

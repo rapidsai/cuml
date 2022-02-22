@@ -16,7 +16,7 @@
  */
 
 #include "pairwise_distance_hamming.cuh"
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 

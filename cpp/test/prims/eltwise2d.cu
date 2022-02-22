@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <linalg/eltwise2d.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace MLCommon {
 namespace LinAlg {

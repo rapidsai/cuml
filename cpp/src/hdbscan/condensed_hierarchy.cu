@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 
 #include <cub/cub.cuh>
 
@@ -24,8 +24,8 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>

@@ -18,8 +18,8 @@
 
 #include <cuml/metrics/metrics.hpp>
 
-#include <raft/distance/distance.hpp>
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/distance/specializations.cuh>
 
 #include <raft/handle.hpp>
 

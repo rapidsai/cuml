@@ -21,13 +21,13 @@
 #include "stabilities.cuh"
 #include "utils.h"
 
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

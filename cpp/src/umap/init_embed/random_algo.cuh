@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace UMAPAlgo {
 namespace InitEmbed {
