@@ -15,6 +15,12 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+include(FetchContent)
+FetchContent_Declare(
+        rapids-cmake
+        GIT_REPOSITORY https://github.com/robertmaynard/rapids-cmake.git
+        GIT_TAG        move_to_cpm_v0.35.0
+)
 file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
