@@ -248,3 +248,16 @@ def test_transform_with_index():
 
     train_encoded = t_enc.transform(df[["a"]])
     assert array_equal(train_encoded, ans)
+
+
+def test_get_params():
+    params = {
+         'n_folds': 5,
+         'smooth': 1,
+         'seed': 49,
+         'split_method': 'customize'
+    }
+    encoder = TargetEncoder(**params)
+    p2 = encoder.get_params()
+    for k, v in params.items():
+        assert v == p2[k]
