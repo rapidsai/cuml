@@ -21,6 +21,7 @@ function(find_and_configure_raft)
             "${multiValueArgs}" ${ARGN} )
 
     set(CPM_DOWNLOAD_raft ON)
+    set(CMAKE_IGNORE_PATH "${CMAKE_IGNORE_PATH};${CMAKE_INSTALL_PREFIX}/include/raft")
 
     string(APPEND RAFT_COMPONENTS "distance")
     if(PKG_USE_RAFT_NN)
