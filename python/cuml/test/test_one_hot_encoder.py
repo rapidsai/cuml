@@ -375,3 +375,26 @@ def test_onehot_category_class_count(total_classes: int):
 
         assert (encoder.fit_transform(example_df).shape[1] == class_per_row *
                 row_count)
+
+
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_get_feature_names(as_array):
+    fruits = ['apple', 'banana', 'strawberry']
+    if as_array:
+        fruits = [ord(fruit[0]) for fruit in fruits]
+    sizes = [0, 1, 2]
+    X = DataFrame({'fruits': fruits, 'sizes': sizes})
+    if as_array:
+        X = _from_df_to_cupy(X)
+
+    enc = OneHotEncoder().fit(X)
+
+    feature_names_ref = ['x0_'+str(fruit) for fruit in fruits] + \
+                        ['x1_'+str(size) for size in sizes]
+    feature_names = enc.get_feature_names()
+    assert np.array_equal(feature_names, feature_names_ref)
+
+    feature_names_ref = ['fruit_'+str(fruit) for fruit in fruits] + \
+                        ['size_'+str(size) for size in sizes]
+    feature_names = enc.get_feature_names(['fruit', 'size'])
+    assert np.array_equal(feature_names, feature_names_ref)
