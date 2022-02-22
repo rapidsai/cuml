@@ -25,10 +25,7 @@ function(find_and_configure_raft)
 
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
         message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
-        execute_process(
-                COMMAND git clone "https://github.com/${PKG_FORK}/raft.git" --branch ${PKG_PINNED_TAG} raft-src
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps)
-        set(CPM_raft_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/_deps/raft-src)
+        set(CPM_DOWNLOAD_raft ON)
     endif()
 
     string(APPEND RAFT_COMPONENTS "distance")
@@ -66,8 +63,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        FORK             cjnolet
+                        PINNED_TAG       2204_add_conda_install_instructions
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
