@@ -99,12 +99,12 @@ message(VERBOSE "CUML: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 # - Target names -------------------------------------------------------------
 
 set(CUML_CPP_TARGET "cuml++")
-set(CUML_CPP_TEST_TARGET "ml")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
-set(CUML_C_TARGET "cuml")
+if(${BUILD_CUML_C_LIBRARY})
+  set(CUML_C_TARGET "cuml")
+endif()
 set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
 set(CUML_MG_TEST_TARGET "ml_mg")
-set(PRIMS_TEST_TARGET "prims")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
 
 ##############################################################################
@@ -493,9 +493,9 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     PRIVATE
       $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
-      $<$<BOOL:${LINK_TREELITE}>:${TREELITE_LIBS}>
+      ${TREELITE_LIBS}
       $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
-      $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
+      ${OpenMP_CXX_LIB_NAMES}
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
       $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>

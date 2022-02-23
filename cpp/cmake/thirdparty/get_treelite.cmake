@@ -45,7 +45,6 @@ function(find_and_configure_treelite)
 
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
     set(TREELITE_LIBS ${TREELITE_LIBS} PARENT_SCOPE)
-
     if(Treelite_ADDED)
         if (NOT PKG_BUILD_STATIC_LIBS)
             target_include_directories(treelite

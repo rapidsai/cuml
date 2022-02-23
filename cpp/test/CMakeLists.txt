@@ -32,7 +32,9 @@ function(ConfigureTest)
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
-  # PR 4296 will improve conditional links here
+  message(VERBOSE "@@@@@@@@@@: BUILD_CUML_C_LIBRARY: ${BUILD_CUML_C_LIBRARY}")
+
+
   target_link_libraries(${TEST_NAME}
   PRIVATE
     ${CUML_CPP_TARGET}
@@ -42,21 +44,19 @@ function(ConfigureTest)
     CUDA::cusolver
     CUDA::cudart
     CUDA::cusparse
-    CUDA::cufft
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
     rmm::rmm
     raft::raft
-    raft::nn
-    raft::distance
+    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
+    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}
     Threads::Threads
-    $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
     $<$<BOOL:${ConfigureTest_NCCL}>:NCCL::NCCL>
     $<$<BOOL:${ConfigureTest_CUMLPRIMS}>:cumlprims_mg::cumlprims_mg>
     $<$<BOOL:${ConfigureTest_MPI}>:${MPI_CXX_LIBRARIES}>
-    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+    ${TREELITE_LIBS}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
