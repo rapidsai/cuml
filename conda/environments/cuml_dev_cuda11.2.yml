@@ -16,6 +16,7 @@ dependencies:
 - libraft-headers=22.04.*
 - libraft-distance=22.04.*
 - libraft-nn=22.04.*
+- pyraft=22.04.*
 - dask-cudf=22.04.*
 - dask-cuda=22.04.*
 - ucx-py=0.25.*
@@ -26,7 +27,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
-- treelite=2.2.1
+- treelite=2.3.0
 - statsmodels
 - seaborn
 - hdbscan
