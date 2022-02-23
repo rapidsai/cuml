@@ -15,7 +15,7 @@
 #=============================================================================
 
 
-if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+if(CUML_ALGORITHMS STREQUAL "ALL")
     set(CUML_USE_RAFT_NN ON)
     set(CUML_USE_RAFT_DIST ON)
     set(LINK_TREELITE ON)
@@ -29,7 +29,7 @@ else()
     set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_EXAMPLES OFF)
 
-    foreach(algo ${CUML_CPP_ALGORITHMS})
+    foreach(algo ${CUML_ALGORITHMS})
       string(TOLOWER ${algo} lower_algo)
       set(${lower_algo}_algo ON)
     endforeach()
