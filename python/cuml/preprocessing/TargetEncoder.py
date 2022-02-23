@@ -413,7 +413,7 @@ class TargetEncoder:
             "n_folds", "smooth", "seed", "split_method",
         ]
 
-    def get_params(self):
+    def get_params(self, deep=False):
         """
         Returns a dict of all params owned by this class.
         """
