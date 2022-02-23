@@ -18,6 +18,9 @@ import inspect
 import cuml
 import pytest
 import numpydoc.docscrape
+
+from raft.common.cuda import Stream
+
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
@@ -40,7 +43,7 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    stream = cuml.raft.common.cuda.Stream()
+    stream = Stream()
     handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()
