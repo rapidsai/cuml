@@ -28,6 +28,8 @@ else()
     set(BUILD_CUML_C_LIBRARY OFF)
     set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_EXAMPLES OFF)
+    set(CUML_USE_RAFT_NN OFF)
+    set(CUML_USE_RAFT_DIST OFF)
 
     foreach(algo ${CUML_ALGORITHMS})
       string(TOLOWER ${algo} lower_algo)
