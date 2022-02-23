@@ -55,8 +55,7 @@ function(ConfigureTest)
     $<$<BOOL:${ConfigureTest_NCCL}>:NCCL::NCCL>
     $<$<BOOL:${ConfigureTest_CUMLPRIMS}>:cumlprims_mg::cumlprims_mg>
     $<$<BOOL:${ConfigureTest_MPI}>:${MPI_CXX_LIBRARIES}>
-    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+    ${TREELITE_LIBS}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
