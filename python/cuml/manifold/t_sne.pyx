@@ -341,7 +341,7 @@ class TSNE(Base,
                              "pre_momentum = {}".format(post_momentum,
                                                         pre_momentum))
         if method == "fft":
-            warnings.warn("Starting from version 22.0, the default method "
+            warnings.warn("Starting from version 22.04, the default method "
                           "of TSNE is 'fft'.")
 
         self.n_components = n_components
