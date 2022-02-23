@@ -32,9 +32,6 @@ function(ConfigureTest)
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
-  message(VERBOSE "@@@@@@@@@@: BUILD_CUML_C_LIBRARY: ${BUILD_CUML_C_LIBRARY}")
-
-
   target_link_libraries(${TEST_NAME}
   PRIVATE
     ${CUML_CPP_TARGET}
@@ -97,9 +94,6 @@ if(BUILD_CUML_TESTS)
 
   if(all_algo)
     ConfigureTest(PREFIX SG NAME LOGGER_TEST PATH sg/logger.cpp OPTIONAL ML_INCLUDE)
-    # todo: add trustworthiness algo
-    ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
-
   endif()
 
   if(all_algo OR dbscan_algo)
@@ -146,6 +140,10 @@ if(BUILD_CUML_TESTS)
 
   if(all_algo OR hierarchicalclustering_algo)
     ConfigureTest(PREFIX SG NAME LINKAGE_TEST PATH sg/linkage_test.cu OPTIONAL ML_INCLUDE)
+  endif()
+
+  if(all_algo OR metrics_algo)
+    ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
   endif()
 
   if(all_algo OR pca_algo)

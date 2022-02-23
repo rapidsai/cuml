@@ -20,6 +20,9 @@ if(CUML_ALGORITHMS STREQUAL "ALL")
     set(CUML_USE_RAFT_DIST ON)
     set(LINK_TREELITE ON)
     set(LINK_CUFFT ON)
+    set(all_algo ON)
+    # setting treeshap to ON to get the gputreeshap include in the cuml_cpp_target
+    set(treeshap_algo ON)
 else()
 
     # Initial configurable version only supports single GPU, no C API and no

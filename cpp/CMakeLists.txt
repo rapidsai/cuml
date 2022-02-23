@@ -194,7 +194,7 @@ if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
 endif()
 
-if(treeshap_algo)
+if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
 endif()
 
@@ -260,6 +260,19 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR decisiontree_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
+        src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu)
   endif()
 
@@ -398,7 +411,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR svm_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        rc/svm/svc.cu
+        src/svm/svc.cu
         src/svm/svr.cu
         src/svm/ws_util.cu)
   endif()
