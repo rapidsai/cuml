@@ -24,6 +24,10 @@ function(find_and_configure_raft)
 
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
         message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+        set(RAFT_CXX_FLAGS ${RAFT_CXX_FLAGS} -fPIC)
+        set(RAFT_CUDA_FLAGS ${RAFT_CUDA_FLAGS} -fPIC)
+        set(CUML_CXX_FLAGS ${CUML_CXX_FLAGS} -fPIC)
+        set(CUML_CUDA_FLAGS ${CUML_CUDA_FLAGS} -fPIC)
         set(CPM_DOWNLOAD_raft ON)
     endif()
 
@@ -73,8 +77,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        FORK             cjnolet
+                        PINNED_TAG       imp-2204-raft_header_cuh_extensions
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
