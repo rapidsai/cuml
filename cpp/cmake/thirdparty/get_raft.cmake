@@ -23,9 +23,11 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
+    set(STATIC_LINK_LIBRARIES OFF)
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
         message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
         set(CPM_DOWNLOAD_raft ON)
+        set(STATIC_LINK_LIBRARIES ON)
     endif()
 
     string(APPEND RAFT_COMPONENTS "distance")
@@ -45,6 +47,7 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
+              "RAFT_STATIC_LINK_LIBRARIES ${STATIC_LINK_LIBRARIES}"
               "BUILD_TESTS OFF"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
               "NVTX ${NVTX}"
