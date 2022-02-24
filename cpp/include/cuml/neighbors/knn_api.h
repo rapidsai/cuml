@@ -42,17 +42,27 @@ extern "C" {
  * @param[in] rowMajorIndex is the index array in row major layout?
  * @param[in] rowMajorQuery is the query array in row major layout?
  * @param[in] metric_type the type of distance metric to use. This corresponds
- * 					  to the value in the ML::MetricType enum. Default is
- * 					  Euclidean (L2).
+ * 					  to the value in the raft::distance::DistanceType enum.
+ * 					  Default is Euclidean (L2).
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
  */
-cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
-                       int n_params, int D, float *search_items, int n,
-                       int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery, int metric_type, float metric_arg,
+cumlError_t knn_search(const cumlHandle_t handle,
+                       float** input,
+                       int* size,
+                       int n_params,
+                       int D,
+                       float* search_items,
+                       int n,
+                       int64_t* res_I,
+                       float* res_D,
+                       int k,
+                       bool rowMajorIndex,
+                       bool rowMajorQuery,
+                       int metric_type,
+                       float metric_arg,
                        bool expanded);
 
 #ifdef __cplusplus

@@ -14,12 +14,14 @@
 #
 
 import cuml.internals
-import sklearn.multiclass
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.import_utils import has_sklearn
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
+from cuml.internals import _deprecate_pos_args
 
 
 class MulticlassClassifier(Base, ClassifierMixin):
@@ -67,7 +69,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     strategy: string {'ovr', 'ovo'}, default='ovr'
         Multiclass classification strategy: 'ovr': one vs. rest or 'ovo': one
@@ -81,13 +83,16 @@ class MulticlassClassifier(Base, ClassifierMixin):
         Number of classes.
 
     """
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  estimator,
+                 *,
                  handle=None,
                  verbose=False,
                  output_type=None,
                  strategy='ovr'):
-        super().__init__(handle=handle, verbose=verbose,
+        super().__init__(handle=handle,
+                         verbose=verbose,
                          output_type=output_type)
         self.strategy = strategy
         self.estimator = estimator
@@ -107,6 +112,10 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Fit a multiclass classifier.
         """
+        if not has_sklearn():
+            raise ImportError("Scikit-learn is needed to use "
+                              "MulticlassClassifier derived classes.")
+        import sklearn.multiclass
         if self.strategy == 'ovr':
             self.multiclass_estimator = sklearn.multiclass.\
                 OneVsRestClassifier(self.estimator, n_jobs=None)
@@ -200,9 +209,10 @@ class OneVsRestClassifier(MulticlassClassifier):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     """
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  estimator,
                  *args,
@@ -265,9 +275,10 @@ class OneVsOneClassifier(MulticlassClassifier):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     """
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  estimator,
                  *args,

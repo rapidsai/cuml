@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,19 +25,22 @@ namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Index_ = int>
-void run(const raft::handle_t& handle, bool* adj, Index_* vd, Index_* adj_graph,
-         Index_ adjnnz, Index_* ex_scan, Index_ N, int algo, Index_ batch_size,
-         cudaStream_t stream) {
+void run(const raft::handle_t& handle,
+         bool* adj,
+         Index_* vd,
+         Index_* adj_graph,
+         Index_ adjnnz,
+         Index_* ex_scan,
+         Index_ N,
+         int algo,
+         Index_ batch_size,
+         cudaStream_t stream)
+{
   Pack<Index_> data = {vd, adj, adj_graph, adjnnz, ex_scan, N};
   switch (algo) {
-    case 0:
-      Naive::launcher<Index_>(handle, data, batch_size, stream);
-      break;
-    case 1:
-      Algo::launcher<Index_>(handle, data, batch_size, stream);
-      break;
-    default:
-      ASSERT(false, "Incorrect algo passed! '%d'", algo);
+    case 0: Naive::launcher<Index_>(handle, data, batch_size, stream); break;
+    case 1: Algo::launcher<Index_>(handle, data, batch_size, stream); break;
+    default: ASSERT(false, "Incorrect algo passed! '%d'", algo);
   }
 }
 

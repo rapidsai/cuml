@@ -31,8 +31,10 @@ extern "C" {
  * @param[in] eps the epsilon value to use for epsilon-neighborhood determination
  * @param[in] min_pts minimum number of points to determine a cluster
  * @param[out] labels (size n_rows) output labels array
- * @param[out] core_sample_indices (size n_rows) output array containing the 
- *             indices of each core point. If the number of core points is less than n_rows, the right will be padded with -1. Setting this to NULL will prevent calculating the core sample indices
+ * @param[out] core_sample_indices (size n_rows) output array containing the
+ *             indices of each core point. If the number of core points is less than n_rows, the
+ * right will be padded with -1. Setting this to NULL will prevent calculating the core sample
+ * indices
  * @param[in] max_mem_bytes the maximum number of bytes to be used for each batch of
  *            the pairwise distance calculation. This enables the trade off between
  *            memory usage and algorithm execution time.
@@ -41,15 +43,27 @@ extern "C" {
  * @return CUML_SUCCESS on success and other corresponding flags upon any failures.
  * @{
  */
-cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
-                            int n_cols, float eps, int min_pts, int *labels,
-                            int *core_sample_indices,
-                            size_t max_bytes_per_batch, int verbosity);
+cumlError_t cumlSpDbscanFit(cumlHandle_t handle,
+                            float* input,
+                            int n_rows,
+                            int n_cols,
+                            float eps,
+                            int min_pts,
+                            int* labels,
+                            int* core_sample_indices,
+                            size_t max_bytes_per_batch,
+                            int verbosity);
 
-cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
-                            int n_cols, double eps, int min_pts, int *labels,
-                            int *core_sample_indices,
-                            size_t max_bytes_per_batch, int verbosity);
+cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
+                            double* input,
+                            int n_rows,
+                            int n_cols,
+                            double eps,
+                            int min_pts,
+                            int* labels,
+                            int* core_sample_indices,
+                            size_t max_bytes_per_batch,
+                            int verbosity);
 /** @} */
 
 #ifdef __cplusplus

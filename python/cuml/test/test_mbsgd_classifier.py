@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ def make_dataset(request):
     return nrows, X_train, X_test, y_train, y_test
 
 
+@pytest.mark.xfail(reason='Related to CuPy 9.0 update (see issue #3813)')
 @pytest.mark.parametrize(
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
@@ -60,6 +61,7 @@ def make_dataset(request):
         ('constant', 'elasticnet', 'hinge'),
     ]
 )
+@pytest.mark.filterwarnings("ignore:Maximum::sklearn[.*]")
 def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
@@ -86,6 +88,7 @@ def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
         assert cu_acc >= skl_acc - 0.08
 
 
+@pytest.mark.xfail(reason='Related to CuPy 9.0 update (see issue #3813)')
 @pytest.mark.parametrize(
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
@@ -111,6 +114,7 @@ def test_mbsgd_classifier(lrate, penalty, loss, make_dataset):
     assert cu_acc > 0.79
 
 
+@pytest.mark.xfail(reason='Related to CuPy 9.0 update (see issue #3813)')
 def test_mbsgd_classifier_default(make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 
@@ -121,3 +125,24 @@ def test_mbsgd_classifier_default(make_dataset):
     cu_acc = accuracy_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test))
 
     assert cu_acc >= 0.69
+
+
+def test_mbsgd_classifier_set_params():
+    x = np.linspace(0, 1, 50)
+    y = (x > 0.5).astype(cp.int32)
+
+    model = cumlMBSGClassifier()
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    model = cumlMBSGClassifier(epochs=20, loss='hinge')
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = cumlMBSGClassifier()
+    model.set_params(**{'epochs': 20, 'loss': 'hinge'})
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert coef_before != coef_after
+    assert coef_after == coef_test

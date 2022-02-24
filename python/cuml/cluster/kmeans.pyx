@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,9 +31,11 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from cuml.common.mixins import ClusterMixin
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
+from raft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
@@ -66,6 +68,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       const float *sample_weight,
+                      bool normalize_weights,
                       int *labels,
                       float &inertia) except +
 
@@ -76,6 +79,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       const double *sample_weight,
+                      bool normalize_weights,
                       int *labels,
                       double &inertia) except +
 
@@ -98,7 +102,9 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         double *X_new) except +
 
 
-class KMeans(Base):
+class KMeans(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
 
     """
     KMeans is a basic but powerful clustering method which is optimized via
@@ -192,14 +198,15 @@ class KMeans(Base):
            shape (`n_clusters`, `n_features`) and gives the initial centers.
 
     n_init: int (default = 1)
-        Number of instances the k-means algorithm will be called with different
-        seeds. The final results will be from the instance that produces lowest
-        inertia out of `n_init` instances.
-    oversampling_factor : int (default = 2)
-        The amount of points to sample in scalable k-means++ initialization for
-        potential centroids. Increasing this value can lead to better initial
-        centroids at the cost of memory. The total number of centroids sampled
-        in scalable k-means++ is :py:`oversampling_factor * n_clusters * 8`.
+        Number of instances the k-means algorithm will be called with different seeds.
+        The final results will be from the instance that produces lowest inertia out
+        of n_init instances.
+    oversampling_factor : float64 (default = 2.0)
+        The amount of points to sample
+        in scalable k-means++ initialization for potential centroids.
+        Increasing this value can lead to better initial centroids at the
+        cost of memory. The total number of centroids sampled in scalable
+        k-means++ is oversampling_factor * n_clusters * 8.
     max_samples_per_batch : int (default = 32768)
         The number of data samples to use for batches of the pairwise distance
         computation. This computation is done throughout both fit predict. The
@@ -210,7 +217,7 @@ class KMeans(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -245,11 +252,13 @@ class KMeans(Base):
     labels_ = CumlArrayDescriptor()
     cluster_centers_ = CumlArrayDescriptor()
 
-    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
+    def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
-        super(KMeans, self).__init__(handle, verbose, output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.max_iter = max_iter
@@ -401,8 +410,9 @@ class KMeans(Base):
         return self.fit(X, sample_weight=sample_weight).labels_
 
     def _predict_labels_inertia(self, X, convert_dtype=False,
-                                sample_weight=None) -> typing.Tuple[CumlArray,
-                                                                    float]:
+                                sample_weight=None,
+                                normalize_weights=True
+                                ) -> typing.Tuple[CumlArray, float]:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -453,7 +463,8 @@ class KMeans(Base):
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32)
+        self.labels_ = CumlArray.zeros(shape=n_rows, dtype=np.int32,
+                                       index=X_m.index)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
@@ -469,6 +480,7 @@ class KMeans(Base):
                 <size_t> n_rows,
                 <size_t> self.n_cols,
                 <float *>sample_weight_ptr,
+                <bool> normalize_weights,
                 <int*> labels_ptr,
                 inertiaf)
             self.handle.sync()
@@ -482,6 +494,7 @@ class KMeans(Base):
                 <size_t> n_rows,
                 <size_t> self.n_cols,
                 <double *>sample_weight_ptr,
+                <bool> normalize_weights,
                 <int*> labels_ptr,
                 inertiad)
             self.handle.sync()
@@ -500,15 +513,18 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False, sample_weight=None) -> CumlArray:
+    def predict(self, X, convert_dtype=False, sample_weight=None,
+                normalize_weights=True) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
         """
 
-        labels, _ = self._predict_labels_inertia(X,
-                                                 convert_dtype=convert_dtype,
-                                                 sample_weight=sample_weight)
+        labels, _ = self._predict_labels_inertia(
+            X,
+            convert_dtype=convert_dtype,
+            sample_weight=sample_weight,
+            normalize_weights=normalize_weights)
         return labels
 
     @generate_docstring(return_values={'name': 'X_new',
@@ -591,20 +607,17 @@ class KMeans(Base):
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, convert_dtype=False) -> CumlArray:
+    def fit_transform(self, X, convert_dtype=False,
+                      sample_weight=None) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 
         """
-        return self.fit(X).transform(X, convert_dtype=convert_dtype)
+        self.fit(X, sample_weight=sample_weight)
+        return self.transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol']
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

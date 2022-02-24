@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,9 +87,9 @@ class LabelBinarizer(BaseEstimator):
 
 
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
 
-        super(LabelBinarizer, self).__init__(client=client, **kwargs)
+        super().__init__(client=client, **kwargs)
 
         """
         Initialize new LabelBinarizer instance

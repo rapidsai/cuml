@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,8 +33,9 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from raft.common.handle cimport handle_t
+from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -117,7 +118,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                                     int loss) except +
 
 
-class SGD(Base):
+class SGD(Base,
+          FMajorInputTagMixin):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm
     where one optimizes some cost function via gradient steps. This makes SGD
@@ -147,7 +149,7 @@ class SGD(Base):
                         fit_intercept=True, batch_size=2,
                         tol=0.0, penalty='none', loss='squared_loss')
         cu_sgd.fit(X, y)
-        cu_pred = cu_sgd.predict(pred_data).to_array()
+        cu_pred = cu_sgd.predict(pred_data).to_numpy()
         print(" cuML intercept : ", cu_sgd.intercept_)
         print(" cuML coef : ", cu_sgd.coef_)
         print("cuML predictions : ", cu_pred)
@@ -213,7 +215,7 @@ class SGD(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -224,7 +226,7 @@ class SGD(Base):
     coef_ = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
+    def __init__(self, *, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
@@ -242,8 +244,9 @@ class SGD(Base):
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=verbose,
-                                  output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
@@ -414,7 +417,7 @@ class SGD(Base):
         cdef uintptr_t X_ptr = X_m.ptr
 
         cdef uintptr_t coef_ptr = self.coef_.ptr
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -462,7 +465,7 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        preds = CumlArray.zeros(n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
@@ -507,8 +510,3 @@ class SGD(Base):
             "batch_size",
             "n_iter_no_change",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

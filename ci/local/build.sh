@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+##############################################
+# cuML local build and test script for CI    #
+##############################################
+
+
 GIT_DESCRIBE_TAG=`git describe --tags`
 MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 

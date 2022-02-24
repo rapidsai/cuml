@@ -16,6 +16,7 @@
 
 import copy
 from collections import namedtuple
+import nvtx
 
 import cudf
 import cupy as cp
@@ -27,13 +28,16 @@ import cuml.internals
 import cuml.common.array
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_scipy
+from cuml.common.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
 from cuml.common.memory_utils import ArrayInfo
 from cuml.common.memory_utils import _check_array_contiguity
 
 if has_scipy():
     import scipy.sparse
+
+if has_dask_cudf():
+    import dask_cudf
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -200,12 +204,15 @@ def is_array_like(X):
     return determine_array_type(X) is not None
 
 
+@nvtx.annotate(message="common.input_utils.input_to_cuml_array",
+               category="utils", domain="cuml_python")
 @cuml.internals.api_return_any()
 def input_to_cuml_array(X,
                         order='F',
                         deepcopy=False,
                         check_dtype=False,
                         convert_to_dtype=False,
+                        safe_dtype_conversion=True,
                         check_cols=False,
                         check_rows=False,
                         fail_on_order=False,
@@ -245,6 +252,12 @@ def input_to_cuml_array(X,
     convert_to_dtype: np.dtype (default: False)
         Set to a dtype if you want X to be converted to that dtype if it is
         not that dtype already.
+
+    safe_convert_to_dtype: bool (default: True)
+        Set to True to check whether a typecasting performed when
+        convert_to_dtype is True will cause information loss. This has a
+        performance implication that might be significant for very fast
+        methods like FIL and linear models inference.
 
     check_cols: int (default: False)
         Set to an int `i` to check that input X has `i` columns. Set to False
@@ -293,10 +306,18 @@ def input_to_cuml_array(X,
     force_contiguous = True
 
     if convert_to_dtype:
-        X = convert_dtype(X, to_dtype=convert_to_dtype)
+        X = convert_dtype(X,
+                          to_dtype=convert_to_dtype,
+                          safe_dtype=safe_dtype_conversion)
         check_dtype = False
 
+    index = getattr(X, 'index', None)
+
     # format conversion
+
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
 
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
@@ -310,15 +331,18 @@ def input_to_cuml_array(X,
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
-            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
+            X_m = CumlArray(data=X.to_cupy(), index=index)
         else:
-            X_m = CumlArray(data=X.as_gpu_matrix(order=order))
+            X_m = CumlArray(data=cp.array(X.to_cupy(), order=order),
+                            index=index)
 
     elif isinstance(X, CumlArray):
         X_m = X
 
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
+
+        host_array = hasattr(X, "__array_interface__")
 
         # Since we create the array with the correct order here, do the order
         # check now if necessary
@@ -335,12 +359,17 @@ def input_to_cuml_array(X,
             if not _check_array_contiguity(X):
                 debug("Non contiguous array or view detected, a "
                       "contiguous copy of the data will be done.")
-                # X = cp.array(X, order=order, copy=True)
                 make_copy = True
+
+        # If we have a host array, we copy it first before changing order
+        # to transpose using the GPU
+        if host_array:
+            X = cp.array(X)
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
-        X_m = CumlArray(data=cp_arr)
+        X_m = CumlArray(data=cp_arr,
+                        index=index)
 
         if deepcopy:
             X_m = copy.deepcopy(X_m)
@@ -385,11 +414,17 @@ def input_to_cuml_array(X,
 
     if (check_order(X_m.order)):
         X_m = cp.array(X_m, copy=False, order=order)
-        X_m = CumlArray(data=X_m)
+        X_m = CumlArray(data=X_m,
+                        index=index)
 
-    return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+    return cuml_array(array=X_m,
+                      n_rows=n_rows,
+                      n_cols=n_cols,
+                      dtype=X_m.dtype)
 
 
+@nvtx.annotate(message="common.input_utils.input_to_cupy_array",
+               category="utils", domain="cuml_python")
 def input_to_cupy_array(X,
                         order='F',
                         deepcopy=False,
@@ -426,6 +461,8 @@ def input_to_cupy_array(X,
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
+@nvtx.annotate(message="common.input_utils.input_to_host_array",
+               category="utils", domain="cuml_python")
 def input_to_host_array(X,
                         order='F',
                         deepcopy=False,
@@ -524,14 +561,23 @@ def input_to_host_array(X,
 
 
 @cuml.internals.api_return_any()
-def convert_dtype(X, to_dtype=np.float32, legacy=True):
+def convert_dtype(X,
+                  to_dtype=np.float32,
+                  legacy=True,
+                  safe_dtype=True):
     """
     Convert X to be of dtype `dtype`, raising a TypeError
     if the conversion would lose information.
     """
-    would_lose_info = _typecast_will_lose_information(X, to_dtype)
-    if would_lose_info:
-        raise TypeError("Data type conversion would lose information.")
+
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
+
+    if safe_dtype:
+        would_lose_info = _typecast_will_lose_information(X, to_dtype)
+        if would_lose_info:
+            raise TypeError("Data type conversion would lose information.")
 
     if isinstance(X, np.ndarray):
         dtype = X.dtype
@@ -571,6 +617,10 @@ def _typecast_will_lose_information(X, target_dtype):
 
     if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
         if X.dtype.type == target_dtype:
+            return False
+
+        # if we are casting to a bigger data type
+        if np.dtype(X.dtype) <= np.dtype(target_dtype):
             return False
 
         return ((X < target_dtype_range.min) |

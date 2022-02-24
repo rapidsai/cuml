@@ -17,16 +17,17 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
+
 namespace UMAPAlgo {
 namespace InitEmbed {
 namespace RandomInit {
 
 using namespace ML;
 
-template <typename value_idx, typename T>
-void launcher(int n, int d, const value_idx *knn_indices, const T *knn_dists,
-              UMAPParams *params, T *embedding, cudaStream_t stream) {
+template <typename T>
+void launcher(int n, int d, UMAPParams* params, T* embedding, cudaStream_t stream)
+{
   uint64_t seed = params->random_state;
 
   raft::random::Rng r(seed);

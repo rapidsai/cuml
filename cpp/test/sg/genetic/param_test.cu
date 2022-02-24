@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include <cuml/genetic/genetic.h>
-#include <gtest/gtest.h>
 #include "../../prims/test_utils.h"
+#include <cuml/genetic/common.h>
+#include <gtest/gtest.h>
 
 namespace cuml {
 namespace genetic {
 
-TEST(Genetic, ParamTest) {
+TEST(Genetic, ParamTest)
+{
   param p;
   ASSERT_EQ(p.population_size, 1000);
   ASSERT_EQ(p.hall_of_fame, 100);
@@ -40,6 +41,8 @@ TEST(Genetic, ParamTest) {
   ASSERT_EQ(p.function_set[2], node::type::div);
   ASSERT_EQ(p.function_set[3], node::type::sub);
   ASSERT_EQ(p.transformer, transformer_t::sigmoid);
+  ASSERT_EQ(p.arity_set[2][0], node::type::add);
+  ASSERT_EQ(p.arity_set[2].size(), 4);
   ASSERT_EQ(p.metric, metric_t::mae);
   ASSERT_EQ(p.parsimony_coefficient, 0.001f);
   ASSERT_EQ(p.p_crossover, 0.9f);
@@ -52,11 +55,11 @@ TEST(Genetic, ParamTest) {
   ASSERT_EQ(p.random_state, 0ull);
 }
 
-TEST(Genetic, p_reproduce) {
+TEST(Genetic, p_reproduce)
+{
   param p;
   auto ret = p.p_reproduce();
-  ASSERT_TRUE(
-    raft::match(p.p_reproduce(), 0.07f, raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(raft::match(p.p_reproduce(), 0.07f, raft::CompareApprox<float>(0.0001f)));
 }
 
 }  // namespace genetic

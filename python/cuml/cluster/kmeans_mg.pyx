@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
@@ -44,6 +44,7 @@ cdef extern from "cuml/cluster/kmeans_mg.hpp" \
                   const float *X,
                   int n_samples,
                   int n_features,
+                  const float *sample_weight,
                   float *centroids,
                   float &inertia,
                   int &n_iter) except +
@@ -53,6 +54,7 @@ cdef extern from "cuml/cluster/kmeans_mg.hpp" \
                   const double *X,
                   int n_samples,
                   int n_features,
+                  const double *sample_weight,
                   double *centroids,
                   double &inertia,
                   int &n_iter) except +
@@ -72,7 +74,7 @@ class KMeansMG(KMeans):
     def __init__(self, **kwargs):
         super(KMeansMG, self).__init__(**kwargs)
 
-    def fit(self, X) -> "KMeansMG":
+    def fit(self, X, sample_weight=None) -> "KMeansMG":
         """
         Compute k-means clustering with X in a multi-node multi-GPU setting.
 
@@ -83,14 +85,32 @@ class KMeansMG(KMeans):
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
+        sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
+            The weights for each observation in X. If None, all observations
+            are assigned equal weight.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+
         """
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='C')
 
         cdef uintptr_t input_ptr = X_m.ptr
+        cdef size_t n_rows = self.n_rows
+        cdef size_t n_cols = self.n_cols
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        if sample_weight is None:
+            sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+        else:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, order='C',
+                                    convert_to_dtype=self.dtype,
+                                    check_rows=n_rows)
+
+        cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self.cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,
@@ -99,9 +119,6 @@ class KMeansMG(KMeans):
                                                     order='C')
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
-
-        cdef size_t n_rows = self.n_rows
-        cdef size_t n_cols = self.n_cols
 
         cdef float inertiaf = 0
         cdef double inertiad = 0
@@ -117,6 +134,7 @@ class KMeansMG(KMeans):
                     <const float*> input_ptr,
                     <size_t> n_rows,
                     <size_t> n_cols,
+                    <const float *>sample_weight_ptr,
                     <float*> cluster_centers_ptr,
                     inertiaf,
                     n_iter)
@@ -131,6 +149,7 @@ class KMeansMG(KMeans):
                     <const double*> input_ptr,
                     <size_t> n_rows,
                     <size_t> n_cols,
+                    <const double *>sample_weight_ptr,
                     <double*> cluster_centers_ptr,
                     inertiad,
                     n_iter)

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ class MultinomialNB(BaseEstimator,
         0.9244298934936523
 
     """
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
 
         """
         Create new multinomial distributed Naive Bayes classifier instance
@@ -107,8 +107,8 @@ class MultinomialNB(BaseEstimator,
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super(MultinomialNB, self).__init__(client=client, verbose=verbose,
-                                            **kwargs)
+        super().__init__(client=client, verbose=verbose,
+                         **kwargs)
 
         self.datatype = "cupy"
 

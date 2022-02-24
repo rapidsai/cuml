@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 from dask.dataframe import Series as DaskSeries
 import dask.array as da
 from uuid import uuid1
 import numpy as np
+import pandas as pd
+import cudf
 
 
 class KNeighborsClassifier(NearestNeighbors):
@@ -57,11 +59,11 @@ class KNeighborsClassifier(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0,
+    def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
-        super(KNeighborsClassifier, self).__init__(client=client,
-                                                   verbose=verbose,
-                                                   **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -82,12 +84,16 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         self : KNeighborsClassifier model
         """
+
+        if not isinstance(X._meta, (np.ndarray, pd.DataFrame, cudf.DataFrame)):
+            raise ValueError('This chunk type is not supported')
+
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
 
-        # Compute set of possible labels for each output column -> uniq_labels
-        # Count possible labels for each columns -> n_unique
+        # uniq_labels: set of possible labels for each labels column
+        # n_unique: number of possible labels for each labels column
 
         uniq_labels = []
         if self.data_handler.datatype == 'cupy':
@@ -106,8 +112,10 @@ class KNeighborsClassifier(NearestNeighbors):
                     uniq_labels.append(y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
-        if not isinstance(uniq_labels[0], np.ndarray):  # for cuDF Series
+        if hasattr(uniq_labels[0], 'values_host'):  # for cuDF Series
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
+        elif hasattr(uniq_labels[0], 'values'):  # for pandas Series
+            uniq_labels = list(map(lambda x: x.values, uniq_labels))
         self.uniq_labels = np.array(uniq_labels)
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 

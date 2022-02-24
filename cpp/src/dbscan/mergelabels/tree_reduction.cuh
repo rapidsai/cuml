@@ -18,6 +18,10 @@
 
 #include "runner.cuh"
 
+#include <raft/common/nvtx.hpp>
+
+#include <cuml/common/logger.hpp>
+
 namespace ML {
 namespace Dbscan {
 namespace MergeLabels {
@@ -34,12 +38,18 @@ namespace MergeLabels {
  * @param[in]    stream      CUDA stream
  */
 template <typename Index_ = int>
-void tree_reduction(const raft::handle_t& handle, Index_* labels,
-                    Index_* labels_temp, const bool* mask, Index_* work_buffer,
-                    bool* m, Index_ N, cudaStream_t stream) {
+void tree_reduction(const raft::handle_t& handle,
+                    Index_* labels,
+                    Index_* labels_temp,
+                    const bool* mask,
+                    Index_* work_buffer,
+                    bool* m,
+                    Index_ N,
+                    cudaStream_t stream)
+{
   const auto& comm = handle.get_comms();
-  int my_rank = comm.get_rank();
-  int n_rank = comm.get_size();
+  int my_rank      = comm.get_rank();
+  int n_rank       = comm.get_size();
   raft::comms::request_t request;
 
   int s = 1;
@@ -48,7 +58,7 @@ void tree_reduction(const raft::handle_t& handle, Index_* labels,
 
     // Find out whether the node is a receiver / sender / passive
     bool receiver = my_rank % (2 * s) == 0 && my_rank + s < n_rank;
-    bool sender = my_rank % (2 * s) == s;
+    bool sender   = my_rank % (2 * s) == s;
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Receive labels (from %d)", my_rank + s);
@@ -66,10 +76,8 @@ void tree_reduction(const raft::handle_t& handle, Index_* labels,
 
     if (receiver) {
       CUML_LOG_DEBUG("--> Merge labels");
-      ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
-      MergeLabels::run<Index_>(handle, labels, labels_temp, mask, work_buffer,
-                               m, N, stream);
-      ML::POP_RANGE();
+      raft::common::nvtx::range fun_scope("Trace::Dbscan::MergeLabels");
+      MergeLabels::run<Index_>(handle, labels, labels_temp, mask, work_buffer, m, N, stream);
     }
 
     s *= 2;

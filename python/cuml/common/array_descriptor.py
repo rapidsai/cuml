@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ class CumlArrayDescriptor():
         assert len(existing.values) > 0
 
         # Get the global output type
-        output_type = cuml.global_output_type
+        output_type = cuml.global_settings.output_type
 
         # First, determine if we need to call to_output at all
         if (output_type == "mirror"):

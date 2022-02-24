@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #
 
 import contextlib
-import threading
 import typing
 from collections import deque
 
@@ -34,45 +33,37 @@ except ImportError:
     except ImportError:
         pass
 
-# Use _F as a type variable for decorators. See:
-# https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260
-_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
-
 
 @contextlib.contextmanager
 def _using_mirror_output_type():
     """
-    Sets cuml.global_output_type to "mirror" for internal API handling. We need
-    a separate function since `cuml.using_output_type()` doesn't accept
-    "mirror"
+    Sets cuml.global_settings.output_type to "mirror" for internal API
+    handling. We need a separate function since `cuml.using_output_type()`
+    doesn't accept "mirror"
 
     Yields
     -------
     string
-        Returns the previous value in cuml.global_output_type
+        Returns the previous value in cuml.global_settings.output_type
     """
-    prev_output_type = cuml.global_output_type
+    prev_output_type = cuml.global_settings.output_type
     try:
-        cuml.global_output_type = "mirror"
+        cuml.global_settings.output_type = "mirror"
         yield prev_output_type
     finally:
-        cuml.global_output_type = prev_output_type
-
-
-global_output_type_data = threading.local()
-global_output_type_data.root_cm = None
+        cuml.global_settings.output_type = prev_output_type
 
 
 def in_internal_api():
-    return global_output_type_data.root_cm is not None
+    return cuml.global_settings.root_cm is not None
 
 
 def set_api_output_type(output_type: str):
-    assert (global_output_type_data.root_cm is not None)
+    assert (cuml.global_settings.root_cm is not None)
 
     # Quick exit
     if (isinstance(output_type, str)):
-        global_output_type_data.root_cm.output_type = output_type
+        cuml.global_settings.root_cm.output_type = output_type
         return
 
     # Try to convert any array objects to their type
@@ -81,11 +72,11 @@ def set_api_output_type(output_type: str):
     # Ensure that this is an array-like object
     assert output_type is None or array_type is not None
 
-    global_output_type_data.root_cm.output_type = array_type
+    cuml.global_settings.root_cm.output_type = array_type
 
 
 def set_api_output_dtype(output_dtype):
-    assert (global_output_type_data.root_cm is not None)
+    assert (cuml.global_settings.root_cm is not None)
 
     # Try to convert any array objects to their type
     if (output_dtype is not None
@@ -95,7 +86,7 @@ def set_api_output_dtype(output_dtype):
 
         assert (output_dtype is not None)
 
-    global_output_type_data.root_cm.output_dtype = output_dtype
+    cuml.global_settings.root_cm.output_dtype = output_dtype
 
 
 class InternalAPIContext(contextlib.ExitStack):
@@ -103,7 +94,7 @@ class InternalAPIContext(contextlib.ExitStack):
         super().__init__()
 
         def cleanup():
-            global_output_type_data.root_cm = None
+            cuml.global_settings.root_cm = None
 
         self.callback(cleanup)
 
@@ -122,7 +113,7 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.call_stack = {}
 
-        global_output_type_data.root_cm = self
+        cuml.global_settings.root_cm = self
 
     @property
     def output_type(self):
@@ -170,16 +161,14 @@ class InternalAPIContext(contextlib.ExitStack):
 
 
 def get_internal_context() -> InternalAPIContext:
+    """Return the current "root" context manager used to control output type
+    for external API calls and minimize unnecessary internal output
+    conversions"""
 
-    # Dask workers can have a separate thread access the object requiring this
-    # check
-    if (not hasattr(global_output_type_data, "root_cm")):
-        global_output_type_data.root_cm = None
+    if (cuml.global_settings.root_cm is None):
+        cuml.global_settings.root_cm = InternalAPIContext()
 
-    if (global_output_type_data.root_cm is None):
-        return InternalAPIContext()
-
-    return global_output_type_data.root_cm
+    return cuml.global_settings.root_cm
 
 
 class ProcessEnter(object):
@@ -341,25 +330,30 @@ class ProcessReturnArray(ProcessReturn):
 
         self._process_return_cbs.append(self.convert_to_cumlarray)
 
-        if (self._context.is_root or cuml.global_output_type != "mirror"):
+        if (self._context.is_root
+                or cuml.global_settings.output_type != "mirror"):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str = cuml.common.input_utils.determine_array_type(
-            ret_val)
+        ret_val_type_str, is_sparse = \
+            cuml.common.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
-            ret_val = cuml.common.input_utils.input_to_cuml_array(
-                ret_val, order="K").array
+            if is_sparse:
+                ret_val = cuml.common.array_sparse.SparseCumlArray(
+                    ret_val, convert_index=False)
+            else:
+                ret_val = cuml.common.input_utils.input_to_cuml_array(
+                    ret_val, order="K").array
 
         return ret_val
 
     def convert_to_outputtype(self, ret_val):
 
-        output_type = cuml.global_output_type
+        output_type = cuml.global_settings.output_type
 
         if (output_type is None or output_type == "mirror"
                 or output_type == "input"):

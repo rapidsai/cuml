@@ -9,7 +9,7 @@ To install cuML from source, ensure the following dependencies are met:
 3. cmake (>= 3.14)
 4. CUDA (>= 9.2)
 5. Cython (>= 0.29)
-6. gcc (>=5.4.0)
+6. gcc (>=7.5.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 8. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
@@ -19,7 +19,8 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```bash
 conda create -n cuml_dev python=3.7
-conda env update -n cuml_dev --file=conda/environments/cuml_dev_cuda10.2.yml
+conda activate cuml_dev
+conda env update --file=conda/environments/cuml_dev_cuda11.2.yml
 ```
 
 These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
@@ -37,6 +38,7 @@ As a convenience, a `build.sh` script is provided which can be used to execute t
 $ ./build.sh                           # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
 ```
+For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install [ccache](https://ccache.dev/) and make use of it by passing the `--ccache` flag to `build.sh`.
 
 To build individual components, specify them as arguments to `build.sh`
 ```bash
@@ -52,11 +54,19 @@ Other `build.sh` options:
 $ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
 $ ./build.sh libcuml -v                # build and install libcuml with verbose output
 $ ./build.sh libcuml -g                # build and install libcuml for debug
-$ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
+$ PARALLEL_LEVEL=8 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 8 (ninja -j8)
 $ ./build.sh libcuml -n                # build libcuml but do not install
 $ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
 $ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
+$ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
+
+By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+```bash
+CMAKE_GENERATOR='Unix Makefiles' ./build.sh
+```
+
+Note. If you are using GCC 7.5, make sure to read [RDN 0002: updates to from-source builds with conda for gcc '7.5.0'](https://docs.rapids.ai/notices/rdn0002/).
 
 To run the C++ unit tests (optional), from the repo root:
 
@@ -133,6 +143,12 @@ Additionally, to reduce compile times, you can specify a GPU compute capability 
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
+```
+
+You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:
+
+```bash
+$ cmake .. -DUSE_CCACHE=ON
 ```
 
 There are many options to configure the build process, see the [customizing build section](#libcuml-&-libcumlc++).

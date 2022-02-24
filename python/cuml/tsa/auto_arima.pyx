@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,8 +32,9 @@ from cuml.common import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from cuml.internals import _deprecate_pos_args
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.tsa.arima import ARIMA
@@ -98,6 +99,10 @@ cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
         int batch_size, int n_sub, int n_obs)
 
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+    bool detect_missing(
+        handle_t& handle, const double* d_y, int n_elem)
+
 tests_map = {
     "kpss": kpss_test,
     "seas": seas_test,
@@ -138,7 +143,7 @@ class AutoARIMA(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
@@ -174,17 +179,18 @@ class AutoARIMA(Base):
 
     d_y = CumlArrayDescriptor()
 
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  endog,
+                 *,
                  handle=None,
                  simple_differencing=True,
                  verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(
-            handle=handle,
-            output_type=output_type,
-            verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
@@ -192,6 +198,21 @@ class AutoARIMA(Base):
             = input_to_cuml_array(endog, check_dtype=np.float64)
 
         self.simple_differencing = simple_differencing
+
+        self._initial_calc()
+
+    @cuml.internals.api_base_return_any_skipall
+    def _initial_calc(self):
+        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        # Detect missing observations
+        missing = detect_missing(handle_[0], <double*> d_y_ptr,
+                                 <int> self.batch_size * self.n_obs)
+
+        if missing:
+            raise ValueError(
+                "Missing observations are not supported in AutoARIMA yet")
 
     @cuml.internals.api_return_any()
     def search(self,
@@ -369,8 +390,11 @@ class AutoARIMA(Base):
                 if p_ + q_ + P_ + Q_ + k_ == 0:
                     continue
                 s_ = s if (P_ + D_ + Q_) else 0
-                model = ARIMA(data_temp.to_output("cupy"), (p_, d_, q_),
-                              (P_, D_, Q_, s_), k_, handle=self.handle,
+                model = ARIMA(endog=data_temp.to_output("cupy"),
+                              order=(p_, d_, q_),
+                              seasonal_order=(P_, D_, Q_, s_),
+                              fit_intercept=k_,
+                              handle=self.handle,
                               simple_differencing=self.simple_differencing,
                               output_type="cupy")
                 logger.debug("Fitting {} ({})".format(model, method))
@@ -383,7 +407,7 @@ class AutoARIMA(Base):
             # Organize the results into a matrix
             n_models = len(all_orders)
             ic_matrix, *_ = input_to_cuml_array(
-                cp.concatenate([ic_arr.reshape(batch_size, 1)
+                cp.concatenate([ic_arr.to_output('cupy').reshape(batch_size, 1)
                                 for ic_arr in all_ic], 1))
 
             # Divide the batch, choosing the best model for each series

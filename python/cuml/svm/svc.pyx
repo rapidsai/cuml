@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,17 +29,20 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, ClassifierMixin
+from cuml.common.base import Base
+from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
+from raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.common.import_utils import has_sklearn
+from cuml.common.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -65,7 +68,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         EPSILON_SVR,
         NU_SVR
 
-    cdef struct svmParameter:
+    cdef struct SvmParameter:
         # parameters for trainig
         double C
         double cache_size
@@ -77,7 +80,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         SvmType svmType
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
-    cdef cppclass svmModel[math_t]:
+    cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
@@ -88,25 +91,23 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
-                             const svmParameter &param,
+                             const SvmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model,
+                             SvmModel[math_t] &model,
                              const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const svmModel[math_t] &model,
+        KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     svmModel[math_t] &m) except +
 
-
-class SVC(SVMBase, ClassifierMixin):
+class SVC(SVMBase,
+          ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
 
@@ -185,7 +186,7 @@ class SVC(SVMBase, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
@@ -244,14 +245,25 @@ class SVC(SVMBase, ClassifierMixin):
 
     """
 
-    def __init__(self, handle=None, C=1, kernel='rbf', degree=3,
+    def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
                  class_weight=None, multiclass_strategy='ovo'):
-        super(SVC, self).__init__(handle, C, kernel, degree, gamma, coef0, tol,
-                                  cache_size, max_iter, nochange_steps,
-                                  verbose, output_type=output_type)
+        super().__init__(
+            handle=handle,
+            C=C,
+            kernel=kernel,
+            degree=degree,
+            gamma=gamma,
+            coef0=coef0,
+            tol=tol,
+            cache_size=cache_size,
+            max_iter=max_iter,
+            nochange_steps=nochange_steps,
+            verbose=verbose,
+            output_type=output_type)
+
         self.probability = probability
         self.random_state = random_state
         if probability and random_state is not None:
@@ -269,6 +281,20 @@ class SVC(SVMBase, ClassifierMixin):
             return self.multiclass_svc.classes_
         else:
             return self._unique_labels_
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def support_(self):
+        if self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+            return cp.concatenate(
+                [cp.asarray(cls._support_) for cls in estimators])
+        else:
+            return self._support_
+
+    @support_.setter
+    def support_(self, value):
+        self._support_ = value
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -361,6 +387,27 @@ class SVC(SVMBase, ClassifierMixin):
             estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
+
+        # if using one-vs-one we align support_ indices to those of
+        # full dataset
+        if strategy == 'ovo':
+            y = cp.array(y)
+            classes = cp.unique(y)
+            n_classes = len(classes)
+            estimator_index = 0
+            # Loop through multiclass estimators and re-align support_ indices
+            for i in range(n_classes):
+                for j in range(i + 1, n_classes):
+                    cond = cp.logical_or(y == classes[i], y == classes[j])
+                    ovo_support = cp.array(
+                        self.multiclass_svc.multiclass_estimator.estimators_[
+                            estimator_index
+                        ].support_)
+                    self.multiclass_svc.multiclass_estimator.estimators_[
+                        estimator_index
+                    ].support_ = cp.nonzero(cond)[0][ovo_support]
+                    estimator_index += 1
+
         self._fit_status_ = 0
         return self
 
@@ -431,22 +478,30 @@ class SVC(SVMBase, ClassifierMixin):
         self.coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
-        cdef svmParameter param = self._get_svm_params()
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
+        cdef SvmParameter param = self._get_svm_params()
+        cdef SvmModel[float] *model_f
+        cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
         if self.dtype == np.float32:
-            model_f = new svmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0], <float*>sample_weight_ptr)
+            model_f = new SvmModel[float]()
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <float*>X_ptr, n_rows,
+                        n_cols, <float*>y_ptr, param, _kernel_params,
+                        deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
-            model_d = new svmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0], <double*>sample_weight_ptr)
+            model_d = new SvmModel[double]()
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <double*>X_ptr, n_rows,
+                        n_cols, <double*>y_ptr, param, _kernel_params,
+                        deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
@@ -579,8 +634,3 @@ class SVC(SVMBase, ClassifierMixin):
             params.remove("epsilon")
 
         return params
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'F'
-        }

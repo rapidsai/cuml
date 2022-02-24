@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,84 +14,68 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/tsne.h>
 #include "tsne_runner.cuh"
+#include <cuml/manifold/tsne.h>
 
 namespace ML {
 
 template <typename tsne_input, typename value_idx, typename value_t>
-void _fit(const raft::handle_t &handle, tsne_input &input,
-          knn_graph<value_idx, value_t> &k_graph, const value_idx dim,
-          const float theta, const float epssq, float perplexity,
-          const int perplexity_max_iter, const float perplexity_tol,
-          const float early_exaggeration, const int exaggeration_iter,
-          const float min_gain, const float pre_learning_rate,
-          const float post_learning_rate, const int max_iter,
-          const float min_grad_norm, const float pre_momentum,
-          const float post_momentum, const long long random_state,
-          int verbosity, const bool initialize_embeddings, bool barnes_hut) {
-  TSNE_runner<tsne_input, value_idx, value_t> runner(
-    handle, input, k_graph, dim, theta, epssq, perplexity, perplexity_max_iter,
-    perplexity_tol, early_exaggeration, exaggeration_iter, min_gain,
-    pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
-    pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
-    barnes_hut);
+value_t _fit(const raft::handle_t& handle,
+             tsne_input& input,
+             knn_graph<value_idx, value_t>& k_graph,
+             TSNEParams& params)
+{
+  TSNE_runner<tsne_input, value_idx, value_t> runner(handle, input, k_graph, params);
 
-  runner.run();
+  return runner.run();  // returns the Kullback–Leibler divergence
 }
 
-void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
-              int64_t *knn_indices, float *knn_dists, const int dim,
-              int n_neighbors, const float theta, const float epssq,
-              float perplexity, const int perplexity_max_iter,
-              const float perplexity_tol, const float early_exaggeration,
-              const int exaggeration_iter, const float min_gain,
-              const float pre_learning_rate, const float post_learning_rate,
-              const int max_iter, const float min_grad_norm,
-              const float pre_momentum, const float post_momentum,
-              const long long random_state, int verbosity,
-              const bool initialize_embeddings, bool barnes_hut) {
-  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && X != NULL && Y != NULL,
+void TSNE_fit(const raft::handle_t& handle,
+              float* X,
+              float* Y,
+              int n,
+              int p,
+              int64_t* knn_indices,
+              float* knn_dists,
+              TSNEParams& params,
+              float* kl_div)
+{
+  ASSERT(n > 0 && p > 0 && params.dim > 0 && params.n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
 
   manifold_dense_inputs_t<float> input(X, Y, n, p);
-  knn_graph<int64_t, float> k_graph(n, n_neighbors, knn_indices, knn_dists);
+  knn_graph<int64_t, float> k_graph(n, params.n_neighbors, knn_indices, knn_dists);
 
-  _fit<manifold_dense_inputs_t<float>, knn_indices_dense_t, float>(
-    handle, input, k_graph, dim, theta, epssq, perplexity, perplexity_max_iter,
-    perplexity_tol, early_exaggeration, exaggeration_iter, min_gain,
-    pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
-    pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
-    barnes_hut);
+  float kl_div_v = _fit<manifold_dense_inputs_t<float>, knn_indices_dense_t, float>(
+    handle, input, k_graph, params);
+
+  if (kl_div) { *kl_div = kl_div_v; }
 }
 
-void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
-                     float *data, float *Y, int nnz, int n, int p,
-                     int *knn_indices, float *knn_dists, const int dim,
-                     int n_neighbors, const float theta, const float epssq,
-                     float perplexity, const int perplexity_max_iter,
-                     const float perplexity_tol, const float early_exaggeration,
-                     const int exaggeration_iter, const float min_gain,
-                     const float pre_learning_rate,
-                     const float post_learning_rate, const int max_iter,
-                     const float min_grad_norm, const float pre_momentum,
-                     const float post_momentum, const long long random_state,
-                     int verbosity, const bool initialize_embeddings,
-                     bool barnes_hut) {
-  ASSERT(n > 0 && p > 0 && dim > 0 && n_neighbors > 0 && indptr != NULL &&
+void TSNE_fit_sparse(const raft::handle_t& handle,
+                     int* indptr,
+                     int* indices,
+                     float* data,
+                     float* Y,
+                     int nnz,
+                     int n,
+                     int p,
+                     int* knn_indices,
+                     float* knn_dists,
+                     TSNEParams& params,
+                     float* kl_div)
+{
+  ASSERT(n > 0 && p > 0 && params.dim > 0 && params.n_neighbors > 0 && indptr != NULL &&
            indices != NULL && data != NULL && Y != NULL,
          "Wrong input args");
 
-  manifold_sparse_inputs_t<int, float> input(indptr, indices, data, Y, nnz, n,
-                                             p);
-  knn_graph<int, float> k_graph(n, n_neighbors, knn_indices, knn_dists);
+  manifold_sparse_inputs_t<int, float> input(indptr, indices, data, Y, nnz, n, p);
+  knn_graph<int, float> k_graph(n, params.n_neighbors, knn_indices, knn_dists);
 
-  _fit<manifold_sparse_inputs_t<int, float>, knn_indices_sparse_t, float>(
-    handle, input, k_graph, dim, theta, epssq, perplexity, perplexity_max_iter,
-    perplexity_tol, early_exaggeration, exaggeration_iter, min_gain,
-    pre_learning_rate, post_learning_rate, max_iter, min_grad_norm,
-    pre_momentum, post_momentum, random_state, verbosity, initialize_embeddings,
-    barnes_hut);
+  float kl_div_v = _fit<manifold_sparse_inputs_t<int, float>, knn_indices_sparse_t, float>(
+    handle, input, k_graph, params);
+
+  if (kl_div) { *kl_div = kl_div_v; }
 }
 
 }  // namespace ML

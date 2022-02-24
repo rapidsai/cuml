@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <raft/cuda_utils.cuh>
+#include <stdint.h>
 
 namespace MLCommon {
 
@@ -36,7 +36,8 @@ struct FastIntDiv {
    * @param _d the divisor
    */
   FastIntDiv(int _d) : d(_d) { computeScalars(); }
-  FastIntDiv& operator=(int _d) {
+  FastIntDiv& operator=(int _d)
+  {
     d = _d;
     computeScalars();
     return *this;
@@ -49,9 +50,9 @@ struct FastIntDiv {
    * @brief host and device ctor's
    * @param other source object to be copied from
    */
-  HDI FastIntDiv(const FastIntDiv& other)
-    : d(other.d), m(other.m), p(other.p) {}
-  HDI FastIntDiv& operator=(const FastIntDiv& other) {
+  HDI FastIntDiv(const FastIntDiv& other) : d(other.d), m(other.m), p(other.p) {}
+  HDI FastIntDiv& operator=(const FastIntDiv& other)
+  {
     d = other.d;
     m = other.m;
     p = other.p;
@@ -67,7 +68,8 @@ struct FastIntDiv {
   int p;
 
  private:
-  void computeScalars() {
+  void computeScalars()
+  {
     if (d == 1) {
       m = 0;
       p = 1;
@@ -78,12 +80,12 @@ struct FastIntDiv {
       ASSERT(false, "FastIntDiv: got division by zero!");
     }
     int64_t nc = ((1LL << 31) / d) * d - 1;
-    p = 31;
+    p          = 31;
     int64_t twoP, rhs;
     do {
       ++p;
       twoP = 1LL << p;
-      rhs = nc * (d - twoP % d);
+      rhs  = nc * (d - twoP % d);
     } while (twoP <= rhs);
     m = (twoP + d - twoP % d) / d;
   }
@@ -96,7 +98,8 @@ struct FastIntDiv {
  * @param divisor the denominator
  * @return the quotient
  */
-HDI int operator/(int n, const FastIntDiv& divisor) {
+HDI int operator/(int n, const FastIntDiv& divisor)
+{
   if (divisor.d == 1) return n;
   int ret = (int64_t(divisor.m) * int64_t(n)) >> divisor.p;
   if (n < 0) ++ret;
@@ -110,8 +113,9 @@ HDI int operator/(int n, const FastIntDiv& divisor) {
  * @param divisor the denominator
  * @return the remainder
  */
-HDI int operator%(int n, const FastIntDiv& divisor) {
-  int quotient = n / divisor;
+HDI int operator%(int n, const FastIntDiv& divisor)
+{
+  int quotient  = n / divisor;
   int remainder = n - quotient * divisor.d;
   return remainder;
 }

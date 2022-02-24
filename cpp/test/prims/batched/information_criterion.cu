@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,38 +14,34 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <cmath>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
-#include <random>
-#include <vector>
+#include <test_utils.h>
+
+#include <metrics/batched/information_criterion.cuh>
 
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <metrics/batched/information_criterion.cuh>
-#include "../test_utils.h"
+#include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace Metrics {
 namespace Batched {
 
 template <typename T>
-void naive_ic(T *h_ic, const T *h_loglike, IC_Type ic_type, int n_params,
-              int batch_size, int n_samples) {
-  T ic_base;
+void naive_ic(
+  T* h_ic, const T* h_loglike, IC_Type ic_type, int n_params, int batch_size, int n_samples)
+{
+  T ic_base{};
   T N = static_cast<T>(n_params);
   T M = static_cast<T>(n_samples);
   switch (ic_type) {
-    case AIC:
-      ic_base = (T)2 * N;
-      break;
-    case AICc:
-      ic_base = (T)2 * (N + (N * (N + (T)1)) / (M - N - (T)1));
-      break;
-    case BIC:
-      ic_base = std::log(M) * N;
-      break;
+    case AIC: ic_base = (T)2 * N; break;
+    case AICc: ic_base = (T)2 * (N + (N * (N + (T)1)) / (M - N - (T)1)); break;
+    case BIC: ic_base = std::log(M) * N; break;
   }
 #pragma omp parallel for
   for (int bid = 0; bid < batch_size; bid++) {
@@ -65,20 +61,23 @@ struct BatchedICInputs {
 template <typename T>
 class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
  protected:
-  void SetUp() override {
-    using std::vector;
-    params = ::testing::TestWithParam<BatchedICInputs<T>>::GetParam();
+  BatchedICTest()
+    : params(::testing::TestWithParam<BatchedICInputs<T>>::GetParam()),
+      res_d(sizeof(T) * params.batch_size, stream)
+  {
+  }
 
-    // Create stream and allocator
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator = std::make_shared<raft::mr::device::default_allocator>();
+  void SetUp() override
+  {
+    using std::vector;
+
+    // Create stream
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     // Create arrays
     std::vector<T> loglike_h = std::vector<T>(params.batch_size);
     res_h.resize(params.batch_size);
-    T *loglike_d =
-      (T *)allocator->allocate(sizeof(T) * params.batch_size, stream);
-    res_d = (T *)allocator->allocate(sizeof(T) * params.batch_size, stream);
+    rmm::device_uvector<T> loglike_d(sizeof(T) * params.batch_size, stream);
 
     // Generate random data
     std::random_device rd;
@@ -88,30 +87,31 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
       loglike_h[i] = std::log(udis(gen));
 
     // Copy the data to the device
-    raft::update_device(loglike_d, loglike_h.data(), params.batch_size, stream);
+    raft::update_device(loglike_d.data(), loglike_h.data(), params.batch_size, stream);
 
     // Compute the tested results
-    information_criterion(res_d, loglike_d, params.ic_type, params.n_params,
-                          params.batch_size, params.n_samples, stream);
+    information_criterion(res_d.data(),
+                          loglike_d.data(),
+                          params.ic_type,
+                          params.n_params,
+                          params.batch_size,
+                          params.n_samples,
+                          stream);
 
     // Compute the expected results
-    naive_ic(res_h.data(), loglike_h.data(), params.ic_type, params.n_params,
-             params.batch_size, params.n_samples);
-
-    allocator->deallocate(loglike_d, sizeof(T) * params.batch_size, stream);
-  }
-
-  void TearDown() override {
-    allocator->deallocate(res_d, sizeof(T) * params.batch_size, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    naive_ic(res_h.data(),
+             loglike_h.data(),
+             params.ic_type,
+             params.n_params,
+             params.batch_size,
+             params.n_samples);
   }
 
  protected:
-  std::shared_ptr<raft::mr::device::default_allocator> allocator;
+  cudaStream_t stream = 0;
   BatchedICInputs<T> params;
-  T *res_d;
+  rmm::device_uvector<T> res_d;
   std::vector<T> res_h;
-  cudaStream_t stream;
 };
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)
@@ -124,21 +124,25 @@ const std::vector<BatchedICInputs<float>> inputsf = {
 
 using BatchedICTestD = BatchedICTest<double>;
 using BatchedICTestF = BatchedICTest<float>;
-TEST_P(BatchedICTestD, Result) {
-  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_d, params.batch_size,
+TEST_P(BatchedICTestD, Result)
+{
+  ASSERT_TRUE(devArrMatchHost(res_h.data(),
+                              res_d.data(),
+                              params.batch_size,
                               raft::CompareApprox<double>(params.tolerance),
                               stream));
 }
-TEST_P(BatchedICTestF, Result) {
-  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_d, params.batch_size,
+TEST_P(BatchedICTestF, Result)
+{
+  ASSERT_TRUE(devArrMatchHost(res_h.data(),
+                              res_d.data(),
+                              params.batch_size,
                               raft::CompareApprox<float>(params.tolerance),
                               stream));
 }
 
-INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestD,
-                        ::testing::ValuesIn(inputsd));
-INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestF, ::testing::ValuesIn(inputsf));
 
 }  // namespace Batched
 }  // namespace Metrics

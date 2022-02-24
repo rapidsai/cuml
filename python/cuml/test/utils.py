@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ from copy import deepcopy
 from numba import cuda
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
+
+from raft.common.cuda import Stream
 
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression
@@ -171,9 +173,8 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
-    h = cuml.Handle(n_streams)
-    s = cuml.cuda.Stream()
-    h.setStream(s)
+    s = Stream()
+    h = cuml.Handle(stream=s, n_streams=n_streams)
     return h, s
 
 
@@ -395,3 +396,23 @@ def get_number_positional_args(func, default=2):
             kwargs = 0
         return all_args - kwargs
     return default
+
+
+def get_shap_values(model,
+                    explainer,
+                    background_dataset,
+                    explained_dataset,
+                    api_type='shap_values'):
+    # function to get shap values from an explainer using SHAP style API.
+    # This function allows isolating all calls in test suite for the case of
+    # API changes.
+    explainer = explainer(
+        model=model,
+        data=background_dataset
+    )
+    if api_type == 'shap_values':
+        shap_values = explainer.shap_values(explained_dataset)
+    elif api_type == '__call__':
+        shap_values = explainer(explained_dataset)
+
+    return explainer, shap_values

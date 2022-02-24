@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 #include <math.h>
-#include <distance/epsilon_neighborhood.cuh>
+#include <raft/spatial/knn/epsilon_neighborhood.hpp>
 
 #include "pack.h"
 
@@ -31,22 +31,23 @@ namespace Algo {
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
 template <typename value_t, typename index_t = int>
-void launcher(const raft::handle_t &handle, Pack<value_t, index_t> data,
-              index_t start_vertex_id, index_t batch_size,
-              cudaStream_t stream) {
+void launcher(const raft::handle_t& handle,
+              Pack<value_t, index_t> data,
+              index_t start_vertex_id,
+              index_t batch_size,
+              cudaStream_t stream)
+{
   data.resetArray(stream, batch_size + 1);
 
-  ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8,
-         "index_t should be 4 or 8 bytes");
+  ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8, "index_t should be 4 or 8 bytes");
 
-  index_t m = data.N;
-  index_t n = min(data.N - start_vertex_id, batch_size);
-  index_t k = data.D;
+  index_t m    = data.N;
+  index_t n    = min(data.N - start_vertex_id, batch_size);
+  index_t k    = data.D;
   value_t eps2 = data.eps * data.eps;
 
-  MLCommon::Distance::epsUnexpL2SqNeighborhood<value_t, index_t>(
-    data.adj, data.vd, data.x, data.x + start_vertex_id * k, m, n, k, eps2,
-    stream);
+  raft::spatial::knn::epsUnexpL2SqNeighborhood<value_t, index_t>(
+    data.adj, data.vd, data.x, data.x + start_vertex_id * k, m, n, k, eps2, stream);
 }
 
 }  // namespace Algo

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
-#include <random/permute.cuh>
-#include "../common/ml_benchmark.hpp"
+#include <raft/random/permute.hpp>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -30,13 +30,11 @@ struct Params {
 
 template <typename T>
 struct Permute : public Fixture {
-  Permute(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+  Permute(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
     auto matLen = params.rows * params.cols;
     auto vecLen = params.rows;
     if (params.needPerms) {
@@ -54,23 +52,22 @@ struct Permute : public Fixture {
     }
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     auto matLen = params.rows * params.cols;
     auto vecLen = params.rows;
     if (params.needShuffle) {
       dealloc(out, matLen);
       dealloc(in, matLen);
     }
-    if (params.needPerms) {
-      dealloc(perms, vecLen);
-    }
+    if (params.needPerms) { dealloc(perms, vecLen); }
   }
 
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     raft::random::Rng r(123456ULL);
     loopOnState(state, [this, &r]() {
-      MLCommon::Random::permute(perms, out, in, params.cols, params.rows,
-                                params.rowMajor, stream);
+      raft::random::permute(perms, out, in, params.cols, params.rows, params.rowMajor, stream);
     });
   }
 
@@ -80,7 +77,8 @@ struct Permute : public Fixture {
   int* perms;
 };  // struct Permute
 
-static std::vector<Params> getInputs() {
+static std::vector<Params> getInputs()
+{
   return {
     {32 * 1024, 128, true, true, true},
     {1024 * 1024, 128, true, true, true},

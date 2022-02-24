@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import mnmg_import
 
-from cuml.raft.dask.common.comms import Comms
-from cuml.raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import Comms
+from raft.dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -61,7 +61,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
@@ -73,10 +73,10 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     For additional docs, see the documentation of the single-GPU DBSCAN model
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(DBSCAN, self).__init__(client=client,
-                                     verbose=verbose,
-                                     **kwargs)
+    def __init__(self, *, client=None, verbose=False, **kwargs):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     @staticmethod
     @mnmg_import

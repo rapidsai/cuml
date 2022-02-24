@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 
 namespace MLCommon {
 namespace Functions {
 
 template <typename T, typename IdxType = int>
-void f_log(T *out, T *in, T scalar, IdxType len, cudaStream_t stream) {
+void f_log(T* out, T* in, T scalar, IdxType len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
-    [scalar] __device__(T in) { return raft::myLog(in) * scalar; }, stream);
+    out, in, len, [scalar] __device__(T in) { return raft::myLog(in) * scalar; }, stream);
 }
 
 };  // end namespace Functions

@@ -63,7 +63,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. autofunction:: cuml.preprocessing.model_selection.train_test_split
+ .. autofunction:: cuml.model_selection.train_test_split
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
@@ -154,6 +154,10 @@ Metrics (regression, classification, and distance)
 
   .. autofunction:: cuml.metrics.confusion_matrix
 
+  .. autofunction:: cuml.metrics.kl_divergence
+
+  .. autofunction:: cuml.metrics.log_loss
+
   .. autofunction:: cuml.metrics.roc_auc_score
 
   .. autofunction:: cuml.metrics.precision_recall_curve
@@ -161,8 +165,8 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.pairwise_distances
     :members:
 
-Metrics (clustering and trustworthiness)
-----------------------------------------
+Metrics (clustering and manifold learning)
+------------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
@@ -177,7 +181,7 @@ Metrics (clustering and trustworthiness)
 
   .. automodule:: cuml.metrics.cluster.silhouette_score
     :members:
-       
+
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
@@ -254,10 +258,19 @@ Multiclass Classification
 .. autoclass:: cuml.multiclass.OneVsRestClassifier
     :members:
 
-Mutinomial Naive Bayes
+Naive Bayes
 ----------------------
 
-.. autoclass:: cuml.MultinomialNB
+.. autoclass:: cuml.naive_bayes.MultinomialNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.BernoulliNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.GaussianNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.CategoricalNB
     :members:
 
 Stochastic Gradient Descent
@@ -302,6 +315,12 @@ Support Vector Machines
 .. autoclass:: cuml.svm.SVR
     :members:
 
+.. autoclass:: cuml.svm.LinearSVC
+    :members:
+
+.. autoclass:: cuml.svm.LinearSVR
+    :members:
+
 Nearest Neighbors Classification
 --------------------------------
 
@@ -330,6 +349,20 @@ DBSCAN
 
 .. autoclass:: cuml.DBSCAN
     :members:
+
+Agglomerative Clustering
+------------------------
+
+.. autoclass:: cuml.AgglomerativeClustering
+    :members:
+
+
+HDBSCAN
+-------
+
+.. autoclass:: cuml.cluster.HDBSCAN
+   :members:
+
 
 Dimensionality Reduction and Manifold Learning
 ==============================================
@@ -413,6 +446,22 @@ ARIMA
 
 .. autoclass:: cuml.tsa.auto_arima.AutoARIMA
     :members:
+
+Model Explainability
+====================
+
+SHAP Kernel Explainer
+---------------------
+
+.. autoclass:: cuml.explainer.KernelExplainer
+   :members:
+
+SHAP Permutation Explainer
+--------------------------
+
+.. autoclass:: cuml.explainer.PermutationExplainer
+   :members:
+
 
 Multi-Node, Multi-GPU Algorithms
 ================================
@@ -531,16 +580,12 @@ Preprocessing
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
 
-
-Model Explanation (SHAP)
-------------------------
-.. autoclass:: cuml.experimental.explainer.KernelExplainer
-   :members:
-
-.. autoclass:: cuml.experimental.explainer.PermutationExplainer
-   :members:
-
 Linear Models
 -------------
 .. autoclass:: cuml.experimental.linear_model.Lars
+   :members:
+
+Model Explainability
+--------------------
+.. autoclass:: cuml.experimental.explainer.TreeExplainer
    :members:

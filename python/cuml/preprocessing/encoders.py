@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
-from cudf.core import GenericIndex
+from cudf import GenericIndex
 import cuml.common.logger as logger
 
 import warnings
@@ -66,9 +66,8 @@ class OneHotEncoder(Base):
         - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
 
-    sparse : bool, default=False
-        This feature was deactivated and will give an exception when True.
-        The reason is because sparse matrix are not fully supported by cupy
+    sparse : bool, default=True
+        This feature is not fully supported by cupy
         yet, causing incorrect values when computing one hot encodings.
         See https://github.com/cupy/cupy/issues/3223
     dtype : number type, default=np.float
@@ -93,7 +92,7 @@ class OneHotEncoder(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -104,13 +103,12 @@ class OneHotEncoder(Base):
         be retained.
 
     """
-    def __init__(self,
+    def __init__(self, *,
                  categories='auto',
                  drop=None,
                  sparse=True,
-                 dtype=np.float,
+                 dtype=np.float32,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):
@@ -226,7 +224,7 @@ class OneHotEncoder(Base):
         """Check if X_cat has categories that are not present in encoder_cat"""
         return not X_cat.isin(encoder_cat).all()
 
-    def fit(self, X):
+    def fit(self, X, y=None):
         """
         Fit OneHotEncoder to X.
 
@@ -234,6 +232,8 @@ class OneHotEncoder(Base):
         ----------
         X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
             The data to determine the categories of each feature.
+        y : None
+            Ignored. This parameter exists for compatibility only.
 
         Returns
         -------
@@ -323,8 +323,8 @@ class OneHotEncoder(Base):
             for feature in X.columns:
                 encoder = self._encoders[feature]
                 col_idx = encoder.transform(X[feature])
-                idx_to_keep = cp.asarray(col_idx.notnull().to_gpu_array())
-                col_idx = cp.asarray(col_idx.dropna().to_gpu_array())
+                idx_to_keep = col_idx.notnull().to_cupy()
+                col_idx = col_idx.dropna().to_cupy()
 
                 # Simple test to auto upscale col_idx type as needed
                 # First, determine the maximum value we will add assuming
@@ -349,7 +349,7 @@ class OneHotEncoder(Base):
 
                 if self.drop_idx_ is not None:
                     drop_idx = self.drop_idx_[feature] + j
-                    mask = cp.ones(col_idx.shape, dtype=cp.bool)
+                    mask = cp.ones(col_idx.shape, dtype=bool)
                     mask[col_idx == drop_idx] = False
                     col_idx = col_idx[mask]
                     row_idx = row_idx[mask]
@@ -453,11 +453,12 @@ class OneHotEncoder(Base):
             j += enc_size
         if self.input_type == 'array':
             try:
-                result = cp.asarray(result.as_gpu_matrix())
+                result = result.to_cupy()
             except ValueError:
                 warnings.warn("The input one hot encoding contains rows with "
-                              "unknown categories. Arrays do not support null "
-                              "values. Returning output as a DataFrame "
+                              "unknown categories. Since device arrays do not "
+                              "support null values, the output will be "
+                              "returned as a DataFrame "
                               "instead.")
         return result
 

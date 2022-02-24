@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,6 +75,10 @@ def test_pca_fit(datatype, input_type, name, use_handle):
 @pytest.mark.parametrize('n_features', [100, 300])
 @pytest.mark.parametrize('sparse', [True, False])
 def test_pca_defaults(n_samples, n_features, sparse):
+    # FIXME: Disable the case True-300-200 due to flaky test
+    if sparse and n_features == 300 and n_samples == 200:
+        pytest.xfail('Skipping the case True-300-200 due to flaky test')
+
     if sparse:
         X = cupyx.scipy.sparse.random(n_samples, n_features,
                                       density=0.03, dtype=cp.float32,
@@ -109,9 +113,16 @@ def test_pca_defaults(n_samples, n_features, sparse):
                          stress_param('blobs')])
 def test_pca_fit_then_transform(datatype, input_type,
                                 name, use_handle):
+    blobs_n_samples = 500000
+    if name == 'blobs' and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            blobs_n_samples = int(blobs_n_samples * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     if name == 'blobs':
-        X, y = make_blobs(n_samples=500000,
+        X, y = make_blobs(n_samples=blobs_n_samples,
                           n_features=1000, random_state=0)
 
     elif name == 'iris':
@@ -138,7 +149,7 @@ def test_pca_fit_then_transform(datatype, input_type,
     cupca.handle.sync()
 
     if name != 'blobs':
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
@@ -150,9 +161,17 @@ def test_pca_fit_then_transform(datatype, input_type,
                          stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
                            name, use_handle):
+    blobs_n_samples = 500000
+
+    if name == 'blobs' and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            blobs_n_samples = int(blobs_n_samples * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     if name == 'blobs':
-        X, y = make_blobs(n_samples=500000,
+        X, y = make_blobs(n_samples=blobs_n_samples,
                           n_features=1000, random_state=0)
 
     elif name == 'iris':
@@ -177,7 +196,7 @@ def test_pca_fit_transform(datatype, input_type,
     cupca.handle.sync()
 
     if name != 'blobs':
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
@@ -219,6 +238,12 @@ def test_pca_inverse_transform(datatype, input_type,
 @pytest.mark.parametrize('return_sparse', [True, False])
 @pytest.mark.parametrize('cupy_input', [True, False])
 def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
+    if ncols == 20000 and pytest.max_gpu_memory < 48:
+        if pytest.adapt_stress_test:
+            ncols = int(ncols * pytest.max_gpu_memory / 48)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     if return_sparse:
         pytest.skip("Loss of information in converting to cupy sparse csr")
@@ -243,7 +268,7 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
                            with_sign=True)
     else:
         if cupy_input:
-            assert isinstance(i_sparse, cp.core.ndarray)
+            assert isinstance(i_sparse, cp.ndarray)
 
         assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
 

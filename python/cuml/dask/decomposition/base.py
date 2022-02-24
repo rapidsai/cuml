@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 #
 
 from cuml.dask.common import raise_exception_from_futures
-from cuml.raft.dask.common.comms import get_raft_comm_state
-from cuml.raft.dask.common.comms import Comms
+from raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import Comms
 
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks
@@ -30,14 +30,14 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=False,
+    def __init__(self, *, model_func, client=None, verbose=False,
                  **kwargs):
         """
         Constructor for distributed decomposition model
         """
-        super(BaseDecomposition, self).__init__(client=client,
-                                                verbose=verbose,
-                                                **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self._model_func = model_func
 
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
 import cuml.internals
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -69,7 +69,7 @@ inp_to_dtype = {
 @cuml.internals.api_return_array()
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
-               random_state=None, dtype='double', output_type='cupy',
+               random_state=None, dtype='double',
                handle=None):
     """Generates a dataset of time series by simulating an ARIMA process
     of a given order.
@@ -98,14 +98,6 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     dtype: string or numpy dtype (default: 'single')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'
-    output_type: {'cudf', 'cupy', 'numpy'}
-        Type of the returned dataset
-
-        .. deprecated:: 0.17
-           `output_type` is deprecated in 0.17 and will be removed in 0.18.
-           Please use the module level output type control,
-           `cuml.global_output_type`.
-           See :ref:`output-data-type-configuration` for more info.
 
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
@@ -116,19 +108,16 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         Array of the requested type containing the generated dataset
     """
 
-    # Check for deprecated `output_type` and warn. Set manually if specified
-    if (output_type is not None):
-        warnings.warn("Using the `output_type` argument is deprecated and "
-                      "will be removed in 0.18. Please specify the output "
-                      "type using `cuml.using_output_type()` instead",
-                      DeprecationWarning)
-
-        cuml.internals.set_api_output_type(output_type)
-
     cdef ARIMAOrder cpp_order
     cpp_order.p, cpp_order.d, cpp_order.q = order
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
     cpp_order.k = <int>intercept
+    cpp_order.n_exog = 0
+
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
+    cuml.internals.set_api_output_type("cupy")
 
     # Define some parameters based on the order
     scale = 1.0

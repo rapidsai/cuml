@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
@@ -42,20 +42,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         ENTROPY,
         MSE,
         MAE,
+        POISSON,
+        GAMMA,
+        INVERSE_GAUSSIAN,
         CRITERION_END
-
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_samples_leaf
-        int min_samples_split
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -90,8 +80,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
-                                          int,
-                                          int) except +
+                                          int
+                                          ) except +
 
     cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
 
@@ -103,24 +93,20 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                            ) except +
     cdef string get_rf_json[T, L](RandomForestMetaData[T, L]*) except +
 
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    uint64_t,
-                                    CRITERION,
-                                    bool,
-                                    int,
-                                    bool,
-                                    int) except +
+    cdef RF_params set_rf_params(int,
+                                 int,
+                                 float,
+                                 int,
+                                 int,
+                                 int,
+                                 float,
+                                 bool,
+                                 int,
+                                 float,
+                                 uint64_t,
+                                 CRITERION,
+                                 int,
+                                 int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
 

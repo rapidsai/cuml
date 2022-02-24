@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <linalg/batched/gemv.cuh>
-#include <raft/random/rng.cuh>
 #include "../test_utils.h"
+#include <gtest/gtest.h>
+#include <linalg/batched/gemv.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -33,16 +33,17 @@ struct BatchGemvInputs {
 };
 
 template <typename T, typename IdxType = int>
-::std::ostream &operator<<(::std::ostream &os, const BatchGemvInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const BatchGemvInputs<T>& dims)
+{
   return os;
 }
 
 template <typename Type>
-__global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type *x,
-                                     int m, int n) {
+__global__ void naiveBatchGemvKernel(Type* y, const Type* A, const Type* x, int m, int n)
+{
   int batch = blockIdx.y;
-  int row = blockIdx.x;
-  int col = threadIdx.x;
+  int row   = blockIdx.x;
+  int col   = threadIdx.x;
   if (row < m && col < n) {
     auto prod = A[batch * m * n + row * n + col] * x[batch * n + col];
     raft::myAtomicAdd(y + batch * m + row, prod);
@@ -50,84 +51,99 @@ __global__ void naiveBatchGemvKernel(Type *y, const Type *A, const Type *x,
 }
 
 template <typename Type>
-void naiveBatchGemv(Type *y, const Type *A, const Type *x, int m, int n,
-                    int batchSize, cudaStream_t stream) {
+void naiveBatchGemv(
+  Type* y, const Type* A, const Type* x, int m, int n, int batchSize, cudaStream_t stream)
+{
   static int TPB = raft::ceildiv(n, raft::WarpSize) * raft::WarpSize;
   dim3 nblks(m, batchSize);
   naiveBatchGemvKernel<Type><<<nblks, TPB, 0, stream>>>(y, A, x, m, n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename T>
 class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
  protected:
-  void SetUp() override {
+  BatchGemvTest() : out_ref(0, stream), out(0, stream) {}
+
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<BatchGemvInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    int len = params.batchSize * params.m * params.n;
+    int len     = params.batchSize * params.m * params.n;
     int vecleny = params.batchSize * params.m;
     int veclenx = params.batchSize * params.n;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
-    raft::allocate(A, len);
-    raft::allocate(x, veclenx);
-    raft::allocate(out_ref, vecleny);
-    raft::allocate(out, vecleny);
-    r.uniform(A, len, T(-1.0), T(1.0), stream);
-    r.uniform(x, veclenx, T(-1.0), T(1.0), stream);
-    CUDA_CHECK(cudaMemsetAsync(out_ref, 0, sizeof(T) * vecleny, stream));
-    naiveBatchGemv(out_ref, A, x, params.m, params.n, params.batchSize, stream);
-    gemv<T, int>(out, A, x, nullptr, T(1.0), T(0.0), params.m, params.n,
-                 params.batchSize, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    rmm::device_uvector<T> A(len, stream);
+    rmm::device_uvector<T> x(veclenx, stream);
+    out_ref.resize(vecleny, stream);
+    out.resize(vecleny, stream);
+
+    r.uniform(A.data(), len, T(-1.0), T(1.0), stream);
+    r.uniform(x.data(), veclenx, T(-1.0), T(1.0), stream);
+    RAFT_CUDA_TRY(cudaMemsetAsync(out_ref.data(), 0, sizeof(T) * vecleny, stream));
+    naiveBatchGemv(
+      out_ref.data(), A.data(), x.data(), params.m, params.n, params.batchSize, stream);
+    gemv<T, int>(out.data(),
+                 A.data(),
+                 x.data(),
+                 nullptr,
+                 T(1.0),
+                 T(0.0),
+                 params.m,
+                 params.n,
+                 params.batchSize,
+                 stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(A));
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   BatchGemvInputs<T> params;
-  T *A, *x, *out_ref, *out;
+  rmm::device_uvector<T> out_ref;
+  rmm::device_uvector<T> out;
 };
 
 const std::vector<BatchGemvInputs<float>> inputsf = {
-  {0.005f, 128, 128, 32, 1234ULL}, {0.005f, 128, 126, 32, 1234ULL},
-  {0.005f, 128, 125, 32, 1234ULL}, {0.005f, 126, 128, 32, 1234ULL},
-  {0.005f, 126, 126, 32, 1234ULL}, {0.005f, 126, 125, 32, 1234ULL},
-  {0.005f, 125, 128, 32, 1234ULL}, {0.005f, 125, 126, 32, 1234ULL},
+  {0.005f, 128, 128, 32, 1234ULL},
+  {0.005f, 128, 126, 32, 1234ULL},
+  {0.005f, 128, 125, 32, 1234ULL},
+  {0.005f, 126, 128, 32, 1234ULL},
+  {0.005f, 126, 126, 32, 1234ULL},
+  {0.005f, 126, 125, 32, 1234ULL},
+  {0.005f, 125, 128, 32, 1234ULL},
+  {0.005f, 125, 126, 32, 1234ULL},
   {0.005f, 125, 125, 32, 1234ULL},
 };
 typedef BatchGemvTest<float> BatchGemvTestF;
-TEST_P(BatchGemvTestF, Result) {
+TEST_P(BatchGemvTestF, Result)
+{
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(devArrMatch(out_ref, out, vecleny,
-                          raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), vecleny, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF, ::testing::ValuesIn(inputsf));
 
 typedef BatchGemvTest<double> BatchGemvTestD;
 const std::vector<BatchGemvInputs<double>> inputsd = {
-  {0.0000001, 128, 128, 32, 1234ULL}, {0.0000001, 128, 126, 32, 1234ULL},
-  {0.0000001, 128, 125, 32, 1234ULL}, {0.0000001, 126, 128, 32, 1234ULL},
-  {0.0000001, 126, 126, 32, 1234ULL}, {0.0000001, 126, 125, 32, 1234ULL},
-  {0.0000001, 125, 128, 32, 1234ULL}, {0.0000001, 125, 126, 32, 1234ULL},
+  {0.0000001, 128, 128, 32, 1234ULL},
+  {0.0000001, 128, 126, 32, 1234ULL},
+  {0.0000001, 128, 125, 32, 1234ULL},
+  {0.0000001, 126, 128, 32, 1234ULL},
+  {0.0000001, 126, 126, 32, 1234ULL},
+  {0.0000001, 126, 125, 32, 1234ULL},
+  {0.0000001, 125, 128, 32, 1234ULL},
+  {0.0000001, 125, 126, 32, 1234ULL},
   {0.0000001, 125, 125, 32, 1234ULL},
 };
-TEST_P(BatchGemvTestD, Result) {
+TEST_P(BatchGemvTestD, Result)
+{
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(devArrMatch(out_ref, out, vecleny,
-                          raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), vecleny, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace Batched
 }  // end namespace LinAlg

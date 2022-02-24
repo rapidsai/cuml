@@ -169,13 +169,11 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 
     acc_score = r2_score(cuml_mod_predict, y_test)
 
-    assert acc_score >= 0.67
+    assert acc_score >= 0.59
 
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
-@pytest.mark.parametrize('output_class', [True, False])
-def test_rf_classification_dask_array(partitions_per_worker, client,
-                                      output_class):
+def test_rf_classification_dask_array(partitions_per_worker, client):
     n_workers = len(client.scheduler_info()['workers'])
 
     X, y = make_classification(n_samples=n_workers * 2000, n_features=30,
@@ -199,10 +197,7 @@ def test_rf_classification_dask_array(partitions_per_worker, client,
     X_test_dask_array = from_array(X_test)
     cuml_mod = cuRFC_mg(**cu_rf_params)
     cuml_mod.fit(X_train_df, y_train_df)
-    cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
-                                        output_class).compute()
-    if not output_class:
-        cuml_mod_predict = np.round(cuml_mod_predict)
+    cuml_mod_predict = cuml_mod.predict(X_test_dask_array).compute()
 
     acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
 
@@ -279,8 +274,12 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     cu_rf_mg = cuRFC_mg(**cu_rf_params)
     cu_rf_mg.fit(X_train_df, y_train_df)
 
+    fil_preds = cu_rf_mg.predict(X_test_df).compute()
+    fil_preds = fil_preds.to_numpy()
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-    fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
+    fil_preds_proba = fil_preds_proba.to_numpy()
+    np.testing.assert_equal(fil_preds, np.argmax(fil_preds_proba, axis=1))
+
     y_proba = np.zeros(np.shape(fil_preds_proba))
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
@@ -293,8 +292,8 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
 
     # The threshold is required as the test would intermitently
-    # fail with a max difference of 0.022 between the two mse values
-    assert fil_mse <= sk_mse + 0.022
+    # fail with a max difference of 0.029 between the two mse values
+    assert fil_mse <= sk_mse + 0.029
 
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
@@ -324,43 +323,32 @@ def test_rf_concatenation_dask(client, model_type):
     cu_rf_mg.fit(X_df, y_df)
     res1 = cu_rf_mg.predict(X_df)
     res1.compute()
-    local_tl = TreeliteModel.from_treelite_model_handle(
-        cu_rf_mg.internal_model._obtain_treelite_handle(),
-        take_handle_ownership=False)
+    if cu_rf_mg.internal_model:
+        local_tl = TreeliteModel.from_treelite_model_handle(
+            cu_rf_mg.internal_model._obtain_treelite_handle(),
+            take_handle_ownership=False)
 
-    assert local_tl.num_trees == n_estimators
+        assert local_tl.num_trees == n_estimators
 
 
-@pytest.mark.parametrize('model_type', ['classification', 'regression'])
 @pytest.mark.parametrize('ignore_empty_partitions', [True, False])
-def test_single_input(client, model_type, ignore_empty_partitions):
+def test_single_input_regression(client, ignore_empty_partitions):
     X, y = make_classification(n_samples=1, n_classes=1)
     X = X.astype(np.float32)
-    if model_type == 'classification':
-        y = y.astype(np.int32)
-    else:
-        y = y.astype(np.float32)
+    y = y.astype(np.float32)
 
     X, y = _prep_training_data(client, X, y,
                                partitions_per_worker=2)
-    if model_type == 'classification':
-        cu_rf_mg = cuRFC_mg(n_bins=1,
-                            ignore_empty_partitions=ignore_empty_partitions)
-    else:
-        cu_rf_mg = cuRFR_mg(n_bins=1,
-                            ignore_empty_partitions=ignore_empty_partitions)
+    cu_rf_mg = cuRFR_mg(n_bins=1,
+                        ignore_empty_partitions=ignore_empty_partitions)
 
     if ignore_empty_partitions or \
        len(client.scheduler_info()['workers'].keys()) == 1:
         cu_rf_mg.fit(X, y)
         cuml_mod_predict = cu_rf_mg.predict(X)
         cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
-
         y = cp.asnumpy(cp.array(y.compute()))
-
-        acc_score = accuracy_score(cuml_mod_predict, y)
-
-        assert acc_score == 1.0
+        assert y[0] == cuml_mod_predict[0]
 
     else:
         with pytest.raises(ValueError):
@@ -382,17 +370,17 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     X = X.astype(np.float32)
     if estimator_type == 'classification':
         cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0, split_criterion=0,
-                            min_samples_leaf=2, seed=23707, n_streams=1,
-                            n_estimators=n_estimators, max_leaves=-1,
-                            max_depth=max_depth)
+                            n_bins=16, split_criterion=0,
+                            min_samples_leaf=2, random_state=23707,
+                            n_streams=1, n_estimators=n_estimators,
+                            max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cu_rf_mg = cuRFR_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0,
-                            min_samples_leaf=2, seed=23707, n_streams=1,
-                            n_estimators=n_estimators, max_leaves=-1,
-                            max_depth=max_depth)
+                            n_bins=16,
+                            min_samples_leaf=2, random_state=23707,
+                            n_streams=1, n_estimators=n_estimators,
+                            max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.float32)
     else:
         assert False
@@ -410,43 +398,41 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 
     # Test 3: Traverse JSON trees and get the same predictions as cuML RF
     def predict_with_json_tree(tree, x):
-        if 'children' not in tree:
-            assert 'leaf_value' in tree
-            return tree['leaf_value']
-        assert 'split_feature' in tree
-        assert 'split_threshold' in tree
-        assert 'yes' in tree
-        assert 'no' in tree
-        if x[tree['split_feature']] <= tree['split_threshold']:
-            return predict_with_json_tree(tree['children'][0], x)
-        return predict_with_json_tree(tree['children'][1], x)
+        if "children" not in tree:
+            assert "leaf_value" in tree
+            return tree["leaf_value"]
+        assert "split_feature" in tree
+        assert "split_threshold" in tree
+        assert "yes" in tree
+        assert "no" in tree
+        if x[tree["split_feature"]] <= tree["split_threshold"] + 1e-5:
+            return predict_with_json_tree(tree["children"][0], x)
+        return predict_with_json_tree(tree["children"][1], x)
 
     def predict_with_json_rf_classifier(rf, x):
         # Returns the class with the highest vote. If there is a tie, return
         # the list of all classes with the highest vote.
-        vote = []
+        predictions = []
         for tree in rf:
-            vote.append(predict_with_json_tree(tree, x))
-        vote = np.bincount(vote)
-        max_vote = np.max(vote)
-        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
-        return majority_vote
+            predictions.append(np.array(predict_with_json_tree(tree, x)))
+        predictions = np.sum(predictions, axis=0)
+        return np.argmax(predictions)
 
     def predict_with_json_rf_regressor(rf, x):
-        pred = 0.
+        pred = 0.0
         for tree in rf:
-            pred += predict_with_json_tree(tree, x)
+            pred += predict_with_json_tree(tree, x)[0]
         return pred / len(rf)
 
     if estimator_type == 'classification':
         expected_pred = cu_rf_mg.predict(X_dask).astype(np.int32)
-        expected_pred = expected_pred.compute().to_array()
+        expected_pred = expected_pred.compute().to_numpy()
         for idx, row in enumerate(X):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
-            assert expected_pred[idx] in majority_vote
+            assert expected_pred[idx] == majority_vote
     elif estimator_type == 'regression':
         expected_pred = cu_rf_mg.predict(X_dask).astype(np.float32)
-        expected_pred = expected_pred.compute().to_array()
+        expected_pred = expected_pred.compute().to_numpy()
         pred = []
         for idx, row in enumerate(X):
             pred.append(predict_with_json_rf_regressor(json_obj, row))
@@ -454,10 +440,62 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
+@pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+def test_rf_instance_count(client, max_depth, n_estimators):
+    n_workers = len(client.scheduler_info()['workers'])
+    if n_estimators < n_workers:
+        err_msg = "n_estimators cannot be lower than number of dask workers"
+        pytest.xfail(err_msg)
+
+    n_samples_per_worker = 350
+
+    X, y = make_classification(n_samples=n_samples_per_worker * n_workers,
+                               n_features=20, n_clusters_per_class=1,
+                               n_informative=10, random_state=123,
+                               n_classes=2)
+    X = X.astype(np.float32)
+    cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
+                        n_bins=16, split_criterion=0,
+                        min_samples_leaf=2, random_state=23707, n_streams=1,
+                        n_estimators=n_estimators, max_leaves=-1,
+                        max_depth=max_depth)
+    y = y.astype(np.int32)
+
+    X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
+    cu_rf_mg.fit(X_dask, y_dask)
+    json_out = cu_rf_mg.get_json()
+    json_obj = json.loads(json_out)
+
+    # The instance count of each node must be equal to the sum of
+    # the instance counts of its children
+    def check_instance_count_for_non_leaf(tree):
+        assert 'instance_count' in tree
+        if 'children' not in tree:
+            return
+        assert 'instance_count' in tree['children'][0]
+        assert 'instance_count' in tree['children'][1]
+        assert (tree['instance_count'] == tree['children'][0]['instance_count']
+                + tree['children'][1]['instance_count'])
+        check_instance_count_for_non_leaf(tree['children'][0])
+        check_instance_count_for_non_leaf(tree['children'][1])
+
+    for tree in json_obj:
+        check_instance_count_for_non_leaf(tree)
+        # The root's count should be equal to the number of rows in the data
+        assert tree['instance_count'] == n_samples_per_worker
+
+
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
 def test_rf_get_combined_model_right_aftter_fit(client, estimator_type):
     max_depth = 3
     n_estimators = 5
+
+    n_workers = len(client.scheduler_info()['workers'])
+    if n_estimators < n_workers:
+        err_msg = "n_estimators cannot be lower than number of dask workers"
+        pytest.xfail(err_msg)
+
     X, y = make_classification()
     X = X.astype(np.float32)
     if estimator_type == 'classification':
@@ -509,16 +547,14 @@ def test_rf_get_text(client, n_estimators, detailed_text):
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
 
     if n_estimators >= n_workers:
-        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators, n_bins=16,
                             ignore_empty_partitions=True)
     else:
         with pytest.raises(ValueError):
-            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators, n_bins=16,
                                 ignore_empty_partitions=True)
         return
 
-    cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
-                        ignore_empty_partitions=True)
     cu_rf_mg.fit(X, y)
 
     if detailed_text:
@@ -537,3 +573,59 @@ def test_rf_get_text(client, n_estimators, detailed_text):
 
     # Test 2. Correct number of trees are printed
     assert n_estimators == tree_count
+
+
+@pytest.mark.parametrize('model_type', ['classification', 'regression'])
+@pytest.mark.parametrize('fit_broadcast', [True, False])
+@pytest.mark.parametrize('transform_broadcast', [True, False])
+def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
+    # Use CUDA_VISIBLE_DEVICES to control the number of workers
+    workers = list(client.scheduler_info()['workers'].keys())
+    n_workers = len(workers)
+
+    if model_type == 'classification':
+        X, y = make_classification(n_samples=n_workers * 1000,
+                                   n_features=20, n_informative=15,
+                                   n_classes=4, n_clusters_per_class=1,
+                                   random_state=123)
+        y = y.astype(np.int32)
+    else:
+        X, y = make_regression(n_samples=n_workers * 1000, n_features=20,
+                               n_informative=5, random_state=123)
+        y = y.astype(np.float32)
+    X = X.astype(np.float32)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=n_workers * 100,
+        random_state=123)
+
+    X_train_df, y_train_df = _prep_training_data(client, X_train, y_train, 1)
+    X_test_dask_array = from_array(X_test)
+
+    if model_type == 'classification':
+        cuml_mod = cuRFC_mg(n_estimators=10, max_depth=8, n_bins=16,
+                            ignore_empty_partitions=True)
+        cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
+        cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
+                                            broadcast_data=transform_broadcast)
+
+        cuml_mod_predict = cuml_mod_predict.compute()
+        cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
+        acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
+        assert acc_score >= 0.70
+
+    else:
+        cuml_mod = cuRFR_mg(n_estimators=10, max_depth=8, n_bins=16,
+                            ignore_empty_partitions=True)
+        cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
+        cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
+                                            broadcast_data=transform_broadcast)
+
+        cuml_mod_predict = cuml_mod_predict.compute()
+        cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
+        acc_score = r2_score(cuml_mod_predict, y_test)
+        assert acc_score >= 0.72
+
+    if transform_broadcast:
+        assert cuml_mod.internal_model is None

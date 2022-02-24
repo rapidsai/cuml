@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-#include <cuml/common/utils.hpp>
 #include "node.cuh"
+#include <cuml/common/utils.hpp>
 
 namespace cuml {
 namespace genetic {
 
 const int node::kInvalidFeatureId = -1;
 
-node::node(node::type ft) : t(ft) {
-  ASSERT(is_nonterminal(),
-         "node: ctor with `type` argument expects functions type only!");
+node::node() {}
+
+node::node(node::type ft) : t(ft)
+{
+  ASSERT(is_nonterminal(), "node: ctor with `type` argument expects functions type only!");
   u.fid = kInvalidFeatureId;
 }
 
@@ -34,7 +36,8 @@ node::node(float val) : t(node::type::constant) { u.val = val; }
 
 node::node(const node& src) : t(src.t), u(src.u) {}
 
-node& node::operator=(const node& src) {
+node& node::operator=(const node& src)
+{
   t = src.t;
   u = src.u;
   return *this;
@@ -48,7 +51,8 @@ int node::arity() const { return detail::arity(t); }
 
 #define CASE(str, val) \
   if (#val == str) return node::type::val
-node::type node::from_str(const std::string& ntype) {
+node::type node::from_str(const std::string& ntype)
+{
   CASE(ntype, variable);
   CASE(ntype, constant);
   // note: keep the case statements in alphabetical order under each category of

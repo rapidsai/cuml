@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,38 @@
 
 #pragma once
 
-#include <math.h>
-#include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/fill.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
+
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
+
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/unary_op.hpp>
+
 #include <iostream>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <string>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
 #include <type_traits>
 
-#include <cuml/matrix/kernelparams.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/gemv.h>
-#include <cuml/common/logger.hpp>
-#include <matrix/grammatrix.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include "kernelcache.cuh"
 #include "smo_sets.cuh"
 #include "smoblocksolve.cuh"
 #include "workingset.cuh"
 #include "ws_util.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/matrix/kernelparams.h>
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/unary_op.hpp>
 
-#include <cuml/common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {
@@ -73,10 +81,10 @@ namespace SVM {
 template <typename math_t>
 class SmoSolver {
  public:
-  SmoSolver(const raft::handle_t &handle, svmParameter param,
-            MLCommon::Matrix::GramMatrixBase<math_t> *kernel)
+  SmoSolver(const raft::handle_t& handle,
+            SvmParameter param,
+            MLCommon::Matrix::GramMatrixBase<math_t>* kernel)
     : handle(handle),
-      n_rows(n_rows),
       C(param.C),
       tol(param.tol),
       kernel(kernel),
@@ -85,12 +93,13 @@ class SmoSolver {
       epsilon(param.epsilon),
       svmType(param.svmType),
       stream(handle.get_stream()),
-      return_buff(handle.get_device_allocator(), stream, 2),
-      alpha(handle.get_device_allocator(), stream),
-      C_vec(handle.get_device_allocator(), stream),
-      delta_alpha(handle.get_device_allocator(), stream),
-      f(handle.get_device_allocator(), stream),
-      y_label(handle.get_device_allocator(), stream) {
+      return_buff(2, stream),
+      alpha(0, stream),
+      C_vec(0, stream),
+      delta_alpha(0, stream),
+      f(0, stream),
+      y_label(0, stream)
+  {
     ML::Logger::get().setLevel(param.verbosity);
   }
 
@@ -115,58 +124,76 @@ class SmoSolver {
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
-  void Solve(math_t *x, int n_rows, int n_cols, math_t *y,
-             const math_t *sample_weight, math_t **dual_coefs, int *n_support,
-             math_t **x_support, int **idx, math_t *b, int max_outer_iter = -1,
-             int max_inner_iter = 10000) {
+  void Solve(math_t* x,
+             int n_rows,
+             int n_cols,
+             math_t* y,
+             const math_t* sample_weight,
+             math_t** dual_coefs,
+             int* n_support,
+             math_t** x_support,
+             int** idx,
+             math_t* b,
+             int max_outer_iter = -1,
+             int max_inner_iter = 10000)
+  {
     // Prepare data structures for SMO
     WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
     Initialize(&y, sample_weight, n_rows, n_cols);
-    KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel,
-                              cache_size, svmType);
+    KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel, cache_size, svmType);
     // Init counters
-    max_outer_iter = GetDefaultMaxIter(n_train, max_outer_iter);
-    int n_iter = 0;
-    int n_inner_iter = 0;
-    diff_prev = 0;
-    n_small_diff = 0;
-    bool keep_going = true;
+    max_outer_iter        = GetDefaultMaxIter(n_train, max_outer_iter);
+    n_iter                = 0;
+    int n_inner_iter      = 0;
+    diff_prev             = 0;
+    n_small_diff          = 0;
+    n_increased_diff      = 0;
+    report_increased_diff = true;
+    bool keep_going       = true;
 
     while (n_iter < max_outer_iter && keep_going) {
-      CUDA_CHECK(
-        cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
       ws.Select(f.data(), alpha.data(), y, C_vec.data());
 
-      math_t *cacheTile = cache.GetTile(ws.GetIndices());
-      SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(
-        y, n_train, alpha.data(), n_ws, delta_alpha.data(), f.data(), cacheTile,
-        cache.GetWsIndices(), C_vec.data(), tol, return_buff.data(),
-        max_inner_iter, svmType, cache.GetColIdxMap());
+      math_t* cacheTile = cache.GetTile(ws.GetIndices());
+      SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(y,
+                                                                 n_train,
+                                                                 alpha.data(),
+                                                                 n_ws,
+                                                                 delta_alpha.data(),
+                                                                 f.data(),
+                                                                 cacheTile,
+                                                                 cache.GetWsIndices(),
+                                                                 C_vec.data(),
+                                                                 tol,
+                                                                 return_buff.data(),
+                                                                 max_inner_iter,
+                                                                 svmType,
+                                                                 cache.GetColIdxMap());
 
-      CUDA_CHECK(cudaPeekAtLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       raft::update_host(host_return_buff, return_buff.data(), 2, stream);
 
-      UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(),
-              cacheTile);
+      UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(), cacheTile);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       math_t diff = host_return_buff[0];
-      keep_going = CheckStoppingCondition(diff);
+      keep_going  = CheckStoppingCondition(diff);
 
       n_inner_iter += host_return_buff[1];
       n_iter++;
-      if (n_iter % 500 == 0) {
-        CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_iter, (double)diff);
-      }
+      if (n_iter % 500 == 0) { CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_iter, (double)diff); }
     }
 
     CUML_LOG_DEBUG(
       "SMO solver finished after %d outer iterations, total inner"
       " iterations, and diff %lf",
-      n_iter, n_inner_iter, diff_prev);
+      n_iter,
+      n_inner_iter,
+      diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C_vec.data(), svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
     ReleaseBuffers();
@@ -177,7 +204,8 @@ class SmoSolver {
    *
    * \f[ f_i = f_i + \sum_{k\in WS} K_{i,k} * \Delta \alpha_k, \f]
    * where i = [0..n_train-1], WS is the set of workspace indices,
-   * and \f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and workspace vector x_k.
+   * and \f$K_{i,k}\f$ is the kernel function evaluated for training vector x_i and workspace vector
+   * x_k.
    *
    * @param f size [n_train]
    * @param n_rows
@@ -186,19 +214,41 @@ class SmoSolver {
    * @param cacheTile kernel function evaluated for the following set K[X,x_ws],
    *   size [n_rows, n_ws]
    */
-  void UpdateF(math_t *f, int n_rows, const math_t *delta_alpha, int n_ws,
-               const math_t *cacheTile) {
+  void UpdateF(math_t* f, int n_rows, const math_t* delta_alpha, int n_ws, const math_t* cacheTile)
+  {
     // multipliers used in the equation : f = 1*cachtile * delta_alpha + 1*f
     math_t one = 1;
-    CUBLAS_CHECK(raft::linalg::cublasgemv(
-      handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
-      n_rows, delta_alpha, 1, &one, f, 1, stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                     CUBLAS_OP_N,
+                                                     n_rows,
+                                                     n_ws,
+                                                     &one,
+                                                     cacheTile,
+                                                     n_rows,
+                                                     delta_alpha,
+                                                     1,
+                                                     &one,
+                                                     f,
+                                                     1,
+                                                     stream));
     if (svmType == EPSILON_SVR) {
       // SVR has doubled the number of trainig vectors and we need to update
       // alpha for both batches individually
-      CUBLAS_CHECK(raft::linalg::cublasgemv(
-        handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_ws, &one, cacheTile,
-        n_rows, delta_alpha, 1, &one, f + n_rows, 1, stream));
+      // #TODO: Call from public API when ready
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
+                                                       CUBLAS_OP_N,
+                                                       n_rows,
+                                                       n_ws,
+                                                       &one,
+                                                       cacheTile,
+                                                       n_rows,
+                                                       delta_alpha,
+                                                       1,
+                                                       &one,
+                                                       f + n_rows,
+                                                       1,
+                                                       stream));
     }
   }
 
@@ -223,46 +273,45 @@ class SmoSolver {
    * @param[in] n_rows
    * @param[in] n_cols
    */
-  void Initialize(math_t **y, const math_t *sample_weight, int n_rows,
-                  int n_cols) {
+  void Initialize(math_t** y, const math_t* sample_weight, int n_rows, int n_cols)
+  {
     this->n_rows = n_rows;
     this->n_cols = n_cols;
-    n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
+    n_train      = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
     ResizeBuffers(n_train, n_cols);
     // Zero init alpha
-    CUDA_CHECK(
-      cudaMemsetAsync(alpha.data(), 0, n_train * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(alpha.data(), 0, n_train * sizeof(math_t), stream));
     InitPenalty(C_vec.data(), sample_weight, n_rows);
     // Init f (and also class labels for SVR)
     switch (svmType) {
-      case C_SVC:
-        SvcInit(*y);
-        break;
+      case C_SVC: SvcInit(*y); break;
       case EPSILON_SVR:
         SvrInit(*y, n_rows, y_label.data(), f.data());
         // We return the pointer to the class labels (the target values are
         // not needed anymore, they are incorporated in f).
         *y = y_label.data();
         break;
-      default:
-        THROW("SMO initialization not implemented SvmType=%d", svmType);
+      default: THROW("SMO initialization not implemented SvmType=%d", svmType);
     }
   }
 
-  void InitPenalty(math_t *C_vec, const math_t *sample_weight, int n_rows) {
+  void InitPenalty(math_t* C_vec, const math_t* sample_weight, int n_rows)
+  {
     if (sample_weight == nullptr) {
       thrust::device_ptr<math_t> c_ptr(C_vec);
       thrust::fill(thrust::cuda::par.on(stream), c_ptr, c_ptr + n_train, C);
     } else {
       math_t C = this->C;
       raft::linalg::unaryOp(
-        C_vec, sample_weight, n_rows,
-        [C] __device__(math_t w) { return C * w; }, stream);
+        C_vec, sample_weight, n_rows, [C] __device__(math_t w) { return C * w; }, stream);
       if (n_train > n_rows) {
         // Set the same penalty parameter for the duplicate set of vectors
         raft::linalg::unaryOp(
-          C_vec + n_rows, sample_weight, n_rows,
-          [C] __device__(math_t w) { return C * w; }, stream);
+          C_vec + n_rows,
+          sample_weight,
+          n_rows,
+          [C] __device__(math_t w) { return C * w; },
+          stream);
       }
     }
   }
@@ -278,7 +327,8 @@ class SmoSolver {
    *
    * @param [in] y device pointer of class labels size [n_rows]
    */
-  void SvcInit(const math_t *y) {
+  void SvcInit(const math_t* y)
+  {
     raft::linalg::unaryOp(
       f.data(), y, n_rows, [] __device__(math_t y) { return -y; }, stream);
   }
@@ -316,58 +366,55 @@ class SmoSolver {
    *     coefficients, size [n_rows*2]
    * @param [out] f device pointer f size [n_rows*2]
    */
-  void SvrInit(const math_t *yr, int n_rows, math_t *yc, math_t *f) {
+  void SvrInit(const math_t* yr, int n_rows, math_t* yc, math_t* f)
+  {
     // Init class labels to [1, 1, 1, ..., -1, -1, -1, ...]
     thrust::device_ptr<math_t> yc_ptr(yc);
     thrust::constant_iterator<math_t> one(1);
     thrust::copy(thrust::cuda::par.on(stream), one, one + n_rows, yc_ptr);
     thrust::constant_iterator<math_t> minus_one(-1);
-    thrust::copy(thrust::cuda::par.on(stream), minus_one, minus_one + n_rows,
-                 yc_ptr + n_rows);
+    thrust::copy(thrust::cuda::par.on(stream), minus_one, minus_one + n_rows, yc_ptr + n_rows);
 
     // f_i = epsilon - y_i, for i \in [0..n_rows-1]
     math_t epsilon = this->epsilon;
     raft::linalg::unaryOp(
-      f, yr, n_rows, [epsilon] __device__(math_t y) { return epsilon - y; },
-      stream);
+      f, yr, n_rows, [epsilon] __device__(math_t y) { return epsilon - y; }, stream);
 
-    // f_i = epsilon - y_i, for i \in [n_rows..2*n_rows-1]
+    // f_i = -epsilon - y_i, for i \in [n_rows..2*n_rows-1]
     raft::linalg::unaryOp(
-      f + n_rows, yr, n_rows,
-      [epsilon] __device__(math_t y) { return -epsilon - y; }, stream);
+      f + n_rows, yr, n_rows, [epsilon] __device__(math_t y) { return -epsilon - y; }, stream);
   }
 
  private:
-  const raft::handle_t &handle;
+  const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows = 0;  //!< training data number of rows
-  int n_cols = 0;  //!< training data number of columns
-  int n_ws = 0;    //!< size of the working set
-  int n_train =
-    0;  //!< number of training vectors (including duplicates for SVR)
+  int n_rows  = 0;  //!< training data number of rows
+  int n_cols  = 0;  //!< training data number of columns
+  int n_ws    = 0;  //!< size of the working set
+  int n_train = 0;  //!< number of training vectors (including duplicates for SVR)
 
   // Buffers for the domain [n_train]
-  MLCommon::device_buffer<math_t> alpha;    //!< dual coordinates
-  MLCommon::device_buffer<math_t> f;        //!< optimality indicator vector
-  MLCommon::device_buffer<math_t> y_label;  //!< extra label for regression
+  rmm::device_uvector<math_t> alpha;    //!< dual coordinates
+  rmm::device_uvector<math_t> f;        //!< optimality indicator vector
+  rmm::device_uvector<math_t> y_label;  //!< extra label for regression
 
-  MLCommon::device_buffer<math_t> C_vec;  //!< penalty parameter vector
+  rmm::device_uvector<math_t> C_vec;  //!< penalty parameter vector
 
   // Buffers for the working set [n_ws]
   //! change in alpha parameter during a blocksolve step
-  MLCommon::device_buffer<math_t> delta_alpha;
+  rmm::device_uvector<math_t> delta_alpha;
 
   // Buffers to return some parameters from the kernel (iteration number, and
   // convergence information)
-  MLCommon::device_buffer<math_t> return_buff;
+  rmm::device_uvector<math_t> return_buff;
   math_t host_return_buff[2];
 
   math_t C;
   math_t tol;      //!< tolerance for stopping condition
   math_t epsilon;  //!< epsilon parameter for epsiolon-SVR
 
-  MLCommon::Matrix::GramMatrixBase<math_t> *kernel;
+  MLCommon::Matrix::GramMatrixBase<math_t>* kernel;
   float cache_size;  //!< size of kernel cache in MiB
 
   SvmType svmType;  ///!< Type of the SVM problem to solve
@@ -376,14 +423,36 @@ class SmoSolver {
   math_t diff_prev;
   int n_small_diff;
   int nochange_steps;
+  int n_increased_diff;
+  int n_iter;
+  bool report_increased_diff;
 
-  bool CheckStoppingCondition(math_t diff) {
-    // TODO improve stopping condition to detect oscillations, see Issue #947
+  bool CheckStoppingCondition(math_t diff)
+  {
+    if (diff > diff_prev * 1.5 && n_iter > 0) {
+      // Ideally, diff should decrease monotonically. In practice we can have
+      // small fluctuations (10% increase is not uncommon). Here we consider a
+      // 50% increase in the diff value large enough to indicate a problem.
+      // The 50% value is an educated guess that triggers the convergence debug
+      // message for problematic use cases while avoids false alarms in many
+      // other cases.
+      n_increased_diff++;
+    }
+    if (report_increased_diff && n_iter > 100 && n_increased_diff > n_iter * 0.1) {
+      CUML_LOG_DEBUG(
+        "Solver is not converging monotonically. This might be caused by "
+        "insufficient normalization of the feature columns. In that case "
+        "MinMaxScaler((0,1)) could help. Alternatively, for nonlinear kernels, "
+        "you can try to increase the gamma parameter. To limit execution time, "
+        "you can also adjust the number of iterations using the max_iter "
+        "parameter.");
+      report_increased_diff = false;
+    }
     bool keep_going = true;
     if (abs(diff - diff_prev) < 0.001 * tol) {
       n_small_diff++;
     } else {
-      diff_prev = diff;
+      diff_prev    = diff;
       n_small_diff = 0;
     }
     if (n_small_diff > nochange_steps) {
@@ -408,7 +477,8 @@ class SmoSolver {
   }
 
   /// Return the number of maximum iterations.
-  int GetDefaultMaxIter(int n_train, int max_outer_iter) {
+  int GetDefaultMaxIter(int n_train, int max_outer_iter)
+  {
     if (max_outer_iter == -1) {
       max_outer_iter = n_train < std::numeric_limits<int>::max() / 100
                          ? n_train * 100
@@ -419,7 +489,8 @@ class SmoSolver {
     return max_outer_iter;
   }
 
-  void ResizeBuffers(int n_train, int n_cols) {
+  void ResizeBuffers(int n_train, int n_cols)
+  {
     // This needs to know n_train, therefore it can be only called during solve
     alpha.resize(n_train, stream);
     C_vec.resize(n_train, stream);
@@ -428,11 +499,12 @@ class SmoSolver {
     if (svmType == EPSILON_SVR) y_label.resize(n_train, stream);
   }
 
-  void ReleaseBuffers() {
-    alpha.release(stream);
-    delta_alpha.release(stream);
-    f.release(stream);
-    y_label.release(stream);
+  void ReleaseBuffers()
+  {
+    alpha.release();
+    delta_alpha.release();
+    f.release();
+    y_label.release();
   }
 };
 

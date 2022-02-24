@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 
 MAGIC_OVERRIDE_CODE="
 def my_run_line_magic(*args, **kwargs):
@@ -22,7 +23,7 @@ get_ipython().run_cell_magic=my_run_cell_magic
 
 NO_COLORS=--colors=NoColor
 EXITCODE=0
-NBTMPDIR=${WORKSPACE}/tmp
+NBTMPDIR="$WORKSPACE/tmp"
 mkdir -p ${NBTMPDIR}
 
 for nb in $*; do

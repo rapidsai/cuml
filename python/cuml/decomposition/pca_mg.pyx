@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import cuml.common.opg_data_utils_mg as opg
 
 import cuml.internals
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport paramsSolver
 from cuml.common.opg_data_utils_mg cimport *
 
@@ -53,10 +53,8 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
         QR "ML::mg_solver::QR"
 
     cdef cppclass paramsTSVDMG(paramsSolver):
-        int n_components
-        int max_sweeps
+        size_t n_components
         mg_solver algorithm  # = solver::COV_EIG_DQ
-        bool trans_input
 
     cdef cppclass paramsPCAMG(paramsTSVDMG):
         bool copy
@@ -116,7 +114,7 @@ class PCAMG(BaseDecompositionMG, PCA):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCAMG *params = new paramsPCAMG()
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten

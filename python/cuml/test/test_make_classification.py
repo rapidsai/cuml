@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ def test_make_classification_informative_features():
                                                          (2, [1/2] * 2, 2),
                                                          (2, [3/4, 1/4], 2),
                                                          (10, [1/3] * 3, 10),
-                                                         (np.int(64), [1], 1)
+                                                         (int(64), [1], 1)
                                                          ]:
         n_classes = len(weights)
         n_clusters = n_classes * n_clusters_per_class

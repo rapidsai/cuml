@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,10 +28,13 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import ClusterMixin
+from cuml.common.mixins import CMajorInputTagMixin
+from cuml.metrics.distance_type cimport DistanceType
 
 from collections import defaultdict
 
@@ -44,6 +47,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int n_cols,
                   float eps,
                   int min_pts,
+                  DistanceType metric,
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -56,6 +60,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int n_cols,
                   double eps,
                   int min_pts,
+                  DistanceType metric,
                   int *labels,
                   int *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -68,6 +73,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int64_t n_cols,
                   double eps,
                   int min_pts,
+                  DistanceType metric,
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -80,6 +86,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   int64_t n_cols,
                   double eps,
                   int min_pts,
+                  DistanceType metric,
                   int64_t *labels,
                   int64_t *core_sample_indices,
                   size_t max_mbytes_per_batch,
@@ -87,7 +94,9 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   bool opg) except +
 
 
-class DBSCAN(Base):
+class DBSCAN(Base,
+             ClusterMixin,
+             CMajorInputTagMixin):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many
@@ -136,6 +145,10 @@ class DBSCAN(Base):
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
+    metric: {'euclidean', 'precomputed'}, default = 'euclidean'
+        The metric to use when calculating distances between points.
+        If metric is 'precomputed', X is assumed to be a distance matrix
+        and must be square.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -152,7 +165,7 @@ class DBSCAN(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
@@ -191,14 +204,23 @@ class DBSCAN(Base):
     labels_ = CumlArrayDescriptor()
     core_sample_indices_ = CumlArrayDescriptor()
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5,
-                 verbose=False, max_mbytes_per_batch=None,
-                 output_type=None, calc_core_sample_indices=True):
-        super(DBSCAN, self).__init__(handle, verbose, output_type)
+    def __init__(self, *,
+                 eps=0.5,
+                 handle=None,
+                 min_samples=5,
+                 metric='euclidean',
+                 verbose=False,
+                 max_mbytes_per_batch=None,
+                 output_type=None,
+                 calc_core_sample_indices=True):
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.calc_core_sample_indices = calc_core_sample_indices
+        self.metric = metric
 
         # internal array attributes
         self.labels_ = None
@@ -224,14 +246,31 @@ class DBSCAN(Base):
             input_to_cuml_array(X, order='C',
                                 check_dtype=[np.float32, np.float64])
 
+        if n_rows == 0:
+            raise ValueError("No rows in the input array. DBScan cannot be "
+                             "fitted!")
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
+                                       index=X_m.index)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
+
+        # metric
+        metric_parsing = {
+            "L2": DistanceType.L2SqrtUnexpanded,
+            "euclidean": DistanceType.L2SqrtUnexpanded,
+            "precomputed": DistanceType.Precomputed,
+        }
+        if self.metric in metric_parsing:
+            metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
 
         # Create the output core_sample_indices only if needed
         if self.calc_core_sample_indices:
@@ -247,6 +286,7 @@ class DBSCAN(Base):
                     <int> n_cols,
                     <float> self.eps,
                     <int> self.min_samples,
+                    <DistanceType> metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
@@ -259,6 +299,7 @@ class DBSCAN(Base):
                     <int64_t> n_cols,
                     <float> self.eps,
                     <int> self.min_samples,
+                    <DistanceType> metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t>self.max_mbytes_per_batch,
@@ -273,6 +314,7 @@ class DBSCAN(Base):
                     <int> n_cols,
                     <double> self.eps,
                     <int> self.min_samples,
+                    <DistanceType> metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
@@ -285,6 +327,7 @@ class DBSCAN(Base):
                     <int64_t> n_cols,
                     <double> self.eps,
                     <int> self.min_samples,
+                    <DistanceType> metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
                     <size_t> self.max_mbytes_per_batch,
@@ -356,9 +399,5 @@ class DBSCAN(Base):
             "min_samples",
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
+            "metric",
         ]
-
-    def _more_tags(self):
-        return {
-            'preferred_input_order': 'C'
-        }

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,5 +32,11 @@ from cuml.metrics.cluster.mutual_info_score import \
     cython_mutual_info_score as mutual_info_score
 from cuml.metrics.confusion_matrix import confusion_matrix
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
-from cuml.metrics.pairwise_distances import pairwise_distances, \
-    PAIRWISE_DISTANCE_METRICS
+from cuml.metrics.pairwise_distances import pairwise_distances
+from cuml.metrics.pairwise_distances import sparse_pairwise_distances
+from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_METRICS
+from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_SPARSE_METRICS
+from cuml.metrics.pairwise_kernels import pairwise_kernels
+from cuml.metrics.pairwise_kernels import PAIRWISE_KERNEL_FUNCTIONS
+from cuml.metrics.hinge_loss import hinge_loss
+from cuml.metrics.kl_divergence import kl_divergence

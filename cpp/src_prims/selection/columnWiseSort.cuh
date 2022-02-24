@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,17 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
 #include <cstddef>
+#include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>
 
 #include <cub/cub.cuh>
 #include <limits>
 #include <map>
 
-#define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize,   \
-                        elemPT, stream)                                        \
-  devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT>                \
-    <<<rows, blockSize, 0, stream>>>(keyIn, keyOut, valueInOut, rows, columns, \
-                                     std::numeric_limits<InType>::max())
+#define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream)     \
+  devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>>( \
+    keyIn, keyOut, valueInOut, rows, columns, std::numeric_limits<InType>::max())
 
 namespace MLCommon {
 namespace Selection {
@@ -43,15 +41,12 @@ struct TemplateChecker {
   };
 };
 
-template <typename InType, typename OutType, int BLOCK_SIZE,
-          int ITEMS_PER_THREAD>
+template <typename InType, typename OutType, int BLOCK_SIZE, int ITEMS_PER_THREAD>
 struct SmemPerBlock {
-  typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD,
-                         cub::BLOCK_LOAD_WARP_TRANSPOSE>
+  typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD, cub::BLOCK_LOAD_WARP_TRANSPOSE>
     BlockLoadTypeKey;
 
-  typedef cub::BlockRadixSort<InType, BLOCK_SIZE, ITEMS_PER_THREAD, OutType>
-    BlockRadixSortType;
+  typedef cub::BlockRadixSort<InType, BLOCK_SIZE, ITEMS_PER_THREAD, OutType> BlockRadixSortType;
 
   union TempStorage {
     typename BlockLoadTypeKey::TempStorage keyLoad;
@@ -60,39 +55,41 @@ struct SmemPerBlock {
 };
 
 template <typename InType>
-__global__ void devLayoutIdx(InType *in, int n_cols, int totalElements) {
+__global__ void devLayoutIdx(InType* in, int n_cols, int totalElements)
+{
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
-  int n = n_cols;
+  int n   = n_cols;
 
-  if (idx < totalElements) {
-    in[idx] = idx % n;
-  }
+  if (idx < totalElements) { in[idx] = idx % n; }
 }
 
 template <typename T>
-__global__ void devOffsetKernel(T *in, T value, int n_times) {
+__global__ void devOffsetKernel(T* in, T value, int n_times)
+{
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < n_times) in[idx] = idx * value;
 }
 
 // block level radix sort - can only sort as much data we can fit within shared memory
-template <typename InType, typename OutType, int BLOCK_SIZE,
-          int ITEMS_PER_THREAD,
-          typename std::enable_if<TemplateChecker<InType, BLOCK_SIZE>::IsValid,
-                                  InType>::type * = nullptr>
-__global__ void __launch_bounds__(1024, 1)
-  devKeyValSortColumnPerRow(const InType *inputKeys, InType *outputKeys,
-                            OutType *inputVals, int n_rows, int n_cols,
-                            InType MAX_VALUE) {
-  typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD,
-                         cub::BLOCK_LOAD_WARP_TRANSPOSE>
+template <
+  typename InType,
+  typename OutType,
+  int BLOCK_SIZE,
+  int ITEMS_PER_THREAD,
+  typename std::enable_if<TemplateChecker<InType, BLOCK_SIZE>::IsValid, InType>::type* = nullptr>
+__global__ void __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* inputKeys,
+                                                                     InType* outputKeys,
+                                                                     OutType* inputVals,
+                                                                     int n_rows,
+                                                                     int n_cols,
+                                                                     InType MAX_VALUE)
+{
+  typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD, cub::BLOCK_LOAD_WARP_TRANSPOSE>
     BlockLoadTypeKey;
 
-  typedef cub::BlockRadixSort<InType, BLOCK_SIZE, ITEMS_PER_THREAD, OutType>
-    BlockRadixSortType;
+  typedef cub::BlockRadixSort<InType, BLOCK_SIZE, ITEMS_PER_THREAD, OutType> BlockRadixSortType;
 
-  __shared__ SmemPerBlock<InType, OutType, BLOCK_SIZE, ITEMS_PER_THREAD>
-    tmpSmem;
+  __shared__ SmemPerBlock<InType, OutType, BLOCK_SIZE, ITEMS_PER_THREAD> tmpSmem;
 
   InType threadKeys[ITEMS_PER_THREAD];
   OutType threadValues[ITEMS_PER_THREAD];
@@ -112,46 +109,48 @@ __global__ void __launch_bounds__(1024, 1)
 
   __syncthreads();
 
-  BlockRadixSortType(tmpSmem.tempStorage.sort)
-    .SortBlockedToStriped(threadKeys, threadValues);
+  BlockRadixSortType(tmpSmem.tempStorage.sort).SortBlockedToStriped(threadKeys, threadValues);
 
   // storing index values back (not keys)
-  cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, inputVals + blockOffset,
-                                      threadValues, n_cols);
+  cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, inputVals + blockOffset, threadValues, n_cols);
 
   if (outputKeys) {
-    cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, outputKeys + blockOffset,
-                                        threadKeys, n_cols);
+    cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, outputKeys + blockOffset, threadKeys, n_cols);
   }
 }
 
 template <
-  typename InType, typename OutType, int BLOCK_SIZE, int ITEMS_PER_THREAD,
-  typename std::enable_if<!(TemplateChecker<InType, BLOCK_SIZE>::IsValid),
-                          InType>::type * = nullptr>
-__global__ void devKeyValSortColumnPerRow(const InType *inputKeys,
-                                          InType *outputKeys,
-                                          OutType *inputVals, int n_rows,
-                                          int n_cols, InType MAX_VALUE) {
+  typename InType,
+  typename OutType,
+  int BLOCK_SIZE,
+  int ITEMS_PER_THREAD,
+  typename std::enable_if<!(TemplateChecker<InType, BLOCK_SIZE>::IsValid), InType>::type* = nullptr>
+__global__ void devKeyValSortColumnPerRow(const InType* inputKeys,
+                                          InType* outputKeys,
+                                          OutType* inputVals,
+                                          int n_rows,
+                                          int n_cols,
+                                          InType MAX_VALUE)
+{
   // place holder function
   // so that compiler unrolls for all template types successfully
 }
 
 // helper function to layout values (index's) for key-value sort
 template <typename OutType>
-cudaError_t layoutIdx(OutType *in, int n_rows, int n_columns,
-                      cudaStream_t stream) {
+cudaError_t layoutIdx(OutType* in, int n_rows, int n_columns, cudaStream_t stream)
+{
   int totalElements = n_rows * n_columns;
   dim3 block(256);
   dim3 grid((totalElements + block.x - 1) / block.x);
-  devLayoutIdx<OutType>
-    <<<grid, block, 0, stream>>>(in, n_columns, totalElements);
+  devLayoutIdx<OutType><<<grid, block, 0, stream>>>(in, n_columns, totalElements);
   return cudaGetLastError();
 }
 
 // helper function to layout offsets for rows for DeviceSegmentedRadixSort
 template <typename T>
-cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
+cudaError_t layoutSortOffset(T* in, T value, int n_times, cudaStream_t stream)
+{
   dim3 block(128);
   dim3 grid((n_times + block.x - 1) / block.x);
   devOffsetKernel<T><<<grid, block, 0, stream>>>(in, value, n_times);
@@ -172,34 +171,40 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
  * @param sortedKeys: Optional, output matrix for sorted keys (input)
  */
 template <typename InType, typename OutType>
-void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
-                       int n_columns, bool &bAllocWorkspace, void *workspacePtr,
-                       size_t &workspaceSize, cudaStream_t stream,
-                       InType *sortedKeys = nullptr) {
+void sortColumnsPerRow(const InType* in,
+                       OutType* out,
+                       int n_rows,
+                       int n_columns,
+                       bool& bAllocWorkspace,
+                       void* workspacePtr,
+                       size_t& workspaceSize,
+                       cudaStream_t stream,
+                       InType* sortedKeys = nullptr)
+{
   // assume non-square row-major matrices
   // current use-case: KNN, trustworthiness scores
   // output : either sorted indices or sorted indices and input values
-  // future : this prim can be modified to be more generic and serve as a way to sort column entries per row
+  // future : this prim can be modified to be more generic and serve as a way to sort column entries
+  // per row
   //          i.e. another output format: sorted values only
 
-  int totalElements = n_rows * n_columns;
+  int totalElements          = n_rows * n_columns;
   size_t perElementSmemUsage = sizeof(InType) + sizeof(OutType);
-  size_t memAlignWidth = 256;
+  size_t memAlignWidth       = 256;
 
   // @ToDo: Figure out dynamic shared memory for block sort kernel - better for volta and beyond
   // int currDevice = 0, smemLimit = 0;
-  // CUDA_CHECK(cudaGetDevice(&currDevice));
-  // CUDA_CHECK(cudaDeviceGetAttribute(&smemLimit, cudaDevAttrMaxSharedMemoryPerBlock, currDevice));
-  // size_t maxElementsForBlockSort = smemLimit / perElementSmemUsage;
+  // RAFT_CUDA_TRY(cudaGetDevice(&currDevice));
+  // RAFT_CUDA_TRY(cudaDeviceGetAttribute(&smemLimit, cudaDevAttrMaxSharedMemoryPerBlock,
+  // currDevice)); size_t maxElementsForBlockSort = smemLimit / perElementSmemUsage;
 
   // for 48KB smem/block, can fit in 6144 4byte key-value pair
   // assuming key-value sort for now - smem computation will change for value only sort
   // dtype being size of key-value pair
-  std::map<size_t, int> dtypeToColumnMap = {
-    {4, 12288},   // short + short
-    {8, 12288},   // float/int + int/float
-    {12, 6144},   // double + int/float
-    {16, 6144}};  // double + double
+  std::map<size_t, int> dtypeToColumnMap = {{4, 12288},   // short + short
+                                            {8, 12288},   // float/int + int/float
+                                            {12, 6144},   // double + int/float
+                                            {16, 6144}};  // double + double
 
   if (dtypeToColumnMap.count(perElementSmemUsage) != 0 &&
       n_columns <= dtypeToColumnMap[perElementSmemUsage]) {
@@ -228,107 +233,111 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows,
     // need auxillary storage: cub sorting + keys (if user not passing) +
     // staging for values out + segment partition
     if (workspaceSize == 0 || !workspacePtr) {
-      OutType *tmpValIn = nullptr;
-      int *tmpOffsetBuffer = nullptr;
+      OutType* tmpValIn    = nullptr;
+      int* tmpOffsetBuffer = nullptr;
 
       // first call is to get size of workspace
-      CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(
-        workspacePtr, workspaceSize, in, sortedKeys, tmpValIn, out,
-        totalElements, numSegments, tmpOffsetBuffer, tmpOffsetBuffer + 1));
+      RAFT_CUDA_TRY(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr,
+                                                             workspaceSize,
+                                                             in,
+                                                             sortedKeys,
+                                                             tmpValIn,
+                                                             out,
+                                                             totalElements,
+                                                             numSegments,
+                                                             tmpOffsetBuffer,
+                                                             tmpOffsetBuffer + 1));
       bAllocWorkspace = true;
       // more staging space for temp output of keys
       if (!sortedKeys)
-        workspaceSize +=
-          raft::alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
+        workspaceSize += raft::alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
 
       // value in KV pair need to be passed in, out buffer is separate
-      workspaceSize +=
-        raft::alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
+      workspaceSize += raft::alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
 
       // for segment offsets
-      workspaceSize +=
-        raft::alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
+      workspaceSize += raft::alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
     } else {
       size_t workspaceOffset = 0;
 
       if (!sortedKeys) {
-        sortedKeys = reinterpret_cast<InType *>(workspacePtr);
-        workspaceOffset =
-          raft::alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
-        workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
+        sortedKeys      = reinterpret_cast<InType*>(workspacePtr);
+        workspaceOffset = raft::alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
+        workspacePtr    = (void*)((size_t)workspacePtr + workspaceOffset);
       }
 
-      OutType *dValuesIn = reinterpret_cast<OutType *>(workspacePtr);
-      workspaceOffset =
-        raft::alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
-      workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
+      OutType* dValuesIn = reinterpret_cast<OutType*>(workspacePtr);
+      workspaceOffset    = raft::alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
+      workspacePtr       = (void*)((size_t)workspacePtr + workspaceOffset);
 
-      int *dSegmentOffsets = reinterpret_cast<int *>(workspacePtr);
-      workspaceOffset =
-        raft::alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
-      workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
+      int* dSegmentOffsets = reinterpret_cast<int*>(workspacePtr);
+      workspaceOffset      = raft::alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
+      workspacePtr         = (void*)((size_t)workspacePtr + workspaceOffset);
 
       // layout idx
-      CUDA_CHECK(layoutIdx(dValuesIn, n_rows, n_columns, stream));
+      RAFT_CUDA_TRY(layoutIdx(dValuesIn, n_rows, n_columns, stream));
 
       // layout segment lengths - spread out column length
-      CUDA_CHECK(
-        layoutSortOffset(dSegmentOffsets, n_columns, numSegments, stream));
+      RAFT_CUDA_TRY(layoutSortOffset(dSegmentOffsets, n_columns, numSegments, stream));
 
-      CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(
-        workspacePtr, workspaceSize, in, sortedKeys, dValuesIn, out,
-        totalElements, numSegments, dSegmentOffsets, dSegmentOffsets + 1, 0,
-        sizeof(InType) * 8, stream));
+      RAFT_CUDA_TRY(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr,
+                                                             workspaceSize,
+                                                             in,
+                                                             sortedKeys,
+                                                             dValuesIn,
+                                                             out,
+                                                             totalElements,
+                                                             numSegments,
+                                                             dSegmentOffsets,
+                                                             dSegmentOffsets + 1,
+                                                             0,
+                                                             sizeof(InType) * 8,
+                                                             stream));
     }
   } else {
     // batched per row device wide sort
     if (workspaceSize == 0 || !workspacePtr) {
-      OutType *tmpValIn = nullptr;
+      OutType* tmpValIn = nullptr;
 
       // first call is to get size of workspace
-      CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
+      RAFT_CUDA_TRY(cub::DeviceRadixSort::SortPairs(
         workspacePtr, workspaceSize, in, sortedKeys, tmpValIn, out, n_columns));
       bAllocWorkspace = true;
 
       if (!sortedKeys)
-        workspaceSize +=
-          raft::alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
+        workspaceSize += raft::alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
 
-      workspaceSize +=
-        raft::alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
+      workspaceSize += raft::alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
     } else {
-      size_t workspaceOffset = 0;
+      size_t workspaceOffset   = 0;
       bool userKeyOutputBuffer = true;
 
       if (!sortedKeys) {
         userKeyOutputBuffer = false;
-        sortedKeys = reinterpret_cast<InType *>(workspacePtr);
-        workspaceOffset =
-          raft::alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
-        workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
+        sortedKeys          = reinterpret_cast<InType*>(workspacePtr);
+        workspaceOffset     = raft::alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
+        workspacePtr        = (void*)((size_t)workspacePtr + workspaceOffset);
       }
 
-      OutType *dValuesIn = reinterpret_cast<OutType *>(workspacePtr);
-      workspaceOffset =
-        raft::alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
-      workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
+      OutType* dValuesIn = reinterpret_cast<OutType*>(workspacePtr);
+      workspaceOffset    = raft::alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
+      workspacePtr       = (void*)((size_t)workspacePtr + workspaceOffset);
 
       // layout idx
-      CUDA_CHECK(layoutIdx(dValuesIn, 1, n_columns, stream));
+      RAFT_CUDA_TRY(layoutIdx(dValuesIn, 1, n_columns, stream));
 
       for (int i = 0; i < n_rows; i++) {
-        InType *rowIn = reinterpret_cast<InType *>(
-          (size_t)in + (i * sizeof(InType) * (size_t)n_columns));
-        OutType *rowOut = reinterpret_cast<OutType *>(
-          (size_t)out + (i * sizeof(OutType) * (size_t)n_columns));
+        InType* rowIn =
+          reinterpret_cast<InType*>((size_t)in + (i * sizeof(InType) * (size_t)n_columns));
+        OutType* rowOut =
+          reinterpret_cast<OutType*>((size_t)out + (i * sizeof(OutType) * (size_t)n_columns));
 
-        CUDA_CHECK(cub::DeviceRadixSort::SortPairs(workspacePtr, workspaceSize,
-                                                   rowIn, sortedKeys, dValuesIn,
-                                                   rowOut, n_columns));
+        RAFT_CUDA_TRY(cub::DeviceRadixSort::SortPairs(
+          workspacePtr, workspaceSize, rowIn, sortedKeys, dValuesIn, rowOut, n_columns));
 
         if (userKeyOutputBuffer)
-          sortedKeys = reinterpret_cast<InType *>(
-            (size_t)sortedKeys + sizeof(InType) * (size_t)n_columns);
+          sortedKeys =
+            reinterpret_cast<InType*>((size_t)sortedKeys + sizeof(InType) * (size_t)n_columns);
       }
     }
   }

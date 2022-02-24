@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
+from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
 
 from sklearn.datasets import make_blobs
@@ -24,10 +24,10 @@ import numpy as np
 
 
 @pytest.mark.parametrize('input_type', ['ndarray', 'dataframe'])
-@pytest.mark.parametrize('n_samples', [10, 500])
-@pytest.mark.parametrize('batch_size', [512, 2])
+@pytest.mark.parametrize('n_samples', [150, 500])
 @pytest.mark.parametrize('n_features', [10, 100])
 @pytest.mark.parametrize('n_components', [2, 8])
+@pytest.mark.parametrize('batch_size', [128, 1024])
 def test_trustworthiness(input_type, n_samples, n_features, n_components,
                          batch_size):
     centers = round(n_samples*0.4)
@@ -43,9 +43,16 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
 
     if input_type == 'dataframe':
         X = cudf.DataFrame(X)
-
         X_embedded = cudf.DataFrame(X_embedded)
 
-    score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
+    cu_score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
 
-    assert abs(score - sk_score) <= 1e-3
+    assert abs(cu_score - sk_score) <= 1e-3
+
+
+def test_trustworthiness_invalid_input():
+    X, y = make_blobs(n_samples=10, centers=1,
+                      n_features=2, random_state=32)
+
+    with pytest.raises(ValueError):
+        cuml_trustworthiness(X, X, n_neighbors=50)

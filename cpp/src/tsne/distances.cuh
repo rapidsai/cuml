@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,28 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cuml/neighbors/knn_sparse.hpp>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/symmetrize.hpp>
+#include <raft/sparse/selection/knn.hpp>
 #include <selection/knn.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/symmetrize.cuh>
-#include <sparse/selection/knn.cuh>
 
 #include <cuml/manifold/common.hpp>
 
 #include <raft/error.hpp>
 
+#include "utils.cuh"
+
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
+
 namespace ML {
 namespace TSNE {
+
+auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
 
 /**
  * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
@@ -37,23 +45,26 @@ namespace TSNE {
  * @param[out] indices: The output indices from KNN.
  * @param[out] distances: The output sorted distances from KNN.
  * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] d_alloc: device allocator
  * @param[in] stream: The GPU stream.
  */
 template <typename tsne_input, typename value_idx, typename value_t>
-void get_distances(const raft::handle_t &handle, tsne_input &input,
-                   knn_graph<value_idx, value_t> &k_graph, cudaStream_t stream);
+void get_distances(const raft::handle_t& handle,
+                   tsne_input& input,
+                   knn_graph<value_idx, value_t>& k_graph,
+                   cudaStream_t stream);
 
 // dense, int64 indices
 template <>
-void get_distances(const raft::handle_t &handle,
-                   manifold_dense_inputs_t<float> &input,
-                   knn_graph<int64_t, float> &k_graph, cudaStream_t stream) {
+void get_distances(const raft::handle_t& handle,
+                   manifold_dense_inputs_t<float>& input,
+                   knn_graph<int64_t, float>& k_graph,
+                   cudaStream_t stream)
+{
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
 
-  std::vector<float *> input_vec = {input.X};
-  std::vector<int> sizes_vec = {input.n};
+  std::vector<float*> input_vec = {input.X};
+  std::vector<int> sizes_vec    = {input.n};
 
   /**
  * std::vector<float *> &input, std::vector<int> &sizes,
@@ -63,65 +74,87 @@ void get_distances(const raft::handle_t &handle,
                      cudaStream_t userStream,
  */
 
-  MLCommon::Selection::brute_force_knn(input_vec, sizes_vec, input.d, input.X,
-                                       input.n, k_graph.knn_indices,
-                                       k_graph.knn_dists, k_graph.n_neighbors,
-                                       handle.get_device_allocator(), stream);
+  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
+                                                           input_vec,
+                                                           sizes_vec,
+                                                           input.d,
+                                                           input.X,
+                                                           input.n,
+                                                           k_graph.knn_indices,
+                                                           k_graph.knn_dists,
+                                                           k_graph.n_neighbors,
+                                                           true,
+                                                           true,
+                                                           nullptr,
+                                                           DEFAULT_DISTANCE_METRIC);
 }
 
 // dense, int32 indices
 template <>
-void get_distances(const raft::handle_t &handle,
-                   manifold_dense_inputs_t<float> &input,
-                   knn_graph<int, float> &k_graph, cudaStream_t stream) {
-  throw raft::exception(
-    "Dense TSNE does not support 32-bit integer indices yet.");
+void get_distances(const raft::handle_t& handle,
+                   manifold_dense_inputs_t<float>& input,
+                   knn_graph<int, float>& k_graph,
+                   cudaStream_t stream)
+{
+  throw raft::exception("Dense TSNE does not support 32-bit integer indices yet.");
 }
 
 // sparse, int32
 template <>
-void get_distances(const raft::handle_t &handle,
-                   manifold_sparse_inputs_t<int, float> &input,
-                   knn_graph<int, float> &k_graph, cudaStream_t stream) {
-  raft::sparse::selection::brute_force_knn(
-    input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
-    input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
-    k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
-    handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
-    ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::MetricType::METRIC_L2);
+void get_distances(const raft::handle_t& handle,
+                   manifold_sparse_inputs_t<int, float>& input,
+                   knn_graph<int, float>& k_graph,
+                   cudaStream_t stream)
+{
+  raft::sparse::selection::brute_force_knn(input.indptr,
+                                           input.indices,
+                                           input.data,
+                                           input.nnz,
+                                           input.n,
+                                           input.d,
+                                           input.indptr,
+                                           input.indices,
+                                           input.data,
+                                           input.nnz,
+                                           input.n,
+                                           input.d,
+                                           k_graph.knn_indices,
+                                           k_graph.knn_dists,
+                                           k_graph.n_neighbors,
+                                           handle,
+                                           ML::Sparse::DEFAULT_BATCH_SIZE,
+                                           ML::Sparse::DEFAULT_BATCH_SIZE,
+                                           DEFAULT_DISTANCE_METRIC);
 }
 
 // sparse, int64
 template <>
-void get_distances(const raft::handle_t &handle,
-                   manifold_sparse_inputs_t<int64_t, float> &input,
-                   knn_graph<int64_t, float> &k_graph, cudaStream_t stream) {
-  throw raft::exception(
-    "Sparse TSNE does not support 64-bit integer indices yet.");
+void get_distances(const raft::handle_t& handle,
+                   manifold_sparse_inputs_t<int64_t, float>& input,
+                   knn_graph<int64_t, float>& k_graph,
+                   cudaStream_t stream)
+{
+  throw raft::exception("Sparse TSNE does not support 64-bit integer indices yet.");
 }
 
 /**
  * @brief   Find the maximum element in the distances matrix, then divide all entries by this.
  *          This promotes exp(distances) to not explode.
- * @param[in] n: The number of rows in the data X.
- * @param[in] distances: The output sorted distances from KNN.
- * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] stream: The GPU stream.
+ * @param[in] distances: The output sorted distances from KNN
+ * @param[in] total_nn: The number of rows in the data X
+ * @param[in] stream: The GPU stream
  */
-template <typename value_idx, typename value_t>
-void normalize_distances(const value_idx n, value_t *distances,
-                         const int n_neighbors, cudaStream_t stream) {
-  // Now D / max(abs(D)) to allow exp(D) to not explode
-  thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(distances);
-  value_t maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
-                                         begin + n * n_neighbors);
-  if (maxNorm == 0.0f) maxNorm = 1.0f;
-
-  // Divide distances inplace by max
-  const value_t div = 1.0f / maxNorm;  // Mult faster than div
-  raft::linalg::scalarMultiply(distances, distances, div, n * n_neighbors,
-                               stream);
+template <typename value_t>
+void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t stream)
+{
+  auto abs_f      = [] __device__(const value_t& x) { return abs(x); };
+  value_t maxNorm = thrust::transform_reduce(rmm::exec_policy(stream),
+                                             distances,
+                                             distances + total_nn,
+                                             abs_f,
+                                             0.0f,
+                                             thrust::maximum<value_t>());
+  raft::linalg::scalarMultiply(distances, distances, 1.0f / maxNorm, total_nn, stream);
 }
 
 /**
@@ -130,23 +163,23 @@ void normalize_distances(const value_idx n, value_t *distances,
  * @param[in] indices: The input sorted indices from KNN.
  * @param[in] n: The number of rows in the data X.
  * @param[in] k: The number of nearest neighbors.
- * @param[in] exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
  * @param[out] COO_Matrix: The final P + P.T output COO matrix.
  * @param[in] stream: The GPU stream.
  * @param[in] handle: The GPU handle.
  */
 template <typename value_idx, typename value_t, int TPB_X = 32>
-void symmetrize_perplexity(float *P, value_idx *indices, const value_idx n,
-                           const int k, const value_t exaggeration,
-                           raft::sparse::COO<value_t, value_idx> *COO_Matrix,
-                           cudaStream_t stream, const raft::handle_t &handle) {
-  // Perform (P + P.T) / P_sum * early_exaggeration
-  const value_t div = exaggeration / (2.0f * n);
-  raft::linalg::scalarMultiply(P, P, div, n * k, stream);
-
+void symmetrize_perplexity(float* P,
+                           value_idx* indices,
+                           const value_idx n,
+                           const int k,
+                           const value_t exaggeration,
+                           raft::sparse::COO<value_t, value_idx>* COO_Matrix,
+                           cudaStream_t stream,
+                           const raft::handle_t& handle)
+{
   // Symmetrize to form P + P.T
   raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
-    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
+    indices, P, n, k, COO_Matrix, stream);
 }
 
 }  // namespace TSNE

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 # distutils: language = c++
 
 import typing
+from cudf import DataFrame as cudfDataFrame
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
 import cuml.common.logger as logger
-from cudf.core import DataFrame as cudfDataFrame
 
 from cuml.neighbors import NearestNeighbors
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 
@@ -67,8 +67,8 @@ class NearestNeighborsMG(NearestNeighbors):
     The end-user API for multi-node multi-GPU NearestNeighbors is
     `cuml.dask.neighbors.NearestNeighbors`
     """
-    def __init__(self, batch_size=2000000, **kwargs):
-        super(NearestNeighborsMG, self).__init__(**kwargs)
+    def __init__(self, *, batch_size=2000000, **kwargs):
+        super().__init__(**kwargs)
         self.batch_size = batch_size
 
     @api_base_return_generic_skipall
@@ -201,13 +201,16 @@ class NearestNeighborsMG(NearestNeighbors):
         else:
             raise ValueError('Wrong dtype')
 
+        def to_cupy(data):
+            data, _, _, _ = input_to_cuml_array(data)
+            return data.to_output('cupy')
+
         outputs_cai = []
         for i, arr in enumerate(outputs):
-            for j in range(arr.shape[1]):
-                if isinstance(arr, cudfDataFrame):
-                    col = arr.iloc[:, j]
-                else:
-                    col = arr[:, j]
+            arr = to_cupy(arr)
+            n_features = arr.shape[1] if arr.ndim != 1 else 1
+            for j in range(n_features):
+                col = arr[:, j] if n_features != 1 else arr
                 out_ai, _, _, _ = \
                     input_to_cuml_array(col, order="F",
                                         convert_to_dtype=(dtype

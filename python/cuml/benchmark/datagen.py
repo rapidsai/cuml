@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,8 +37,9 @@ GPU arrays directly instead.
 import cudf
 import gzip
 import functools
-import numpy as np
 import os
+import numpy as np
+import cupy as cp
 import pandas as pd
 
 import cuml.datasets
@@ -51,43 +52,44 @@ from numba import cuda
 from cuml.common.import_utils import has_scipy
 
 
-def _gen_data_regression(n_samples, n_features, random_state=42):
+def _gen_data_regression(n_samples, n_features, random_state=42,
+                         dtype=np.float32):
     """Wrapper for sklearn make_regression"""
     if n_samples == 0:
         n_samples = int(1e6)
     if n_features == 0:
         n_features = 100
+
     X_arr, y_arr = cuml.datasets.make_regression(
-        n_samples=n_samples, n_features=n_features, random_state=random_state)
-    return cudf.DataFrame(X_arr), cudf.Series(y_arr)
+        n_samples=n_samples, n_features=n_features,
+        random_state=random_state, dtype=dtype)
+
+    return X_arr, y_arr
 
 
-def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
+def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None,
+                    dtype=np.float32):
     """Wrapper for sklearn make_blobs"""
     if n_samples == 0:
         n_samples = int(1e6)
     if n_features == 0:
         n_samples = 100
+
     X_arr, y_arr = cuml.datasets.make_blobs(
         n_samples=n_samples, n_features=n_features, centers=centers,
-        random_state=random_state)
-    return (
-        cudf.DataFrame(X_arr.astype(np.float32)),
-        cudf.Series(y_arr.astype(np.float32)),
-    )
+        random_state=random_state, dtype=dtype)
+
+    return X_arr, y_arr
 
 
-def _gen_data_zeros(n_samples, n_features, random_state=42):
+def _gen_data_zeros(n_samples, n_features, dtype=np.float32):
     """Dummy generator for use in testing - returns all 0s"""
-    return (
-        cudf.DataFrame(np.zeros((n_samples, n_features), dtype=np.float32)),
-        cudf.Series(np.zeros(n_samples, dtype=np.float32)),
-    )
+    return cp.zeros((n_samples, n_features), dtype=dtype), \
+        cp.zeros(n_samples, dtype=dtype)
 
 
-def _gen_data_classification(
-    n_samples, n_features, random_state=42, n_classes=2
-):
+def _gen_data_classification(n_samples, n_features, random_state=42,
+                             n_classes=2, dtype=np.float32):
     """Wrapper for sklearn make_blobs"""
     if n_samples == 0:
         n_samples = int(1e6)
@@ -96,15 +98,12 @@ def _gen_data_classification(
 
     X_arr, y_arr = cuml.datasets.make_classification(
         n_samples=n_samples, n_features=n_features, n_classes=n_classes,
-        random_state=random_state)
+        random_state=random_state, dtype=dtype)
 
-    return (
-        cudf.DataFrame(X_arr.astype(np.float32)),
-        cudf.Series(y_arr.astype(np.float32)),
-    )
+    return X_arr, y_arr
 
 
-def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
+def _gen_data_higgs(n_samples=None, n_features=None, dtype=np.float32):
     """Wrapper returning Higgs in Pandas format"""
     X_df, y_df = load_higgs()
     if n_samples == 0:
@@ -121,7 +120,8 @@ def _gen_data_higgs(n_samples=None, n_features=None, random_state=42):
             "Higgs dataset has only %d rows, cannot support %d"
             % (X_df.shape[0], n_samples)
         )
-    return X_df.iloc[:n_samples, :n_features], y_df.iloc[:n_samples]
+    return X_df.iloc[:n_samples, :n_features].astype(dtype), \
+        y_df.iloc[:n_samples].astype(dtype)
 
 
 def _download_and_cache(url, compressed_filepath, decompressed_filepath):
@@ -169,12 +169,34 @@ def _convert_to_numpy(data):
         return tuple([_convert_to_numpy(d) for d in data])
     elif isinstance(data, np.ndarray):
         return data
+    elif isinstance(data, cp.ndarray):
+        return cp.asnumpy(data)
     elif isinstance(data, cudf.DataFrame):
-        return data.as_matrix()
+        return data.to_numpy()
     elif isinstance(data, cudf.Series):
-        return data.to_array()
+        return data.to_numpy()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data.to_numpy()
+    else:
+        raise Exception("Unsupported type %s" % str(type(data)))
+
+
+def _convert_to_cupy(data):
+    """Returns tuple data with all elements converted to cupy ndarrays"""
+    if data is None:
+        return None
+    elif isinstance(data, tuple):
+        return tuple([_convert_to_cupy(d) for d in data])
+    elif isinstance(data, np.ndarray):
+        return cp.asarray(data)
+    elif isinstance(data, cp.ndarray):
+        return data
+    elif isinstance(data, cudf.DataFrame):
+        return data.values
+    elif isinstance(data, cudf.Series):
+        return data.values
+    elif isinstance(data, (pd.DataFrame, pd.Series)):
+        return cp.asarray(data.to_numpy())
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
 
@@ -190,6 +212,18 @@ def _convert_to_cudf(data):
         return cudf.DataFrame.from_pandas(data)
     elif isinstance(data, pd.Series):
         return cudf.Series.from_pandas(data)
+    elif isinstance(data, np.ndarray):
+        data = np.squeeze(data)
+        if data.ndim == 1:
+            return cudf.Series(data)
+        else:
+            return cudf.DataFrame(data)
+    elif isinstance(data, cp.ndarray):
+        data = np.squeeze(cp.asnumpy(data))
+        if data.ndim == 1:
+            return cudf.Series(data)
+        else:
+            return cudf.DataFrame(data)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
 
@@ -203,6 +237,18 @@ def _convert_to_pandas(data):
         return data
     elif isinstance(data, (cudf.DataFrame, cudf.Series)):
         return data.to_pandas()
+    elif isinstance(data, np.ndarray):
+        data = np.squeeze(data)
+        if data.ndim == 1:
+            return pd.Series(data)
+        else:
+            return pd.DataFrame(data)
+    elif isinstance(data, cp.ndarray):
+        data = np.squeeze(cp.asnumpy(data))
+        if data.ndim == 1:
+            return pd.Series(data)
+        else:
+            return pd.DataFrame(data)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
 
@@ -255,9 +301,9 @@ def _convert_to_scipy_sparse(data, input_type):
     elif isinstance(data, np.ndarray):
         return _sparsify_and_convert(data, input_type)
     elif isinstance(data, cudf.DataFrame):
-        return _sparsify_and_convert(data.as_matrix(), input_type)
+        return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, cudf.Series):
-        return _sparsify_and_convert(data.to_array(), input_type)
+        return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return _sparsify_and_convert(data.to_numpy(), input_type)
     else:
@@ -281,6 +327,7 @@ _data_generators = {
 }
 _data_converters = {
     'numpy': _convert_to_numpy,
+    'cupy': _convert_to_cupy,
     'cudf': _convert_to_cudf,
     'pandas': _convert_to_pandas,
     'gpuarray': _convert_to_gpuarray,
@@ -300,7 +347,6 @@ def gen_data(
     dataset_format,
     n_samples=0,
     n_features=0,
-    random_state=42,
     test_fraction=0.0,
     **kwargs
 ):
@@ -330,15 +376,17 @@ def gen_data(
     data = _data_generators[dataset_name](
         int(n_samples / (1 - test_fraction)),
         n_features,
-        random_state,
         **kwargs
     )
     if test_fraction != 0.0:
         if n_samples == 0:
             n_samples = int(data[0].shape[0] * (1 - test_fraction))
+        random_state_dict = ({'random_state': kwargs['random_state']}
+                             if 'random_state' in kwargs else {})
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(
-                *data, train_size=n_samples, random_state=random_state
+                *data, train_size=n_samples,
+                **random_state_dict
             )
         )
         data = (X_train, y_train, X_test, y_test)

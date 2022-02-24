@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include <raft/cuda_utils.cuh>
-
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <raft/handle.hpp>
+#include <raft/random/rng.hpp>
 
 namespace ML {
 namespace Bench {
@@ -38,29 +37,25 @@ struct TimeSeriesParams {
  */
 template <typename DataT>
 struct TimeSeriesDataset {
+  TimeSeriesDataset() : X(0, rmm::cuda_stream_default) {}
+
   /** input data */
-  DataT* X;
+  rmm::device_uvector<DataT> X;
 
   /** allocate space needed for the dataset */
-  void allocate(const raft::handle_t& handle, const TimeSeriesParams& p) {
-    auto allocator = handle.get_device_allocator();
-    auto stream = handle.get_stream();
-    X = (DataT*)allocator->allocate(p.batch_size * p.n_obs * sizeof(DataT),
-                                    stream);
-  }
-
-  /** free-up the buffers */
-  void deallocate(const raft::handle_t& handle, const TimeSeriesParams& p) {
-    auto allocator = handle.get_device_allocator();
-    auto stream = handle.get_stream();
-    allocator->deallocate(X, p.batch_size * p.n_obs * sizeof(DataT), stream);
+  void allocate(const raft::handle_t& handle, const TimeSeriesParams& p)
+  {
+    X.resize(p.batch_size * p.n_obs, handle.get_stream());
   }
 
   /** generate random time series (normal distribution) */
-  void random(const raft::handle_t& handle, const TimeSeriesParams& p,
-              DataT mu = 0, DataT sigma = 1) {
+  void random(const raft::handle_t& handle,
+              const TimeSeriesParams& p,
+              DataT mu    = 0,
+              DataT sigma = 1)
+  {
     raft::random::Rng gpu_gen(p.seed, raft::random::GenPhilox);
-    gpu_gen.normal(X, p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
+    gpu_gen.normal(X.data(), p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
   }
 };
 

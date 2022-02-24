@@ -25,7 +25,8 @@ namespace PCA {
 namespace opg {
 
 /**
- * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen vectors
+ * @brief sign flip for PCA and tSVD. This is used to stabilize the sign of column major eigen
+ * vectors
  * @param[in] handle: the internal cuml handle object
  * @param[in] input_data: input matrix that will be used to determine the sign.
  * @param[in] input_desc: MNMG description of the input
@@ -35,15 +36,21 @@ namespace opg {
  * @param[in] n_stream: number of streams
  * @{
  */
-void sign_flip(raft::handle_t &handle,
-               std::vector<MLCommon::Matrix::Data<float> *> &input_data,
-               MLCommon::Matrix::PartDescriptor &input_desc, float *components,
-               int n_components, cudaStream_t *streams, int n_stream);
+void sign_flip(raft::handle_t& handle,
+               std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+               MLCommon::Matrix::PartDescriptor& input_desc,
+               float* components,
+               std::size_t n_components,
+               cudaStream_t* streams,
+               std::uint32_t n_stream);
 
-void sign_flip(raft::handle_t &handle,
-               std::vector<MLCommon::Matrix::Data<double> *> &input_data,
-               MLCommon::Matrix::PartDescriptor &input_desc, double *components,
-               int n_components, cudaStream_t *streams, int n_stream);
+void sign_flip(raft::handle_t& handle,
+               std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+               MLCommon::Matrix::PartDescriptor& input_desc,
+               double* components,
+               std::size_t n_components,
+               cudaStream_t* streams,
+               std::uint32_t n_stream);
 
 };  // end namespace opg
 };  // end namespace PCA

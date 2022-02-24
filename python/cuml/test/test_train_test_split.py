@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,28 @@ def test_split_dataframe(train_size, shuffle):
     assert all(X_reconstructed.reset_index(drop=True) == X)
     out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
     assert all(out)
+
+
+@pytest.mark.parametrize("y_type", ["cudf", "cupy"])
+def test_split_dataframe_array(y_type):
+    X = cudf.DataFrame({"x": range(100)})
+    y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
+    if y_type == "cupy":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y.values
+        )
+        assert isinstance(X_train, cudf.DataFrame)
+        assert isinstance(X_test, cudf.DataFrame)
+        assert isinstance(y_train, cp.ndarray)
+        assert isinstance(y_test, cp.ndarray)
+    elif y_type == "cudf":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y
+        )
+        assert isinstance(X_train, cudf.DataFrame)
+        assert isinstance(X_test, cudf.DataFrame)
+        assert isinstance(y_train, cudf.Series)
+        assert isinstance(y_test, cudf.Series)
 
 
 def test_split_column():
@@ -298,7 +320,7 @@ def test_stratified_split(type, test_size, train_size):
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=train_size,
                                                         test_size=test_size,
-                                                        stratify=True)
+                                                        stratify=y)
 
     original_counts = counts(y)
     split_counts = counts(y_train)
@@ -327,7 +349,7 @@ def test_stratified_random_seed(seed_type):
         y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         random_state=seed,
-                                                        stratify=True)
+                                                        stratify=y)
 
     if seed_type == 'cupy':
         seed = cp.random.RandomState(seed=seed_n)
@@ -335,7 +357,7 @@ def test_stratified_random_seed(seed_type):
         seed = np.random.RandomState(seed=seed_n)
 
     X_train2, X_test2, y_train2, y_test2 = \
-        train_test_split(X, y, random_state=seed, stratify=True)
+        train_test_split(X, y, random_state=seed, stratify=y)
 
     assert X_train.equals(X_train2)
     assert X_test.equals(X_test2)
@@ -362,9 +384,64 @@ def test_stratify_retain_index(test_size, train_size):
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         shuffle=True,
-                                                        stratify=True)
-    assert (X_train["x"] == X_train.index).all()
-    assert (X_test["x"] == X_test.index).all()
+                                                        stratify=y,
+                                                        random_state=15)
+    assert (X_train["x"].to_numpy() == X_train.index.to_numpy()).all()
+    assert (X_test["x"].to_numpy() == X_test.index.to_numpy()).all()
+
+    if train_size is not None:
+        assert X_train.shape[0] == (int)(X.shape[0] * train_size)
+
+    elif test_size is not None:
+        assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+
+def test_stratified_binary_classification():
+    X = cp.array([[0.37487513, -2.3031888, 1.662633, 0.7671007],
+                  [-0.49796826, -1.0621182, -0.32518214, -0.20583323],
+                  [-1.0104885, -2.4997945, 2.8952584, 1.4712684],
+                  [2.008748, -2.4520662, 0.5557737, 0.07749569],
+                  [0.97350526, -0.3403474, -0.58081895, -0.23199573]])
+
+    # Needs to fail when we have just 1 occurence of a label
+    y = cp.array([0, 0, 0, 0, 1])
+    with pytest.raises(ValueError):
+        train_test_split(X, y,
+                         train_size=0.75,
+                         stratify=y,
+                         shuffle=True)
+
+    y = cp.array([0, 0, 0, 1, 1])
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=0.75,
+                                                        stratify=y,
+                                                        random_state=15)
+
+    _, y_counts = cp.unique(y, return_counts=True)
+    _, train_counts = cp.unique(y_train, return_counts=True)
+    _, test_counts = cp.unique(y_test, return_counts=True)
+
+    # Ensure we have preserve the number of labels
+    cp.testing.assert_array_equal(train_counts+test_counts, y_counts)
+
+
+@pytest.mark.parametrize('test_size', [0.2, 0.4, None])
+@pytest.mark.parametrize('train_size', [0.6, 0.8, None])
+def test_stratify_any_input(test_size, train_size):
+    X = cudf.DataFrame({"x": range(10)})
+    X['test_col'] = cudf.Series([10, 0, 0, 10, 10,
+                                10, 0, 0, 10, 10])
+    y = cudf.Series(([0] * (10 // 2)) + ([1] * (10 // 2)))
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                        train_size=train_size,
+                                                        test_size=test_size,
+                                                        shuffle=True,
+                                                        stratify=X['test_col'],
+                                                        random_state=15)
+    assert (X_train["x"].to_numpy() == X_train.index.to_numpy()).all()
+    assert (X_test["x"].to_numpy() == X_test.index.to_numpy()).all()
 
     if train_size is not None:
         assert X_train.shape[0] == (int)(X.shape[0] * train_size)

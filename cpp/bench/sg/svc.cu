@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
+#include <cmath>
 #include <cuml/matrix/kernelparams.h>
+#include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <cmath>
-#include <cuml/cuml.hpp>
-#include <cuml/svm/svc.hpp>
 #include <sstream>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -33,8 +32,8 @@ struct SvcParams {
   DatasetParams data;
   BlobsParams blobs;
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D> model;
 };
 
 template <typename D>
@@ -44,7 +43,8 @@ class SVC : public BlobsFixture<D, D> {
     : BlobsFixture<D, D>(name, p.data, p.blobs),
       kernel(p.kernel),
       model(p.model),
-      svm_param(p.svm_param) {
+      svm_param(p.svm_param)
+  {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
     oss << name << "/" << kernel_names[kernel.kernel] << p.data;
@@ -52,30 +52,36 @@ class SVC : public BlobsFixture<D, D> {
   }
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
-    if (this->params.rowMajor) {
-      state.SkipWithError("SVC only supports col-major inputs");
-    }
+  void runBenchmark(::benchmark::State& state) override
+  {
+    if (this->params.rowMajor) { state.SkipWithError("SVC only supports col-major inputs"); }
     if (this->svm_param.svmType != ML::SVM::C_SVC) {
       state.SkipWithError("SVC currently only supports C_SVC");
     }
     this->loopOnState(state, [this]() {
-      ML::SVM::svcFit(*this->handle, this->data.X, this->params.nrows,
-                      this->params.ncols, this->data.y, this->svm_param,
-                      this->kernel, this->model);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      ML::SVM::svcFit(*this->handle,
+                      this->data.X.data(),
+                      this->params.nrows,
+                      this->params.ncols,
+                      this->data.y.data(),
+                      this->svm_param,
+                      this->kernel,
+                      this->model,
+                      static_cast<D*>(nullptr));
+      this->handle->sync_stream(this->stream);
       ML::SVM::svmFreeBuffers(*this->handle, this->model);
     });
   }
 
  private:
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D> model;
 };
 
 template <typename D>
-std::vector<SvcParams<D>> getInputs() {
+std::vector<SvcParams<D>> getInputs()
+{
   struct Triplets {
     int nrows, ncols, nclasses;
   };
@@ -84,20 +90,17 @@ std::vector<SvcParams<D>> getInputs() {
 
   p.data.rowMajor = false;
 
-  p.blobs.cluster_std = 1.0;
-  p.blobs.shuffle = false;
+  p.blobs.cluster_std    = 1.0;
+  p.blobs.shuffle        = false;
   p.blobs.center_box_min = -2.0;
   p.blobs.center_box_max = 2.0;
-  p.blobs.seed = 12345ULL;
+  p.blobs.seed           = 12345ULL;
 
-  //svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
-  p.svm_param = ML::SVM::svmParameter{
-    1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
-  p.model =
-    ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+  // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
+  p.svm_param = ML::SVM::SvmParameter{1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
+  p.model     = ML::SVM::SvmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
 
-  std::vector<Triplets> rowcols = {
-    {50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
+  std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 
   std::vector<MLCommon::Matrix::KernelParams> kernels{
     MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
@@ -106,13 +109,13 @@ std::vector<SvcParams<D>> getInputs() {
     MLCommon::Matrix::KernelParams{MLCommon::Matrix::TANH, 3, 0.1, 0}};
 
   for (auto& rc : rowcols) {
-    p.data.nrows = rc.nrows;
-    p.data.ncols = rc.ncols;
+    p.data.nrows    = rc.nrows;
+    p.data.ncols    = rc.ncols;
     p.data.nclasses = rc.nclasses;
     // Limit the number of iterations for large tests
     p.svm_param.max_iter = (rc.nrows > 10000) ? 20 : 100;
     for (auto kernel : kernels) {
-      p.kernel = kernel;
+      p.kernel       = kernel;
       p.kernel.gamma = 1.0 / rc.ncols;
       out.push_back(p);
     }

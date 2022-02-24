@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include "algo.cuh"
+#include <cuml/manifold/umapparams.h>
+#include <raft/mr/device/allocator.hpp>
 
-#include <sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
 namespace UMAPAlgo {
 
@@ -28,13 +29,16 @@ namespace SimplSetEmbed {
 using namespace ML;
 
 template <int TPB_X, typename T>
-void run(int m, int n, raft::sparse::COO<T> *coo, UMAPParams *params,
-         T *embedding, std::shared_ptr<deviceAllocator> alloc,
-         cudaStream_t stream, int algorithm = 0) {
+void run(int m,
+         int n,
+         raft::sparse::COO<T>* coo,
+         UMAPParams* params,
+         T* embedding,
+         cudaStream_t stream,
+         int algorithm = 0)
+{
   switch (algorithm) {
-    case 0:
-      SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding,
-                                              alloc, stream);
+    case 0: SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding, stream);
   }
 }
 }  // namespace SimplSetEmbed

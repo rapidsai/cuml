@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,15 +25,15 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.raft.common.handle import Handle
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle import Handle
+from raft.common.handle cimport handle_t
 
-cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
+cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
 
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"
 
-cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     cdef double trustworthiness_score[T, DistanceType](const handle_t& h,
                                                        T* X,
@@ -54,8 +54,8 @@ def _get_array_ptr(obj):
 
 @cuml.internals.api_return_any()
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean', should_downcast=True,
-                    convert_dtype=False, batch_size=512) -> double:
+                    metric='euclidean',
+                    convert_dtype=True, batch_size=512) -> double:
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -83,10 +83,13 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
             Trustworthiness of the low-dimensional embedding
     """
 
-    if should_downcast:
-        convert_dtype = True
-        warnings.warn("Parameter should_downcast is deprecated, use "
-                      "convert_dtype instead. ")
+    if n_neighbors > X.shape[0]:
+        raise ValueError("n_neighbors must be <= the number of rows.")
+
+    if n_neighbors > X.shape[0]:
+        raise ValueError("n_neighbors must be <= the number of rows.")
+
+    handle = Handle() if handle is None else handle
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
@@ -108,7 +111,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     if metric == 'euclidean':
-        res = trustworthiness_score[float, euclidean](handle_[0],
+        ret = trustworthiness_score[float, euclidean](handle_[0],
                                                       <float*>d_X_ptr,
                                                       <float*>d_X_embedded_ptr,
                                                       n_samples,
@@ -116,13 +119,9 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                                       n_components,
                                                       n_neighbors,
                                                       batch_size)
-        del X_m
-        del X_m2
+        handle.sync()
+
     else:
-        del X_m
-        del X_m2
         raise Exception("Unknown metric")
 
-    if handle is None:
-        del handle_
-    return res
+    return ret

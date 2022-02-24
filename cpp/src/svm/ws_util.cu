@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,26 @@
  * limitations under the License.
  */
 
-#include <limits.h>
 #include <cub/cub.cuh>
+#include <limits.h>
 #include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace SVM {
 
-__global__ void set_unavailable(bool *available, int n_rows, const int *idx,
-                                int n_selected) {
+__global__ void set_unavailable(bool* available, int n_rows, const int* idx, int n_selected)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n_selected) {
-    available[idx[tid]] = false;
-  }
+  if (tid < n_selected) { available[idx[tid]] = false; }
 }
 
-__global__ void update_priority(int *new_priority, int n_selected,
-                                const int *new_idx, int n_ws, const int *idx,
-                                const int *priority) {
+__global__ void update_priority(int* new_priority,
+                                int n_selected,
+                                const int* new_idx,
+                                int n_ws,
+                                const int* idx,
+                                const int* priority)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_selected) {
     int my_new_idx = new_idx[tid];

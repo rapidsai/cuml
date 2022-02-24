@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,23 @@
 
 #pragma once
 
-#include <raft/linalg/gemv.h>
-#include <linalg/lstsq.cuh>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
-#include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/lstsq.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/subtract.hpp>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
+#include <raft/stats/stddev.hpp>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
+
 #include "preprocess.cuh"
 
 namespace ML {
 namespace GLM {
-
-using namespace MLCommon;
 
 /**
  * @brief fit an ordinary least squares model
@@ -43,19 +42,28 @@ using namespace MLCommon;
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
  * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param stream        cuda stream
- * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
+ * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
+ * QR-decomposition)
  */
 template <typename math_t>
-void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
-            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
-            bool normalize, cudaStream_t stream, int algo = 0) {
-  auto cublas_handle = handle.get_cublas_handle();
+void olsFit(const raft::handle_t& handle,
+            math_t* input,
+            int n_rows,
+            int n_cols,
+            math_t* labels,
+            math_t* coef,
+            math_t* intercept,
+            bool fit_intercept,
+            bool normalize,
+            cudaStream_t stream,
+            int algo = 0)
+{
+  auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
-  auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "olsFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");
@@ -67,29 +75,52 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
-    if (normalize) {
-      norm2_input.resize(n_cols, stream);
-    }
-    preProcessData(handle, input, n_rows, n_cols, labels, intercept,
-                   mu_input.data(), mu_labels.data(), norm2_input.data(),
-                   fit_intercept, normalize, stream);
+    if (normalize) { norm2_input.resize(n_cols, stream); }
+    preProcessData(handle,
+                   input,
+                   n_rows,
+                   n_cols,
+                   labels,
+                   intercept,
+                   mu_input.data(),
+                   mu_labels.data(),
+                   norm2_input.data(),
+                   fit_intercept,
+                   normalize,
+                   stream);
   }
 
-  if (algo == 0 || algo == 1) {
-    LinAlg::lstsq(handle, input, n_rows, n_cols, labels, coef, algo, stream);
-  } else if (algo == 2) {
-    LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                    cublas_handle, allocator, stream);
-  } else if (algo == 3) {
-    ASSERT(false, "olsFit: no algorithm with this id has been implemented");
-  } else {
-    ASSERT(false, "olsFit: no algorithm with this id has been implemented");
+  int selectedAlgo = algo;
+  if (n_cols > n_rows || n_cols == 1) selectedAlgo = 0;
+
+  raft::common::nvtx::push_range("ML::GLM::olsFit/algo-%d", selectedAlgo);
+  switch (selectedAlgo) {
+    case 0:
+      raft::linalg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream);
+      break;
+    case 1: raft::linalg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 2: raft::linalg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 3: raft::linalg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    default:
+      ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
+      break;
   }
+  raft::common::nvtx::pop_range();
 
   if (fit_intercept) {
-    postProcessData(handle, input, n_rows, n_cols, labels, coef, intercept,
-                    mu_input.data(), mu_labels.data(), norm2_input.data(),
-                    fit_intercept, normalize, stream);
+    postProcessData(handle,
+                    input,
+                    n_rows,
+                    n_cols,
+                    labels,
+                    coef,
+                    intercept,
+                    mu_input.data(),
+                    mu_labels.data(),
+                    norm2_input.data(),
+                    fit_intercept,
+                    normalize,
+                    stream);
   } else {
     *intercept = math_t(0);
   }
@@ -107,19 +138,35 @@ void olsFit(const raft::handle_t &handle, math_t *input, int n_rows, int n_cols,
  * @param stream        cuda stream
  */
 template <typename math_t>
-void gemmPredict(const raft::handle_t &handle, const math_t *input, int n_rows,
-                 int n_cols, const math_t *coef, math_t intercept,
-                 math_t *preds, cudaStream_t stream) {
+void gemmPredict(const raft::handle_t& handle,
+                 const math_t* input,
+                 int n_rows,
+                 int n_cols,
+                 const math_t* coef,
+                 math_t intercept,
+                 math_t* preds,
+                 cudaStream_t stream)
+{
   ASSERT(n_cols > 0, "gemmPredict: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "gemmPredict: number of rows cannot be less than one");
 
   math_t alpha = math_t(1);
-  math_t beta = math_t(0);
-  raft::linalg::gemm(handle, input, n_rows, n_cols, coef, preds, n_rows, 1,
-                     CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
+  math_t beta  = math_t(0);
+  raft::linalg::gemm(handle,
+                     input,
+                     n_rows,
+                     n_cols,
+                     coef,
+                     preds,
+                     n_rows,
+                     1,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_N,
+                     alpha,
+                     beta,
+                     stream);
 
-  if (intercept != math_t(0))
-    raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
+  if (intercept != math_t(0)) raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 };  // namespace GLM

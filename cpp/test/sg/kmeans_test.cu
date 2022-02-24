@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,22 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
+#include <test_utils.h>
 #include <vector>
 
-#include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <thrust/fill.h>
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace Metrics;
 
@@ -47,64 +46,86 @@ struct KmeansInputs {
 template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
-  void basicTest() {
+  KmeansTest()
+    : d_labels(0, stream),
+      d_labels_ref(0, stream),
+      d_centroids(0, stream),
+      d_sample_weight(0, stream)
+  {
+  }
+
+  void basicTest()
+  {
     raft::handle_t handle;
     testparams = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
 
-    int n_samples = testparams.n_row;
-    int n_features = testparams.n_col;
-    params.n_clusters = testparams.n_clusters;
-    params.tol = testparams.tol;
-    params.n_init = 5;
-    params.seed = 1;
+    int n_samples              = testparams.n_row;
+    int n_features             = testparams.n_col;
+    params.n_clusters          = testparams.n_clusters;
+    params.tol                 = testparams.tol;
+    params.n_init              = 5;
+    params.seed                = 1;
     params.oversampling_factor = 0;
 
-    device_buffer<T> X(handle.get_device_allocator(), handle.get_stream(),
-                       n_samples * n_features);
+    auto stream = handle.get_stream();
+    rmm::device_uvector<T> X(n_samples * n_features, stream);
+    rmm::device_uvector<int> labels(n_samples, stream);
 
-    device_buffer<int> labels(handle.get_device_allocator(),
-                              handle.get_stream(), n_samples);
+    make_blobs(handle,
+               X.data(),
+               labels.data(),
+               n_samples,
+               n_features,
+               params.n_clusters,
+               true,
+               nullptr,
+               nullptr,
+               1.0,
+               false,
+               -10.0f,
+               10.0f,
+               1234ULL);
 
-    make_blobs(handle, X.data(), labels.data(), n_samples, n_features,
-               params.n_clusters, true, nullptr, nullptr, 1.0, false, -10.0f,
-               10.0f, 1234ULL);
+    d_labels.resize(n_samples, stream);
+    d_labels_ref.resize(n_samples, stream);
+    d_centroids.resize(params.n_clusters * n_features, stream);
 
-    raft::allocate(d_labels, n_samples);
-    raft::allocate(d_labels_ref, n_samples);
-    raft::allocate(d_centroids, params.n_clusters * n_features);
-
+    T* d_sample_weight_ptr = nullptr;
     if (testparams.weighted) {
-      raft::allocate(d_sample_weight, n_samples);
-      thrust::fill(thrust::cuda::par.on(handle.get_stream()), d_sample_weight,
-                   d_sample_weight + n_samples, 1);
-    } else {
-      d_sample_weight = nullptr;
+      d_sample_weight.resize(n_samples, stream);
+      d_sample_weight_ptr = d_sample_weight.data();
+      thrust::fill(
+        thrust::cuda::par.on(stream), d_sample_weight_ptr, d_sample_weight_ptr + n_samples, 1);
     }
 
-    raft::copy(d_labels_ref, labels.data(), n_samples, handle.get_stream());
+    raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(stream);
 
-    T inertia = 0;
+    T inertia  = 0;
     int n_iter = 0;
 
-    kmeans::fit_predict(handle, params, X.data(), n_samples, n_features,
-                        d_sample_weight, d_centroids, d_labels, inertia,
+    kmeans::fit_predict(handle,
+                        params,
+                        X.data(),
+                        n_samples,
+                        n_features,
+                        d_sample_weight_ptr,
+                        d_centroids.data(),
+                        d_labels.data(),
+                        inertia,
                         n_iter);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(stream);
 
-    score = adjusted_rand_index(handle, d_labels_ref, d_labels, n_samples);
+    score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;
-      ss << "Expected: "
-         << raft::arr2Str(d_labels_ref, 25, "d_labels_ref",
-                          handle.get_stream());
+      ss << "Expected: " << raft::arr2Str(d_labels_ref.data(), 25, "d_labels_ref", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
-      ss << "Actual: "
-         << raft::arr2Str(d_labels, 25, "d_labels", handle.get_stream());
+      ss << "Actual: " << raft::arr2Str(d_labels.data(), 25, "d_labels", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -112,34 +133,38 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(d_labels));
-    CUDA_CHECK(cudaFree(d_centroids));
-    CUDA_CHECK(cudaFree(d_labels_ref));
-    CUDA_CHECK(cudaFree(d_sample_weight));
-  }
-
  protected:
+  cudaStream_t stream = 0;
   KmeansInputs<T> testparams;
-  int *d_labels, *d_labels_ref;
-  T *d_centroids, *d_sample_weight;
+  rmm::device_uvector<int> d_labels;
+  rmm::device_uvector<int> d_labels_ref;
+  rmm::device_uvector<T> d_centroids;
+  rmm::device_uvector<T> d_sample_weight;
   double score;
   ML::kmeans::KMeansParams params;
 };
 
-const std::vector<KmeansInputs<float>> inputsf2 = {
-  {1000, 32, 5, 0.0001, true},      {1000, 32, 5, 0.0001, false},
-  {1000, 100, 20, 0.0001, true},    {1000, 100, 20, 0.0001, false},
-  {10000, 32, 10, 0.0001, true},    {10000, 32, 10, 0.0001, false},
-  {10000, 100, 50, 0.0001, true},   {10000, 100, 50, 0.0001, false},
-  {10000, 1000, 200, 0.0001, true}, {10000, 1000, 200, 0.0001, false}};
+const std::vector<KmeansInputs<float>> inputsf2 = {{1000, 32, 5, 0.0001, true},
+                                                   {1000, 32, 5, 0.0001, false},
+                                                   {1000, 100, 20, 0.0001, true},
+                                                   {1000, 100, 20, 0.0001, false},
+                                                   {10000, 32, 10, 0.0001, true},
+                                                   {10000, 32, 10, 0.0001, false},
+                                                   {10000, 100, 50, 0.0001, true},
+                                                   {10000, 100, 50, 0.0001, false},
+                                                   {10000, 1000, 200, 0.0001, true},
+                                                   {10000, 1000, 200, 0.0001, false}};
 
-const std::vector<KmeansInputs<double>> inputsd2 = {
-  {1000, 32, 5, 0.0001, true},      {1000, 32, 5, 0.0001, false},
-  {1000, 100, 20, 0.0001, true},    {1000, 100, 20, 0.0001, false},
-  {10000, 32, 10, 0.0001, true},    {10000, 32, 10, 0.0001, false},
-  {10000, 100, 50, 0.0001, true},   {10000, 100, 50, 0.0001, false},
-  {10000, 1000, 200, 0.0001, true}, {10000, 1000, 200, 0.0001, false}};
+const std::vector<KmeansInputs<double>> inputsd2 = {{1000, 32, 5, 0.0001, true},
+                                                    {1000, 32, 5, 0.0001, false},
+                                                    {1000, 100, 20, 0.0001, true},
+                                                    {1000, 100, 20, 0.0001, false},
+                                                    {10000, 32, 10, 0.0001, true},
+                                                    {10000, 32, 10, 0.0001, false},
+                                                    {10000, 100, 50, 0.0001, true},
+                                                    {10000, 100, 50, 0.0001, false},
+                                                    {10000, 1000, 200, 0.0001, true},
+                                                    {10000, 1000, 200, 0.0001, false}};
 
 typedef KmeansTest<float> KmeansTestF;
 TEST_P(KmeansTestF, Result) { ASSERT_TRUE(score == 1.0); }
@@ -147,10 +172,8 @@ TEST_P(KmeansTestF, Result) { ASSERT_TRUE(score == 1.0); }
 typedef KmeansTest<double> KmeansTestD;
 TEST_P(KmeansTestD, Result) { ASSERT_TRUE(score == 1.0); }
 
-INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestF,
-                        ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestF, ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestD,
-                        ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestD, ::testing::ValuesIn(inputsd2));
 
 }  // end namespace ML

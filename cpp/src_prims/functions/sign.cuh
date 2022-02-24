@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,19 @@
 
 #pragma once
 
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 
 namespace MLCommon {
 namespace Functions {
 
 template <typename math_t, typename idx_type = int>
-void sign(math_t *out, const math_t *in, const math_t scalar,
-          const idx_type len, cudaStream_t stream) {
+void sign(
+  math_t* out, const math_t* in, const math_t scalar, const idx_type len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
+    out,
+    in,
+    len,
     [scalar] __device__(math_t in) {
       if (in < math_t(0))
         return (math_t(-1) * scalar);
@@ -38,8 +41,8 @@ void sign(math_t *out, const math_t *in, const math_t scalar,
 }
 
 template <typename math_t, typename idx_type = int>
-void sign(math_t *out, const math_t *in, const idx_type n_len,
-          cudaStream_t stream) {
+void sign(math_t* out, const math_t* in, const idx_type n_len, cudaStream_t stream)
+{
   math_t scalar = math_t(1);
   sign(out, in, scalar, n_len, stream);
 }

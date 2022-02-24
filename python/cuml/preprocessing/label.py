@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ class LabelBinarizer(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -151,11 +151,10 @@ class LabelBinarizer(Base):
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  neg_label=0,
                  pos_label=1,
                  sparse_output=False,
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

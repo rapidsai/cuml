@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 import dask.array as da
 from uuid import uuid1
@@ -55,11 +55,11 @@ class KNeighborsRegressor(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0,
+    def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
-        super(KNeighborsRegressor, self).__init__(client=client,
-                                                  verbose=verbose,
-                                                  **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -83,7 +83,7 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
-        self.n_outputs = y.shape[1]
+        self.n_outputs = y.shape[1] if y.ndim != 1 else 1
 
         return self
 

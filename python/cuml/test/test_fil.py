@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 import numpy as np
 import pytest
 import os
+import pandas as pd
+from math import ceil
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -25,7 +27,8 @@ from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
-    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+    GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor, \
+    ExtraTreesClassifier, ExtraTreesRegressor
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -34,23 +37,31 @@ if has_xgboost():
     import xgboost as xgb
 
 
-def simulate_data(m, n, k=2, random_state=None, classification=True,
-                  bias=0.0):
+def simulate_data(m, n, k=2, n_informative='auto', random_state=None,
+                  classification=True, bias=0.0):
+    if n_informative == 'auto':
+        n_informative = n // 5
     if classification:
         features, labels = make_classification(n_samples=m,
                                                n_features=n,
-                                               n_informative=int(n/5),
+                                               n_informative=n_informative,
+                                               n_redundant=n - n_informative,
                                                n_classes=k,
                                                random_state=random_state)
     else:
         features, labels = make_regression(n_samples=m,
                                            n_features=n,
-                                           n_informative=int(n/5),
+                                           n_informative=n_informative,
                                            n_targets=1,
                                            bias=bias,
                                            random_state=random_state)
     return np.c_[features].astype(np.float32), \
         np.c_[labels].astype(np.float32).flatten()
+
+
+# absolute tolerance for FIL predict_proba
+# False is binary classification, True is multiclass
+proba_atol = {False: 3e-7, True: 3e-6}
 
 
 def _build_and_save_xgboost(model_path,
@@ -64,22 +75,19 @@ def _build_and_save_xgboost(model_path,
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {'silent': 1}
+    params = {'eval_metric': 'error', 'max_depth': 25}
 
     # learning task params
     if classification:
-        params['eval_metric'] = 'error'
         if n_classes == 2:
             params['objective'] = 'binary:logistic'
         else:
             params['num_class'] = n_classes
-            params['objective'] = 'multi:softmax'
+            params['objective'] = 'multi:softprob'
     else:
-        params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
 
-    params['max_depth'] = 25
     params.update(xgboost_params)
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
@@ -122,8 +130,14 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
                                   n_classes=n_classes)
 
     dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-    xgb_preds = bst.predict(dvalidation)
-    xgb_preds_int = np.around(xgb_preds)
+
+    if n_classes == 2:
+        xgb_preds = bst.predict(dvalidation)
+        xgb_preds_int = np.around(xgb_preds)
+        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    else:
+        xgb_proba = bst.predict(dvalidation)
+        xgb_preds_int = xgb_proba.argmax(axis=1)
     xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
     fm = ForestInference.load(model_path,
@@ -131,14 +145,13 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
                               output_class=True,
                               threshold=0.50)
     fil_preds = np.asarray(fm.predict(X_validation))
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
     fil_acc = accuracy_score(y_validation, fil_preds)
 
     assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
-    if n_classes == 2:
-        assert array_equal(fil_preds, xgb_preds_int)
-        xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
-        fil_proba = np.asarray(fm.predict_proba(X_validation))
-        assert np.allclose(fil_proba, xgb_proba, 1e-3)
+    assert array_equal(fil_preds, xgb_preds_int)
+    np.testing.assert_allclose(fil_proba, xgb_proba,
+                               atol=proba_atol[n_classes > 2])
 
 
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
@@ -196,16 +209,20 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('max_depth,storage_type',
                          [(2, False), (2, True), (10, False), (10, True),
                           (20, True)])
-# FIL not supporting multi-class sklearn RandomForestClassifiers
 # When n_classes=25, fit a single estimator only to reduce test time
 @pytest.mark.parametrize('n_classes,model_class,n_estimators',
                          [(2, GradientBoostingClassifier, 1),
                           (2, GradientBoostingClassifier, 10),
                           (2, RandomForestClassifier, 1),
+                          (5, RandomForestClassifier, 1),
                           (2, RandomForestClassifier, 10),
+                          (5, RandomForestClassifier, 10),
+                          (2, ExtraTreesClassifier, 1),
+                          (2, ExtraTreesClassifier, 10),
                           (5, GradientBoostingClassifier, 1),
                           (5, GradientBoostingClassifier, 10),
-                          (25, GradientBoostingClassifier, 1)])
+                          (25, GradientBoostingClassifier, 1),
+                          (25, RandomForestClassifier, 1)])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, model_class):
     # settings
@@ -225,7 +242,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestClassifier:
+    if model_class in [RandomForestClassifier, ExtraTreesClassifier]:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -260,30 +277,37 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     if n_classes == 2:
         assert array_equal(fil_preds, skl_preds_int)
-        fil_proba = np.asarray(fm.predict_proba(X_validation))
-        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-        assert np.allclose(fil_proba, skl_proba, 1e-3)
+    fil_proba = np.asarray(fm.predict_proba(X_validation))
+    fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+    np.testing.assert_allclose(fil_proba, skl_proba,
+                               atol=proba_atol[n_classes > 2])
 
 
 @pytest.mark.parametrize('n_rows', [1000])
 @pytest.mark.parametrize('n_columns', [20])
-@pytest.mark.parametrize('n_estimators', [1, 10])
+@pytest.mark.parametrize('n_classes,model_class,n_estimators',
+                         [(1, GradientBoostingRegressor, 1),
+                          (1, GradientBoostingRegressor, 10),
+                          (1, RandomForestRegressor, 1),
+                          (1, RandomForestRegressor, 10),
+                          (5, RandomForestRegressor, 1),
+                          (5, RandomForestRegressor, 10),
+                          (1, ExtraTreesRegressor, 1),
+                          (1, ExtraTreesRegressor, 10),
+                          (5, GradientBoostingRegressor, 10)])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', [False, True])
-@pytest.mark.parametrize('model_class',
-                         [GradientBoostingRegressor, RandomForestRegressor])
-def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
-                            storage_type, model_class):
+def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
+                            n_estimators, max_depth, storage_type):
 
     # skip depth 20 for dense tests
     if max_depth == 20 and not storage_type:
         return
 
     # settings
-    n_categories = 1
     random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_categories,
+    X, y = simulate_data(n_rows, n_columns, n_classes,
                          random_state=random_state,
                          classification=False)
     # identify shape and indices
@@ -296,7 +320,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
         'n_estimators': n_estimators,
         'max_depth': max_depth,
     }
-    if model_class == RandomForestRegressor:
+    if model_class in [RandomForestRegressor, ExtraTreesRegressor]:
         init_kwargs['max_features'] = 0.3
         init_kwargs['n_jobs'] = -1
     else:
@@ -325,19 +349,22 @@ def test_fil_skl_regression(n_rows, n_columns, n_estimators, max_depth,
     assert np.allclose(fil_preds, skl_preds, 1.2e-3)
 
 
-@pytest.fixture(scope="session")
-def small_classifier_and_preds(tmpdir_factory):
+@pytest.fixture(scope="session", params=['binary', 'json'])
+def small_classifier_and_preds(tmpdir_factory, request):
     X, y = simulate_data(500, 10,
                          random_state=43210,
                          classification=True)
 
-    model_path = str(tmpdir_factory.mktemp("models").join("small_class.model"))
+    ext = 'json' if request.param == 'json' else 'model'
+    model_type = 'xgboost_json' if request.param == 'json' else 'xgboost'
+    model_path = str(tmpdir_factory.mktemp("models").join(
+                 f"small_class.{ext}"))
     bst = _build_and_save_xgboost(model_path, X, y)
     # just do within-sample since it's not an accuracy test
     dtrain = xgb.DMatrix(X, label=y)
     xgb_preds = bst.predict(dtrain)
 
-    return (model_path, X, xgb_preds)
+    return (model_path, model_type, X, xgb_preds)
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
@@ -346,8 +373,9 @@ def small_classifier_and_preds(tmpdir_factory):
                                   'auto', 'naive', 'tree_reorg',
                                   'batch_tree_reorg'])
 def test_output_algos(algo, small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               algo=algo,
                               output_class=True,
                               threshold=0.50)
@@ -363,8 +391,9 @@ def test_output_algos(algo, small_classifier_and_preds):
 @pytest.mark.parametrize('storage_type',
                          [False, True, 'auto', 'dense', 'sparse', 'sparse8'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               output_class=True,
                               storage_type=storage_type,
                               threshold=0.50)
@@ -381,8 +410,9 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
 @pytest.mark.parametrize('blocks_per_sm', [1, 2, 3, 4])
 def test_output_blocks_per_sm(storage_type, blocks_per_sm,
                               small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               output_class=True,
                               storage_type=storage_type,
                               threshold=0.50,
@@ -395,11 +425,47 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('threads_per_tree', [2, 4, 8, 16, 32, 64, 128, 256])
+def test_threads_per_tree(threads_per_tree,
+                          small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              model_type=model_type,
+                              output_class=True,
+                              storage_type='auto',
+                              threshold=0.50,
+                              threads_per_tree=threads_per_tree,
+                              n_items=1)
+
+    fil_preds = np.asarray(fm.predict(X))
+    fil_proba = np.asarray(fm.predict_proba(X))
+
+    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    np.testing.assert_allclose(fil_proba, xgb_proba,
+                               atol=proba_atol[False])
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+def test_print_forest_shape(small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    m = ForestInference.load(model_path, model_type=model_type,
+                             output_class=True, compute_shape_str=True)
+    for substr in ['model size', ' MB', 'Depth histogram:', 'Leaf depth',
+                   'Depth histogram fingerprint', 'Avg nodes per tree']:
+        assert substr in m.shape_str
+
+
 @pytest.mark.parametrize('output_class', [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_thresholding(output_class, small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               algo='TREE_REORG',
                               output_class=output_class,
                               threshold=0.50)
@@ -412,8 +478,9 @@ def test_thresholding(output_class, small_classifier_and_preds):
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_output_args(small_classifier_and_preds):
-    model_path, X, xgb_preds = small_classifier_and_preds
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
     fm = ForestInference.load(model_path,
+                              model_type=model_type,
                               algo='TREE_REORG',
                               output_class=False,
                               threshold=0.50)
@@ -424,82 +491,120 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
-@pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_cpp_exception(tmp_path):
-    import lightgbm as lgb
-    num_class = 3
-    X, y = simulate_data(50,
-                         5 * num_class,
-                         num_class,
-                         random_state=2020,
-                         classification=True)
-    train_data = lgb.Dataset(X, label=y)
+def to_categorical(features, n_categorical, invalid_frac, random_state):
+    """ returns data in two formats: pandas (for LightGBM) and numpy (for FIL)
+        LightGBM needs a DataFrame to recognize and fit on categorical columns.
+        Second fp32 output is to test invalid categories for prediction only.
+    """
+    features = features.copy()  # avoid clobbering source matrix
+    rng = np.random.default_rng(hash(random_state))  # allow RandomState object
+    # the main bottleneck (>80%) of to_categorical() is the pandas operations
+    n_features = features.shape[1]
+    # all categorical columns
+    cat_cols = features[:, :n_categorical]
+    # axis=1 means 0th dimension remains. Row-major FIL means 0th dimension is
+    # the number of columns. We reduce within columns, across rows.
+    cat_cols = cat_cols - cat_cols.min(axis=0, keepdims=True)  # range [0, ?]
+    cat_cols /= cat_cols.max(axis=0, keepdims=True)  # range [0, 1]
+    rough_n_categories = 100
+    # round into rough_n_categories bins
+    cat_cols = (cat_cols * rough_n_categories).astype(int)
 
-    num_round = 1
-    param = {'objective': 'ova',  # 'multiclass', would use softmax
-             'metric': 'multi_logloss',
-             'num_class': num_class}
-    bst = lgb.train(param, train_data, num_round)
-    model_path = str(os.path.join(tmp_path, 'lgb.model'))
-    bst.save_model(model_path)
+    # mix categorical and numerical columns
+    new_col_idx = \
+        rng.choice(n_features, n_features, replace=False, shuffle=True)
+    df_cols = {}
+    for icol in range(n_categorical):
+        col = cat_cols[:, icol]
+        df_cols[new_col_idx[icol]] = pd.Series(pd.Categorical(col,
+                                               categories=np.unique(col)))
+    # all numerical columns
+    for icol in range(n_categorical, n_features):
+        df_cols[new_col_idx[icol]] = pd.Series(features[:, icol])
+    fit_df = pd.DataFrame(df_cols)
 
-    fm = ForestInference.load(model_path,
-                              algo='TREE_REORG',
-                              output_class=True,
-                              model_type='lightgbm')
+    # randomly inject invalid categories only into predict_matrix
+    invalid_idx = rng.choice(
+        a=cat_cols.size,
+        size=ceil(cat_cols.size * invalid_frac),
+        replace=False,
+        shuffle=False)
+    cat_cols.flat[invalid_idx] += rough_n_categories
+    # mix categorical and numerical columns
+    predict_matrix = np.concatenate([cat_cols, features[:, n_categorical:]],
+                                    axis=1)
+    predict_matrix[:, new_col_idx] = predict_matrix
 
-    with pytest.raises(RuntimeError) as excinfo:
-        _ = fm.predict_proba(X)
-
-    assert ('predict_proba not supported for multi-class gradient boosted ' +
-            'decision trees' in str(excinfo.value))
+    return fit_df, predict_matrix
 
 
 @pytest.mark.parametrize('num_classes', [2, 5])
+@pytest.mark.parametrize('n_categorical', [0, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(tmp_path, num_classes):
+def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
-    X, y = simulate_data(500,
-                         10 if num_classes == 2 else 50,
+
+    if n_categorical > 0:
+        n_features = 10
+        n_rows = 1000
+        n_informative = n_features
+    else:
+        n_features = 10 if num_classes == 2 else 50
+        n_rows = 500
+        n_informative = 'auto'
+
+    X, y = simulate_data(n_rows,
+                         n_features,
                          num_classes,
+                         n_informative=n_informative,
                          random_state=43210,
                          classification=True)
-    train_data = lgb.Dataset(X, label=y)
+    if n_categorical > 0:
+        X_fit, X_predict = to_categorical(X,
+                                          n_categorical=n_categorical,
+                                          invalid_frac=0.1,
+                                          random_state=43210)
+    else:
+        X_fit, X_predict = X, X
+
+    train_data = lgb.Dataset(X_fit, label=y)
+    num_round = 5
+    model_path = str(os.path.join(tmp_path, 'lgb.model'))
 
     if num_classes == 2:
         param = {'objective': 'binary',
                  'metric': 'binary_logloss',
                  'num_class': 1}
-    else:
-        param = {'objective': 'ova',  # 'multiclass', would use softmax
-                 'metric': 'multi_logloss',
-                 'num_class': num_classes}
-    num_round = 5
-    model_path = str(os.path.join(tmp_path, 'lgb.model'))
-
-    bst = lgb.train(param, train_data, num_round)
-    bst.save_model(model_path)
-    if num_classes == 2:
-        # binary classification
-        gbm_proba = bst.predict(X)
+        bst = lgb.train(param, train_data, num_round)
+        bst.save_model(model_path)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        fil_proba = fm.predict_proba(X)
-        assert np.allclose(gbm_proba, fil_proba[:, 1], 1e-2)
-        gbm_preds = (gbm_proba > 0.5)
-        fil_preds = fm.predict(X)
+        # binary classification
+        gbm_proba = bst.predict(X_predict)
+        fil_proba = fm.predict_proba(X_predict)[:, 1]
+        gbm_preds = (gbm_proba > 0.5).astype(float)
+        fil_preds = fm.predict(X_predict)
         assert array_equal(gbm_preds, fil_preds)
+        np.testing.assert_allclose(gbm_proba, fil_proba,
+                                   atol=proba_atol[num_classes > 2])
     else:
         # multi-class classification
-        # FIL doesn't yet support predict_proba() for multi-class
-        # TODO: Add a test for predict_proba() when it's supported
-        gbm_preds = bst.predict(X)
-        gbm_preds = gbm_preds.argmax(axis=1)
+        lgm = lgb.LGBMClassifier(objective='multiclass',
+                                 boosting_type='gbdt',
+                                 n_estimators=num_round)
+        lgm.fit(X_fit, y)
+        lgm.booster_.save_model(model_path)
+        lgm_preds = lgm.predict(X_predict).astype(int)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        fil_preds = fm.predict(X)
-        assert array_equal(np.round(gbm_preds), fil_preds)
+        assert array_equal(lgm.booster_.predict(X_predict).argmax(axis=1),
+                           lgm_preds)
+        assert array_equal(lgm_preds, fm.predict(X_predict))
+        # lightgbm uses float64 thresholds, while FIL uses float32
+        np.testing.assert_allclose(lgm.predict_proba(X_predict),
+                                   fm.predict_proba(X_predict),
+                                   atol=proba_atol[num_classes > 2])

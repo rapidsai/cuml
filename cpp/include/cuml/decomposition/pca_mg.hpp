@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@
 
 #include <opg/matrix/data.hpp>
 #include <opg/matrix/part_descriptor.hpp>
+
 #include "pca.hpp"
+
 namespace ML {
 
 enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
@@ -44,18 +46,29 @@ namespace opg {
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void fit(raft::handle_t &handle,
-         std::vector<MLCommon::Matrix::Data<float> *> &input_data,
-         MLCommon::Matrix::PartDescriptor &input_desc, float *components,
-         float *explained_var, float *explained_var_ratio, float *singular_vals,
-         float *mu, float *noise_vars, paramsPCAMG prms, bool verbose = false);
+void fit(raft::handle_t& handle,
+         std::vector<MLCommon::Matrix::Data<float>*>& input_data,
+         MLCommon::Matrix::PartDescriptor& input_desc,
+         float* components,
+         float* explained_var,
+         float* explained_var_ratio,
+         float* singular_vals,
+         float* mu,
+         float* noise_vars,
+         paramsPCAMG prms,
+         bool verbose = false);
 
-void fit(raft::handle_t &handle,
-         std::vector<MLCommon::Matrix::Data<double> *> &input_data,
-         MLCommon::Matrix::PartDescriptor &input_desc, double *components,
-         double *explained_var, double *explained_var_ratio,
-         double *singular_vals, double *mu, double *noise_vars,
-         paramsPCAMG prms, bool verbose = false);
+void fit(raft::handle_t& handle,
+         std::vector<MLCommon::Matrix::Data<double>*>& input_data,
+         MLCommon::Matrix::PartDescriptor& input_desc,
+         double* components,
+         double* explained_var,
+         double* explained_var_ratio,
+         double* singular_vals,
+         double* mu,
+         double* noise_vars,
+         paramsPCAMG prms,
+         bool verbose = false);
 
 /**
  * @brief performs MNMG fit and transform operation for the pca
@@ -73,21 +86,32 @@ void fit(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void fit_transform(raft::handle_t &handle,
-                   MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-                   MLCommon::Matrix::floatData_t **input,
-                   MLCommon::Matrix::floatData_t **trans_input,
-                   float *components, float *explained_var,
-                   float *explained_var_ratio, float *singular_vals, float *mu,
-                   float *noise_vars, paramsPCAMG prms, bool verbose);
+void fit_transform(raft::handle_t& handle,
+                   MLCommon::Matrix::RankSizePair** rank_sizes,
+                   std::uint32_t n_parts,
+                   MLCommon::Matrix::floatData_t** input,
+                   MLCommon::Matrix::floatData_t** trans_input,
+                   float* components,
+                   float* explained_var,
+                   float* explained_var_ratio,
+                   float* singular_vals,
+                   float* mu,
+                   float* noise_vars,
+                   paramsPCAMG prms,
+                   bool verbose);
 
-void fit_transform(raft::handle_t &handle,
-                   MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-                   MLCommon::Matrix::doubleData_t **input,
-                   MLCommon::Matrix::doubleData_t **trans_input,
-                   double *components, double *explained_var,
-                   double *explained_var_ratio, double *singular_vals,
-                   double *mu, double *noise_vars, paramsPCAMG prms,
+void fit_transform(raft::handle_t& handle,
+                   MLCommon::Matrix::RankSizePair** rank_sizes,
+                   std::uint32_t n_parts,
+                   MLCommon::Matrix::doubleData_t** input,
+                   MLCommon::Matrix::doubleData_t** trans_input,
+                   double* components,
+                   double* explained_var,
+                   double* explained_var_ratio,
+                   double* singular_vals,
+                   double* mu,
+                   double* noise_vars,
+                   paramsPCAMG prms,
                    bool verbose);
 
 /**
@@ -103,17 +127,26 @@ void fit_transform(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void transform(raft::handle_t &handle,
-               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-               MLCommon::Matrix::Data<float> **input, float *components,
-               MLCommon::Matrix::Data<float> **trans_input,
-               float *singular_vals, float *mu, paramsPCAMG prms, bool verbose);
+void transform(raft::handle_t& handle,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
+               std::uint32_t n_parts,
+               MLCommon::Matrix::Data<float>** input,
+               float* components,
+               MLCommon::Matrix::Data<float>** trans_input,
+               float* singular_vals,
+               float* mu,
+               paramsPCAMG prms,
+               bool verbose);
 
-void transform(raft::handle_t &handle,
-               MLCommon::Matrix::RankSizePair **rank_sizes, size_t n_parts,
-               MLCommon::Matrix::Data<double> **input, double *components,
-               MLCommon::Matrix::Data<double> **trans_input,
-               double *singular_vals, double *mu, paramsPCAMG prms,
+void transform(raft::handle_t& handle,
+               MLCommon::Matrix::RankSizePair** rank_sizes,
+               std::uint32_t n_parts,
+               MLCommon::Matrix::Data<double>** input,
+               double* components,
+               MLCommon::Matrix::Data<double>** trans_input,
+               double* singular_vals,
+               double* mu,
+               paramsPCAMG prms,
                bool verbose);
 
 /**
@@ -129,19 +162,27 @@ void transform(raft::handle_t &handle,
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
  */
-void inverse_transform(raft::handle_t &handle,
-                       MLCommon::Matrix::RankSizePair **rank_sizes,
-                       size_t n_parts,
-                       MLCommon::Matrix::Data<float> **trans_input,
-                       float *components, MLCommon::Matrix::Data<float> **input,
-                       float *singular_vals, float *mu, paramsPCAMG prms,
+void inverse_transform(raft::handle_t& handle,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
+                       std::uint32_t n_parts,
+                       MLCommon::Matrix::Data<float>** trans_input,
+                       float* components,
+                       MLCommon::Matrix::Data<float>** input,
+                       float* singular_vals,
+                       float* mu,
+                       paramsPCAMG prms,
                        bool verbose);
 
-void inverse_transform(
-  raft::handle_t &handle, MLCommon::Matrix::RankSizePair **rank_sizes,
-  size_t n_parts, MLCommon::Matrix::Data<double> **trans_input,
-  double *components, MLCommon::Matrix::Data<double> **input,
-  double *singular_vals, double *mu, paramsPCAMG prms, bool verbose);
+void inverse_transform(raft::handle_t& handle,
+                       MLCommon::Matrix::RankSizePair** rank_sizes,
+                       std::uint32_t n_parts,
+                       MLCommon::Matrix::Data<double>** trans_input,
+                       double* components,
+                       MLCommon::Matrix::Data<double>** input,
+                       double* singular_vals,
+                       double* mu,
+                       paramsPCAMG prms,
+                       bool verbose);
 
 };  // end namespace opg
 };  // end namespace PCA
