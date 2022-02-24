@@ -68,7 +68,12 @@ struct GramMatrix : public Fixture {
     r.uniform(A.data(), params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(B.data(), params.k * params.n, T(-1.0), T(1.0), stream);
   }
-
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
+    A.release();
+    B.release();
+    C.release();
+  }
   void runBenchmark(::benchmark::State& state) override
   {
     if (!this->kernel) { state.SkipWithError("Kernel matrix is not initialized"); }
