@@ -87,8 +87,12 @@ def cosine_log_kernel(x, h):
     return y
 
 
-log_probability_kernels_ = {"gaussian": gaussian_log_kernel, "tophat": tophat_log_kernel, "epanechnikov": epanechnikov_log_kernel,
-                            "exponential": exponential_log_kernel, "linear": linear_log_kernel, "cosine": cosine_log_kernel}
+log_probability_kernels_ = {"gaussian": gaussian_log_kernel,
+                            "tophat": tophat_log_kernel,
+                            "epanechnikov": epanechnikov_log_kernel,
+                            "exponential": exponential_log_kernel,
+                            "linear": linear_log_kernel,
+                            "cosine": cosine_log_kernel}
 
 
 def logVn(n):
