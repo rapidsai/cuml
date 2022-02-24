@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 

@@ -58,6 +58,10 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "libcumlprims=${MINOR_VERSION}" \
+      "libraft-headers=${MINOR_VERSION}" \
+      "libraft-distance=${MINOR_VERSION}" \
+      "libraft-nn=${MINOR_VERSION}" \
+      "pyraft=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
@@ -182,15 +186,18 @@ else
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
-    cd $LIBCUML_BUILD_DIR
-    chrpath -d ./test/ml
-    patchelf --replace-needed `patchelf --print-needed ./test/ml | grep faiss` libfaiss.so ./test/ml
-    cp _deps/raft-build/libraft_nn.so $PWD
-    patchelf --replace-needed `patchelf --print-needed libraft_nn.so | grep faiss` libfaiss.so libraft_nn.so
-    cp _deps/raft-build/libraft_distance.so $PWD
-
     gpuci_logger "Running libcuml binaries"
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
+    for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
+        test_name=$(basename $gt)
+        echo "Patching gtest $test_name"
+        chrpath -d ${gt}
+        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
+        echo "Running gtest $test_name"
+        ${gt} ${GTEST_ARGS}
+        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    done
+
 
     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -200,7 +207,7 @@ else
 
     # FIXME: Project FLASH only builds for python version 3.8 which is the one used in
     # the CUDA 11.0 job, need to change all versions to project flash
-    if [ "$PYTHON" == "3.8" ];then
+    if [ "$CUDA_REL" == "11.0" ];then
         gpuci_logger "Using Project FLASH to install cuml python"
         CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
         CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
@@ -250,9 +257,17 @@ else
 
     gpuci_logger "Run ml-prims test"
     cd $LIBCUML_BUILD_DIR
-    chrpath -d ./test/prims
-    patchelf --replace-needed `patchelf --print-needed ./test/prims | grep faiss` libfaiss.so ./test/prims
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+    GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
+    for gt in $(find ./test -name "*_TEST" | grep -v "SG_\|MG_" || true); do
+        test_name=$(basename $gt)
+        echo "Patching gtest $test_name"
+        chrpath -d ${gt}
+        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
+        echo "Running gtest $test_name"
+        ${gt} ${GTEST_ARGS}
+        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    done
+
 
     ################################################################################
     # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
