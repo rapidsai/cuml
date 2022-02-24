@@ -87,7 +87,7 @@ message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
 message(VERBOSE "CUML: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
 message(VERBOSE "CUML: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
-set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so.")
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
 message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
