@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ from sklearn import metrics
 import pandas as pd
 
 import time
+
+from cuml.benchmark.bench_helper_funcs import fit, fit_predict
 
 
 @pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
@@ -104,6 +106,7 @@ def test_speedup_runner():
         FastMockAlgo,
         shared_args={},
         name="Mock",
+        bench_func=fit_predict,
         accuracy_function=metrics.accuracy_score,
     )
 
@@ -128,6 +131,7 @@ def test_multi_reps():
         CountingAlgo,
         CountingAlgo,
         shared_args={},
+        bench_func=fit,
         name="Counting",
     )
 
@@ -157,6 +161,7 @@ def test_accuracy_runner():
         MockAlgo,
         shared_args={},
         name="Mock",
+        bench_func=fit_predict,
         accuracy_function=metrics.accuracy_score,
     )
 

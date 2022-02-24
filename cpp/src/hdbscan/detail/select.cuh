@@ -28,7 +28,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include <algorithm>
 
@@ -93,7 +93,7 @@ void perform_bfs(const raft::handle_t& handle,
     thrust::fill(thrust_policy, next_frontier.begin(), next_frontier.end(), 0);
 
     n_elements_to_traverse = thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 }
 
@@ -200,7 +200,7 @@ void excess_of_mass(const raft::handle_t& handle,
   std::vector<value_idx> indptr_h(indptr.size(), 0);
   if (cluster_tree_edges > 0)
     raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
   value_idx tree_top = allow_single_cluster ? 0 : 1;

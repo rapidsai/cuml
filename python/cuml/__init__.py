@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +45,8 @@ from cuml.fil import fil
 from cuml.internals.global_settings import (
     GlobalSettings, _global_settings_data)
 
+from cuml.kernel_ridge.kernel_ridge import KernelRidge
+
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
@@ -88,10 +90,6 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.common.memory_utils import set_global_output_type, using_output_type
-
-# RAFT
-
-from cuml.raft import raft_include_test
 
 # Import verion. Remove at end of file
 from ._version import get_versions

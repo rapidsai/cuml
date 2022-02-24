@@ -27,11 +27,11 @@
 #include <math.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/reduce.hpp>
+#include <raft/stats/histogram.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <stats/histogram.cuh>
 
 namespace MLCommon {
 namespace Metrics {
@@ -84,8 +84,8 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel, cudaStream_t s
   auto totalLabels = int(maxLabel - minLabel + 1);
   rmm::device_uvector<int> labelCounts(totalLabels, stream);
   rmm::device_scalar<int> nUniq(stream);
-  Stats::histogram<T, int>(
-    Stats::HistTypeAuto,
+  raft::stats::histogram<T, int>(
+    raft::stats::HistTypeAuto,
     labelCounts.data(),
     totalLabels,
     arr,

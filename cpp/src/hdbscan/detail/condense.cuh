@@ -147,7 +147,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
     n_elements_to_traverse =
       thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());

@@ -458,7 +458,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     params.rowMajorQuery,
     &start_indices_long,
     raft::distance::DistanceType::L2SqrtExpanded);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -538,7 +538,7 @@ void copy_label_outputs_from_index_parts(opg_knn_param<in_t, ind_t, dist_t, out_
                                               n_parts,
                                               n_labels);
   }
-  RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -629,7 +629,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                 handle.get_stream());
             }
           }
-          RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+          handle.sync_stream(handle.get_stream());
           break;
         }
         i++;
@@ -733,7 +733,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                                       params.k,
                                       handle.get_stream(),
                                       trans.data());
-  RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+  handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (params.knn_op != knn_operation::knn) {
@@ -767,7 +767,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     perform_local_operation(
       params, work, handle, outputs, probas_with_offsets, merged_outputs_b.data(), batch_size);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }

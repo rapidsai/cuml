@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 
 #include <raft/handle.hpp>
 

@@ -21,6 +21,7 @@
 #include "test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <random/make_arima.cuh>
 
 namespace MLCommon {
@@ -83,11 +84,11 @@ const std::vector<MakeArimaInputs> make_arima_inputs = {
   {10000, 150, 2, 1, 2, 0, 1, 2, 4, 0, raft::random::GenPhilox, 1234ULL}};
 
 typedef MakeArimaTest<float> MakeArimaTestF;
-TEST_P(MakeArimaTestF, Result) { RAFT_CUDA_TRY(cudaStreamSynchronize(stream)); }
+TEST_P(MakeArimaTestF, Result) { raft::interruptible::synchronize(stream); }
 INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestF, ::testing::ValuesIn(make_arima_inputs));
 
 typedef MakeArimaTest<double> MakeArimaTestD;
-TEST_P(MakeArimaTestD, Result) { RAFT_CUDA_TRY(cudaStreamSynchronize(stream)); }
+TEST_P(MakeArimaTestD, Result) { raft::interruptible::synchronize(stream); }
 INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestD, ::testing::ValuesIn(make_arima_inputs));
 
 }  // end namespace Random
