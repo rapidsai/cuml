@@ -25,6 +25,7 @@ from cuml.naive_bayes import CategoricalNB
 from cuml.naive_bayes import ComplementNB
 from cuml.naive_bayes import GaussianNB
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.datasets import make_classification
 
 from numpy.testing import assert_allclose, assert_array_equal
 from numpy.testing import assert_array_almost_equal, assert_raises
@@ -362,16 +363,16 @@ def test_complement(x_dtype, y_dtype, is_sparse, norm, nlp_20news):
 @pytest.mark.parametrize("y_dtype", [cp.int32,
                                      cp.float32, cp.float64])
 @pytest.mark.parametrize("norm", [True, False])
-def test_complement_partial_fit(x_dtype, y_dtype, norm, nlp_20news):
+def test_complement_partial_fit(x_dtype, y_dtype, norm):
     chunk_size = 500
-    n_rows = 1500
+    n_rows, n_cols = 1500, 100
+    weights = [0.6, 0.2, 0.15, 0.05]
 
-    X, y = nlp_20news
-
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
-    y = y.astype(y_dtype)[:n_rows]
-
-    X = X.tocsr()[:n_rows]
+    X, y = make_classification(n_rows, n_cols, n_classes=len(weights),
+                               weights=weights, dtype=x_dtype,
+                               n_informative=9, random_state=1)
+    X -= X.min(0)  # Make all inputs positive
+    y = y.astype(y_dtype)
 
     model = ComplementNB(norm=norm)
     modelsk = skComplementNB(norm=norm)
