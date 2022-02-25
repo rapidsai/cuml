@@ -28,7 +28,6 @@ void generate_partitions(float* data,
                          int n_cols,
                          int n_clusters,
                          int my_rank,
-                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream)
 {
   Random::make_blobs<float, int>(data,

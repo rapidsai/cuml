@@ -20,7 +20,7 @@ function(find_and_configure_treelite)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    if(NOT BUILD_STATIC_LIBS)
+    if(NOT PKG_BUILD_STATIC_LIBS)
         list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
     else()
         list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
@@ -34,20 +34,19 @@ function(find_and_configure_treelite)
             GIT_TAG          ${PKG_PINNED_TAG}
             OPTIONS
               "USE_OPENMP ON"
-              "BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS}"
+              "BUILD_STATIC_LIBS ${PKG_BUILD_STATIC_LIBS}"
     )
 
 
     list(APPEND TREELITE_LIBS_NO_PREFIX treelite treelite_runtime)
-    if(Treelite_ADDED AND BUILD_STATIC_LIBS)
+    if(Treelite_ADDED AND PKG_BUILD_STATIC_LIBS)
         list(APPEND TREELITE_LIBS_NO_PREFIX treelite_static treelite_runtime_static)
     endif()
 
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
     set(TREELITE_LIBS ${TREELITE_LIBS} PARENT_SCOPE)
-
     if(Treelite_ADDED)
-        if (NOT BUILD_STATIC_LIBS)
+        if (NOT PKG_BUILD_STATIC_LIBS)
             target_include_directories(treelite
                 PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
                        $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
@@ -89,6 +88,6 @@ function(find_and_configure_treelite)
     rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
 endfunction()
 
-find_and_configure_treelite(VERSION     2.2.1
-                        PINNED_TAG  1f9c5054ad7433fa88623fccf0ae46a6ba6a27c6
+find_and_configure_treelite(VERSION     2.3.0
+                        PINNED_TAG  b65bedceef9893c1ad92977dd466f582540ba7ab
                         BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})
