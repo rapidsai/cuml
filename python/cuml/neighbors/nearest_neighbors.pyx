@@ -905,12 +905,15 @@ class NearestNeighbors(Base,
     def __del__(self):
         cdef knnIndex* knn_index = <knnIndex*>0
         cdef BallCoverIndex* rbc_index = <BallCoverIndex*>0
-        if self.knn_index is not None:
+
+        kidx = self.__dict__['knn_index'] \
+            if 'knn_index' in self.__dict__ else None
+        if kidx is not None:
             if self.working_algorithm_ in ["ivfflat", "ivfpq", "ivfsq"]:
-                knn_index = <knnIndex*><uintptr_t>self.knn_index
+                knn_index = <knnIndex*><uintptr_t>kidx
                 del knn_index
             else:
-                rbc_index = <BallCoverIndex*><uintptr_t>self.knn_index
+                rbc_index = <BallCoverIndex*><uintptr_t>kidx
                 del rbc_index
 
 
