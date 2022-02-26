@@ -71,7 +71,7 @@ endfunction()
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             cjnolet
-                        PINNED_TAG       fea-2204-rbc_3d
+                        PINNED_TAG       fea-2204-rbc_3d_2
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
