@@ -188,10 +188,14 @@ else
 
     gpuci_logger "Running libcuml binaries"
     GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
+    set -x
     for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
         test_name=$(basename $gt)
         echo "Patching gtest $test_name"
         chrpath -d ${gt}
+        echo "START NEEDED"
+        patchelf --print-needed ${gt}
+        echo "END NEEDED"
         patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
         echo "Running gtest $test_name"
         ${gt} ${GTEST_ARGS}
