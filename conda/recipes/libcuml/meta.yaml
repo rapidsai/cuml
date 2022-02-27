@@ -7,69 +7,92 @@
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0] %}
 {% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
+
 package:
-  name: libcuml
+  name: libcuml-split
   version: {{ version }}
 
 source:
   git_url: ../../..
 
-build:
-  number: {{ GIT_DESCRIBE_NUMBER }}
-  string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-  script_env:
-    - CC
-    - CXX
-    - CUDAHOSTCXX
-    - PARALLEL_LEVEL
-    - VERSION_SUFFIX
-    - PROJECT_FLASH
-    - CMAKE_GENERATOR
-    - CMAKE_C_COMPILER_LAUNCHER
-    - CMAKE_CXX_COMPILER_LAUNCHER
-    - CMAKE_CUDA_COMPILER_LAUNCHER
-    - SCCACHE_S3_KEY_PREFIX=libcuml-aarch64 # [aarch64]
-    - SCCACHE_S3_KEY_PREFIX=libcuml-linux64 # [linux64]
-    - SCCACHE_BUCKET=rapids-sccache
-    - SCCACHE_REGION=us-west-2
-    - SCCACHE_IDLE_TIMEOUT=32768
-
-requirements:
-  build:
-    - cmake>=3.20.1
-  host:
-    - nccl>=2.9.9
-    - cudf {{ minor_version }}
-    - cudatoolkit {{ cuda_version }}.*
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
-    - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
-    - libraft-distance {{ minor_version }}
-    - libraft-nn {{ minor_version }}
-    - lapack
-    - treelite=2.3.0
-    - faiss-proc=*=cuda
-    - gtest=1.10.0
-    - gmock
-    - libfaiss 1.7.0 *_cuda
-  run:
-    - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
-    - libraft-distance {{ minor_version }}
-    - libraft-nn {{ minor_version }}
-    - cudf {{ minor_version }}
-    - nccl>=2.9.9
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - treelite=2.3.0
-    - faiss-proc=*=cuda
-    - libfaiss 1.7.0 *_cuda
-    - libcusolver>=11.2.1
-
-about:
-  home: http://rapids.ai/
-  license: Apache-2.0
-  # license_file: LICENSE
-  summary: libcuml library
+outputs:
+  - name: libcuml
+    version: {{ version }}
+    script: install_libcuml.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      script_env: &script_env
+        - CC
+        - CXX
+        - CUDAHOSTCXX
+        - PARALLEL_LEVEL
+        - CMAKE_GENERATOR
+        - CMAKE_C_COMPILER_LAUNCHER
+        - CMAKE_CXX_COMPILER_LAUNCHER
+        - CMAKE_CUDA_COMPILER_LAUNCHER
+        - SCCACHE_S3_KEY_PREFIX=libcuml-aarch64 # [aarch64]
+        - SCCACHE_S3_KEY_PREFIX=libcuml-linux64 # [linux64]
+        - SCCACHE_BUCKET=rapids-sccache
+        - SCCACHE_REGION=us-west-2
+        - SCCACHE_IDLE_TIMEOUT=32768
+    requirements:
+      build:
+        - cmake>=3.20.1
+      host:
+        - nccl>=2.9.9
+        - cudf {{ minor_version }}
+        - cudatoolkit {{ cuda_version }}.*
+        - ucx-py {{ ucx_py_version }}
+        - ucx-proc=*=gpu
+        - libcumlprims {{ minor_version }}
+        - libraft-headers {{ minor_version }}
+        - libraft-distance {{ minor_version }}
+        - libraft-nn {{ minor_version }}
+        - lapack
+        - treelite=2.3.0
+        - faiss-proc=*=cuda
+        - gtest=1.10.0
+        - gmock
+        - libfaiss 1.7.0 *_cuda
+      run:
+        - libcumlprims {{ minor_version }}
+        - libraft-headers {{ minor_version }}
+        - libraft-distance {{ minor_version }}
+        - libraft-nn {{ minor_version }}
+        - cudf {{ minor_version }}
+        - nccl>=2.9.9
+        - ucx-py {{ ucx_py_version }}
+        - ucx-proc=*=gpu
+        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - treelite=2.3.0
+        - faiss-proc=*=cuda
+        - libfaiss 1.7.0 *_cuda
+        - libcusolver>=11.2.1
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      # license_file: LICENSE
+      summary: libcuml library
+  - name: libcuml_tests
+    version: {{ version }}
+    script: install_libcuml_tests.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      script_env: *script_env
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      host:
+        - cudatoolkit {{ cuda_version }}.*
+      run: 
+        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - {{ pin_subpackage('libcuml', exact=True) }}
+        - gtest {{ gtest_version }}
+        - gmock {{ gtest_version }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libcuml test & benchmark executables
+    
