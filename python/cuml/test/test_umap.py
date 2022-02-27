@@ -84,10 +84,10 @@ def test_umap_fit_transform_score(nrows, n_feats):
         cuml_score = adjusted_rand_score(labels,
                                          KMeans(10).fit_predict(
                                              cuml_embedding))
-       score = adjusted_rand_score(labels,
-                                   KMeans(10).fit_predict(embedding))
+        score = adjusted_rand_score(labels,
+                                    KMeans(10).fit_predict(embedding))
 
-       assert array_equal(score, cuml_score, 1e-2, with_sign=True)
+        assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
 def test_supervised_umap_trustworthiness_on_iris():
