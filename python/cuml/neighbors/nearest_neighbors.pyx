@@ -24,6 +24,7 @@ import cupyx
 import cudf
 import ctypes
 import warnings
+import math
 
 import cuml.internals
 from cuml.common.base import Base
@@ -366,8 +367,10 @@ class NearestNeighbors(Base,
         self.n_dims = X.shape[1]
 
         if self.algorithm == "auto":
-            if (self.n_dims == 2 or self.n_dims == 3) and self.metric in \
-                    cuml.neighbors.VALID_METRICS["rbc"]:
+            if (self.n_dims == 2 or self.n_dims == 3) and \
+                not is_sparse(X) and \
+                self.metric in cuml.neighbors.VALID_METRICS["rbc"] and \
+                    math.sqrt(X.shape[0]) >= self.n_neighbors:
                 self.working_algorithm_ = "rbc"
             else:
                 self.working_algorithm_ = "brute"
@@ -722,7 +725,15 @@ class NearestNeighbors(Base,
         cdef BallCoverIndex[int64_t, float, uint32_t]* rbc_index = \
             <BallCoverIndex[int64_t, float, uint32_t]*> 0
 
-        if self.working_algorithm_ == 'brute':
+        fallback_to_brute = self.working_algorithm_ == "rbc" and \
+            n_neighbors > math.sqrt(self.X_m.shape[0])
+
+        if fallback_to_brute:
+            warnings.warn("sqrt(%s) < n_neighbors (%s). "
+                          "falling back to brute force search" %
+                          (self.X_m.shape[0], n_neighbors))
+
+        if self.working_algorithm_ == 'brute' or fallback_to_brute:
             inputs.push_back(<float*><uintptr_t>self.X_m.ptr)
             sizes.push_back(<int>self.X_m.shape[0])
 
