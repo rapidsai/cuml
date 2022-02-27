@@ -71,23 +71,23 @@ def test_umap_fit_transform_score(nrows, n_feats):
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
                               centers=10, random_state=42)
 
-#    model = umap.UMAP(n_neighbors=10, min_dist=0.1)
+    model = umap.UMAP(n_neighbors=10, min_dist=0.1)
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01)
 
-#    embedding = model.fit_transform(data)
+    embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
-#    assert not np.isnan(embedding).any()
+    assert not np.isnan(embedding).any()
     assert not np.isnan(cuml_embedding).any()
 
     if nrows < 500000:
         cuml_score = adjusted_rand_score(labels,
                                          KMeans(10).fit_predict(
                                              cuml_embedding))
-#        score = adjusted_rand_score(labels,
-#                                    KMeans(10).fit_predict(embedding))
+       score = adjusted_rand_score(labels,
+                                   KMeans(10).fit_predict(embedding))
 
-#        assert array_equal(score, cuml_score, 1e-2, with_sign=True)
+       assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
 def test_supervised_umap_trustworthiness_on_iris():
