@@ -28,7 +28,7 @@ fi
 
 gpuci_logger "Get conda file output locations"
 
-export LIBCUML_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --output`
+export LIBCUML_FILES=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --output`
 export CUML_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=$PYTHON --output`
 
 ################################################################################
@@ -38,16 +38,16 @@ export CUML_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --pyth
 gpuci_logger "Starting conda uploads"
 
 if [[ "$BUILD_LIBCUML" == "1" && "$UPLOAD_LIBCUML" == "1" ]]; then
-  test -e ${LIBCUML_FILE}
-  echo "Upload libcuml"
-  echo ${LIBCUML_FILE}
-  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBCUML_FILE} --no-progress
+  while read -r ${LIBCUML_FILE}; do
+    test -e ${LIBCUML_FILE}
+    echo "Upload libcuml: ${LIBCUML_FILE}"
+    gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBCUML_FILE} --no-progress
+  done <<< "${LIBCUML_FILES}"
 fi
 
 if [[ "$BUILD_CUML" == "1" && "$UPLOAD_CUML" == "1" ]]; then
   test -e ${CUML_FILE}
-  echo "Upload cuml"
-  echo ${CUML_FILE}
+  echo "Upload cuml: ${CUML_FILE}"
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${CUML_FILE} --no-progress
 fi
 
