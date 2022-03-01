@@ -54,23 +54,24 @@ def test_targetencoder_transform():
 
 @pytest.mark.parametrize('n_samples', [5000, 500000])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
-def test_targetencoder_random(n_samples, dtype):
+@pytest.mark.parametrize('stat', ['mean', 'var'])
+def test_targetencoder_random(n_samples, dtype, stat):
 
     x = cp.random.randint(0, 1000, n_samples).astype(dtype)
     y = cp.random.randint(0, 2, n_samples).astype(dtype)
     xt = cp.random.randint(0, 1000, n_samples).astype(dtype)
 
-    encoder = TargetEncoder()
+    encoder = TargetEncoder(stat=stat)
     encoder.fit_transform(x, y)
     test_encoded = encoder.transform(xt)
 
     df_train = cudf.DataFrame({'x': x, 'y': y})
-    dg = df_train.groupby('x', as_index=False).agg({'y': 'mean'})
+    dg = df_train.groupby('x', as_index=False).agg({'y': stat})
     df_test = cudf.DataFrame({'x': xt})
     df_test['row_id'] = cp.arange(len(df_test))
     df_test = df_test.merge(dg, on='x', how='left')
     df_test = df_test.sort_values('row_id')
-    answer = df_test['y'].fillna(cp.mean(y).item()).values
+    answer = df_test['y'].fillna(eval(f'cp.{stat}')(y).item()).values
     assert array_equal(test_encoded, answer)
 
 
@@ -225,6 +226,21 @@ def test_targetencoder_customized_fold_id():
     encoder = TargetEncoder(split_method='customize')
     encoder.fit(train.category, train.label,
                 fold_ids=fold_ids)
+    train_encoded = encoder.transform(train.category)
+
+    assert array_equal(train_encoded, answer)
+
+
+def test_targetencoder_var():
+    train = cudf.DataFrame({'category': ['a', 'b', 'b', 'b'],
+                            'label': [1, 0, 1, 1]})
+    encoder = TargetEncoder(stat='var')
+    train_encoded = encoder.fit_transform(train.category, train.label)
+    answer = np.array([.25, 0., .5, .5])
+    assert array_equal(train_encoded, answer)
+
+    encoder = TargetEncoder(stat='var')
+    encoder.fit(train.category, train.label)
     train_encoded = encoder.transform(train.category)
 
     assert array_equal(train_encoded, answer)
