@@ -142,7 +142,7 @@ class KMeans(Base,
     >>> b = np2cudf(a)
     >>> # Input:
     >>> b
-        0    1
+         0    1
     0  1.0  1.0
     1  1.0  2.0
     2  3.0  2.0
@@ -151,7 +151,7 @@ class KMeans(Base,
     >>> # Calling fit
     >>> kmeans_float = KMeans(n_clusters=2)
     >>> kmeans_float.fit(b)
-    KMeans(handle=<cuml.common.handle.Handle object at 0x7fa892bc7eb0>, n_clusters=2, max_iter=300, tol=0.0001, verbose=4, random_state=1, init='scalable-k-means++', n_init=1, oversampling_factor=2.0, max_samples_per_batch=32768, output_type='cudf')  # noqa: E501
+    KMeans()
     >>>
     >>> # Labels:
     >>> kmeans_float.labels_
@@ -162,7 +162,7 @@ class KMeans(Base,
     dtype: int32
     >>> # cluster_centers:
     >>> kmeans_float.cluster_centers_
-        0    1
+         0    1
     0  1.0  1.5
     1  3.5  2.5
 

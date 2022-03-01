@@ -168,11 +168,13 @@ def set_pattern(pattern):
     --------
 
     >>> # regular usage of setting a logging pattern for all subsequent logs
-    >>> logger.set_pattern("--> [%H-%M-%S] %v")
-
+    >>> import cuml.common.logger as logger
+    >>> logger.set_pattern("--> [%H-%M-%S] %v") # doctest: +ELLIPSIS
+    <cuml.common.logger.PatternSetter object at 0x...>
     >>> # in case one wants to temporarily set the pattern for a code block
-    >>> with logger.set_pattern("--> [%H-%M-%s] %v") as _:
-    >>>     logger.info("Hello world!")
+    >>> with logger.set_pattern("--> [%H-%M-%S] %v") as _:
+    ...     logger.info("Hello world!") # doctest: +ELLIPSIS
+    --> [...] Hello world!
 
     Parameters
     ----------

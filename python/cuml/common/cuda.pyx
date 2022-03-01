@@ -38,6 +38,7 @@ cdef class Stream:
     >>> stream = cuml.cuda.Stream()
     >>> stream.sync()
     >>> del stream  # optional!
+
     """
 
     # NOTE:
