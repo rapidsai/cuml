@@ -61,40 +61,26 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     Examples
     --------
 
-    .. code-block:: python
-
-        from dask.distributed import Client
-        from dask_cuda import LocalCUDACluster
-        from cuml.dask.datasets.classification import make_classification
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
-        X, y = make_classification(n_samples=10, n_features=4,
+    >>> from dask.distributed import Client
+    >>> from dask_cuda import LocalCUDACluster
+    >>> from cuml.dask.datasets.classification import make_classification
+    >>> cluster = LocalCUDACluster()
+    >>> client = Client(cluster)
+    >>> X, y = make_classification(n_samples=10, n_features=4,
                                    n_informative=2, n_classes=2)
-
-        print("X:")
-        print(X.compute())
-
-        print("y:")
-        print(y.compute())
-
-    Output:
-
-    .. code-block:: python
-
-        X:
-        [[-1.6990056  -0.8241044  -0.06997631  0.45107925]
-        [-1.8105277   1.7829906   0.492909    0.05390119]
-        [-0.18290454 -0.6155432   0.6667889  -1.0053712 ]
-        [-2.7530136  -0.888528   -0.5023055   1.3983376 ]
-        [-0.9788184  -0.89851004  0.10802134 -0.10021686]
-        [-0.76883423 -1.0689086   0.01249526 -0.1404741 ]
-        [-1.5676656  -0.83082974 -0.03072987  0.34499463]
-        [-0.9381793  -1.0971068  -0.07465998  0.02618019]
-        [-1.3021476  -0.87076336  0.02249984  0.15187258]
-        [ 1.1820307   1.7524253   1.5087451  -2.4626074 ]]
-
-        y:
-        [0 1 0 0 0 0 0 0 0 1]
+    >>> print(X.compute())
+    [[-1.6990056  -0.8241044  -0.06997631  0.45107925]
+    [-1.8105277   1.7829906   0.492909    0.05390119]
+    [-0.18290454 -0.6155432   0.6667889  -1.0053712 ]
+    [-2.7530136  -0.888528   -0.5023055   1.3983376 ]
+    [-0.9788184  -0.89851004  0.10802134 -0.10021686]
+    [-0.76883423 -1.0689086   0.01249526 -0.1404741 ]
+    [-1.5676656  -0.83082974 -0.03072987  0.34499463]
+    [-0.9381793  -1.0971068  -0.07465998  0.02618019]
+    [-1.3021476  -0.87076336  0.02249984  0.15187258]
+    [ 1.1820307   1.7524253   1.5087451  -2.4626074 ]]
+    >>> print(y.compute())
+    [0 1 0 0 0 0 0 0 0 1]
 
     Parameters
     ----------

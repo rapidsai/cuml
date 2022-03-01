@@ -384,7 +384,7 @@ def set_global_output_type(output_type):
     >>> cuml.set_global_output_type('cudf')
     >>> dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     >>> dbscan_float.fit(ary)
-    DBSCAN(eps=1.0, handle=<cuml.common.handle.Handle object at 0x7fa892beb330>, min_samples=1, verbose=4, max_mbytes_per_batch=0, output_type='cudf', calc_core_sample_indices=True)  # noqa E501
+    DBSCAN()
     >>>
     >>> # cuML output type
     >>> dbscan_float.labels_
