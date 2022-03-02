@@ -25,7 +25,7 @@
 #include <raft/stats/mean_center.hpp>
 #include <raft/stats/meanvar.hpp>
 #include <raft/stats/stddev.hpp>
-#include <raft/stats/weighted_mean.hpp>
+#include <raft/stats/weighted_mean.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -90,7 +90,7 @@ void preProcessData(const raft::handle_t& handle,
         norm2_input);
     } else {
       if (sample_weight != nullptr) {
-        raft::stats::rowSampleWeightedMean(
+        raft::stats::weightedMean(
           mu_input, input, sample_weight, n_cols, n_rows, false, false, stream);
       } else {
         raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
@@ -111,7 +111,7 @@ void preProcessData(const raft::handle_t& handle,
     }
 
     if (sample_weight != nullptr) {
-      raft::stats::rowSampleWeightedMean(
+      raft::stats::weightedMean(
         mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
     } else {
       raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
