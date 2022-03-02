@@ -177,7 +177,7 @@ class KernelExplainer(SHAPBase):
     >>> cu_explainer = KernelExplainer(
     ...     model=model.predict,
     ...     data=X_train,
-    ...     gpu_model=True)
+    ...     is_gpu_model=True)
     >>>
     >>> cu_shap_values = cu_explainer.shap_values(X_test)
     >>> cu_shap_values
