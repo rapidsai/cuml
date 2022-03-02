@@ -367,6 +367,7 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
     chunk_size = 500
     n_rows, n_cols = 1500, 100
     weights = [0.6, 0.2, 0.15, 0.05]
+    rtol = 1e-3 if x_dtype == cp.float32 else 1e-6
 
     X, y = make_classification(n_rows, n_cols, n_classes=len(weights),
                                weights=weights, dtype=x_dtype,
@@ -397,10 +398,10 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
         if upper == -1:
             break
 
-    y_hat = model.predict(X).get()
-    y_sk = modelsk.predict(X.get())
+    y_hat = model.predict_proba(X).get()
+    y_sk = modelsk.predict_proba(X.get())
 
-    assert_allclose(y_hat, y_sk)
+    assert_allclose(y_hat, y_sk, rtol=rtol)
 
 
 def test_gaussian_basic():
