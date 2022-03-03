@@ -16,10 +16,13 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
 
 #include "common.h"
 #include "program.h"
+
+namespace raft {
+    class handle_t;
+}
 
 namespace cuml {
 namespace genetic {

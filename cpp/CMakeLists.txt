@@ -502,8 +502,8 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-    PRIVATE
       raft::raft
+    PRIVATE
       $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
       $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
       $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>

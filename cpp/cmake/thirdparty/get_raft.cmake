@@ -51,6 +51,7 @@ function(find_and_configure_raft)
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
             FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
+            EXCLUDE_FROM_ALL TRUE
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
