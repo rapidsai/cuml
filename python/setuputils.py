@@ -267,11 +267,12 @@ def get_repo_cmake_info(names, file_path):
     for name in names:
         repo = re.findall(r'\s.*GIT_REPOSITORY.*', s)
         repo = repo[-1].split()[-1]
-        fork = re.findall(r'\s.*FORK.*', s)
+        fork = re.findall(r'\s.*RAFT_FORK.*\"(.*)\".*', s)
         fork = fork[-1].split()[-1]
         repo = repo.replace("${PKG_FORK}", fork)
-        tag = re.findall(r'\s.*PINNED_TAG.*', s)
-        tag = tag[-1].split()[-1]
+        tag = re.findall(r'\s.*RAFT_PINNED_TAG.*\"(.*)\".*', s)
+        tag = tag[0]  # TODO: This is pretty brittle
+        results[name] = [repo, tag]
         if tag == 'branch-${CUML_BRANCH_VERSION_raft}':
             loc = _get_repo_path() + '/cpp/CMakeLists.txt'
             with open(loc) as f:

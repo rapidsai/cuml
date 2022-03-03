@@ -16,12 +16,11 @@
 
 #pragma once
 
-
 #include "common.h"
 #include "program.h"
 
 namespace raft {
-    class handle_t;
+class handle_t;
 }
 
 namespace cuml {

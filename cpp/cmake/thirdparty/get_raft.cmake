@@ -17,6 +17,9 @@
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
+set(CUML_RAFT_FORK "rapidsai")
+set(CUML_RAFT_PINNED_TAG "branch-${CUML_BRANCH_VERSION_raft}")
+
 function(find_and_configure_raft)
     set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_FAISS_STATIC CLONE_ON_PIN)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
@@ -74,8 +77,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        FORK             ${CUML_RAFT_FORK}
+                        PINNED_TAG       ${CUML_RAFT_PINNED_TAG}
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory

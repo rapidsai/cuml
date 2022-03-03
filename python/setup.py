@@ -48,6 +48,15 @@ cuda_home = get_environment_option("CUDA_HOME")
 libcuml_path = get_environment_option('CUML_BUILD_PATH')
 raft_path = get_environment_option('RAFT_PATH')
 
+###############################################################################
+# - Cloning RAFT and dependencies if needed -----------------------------------
+
+print(libcuml_path)
+
+# Use RAFT repository in cuml.raft
+raft_include_dir = use_raft_package(raft_path, libcuml_path)
+
+
 clean_artifacts = get_cli_option('clean')
 
 ##############################################################################
@@ -129,13 +138,6 @@ if not libcuml_path:
 # `python setup.py clean --all build --singlegpu build_ext --inplace`
 # `python setup.py clean --all build --singlegpu install --record=record.txt`
 # `python setup.py build_ext --debug --singlegpu`
-
-###############################################################################
-# - Cloning RAFT and dependencies if needed -----------------------------------
-
-# Use RAFT repository in cuml.raft
-
-raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
 
 class cuml_build(_build):
