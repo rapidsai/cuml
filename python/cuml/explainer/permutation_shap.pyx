@@ -30,7 +30,7 @@ from cuml.explainer.common import model_func_call
 from numba import cuda
 from pandas import DataFrame as pd_df
 
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 

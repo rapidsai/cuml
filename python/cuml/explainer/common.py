@@ -16,7 +16,7 @@
 
 import cuml
 import cupy as cp
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 
 from cuml.common.input_utils import input_to_cupy_array
 

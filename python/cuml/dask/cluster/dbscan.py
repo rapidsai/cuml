@@ -20,8 +20,8 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import mnmg_import
 
-from raft.dask.common.comms import Comms
-from raft.dask.common.comms import get_raft_comm_state
+from cuml.raft.dask.common.comms import Comms
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 

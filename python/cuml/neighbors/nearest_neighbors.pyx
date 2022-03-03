@@ -41,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 

@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from raft.dask.common.comms import get_raft_comm_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 
 class Ridge(BaseEstimator,

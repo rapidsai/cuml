@@ -32,7 +32,7 @@ from cuml.test.utils import ClassEnumerator
 from cuml.datasets import make_regression
 from sklearn.linear_model import LinearRegression as skreg
 
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 
 
 models_config = ClassEnumerator(module=cuml)

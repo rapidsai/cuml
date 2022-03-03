@@ -19,7 +19,7 @@ import cupy as cp
 import numpy as np
 import pytest
 
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 
 from cuml.explainer.base import SHAPBase
 from cuml import LinearRegression as cuLR

@@ -29,8 +29,8 @@ from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from raft.common.handle cimport handle_t
-from raft.common.interruptible import cuda_interruptible
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool

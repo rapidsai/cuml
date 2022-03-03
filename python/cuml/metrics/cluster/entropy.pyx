@@ -24,10 +24,10 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import CumlArray
 from cuml.common.input_utils import input_to_cupy_array
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":

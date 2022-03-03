@@ -19,7 +19,7 @@ import cuml
 import pytest
 import numpydoc.docscrape
 
-from raft.common.cuda import Stream
+from cuml.raft.common.cuda import Stream
 
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)

@@ -32,7 +32,7 @@ from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
 from cuml.common.base import Base
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg cimport *

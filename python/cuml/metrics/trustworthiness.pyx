@@ -25,8 +25,8 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.common.input_utils import input_to_cuml_array
-from raft.common.handle import Handle
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
+from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
 

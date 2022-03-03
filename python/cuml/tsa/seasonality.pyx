@@ -19,7 +19,7 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.input_utils import input_to_host_array, input_to_cuml_array
 
 # TODO: #2234 and #2235

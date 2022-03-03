@@ -33,7 +33,7 @@ from cuml.explainer.common import get_tag_from_model_func
 from cuml.explainer.common import model_func_call
 from cuml.explainer.common import output_list_shap_values
 
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 

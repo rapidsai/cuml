@@ -22,8 +22,8 @@ import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
 import cuml.internals
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t

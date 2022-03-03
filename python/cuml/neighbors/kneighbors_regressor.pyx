@@ -34,7 +34,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp.vector cimport vector
 
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr

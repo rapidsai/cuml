@@ -23,7 +23,7 @@ from inspect import signature
 import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.exceptions import NotFittedError

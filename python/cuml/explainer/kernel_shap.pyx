@@ -27,13 +27,13 @@ from cuml.explainer.common import model_func_call
 from cuml.explainer.common import output_list_shap_values
 from cuml.linear_model import Lasso
 from cuml.linear_model import LinearRegression
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from functools import lru_cache
 from itertools import combinations
 from numbers import Number
 from random import randint
 
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport uint64_t
 

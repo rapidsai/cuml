@@ -16,6 +16,6 @@
 
 # distutils: language = c++
 
-from raft.common.handle import Handle as raftHandle
+from cuml.raft.common.handle import Handle as raftHandle
 
 Handle = raftHandle

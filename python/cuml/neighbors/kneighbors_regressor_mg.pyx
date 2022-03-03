@@ -23,7 +23,7 @@ from cuml.internals import api_base_return_generic_skipall
 
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 
 from libcpp cimport bool

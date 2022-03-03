@@ -22,9 +22,9 @@ import warnings
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from raft.common.handle cimport handle_t
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from raft.common.handle import Handle
+from cuml.raft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":

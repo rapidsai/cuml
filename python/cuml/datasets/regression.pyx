@@ -23,8 +23,8 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 
 from libcpp cimport bool
 from libc.stdint cimport uint64_t, uintptr_t

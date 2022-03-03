@@ -22,7 +22,7 @@ from numba import cuda
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
-from raft.common.cuda import Stream
+from cuml.raft.common.cuda import Stream
 
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression
