@@ -44,7 +44,6 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
     - libraft-distance {{ minor_version }}
     - libraft-nn {{ minor_version }}
     - lapack
@@ -55,7 +54,6 @@ requirements:
     - libfaiss 1.7.0 *_cuda
   run:
     - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
     - libraft-distance {{ minor_version }}
     - libraft-nn {{ minor_version }}
     - cudf {{ minor_version }}

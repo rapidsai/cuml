@@ -34,6 +34,7 @@ import numpy
 from setuputils import clean_folder
 from setuputils import get_environment_option
 from setuputils import get_cli_option
+from setuputils import use_raft_package
 
 import versioneer
 from cython_build_ext import cython_build_ext
@@ -45,6 +46,7 @@ install_requires = ['numba', 'cython']
 
 cuda_home = get_environment_option("CUDA_HOME")
 libcuml_path = get_environment_option('CUML_BUILD_PATH')
+raft_path = get_environment_option('RAFT_PATH')
 
 clean_artifacts = get_cli_option('clean')
 
@@ -79,6 +81,8 @@ if clean_artifacts:
                       ignore_errors=True)
         shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
+
+        os.remove(setup_file_path + '/cuml/raft')
 
         clean_folder(setup_file_path + '/cuml')
         shutil.rmtree(setup_file_path + '/build')
@@ -126,6 +130,12 @@ if not libcuml_path:
 # `python setup.py clean --all build --singlegpu install --record=record.txt`
 # `python setup.py build_ext --debug --singlegpu`
 
+###############################################################################
+# - Cloning RAFT and dependencies if needed -----------------------------------
+
+# Use RAFT repository in cuml.raft
+
+raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
 class cuml_build(_build):
 
@@ -148,6 +158,7 @@ class cuml_build(_build):
             '../cpp/include',
             '../cpp/src_prims',
             cuda_include_dir,
+            raft_include_dir,
             numpy.get_include(),
             '../cpp/build/faiss/src/faiss',
             os.path.dirname(sysconfig.get_path("include"))
@@ -242,6 +253,8 @@ class cuml_build_ext(cython_build_ext, object):
         if (self.singlegpu):
             cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
             cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
+            cython_exc_list.append("cuml/raft/dask/common/nccl.pyx")
+            cython_exc_list.append("cuml/raft/dask/common/comms_utils.pyx")
 
             print('--singlegpu: excluding the following Cython components:')
             pprint(cython_exc_list)
