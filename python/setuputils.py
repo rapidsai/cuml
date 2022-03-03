@@ -133,7 +133,8 @@ def clone_repo_if_needed(name, cpp_build_path=None,
 
     if repo_cloned:
         repo_path = (
-                _get_repo_path() + '/python/_external_repositories/' + name + '/')
+                _get_repo_path() + '/python/_external_repositories/' +
+                name + '/')
     else:
         repo_path = os.path.join(cpp_build_path, name + '-src/')
 
