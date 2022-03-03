@@ -502,10 +502,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
+    PRIVATE
       raft::raft
       $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
       $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
-    PRIVATE
       $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
       ${TREELITE_LIBS}
       $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
