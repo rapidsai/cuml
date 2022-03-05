@@ -20,64 +20,9 @@
 #include <cuml/cuml_api.h>
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 #include <cstddef>
 #include <functional>
-namespace ML {
-namespace detail {
-
-class hostAllocatorFunctionWrapper : public raft::mr::host::allocator {
- public:
-  hostAllocatorFunctionWrapper(cuml_allocate allocate_fn, cuml_deallocate deallocate_fn)
-    : _allocate_fn(allocate_fn), _deallocate_fn(deallocate_fn)
-  {
-  }
-
-  virtual void* allocate(std::size_t n, cudaStream_t stream)
-  {
-    void* ptr = 0;
-    RAFT_CUDA_TRY(_allocate_fn(&ptr, n, stream));
-    return ptr;
-  }
-
-  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream)
-  {
-    RAFT_CUDA_TRY_NO_THROW(_deallocate_fn(p, n, stream));
-  }
-
- private:
-  const std::function<cudaError_t(void**, size_t, cudaStream_t)> _allocate_fn;
-  const std::function<cudaError_t(void*, size_t, cudaStream_t)> _deallocate_fn;
-};
-
-class deviceAllocatorFunctionWrapper : public raft::mr::device::default_allocator {
- public:
-  deviceAllocatorFunctionWrapper(cuml_allocate allocate_fn, cuml_deallocate deallocate_fn)
-    : _allocate_fn(allocate_fn), _deallocate_fn(deallocate_fn)
-  {
-  }
-
-  virtual void* allocate(std::size_t n, cudaStream_t stream)
-  {
-    void* ptr = 0;
-    RAFT_CUDA_TRY(_allocate_fn(&ptr, n, stream));
-    return ptr;
-  }
-
-  virtual void deallocate(void* p, std::size_t n, cudaStream_t stream)
-  {
-    RAFT_CUDA_TRY_NO_THROW(_deallocate_fn(p, n, stream));
-  }
-
- private:
-  const std::function<cudaError_t(void**, size_t, cudaStream_t)> _allocate_fn;
-  const std::function<cudaError_t(void*, size_t, cudaStream_t)> _deallocate_fn;
-};
-
-}  // end namespace detail
-}  // end namespace ML
 
 extern "C" const char* cumlGetErrorString(cumlError_t error)
 {

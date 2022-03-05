@@ -32,7 +32,6 @@ function(ConfigureTest)
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
-  # PR 4296 will improve conditional links here
   target_link_libraries(${TEST_NAME}
   PRIVATE
     ${CUML_CPP_TARGET}
@@ -42,21 +41,19 @@ function(ConfigureTest)
     CUDA::cusolver
     CUDA::cudart
     CUDA::cusparse
-    CUDA::cufft
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
     rmm::rmm
     raft::raft
-    raft::nn
-    raft::distance
+    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
+    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}
     Threads::Threads
-    $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
     $<$<BOOL:${ConfigureTest_NCCL}>:NCCL::NCCL>
     $<$<BOOL:${ConfigureTest_CUMLPRIMS}>:cumlprims_mg::cumlprims_mg>
     $<$<BOOL:${ConfigureTest_MPI}>:${MPI_CXX_LIBRARIES}>
-    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+    ${TREELITE_LIBS}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
@@ -95,73 +92,95 @@ endfunction()
 
 if(BUILD_CUML_TESTS)
 
-  # general tests
+  if(all_algo)
     ConfigureTest(PREFIX SG NAME LOGGER_TEST PATH sg/logger.cpp OPTIONAL ML_INCLUDE)
+  endif()
 
-  # trustworthines tests
-    ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
-
-  # DBSCAN tests
+  if(all_algo OR dbscan_algo)
     ConfigureTest(PREFIX SG NAME DBSCAN_TEST PATH sg/dbscan_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Explainer tests
+  if(all_algo OR explainer_algo)
     ConfigureTest(PREFIX SG NAME SHAP_KERNEL_TEST PATH sg/shap_kernel.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # FIL tests
+  if(all_algo OR fil_algo)
     ConfigureTest(PREFIX SG NAME FIL_CHILD_INDEX_TEST PATH sg/fil_child_index_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FIL_TEST PATH sg/fil_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FNV_HASH_TEST PATH sg/fnv_hash_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME MULTI_SUM_TEST PATH sg/multi_sum_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Linear models tests
+  # todo: organize linear models better
+  if(all_algo OR linearregression_algo OR ridge_algo OR lasso_algo OR logisticregression_algo)
     ConfigureTest(PREFIX SG NAME OLS_TEST PATH sg/ols.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME RIDGE_TEST PATH sg/ridge.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Genetic algorithms tests
+  if(all_algo OR genetic_algo)
     ConfigureTest(PREFIX SG NAME GENETIC_NODE_TEST PATH sg/genetic/node_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST PATH sg/genetic/param_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # HDBSCAN tests
+  if(all_algo OR hdbscan_algo)
     ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Holtwinters tests
+  if(all_algo OR holtwinters_algo)
     ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST PATH sg/holtwinters_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # KMeans tests
+  if(all_algo OR kmeans_algo)
     ConfigureTest(PREFIX SG NAME KMEANS_TEST PATH sg/kmeans_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # KNN tests
+  if(all_algo OR knn_algo)
     ConfigureTest(PREFIX SG NAME KNN_TEST PATH sg/knn_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Hierarchical clustering tests
+  if(all_algo OR hierarchicalclustering_algo)
     ConfigureTest(PREFIX SG NAME LINKAGE_TEST PATH sg/linkage_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # PCA tests
+  if(all_algo OR metrics_algo)
+    ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST PATH sg/trustworthiness_test.cu OPTIONAL ML_INCLUDE)
+  endif()
+
+  if(all_algo OR pca_algo)
     ConfigureTest(PREFIX SG NAME PCA_TEST PATH sg/pca_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # RF tests
+  if(all_algo OR randomforest_algo)
     ConfigureTest(PREFIX SG NAME RF_TEST PATH sg/rf_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Random Projection tests
+  if(all_algo OR randomprojection_algo)
     ConfigureTest(PREFIX SG NAME RPROJ_TEST PATH sg/rproj_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # Solvers tests
+  # todo: separate solvers better
+  if(all_algo OR solvers_algo)
     ConfigureTest(PREFIX SG NAME CD_TEST PATH sg/cd_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME LARS_TEST PATH sg/lars_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME QUASI_NEWTON PATH sg/quasi_newton.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME SGD_TEST PATH sg/sgd.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # SVM tests
+  if(all_algo OR svm_algo)
     ConfigureTest(PREFIX SG NAME SVC_TEST PATH sg/svc_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # TSNE tests
+  if(all_algo OR tsne_algo)
     ConfigureTest(PREFIX SG NAME TSNE_TEST PATH sg/tsne_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # TSVD tests
+  if(all_algo OR tsvd_algo)
     ConfigureTest(PREFIX SG NAME TSVD_TEST PATH sg/tsvd_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
-  # UMAP tests
+  if(all_algo OR umap_algo)
     ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST PATH sg/umap_parametrizable_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
   if(BUILD_CUML_C_LIBRARY)
     ConfigureTest(PREFIX SG NAME HANDLE_TEST PATH sg/handle_test.cu OPTIONAL ML_INCLUDE)

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 #
 
 import cudf
-import cuml
 import cupy as cp
 import numpy as np
 import pytest
+
+from raft.common.handle import Handle
 
 from cuml.explainer.base import SHAPBase
 from cuml import LinearRegression as cuLR
@@ -37,7 +38,7 @@ def test_init_explainer_base_init_cuml_model(handle,
     model = cuLR().fit(bg, y)
 
     if handle:
-        handle = cuml.raft.common.handle.Handle()
+        handle = Handle()
     else:
         handle = None
 
@@ -85,7 +86,7 @@ def test_init_explainer_base_init_abritrary_model(handle,
     bg = np.arange(10).reshape(5, 2).astype(np.float32)
 
     if handle:
-        handle = cuml.raft.common.handle.Handle()
+        handle = Handle()
     else:
         handle = None
 
@@ -125,7 +126,7 @@ def test_init_explainer_base_init_abritrary_model(handle,
     if handle is not None:
         assert explainer.handle == handle
     else:
-        isinstance(explainer.handle, cuml.raft.common.handle.Handle)
+        isinstance(explainer.handle, Handle)
 
 
 def test_init_explainer_base_wrong_dtype():

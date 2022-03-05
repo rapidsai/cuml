@@ -41,7 +41,6 @@ class BaseEstimator(Base):
 
         cls.__init__ = init
 
-    @classmethod
     def _check_n_features(self, X, reset):
         """Set the `n_features_in_` attribute, or check against it.
 

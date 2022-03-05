@@ -2,9 +2,61 @@
 
 Please see https://github.com/rapidsai/cuml/releases/tag/v22.04.00a for the latest changes to this development branch.
 
-# cuML 22.02.00 (Date TBD)
+# cuML 22.02.00 (2 Feb 2022)
 
-Please see https://github.com/rapidsai/cuml/releases/tag/v22.02.00a for the latest changes to this development branch.
+## 🚨 Breaking Changes
+
+- Move NVTX range helpers to raft ([#4445](https://github.com/rapidsai/cuml/pull/4445)) [@achirkin](https://github.com/achirkin)
+
+## 🐛 Bug Fixes
+
+- Always upload libcuml ([#4530](https://github.com/rapidsai/cuml/pull/4530)) [@raydouglass](https://github.com/raydouglass)
+- Fix RAFT pin to main branch ([#4508](https://github.com/rapidsai/cuml/pull/4508)) [@dantegd](https://github.com/dantegd)
+- Pin `dask` &amp; `distributed` ([#4505](https://github.com/rapidsai/cuml/pull/4505)) [@galipremsagar](https://github.com/galipremsagar)
+- Replace use of RMM provided CUDA bindings with CUDA Python ([#4499](https://github.com/rapidsai/cuml/pull/4499)) [@shwina](https://github.com/shwina)
+- Dataframe Index as columns in ColumnTransformer ([#4481](https://github.com/rapidsai/cuml/pull/4481)) [@viclafargue](https://github.com/viclafargue)
+- Support compilation with Thrust 1.15 ([#4469](https://github.com/rapidsai/cuml/pull/4469)) [@robertmaynard](https://github.com/robertmaynard)
+- fix minor ASAN issues in UMAPAlgo::Optimize::find_params_ab() ([#4405](https://github.com/rapidsai/cuml/pull/4405)) [@yitao-li](https://github.com/yitao-li)
+
+## 📖 Documentation
+
+- Remove comment numerical warning ([#4408](https://github.com/rapidsai/cuml/pull/4408)) [@viclafargue](https://github.com/viclafargue)
+- Fix docstring for npermutations in PermutationExplainer ([#4402](https://github.com/rapidsai/cuml/pull/4402)) [@hcho3](https://github.com/hcho3)
+
+## 🚀 New Features
+
+- Combine and expose SVC&#39;s support vectors when fitting multi-class data ([#4454](https://github.com/rapidsai/cuml/pull/4454)) [@NV-jpt](https://github.com/NV-jpt)
+- Accept fold index for TargetEncoder ([#4453](https://github.com/rapidsai/cuml/pull/4453)) [@daxiongshu](https://github.com/daxiongshu)
+- Move NVTX range helpers to raft ([#4445](https://github.com/rapidsai/cuml/pull/4445)) [@achirkin](https://github.com/achirkin)
+
+## 🛠️ Improvements
+
+- Fix packages upload ([#4517](https://github.com/rapidsai/cuml/pull/4517)) [@Ethyling](https://github.com/Ethyling)
+- Testing split fused l2 knn compilation units ([#4514](https://github.com/rapidsai/cuml/pull/4514)) [@cjnolet](https://github.com/cjnolet)
+- Prepare upload scripts for Python 3.7 removal ([#4500](https://github.com/rapidsai/cuml/pull/4500)) [@Ethyling](https://github.com/Ethyling)
+- Renaming macros with their RAFT counterparts ([#4496](https://github.com/rapidsai/cuml/pull/4496)) [@divyegala](https://github.com/divyegala)
+- Allow CuPy 10 ([#4487](https://github.com/rapidsai/cuml/pull/4487)) [@jakirkham](https://github.com/jakirkham)
+- Upgrade Treelite to 2.2.1 ([#4484](https://github.com/rapidsai/cuml/pull/4484)) [@hcho3](https://github.com/hcho3)
+- Unpin `dask` and `distributed` ([#4482](https://github.com/rapidsai/cuml/pull/4482)) [@galipremsagar](https://github.com/galipremsagar)
+- Support categorical splits in in TreeExplainer ([#4473](https://github.com/rapidsai/cuml/pull/4473)) [@hcho3](https://github.com/hcho3)
+- Remove RAFT memory management ([#4468](https://github.com/rapidsai/cuml/pull/4468)) [@viclafargue](https://github.com/viclafargue)
+- Add missing imports tests ([#4452](https://github.com/rapidsai/cuml/pull/4452)) [@Ethyling](https://github.com/Ethyling)
+- Update CUDA 11.5 conda environment to use 22.02 pinnings. ([#4450](https://github.com/rapidsai/cuml/pull/4450)) [@bdice](https://github.com/bdice)
+- Support cuML / scikit-learn RF classifiers in TreeExplainer ([#4447](https://github.com/rapidsai/cuml/pull/4447)) [@hcho3](https://github.com/hcho3)
+- Remove `IncludeCategories` from `.clang-format` ([#4438](https://github.com/rapidsai/cuml/pull/4438)) [@codereport](https://github.com/codereport)
+- Simplify perplexity normalization in t-SNE ([#4425](https://github.com/rapidsai/cuml/pull/4425)) [@zbjornson](https://github.com/zbjornson)
+- Unify dense and sparse tests ([#4417](https://github.com/rapidsai/cuml/pull/4417)) [@levsnv](https://github.com/levsnv)
+- Update ucx-py version on release using rvc ([#4411](https://github.com/rapidsai/cuml/pull/4411)) [@Ethyling](https://github.com/Ethyling)
+- Universal Treelite tree walk function for FIL ([#4407](https://github.com/rapidsai/cuml/pull/4407)) [@levsnv](https://github.com/levsnv)
+- Update to UCX-Py 0.24 ([#4396](https://github.com/rapidsai/cuml/pull/4396)) [@pentschev](https://github.com/pentschev)
+- Using sparse public API functions from RAFT ([#4389](https://github.com/rapidsai/cuml/pull/4389)) [@cjnolet](https://github.com/cjnolet)
+- Add a warning to prefer LinearSVM over SVM(kernel=&#39;linear&#39;) ([#4382](https://github.com/rapidsai/cuml/pull/4382)) [@achirkin](https://github.com/achirkin)
+- Hiding cusparse deprecation warnings ([#4373](https://github.com/rapidsai/cuml/pull/4373)) [@cjnolet](https://github.com/cjnolet)
+- Unify dense and sparse import in FIL ([#4328](https://github.com/rapidsai/cuml/pull/4328)) [@levsnv](https://github.com/levsnv)
+- Integrating RAFT handle updates ([#4313](https://github.com/rapidsai/cuml/pull/4313)) [@divyegala](https://github.com/divyegala)
+- Use RAFT template instantations for distances ([#4302](https://github.com/rapidsai/cuml/pull/4302)) [@cjnolet](https://github.com/cjnolet)
+- RF: code re-organization to enhance build parallelism ([#4299](https://github.com/rapidsai/cuml/pull/4299)) [@venkywonka](https://github.com/venkywonka)
+- Add option to build faiss and treelite shared libs, inherit common dependencies from raft ([#4256](https://github.com/rapidsai/cuml/pull/4256)) [@trxcllnt](https://github.com/trxcllnt)
 
 # cuML 21.12.00 (9 Dec 2021)
 
