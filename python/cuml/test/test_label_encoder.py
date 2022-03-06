@@ -15,6 +15,7 @@
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 import cudf
 import numpy as np
+import cupy as cp
 
 import pytest
 from cuml.common.exceptions import NotFittedError
@@ -167,3 +168,21 @@ def test_masked_encode():
     df_test["cat_col"] = LabelEncoder().fit_transform(df_test["cat_col"])
 
     assert(df_filter["cat_col"].values == df_test["cat_col"].values).all()
+
+
+def _cupy_to_similarity_mat(x):
+    arr = x.reshape(1, -1)
+    return cp.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
+
+
+@pytest.mark.parametrize("length", [10])
+@pytest.mark.parametrize("cardinality", [5])
+def test_labelencoder_fit_transform_cupy(length, cardinality):
+    """ Try encoding the cupy array
+    """
+    x = cp.random.choice(cardinality, (length,))
+    encoded = LabelEncoder().fit_transform(x)
+
+    x_arr = _cupy_to_similarity_mat(df)
+    encoded_arr = _cupy_to_similarity_mat(encoded)
+    assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
