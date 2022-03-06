@@ -16,6 +16,7 @@
 
 import cudf
 import cupy as cp
+import numpy as np
 from cuml import Base
 from pandas import Series as pdSeries
 
@@ -169,10 +170,7 @@ class LabelEncoder(Base):
             A fitted instance of itself to allow method chaining
 
         """
-        if isinstance(y, pdSeries):
-            y = cudf.from_pandas(y)
-        elif isinstance(y, cp.ndarray):
-            y = cudf.Series(y)
+        y, _ = self._to_cudf_series(y)
 
         self._validate_keywords()
 
@@ -209,12 +207,7 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
-        return_type = 'series'
-        if isinstance(y, pdSeries):
-            y = cudf.from_pandas(y)
-        elif isinstance(y, cp.ndarray):
-            y = cudf.Series(y)
-            return_type = 'cupy_array'
+        y, output_type = self._to_cudf_series(y)
 
         self._check_is_fitted()
 
@@ -227,10 +220,7 @@ class LabelEncoder(Base):
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
 
-        if return_type == 'series':
-            return encoded
-        else:
-            return encoded.values
+        return self._to_output(encoded, output_type)
         
 
     def fit_transform(self, y: cudf.Series, z=None) -> cudf.Series:
@@ -240,13 +230,8 @@ class LabelEncoder(Base):
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
-        return_type = 'series'
-        if isinstance(y, pdSeries):
-            y = cudf.from_pandas(y)
-        elif isinstance(y, cp.ndarray):
-            y = cudf.Series(y)
-            return_type = 'cupy_array'
-
+        
+        y, output_type = self._to_cudf_series(y)
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
         y = y.astype('category')
@@ -254,10 +239,7 @@ class LabelEncoder(Base):
 
         self._fitted = True
         res = cudf.Series(y._column.codes, index=y.index)
-        if return_type == 'series':
-            return res
-        else:
-            return res.values
+        return self._to_output(res, output_type)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
@@ -301,3 +283,35 @@ class LabelEncoder(Base):
         return super().get_param_names() + [
             "handle_unknown",
         ]
+    
+    def _to_cudf_series(self, y):
+        if isinstance(y, cudf.Series):
+            output_type = 'cudf'
+        elif isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+            output_type = 'pandas'
+        elif isinstance(y, cp.ndarray):
+            y = cudf.Series(y)
+            output_type = 'cupy'
+        elif isinstance(y, np.ndarray):
+            y = cudf.Series(y)
+            output_type = 'numpy'
+        else:
+            msg = ("input should be either 'cupy.ndarray'"
+                   " or 'numpy.ndarray' or 'pandas.Series',"
+                   " or 'cudf.Series'"
+                   "got {0}.".format(type(y)))
+            raise ValueError(msg)
+        return y, output_type
+        
+        
+    def _to_output(self, y, output_type):
+        if output_type == 'pandas':
+            return y.to_pandas()
+        elif output_type == 'cupy':
+            return y.values
+        elif output_type == 'numpy':
+            return y.values.get()
+        else:
+            return y
+            
