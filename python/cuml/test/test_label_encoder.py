@@ -183,6 +183,6 @@ def test_labelencoder_fit_transform_cupy(length, cardinality):
     x = cp.random.choice(cardinality, (length,))
     encoded = LabelEncoder().fit_transform(x)
 
-    x_arr = _cupy_to_similarity_mat(df)
+    x_arr = _cupy_to_similarity_mat(x)
     encoded_arr = _cupy_to_similarity_mat(encoded)
     assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()

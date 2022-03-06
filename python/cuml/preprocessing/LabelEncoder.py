@@ -171,6 +171,8 @@ class LabelEncoder(Base):
         """
         if isinstance(y, pdSeries):
             y = cudf.from_pandas(y)
+        elif isinstance(y, cp.ndarray):
+            y = cudf.Series(y)
 
         self._validate_keywords()
 
@@ -207,8 +209,12 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
+        return_type = 'series'
         if isinstance(y, pdSeries):
             y = cudf.from_pandas(y)
+        elif isinstance(y, cp.ndarray):
+            y = cudf.Series(y)
+            return_type = 'cupy_array'
 
         self._check_is_fitted()
 
@@ -221,7 +227,11 @@ class LabelEncoder(Base):
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
 
-        return encoded
+        if return_type == 'series':
+            return encoded
+        else:
+            return encoded.values
+        
 
     def fit_transform(self, y: cudf.Series, z=None) -> cudf.Series:
         """
@@ -230,8 +240,12 @@ class LabelEncoder(Base):
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
+        return_type = 'series'
         if isinstance(y, pdSeries):
             y = cudf.from_pandas(y)
+        elif isinstance(y, cp.ndarray):
+            y = cudf.Series(y)
+            return_type = 'cupy_array'
 
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
@@ -239,7 +253,11 @@ class LabelEncoder(Base):
         self.classes_ = y._column.categories
 
         self._fitted = True
-        return cudf.Series(y._column.codes, index=y.index)
+        res = cudf.Series(y._column.codes, index=y.index)
+        if return_type == 'series':
+            return res
+        else:
+            return res.values
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
