@@ -258,9 +258,7 @@ class LabelEncoder(Base):
         # check LabelEncoder is fitted
         self._check_is_fitted()
         # check input type is cudf.Series
-        if not isinstance(y, cudf.Series):
-            raise TypeError(
-                'Input of type {} is not cudf.Series'.format(type(y)))
+        y, output_type = self._to_cudf_series(y)
 
         # check if ord_label out of bound
         ord_label = y.unique()
@@ -277,7 +275,8 @@ class LabelEncoder(Base):
 
         reverted = y._column.find_and_replace(ran_idx, self.classes_, False)
 
-        return cudf.Series(reverted)
+        res = cudf.Series(reverted)
+        return self._to_output(res, output_type)
 
     def get_param_names(self):
         return super().get_param_names() + [
@@ -301,7 +300,7 @@ class LabelEncoder(Base):
                    " or 'numpy.ndarray' or 'pandas.Series',"
                    " or 'cudf.Series'"
                    "got {0}.".format(type(y)))
-            raise ValueError(msg)
+            raise TypeError(msg)
         return y, output_type
         
         

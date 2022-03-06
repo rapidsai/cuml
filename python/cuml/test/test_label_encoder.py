@@ -170,19 +170,22 @@ def test_masked_encode():
     assert(df_filter["cat_col"].values == df_test["cat_col"].values).all()
 
 
-def _cupy_to_similarity_mat(x):
+def _array_to_similarity_mat(x):
     arr = x.reshape(1, -1)
-    return cp.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
+    return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
 
 @pytest.mark.parametrize("length", [10])
 @pytest.mark.parametrize("cardinality", [5])
-def test_labelencoder_fit_transform_cupy(length, cardinality):
+@pytest.mark.parametrize("dtype", ['cupy', 'numpy'])
+def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
     """ Try encoding the cupy array
     """
     x = cp.random.choice(cardinality, (length,))
+    if dtype == 'numpy':
+        x = x.get()
     encoded = LabelEncoder().fit_transform(x)
 
-    x_arr = _cupy_to_similarity_mat(x)
-    encoded_arr = _cupy_to_similarity_mat(encoded)
+    x_arr = _array_to_similarity_mat(x)
+    encoded_arr = _array_to_similarity_mat(encoded)
     assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
