@@ -157,7 +157,7 @@ class LabelEncoder(Base):
 
         Parameters
         ----------
-        y : cudf.Series
+        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
             Series containing the categories to be encoded. It's elements
             may or may not be unique
 
@@ -183,7 +183,7 @@ class LabelEncoder(Base):
         self._fitted = True
         return self
 
-    def transform(self, y: cudf.Series) -> cudf.Series:
+    def transform(self, y) -> cudf.Series:
         """
         Transform an input into its categorical keys.
 
@@ -193,13 +193,13 @@ class LabelEncoder(Base):
 
         Parameters
         ----------
-        y : cudf.Series
+        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
             Input keys to be transformed. Its values should match the
             categories given to `fit`
 
         Returns
         -------
-        encoded : cudf.Series
+        encoded : the same type as y
             The ordinally encoded input series
 
         Raises
@@ -221,16 +221,15 @@ class LabelEncoder(Base):
             raise KeyError("Attempted to encode unseen key")
 
         return self._to_output(encoded, output_type)
-        
 
-    def fit_transform(self, y: cudf.Series, z=None) -> cudf.Series:
+    def fit_transform(self, y, z=None) -> cudf.Series:
         """
         Simultaneously fit and transform an input
 
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
-        
+
         y, output_type = self._to_cudf_series(y)
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
@@ -247,12 +246,13 @@ class LabelEncoder(Base):
 
         Parameters
         ----------
-        y : cudf.Series, dtype=int32
+        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
+            dtype=int32
             Ordinal labels to be reverted
 
         Returns
         -------
-        reverted : cudf.Series
+        reverted : the same type as y
             Reverted labels
         """
         # check LabelEncoder is fitted
@@ -282,7 +282,7 @@ class LabelEncoder(Base):
         return super().get_param_names() + [
             "handle_unknown",
         ]
-    
+
     def _to_cudf_series(self, y):
         if isinstance(y, cudf.Series):
             output_type = 'cudf'
@@ -302,8 +302,7 @@ class LabelEncoder(Base):
                    "got {0}.".format(type(y)))
             raise TypeError(msg)
         return y, output_type
-        
-        
+
     def _to_output(self, y, output_type):
         if output_type == 'pandas':
             return y.to_pandas()
@@ -313,4 +312,3 @@ class LabelEncoder(Base):
             return y.values.get()
         else:
             return y
-            

@@ -175,8 +175,8 @@ def _array_to_similarity_mat(x):
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
 
-@pytest.mark.parametrize("length", [10])
-@pytest.mark.parametrize("cardinality", [5])
+@pytest.mark.parametrize("length", [10, 1000])
+@pytest.mark.parametrize("cardinality", [5, 10, 50])
 @pytest.mark.parametrize("dtype", ['cupy', 'numpy'])
 def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
     """ Try encoding the cupy array
