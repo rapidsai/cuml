@@ -111,8 +111,7 @@ void preProcessData(const raft::handle_t& handle,
     }
 
     if (sample_weight != nullptr) {
-      raft::stats::weightedMean(
-        mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
+      raft::stats::weightedMean(mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
     } else {
       raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
     }
