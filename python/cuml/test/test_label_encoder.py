@@ -189,3 +189,35 @@ def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
     x_arr = _array_to_similarity_mat(x)
     encoded_arr = _array_to_similarity_mat(encoded)
     assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
+    
+    
+@pytest.mark.parametrize("use_fit_transform", [False, True])
+@pytest.mark.parametrize(
+        "orig_label, ord_label, expected_reverted, bad_ord_label",
+        [(cp.array([7, 5, 3, 1]),
+          cp.array([2, 1, 2, 3, 0]),
+          cp.array([5, 3, 5, 7, 1]),
+          cp.array([0, 1, 2, 3, 4])),
+         (np.array([1.09, .09, .09, .09]),
+          np.array([1, 1, 0, 0, 1]),
+          np.array([1.09, 1.09, .09, .09, 1.09]),
+          np.array([0, 1, 1, 1, 2]))])
+def test_inverse_transform_cupy_numpy(orig_label, ord_label,
+                           expected_reverted, bad_ord_label,
+                           use_fit_transform):
+    # prepare LabelEncoder
+    le = LabelEncoder()
+    if use_fit_transform:
+        le.fit_transform(orig_label)
+    else:
+        le.fit(orig_label)
+    assert(le._fitted is True)
+
+    # test if inverse_transform is correct
+    reverted = le.inverse_transform(ord_label)
+    assert(len(reverted) == len(expected_reverted))
+    assert(len(reverted)
+           == len(reverted[reverted == expected_reverted]))
+    # test if correctly raies ValueError
+    with pytest.raises(ValueError, match='y contains previously unseen label'):
+        le.inverse_transform(bad_ord_label)
