@@ -287,7 +287,8 @@ class KernelDensity(Base):
                 raise ValueError(
                     "Cuml only supports metrics with a single arg.")
             metric_arg = list(self.metric_params.values())[0]
-            distances = pairwise_distances(X_cuml.array, self.X_, metric=self.metric,
+            distances = pairwise_distances(X_cuml.array, self.X_,
+                                           metric=self.metric,
                                            metric_arg=metric_arg)
         else:
             distances = pairwise_distances(
@@ -378,7 +379,8 @@ class KernelDensity(Base):
         if (self.kernel not in supported_kernels
                 or self.metric != "euclidian"):
             raise NotImplementedError(
-                "Only {} kernels, and the euclidean metric are supported.".format(supported_kernels))
+                "Only {} kernels, and the euclidean"
+                " metric are supported.".format(supported_kernels))
 
         if isinstance(random_state, cp.random.RandomState):
             rng = random_state

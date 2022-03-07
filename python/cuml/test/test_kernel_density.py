@@ -111,7 +111,9 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         elif kernel == "tophat":
             assert np.all(nearest <= bandwidth)
     else:
-        with pytest.raises(NotImplementedError, match="Only \['gaussian', 'tophat'\] kernels, and the euclidean metric are supported."):
+        with pytest.raises(NotImplementedError,
+                           match=r"Only \['gaussian', 'tophat'\] kernels,"
+                           " and the euclidean metric are supported."):
             kde.sample(100)
 
 

@@ -108,11 +108,13 @@ def normalize_clusters(a0, b0, n_clusters):
 
     return a, b
 
-# Convert array args to type supported by CumlArray.to_output ('numpy','cudf','cupy'...)
-# Ensure 2 dimensional inputs are not converted to 1 dimension
-# None remains as None
-# Scalar remains a scalar
+
 def as_type(type, *args):
+    # Convert array args to type supported by
+    # CumlArray.to_output ('numpy','cudf','cupy'...)
+    # Ensure 2 dimensional inputs are not converted to 1 dimension
+    # None remains as None
+    # Scalar remains a scalar
     result = []
     for arg in args:
         if arg is None or np.isscalar(arg):
@@ -127,6 +129,7 @@ def as_type(type, *args):
     if len(result) == 1:
         return result[0]
     return tuple(result)
+
 
 def to_nparray(x):
     if isinstance(x, Number):
