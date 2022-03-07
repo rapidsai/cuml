@@ -19,6 +19,7 @@ import numpy as np
 import math
 from numba import cuda
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.base import Base
 from cuml.metrics import pairwise_distances
 from cuml.common.import_utils import has_scipy
@@ -280,16 +281,17 @@ class KernelDensity(Base):
         """
         if not hasattr(self, "X_"):
             raise NotFittedError()
-
+        X_cuml = input_to_cuml_array(X)
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
                     "Cuml only supports metrics with a single arg.")
             metric_arg = list(self.metric_params.values())[0]
-            distances = pairwise_distances(X, self.X_, metric=self.metric,
+            distances = pairwise_distances(X_cuml.array, self.X_, metric=self.metric,
                                            metric_arg=metric_arg)
         else:
-            distances = pairwise_distances(X, self.X_, metric=self.metric)
+            distances = pairwise_distances(
+                X_cuml.array, self.X_, metric=self.metric)
 
         distances = cp.asarray(distances)
 
@@ -319,8 +321,13 @@ class KernelDensity(Base):
         log_probabilities -= np.log(sum_weights)
 
         # norm
+        if len(X_cuml.array.shape) == 1:
+            # if X is one dimensional, we have 1 feature
+            dimension = 1
+        else:
+            dimension = X_cuml.array.shape[1]
         log_probabilities = norm_log_probabilities(
-            log_probabilities, self.kernel, h, X.shape[1]
+            log_probabilities, self.kernel, h, dimension
         )
 
         return log_probabilities
@@ -367,9 +374,11 @@ class KernelDensity(Base):
         if not hasattr(self, "X_"):
             raise NotFittedError()
 
-        if (self.kernel not in ["gaussian", "tophat"]
+        supported_kernels = ["gaussian", "tophat"]
+        if (self.kernel not in supported_kernels
                 or self.metric != "euclidian"):
-            raise NotImplementedError()
+            raise NotImplementedError(
+                "Only {} kernels, and the euclidean metric are supported.".format(supported_kernels))
 
         if isinstance(random_state, cp.random.RandomState):
             rng = random_state
@@ -390,8 +399,7 @@ class KernelDensity(Base):
             # we first draw points from a d-dimensional normal distribution,
             # then use an incomplete gamma function to map them to a uniform
             # d-dimensional tophat distribution.
-            if not has_scipy():
-                raise RuntimeError("Scipy is required")
+            has_scipy(raise_if_unavailable=True)
             dim = self.X_.shape[1]
             X = rng.normal(size=(n_samples, dim))
             s_sq = cp.einsum("ij,ij->i", X, X).get()

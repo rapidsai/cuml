@@ -23,6 +23,7 @@ from hypothesis import given, settings, assume, strategies as st
 from hypothesis.extra.numpy import arrays
 import pytest
 from sklearn.model_selection import GridSearchCV
+from cuml.test.utils import as_type
 
 
 # not in log probability space
@@ -62,8 +63,10 @@ def array_strategy(draw):
     else:
         sample_weight = draw(arrays(dtype=np.float64, shape=n,
                                     elements=st.floats(0.1, 2.0),))
-
-    return X, X_test, sample_weight
+    type = draw(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+    if type == 'cupy':
+        assume(n > 1 and n_test > 1)
+    return as_type(type, X, X_test, sample_weight)
 
 
 metrics_strategy = st.sampled_from(
@@ -71,11 +74,13 @@ metrics_strategy = st.sampled_from(
      'chebyshev', 'minkowski', 'hamming', 'canberra'])
 
 
-@settings(deadline=None, max_examples=100)
+@settings(deadline=None)
 @given(array_strategy(), st.sampled_from(VALID_KERNELS),
        metrics_strategy, st.floats(0.2, 10))
 def test_kernel_density(arrays, kernel, metric, bandwidth):
     X, X_test, sample_weight = arrays
+    X_np, X_test_np, sample_weight_np = as_type("numpy", *arrays)
+
     if kernel == 'cosine':
         # cosine is numerically unstable at high dimensions
         # for both cuml and sklearn
@@ -86,15 +91,15 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
     cuml_prob = kde.score_samples(X)
     cuml_prob_test = kde.score_samples(X_test)
 
-    if X.dtype == np.float64:
+    if X_np.dtype == np.float64:
         ref_prob = compute_kernel_naive(
-            X, X, kernel, metric, bandwidth, sample_weight)
+            X_np, X_np, kernel, metric, bandwidth, sample_weight_np)
         ref_prob_test = compute_kernel_naive(
-            X_test, X, kernel, metric, bandwidth, sample_weight)
+            X_test_np, X_np, kernel, metric, bandwidth, sample_weight_np)
         tol = 1e-3
-        assert np.allclose(np.exp(cuml_prob), ref_prob,
+        assert np.allclose(np.exp(as_type("numpy", cuml_prob)), ref_prob,
                            rtol=tol, atol=tol, equal_nan=True)
-        assert np.allclose(np.exp(cuml_prob_test),
+        assert np.allclose(np.exp(as_type("numpy", cuml_prob_test)),
                            ref_prob_test, rtol=tol, atol=tol, equal_nan=True)
 
     if kernel in ["gaussian", "tophat"] and metric == "euclidian":
@@ -106,7 +111,7 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         elif kernel == "tophat":
             assert np.all(nearest <= bandwidth)
     else:
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(NotImplementedError, match="Only \['gaussian', 'tophat'\] kernels, and the euclidean metric are supported."):
             kde.sample(100)
 
 
