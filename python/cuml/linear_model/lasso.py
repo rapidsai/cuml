@@ -33,49 +33,32 @@ class Lasso(ElasticNet):
     Examples
     --------
 
-    .. code-block:: python
 
-        import numpy as np
-        import cudf
-        from cuml.linear_model import Lasso
+    >>> import numpy as np
+    >>> import cudf
+    >>> from cuml.linear_model import Lasso
+    >>> ls = Lasso(alpha = 0.1)
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = np.array([0, 1, 2], dtype = np.float32)
+    >>> X['col2'] = np.array([0, 1, 2], dtype = np.float32)
+    >>> y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
+    >>> result_lasso = ls.fit(X, y)
+    >>> print(result_lasso.coef_)
+    0   0.85
+    1   0.00
+    dtype: float32
+    >>> print(result_lasso.intercept_)
+    0.149999...
 
-        ls = Lasso(alpha = 0.1)
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
+    >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
+    >>> preds = result_lasso.predict(X_new)
+    >>> print(preds)
+    0   2.70
+    1   1.85
+    dtype: float32
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([0, 1, 2], dtype = np.float32)
-        X['col2'] = np.array([0, 1, 2], dtype = np.float32)
-
-        y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
-
-        result_lasso = ls.fit(X, y)
-        print("Coefficients:")
-        print(result_lasso.coef_)
-        print("intercept:")
-        print(result_lasso.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_lasso.predict(X_new)
-
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 0.85
-                    1 0.0
-
-        Intercept:
-                    0.149999
-
-        Preds:
-
-                    0 2.7
-                    1 1.85
 
     Parameters
     -----------

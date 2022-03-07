@@ -151,6 +151,7 @@ __all__ = [
     "NearestNeighbors",
     "PCA",
     "PermutationExplainer",
+    "preprocessing",
     "QN",
     "r2_score",
     "RandomForestClassifier",

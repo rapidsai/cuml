@@ -47,49 +47,29 @@ class ElasticNet(Base,
     Examples
     --------
 
-    .. code-block:: python
-
-        import numpy as np
-        import cudf
-        from cuml.linear_model import ElasticNet
-
-        enet = ElasticNet(alpha = 0.1, l1_ratio=0.5)
-
-        X = cudf.DataFrame()
-        X['col1'] = np.array([0, 1, 2], dtype = np.float32)
-        X['col2'] = np.array([0, 1, 2], dtype = np.float32)
-
-        y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
-
-        result_enet = enet.fit(X, y)
-        print("Coefficients:")
-        print(result_enet.coef_)
-        print("intercept:")
-        print(result_enet.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_enet.predict(X_new)
-
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 0.448408
-                    1 0.443341
-
-        Intercept:
-                    0.1082506
-
-        Preds:
-
-                    0 3.67018
-                    1 3.22177
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.linear_model import ElasticNet
+    >>> enet = ElasticNet(alpha = 0.1, l1_ratio=0.5)
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = cp.array([0, 1, 2], dtype = cp.float32)
+    >>> X['col2'] = cp.array([0, 1, 2], dtype = cp.float32)
+    >>> y = cudf.Series(cp.array([0.0, 1.0, 2.0], dtype = cp.float32) )
+    >>> result_enet = enet.fit(X, y)
+    >>> print(result_enet.coef_)
+    0    0.448408
+    1    0.443341
+    dtype: float32
+    >>> print(result_enet.intercept_)
+    0.108250617...
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = cp.array([3,2], dtype = cp.float32)
+    >>> X_new['col2'] = cp.array([5,5], dtype = cp.float32)
+    >>> preds = result_enet.predict(X_new)
+    >>> print(preds)
+    0    3.670182
+    1    3.221774
+    dtype: float32
 
     Parameters
     -----------

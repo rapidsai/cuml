@@ -61,6 +61,10 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
             yield from _find_doctests_in_obj(
                 member, finder, criteria=_is_public_name
             )
+        if inspect.isfunction(member):
+            yield from _find_doctests_in_obj(
+                member, finder
+            )
 
 
 @pytest.mark.parametrize(
