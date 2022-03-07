@@ -189,8 +189,8 @@ def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
     x_arr = _array_to_similarity_mat(x)
     encoded_arr = _array_to_similarity_mat(encoded)
     assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
-    
-    
+
+
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
         "orig_label, ord_label, expected_reverted, bad_ord_label",
@@ -203,8 +203,9 @@ def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
           np.array([1.09, 1.09, .09, .09, 1.09]),
           np.array([0, 1, 1, 1, 2]))])
 def test_inverse_transform_cupy_numpy(orig_label, ord_label,
-                           expected_reverted, bad_ord_label,
-                           use_fit_transform):
+                                      expected_reverted,
+                                      bad_ord_label,
+                                      use_fit_transform):
     # prepare LabelEncoder
     le = LabelEncoder()
     if use_fit_transform:
