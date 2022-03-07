@@ -19,6 +19,7 @@ import cupy as cp
 import numpy as np
 import cuml.internals
 from cuml.metrics import pairwise_distances
+from cuml.common.input_utils import input_to_cupy_array
 
 
 def linear_kernel(X, Y):
@@ -276,11 +277,11 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
         pairwise_kernels(X, Y, metric=custom_rbf_kernel)
 
     """
-    X = cp.asarray(X)
+    X = input_to_cupy_array(X).array
     if Y is None:
         Y = X
     else:
-        Y = cp.asarray(Y)
+        Y = input_to_cupy_array(Y).array
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
 
@@ -296,4 +297,5 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
     else:
         kwds = _filter_params(
             metric, filter_params, **kwds)
+
         return custom_kernel(X, Y, metric, **kwds)
