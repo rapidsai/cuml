@@ -284,9 +284,7 @@ class LabelEncoder(Base):
         ]
 
     def _to_cudf_series(self, y):
-        if isinstance(y, cudf.Series):
-            output_type = 'cudf'
-        elif isinstance(y, pdSeries):
+        if isinstance(y, pdSeries):
             y = cudf.from_pandas(y)
             output_type = 'pandas'
         elif isinstance(y, cp.ndarray):
@@ -296,11 +294,7 @@ class LabelEncoder(Base):
             y = cudf.Series(y)
             output_type = 'numpy'
         else:
-            msg = ("input should be either 'cupy.ndarray'"
-                   " or 'numpy.ndarray' or 'pandas.Series',"
-                   " or 'cudf.Series'"
-                   "got {0}.".format(type(y)))
-            raise TypeError(msg)
+            output_type = 'cudf'
         return y, output_type
 
     def _to_output(self, y, output_type):
