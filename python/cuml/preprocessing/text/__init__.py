@@ -15,3 +15,5 @@
 #
 
 from cuml.preprocessing.text import stem
+
+__all__ = ['stem']

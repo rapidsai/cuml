@@ -103,14 +103,14 @@ class LinearRegression(Base,
     >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
     >>> preds = lr.predict(X_new)
     >>> print(preds)
-    0   15.999998
-    1   14.999998
+    0   15.999...
+    1   14.999...
     dtype: float32
 
 
     Parameters
     -----------
-    algorithm : {'svd', 'eig', `qr`, 'svd-qr', 'svd-jacobi'}, (default = 'eig')
+    algorithm : {'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'eig')
         Choose an algorithm:
 
           * 'svd' - alias for svd-jacobi;
@@ -123,7 +123,7 @@ class LinearRegression(Base,
         number of features is larger than the sample size; this algorithm
         is force-selected automatically in such a case.
 
-        For the broad range of inputs, 'eig' and `qr` are usually the fastest,
+        For the broad range of inputs, 'eig' and 'qr' are usually the fastest,
         followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
         algorithms are more stable.
     fit_intercept : boolean (default = True)

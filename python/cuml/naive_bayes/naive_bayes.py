@@ -315,7 +315,7 @@ class GaussianNB(_BaseNB):
     --------
     >>> import cupy as cp
     >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-    >>>              cp.float32)
+    ...              cp.float32)
     >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
     >>> from cuml.naive_bayes import GaussianNB
     >>> clf = GaussianNB()
@@ -977,13 +977,13 @@ class MultinomialNB(_BaseDiscreteNB):
     Parameters
     ----------
 
-    alpha : float
+    alpha : float (default=1.0)
         Additive (Laplace/Lidstone) smoothing parameter (0 for no
         smoothing).
-    fit_prior : boolean
+    fit_prior : boolean (default=True)
         Whether to learn class prior probabilities or no. If false, a
         uniform prior will be used.
-    class_prior : array-like, size (n_classes)
+    class_prior : array-like, size (n_classes) (default=None)
         Prior probabilities of the classes. If specified, the priors are
         not adjusted according to the data.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
@@ -1024,44 +1024,36 @@ class MultinomialNB(_BaseDiscreteNB):
     Load the 20 newsgroups dataset from Scikit-learn and train a
     Naive Bayes classifier.
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> import cupyx
+    >>> from sklearn.datasets import fetch_20newsgroups
+    >>> from sklearn.feature_extraction.text import CountVectorizer
+    >>> from cuml.naive_bayes import MultinomialNB
 
-        import cupy as cp
+    >>> # Load corpus
+    >>> twenty_train = fetch_20newsgroups(subset='train', shuffle=True,
+    ...                                   random_state=42)
 
-        from sklearn.datasets import fetch_20newsgroups
-        from sklearn.feature_extraction.text import CountVectorizer
+    >>> # Turn documents into term frequency vectors
 
-        from cuml.naive_bayes import MultinomialNB
+    >>> count_vect = CountVectorizer()
+    >>> features = count_vect.fit_transform(twenty_train.data)
 
-        # Load corpus
+    >>> # Put feature vectors and labels on the GPU
 
-        twenty_train = fetch_20newsgroups(subset='train',
-                                shuffle=True, random_state=42)
+    >>> X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+    >>> y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-        # Turn documents into term frequency vectors
+    >>> # Train model
 
-        count_vect = CountVectorizer()
-        features = count_vect.fit_transform(twenty_train.data)
+    >>> model = MultinomialNB()
+    >>> model.fit(X, y)
+    MultinomialNB()
 
-        # Put feature vectors and labels on the GPU
+    >>> # Compute accuracy on training set
 
-        X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-        y = cp.asarray(twenty_train.target, dtype=cp.int32)
-
-        # Train model
-
-        model = MultinomialNB()
-        model.fit(X, y)
-
-        # Compute accuracy on training set
-
-        model.score(X, y)
-
-    Output:
-
-    .. code-block:: python
-
-        0.9244298934936523
+    >>> model.score(X, y)
+    0.9245...
 
     """
     def __init__(self, *,

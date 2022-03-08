@@ -53,73 +53,62 @@ class LabelEncoder(Base):
     --------
     Converting a categorical implementation to a numerical one
 
-    .. code-block:: python
+    >>> from cudf import DataFrame, Series
+    >>> from cuml.preprocessing import LabelEncoder
+    >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
 
-        from cudf import DataFrame, Series
+    >>> # There are two functionally equivalent ways to do this
+    >>> le = LabelEncoder()
+    >>> le.fit(data.category)  # le = le.fit(data.category) also works
+    LabelEncoder()
+    >>> encoded = le.transform(data.category)
 
-        data = DataFrame({'category': ['a', 'b', 'c', 'd']})
+    >>> print(encoded)
+    0    0
+    1    1
+    2    2
+    3    3
+    dtype: uint8
 
-        # There are two functionally equivalent ways to do this
-        le = LabelEncoder()
-        le.fit(data.category)  # le = le.fit(data.category) also works
-        encoded = le.transform(data.category)
+    >>> # This method is preferred
+    >>> le = LabelEncoder()
+    >>> encoded = le.fit_transform(data.category)
 
-        print(encoded)
+    >>> print(encoded)
+    0    0
+    1    1
+    2    2
+    3    3
+    dtype: uint8
 
-        # This method is preferred
-        le = LabelEncoder()
-        encoded = le.fit_transform(data.category)
+    >>> # We can assign this to a new column
+    >>> data = data.assign(encoded=encoded)
+    >>> print(data.head())
+    category  encoded
+    0         a        0
+    1         b        1
+    2         c        2
+    3         d        3
 
-        print(encoded)
+    >>> # We can also encode more data
+    >>> test_data = Series(['c', 'a'])
+    >>> encoded = le.transform(test_data)
+    >>> print(encoded)
+    0    2
+    1    0
+    dtype: uint8
 
-        # We can assign this to a new column
-        data = data.assign(encoded=encoded)
-        print(data.head())
-
-        # We can also encode more data
-        test_data = Series(['c', 'a'])
-        encoded = le.transform(test_data)
-        print(encoded)
-
-        # After train, ordinal label can be inverse_transform() back to
-        # string labels
-        ord_label = cudf.Series([0, 0, 1, 2, 1])
-        ord_label = dask_cudf.from_cudf(data, npartitions=2)
-        str_label = le.inverse_transform(ord_label)
-        print(str_label)
-
-    Output:
-
-    .. code-block:: python
-
-        0    0
-        1    1
-        2    2
-        3    3
-        dtype: int64
-
-        0    0
-        1    1
-        2    2
-        3    3
-        dtype: int32
-
-        category  encoded
-        0         a        0
-        1         b        1
-        2         c        2
-        3         d        3
-
-        0    2
-        1    0
-        dtype: int64
-
-        0    a
-        1    a
-        2    b
-        3    c
-        4    b
-        dtype: object
+    >>> # After train, ordinal label can be inverse_transform() back to
+    >>> # string labels
+    >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
+    >>> str_label = le.inverse_transform(ord_label)
+    >>> print(str_label)
+    0    a
+    1    a
+    2    b
+    3    c
+    4    b
+    dtype: object
 
     """
 
@@ -160,7 +149,7 @@ class LabelEncoder(Base):
             Series containing the categories to be encoded. It's elements
             may or may not be unique
 
-        _classes: int or None.
+        _classes : int or None.
             Passed by the dask client when dask LabelEncoder is used.
 
         Returns

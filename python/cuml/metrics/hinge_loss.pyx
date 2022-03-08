@@ -41,10 +41,10 @@ def hinge_loss(y_true,
         Predicted decisions, as output by decision_function (floats)
 
     labels: cuDF Series or cuPy array, default=None
-            In multiclass problems, this must include all class labels.
+        In multiclass problems, this must include all class labels.
 
     sample_weight: cupy array of shape (n_samples,), default=None
-                   Sample weights to be used for computing the average
+        Sample weights to be used for computing the average
 
     Returns
     -------

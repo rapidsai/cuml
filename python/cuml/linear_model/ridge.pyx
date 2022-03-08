@@ -89,55 +89,36 @@ class Ridge(Base,
     Examples
     --------
 
-    .. code-block:: python
+    >>> import numpy as np
+    >>> import cudf
 
-        import numpy as np
-        import cudf
+    >>> # Both import methods supported
+    >>> from cuml import Ridge
+    >>> from cuml.linear_model import Ridge
 
-        # Both import methods supported
-        from cuml import Ridge
-        from cuml.linear_model import Ridge
+    >>> alpha = np.array([1e-5])
+    >>> ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
+    ...               solver = "eig")
 
-        alpha = np.array([1e-5])
-        ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
-                      solver = "eig")
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+    >>> X['col2'] = np.array([1,2,2,3], dtype = np.float32)
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+    >>> y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
 
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
-
-        result_ridge = ridge.fit(X, y)
-        print("Coefficients:")
-        print(result_ridge.coef_)
-        print("Intercept:")
-        print(result_ridge.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_ridge.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 1.0000001
-                    1 1.9999998
-
-        Intercept:
-                    3.0
-
-        Preds:
-
-                    0 15.999999
-                    1 14.999999
+    >>> result_ridge = ridge.fit(X, y)
+    >>> print(result_ridge.coef_)
+    0 1.000...
+    1 1.999...
+    >>> print(result_ridge.intercept_)
+    3.0...
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
+    >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
+    >>> preds = result_ridge.predict(X_new)
+    >>> print(preds)
+    0 15.999...
+    1 14.999...
 
     Parameters
     -----------

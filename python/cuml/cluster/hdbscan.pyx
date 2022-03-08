@@ -293,7 +293,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     alpha : float, optional (default=1.0)
         A distance scaling parameter as used in robust single linkage.
-        See [2]_ for more information.
 
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -311,10 +310,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     cluster_selection_epsilon : float, optional (default=0.0)
         A distance threshold. Clusters below this value will be merged.
-        See [3]_ for more information. Note that this should not be used
-        if we want to predict the cluster labels for new points in future
-        (e.g. using approximate_predict), as the approximate_predict function
-        is not aware of this argument.
+        Note that this should not be used if we want to predict the cluster
+        labels for new points in future (e.g. using approximate_predict), as 
+        the approximate_predict function is not aware of this argument.
 
     max_cluster_size : int, optional (default=0)
         A limit to the size of clusters returned by the eom algorithm.
@@ -325,7 +323,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         for new points in future (e.g. using approximate_predict), as
         the approximate_predict function is not aware of this argument.
 
-    metric : string or callable, optional (default='minkowski')
+    metric : string or callable, optional (default='euclidean')
         The metric to use when calculating distance between instances in a
         feature array. If metric is a string or callable, it must be one of
         the options allowed by metrics.pairwise.pairwise_distances for its

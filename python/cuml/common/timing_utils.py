@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ def timed(name):
     --------
 
     >>> with timed("Print Call"):
-    >>>     print("Hello, World")
+    ...     print("Hello, World") # doctest: +SKIP
     Hello, World
     ..Print Call              :    0.0005
 

@@ -653,7 +653,7 @@ class StandardScaler(TransformerMixin,
             The data used to compute the mean and standard deviation
             used for later scaling along the features axis.
 
-        y
+        y : None
             Ignored
         """
 

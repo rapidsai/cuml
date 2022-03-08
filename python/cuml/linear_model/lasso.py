@@ -94,9 +94,9 @@ class Lasso(ElasticNet):
         You may find the alternative 'qn' algorithm is faster when the number
         of features is sufficiently large, but the sample size is small.
     selection : {'cyclic', 'random'} (default='cyclic')
-        If set to ‘random’, a random coefficient is updated every iteration
+        If set to 'random', a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
-        This (setting to ‘random’) often leads to significantly faster
+        This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
