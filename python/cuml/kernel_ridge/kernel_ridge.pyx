@@ -118,9 +118,7 @@ class KernelRidge(Base, RegressorMixin):
         in `cuml.metrics.PAIRWISE_KERNEL_FUNCTIONS` or "precomputed".
         If `kernel` is "precomputed", X is assumed to be a kernel matrix.
         `kernel` may be a callable numba device function. If so, is called on
-        each pair of instances (rows) and the resulting value recorded. The
-        callable should take two rows from X as input and return the
-        corresponding kernel value as a single number.
+        each pair of instances (rows) and the resulting value recorded.
     gamma : float, default=None
         Gamma parameter for the RBF, laplacian, polynomial, exponential chi2
         and sigmoid kernels. Interpretation of the default value is left to
@@ -149,8 +147,10 @@ class KernelRidge(Base, RegressorMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
+
     Attributes
     ----------
+
     dual_coef_ : ndarray of shape (n_samples,) or (n_samples, n_targets)
         Representation of weight vector(s) in kernel space
     X_fit_ : ndarray of shape (n_samples, n_features)
@@ -269,18 +269,21 @@ class KernelRidge(Base, RegressorMixin):
         return self
 
     def predict(self, X):
-        """Predict using the kernel ridge model.
-            Parameters
-            ----------
-            X : array-like of shape (n_samples, n_features)
-                Samples. If kernel == "precomputed" this is instead a
-                precomputed kernel matrix, shape = [n_samples,
-                n_samples_fitted], where n_samples_fitted is the number of
-                samples used in the fitting for this estimator.
-            Returns
-            -------
-            C : array of shape (n_samples,) or (n_samples, n_targets)
-                Returns predicted values.
+        """
+        Predict using the kernel ridge model.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Samples. If kernel == "precomputed" this is instead a
+            precomputed kernel matrix, shape = [n_samples,
+            n_samples_fitted], where n_samples_fitted is the number of
+            samples used in the fitting for this estimator.
+
+        Returns
+        -------
+        C : array of shape (n_samples,) or (n_samples, n_targets)
+            Returns predicted values.
         """
         X_m, _, _, _ = input_to_cuml_array(
             X, check_dtype=[np.float32, np.float64])

@@ -25,9 +25,10 @@ import inspect
 from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
 from hypothesis import given, settings, assume, strategies as st
 from hypothesis.extra.numpy import arrays
+from cuml.test.utils import as_type
 
 
-def gradient_norm(X, y, model, K, sw=None):
+def gradient_norm(model, X, y, K, sw=None):
     if sw is None:
         sw = cp.ones(X.shape[0])
     else:
@@ -36,7 +37,8 @@ def gradient_norm(X, y, model, K, sw=None):
     X = cp.array(X, dtype=np.float64)
     y = cp.array(y, dtype=np.float64)
     K = cp.array(K, dtype=np.float64)
-    betas = cp.array(model.dual_coef_, dtype=np.float64).reshape(y.shape)
+    betas = cp.array(as_type('cupy', model.dual_coef_),
+                     dtype=np.float64).reshape(y.shape)
 
     # initialise to NaN in case below loop has 0 iterations
     grads = cp.full_like(y, np.NAN)
@@ -162,7 +164,13 @@ def array_strategy(draw):
         )
     else:
         Y = None
-    return (X, Y)
+    type = draw(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+
+    if type == 'cudf':
+        assume(X_m > 1)
+        if Y is not None:
+            assume(Y_m > 1)
+    return as_type(type, X, Y)
 
 
 @given(kernel_arg_strategy(), array_strategy())
@@ -172,8 +180,9 @@ def test_pairwise_kernels(kernel_arg, XY):
     kernel, args = kernel_arg
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
-    K_sklearn = skl_pairwise_kernels(X, Y, metric=skl_kernel, **args)
-    assert np.allclose(K, K_sklearn, atol=0.01, rtol=0.01)
+    K_sklearn = skl_pairwise_kernels(
+        *as_type('numpy', X, Y), metric=skl_kernel, **args)
+    assert np.allclose(as_type('numpy', K), K_sklearn, atol=0.01, rtol=0.01)
 
 
 @st.composite
@@ -207,7 +216,8 @@ def estimator_array_strategy(draw):
             ]
         )
     )
-    return (X, y, X_test, alpha, sample_weight)
+    type = draw(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+    return (*as_type(type, X, y, X_test, alpha, sample_weight), dtype)
 
 
 @given(
@@ -220,7 +230,7 @@ def estimator_array_strategy(draw):
 @settings(deadline=None)
 def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     kernel, args = kernel_arg
-    X, y, X_test, alpha, sample_weight = arrays
+    X, y, X_test, alpha, sample_weight, dtype = arrays
     model = cuKernelRidge(
         kernel=kernel,
         alpha=alpha,
@@ -232,7 +242,7 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
     skl_model = sklKernelRidge(
         kernel=skl_kernel,
-        alpha=alpha,
+        alpha=as_type('numpy', alpha),
         gamma=gamma,
         degree=degree,
         coef0=coef0,
@@ -240,25 +250,27 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     )
     if kernel == "chi2" or kernel == "additive_chi2":
         # X must be positive
-        X = X + abs(X.min()) + 1.0
+        X = (X - as_type('numpy', X).min()) + 1.0
 
     model.fit(X, y, sample_weight)
     pred = model.predict(X_test).get()
-    if X.dtype == np.float64:
+    if dtype == np.float64:
         # For a convex optimisation problem we should arrive at gradient norm 0
         # If the solution has converged correctly
         K = model._get_kernel(X)
-        grad_norm = gradient_norm(X, y, model, K, sample_weight)
+        grad_norm = gradient_norm(
+            model, *as_type('cupy', X, y, K, sample_weight))
         assert grad_norm < 0.1
         try:
-            skl_model.fit(X, y, sample_weight)
+            skl_model.fit(*as_type('numpy', X, y, sample_weight))
         except np.linalg.LinAlgError:
             # sklearn can fail to fit multiclass models
             # with singular kernel matrices
             assume(False)
 
-        skl_pred = skl_model.predict(X_test)
-        assert np.allclose(pred, skl_pred, atol=1e-2, rtol=1e-2)
+        skl_pred = skl_model.predict(as_type('numpy', X_test))
+        assert np.allclose(as_type('numpy', pred),
+                           skl_pred, atol=1e-2, rtol=1e-2)
 
 
 def test_precomputed():

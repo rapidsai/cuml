@@ -19,6 +19,7 @@ import cupy as cp
 import numpy as np
 import cuml.internals
 from cuml.metrics import pairwise_distances
+from cuml.common.input_utils import input_to_cupy_array
 
 
 def linear_kernel(X, Y):
@@ -191,7 +192,8 @@ def custom_kernel(X, Y, func, **kwds):
 @cuml.internals.api_return_array(get_output_type=True)
 def pairwise_kernels(X, Y=None, metric="linear", *,
                      filter_params=False, convert_dtype=True, **kwds):
-    """Compute the kernel between arrays X and optional array Y.
+    """
+    Compute the kernel between arrays X and optional array Y.
     This method takes either a vector array or a kernel matrix, and returns
     a kernel matrix. If the input is a vector array, the kernels are
     computed. If the input is a kernel matrix, it is returned instead.
@@ -277,11 +279,11 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
            [5.04347663e-07, 2.03468369e-04],
            [4.24835426e-18, 2.54366565e-13]])
     """
-    X = cp.asarray(X)
+    X = input_to_cupy_array(X).array
     if Y is None:
         Y = X
     else:
-        Y = cp.asarray(Y)
+        Y = input_to_cupy_array(Y).array
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
 
@@ -297,4 +299,5 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
     else:
         kwds = _filter_params(
             metric, filter_params, **kwds)
+
         return custom_kernel(X, Y, metric, **kwds)
