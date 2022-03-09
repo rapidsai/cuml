@@ -121,13 +121,17 @@ struct alignas(std::is_same<F_, float>() ? 8 : 16) base_node {
   template <class o_t>
   __host__ __device__ o_t output() const
   {
-    if constexpr (std::is_same<o_t, int>()) {
+    static_assert(std::is_same_v<o_t, int> || std::is_same_v<o_t, F> ||
+                  std::is_same_v<o_t, val_t<F>>, "invalid o_t type parameter in node.output()");
+    if constexpr (std::is_same_v<o_t, int>) {
       return val.idx;
-    } else if constexpr (std::is_same<o_t, F>()) {
+    } else if constexpr (std::is_same_v<o_t, F>) {
       return val.f;
-    } else {
+    } else if constexpr (std::is_same_v<o_t, val_t<F>>) {
       return val;
     }
+    // control flow should not reach here
+    return o_t();
   }
   __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ F thresh() const { return val.f; }
