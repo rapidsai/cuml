@@ -258,56 +258,42 @@ class QN(Base,
 
     Examples
     --------
-    .. code-block:: python
+    >>> import cudf
+    >>> import cupy as cp
 
-        import cudf
-        import numpy as np
+    >>> # Both import methods supported
+    >>> # from cuml import QN
+    >>> from cuml.solvers import QN
 
-        # Both import methods supported
-        # from cuml import QN
-        from cuml.solvers import QN
+    >>> X = cudf.DataFrame()
+    >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+    >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+    >>> y = cudf.Series(cp.array([0.0, 0.0, 1.0, 1.0], dtype=cp.float32) )
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-        y = cudf.Series( np.array([0.0, 0.0, 1.0, 1.0], dtype = np.float32) )
+    >>> solver = QN()
+    >>> solver.fit(X,y)
+    QN()
 
-        solver = QN()
-        solver.fit(X,y)
-
-        # Note: for now, the coefficients also include the intercept in the
-        # last position if fit_intercept=True
-        print("Coefficients:")
-        print(solver.coef_)
-        print("Intercept:")
-        print(solver.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([1,5], dtype = np.float32)
-        X_new['col2'] = np.array([2,5], dtype = np.float32)
-
-        preds = solver.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-                    10.647417
-                    0.3267412
-                    -17.158297
-        Intercept:
-                    -17.158297
-        Predictions:
-                    0    0.0
-                    1    1.0
+    >>> # Note: for now, the coefficients also include the intercept in the
+    >>> # last position if fit_intercept=True
+    >>> print(solver.coef_)
+    0   37.371...
+    1   0.949...
+    dtype: float32
+    >>> print(solver.intercept_)
+    0   -57.738...
+    >>> X_new = cudf.DataFrame()
+    >>> X_new['col1'] = cp.array([1,5], dtype=cp.float32)
+    >>> X_new['col2'] = cp.array([2,5], dtype=cp.float32)
+    >>> preds = solver.predict(X_new)
+    >>> print(preds)
+    0    0.0
+    1    1.0
+    dtype: float32
 
     Parameters
     -----------
-    loss: 'sigmoid', 'softmax', 'l1', 'l2', 'svc_l1', 'svc_l2', 'svr_l1',
+    loss: 'sigmoid', 'softmax', 'l1', 'l2', 'svc_l1', 'svc_l2', 'svr_l1', \
         'svr_l2' (default = 'sigmoid').
         'sigmoid' loss used for single class logistic regression;
         'softmax' loss used for multiclass logistic regression;
@@ -331,7 +317,7 @@ class QN(Base,
         `norm(current_loss_grad) <= tol * max(current_loss, tol)`.
 
         This differs slightly from the `gtol`-controlled stopping condition in
-        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        `scipy.optimize.minimize(method='L-BFGS-B')
         <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_:
 
         `norm(current_loss_projected_grad) <= gtol`.
@@ -355,7 +341,7 @@ class QN(Base,
         internally.
 
         Note, this parameter corresponds to `ftol` in
-        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        `scipy.optimize.minimize(method='L-BFGS-B')
         <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_,
         which is set by default to a miniscule `2.2e-9` and is not exposed in
         `sklearn.LogisticRegression()

@@ -81,11 +81,11 @@ class LabelBinarizer(Base):
     Parameters
     ----------
 
-    neg_label : integer
+    neg_label : integer (default=0)
         label to be used as the negative binary label
-    pos_label : integer
+    pos_label : integer (default=1)
         label to be used as the positive binary label
-    sparse_output : bool
+    sparse_output : bool (default=False)
         whether to return sparse arrays for transformed output
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -108,45 +108,33 @@ class LabelBinarizer(Base):
 
     Create an array with labels and dummy encode them
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> import cupyx
+    >>> from cuml.preprocessing import LabelBinarizer
 
-        import cupy as cp
-        import cupyx
-        from cuml.preprocessing import LabelBinarizer
+    >>> labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+    ...                     dtype=cp.int32)
 
-        labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
-                            dtype=cp.int32)
-
-        lb = LabelBinarizer()
-
-        encoded = lb.fit_transform(labels)
-
-        print(str(encoded)
-
-        decoded = lb.inverse_transform(encoded)
-
-        print(str(decoded)
-
-
-    Output:
-
-    .. code-block:: python
-
-        [[1 0 0 0 0 0 0 0]
-         [0 0 0 0 0 1 0 0]
-         [0 0 0 0 0 0 0 1]
-         [0 0 0 0 0 0 1 0]
-         [0 0 1 0 0 0 0 0]
-         [0 0 0 0 1 0 0 0]
-         [0 1 0 0 0 0 0 0]
-         [1 0 0 0 0 0 0 0]
-         [1 0 0 0 0 0 0 0]
-         [0 0 0 0 1 0 0 0]
-         [0 0 0 1 0 0 0 0]
-         [0 0 1 0 0 0 0 0]
-         [0 1 0 0 0 0 0 0]]
-
-         [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+    >>> lb = LabelBinarizer()
+    >>> encoded = lb.fit_transform(labels)
+    >>> print(str(encoded))
+    [[1 0 0 0 0 0 0 0]
+     [0 0 0 0 0 1 0 0]
+     [0 0 0 0 0 0 0 1]
+     [0 0 0 0 0 0 1 0]
+     [0 0 1 0 0 0 0 0]
+     [0 0 0 0 1 0 0 0]
+     [0 1 0 0 0 0 0 0]
+     [1 0 0 0 0 0 0 0]
+     [1 0 0 0 0 0 0 0]
+     [0 0 0 0 1 0 0 0]
+     [0 0 0 1 0 0 0 0]
+     [0 0 1 0 0 0 0 0]
+     [0 1 0 0 0 0 0 0]]
+    >>> decoded = lb.inverse_transform(encoded)
+    >>> print(str(decoded))
+    [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+         
     """
 
     classes_ = CumlArrayDescriptor()

@@ -125,7 +125,6 @@ class KNeighborsRegressor(NearestNeighbors,
     Examples
     --------
     >>> from cuml.neighbors import KNeighborsRegressor
-
     >>> from cuml.datasets import make_regression
     >>> from cuml.model_selection import train_test_split
 
