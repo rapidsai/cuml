@@ -134,6 +134,7 @@ __all__ = [
     "Handle",
     "HDBSCAN",
     "IncrementalPCA",
+    "KernelDensity",
     "KernelExplainer",
     "KernelRidge",
     "KMeans",

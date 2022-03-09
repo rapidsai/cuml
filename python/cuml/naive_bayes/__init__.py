@@ -24,5 +24,6 @@ __all__ = [
     "MultinomialNB",
     "BernoulliNB",
     "GaussianNB",
+    "ComplementNB",
     "CategoricalNB",
 ]

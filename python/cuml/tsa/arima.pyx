@@ -628,12 +628,13 @@ class ARIMA(Base):
 
         Examples
         --------
-        >>> from cuml.tsa.arima import ARIMA
+        .. code-block:: python
 
-        >>> model = ARIMA(ys, order=(1,1,1))
-        >>> model.fit()
-        ARIMA(...)
-        >>> y_pred = model.predict()
+            from cuml.tsa.arima import ARIMA
+
+            model = ARIMA(ys, order=(1,1,1))
+            model.fit()
+            y_pred = model.predict()
         """
         cdef ARIMAOrder order = self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -767,13 +768,13 @@ class ARIMA(Base):
 
         Examples
         --------
+        .. code-block:: python
 
-        >>> from cuml.tsa.arima import ARIMA
-
-        >>> model = ARIMA(ys, order=(1,1,1))
-        >>> model.fit()
-        ARIMA(...)
-        >>> y_fc = model.forecast(10)
+            from cuml.tsa.arima import ARIMA
+            ...
+            model = ARIMA(ys, order=(1,1,1))
+            model.fit()
+            y_fc = model.forecast(10)
         """
 
         return self.predict(self.n_obs, self.n_obs + nsteps, level, exog)
