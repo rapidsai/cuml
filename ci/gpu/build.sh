@@ -284,7 +284,8 @@ else
     unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
 
-    gpuci_logger "Building python docs"
+    if [ "$CUDA_REL" == "11.0" ];then
+        gpuci_logger "Building python docs"
     $WORKSPACE/build.sh pydocs
 
 fi
