@@ -24,7 +24,6 @@
 #include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace Bench {
@@ -38,7 +37,7 @@ class Fixture : public MLCommon::Bench::Fixture {
   void SetUp(const ::benchmark::State& state) override
   {
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(NumStreams);
-    handle.reset(new raft::handle_t{stream, stream_pool});
+    handle.reset(new raft::handle_t{rmm::cuda_stream_per_thread, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
   }
 

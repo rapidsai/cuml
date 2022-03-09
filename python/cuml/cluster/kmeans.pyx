@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 

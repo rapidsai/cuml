@@ -22,12 +22,15 @@ from numba import cuda
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
+from raft.common.cuda import Stream
+
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
+from cuml.common.input_utils import input_to_cuml_array
 import pytest
 
 
@@ -108,6 +111,28 @@ def normalize_clusters(a0, b0, n_clusters):
     return a, b
 
 
+def as_type(type, *args):
+    # Convert array args to type supported by
+    # CumlArray.to_output ('numpy','cudf','cupy'...)
+    # Ensure 2 dimensional inputs are not converted to 1 dimension
+    # None remains as None
+    # Scalar remains a scalar
+    result = []
+    for arg in args:
+        if arg is None or np.isscalar(arg):
+            result.append(arg)
+        else:
+            # make sure X with a single feature remains 2 dimensional
+            if type == 'cudf' and len(arg.shape) > 1:
+                result.append(input_to_cuml_array(
+                    arg).array.to_output('dataframe'))
+            else:
+                result.append(input_to_cuml_array(arg).array.to_output(type))
+    if len(result) == 1:
+        return result[0]
+    return tuple(result)
+
+
 def to_nparray(x):
     if isinstance(x, Number):
         return np.asarray([x])
@@ -171,7 +196,7 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
-    s = cuml.raft.common.cuda.Stream()
+    s = Stream()
     h = cuml.Handle(stream=s, n_streams=n_streams)
     return h, s
 
