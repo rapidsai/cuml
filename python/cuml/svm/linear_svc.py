@@ -27,22 +27,16 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     Examples
     --------
-    .. code-block:: python
-
-        import numpy as np
-        from cuml.svm import LinearSVC
-        X = np.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-                        dtype=np.float32);
-        y = np.array([0, 0, 1, 0, 1, 1], dtype=np.float32)
-        clf = LinearSVC(loss='squared_hinge', penalty='l1', C=1)
-        clf.fit(X, y)
-        print("Predicted labels:", clf.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-        Predicted labels: [0. 0. 1. 0. 1. 1.]
+    >>> import cupy as cp
+    >>> from cuml.svm import LinearSVC
+    >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+    ...              dtype=cp.float32);
+    >>> y = cp.array([0, 0, 1, 0, 1, 1], dtype=cp.float32)
+    >>> clf = LinearSVC(loss='squared_hinge', penalty='l1', C=1)
+    >>> clf.fit(X, y)
+    LinearSVC()
+    >>> print("Predicted labels:", clf.predict(X))
+    Predicted labels: [0. 0. 1. 0. 1. 1.]
 
     Parameters
     ----------
@@ -118,9 +112,9 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         The constant in the decision function
     coef_ : float, shape (n_classes, n_cols)
         The vectors defining the hyperplanes that separate the classes.
-    classes_: float, shape (n_classes_,)
+    classes_ : float, shape (n_classes_,)
         Array of class labels.
-    probScale_: float, shape (n_classes_, 2)
+    probScale_ : float, shape (n_classes_, 2)
         Probability calibration constants (for the probabolistic output).
     n_classes_ : int
         Number of classes
