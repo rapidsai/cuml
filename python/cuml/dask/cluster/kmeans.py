@@ -74,15 +74,15 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         from data for the initial centroids. If an ndarray is passed,
         it should be of shape (n_clusters, n_features) and gives the
         initial centers.
-    oversampling_factor : int (default = 2) The amount of points to sample
-        in scalable k-means++ initialization for potential centroids.
-        Increasing this value can lead to better initial centroids at the
-        cost of memory. The total number of centroids sampled in scalable
-        k-means++ is oversampling_factor * n_clusters * 8.
-    max_samples_per_batch : int (default = 32768) The number of data
-        samples to use for batches of the pairwise distance computation.
-        This computation is done throughout both fit predict. The default
-        should suit most cases. The total number of elements in the
+    oversampling_factor : int (default = 2)
+        The amount of points to sample in scalable k-means++ initialization for
+        potential centroids. Increasing this value can lead to better initial
+        centroids at the cost of memory. The total number of centroids sampled
+        in scalable k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768)
+        The number of data samples to use for batches of the pairwise distance
+        computation. This computation is done throughout both fit predict.
+        The default should suit most cases. The total number of elements in the
         batched pairwise distance computation is max_samples_per_batch
         * n_clusters. It might become necessary to lower this number when
         n_clusters becomes prohibitively large.
