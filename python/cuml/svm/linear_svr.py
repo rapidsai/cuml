@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
     >>> from cuml.svm import LinearSVR
     >>> X = cp.array([[1], [2], [3], [4], [5]], dtype=cp.float32)
     >>> y = cp.array([1.1, 4, 5, 3.9, 8.], dtype=cp.float32)
-    >>> reg = LinearSVR(loss='epsilon_insensitive', C=10, 
+    >>> reg = LinearSVR(loss='epsilon_insensitive', C=10,
     ...                 epsilon=0.1, verbose=0)
     >>> reg.fit(X, y)
     LinearSVR()
