@@ -101,7 +101,7 @@ union val_t {
 
 /** base_node contains common implementation details for dense and sparse nodes */
 template <typename real_t_>
-struct alignas(std::is_same<real_t_, float>() ? 8 : 16) base_node {
+struct alignas(2 * sizeof(real_t_)) base_node {
   using real_t = real_t_;  // floating-point type
   /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
@@ -161,7 +161,7 @@ struct alignas(std::is_same<real_t_, float>() ? 8 : 16) base_node {
 
 /** dense_node is a single node of a dense forest */
 template <typename real_t>
-struct dense_node : base_node<real_t> {
+struct alignas(2 * sizeof(real_t)) dense_node : base_node<real_t> {
   dense_node() = default;
   /// ignoring left_index, this is useful to unify import from treelite
   dense_node(val_t<real_t> output,
