@@ -287,7 +287,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     r.uniform(thresholds_d.data(), num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d.data(), num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d.data(), num_nodes, 0.5f, stream);
-    r.bernoulli(is_leafs_d.data(), num_nodes, 1.0f - ps.leaf_prob, stream);
+    r.bernoulli(is_leafs_d.data(), num_nodes, ps.leaf_prob, stream);
     hard_clipped_bernoulli(
       r, is_categoricals_d.data(), num_nodes, 1.0f - ps.node_categorical_prob, stream);
 
@@ -423,7 +423,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                       thrust::counting_iterator(0),
                       data_d.data(),
                       replace_some_floating_with_categorical{fid_num_cats_d.data(), ps.num_cols});
-    r.bernoulli(mask_d.data(), num_data, ps.nan_prob, stream);
+    r.bernoulli(mask_d.data(), num_data, 1 - ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
       data_d.data(), mask_d.data(), num_data, std::numeric_limits<float>::quiet_NaN());
