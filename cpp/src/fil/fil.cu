@@ -343,17 +343,17 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    if constexpr (std::is_same<typename storage_type::real_t, float>()) {
-      auto kernel = infer_k<KernelParams::N_ITEMS,
-                            KernelParams::LEAF_ALGO,
-                            KernelParams::COLS_IN_SHMEM,
-                            KernelParams::CATS_SUPPORTED,
-                            storage_type>;
-      // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
-      // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
-      RAFT_CUDA_TRY(
-        cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
-    }
+    static_assert(std::is_same_v<typename storage_type::real_t, float>,
+                  "real_t must be float; to be removed in the following pull requests");
+    auto kernel = infer_k<KernelParams::N_ITEMS,
+                          KernelParams::LEAF_ALGO,
+                          KernelParams::COLS_IN_SHMEM,
+                          KernelParams::CATS_SUPPORTED,
+                          storage_type>;
+    // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
+    // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
+    RAFT_CUDA_TRY(
+      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
   }
 };
 
@@ -431,8 +431,9 @@ struct dense_forest<dense_node<real_t>> : forest {
                            num_trees_,
                            algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
                            algo_ == algo_t::NAIVE ? 1 : num_trees_);
-    if constexpr (std::is_same<real_t, float>())  // to remove in next PR
-      fil::infer(forest, params, stream);
+    static_assert(std::is_same_v<real_t, float>,
+                  "real_t must be float; to be removed in the following pull requests");
+    fil::infer(forest, params, stream);
   }
 
   virtual void free(const raft::handle_t& h) override
@@ -486,8 +487,9 @@ struct sparse_forest : forest {
                            trees_.data(),
                            nodes_.data(),
                            num_trees_);
-    if constexpr (std::is_same<typename node_t::real_t, float>())  // to remove in next PR
-      fil::infer(forest, params, stream);
+    static_assert(std::is_same_v<typename node_t::real_t, float>,
+                  "real_t must be float; to be removed in the following pull requests");
+    fil::infer(forest, params, stream);
   }
 
   void free(const raft::handle_t& h) override
@@ -592,8 +594,9 @@ void init(const raft::handle_t& h,
   check_params(params, node_traits<fil_node_t>::IS_DENSE);
   using forest_type = typename node_traits<fil_node_t>::forest;
   forest_type* f    = new forest_type(h);
-  if constexpr (std::is_same<typename fil_node_t::real_t, float>())  // to remove in next PR
-    f->init(h, cat_sets, vector_leaf, trees, nodes, params);
+  static_assert(std::is_same_v<typename fil_node_t::real_t, float>,
+                "real_t must be float; to be removed in the following pull requests");
+  f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
 
