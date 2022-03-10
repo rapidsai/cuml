@@ -38,40 +38,40 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int dept
   return num_trees * tree_num_nodes(depth);
 }
 
-template <typename F>
+template <typename real_t>
 struct storage_base {
   categorical_sets sets_;
-  F* vector_leaf_;
+  real_t* vector_leaf_;
   bool cats_present() const { return sets_.cats_present(); }
 };
 
 /** represents a dense tree */
-template <typename F>
-struct tree<dense_node<F>> : tree_base {
-  __host__ __device__ tree(categorical_sets cat_sets, dense_node<F>* nodes, int node_pitch)
+template <typename real_t>
+struct tree<dense_node<real_t>> : tree_base {
+  __host__ __device__ tree(categorical_sets cat_sets, dense_node<real_t>* nodes, int node_pitch)
     : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
   {
   }
-  __host__ __device__ const dense_node<F>& operator[](int i) const
+  __host__ __device__ const dense_node<real_t>& operator[](int i) const
   {
     return nodes_[i * node_pitch_];
   }
-  dense_node<F>* nodes_ = nullptr;
-  int node_pitch_       = 0;
+  dense_node<real_t>* nodes_ = nullptr;
+  int node_pitch_            = 0;
 };
 
 /** partial specialization of storage. Stores the forest on GPU as a collection of dense nodes */
-template <typename F_>
-struct storage<dense_node<F_>> : storage_base<F_> {
-  using F      = F_;
-  using node_t = dense_node<F>;
+template <typename real_t_>
+struct storage<dense_node<real_t_>> : storage_base<real_t_> {
+  using real_t = real_t_;
+  using node_t = dense_node<real_t>;
   __host__ __device__ storage(categorical_sets cat_sets,
-                              F* vector_leaf,
+                              real_t* vector_leaf,
                               node_t* nodes,
                               int num_trees,
                               int tree_stride,
                               int node_pitch)
-    : storage_base<F>{cat_sets, vector_leaf},
+    : storage_base<real_t>{cat_sets, vector_leaf},
       nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
@@ -103,15 +103,18 @@ struct tree : tree_base {
 
 /** storage stores the forest on GPU as a collection of sparse nodes */
 template <typename node_t_>
-struct storage : storage_base<typename node_t_::F> {
+struct storage : storage_base<typename node_t_::real_t> {
   using node_t   = node_t_;
-  using F        = typename node_t::F;
+  using real_t   = typename node_t::real_t;
   int* trees_    = nullptr;
   node_t* nodes_ = nullptr;
   int num_trees_ = 0;
   __host__ __device__
-  storage(categorical_sets cat_sets, F* vector_leaf, int* trees, node_t* nodes, int num_trees)
-    : storage_base<F>{cat_sets, vector_leaf}, trees_(trees), nodes_(nodes), num_trees_(num_trees)
+  storage(categorical_sets cat_sets, real_t* vector_leaf, int* trees, node_t* nodes, int num_trees)
+    : storage_base<real_t>{cat_sets, vector_leaf},
+      trees_(trees),
+      nodes_(nodes),
+      num_trees_(num_trees)
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }

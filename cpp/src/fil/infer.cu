@@ -96,14 +96,14 @@ struct vec {
   }
 };
 
-template <typename F>
-struct best_margin_label : cub::KeyValuePair<int, F> {
-  __host__ __device__ best_margin_label(cub::KeyValuePair<int, F> pair)
-    : cub::KeyValuePair<int, F>(pair)
+template <typename real_t>
+struct best_margin_label : cub::KeyValuePair<int, real_t> {
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, real_t> pair)
+    : cub::KeyValuePair<int, real_t>(pair)
   {
   }
-  __host__ __device__ best_margin_label(int c = 0, F f = -INFINITY)
-    : cub::KeyValuePair<int, F>({c, f})
+  __host__ __device__ best_margin_label(int c = 0, real_t f = -INFINITY)
+    : cub::KeyValuePair<int, real_t>({c, f})
   {
   }
 };

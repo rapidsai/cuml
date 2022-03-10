@@ -128,10 +128,10 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
-  template <typename F>
+  template <typename real_t>
   void init_common(const raft::handle_t& h,
                    const categorical_sets& cat_sets,
-                   const std::vector<F>& vector_leaf,
+                   const std::vector<real_t>& vector_leaf,
                    const forest_params_t* params)
   {
     depth_                           = params->depth;
@@ -146,7 +146,7 @@ struct forest {
     proba_ssp_.num_cols              = params->num_cols;
     proba_ssp_.num_classes           = params->num_classes;
     proba_ssp_.cats_present          = cat_sets.cats_present();
-    proba_ssp_.sizeof_fp_vars        = sizeof(F);
+    proba_ssp_.sizeof_fp_vars        = sizeof(real_t);
     class_ssp_                       = proba_ssp_;
 
     int device          = h.get_device();
@@ -157,11 +157,11 @@ struct forest {
 
     // vector leaf
     if (!vector_leaf.empty()) {
-      vector_leaf_.resize(vector_leaf.size() * sizeof(F), stream);
+      vector_leaf_.resize(vector_leaf.size() * sizeof(real_t), stream);
 
       RAFT_CUDA_TRY(cudaMemcpyAsync(vector_leaf_.data(),
                                     vector_leaf.data(),
-                                    vector_leaf.size() * sizeof(F),
+                                    vector_leaf.size() * sizeof(real_t),
                                     cudaMemcpyHostToDevice,
                                     stream));
     }
@@ -342,7 +342,7 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    if constexpr (std::is_same<typename storage_type::F, float>()) {
+    if constexpr (std::is_same<typename storage_type::real_t, float>()) {
       auto kernel = infer_k<KernelParams::N_ITEMS,
                             KernelParams::LEAF_ALGO,
                             KernelParams::COLS_IN_SHMEM,
@@ -356,9 +356,9 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   }
 };
 
-template <typename F>
-struct dense_forest<dense_node<F>> : forest {
-  using node_t = dense_node<F>;
+template <typename real_t>
+struct dense_forest<dense_node<real_t>> : forest {
+  using node_t = dense_node<real_t>;
   dense_forest(const raft::handle_t& h) : forest(h), nodes_(0, h.get_stream()) {}
 
   void transform_trees(const node_t* nodes)
@@ -391,7 +391,7 @@ struct dense_forest<dense_node<F>> : forest {
   /// sparse_forest<node_t>::init()
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
-            const std::vector<F>& vector_leaf,
+            const std::vector<real_t>& vector_leaf,
             const int* trees,
             const node_t* nodes,
             const forest_params_t* params)
@@ -425,12 +425,12 @@ struct dense_forest<dense_node<F>> : forest {
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
     storage<node_t> forest(cat_sets_.accessor(),
-                           reinterpret_cast<F*>(vector_leaf_.data()),
+                           reinterpret_cast<real_t*>(vector_leaf_.data()),
                            nodes_.data(),
                            num_trees_,
                            algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
                            algo_ == algo_t::NAIVE ? 1 : num_trees_);
-    if constexpr (std::is_same<F, float>())  // to remove in next PR
+    if constexpr (std::is_same<real_t, float>())  // to remove in next PR
       fil::infer(forest, params, stream);
   }
 
@@ -453,7 +453,7 @@ struct sparse_forest : forest {
 
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
-            const std::vector<typename node_t::F>& vector_leaf,
+            const std::vector<typename node_t::real_t>& vector_leaf,
             const int* trees,
             const node_t* nodes,
             const forest_params_t* params)
@@ -481,11 +481,11 @@ struct sparse_forest : forest {
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
     storage<node_t> forest(cat_sets_.accessor(),
-                           reinterpret_cast<typename node_t::F*>(vector_leaf_.data()),
+                           reinterpret_cast<typename node_t::real_t*>(vector_leaf_.data()),
                            trees_.data(),
                            nodes_.data(),
                            num_trees_);
-    if constexpr (std::is_same<typename node_t::F, float>())  // to remove in next PR
+    if constexpr (std::is_same<typename node_t::real_t, float>())  // to remove in next PR
       fil::infer(forest, params, stream);
   }
 
@@ -591,7 +591,7 @@ void init(const raft::handle_t& h,
   check_params(params, node_traits<fil_node_t>::IS_DENSE);
   using forest_type = typename node_traits<fil_node_t>::forest;
   forest_type* f    = new forest_type(h);
-  if constexpr (std::is_same<typename fil_node_t::F, float>())  // to remove in next PR
+  if constexpr (std::is_same<typename fil_node_t::real_t, float>())  // to remove in next PR
     f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
