@@ -157,8 +157,8 @@ struct shmem_size_params {
   int block_dim_x = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
-  /// sizeof_fp_vars is the size in bytes of all floating-point variables during inference
-  std::size_t sizeof_fp_vars = 4;
+  /// sizeof_real is the size in bytes of all floating-point variables during inference
+  std::size_t sizeof_real = 4;
 
   __host__ __device__ int sdata_stride()
   {
@@ -166,7 +166,7 @@ struct shmem_size_params {
   }
   __host__ __device__ int cols_shmem_size()
   {
-    return cols_in_shmem ? sizeof_fp_vars * sdata_stride() * n_items << log2_threads_per_tree : 0;
+    return cols_in_shmem ? sizeof_real * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
   template <int NITEMS, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
@@ -180,7 +180,7 @@ struct predict_params : shmem_size_params {
   // number of outputs for the forest per each data row
   int num_outputs;
 
-  // Data parameters.
+  // Data parameters; preds and data are pointers to either float or double.
   void* preds;
   const void* data;
   // number of data rows (instances) to predict on

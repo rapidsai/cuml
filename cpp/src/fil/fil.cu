@@ -30,6 +30,7 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 
 #include <cmath>    // for expf
 #include <cstddef>  // for size_t
+#include <cstdint>  // for uint8_t
 
 namespace ML {
 namespace fil {
@@ -87,7 +88,7 @@ struct forest {
        we would have otherwise silently overflowed the index calculation due
        to short division. It would have failed cpp tests, but we might forget
        about this source of bugs, if not for the failing assert. */
-    ASSERT(max_shm_ < int(proba_ssp_.sizeof_fp_vars) * std::numeric_limits<uint16_t>::max(),
+    ASSERT(max_shm_ < int(proba_ssp_.sizeof_real) * std::numeric_limits<uint16_t>::max(),
            "internal error: please use a larger type inside"
            " infer_k for column count");
   }
@@ -146,7 +147,7 @@ struct forest {
     proba_ssp_.num_cols              = params->num_cols;
     proba_ssp_.num_classes           = params->num_classes;
     proba_ssp_.cats_present          = cat_sets.cats_present();
-    proba_ssp_.sizeof_fp_vars        = sizeof(real_t);
+    proba_ssp_.sizeof_real           = sizeof(real_t);
     class_ssp_                       = proba_ssp_;
 
     int device          = h.get_device();
@@ -330,7 +331,7 @@ struct forest {
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
   // Optionally used
-  rmm::device_uvector<char> vector_leaf_;
+  rmm::device_uvector<std::uint8_t> vector_leaf_;
   cat_sets_device_owner cat_sets_;
 };
 
