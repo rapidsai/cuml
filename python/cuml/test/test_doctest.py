@@ -17,7 +17,6 @@ import contextlib
 import doctest
 import inspect
 import io
-import os
 
 import cuml
 import numpy as np

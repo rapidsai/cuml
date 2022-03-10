@@ -83,7 +83,7 @@ class PorterStemmer:
     1      sing
     2    adjust
     dtype: object
-    
+
     """
 
     def __init__(self, mode="NLTK_EXTENSIONS"):

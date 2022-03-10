@@ -215,7 +215,7 @@ class SVR(SVMBase, RegressorMixin):
     >>> reg.fit(X, y)
     SVR()
     >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
-    Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]        
+    Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,

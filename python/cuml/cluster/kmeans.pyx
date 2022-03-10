@@ -198,9 +198,9 @@ class KMeans(Base,
            shape (`n_clusters`, `n_features`) and gives the initial centers.
 
     n_init: int (default = 1)
-        Number of instances the k-means algorithm will be called with different seeds.
-        The final results will be from the instance that produces lowest inertia out
-        of n_init instances.
+        Number of instances the k-means algorithm will be called with
+        different seeds. The final results will be from the instance
+        that produces lowest inertia out of n_init instances.
     oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.

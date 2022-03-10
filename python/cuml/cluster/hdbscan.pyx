@@ -311,7 +311,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
     cluster_selection_epsilon : float, optional (default=0.0)
         A distance threshold. Clusters below this value will be merged.
         Note that this should not be used if we want to predict the cluster
-        labels for new points in future (e.g. using approximate_predict), as 
+        labels for new points in future (e.g. using approximate_predict), as
         the approximate_predict function is not aware of this argument.
 
     max_cluster_size : int, optional (default=0)

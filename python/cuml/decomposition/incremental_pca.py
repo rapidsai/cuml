@@ -159,7 +159,8 @@ class IncrementalPCA(PCA):
         >>> import cupy as cp
         >>> import cupyx
         >>>
-        >>> X = cupyx.scipy.sparse.random(1000, 4, format='csr', density=0.07, random_state=5)
+        >>> X = cupyx.scipy.sparse.random(1000, 4, format='csr',
+        ...                               density=0.07, random_state=5)
         >>> ipca = IncrementalPCA(n_components=2, batch_size=200)
         >>> ipca.fit(X)
         IncrementalPCA()

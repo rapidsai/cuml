@@ -274,7 +274,7 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
     ...         sum += (x[i] - y[i]) ** 2
     ...     return math.exp(-gamma * sum)
 
-    >>> pairwise_kernels(X, Y, metric=custom_rbf_kernel) # doctest: +SKIP 
+    >>> pairwise_kernels(X, Y, metric=custom_rbf_kernel) # doctest: +SKIP
     array([[6.73794700e-03, 1.35335283e-01],
            [5.04347663e-07, 2.03468369e-04],
            [4.24835426e-18, 2.54366565e-13]])

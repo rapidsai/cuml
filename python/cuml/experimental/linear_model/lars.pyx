@@ -81,7 +81,8 @@ class Lars(Base, RegressorMixin):
 
         .. math::
 
-            sum_i y_i = 0, sum_i x_{i,j} = 0, sum_i x_{i,j}^2=1 for j=0..n_col-1
+            sum_i y_i = 0, sum_i x_{i,j} = 0,sum_i x_{i,j}^2=1 \
+            for j=0..n_{col}-1
 
     Parameters
     -----------
@@ -132,9 +133,9 @@ class Lars(Base, RegressorMixin):
     beta_ : array of floats or doubles [n_asphas]
         The active regression coefficients (same as `coef_` but zeros omitted).
     coef_path_ : array of floats or doubles, shape = [n_alphas, n_alphas + 1]
-        The coefficients along the regularization path. Stored only if `fit_path`
-        is True. Note that we only store coefficients for indices in the active
-        set (i.e. :py:`coef_path_[:,-1] == coef_[active_]`)
+        The coefficients along the regularization path. Stored only if
+        `fit_path` is True. Note that we only store coefficients for indices
+        in the active set (i.e. :py:`coef_path_[:,-1] == coef_[active_]`)
     coef_ : array, shape (n_features)
         The estimated coefficients for the regression model.
     intercept_ : scalar, float or double

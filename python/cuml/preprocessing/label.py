@@ -134,7 +134,7 @@ class LabelBinarizer(Base):
     >>> decoded = lb.inverse_transform(encoded)
     >>> print(str(decoded))
     [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
-         
+
     """
 
     classes_ = CumlArrayDescriptor()
