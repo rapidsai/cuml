@@ -121,8 +121,9 @@ struct alignas(std::is_same<F_, float>() ? 8 : 16) base_node {
   template <class o_t>
   __host__ __device__ o_t output() const
   {
-    static_assert(std::is_same_v<o_t, int> || std::is_same_v<o_t, F> ||
-                  std::is_same_v<o_t, val_t<F>>, "invalid o_t type parameter in node.output()");
+    static_assert(
+      std::is_same_v<o_t, int> || std::is_same_v<o_t, F> || std::is_same_v<o_t, val_t<F>>,
+      "invalid o_t type parameter in node.output()");
     if constexpr (std::is_same_v<o_t, int>) {
       return val.idx;
     } else if constexpr (std::is_same_v<o_t, F>) {
