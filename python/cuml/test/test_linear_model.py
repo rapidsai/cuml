@@ -47,23 +47,26 @@ pytestmark = pytest.mark.filterwarnings("ignore: Regressors in active "
                                         "set degenerate(.*)::sklearn[.*]")
 
 
-def _make_regression_dataset_uncached(nrows, ncols, n_info):
+def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
     X, y = make_regression(
-        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+        **kwargs, n_samples=nrows, n_features=ncols, n_informative=n_info,
+        random_state=0
     )
     return train_test_split(X, y, train_size=0.8, random_state=10)
 
 
 @lru_cache(4)
-def _make_regression_dataset_from_cache(nrows, ncols, n_info):
-    return _make_regression_dataset_uncached(nrows, ncols, n_info)
+def _make_regression_dataset_from_cache(nrows, ncols, n_info, **kwargs):
+    return _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs)
 
 
-def make_regression_dataset(datatype, nrows, ncols, n_info):
+def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
     if nrows * ncols < 1e8:  # Keep cache under 4 GB
-        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info)
+        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info,
+                                                      **kwargs)
     else:
-        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info)
+        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info,
+                                                    **kwargs)
 
     return map(lambda arr: arr.astype(datatype), dataset)
 
@@ -127,6 +130,54 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
         skols_predict = skols.predict(X_test)
 
         assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
+@pytest.mark.parametrize(
+    "fit_intercept, normalize, distribution", [
+        (True, True, "lognormal"),
+        (True, True, "exponential"),
+        (True, False, "uniform"),
+        (True, False, "exponential"),
+        (False, True, "lognormal"),
+        (False, False, "uniform"),
+    ]
+)
+def test_weighted_linear_regression(datatype, algorithm, fit_intercept,
+                                    normalize, distribution):
+    nrows, ncols, n_info = 1000, 20, 10
+    max_weight = 10
+    noise = 20
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info, noise=noise
+    )
+
+    # set weight per sample to be from 1 to max_weight
+    if distribution == "uniform":
+        wt = np.random.randint(1, high=max_weight, size=len(X_train))
+    elif distribution == "exponential":
+        wt = np.random.exponential(size=len(X_train))
+    else:
+        wt = np.random.lognormal(size=len(X_train))
+
+    # Initialization of cuML's linear regression model
+    cuols = cuLinearRegression(fit_intercept=fit_intercept,
+                               normalize=normalize,
+                               algorithm=algorithm)
+
+    # fit and predict cuml linear regression model
+    cuols.fit(X_train, y_train, sample_weight=wt)
+    cuols_predict = cuols.predict(X_test)
+
+    # sklearn linear regression model initialization, fit and predict
+    skols = skLinearRegression(fit_intercept=fit_intercept,
+                               normalize=normalize)
+    skols.fit(X_train, y_train, sample_weight=wt)
+
+    skols_predict = skols.predict(X_test)
+
+    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
 @pytest.mark.skipif(
