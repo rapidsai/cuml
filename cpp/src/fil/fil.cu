@@ -330,7 +330,8 @@ struct forest {
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
-  // Optionally used
+  // vector_leaf_ is only used if {class,proba}_ssp_.leaf_algo is VECTOR_LEAF,
+  // otherwise it is empty
   rmm::device_uvector<std::uint8_t> vector_leaf_;
   cat_sets_device_owner cat_sets_;
 };
