@@ -23,3 +23,7 @@ if has_dask():
 else:
     warnings.warn(
         "Dask not found. All Dask-based multi-GPU operation is disabed.")
+
+__all__ = [
+    "UMAP"
+]

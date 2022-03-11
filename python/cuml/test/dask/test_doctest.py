@@ -19,6 +19,8 @@ import inspect
 import io
 
 import cuml
+import cuml.dask
+import dask_cudf
 import numpy as np
 import pytest
 import cudf
@@ -83,7 +85,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
 
 @pytest.mark.parametrize(
     "docstring",
-    _find_doctests_in_obj(cuml),
+    _find_doctests_in_obj(cuml.dask),
     ids=lambda docstring: docstring.name,
 )
 def test_docstring(docstring):
@@ -96,7 +98,7 @@ def test_docstring(docstring):
 
     # These global names are pre-defined and can be used in doctests
     # without first importing them.
-    globals = dict(cudf=cudf, np=np, cuml=cuml)
+    globals = dict(cudf=cudf, np=np, cuml=cuml, dask_cudf=dask_cudf)
     docstring.globs = globals
 
     # Capture stdout and include failing outputs in the traceback.

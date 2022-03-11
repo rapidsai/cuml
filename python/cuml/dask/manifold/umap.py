@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,38 +30,39 @@ class UMAP(BaseEstimator,
     Examples
     --------
 
-    .. code-block:: python
+    >>> from dask_cuda import LocalCUDACluster
+    >>> from dask.distributed import Client
+    >>> from cuml.dask.datasets import make_blobs
+    >>> from cuml.manifold import UMAP
+    >>> from cuml.dask.manifold import UMAP as MNMG_UMAP
+    >>> import numpy as np
 
-        from dask_cuda import LocalCUDACluster
-        from dask.distributed import Client
-        from cuml.dask.datasets import make_blobs
-        from cuml.manifold import UMAP
-        from cuml.dask.manifold import UMAP as MNMG_UMAP
-        import numpy as np
+    >>> cluster = LocalCUDACluster(threads_per_worker=1)
+    >>> client = Client(cluster)
 
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+    >>> X, y = make_blobs(1000, 10, centers=42, cluster_std=0.1,
+    ...                   dtype=np.float32, n_parts=2, random_state=10)
 
-        X, y = make_blobs(1000, 10,
-                        centers=42,
-                        cluster_std=0.1,
-                        dtype=np.float32,
-                        n_parts=2,
-                        output='array')
+    >>> local_model = UMAP()
 
-        local_model = UMAP()
+    >>> X_train = X.compute()[:100]
+    >>> y_train = y.compute()[:100]
 
-        selection = np.random.choice(1000, 100)
-        X_train = X[selection].compute()
-        y_train = y[selection].compute()
+    >>> local_model.fit(X_train, y=y_train)
+    UMAP()
 
-        local_model.fit(X_train, y=y_train)
-
-        distributed_model = MNMG_UMAP(local_model)
-        embedding = distributed_model.transform(X)
-
-    .. note:: Everytime this code is run, the output will be different because
-        "make_blobs" function generates random matrices.
+    >>> distributed_model = MNMG_UMAP(model=local_model)
+    >>> embedding = distributed_model.transform(X)
+    >>> result = embedding.compute()
+    >>> print(result) # doctest: +SKIP
+    [[-4.5017986   4.0870204 ]
+    [-3.7113767   3.388482  ]
+    [-1.4506822  -2.3358765 ]
+    ...
+    [ 2.660492   -9.244129  ]
+    [-1.9996834   5.2978334 ]
+    [-0.15504336  1.0415792 ]]
+    >>> cluster.close()
 
     Notes
     -----

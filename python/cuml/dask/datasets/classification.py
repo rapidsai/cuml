@@ -64,7 +64,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     >>> from dask.distributed import Client
     >>> from dask_cuda import LocalCUDACluster
     >>> from cuml.dask.datasets.classification import make_classification
-    >>> cluster = LocalCUDACluster() # doctest: +SKIP
+    >>> cluster = LocalCUDACluster()
     >>> client = Client(cluster)
     >>> X, y = make_classification(n_samples=10, n_features=4, random_state=1,
     ...                            n_informative=2, n_classes=2)
@@ -81,6 +81,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     [-1.8388828  -1.4063598  -0.02838472 -1.0874642 ]]
     >>> print(y.compute())
     [1 0 0 0 0 1 0 0 0 0]
+    >>> cluster.close()
 
     Parameters
     ----------
