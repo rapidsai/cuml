@@ -201,6 +201,7 @@ while true; do
             ;;
         --cachetool )
             CACHE_TOOL="-DCMAKE_C_COMPILER_LAUNCHER=$2 -DCMAKE_CXX_COMPILER_LAUNCHER=$2 -DCMAKE_CUDA_COMPILER_LAUNCHER=$2"
+            echo ${CACHE_TOOL}
             shift
             ;;
         --build_metrics )
@@ -245,25 +246,25 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-if hasArg libcuml || completebuild; then
+if hasArg libcuml || completeBuild; then
     BUILD_LIBCUML_CPP=ON
 fi
-if hasArg libcuml_c || completebuild; then
+if hasArg libcuml_c || completeBuild; then
     BUILD_LIBCUML_C=ON
 fi
-if hasArg cpp-mgtests || completebuild; then
+if hasArg cpp-mgtests || completeBuild; then
     BUILD_LIBCUML_MG_TESTS=ON
 fi
-if hasArg cppexamples || completebuild; then
+if hasArg cppexamples || completeBuild; then
     BUILD_LIBCUML_EXAMPLES=ON
 fi
-if hasArg prims || completebuild; then
+if hasArg prims || completeBuild; then
     BUILD_PRIMS_TESTS=ON
 fi
-if hasArg bench || completebuild; then
+if hasArg bench || completeBuild; then
     BUILD_LIBCUML_BENCH=ON
 fi
-if hasArg prims-bench || completebuild; then
+if hasArg prims-bench || completeBuild; then
     BUILD_PRIMS_BENCH=ON
 fi
 
@@ -294,7 +295,6 @@ if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg be
           -DBUILD_CUML_BENCH=${BUILD_LIBCUML_BENCH} \
           -DBUILD_CUML_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
-          -DCUML_ALGORITHMS="ALL" \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
@@ -302,7 +302,7 @@ if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg be
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          ${CCACHE} \
+          ${CACHE_TOOL} \
           ${CUML_EXTRA_CMAKE_ARGS} \
           ..
 
@@ -313,23 +313,6 @@ if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg be
     compile_total=$(( compile_end - compile_start ))
 
     echo "Total Compilation Time: ${compile_total}"
-
-    # Record build times
-    if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIB_BUILD_DIR}/.ninja_log" ]]; then
-        echo "Formatting build metrics..."
-        python ${REPODIR}/cpp/scripts/sort_ninja_log.py ${LIB_BUILD_DIR}/.ninja_log --fmt xml > ${LIB_BUILD_DIR}/ninja_log.xml
-        MSG="<p>"
-
-        MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
-        MSG="${MSG}<br/>parallel build time: $compile_total seconds"
-        if [[ -f "${LIB_BUILD_DIR}/libcudf.so" ]]; then
-           LIBCUDF_FS=$(ls -lh ${LIB_BUILD_DIR}/libcudf.so | awk '{print $5}')
-           MSG="${MSG}<br/>libcudf.so size: $LIBCUDF_FS"
-        fi
-        echo "$MSG"
-        python ${REPODIR}/cpp/scripts/sort_ninja_log.py ${LIB_BUILD_DIR}/.ninja_log --fmt html --msg "$MSG" > ${LIB_BUILD_DIR}/ninja_log.html
-        cp ${LIB_BUILD_DIR}/.ninja_log ${LIB_BUILD_DIR}/ninja.log
-    fi
 
     if [[ ${INSTALL_TARGET} != "" ]]; then
         cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
