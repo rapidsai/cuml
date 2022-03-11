@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __noinline__
+#define INLINE_CONFIG __forceinline__
 
 namespace ML {
 namespace fil {
@@ -96,34 +96,35 @@ struct vec {
   }
 };
 
-template <typename F>
-struct best_margin_label : cub::KeyValuePair<int, F> {
-  __host__ __device__ best_margin_label(cub::KeyValuePair<int, F> pair)
-    : cub::KeyValuePair<int, F>(pair)
+template <typename real_t>
+struct best_margin_label : cub::KeyValuePair<int, real_t> {
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, real_t> pair)
+    : cub::KeyValuePair<int, real_t>(pair)
   {
   }
-  __host__ __device__ best_margin_label(int c = 0, F f = -INFINITY)
-    : cub::KeyValuePair<int, F>({c, f})
+  __host__ __device__ best_margin_label(int c = 0, real_t f = -INFINITY)
+    : cub::KeyValuePair<int, real_t>({c, f})
   {
   }
 };
 
-template <int NITEMS, typename F>
-__device__ __forceinline__ vec<NITEMS, best_margin_label<F>> to_vec(int c, vec<NITEMS, F> margin)
+template <int NITEMS, typename real_t>
+__device__ __forceinline__ vec<NITEMS, best_margin_label<real_t>> to_vec(int c,
+                                                                         vec<NITEMS, real_t> margin)
 {
-  vec<NITEMS, best_margin_label<F>> ret;
+  vec<NITEMS, best_margin_label<real_t>> ret;
   CUDA_PRAGMA_UNROLL
   for (int i = 0; i < NITEMS; ++i)
-    ret[i] = best_margin_label<F>(c, margin[i]);
+    ret[i] = best_margin_label<real_t>(c, margin[i]);
   return ret;
 }
 
 struct ArgMax {
-  template <int NITEMS, typename F>
-  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label<F>> operator()(
-    vec<NITEMS, best_margin_label<F>> a, vec<NITEMS, best_margin_label<F>> b) const
+  template <int NITEMS, typename real_t>
+  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label<real_t>> operator()(
+    vec<NITEMS, best_margin_label<real_t>> a, vec<NITEMS, best_margin_label<real_t>> b) const
   {
-    vec<NITEMS, best_margin_label<F>> c;
+    vec<NITEMS, best_margin_label<real_t>> c;
     CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = cub::ArgMax()(a[i], b[i]);
@@ -227,10 +228,10 @@ size_t block_reduce_footprint_host()
         TempStorage);
 }
 
-template <int NITEMS, typename F>
+template <int NITEMS, typename real_t>
 size_t block_reduce_best_class_footprint_host()
 {
-  return sizeof(typename cub::BlockReduce<vec<NITEMS, best_margin_label<F>>,
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, best_margin_label<real_t>>,
                                           FIL_TPB,
                                           cub::BLOCK_REDUCE_WARP_REDUCTIONS,
                                           1,
@@ -349,13 +350,13 @@ __device__ __forceinline__ auto allreduce_shmem(Iterator begin,
 
 // *begin and *end shall be struct vec
 // tmp_storage may overlap shared memory addressed by [begin, end)
-template <typename Iterator, typename F>
+template <typename Iterator, typename real_t>
 __device__ __forceinline__ void write_best_class(
   Iterator begin, Iterator end, void* tmp_storage, F* out, int num_rows)
 {
   // reduce per-class candidate margins to one best class candidate
   // per thread (for each of the NITEMS rows)
-  auto best = vec<begin->NITEMS, best_margin_label<F>>();
+  auto best = vec<begin->NITEMS, best_margin_label<real_t>>();
   for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
     best = vectorized(cub::ArgMax())(best, to_vec(c, begin[c]));
   // [begin, end) may overlap tmp_storage
