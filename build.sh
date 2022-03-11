@@ -18,16 +18,17 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDTARGETS="clean libcuml libcuml_c cuml cppmgtests cppexamples prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov -h --help --cachetool"
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean             - remove all existing build artifacts and configuration (start over)
-   libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
-                       around the C++ code.
+   libcuml           - build the libcuml++.so C++ library
+   libcuml_c         - build the libcuml.so C library containing C wrappers around libcuml++.so
    cuml              - build the cuml Python package
-   cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   cppmgtests        - build libcuml++ mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   cppexamples       - build libcuml++ examples.
    prims             - build the ml-prims tests
    bench             - build the libcuml C++ benchmark
    prims-bench       - build the ml-prims C++ benchmark
@@ -46,7 +47,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --codecov         - Enable code coverage support by compiling with Cython linetracing
                        and profiling enabled (WARNING: Impacts performance)
    --ccache          - Use ccache to speed up rebuilds. Deprecated, use '--cachectool ccache' insted.
-   --cachetool       - Specify one of sccache | ccache for speeding up builds and rebuilds.
+   --cachetool:      - Specify one of sccache | ccache for speeding up builds and rebuilds.
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
    --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
@@ -76,9 +77,14 @@ NVTX=OFF
 CACHE_TOOL=""
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
+BUILD_LIBCUML_CPP=OFF
+BUILD_LIBCUML_C=OFF
+BUILD_LIBCUML_MG_TESTS=OFF
+BUILD_PRIMS_TESTS=OFF
+BUILD_LIBCUML_BENCH=OFF
+BUILD_LIBCUML_EXAMPLES=OFF
+BUILD_PRIMS_BENCH=OFF
 BUILD_CUML_STD_COMMS=ON
-BUILD_CUML_TESTS=ON
-BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
@@ -134,6 +140,7 @@ LONG_ARGUMENT_LIST=(
     "codecov"
     "nolibcumltest"
     "nocloneraft"
+    "ccache"
     "cachetool:"
 )
 
@@ -238,11 +245,31 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Before
+if hasArg libcuml || completebuild; then
+    BUILD_LIBCUML_CPP=ON
+fi
+if hasArg libcuml_c || completebuild; then
+    BUILD_LIBCUML_C=ON
+fi
+if hasArg cpp-mgtests || completebuild; then
+    BUILD_LIBCUML_MG_TESTS=ON
+fi
+if hasArg cppexamples || completebuild; then
+    BUILD_LIBCUML_EXAMPLES=ON
+fi
+if hasArg prims || completebuild; then
+    BUILD_PRIMS_TESTS=ON
+fi
+if hasArg bench || completebuild; then
+    BUILD_LIBCUML_BENCH=ON
+fi
+if hasArg prims-bench || completebuild; then
+    BUILD_PRIMS_BENCH=ON
+fi
 
 ################################################################################
 # Configure for building all C++ targets
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
+if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -258,12 +285,17 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DBUILD_CUML_C_LIBRARY=ON \
+          -DBUILD_CUML_C_LIBRARY=${BUILD_LIBCUML_C} \
+          -DBUILD_CUML_CPP_LIBRARY=${BUILD_LIBCUML_CPP} \
+          -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
+          -DBUILD_CUML_MG_TESTS=${BUILD_LIBCUML_MG_TESTS} \
+          -DBUILD_PRIMS_TESTS=${BUILD_PRIMS_TESTS} \
+          -DBUILD_CUML_EXAMPLES=${BUILD_LIBCUML_EXAMPLES} \
+          -DBUILD_CUML_BENCH=${BUILD_LIBCUML_BENCH} \
+          -DBUILD_CUML_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DCUML_ALGORITHMS="ALL" \
-          -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
-          -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
           -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
@@ -275,8 +307,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           ..
 
     cd ${LIBCUML_BUILD_DIR}
-    # cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args}  ${VERBOSE_FLAG}
-    # --target ${INSTALL_TARGET}
     compile_start=$(date +%s)
     cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
     compile_end=$(date +%s)
