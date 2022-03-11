@@ -1,8 +1,62 @@
 # cuML Build From Source Guide
 
-
+Todo: add index
 
 ## Fast Guide
+
+The fast guide to build cuML is based on conda for getting most of the requirements.
+
+1. System must have the following minimum requirements:
+
+- Pascal or newer NVIDIA GPU
+- CUDA 11.0 or greater
+- CMake 3.20.1 or greater
+- GCC/G++ 9.3 or greater
+- Ninja or make
+- `conda` or `mamba` (`mamba` recommended to speed up the process.)
+
+2. Choose and create the appropriate conda development environment:
+
+- For building the C++ library only:
+```bash
+mamba env create -f conda/environments/libcuml_dev_cuda11.5.yml -n libcuml_dev # change libcuml_dev for any name you want for the environment
+```
+
+- For building either the C++ or the Python libraries or both:
+```bash
+mamba env create -f conda/environments/cuml_dev_cuda11.5.yml python=3.9 -n cuml_dev # change libcuml_dev for any name you want for the environment
+```
+
+3. From the root folder of the repository, use the convenience script build.sh to build the appropriate artifacts:
+
+- For building the C++ library only:
+```bash
+PARALLEL_LEVEL=8 ./build.sh libcuml
+```
+
+- For building either the C++ and the Python libraries:
+```bash
+PARALLEL_LEVEL=8 ./build.sh libcuml cuml
+```
+
+In all of the above commands, you can increase the parallel level to speed up compilation with more parallelism, at the cost of needing more RAM in the system.
+
+4. Run tests if desired:
+
+- C++ tests (from the repository root folder):
+
+```bash
+cd cpp/build
+ninja
+```
+
+- Python tests (from the repository root folder):
+
+```bash
+cd python
+pytest cuml/test
+````
+
 
 ## Setting Up Your Build Environment
 
@@ -18,19 +72,19 @@ If you are using conda, you can find 3 types of pre-defined environments:
 - `cuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ and Python artifacts.
 - `rapids_dev_cuda11.5yml`: Creates a conda environment suitable to build any RAPIDS project, including cuML, cuDF and cuGraph.
 
-If you require another 11.x version of CUDA, just edit the `cuatoolkit=11.5` line inside those files. Note that cuDF *requires* CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
-It is recommended to use `mamba`() to speed up creating the environments, , but you can use `conda` as well:
+If you require another 11.x version of CUDA, just edit the `cuatoolkit=11.5` line inside those files. **Note**: cuDF requires CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
+
+It is recommended to use [`mamba`](https://mamba.readthedocs.io/en/latest/) to speed up creating the environments, but you can use `conda` as well:
 
 ```bash
-mamba env create -f conda/environments/libcuml_dev_cuda11.5.yml python=3.9 -n libcuml_dev
+mamba env create -f conda/environments/libcuml_dev_cuda11.5.yml python=3.9 -n libcuml_dev # change libcuml_dev for any name you want for the environment
 ```
 
-If you're using the `rapids_dev_cuda11.5yml` environment that can build all of RAPIDS and want to upgrade any of the packages in it, you must first remove the meta-packages in it with:
+**Note**: If you're using the `rapids_dev_cuda11.5yml` environment that can build all of RAPIDS and want to upgrade any of the packages in it, you must first remove the meta-packages in it with:
 
 ```bash
 conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
 ```
-
 
 ### Docker Developer Container
 
@@ -46,9 +100,9 @@ To build `libcuml++`, `libcuml` and related components, the following dependenci
 4. `ninja`
 5. Optional: `sccache` or `ccache` to speedup re-compilations.
 6. `RMM` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04). If not found, it will be fetched by CMake.
-7. `libraft-headers`=22.04.* If not found, it will be fetched by CMake.
-8. `libraft-distance`=22.04.* If not found, it will be fetched by CMake. Using the precompiled binaries from the conda packages speeds up compilation significantly.
-9. `libraft-nn`=22.04.* If not found, it will be fetched by CMake. Using the precompiled binaries from the conda packages speeds up compilation significantly.
+7. `libraft-headers` corresponding to the branch/version being built. If not found, it will be fetched by CMake.
+8. `libraft-distance` corresponding to the branch/version being built. If not found, it will be fetched by CMake. Using the precompiled binaries from the conda packages speeds up compilation significantly.
+9. `libraft-nn` corresponding to the branch/version being built. If not found, it will be fetched by CMake. Using the precompiled binaries from the conda packages speeds up compilation significantly.
 10. `treelite`=2.3.0 If not found, it will be fetched by CMake.
 11. `libcumlprims` for multiGPU C++ algorithms (Read section on multigpu components).
 12. `UCX` with CUDA support >=1.7 for multiGPU C++ algorithms (Read section on multigpu components).
@@ -60,7 +114,7 @@ To build `libcuml++`, `libcuml` and related components, the following dependenci
 
 To build the `cuml` Python package, the C++ requirements are needed plus:
 
-15. `cuda-python` (corresponding to the CUDA version of the system)
+15. `cuda-python` corresponding to the CUDA version of the system/environment.
 16. `cuDF` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
 17. `pyraft` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
 18. `dask-cudf` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
