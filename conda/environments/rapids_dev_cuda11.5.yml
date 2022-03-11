@@ -1,0 +1,16 @@
+name: rapids_dev
+channels:
+- rapidsai
+- nvidia
+- rapidsai-nightly
+- conda-forge
+dependencies:
+- cudatoolkit=11.5
+- rapids-build-env=22.04.*
+- rapids-notebook-env=22.04.*
+- rapids-doc-env=22.04.*
+- pip
+- pip:
+    - sphinx_markdown_tables
+    - git+https://github.com/dask/dask.git@main
+    - git+https://github.com/dask/distributed.git@main

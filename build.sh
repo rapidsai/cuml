@@ -45,7 +45,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    --show_depr_warn  - show cmake deprecation warnings
    --codecov         - Enable code coverage support by compiling with Cython linetracing
                        and profiling enabled (WARNING: Impacts performance)
-   --cachetool       - Specify one of sccache | ccache.
+   --ccache          - Use ccache to speed up rebuilds. Deprecated, use '--cachectool ccache' insted.
+   --cachetool       - Specify one of sccache | ccache for speeding up builds and rebuilds.
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
    --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
@@ -187,9 +188,16 @@ while true; do
         --codecov )
             CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
             ;;
+        --ccache )
+            echo "WARNING: Flag --ccache is deprecated, please use '--ccachetool ccache' instead."
+            CACHE_TOOL="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
+            ;;
         --cachetool )
-            CACHE_TOOL=$2
+            CACHE_TOOL="-DCMAKE_C_COMPILER_LAUNCHER=$2 -DCMAKE_CXX_COMPILER_LAUNCHER=$2 -DCMAKE_CUDA_COMPILER_LAUNCHER=$2"
             shift
+            ;;
+        --build_metrics )
+            BUILD_REPORT_METRICS=ON
             ;;
         --nolibcumltest )
             BUILD_CUML_TESTS=OFF
@@ -246,7 +254,8 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     mkdir -p ${LIBCUML_BUILD_DIR}
     cd ${LIBCUML_BUILD_DIR}
 
-    cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+    cmake -S $REPODIR/cpp -B ${LIBCUML_BUILD_DIR} \
+          -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
@@ -258,19 +267,45 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
-          -DCACHE_TOOL=$CACHE_TOOL \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
+          ${CCACHE} \
           ${CUML_EXTRA_CMAKE_ARGS} \
           ..
+
+    cd ${LIBCUML_BUILD_DIR}
+    # cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args}  ${VERBOSE_FLAG}
+    # --target ${INSTALL_TARGET}
+    compile_start=$(date +%s)
+    cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+    compile_end=$(date +%s)
+    compile_total=$(( compile_end - compile_start ))
+
+    echo "Total Compilation Time: ${compile_total}"
+
+    # Record build times
+    if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIB_BUILD_DIR}/.ninja_log" ]]; then
+        echo "Formatting build metrics..."
+        python ${REPODIR}/cpp/scripts/sort_ninja_log.py ${LIB_BUILD_DIR}/.ninja_log --fmt xml > ${LIB_BUILD_DIR}/ninja_log.xml
+        MSG="<p>"
+
+        MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
+        MSG="${MSG}<br/>parallel build time: $compile_total seconds"
+        if [[ -f "${LIB_BUILD_DIR}/libcudf.so" ]]; then
+           LIBCUDF_FS=$(ls -lh ${LIB_BUILD_DIR}/libcudf.so | awk '{print $5}')
+           MSG="${MSG}<br/>libcudf.so size: $LIBCUDF_FS"
+        fi
+        echo "$MSG"
+        python ${REPODIR}/cpp/scripts/sort_ninja_log.py ${LIB_BUILD_DIR}/.ninja_log --fmt html --msg "$MSG" > ${LIB_BUILD_DIR}/ninja_log.html
+        cp ${LIB_BUILD_DIR}/.ninja_log ${LIB_BUILD_DIR}/ninja.log
+    fi
+
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
+    fi
 fi
 
-# If `./build.sh cuml` is called, don't build C/C++ components
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
-    cd ${LIBCUML_BUILD_DIR}
-    cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
-fi
 
 if hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}

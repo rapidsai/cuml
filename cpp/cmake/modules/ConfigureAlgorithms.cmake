@@ -121,5 +121,12 @@ else()
     if(metrics_algo)
       set(CUML_USE_RAFT_DIST ON)
     endif()
+
+    ## Adding pairwise distances to algorithms that need it
+    if(hierarchicalclustering_algo OR
+       kmeans_algo)
+      set(metrics_algo ON)
+    endif()
+
 endif()
 

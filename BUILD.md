@@ -1,39 +1,91 @@
 # cuML Build From Source Guide
 
+
+
+## Fast Guide
+
 ## Setting Up Your Build Environment
 
-To install cuML from source, ensure the following dependencies are met:
+There are two groups of dependencies that need to be met, the core dependencies to build the C++ artifacts, and then the dependencies of the Python package which are a superset of those.
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.8)
-2. zlib
-3. cmake (>= 3.14)
-4. CUDA (>= 9.2)
-5. Cython (>= 0.29)
-6. gcc (>=7.5.0)
-7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-8. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
-9. NCCL (>=2.4)
-10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
+There are predefined conda environments that meet all the requirements, or they can be added manually. Additionally, many requirements can be fetched automatically by CMake (using CPM), but that can lead to significantly slower build times.
 
-It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example to create an environment named `cuml_dev` for CUDA 10.2 and Python 3.7, you can use the follow command:
+### Conda Developer Environments
+
+If you are using conda, you can find 3 types of pre-defined environments:
+
+- `libcuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ artifacts.
+- `cuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ and Python artifacts.
+- `rapids_dev_cuda11.5yml`: Creates a conda environment suitable to build any RAPIDS project, including cuML, cuDF and cuGraph.
+
+If you require another 11.x version of CUDA, just edit the `cuatoolkit=11.5` line inside those files. Note that cuDF *requires* CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
+It is recommended to use `mamba`() to speed up creating the environments, , but you can use `conda` as well:
 
 ```bash
-conda create -n cuml_dev python=3.7
-conda activate cuml_dev
-conda env update --file=conda/environments/cuml_dev_cuda11.2.yml
+mamba env create -f conda/environments/libcuml_dev_cuda11.5.yml python=3.9 -n libcuml_dev
 ```
 
-These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
+If you're using the `rapids_dev_cuda11.5yml` environment that can build all of RAPIDS and want to upgrade any of the packages in it, you must first remove the meta-packages in it with:
 
 ```bash
 conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
 ```
 
-## Installing from Source:
 
-### Recommended process
+### Docker Developer Container
 
-As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
+The recommended way to use docker for development is to use RAPIDS-compose https://github.com/trxcllnt/rapids-compose
+
+### C++ Dependencies
+
+To build `libcuml++`, `libcuml` and related components, the following dependencies are needed:
+
+1. `CUDA` >= 11.0, 11.5 recommended.
+2. `GCC`/`G++` >= 9.3
+3. `CMake` >= 3.20.1
+4. `ninja`
+5. Optional: `sccache` or `ccache` to speedup re-compilations.
+6. `RMM` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04). If not found, it will be fetched by CMake.
+7. `libraft-headers`=22.04.* If not found, it will be fetched by CMake.
+8. `libraft-distance`=22.04.* If not found, it will be fetched by CMake. Using the precompiled binaries from the conda packages speeds up compilation significantly.
+9. `libraft-nn`=22.04.* If not found, it will be fetched by CMake. Using the precompiled binaries from the conda packages speeds up compilation significantly.
+10. `treelite`=2.3.0 If not found, it will be fetched by CMake.
+11. `libcumlprims` for multiGPU C++ algorithms (Read section on multigpu components).
+12. `UCX` with CUDA support >=1.7 for multiGPU C++ algorithms (Read section on multigpu components).
+13. `NCCL` (>=2.4) for multiGPU C++ algorithms (Read section on multigpu components).
+14. Optional `doxygen` >=1.8.20 for generating documentation
+
+
+### Python Dependencies
+
+To build the `cuml` Python package, the C++ requirements are needed plus:
+
+15. `cuda-python` (corresponding to the CUDA version of the system)
+16. `cuDF` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
+17. `pyraft` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
+18. `dask-cudf` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
+19. `dask-cuda` corresponding to the branch/version being built (i.e. 22.04 for branch-22.04).
+
+
+### Python Unit Test Dependencies
+
+To run the (`pytest` based)
+
+20. `pytest`
+21. `scikit-learn=0.24`
+22. `dask-ml`
+23. `umap-learn`
+24. `statsmodels`
+25. `seaborn`
+26. `hdbscan`
+27. `nltk`
+
+## Build Process
+
+### Fast Process
+
+As a convenience, a `build.sh` script is provided which can be used to execute the necessary CMake build commands automatically with a fair degree of configuration.  The libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`:
+
 ```bash
 $ ./build.sh                           # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
@@ -50,6 +102,7 @@ $ ./build.sh prims-bench               # build the ml-prims c++ benchmark
 ```
 
 Other `build.sh` options:
+
 ```bash
 $ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
 $ ./build.sh libcuml -v                # build and install libcuml with verbose output
@@ -61,12 +114,10 @@ $ ./build.sh cuml --singlegpu          # build the cuML python package without M
 $ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
 
-By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+By default, `Ninja` is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
 ```bash
 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
-
-Note. If you are using GCC 7.5, make sure to read [RDN 0002: updates to from-source builds with conda for gcc '7.5.0'](https://docs.rapids.ai/notices/rdn0002/).
 
 To run the C++ unit tests (optional), from the repo root:
 
@@ -102,16 +153,10 @@ If you want a list of the available Python tests:
 $ pytest cuML/test --collect-only
 ```
 
-### Manual Process
+### Full Process
 
-Once dependencies are present, follow the steps below:
+Once dependencies are present, to build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
 
-1. Clone the repository.
-```bash
-$ git clone https://github.com/rapidsai/cuml.git
-```
-
-2. Build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
 ```bash
 $ cd cpp
 $ mkdir build && cd build
@@ -119,30 +164,18 @@ $ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not
 $ cmake ..
 ```
 
-If using a conda environment (recommended), then cmake can be configured appropriately for `libcuml++` via:
+Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully.
 
-```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-```
-
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 ```
 Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:
 ```
 
-The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
 
-If using conda and a conda installed cmake, the `openblas` conda package is recommended and can be explicitly specified for `blas` and `lapack`:
-
-```bash
-cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
-```
-
-Additionally, to reduce compile times, you can specify a GPU compute capability to compile for, for example for Volta GPUs:
+Additionally, to reduce compile times, you can specify a GPU compute capability to compile for, for example for the system's GPU architecture:
 
 ```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
+$ cmake .. -DGPU_ARCHS=NATIVE
 ```
 
 You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:

@@ -4,7 +4,7 @@ This folder contains the C++ and CUDA code of the algorithms and ML primitives o
 
 ## Source Code Folders
 
-The source code of cuML is divided in three main directories: `src`, `src_prims`, and `comms`.
+The source code of cuML is divided in three main directories: `include`, `src`, and `src_prims`.
 
 - `src` contains the source code of the Machine Learning algorithms, and the main cuML C++ API. The main consumable is the shared library `libcuml++`, that can be used stand alone by C++ consumers or is consumed by our Python package `cuml` to provide a Python API.
 - `src_prims` contains most of the common components and computational primitives that form part of the machine learning algorithms in cuML, and can be used individually as well in the form of a header only library.
@@ -13,6 +13,9 @@ The source code of cuML is divided in three main directories: `src`, `src_prims`
 The `test` directory has subdirectories that reflect this distinction between the `src` and `prims` components of cuML.
 
 ## Setup
+
+To build the C++ artifacts, please refer to the BUILD documentation
+
 ### Dependencies
 
 1. cmake (>= 3.20.1)

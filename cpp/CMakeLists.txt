@@ -174,12 +174,6 @@ if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
   set(BUILD_CUML_MPI_COMMS ON)
 endif()
 
-if(CACHE_TOOL)
-  set(CMAKE_C_COMPILER_LAUNCHER "${CACHE_TOOL}")
-  set(CMAKE_CXX_COMPILER_LAUNCHER "${CACHE_TOOL}")
-  set(CMAKE_CUDA_COMPILER_LAUNCHER "${CACHE_TOOL}")
-endif()
-
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
