@@ -6,7 +6,7 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
 fi
 
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    ./build.sh clean libcuml -v --allgpuarch
+    ./build.sh clean libcuml libcuml_c -v --allgpuarch
 else
-    ./build.sh clean libcuml prims -v --allgpuarch
+    ./build.sh clean libcuml libcuml_c prims -v --allgpuarch
 fi

@@ -1,19 +1,35 @@
 # cuML Build From Source Guide
 
-Todo: add index
+## Table of Contents
 
-## Fast Guide
+- [Quick Start Guide](#quick-start-guide)
+- [Setting Up Your Build Environment](#setting-up-your-build-environment)
+    - [Conda Developer Environments](#conda-developer-environments)
+    - [Note About Using Docker](#docker-developer-container)
+    - [C++ Dependencies](#c-dependencies)
+    - [Python Dependencies](#python-dependencies)
+    - [Python Unit Test Dependencies](#python-unit-test-dependencies)
+- [Build Guide](#build-guide)
+   - [Using build.sh](#using-buildsh-for-c-and-python)
+   - [Building C++ Using CMake](#building-c-artifacts-with-cmake)
+   - [Building Python using `setup.py`](#building-python-artifacts-with-setuppy)
+- [Unit Tests](#unit-tests)
+   - [C++ Unit Tests](#c-unit-tests)
+   - [Python Unit Tests](#python-unit-tests)
+
+## Quick Start Guide
 
 The fast guide to build cuML is based on conda for getting most of the requirements.
 
 1. System must have the following minimum requirements:
 
 - Pascal or newer NVIDIA GPU
-- CUDA 11.0 or greater
-- CMake 3.20.1 or greater
-- GCC/G++ 9.3 or greater
-- Ninja or make
-- `conda` or `mamba` (`mamba` recommended to speed up the process.)
+- `CUDA` 11.0 or greater
+- `CMake` 3.20.1 or greater
+- `GCC`/`G++` 9.3 or greater
+- `Ninja` or `make`
+- `OpenMP`
+- `conda` or `mamba` (`mamba` is recommended to speed up the process.)
 
 2. Choose and create the appropriate conda development environment:
 
@@ -32,6 +48,11 @@ mamba env create -f conda/environments/cuml_dev_cuda11.5.yml python=3.9 -n cuml_
 - For building the C++ library only:
 ```bash
 PARALLEL_LEVEL=8 ./build.sh libcuml
+```
+
+By default, `Ninja` is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+```bash
+CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
 
 - For building either the C++ and the Python libraries:
@@ -72,7 +93,7 @@ If you are using conda, you can find 3 types of pre-defined environments:
 - `cuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ and Python artifacts.
 - `rapids_dev_cuda11.5yml`: Creates a conda environment suitable to build any RAPIDS project, including cuML, cuDF and cuGraph.
 
-If you require another 11.x version of CUDA, just edit the `cuatoolkit=11.5` line inside those files. **Note**: cuDF requires CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
+If you require another 11.x version of CUDA, just edit the `cudatoolkit=11.5` line inside those files. **Note**: cuDF requires CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
 
 It is recommended to use [`mamba`](https://mamba.readthedocs.io/en/latest/) to speed up creating the environments, but you can use `conda` as well:
 
@@ -88,7 +109,11 @@ conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
 
 ### Docker Developer Container
 
-The recommended way to use docker for development is to use RAPIDS-compose https://github.com/trxcllnt/rapids-compose
+To use Docker containers for development, there are 2 options, one for building already released RAPIDS versions, and another one that can be used for development verions:
+
+- For released versions, the containers `rapidsai/rapidsai-dev:22.02-cuda11.5-devel-ubuntu20.04-py3.9` (replacing for the appropiate versions of RAPIDS, Ubuntu and Python) can be used. **Note** This are released as part of the general RAPIDS released version, so they are only apt to build the already released cuML version.
+
+- For current, in development versions, the recommended way to use docker for development is to use [RAPIDS-compose](https://github.com/trxcllnt/rapids-compose).
 
 ### C++ Dependencies
 
@@ -134,59 +159,66 @@ To run the (`pytest` based)
 26. `hdbscan`
 27. `nltk`
 
-## Build Process
+## Build Guide
 
-### Fast Process
+### Using `build.sh` for C++ and Python
 
 As a convenience, a `build.sh` script is provided which can be used to execute the necessary CMake build commands automatically with a fair degree of configuration.  The libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`:
 
 ```bash
-$ ./build.sh                           # build the cuML libraries, tests, and python package, then
+$ PARALLEL_LEVEL=8 ./build.sh          # build the cuML libraries, tests, and python package, then
                                        # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
 ```
-For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install [ccache](https://ccache.dev/) and make use of it by passing the `--ccache` flag to `build.sh`.
+For workflows that involve frequent switching among branches or between debug and release builds, it is recommended that you install either [ccache](https://ccache.dev/) or [sccache](https://docs.rs/crate/sccache/0.2.5) and make use of them by using the `--cachetool` flag to `build.sh`.
 
 To build individual components, specify them as arguments to `build.sh`
 ```bash
-$ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
-$ ./build.sh cuml                      # build and install the cuML python package
-$ ./build.sh prims                     # build the ml-prims tests
-$ ./build.sh bench                     # build the cuML c++ benchmark
-$ ./build.sh prims-bench               # build the ml-prims c++ benchmark
+$ PARALLEL_LEVEL=8 ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
+$ PARALLEL_LEVEL=8 ./build.sh libcuml cuml              # build and install the cuML C++ and Python packages
 ```
 
-Other `build.sh` options:
+The complete list of `build.sh` options and flags:
 
 ```bash
-$ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
-$ ./build.sh libcuml -v                # build and install libcuml with verbose output
-$ ./build.sh libcuml -g                # build and install libcuml for debug
-$ PARALLEL_LEVEL=8 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 8 (ninja -j8)
-$ ./build.sh libcuml -n                # build libcuml but do not install
-$ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
-$ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
-$ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
-```
+./build.sh [<target> ...] [<flag> ...]
+ where <target> is:
+   clean             - remove all existing build artifacts and configuration (start over)
+   libcuml           - build the libcuml++.so C++ library
+   libcuml_c         - build the libcuml.so C library containing C wrappers around libcuml++.so
+   cuml              - build the cuml Python package
+   cppmgtests        - build libcuml++ mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   cppexamples       - build libcuml++ examples.
+   prims             - build the ml-prims tests
+   bench             - build the libcuml C++ benchmark
+   prims-bench       - build the ml-prims C++ benchmark
+   cppdocs           - build the C++ API doxygen documentation
+   pydocs            - build the general and Python API documentation
+ and <flag> is:
+   -v                - verbose build mode
+   -g                - build for debug
+   -n                - no install step
+   -h                - print this text
+   --allgpuarch      - build for all supported GPU architectures
+   --singlegpu       - Build libcuml and cuml without multigpu components
+   --nolibcumltest   - disable building libcuml C++ tests for a faster build
+   --nvtx            - Enable nvtx for profiling support
+   --show_depr_warn  - show cmake deprecation warnings
+   --codecov         - Enable code coverage support by compiling with Cython linetracing
+                       and profiling enabled (WARNING: Impacts performance)
+   --ccache          - Use ccache to speed up rebuilds. Deprecated, use '--cachectool ccache' insted.
+   --cachetool:      - Specify one of sccache | ccache for speeding up builds and rebuilds.
+   --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
+   --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
+   --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
-By default, `Ninja` is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
-```bash
-CMAKE_GENERATOR='Unix Makefiles' ./build.sh
-```
+ default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
-To run the C++ unit tests (optional), from the repo root:
-
-```bash
-$ cd cpp/build
-$ ./test/ml # Single GPU algorithm tests
-$ ./test/ml_mg # Multi GPU algorithm tests, if --singlegpu was not used
-$ ./test/prims # ML Primitive function tests
-```
-
-If you want a list of the available C++ tests:
-```bash
-$ ./test/ml --gtest_list_tests # Single GPU algorithm tests
-$ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
-$ ./test/prims --gtest_list_tests # ML Primitive function tests
+ The following environment variables are also accepted to allow further customization:
+   PARALLEL_LEVEL         - Number of parallel threads to use in compilation.
+   CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
+                            variable will override existing arguments. Example:
+                            CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
+   CUML_EXTRA_PYTHON_ARGS - Extra argument to pass directly to python setup.py
 ```
 
 
@@ -209,6 +241,11 @@ $ pytest cuML/test --collect-only
 
 ### Full Process
 
+
+Refer to `--help` option to know more on its uage
+
+### Building C++ Artifacts with CMake
+
 Once dependencies are present, to build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
 
 ```bash
@@ -218,13 +255,12 @@ $ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not
 $ cmake ..
 ```
 
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully.
+**Note**: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully.
 
 ```
 Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:
 ```
-
 
 Additionally, to reduce compile times, you can specify a GPU compute capability to compile for, for example for the system's GPU architecture:
 
@@ -232,19 +268,79 @@ Additionally, to reduce compile times, you can specify a GPU compute capability 
 $ cmake .. -DGPU_ARCHS=NATIVE
 ```
 
-You may also wish to make use of `ccache` to reduce build times when switching among branches or between debug and release builds:
+You may also wish to make use of `ccache` or `sccache` to reduce build times when switching among branches or between debug and release builds by setting the appropriate flags, for example for `ccache`:
 
 ```bash
-$ cmake .. -DUSE_CCACHE=ON
+$ cmake .. -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache
 ```
 
-There are many options to configure the build process, see the [customizing build section](#libcuml-&-libcumlc++).
+There are many options to configure the build process with the following CMake options:
 
-3. Build `libcuml++` and `libcuml`:
+| Flag | Possible Values | Default Value | Behavior |
+| --- | --- | --- | --- |
+| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_C_LIBRARY, BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml shared library. Setting this variable to `ON` will set the variable BUILD_CUML_CPP_LIBRARY to `ON` |
+| BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive and can both be installed simultaneously. |
+| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive, and can both be installed simultaneously. |
+| BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
+| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
+| BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
+| BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
+| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchark.  |
+| BUILD_CUML_PRIMS_BENCH | [ON, OFF] | ON | Enable/disable building of ml-prims C++ benchark.  |
+| DETECT_CONDA_ENV | [ON, OFF] | ON | Use detection of conda environment for dependencies. If set to ON, and no value for CMAKE_INSTALL_PREFIX is passed, then it'll assign it to $CONDA_PREFIX (to install in the active environment).  |
+| GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
+| CUDA_ENABLE_KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
+| CUDA_ENABLE_LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
+| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
+| ENABLE_CUMLPRIMS_MG | [ON, OFF]  | ON  | Enable algorithms that use libcumlprims_mg.  |
+| CUML_USE_FAISS_STATIC | [ON, OFF]  | OFF  | Build and statically link the FAISS library for nearest neighbors search on GPU.  |
+| CUML_USE_TREELITE_STATIC | [ON, OFF]  | OFF  | Build and statically link the treelite library.  |
+
+After CMake has run, you can build the C++ targets:
 
 ```bash
-$ make -j
-$ make install
+$ ninja -j
+$ ninja install
+```
+
+To build doxygen docs for all C/C++ source files
+```bash
+$ ninja doc
+```
+
+### Building Python Artifacts with `setup.py`
+
+Build the `cuml` python package, from the repository root directory:
+
+```bash
+$ cd python
+$ python setup.py build_ext --inplace
+```
+
+Finally, install the Python package to your Python path:
+
+```bash
+$ python setup.py install
+```
+
+
+## Unit Tests
+
+### C++ Unit Tests
+
+To run all the C++ unit tests, from the repo root after building the C++ artifacts:
+
+```bash
+$ cd cpp/build
+$ ninja test
+```
+
+If you want a list of the available C++ tests:
+```bash
+$ ./test/ml --gtest_list_tests # Single GPU algorithm tests
+$ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
+$ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
 To run tests (optional):
@@ -271,19 +367,9 @@ To run ml-prims C++ benchmarks (optional):
 ```bash
 $ ./bench/prims_benchmark  # ml-prims benchmarks
 ```
-Refer to `--help` option to know more on its uage
 
-To build doxygen docs for all C/C++ source files
-```bash
-$ make doc
-```
 
-5. Build the `cuml` python package:
-
-```bash
-$ cd ../../python
-$ python setup.py build_ext --inplace
-```
+### Python Unit Tests
 
 To run Python tests (optional):
 
@@ -291,49 +377,13 @@ To run Python tests (optional):
 $ pytest -v
 ```
 
-
 If only the single GPU algos want to be run, then:
 
 ```bash
-$ pytest --ignore=cuml/test/dask --ignore=cuml/test/test_nccl.py
+$ pytest --ignore=cuml/test/dask
 ```
-
 
 If you want a list of the available tests:
 ```bash
 $ pytest cuML/test --collect-only
 ```
-
-5. Finally, install the Python package to your Python path:
-
-```bash
-$ python setup.py install
-```
-
-### Custom Build Options
-
-#### libcuml & libcuml++
-
-cuML's cmake has the following configurable flags available:
-
-| Flag | Possible Values | Default Value | Behavior |
-| --- | --- | --- | --- |
-| BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. |
-| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_C_LIBRARY, BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
-| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml shared library. Setting this variable to `ON` will set the variable BUILD_CUML_CPP_LIBRARY to `ON` |
-| BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive and can both be installed simultaneously. |
-| WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support for the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This has no effect on the MPI communicator. |
-| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive, and can both be installed simultaneously. |
-| BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
-| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
-| BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
-| BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
-| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchark.  |
-| BUILD_CUML_PRIMS_BENCH | [ON, OFF] | ON | Enable/disable building of ml-prims C++ benchark.  |
-| CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
-| DETECT_CONDA_ENV | [ON, OFF] | ON | Use detection of conda environment for dependencies. If set to ON, and no value for CMAKE_INSTALL_PREFIX is passed, then it'll assign it to $CONDA_PREFIX (to install in the active environment).  |
-| DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
-| GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
-| KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
-| LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
-| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |

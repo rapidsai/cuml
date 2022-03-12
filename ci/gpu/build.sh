@@ -198,7 +198,6 @@ else
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
     done
 
-
     CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
