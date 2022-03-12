@@ -94,7 +94,7 @@ struct storage<dense_node<real_t_>> : storage_base<real_t_> {
 /** sparse tree */
 template <typename node_t>
 struct tree : tree_base {
-  using F = typename node_t::F;
+  using real_t = typename node_t::real_t;
   __host__ __device__ tree(categorical_sets cat_sets, node_t* nodes)
     : tree_base{cat_sets}, nodes_(nodes)
   {
@@ -170,7 +170,7 @@ struct shmem_size_params {
   {
     return cols_in_shmem ? sizeof_real * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
-  template <int NITEMS, typename F, leaf_algo_t leaf_algo>
+  template <int NITEMS, typename real_t, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
 };
 
