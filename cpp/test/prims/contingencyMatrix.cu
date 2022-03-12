@@ -79,7 +79,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
       std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
     }
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     dY.resize(numElements, stream);
     dYHat.resize(numElements, stream);
 
@@ -115,10 +115,10 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY.data(), stream, minLabel, maxLabel);
     pWorkspace.resize(workspaceSz, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void RunTest()
   {

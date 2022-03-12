@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
@@ -89,7 +89,7 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
     cdef void svmFreeBuffers[math_t](const handle_t &handle,
                                      SvmModel[math_t] &m) except +
 
-cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
     cdef void svrFit[math_t](const handle_t &handle, math_t *X,
                              int n_rows, int n_cols, math_t *y,

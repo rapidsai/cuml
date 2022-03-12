@@ -24,7 +24,7 @@
 #include <math.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/unary_op.hpp>
 
 namespace MLCommon {
 
@@ -272,7 +272,7 @@ void jones_transform(const DataT* params,
     default: ASSERT(false, "Unsupported parameter '%d'!", parameter);
   }
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 };  // end namespace TimeSeries

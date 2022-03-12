@@ -16,7 +16,7 @@
 
 #include "common.cuh"
 
-#include <fil/internal.cuh>
+#include "internal.cuh"
 
 #include <cuml/fil/multi_sum.cuh>
 
@@ -883,7 +883,7 @@ struct infer_k_storage_template : dispatch_functor<void> {
             KernelParams::COLS_IN_SHMEM,
             KernelParams::CATS_SUPPORTED>
       <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(forest, params);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 

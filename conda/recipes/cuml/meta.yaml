@@ -30,21 +30,24 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.20.1
-    - treelite=2.1.0
+    - treelite=2.3.0
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
+    - pyraft {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
+    - cuda-python >=11.5,<12.0
   run:
     - python x.x
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
+    - pyraft {{ minor_version }}
     - cupy>=7.8.0,<11.0.0a0
-    - treelite=2.1.0
+    - treelite=2.3.0
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
@@ -52,6 +55,7 @@ requirements:
     - distributed>=2021.11.1
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cuda-python >=11.5,<12.0
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]

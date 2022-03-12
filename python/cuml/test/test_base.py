@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ import inspect
 import cuml
 import pytest
 import numpydoc.docscrape
+
+from raft.common.cuda import Stream
+
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
@@ -40,7 +43,7 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    stream = cuml.cuda.Stream()
+    stream = Stream()
     handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()

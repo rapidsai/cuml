@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -661,8 +661,8 @@ class GaussianNB(_BaseNB):
 
 class _BaseDiscreteNB(_BaseNB):
 
-    def __init__(self, *, class_prior=None, verbose=False,
-                 handle=None, output_type=None):
+    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
+                 verbose=False, handle=None, output_type=None):
         super(_BaseDiscreteNB, self).__init__(verbose=verbose,
                                               handle=handle,
                                               output_type=output_type)
@@ -671,6 +671,10 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             self.class_prior = None
 
+        if alpha < 0:
+            raise ValueError("Smoothing parameter alpha should be >= 0.")
+        self.alpha = alpha
+        self.fit_prior = fit_prior
         self.fit_called_ = False
         self.n_classes_ = 0
         self.n_features_ = None
@@ -956,6 +960,8 @@ class _BaseDiscreteNB(_BaseNB):
     def get_param_names(self):
         return super().get_param_names() + \
             [
+                "alpha",
+                "fit_prior",
                 "class_prior"
             ]
 
@@ -1071,12 +1077,12 @@ class MultinomialNB(_BaseDiscreteNB):
                  output_type=None,
                  handle=None,
                  verbose=False):
-        super(MultinomialNB, self).__init__(class_prior=class_prior,
+        super(MultinomialNB, self).__init__(alpha=alpha,
+                                            fit_prior=fit_prior,
+                                            class_prior=class_prior,
                                             handle=handle,
                                             output_type=output_type,
                                             verbose=verbose)
-        self.alpha = alpha
-        self.fit_prior = fit_prior
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -1105,13 +1111,6 @@ class MultinomialNB(_BaseDiscreteNB):
         ret = X.dot(self.feature_log_prob_.T)
         ret += self.class_log_prior_
         return ret
-
-    def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "alpha",
-                "fit_prior",
-            ]
 
 
 class BernoulliNB(_BaseDiscreteNB):
@@ -1195,13 +1194,13 @@ class BernoulliNB(_BaseDiscreteNB):
     def __init__(self, *, alpha=1.0, binarize=.0, fit_prior=True,
                  class_prior=None, output_type=None, handle=None,
                  verbose=False):
-        super(BernoulliNB, self).__init__(class_prior=class_prior,
+        super(BernoulliNB, self).__init__(alpha=alpha,
+                                          fit_prior=fit_prior,
+                                          class_prior=class_prior,
                                           handle=handle,
                                           output_type=output_type,
                                           verbose=verbose)
-        self.alpha = alpha
         self.binarize = binarize
-        self.fit_prior = fit_prior
 
     def _check_X(self, X):
         X = super()._check_X(X)
@@ -1256,9 +1255,156 @@ class BernoulliNB(_BaseDiscreteNB):
     def get_param_names(self):
         return super().get_param_names() + \
             [
-                "alpha",
-                "binarize",
-                "fit_prior",
+                "binarize"
+            ]
+
+
+class ComplementNB(_BaseDiscreteNB):
+    """
+    The Complement Naive Bayes classifier described in Rennie et al. (2003).
+    The Complement Naive Bayes classifier was designed to correct the "severe
+    assumptions" made by the standard Multinomial Naive Bayes classifier. It is
+    particularly suited for imbalanced data sets.
+
+    Parameters
+    ----------
+
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter
+        (0 for no smoothing).
+    fit_prior : bool, default=True
+        Whether to learn class prior probabilities or not.
+        If false, a uniform prior will be used.
+    class_prior : array-like of shape (n_classes,), default=None
+        Prior probabilities of the classes. If specified the priors are not
+        adjusted according to the data.
+    norm : bool, default=False
+        Whether or not a second normalization of the weights is performed.
+        The default behavior mirrors the implementation found in Mahout and
+        Weka, which do not follow the full algorithm described in Table 9 of
+        the paper.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
+    Attributes
+    ----------
+    class_count_ : ndarray of shape (n_classes)
+        Number of samples encountered for each class during fitting.
+    class_log_prior_ : ndarray of shape (n_classes)
+        Log probability of each class (smoothed).
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_count_ : ndarray of shape (n_classes, n_features)
+        Number of samples encountered for each (class, feature)
+        during fitting.
+    feature_log_prob_ : ndarray of shape (n_classes, n_features)
+        Empirical log probability of features given a class, P(x_i|y).
+    n_features_ : int
+        Number of features of each sample.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> from cuml.naive_bayes import ComplementNB
+    >>> clf = ComplementNB()
+    >>> clf.fit(X, Y)
+    ComplementNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
+
+    References
+    ----------
+    Rennie, J. D., Shih, L., Teevan, J., & Karger, D. R. (2003).
+    Tackling the poor assumptions of naive bayes text classifiers. In ICML
+    (Vol. 3, pp. 616-623).
+    https://people.csail.mit.edu/jrennie/papers/icml03-nb.pdf
+    """
+    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
+                 norm=False, output_type=None, handle=None,
+                 verbose=False):
+        super(ComplementNB, self).__init__(alpha=alpha,
+                                           fit_prior=fit_prior,
+                                           class_prior=class_prior,
+                                           handle=handle,
+                                           output_type=output_type,
+                                           verbose=verbose)
+        self.norm = norm
+
+    def _check_X(self, X):
+        X = super()._check_X(X)
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X_min = X.data.min()
+        else:
+            X_min = X.min()
+        if X_min < 0:
+            raise ValueError("Negative values in data passed to ComplementNB")
+        return X
+
+    def _check_X_y(self, X, y):
+        X, y = super()._check_X_y(X, y)
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X_min = X.data.min()
+        else:
+            X_min = X.min()
+        if X_min < 0:
+            raise ValueError("Negative values in data passed to ComplementNB")
+        return X, y
+
+    def _count(self, X, Y, classes):
+        super()._count(X, Y, classes)
+        self.feature_all_ = self.feature_count_.sum(axis=0)
+
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y,
+                      classes):
+        super()._count_sparse(x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y,
+                              classes)
+        self.feature_all_ = self.feature_count_.sum(axis=0)
+
+    def _joint_log_likelihood(self, X):
+        """Calculate the class scores for the samples in X."""
+        jll = X.dot(self.feature_log_prob_.T)
+        if len(self.class_count_) == 1:
+            jll += self.class_log_prior_
+        return jll
+
+    def _update_feature_log_prob(self, alpha):
+        """
+        Apply smoothing to raw counts and compute the weights.
+
+        Parameters
+        ----------
+
+        alpha : float amount of smoothing to apply (0. means no smoothing)
+        """
+        comp_count = self.feature_all_ + alpha - self.feature_count_
+        logged = cp.log(comp_count / comp_count.sum(axis=1, keepdims=True))
+        if self.norm:
+            summed = logged.sum(axis=1, keepdims=True)
+            feature_log_prob = logged / summed
+        else:
+            feature_log_prob = -logged
+        self.feature_log_prob_ = feature_log_prob
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "norm"
             ]
 
 
@@ -1333,12 +1479,12 @@ class CategoricalNB(_BaseDiscreteNB):
     """
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  output_type=None, handle=None, verbose=False):
-        super(CategoricalNB, self).__init__(class_prior=class_prior,
+        super(CategoricalNB, self).__init__(alpha=alpha,
+                                            fit_prior=fit_prior,
+                                            class_prior=class_prior,
                                             handle=handle,
                                             output_type=output_type,
                                             verbose=verbose)
-        self.alpha = alpha
-        self.fit_prior = fit_prior
 
     def _check_X_y(self, X, y):
         if cupyx.scipy.sparse.isspmatrix(X):
@@ -1634,11 +1780,3 @@ class CategoricalNB(_BaseDiscreteNB):
             jll = jll.sum(1)
         jll += self.class_log_prior_
         return jll
-
-    def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "alpha",
-                "class_prior",
-                "fit_prior"
-            ]

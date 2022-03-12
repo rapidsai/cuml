@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,14 +52,14 @@ enum SyncType {
  * char* workspace;
  * // allocate the workspace by getting to know the right size needed
  * size_t workspaceSize = GridSync::computeWorkspaceSize(gridDim, type);
- * CUDA_CHECK(cudaMalloc((void**)&workspace, workspaceSize);
+ * RAFT_CUDA_TRY(cudaMalloc((void**)&workspace, workspaceSize);
  * // before the first usage of this workspace, initialize this to 0
  * // this is a one-time thing and if you're passing the same workspace
  * // to the same GridSync object inside the kernel and this workspace is
  * // exclusive, then subsequent memset calls are not needed
- * CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
+ * RAFT_CUDA_TRY(cudaMemset(workspace, 0, workspaceSize));
  * kernel<<<gridDim, blockDim>>>(workspace, type, ...);
- * CUDA_CHECK(cudaFree(workspace));
+ * RAFT_CUDA_TRY(cudaFree(workspace));
  * @endcode
  *
  * @note In order to call `GridSync::sync` method consecutively on the same

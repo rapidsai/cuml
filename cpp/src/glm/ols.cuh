@@ -16,11 +16,14 @@
 
 #pragma once
 
-#include <linalg/lstsq.cuh>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/lstsq.hpp>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/power.cuh>
+#include <raft/linalg/sqrt.cuh>
+#include <raft/linalg/subtract.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
@@ -33,8 +36,6 @@
 
 namespace ML {
 namespace GLM {
-
-using namespace MLCommon;
 
 /**
  * @brief fit an ordinary least squares model
@@ -50,6 +51,8 @@ using namespace MLCommon;
  * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
+ * weights)
  */
 template <typename math_t>
 void olsFit(const raft::handle_t& handle,
@@ -62,7 +65,8 @@ void olsFit(const raft::handle_t& handle,
             bool fit_intercept,
             bool normalize,
             cudaStream_t stream,
-            int algo = 0)
+            int algo              = 0,
+            math_t* sample_weight = nullptr)
 {
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
@@ -89,7 +93,21 @@ void olsFit(const raft::handle_t& handle,
                    norm2_input.data(),
                    fit_intercept,
                    normalize,
-                   stream);
+                   stream,
+                   sample_weight);
+  }
+
+  if (sample_weight != nullptr) {
+    raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
+    raft::matrix::matrixVectorBinaryMult(
+      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(
+      labels,
+      n_rows,
+      [] __device__(math_t a, math_t b) { return a * b; },
+      stream,
+      labels,
+      sample_weight);
   }
 
   int selectedAlgo = algo;
@@ -97,15 +115,30 @@ void olsFit(const raft::handle_t& handle,
 
   raft::common::nvtx::push_range("ML::GLM::olsFit/algo-%d", selectedAlgo);
   switch (selectedAlgo) {
-    case 0: LinAlg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 1: LinAlg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 2: LinAlg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
-    case 3: LinAlg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 0:
+      raft::linalg::lstsqSvdJacobi(handle, input, n_rows, n_cols, labels, coef, stream);
+      break;
+    case 1: raft::linalg::lstsqEig(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 2: raft::linalg::lstsqQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
+    case 3: raft::linalg::lstsqSvdQR(handle, input, n_rows, n_cols, labels, coef, stream); break;
     default:
       ASSERT(false, "olsFit: no algorithm with this id (%d) has been implemented", algo);
       break;
   }
   raft::common::nvtx::pop_range();
+
+  if (sample_weight != nullptr) {
+    raft::matrix::matrixVectorBinaryDivSkipZero(
+      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(
+      labels,
+      n_rows,
+      [] __device__(math_t a, math_t b) { return a / b; },
+      stream,
+      labels,
+      sample_weight);
+    raft::linalg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
+  }
 
   if (fit_intercept) {
     postProcessData(handle,

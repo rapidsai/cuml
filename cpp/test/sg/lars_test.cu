@@ -18,7 +18,8 @@
 #include <iomanip>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/linalg/cusolver_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
@@ -111,20 +112,22 @@ class LarsTest : public ::testing::Test {
     rmm::device_uvector<math_t> workspace(0, stream);
     int n_work;
     const int ld_U = n_cols;
-    CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(
+    // #TODO: Call from public API when ready
+    RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf_bufferSize(
       handle.get_cusolver_dn_handle(), CUBLAS_FILL_MODE_UPPER, n_cols, U_dev_exp, ld_U, &n_work));
     workspace.resize(n_work, stream);
     // Expected solution using Cholesky factorization from scratch
     raft::copy(U_dev_exp, G, n_cols * ld_U, stream);
-    CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
-                                                 CUBLAS_FILL_MODE_UPPER,
-                                                 n_cols,
-                                                 U_dev_exp,
-                                                 ld_U,
-                                                 workspace.data(),
-                                                 n_work,
-                                                 devInfo.data(),
-                                                 stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
+                                                            CUBLAS_FILL_MODE_UPPER,
+                                                            n_cols,
+                                                            U_dev_exp,
+                                                            ld_U,
+                                                            workspace.data(),
+                                                            n_work,
+                                                            devInfo.data(),
+                                                            stream));
   }
 
   // Initialize a mix of G and U matrices to test updateCholesky
@@ -138,7 +141,8 @@ class LarsTest : public ::testing::Test {
     raft::copy(GU, G, n_cols * n_cols, stream);
     if (!copy_G) {
       // zero the new colum of G
-      CUDA_CHECK(cudaMemsetAsync(GU + (n_active - 1) * n_cols, 0, n_cols * sizeof(math_t), stream));
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(GU + (n_active - 1) * n_cols, 0, n_cols * sizeof(math_t), stream));
     }
     for (int i = 0; i < n_active - 1; i++) {
       raft::copy(GU + i * ld_U, U + i * ld_U, i + 1, stream);
@@ -348,8 +352,8 @@ class LarsTest : public ::testing::Test {
       a_vec_exp, a_vec.data(), a_vec.size(), raft::CompareApprox<math_t>(1e-4), stream));
 
     // test without G matrix, we use U as input in this case
-    CUDA_CHECK(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(a_vec.data(), 0, a_vec.size() * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(a_vec.data(), 0, a_vec.size() * sizeof(math_t), stream));
     ML::Solver::Lars::calcMaxStep(handle,
                                   max_iter,
                                   n_rows,
@@ -374,7 +378,7 @@ class LarsTest : public ::testing::Test {
 
     // Last iteration
     n_active = max_iter;
-    CUDA_CHECK(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gamma.data(), 0, sizeof(math_t), stream));
     ML::Solver::Lars::calcMaxStep(handle,
                                   max_iter,
                                   n_rows,
@@ -539,7 +543,7 @@ class LarsTestFitPredict : public ::testing::Test {
     int n_active = n_cols;
     raft::update_device(beta.data(), beta_exp, n_active, stream);
     raft::update_device(active_idx.data(), indices_exp, n_active, stream);
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
     math_t intercept = 0;
     ML::Solver::Lars::larsPredict(handle,
                                   X.data(),
@@ -566,7 +570,7 @@ class LarsTestFitPredict : public ::testing::Test {
     int n_cols_loc = n_cols + 1;
     raft::update_device(beta.data(), beta_exp, n_active, stream);
     raft::update_device(active_idx.data(), indices_exp, n_active, stream);
-    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
     math_t intercept = 0;
     ML::Solver::Lars::larsPredict(handle,
                                   X.data(),
