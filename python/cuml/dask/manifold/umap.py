@@ -29,42 +29,43 @@ class UMAP(BaseEstimator,
 
     Examples
     --------
+    .. code-block:: python
 
-    >>> from dask_cuda import LocalCUDACluster
-    >>> from dask.distributed import Client
-    >>> import dask.array as da
-    >>> from cuml.datasets import make_blobs
-    >>> from cuml.manifold import UMAP
-    >>> from cuml.dask.manifold import UMAP as MNMG_UMAP
-    >>> import numpy as np
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> import dask.array as da
+        >>> from cuml.datasets import make_blobs
+        >>> from cuml.manifold import UMAP
+        >>> from cuml.dask.manifold import UMAP as MNMG_UMAP
+        >>> import numpy as np
 
-    >>> cluster = LocalCUDACluster(threads_per_worker=1)
-    >>> client = Client(cluster)
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
 
-    >>> X, y = make_blobs(1000, 10, centers=42, cluster_std=0.1,
-    ...                   dtype=np.float32, random_state=10)
+        >>> X, y = make_blobs(1000, 10, centers=42, cluster_std=0.1,
+        ...                   dtype=np.float32, random_state=10)
 
-    >>> local_model = UMAP(random_state=10)
+        >>> local_model = UMAP(random_state=10)
 
-    >>> selection = np.random.RandomState(10).choice(1000, 100)
-    >>> X_train = X[selection]
-    >>> y_train = y[selection]
-    >>> local_model.fit(X_train, y=y_train)
-    UMAP()
+        >>> selection = np.random.RandomState(10).choice(1000, 100)
+        >>> X_train = X[selection]
+        >>> y_train = y[selection]
+        >>> local_model.fit(X_train, y=y_train)
+        UMAP()
 
-    >>> distributed_model = MNMG_UMAP(model=local_model)
-    >>> distributed_X = da.from_array(X, chunks=(500, -1))
-    >>> embedding = distributed_model.transform(distributed_X)
-    >>> result = embedding.compute()
-    >>> print(result) # doctest: +SKIP
-    [[  4.1684933    4.1890593 ]
-    [  5.0110254   -5.2143383 ]
-    [  1.7776365  -17.665699  ]
-    ...
-    [ -6.6378727   -0.15353012]
-    [ -3.1891193   -0.83906937]
-    [ -0.5042019    2.1454725 ]]
-    >>> cluster.close()
+        >>> distributed_model = MNMG_UMAP(model=local_model)
+        >>> distributed_X = da.from_array(X, chunks=(500, -1))
+        >>> embedding = distributed_model.transform(distributed_X)
+        >>> result = embedding.compute()
+        >>> print(result) # doctest: +SKIP
+        [[  4.1684933    4.1890593 ]
+        [  5.0110254   -5.2143383 ]
+        [  1.7776365  -17.665699  ]
+        ...
+        [ -6.6378727   -0.15353012]
+        [ -3.1891193   -0.83906937]
+        [ -0.5042019    2.1454725 ]]
+        >>> cluster.close()
 
     Notes
     -----

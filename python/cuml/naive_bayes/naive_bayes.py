@@ -313,21 +313,24 @@ class GaussianNB(_BaseNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-    ...              cp.float32)
-    >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
-    >>> from cuml.naive_bayes import GaussianNB
-    >>> clf = GaussianNB()
-    >>> clf.fit(X, Y)
-    GaussianNB()
-    >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
-    [1]
-    >>> clf_pf = GaussianNB()
-    >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
-    GaussianNB()
-    >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
-    [1]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1],
+        ...                 [3, 2]], cp.float32)
+        >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
+        >>> from cuml.naive_bayes import GaussianNB
+        >>> clf = GaussianNB()
+        >>> clf.fit(X, Y)
+        GaussianNB()
+        >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
+        [1]
+        >>> clf_pf = GaussianNB()
+        >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
+        GaussianNB()
+        >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
+        [1]
     """
 
     def __init__(self, *, priors=None, var_smoothing=1e-9,
@@ -1030,36 +1033,39 @@ class MultinomialNB(_BaseDiscreteNB):
     Load the 20 newsgroups dataset from Scikit-learn and train a
     Naive Bayes classifier.
 
-    >>> import cupy as cp
-    >>> import cupyx
-    >>> from sklearn.datasets import fetch_20newsgroups
-    >>> from sklearn.feature_extraction.text import CountVectorizer
-    >>> from cuml.naive_bayes import MultinomialNB
+    .. code-block:: python
 
-    >>> # Load corpus
-    >>> twenty_train = fetch_20newsgroups(subset='train', shuffle=True,
-    ...                                   random_state=42)
+        >>> import cupy as cp
+        >>> import cupyx
+        >>> from sklearn.datasets import fetch_20newsgroups
+        >>> from sklearn.feature_extraction.text import CountVectorizer
+        >>> from cuml.naive_bayes import MultinomialNB
 
-    >>> # Turn documents into term frequency vectors
+        >>> # Load corpus
+        >>> twenty_train = fetch_20newsgroups(subset='train', shuffle=True,
+        ...                                   random_state=42)
 
-    >>> count_vect = CountVectorizer()
-    >>> features = count_vect.fit_transform(twenty_train.data)
+        >>> # Turn documents into term frequency vectors
 
-    >>> # Put feature vectors and labels on the GPU
+        >>> count_vect = CountVectorizer()
+        >>> features = count_vect.fit_transform(twenty_train.data)
 
-    >>> X = cupyx.scipy.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-    >>> y = cp.asarray(twenty_train.target, dtype=cp.int32)
+        >>> # Put feature vectors and labels on the GPU
 
-    >>> # Train model
+        >>> X = cupyx.scipy.sparse.csr_matrix(features.tocsr(),
+        ...                                   dtype=cp.float32)
+        >>> y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-    >>> model = MultinomialNB()
-    >>> model.fit(X, y)
-    MultinomialNB()
+        >>> # Train model
 
-    >>> # Compute accuracy on training set
+        >>> model = MultinomialNB()
+        >>> model.fit(X, y)
+        MultinomialNB()
 
-    >>> model.score(X, y)
-    0.9245...
+        >>> # Compute accuracy on training set
+
+        >>> model.score(X, y)
+        0.9245...
 
     """
     def __init__(self, *,
@@ -1161,16 +1167,19 @@ class BernoulliNB(_BaseDiscreteNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> rng = cp.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-    >>> from cuml.naive_bayes import BernoulliNB
-    >>> clf = BernoulliNB()
-    >>> clf.fit(X, Y)
-    BernoulliNB()
-    >>> print(clf.predict(X[2:3]))
-    [3]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(1)
+        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+        >>> from cuml.naive_bayes import BernoulliNB
+        >>> clf = BernoulliNB()
+        >>> clf.fit(X, Y)
+        BernoulliNB()
+        >>> print(clf.predict(X[2:3]))
+        [3]
 
     References
     ----------
@@ -1309,16 +1318,19 @@ class ComplementNB(_BaseDiscreteNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> rng = cp.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-    >>> from cuml.naive_bayes import ComplementNB
-    >>> clf = ComplementNB()
-    >>> clf.fit(X, Y)
-    ComplementNB()
-    >>> print(clf.predict(X[2:3]))
-    [3]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(1)
+        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+        >>> from cuml.naive_bayes import ComplementNB
+        >>> clf = ComplementNB()
+        >>> clf.fit(X, Y)
+        ComplementNB()
+        >>> print(clf.predict(X[2:3]))
+        [3]
 
     References
     ----------
@@ -1458,16 +1470,19 @@ class CategoricalNB(_BaseDiscreteNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> rng = cp.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> y = cp.array([1, 2, 3, 4, 5, 6])
-    >>> from cuml.naive_bayes import CategoricalNB
-    >>> clf = CategoricalNB()
-    >>> clf.fit(X, y)
-    CategoricalNB()
-    >>> print(clf.predict(X[2:3]))
-    [3]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(1)
+        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+        >>> y = cp.array([1, 2, 3, 4, 5, 6])
+        >>> from cuml.naive_bayes import CategoricalNB
+        >>> clf = CategoricalNB()
+        >>> clf.fit(X, y)
+        CategoricalNB()
+        >>> print(clf.predict(X[2:3]))
+        [3]
     """
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  output_type=None, handle=None, verbose=False):

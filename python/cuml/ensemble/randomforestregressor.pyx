@@ -128,23 +128,19 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     .. code-block:: python
 
-        import numpy as np
-        from cuml.ensemble import RandomForestRegressor as curfr
-        X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
-        y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfr(max_features=1.0, n_bins=128,
-                            min_samples_leaf=1,
-                            min_samples_split=2,
-                            n_estimators=40, accuracy_metric='r2')
-        cuml_model.fit(X,y)
-        cuml_score = cuml_model.score(X,y)
-        print("MSE score of cuml : ", cuml_score)
-
-    Output:
-
-    .. code-block:: none
-
-        MSE score of cuml :  0.1123437201231765
+        >>> import cupy as cp
+        >>> from cuml.ensemble import RandomForestRegressor as curfr
+        >>> X = cp.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=cp.float32)
+        >>> y = cp.asarray([0.0,1.0,2.0,3.0], dtype=cp.float32)
+        >>> cuml_model = curfr(max_features=1.0, n_bins=128,
+        ...                    min_samples_leaf=1,
+        ...                    min_samples_split=2,
+        ...                    n_estimators=40, accuracy_metric='r2')
+        >>> cuml_model.fit(X,y)
+        RandomForestRegressor()
+        >>> cuml_score = cuml_model.score(X,y)
+        >>> print("MSE score of cuml : ", cuml_score) # doctest: +SKIP
+        MSE score of cuml :  0.9076250195503235
 
     Parameters
     -----------

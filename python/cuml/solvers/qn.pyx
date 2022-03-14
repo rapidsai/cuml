@@ -258,38 +258,40 @@ class QN(Base,
 
     Examples
     --------
-    >>> import cudf
-    >>> import cupy as cp
+    .. code-block:: python
 
-    >>> # Both import methods supported
-    >>> # from cuml import QN
-    >>> from cuml.solvers import QN
+        >>> import cudf
+        >>> import cupy as cp
 
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
-    >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
-    >>> y = cudf.Series(cp.array([0.0, 0.0, 1.0, 1.0], dtype=cp.float32) )
+        >>> # Both import methods supported
+        >>> # from cuml import QN
+        >>> from cuml.solvers import QN
 
-    >>> solver = QN()
-    >>> solver.fit(X,y)
-    QN()
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+        >>> y = cudf.Series(cp.array([0.0, 0.0, 1.0, 1.0], dtype=cp.float32) )
 
-    >>> # Note: for now, the coefficients also include the intercept in the
-    >>> # last position if fit_intercept=True
-    >>> print(solver.coef_)
-    0   37.371...
-    1   0.949...
-    dtype: float32
-    >>> print(solver.intercept_)
-    0   -57.738...
-    >>> X_new = cudf.DataFrame()
-    >>> X_new['col1'] = cp.array([1,5], dtype=cp.float32)
-    >>> X_new['col2'] = cp.array([2,5], dtype=cp.float32)
-    >>> preds = solver.predict(X_new)
-    >>> print(preds)
-    0    0.0
-    1    1.0
-    dtype: float32
+        >>> solver = QN()
+        >>> solver.fit(X,y)
+        QN()
+
+        >>> # Note: for now, the coefficients also include the intercept in the
+        >>> # last position if fit_intercept=True
+        >>> print(solver.coef_) # doctest: +SKIP
+        0   37.371...
+        1   0.949...
+        dtype: float32
+        >>> print(solver.intercept_) # doctest: +SKIP
+        0   -57.738...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([1,5], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([2,5], dtype=cp.float32)
+        >>> preds = solver.predict(X_new)
+        >>> print(preds)
+        0    0.0
+        1    1.0
+        dtype: float32
 
     Parameters
     -----------

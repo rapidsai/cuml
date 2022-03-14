@@ -28,42 +28,44 @@ class TruncatedSVD(BaseDecomposition,
     """
     Examples
     --------
+    .. code-block:: python
 
-    >>> from dask_cuda import LocalCUDACluster
-    >>> from dask.distributed import Client, wait
-    >>> import cupy as cp
-    >>> from cuml.dask.decomposition import TruncatedSVD
-    >>> from cuml.dask.datasets import make_blobs
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client, wait
+        >>> import cupy as cp
+        >>> from cuml.dask.decomposition import TruncatedSVD
+        >>> from cuml.dask.datasets import make_blobs
 
-    >>> cluster = LocalCUDACluster(threads_per_worker=1)
-    >>> client = Client(cluster)
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
 
-    >>> nrows = 6
-    >>> ncols = 3
-    >>> n_parts = 2
+        >>> nrows = 6
+        >>> ncols = 3
+        >>> n_parts = 2
 
-    >>> X_cudf, _ = make_blobs(n_samples=nrows, n_features=ncols, centers=1,
-    ...                        n_parts=n_parts, cluster_std=1.8,
-    ...                        random_state=10, dtype=cp.float32)
-    >>> in_blobs = X_cudf.compute()
-    >>> print(in_blobs) # doctest: +SKIP
-    [[ 6.953966    6.2313757   0.84974563]
-    [10.012338    3.4641726   3.0827546 ]
-    [ 9.537406    4.0504313   3.2793145 ]
-    [ 8.32713     2.957846    1.8215517 ]
-    [ 5.7044296   1.855514    3.7996366 ]
-    [10.089077    2.1995444   2.2072687 ]]
-    >>> cumlModel = TruncatedSVD(n_components = 1)
-    >>> XT = cumlModel.fit_transform(X_cudf)
-    >>> result = XT.compute()
-    >>> print(result) # doctest: +SKIP
-    [[ 8.699628   0.         0.       ]
-    [11.018815   0.         0.       ]
-    [10.8554535  0.         0.       ]
-    [ 9.000192   0.         0.       ]
-    [ 6.7628784  0.         0.       ]
-    [10.40526    0.         0.       ]]
-    >>> cluster.close()
+        >>> X_cudf, _ = make_blobs(n_samples=nrows, n_features=ncols,
+        ...                        centers=1, n_parts=n_parts,
+        ...                        cluster_std=1.8, random_state=10,
+        ...                        dtype=cp.float32)
+        >>> in_blobs = X_cudf.compute()
+        >>> print(in_blobs) # doctest: +SKIP
+        [[ 6.953966    6.2313757   0.84974563]
+        [10.012338    3.4641726   3.0827546 ]
+        [ 9.537406    4.0504313   3.2793145 ]
+        [ 8.32713     2.957846    1.8215517 ]
+        [ 5.7044296   1.855514    3.7996366 ]
+        [10.089077    2.1995444   2.2072687 ]]
+        >>> cumlModel = TruncatedSVD(n_components = 1)
+        >>> XT = cumlModel.fit_transform(X_cudf)
+        >>> result = XT.compute()
+        >>> print(result) # doctest: +SKIP
+        [[ 8.699628   0.         0.       ]
+        [11.018815   0.         0.       ]
+        [10.8554535  0.         0.       ]
+        [ 9.000192   0.         0.       ]
+        [ 6.7628784  0.         0.       ]
+        [10.40526    0.         0.       ]]
+        >>> cluster.close()
 
     Parameters
     ----------

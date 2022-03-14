@@ -66,39 +66,42 @@ class LogisticRegression(Base,
 
     Examples
     --------
-    >>> import cudf
-    >>> import numpy as np
 
-    >>> # Both import methods supported
-    >>> # from cuml import LogisticRegression
-    >>> from cuml.linear_model import LogisticRegression
+    .. code-block:: python
 
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-    >>> X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-    >>> y = cudf.Series( np.array([0.0, 0.0, 1.0, 1.0], dtype = np.float32) )
+        >>> import cudf
+        >>> import numpy as np
 
-    >>> reg = LogisticRegression()
-    >>> reg.fit(X,y)
-    LogisticRegression()
-    >>> print(reg.coef_)
-    0    0.698...
-    1    0.570...
-    dtype: float32
-    >>> print(reg.intercept_)
-    0   -2.188...
-    dtype: float32
+        >>> # Both import methods supported
+        >>> # from cuml import LogisticRegression
+        >>> from cuml.linear_model import LogisticRegression
 
-    >>> X_new = cudf.DataFrame()
-    >>> X_new['col1'] = np.array([1,5], dtype = np.float32)
-    >>> X_new['col2'] = np.array([2,5], dtype = np.float32)
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+        >>> X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        >>> y = cudf.Series(np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32))
 
-    >>> preds = reg.predict(X_new)
+        >>> reg = LogisticRegression()
+        >>> reg.fit(X,y)
+        LogisticRegression()
+        >>> print(reg.coef_)
+        0    0.698...
+        1    0.570...
+        dtype: float32
+        >>> print(reg.intercept_)
+        0   -2.188...
+        dtype: float32
 
-    >>> print(preds)
-    0    0.0
-    1    1.0
-    dtype: float32
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = np.array([1,5], dtype = np.float32)
+        >>> X_new['col2'] = np.array([2,5], dtype = np.float32)
+
+        >>> preds = reg.predict(X_new)
+
+        >>> print(preds)
+        0    0.0
+        1    1.0
+        dtype: float32
 
     Parameters
     -----------

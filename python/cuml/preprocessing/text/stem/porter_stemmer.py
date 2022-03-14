@@ -74,15 +74,17 @@ class PorterStemmer:
     Examples
     --------
 
-    >>> import cudf
-    >>> from cuml.preprocessing.text.stem import PorterStemmer
-    >>> stemmer = PorterStemmer()
-    >>> word_str_ser =  cudf.Series(['revival','singing','adjustable'])
-    >>> print(stemmer.stem(word_str_ser))
-    0     reviv
-    1      sing
-    2    adjust
-    dtype: object
+    .. code-block:: python
+
+        >>> import cudf
+        >>> from cuml.preprocessing.text.stem import PorterStemmer
+        >>> stemmer = PorterStemmer()
+        >>> word_str_ser =  cudf.Series(['revival','singing','adjustable'])
+        >>> print(stemmer.stem(word_str_ser))
+        0     reviv
+        1      sing
+        2    adjust
+        dtype: object
 
     """
 

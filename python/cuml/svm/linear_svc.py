@@ -27,16 +27,18 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> from cuml.svm import LinearSVC
-    >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-    ...              dtype=cp.float32);
-    >>> y = cp.array([0, 0, 1, 0, 1, 1], dtype=cp.float32)
-    >>> clf = LinearSVC(loss='squared_hinge', penalty='l1', C=1)
-    >>> clf.fit(X, y)
-    LinearSVC()
-    >>> print("Predicted labels:", clf.predict(X))
-    Predicted labels: [0. 0. 1. 0. 1. 1.]
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> from cuml.svm import LinearSVC
+        >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+        ...              dtype=cp.float32);
+        >>> y = cp.array([0, 0, 1, 0, 1, 1], dtype=cp.float32)
+        >>> clf = LinearSVC(loss='squared_hinge', penalty='l1', C=1)
+        >>> clf.fit(X, y)
+        LinearSVC()
+        >>> print("Predicted labels:", clf.predict(X))
+        Predicted labels: [0. 0. 1. 0. 1. 1.]
 
     Parameters
     ----------

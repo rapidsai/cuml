@@ -63,19 +63,21 @@ class TargetEncoder:
     --------
     Converting a categorical implementation to a numerical one
 
-    >>> from cudf import DataFrame, Series
-    >>> from cuml.preprocessing import TargetEncoder
-    >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
-    ...                    'label': [1, 0, 1, 1]})
-    >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
+    .. code-block:: python
 
-    >>> encoder = TargetEncoder()
-    >>> train_encoded = encoder.fit_transform(train.category, train.label)
-    >>> test_encoded = encoder.transform(test.category)
-    >>> print(train_encoded)
-    [1. 1. 0. 1.]
-    >>> print(test_encoded)
-    [1.   0.75 0.5  1.  ]
+        >>> from cudf import DataFrame, Series
+        >>> from cuml.preprocessing import TargetEncoder
+        >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
+        ...                    'label': [1, 0, 1, 1]})
+        >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
+
+        >>> encoder = TargetEncoder()
+        >>> train_encoded = encoder.fit_transform(train.category, train.label)
+        >>> test_encoded = encoder.transform(test.category)
+        >>> print(train_encoded)
+        [1. 1. 0. 1.]
+        >>> print(test_encoded)
+        [1.   0.75 0.5  1.  ]
 
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,

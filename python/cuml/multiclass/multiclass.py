@@ -41,17 +41,20 @@ class MulticlassClassifier(Base, ClassifierMixin):
     Examples
     --------
 
-    >>> from cuml.linear_model import LogisticRegression
-    >>> from cuml.multiclass import MulticlassClassifier
-    >>> from cuml.datasets.classification import make_classification
-    >>>
-    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-    ...                            n_classes=3, random_state=137)
-    >>>
-    >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
-    >>> cls.fit(X,y)
-    >>> cls.predict(X)
-    array([1, 1, 1, 0, 0, 2, 2, 2, 0, 1])
+    .. code-block:: python
+
+        >>> from cuml.linear_model import LogisticRegression
+        >>> from cuml.multiclass import MulticlassClassifier
+        >>> from cuml.datasets.classification import make_classification
+
+        >>> X, y = make_classification(n_samples=10, n_features=6,
+        ...                            n_informative=4, n_classes=3,
+        ...                            random_state=137)
+
+        >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
+        >>> cls.fit(X,y)
+        >>> cls.predict(X)
+        array([1, 1, 1, 0, 0, 2, 2, 2, 0, 1])
 
     Parameters
     ----------

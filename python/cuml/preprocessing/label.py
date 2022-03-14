@@ -108,32 +108,34 @@ class LabelBinarizer(Base):
 
     Create an array with labels and dummy encode them
 
-    >>> import cupy as cp
-    >>> import cupyx
-    >>> from cuml.preprocessing import LabelBinarizer
+    .. code-block:: python
 
-    >>> labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
-    ...                     dtype=cp.int32)
+        >>> import cupy as cp
+        >>> import cupyx
+        >>> from cuml.preprocessing import LabelBinarizer
 
-    >>> lb = LabelBinarizer()
-    >>> encoded = lb.fit_transform(labels)
-    >>> print(str(encoded))
-    [[1 0 0 0 0 0 0 0]
-     [0 0 0 0 0 1 0 0]
-     [0 0 0 0 0 0 0 1]
-     [0 0 0 0 0 0 1 0]
-     [0 0 1 0 0 0 0 0]
-     [0 0 0 0 1 0 0 0]
-     [0 1 0 0 0 0 0 0]
-     [1 0 0 0 0 0 0 0]
-     [1 0 0 0 0 0 0 0]
-     [0 0 0 0 1 0 0 0]
-     [0 0 0 1 0 0 0 0]
-     [0 0 1 0 0 0 0 0]
-     [0 1 0 0 0 0 0 0]]
-    >>> decoded = lb.inverse_transform(encoded)
-    >>> print(str(decoded))
-    [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+        >>> labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+        ...                     dtype=cp.int32)
+
+        >>> lb = LabelBinarizer()
+        >>> encoded = lb.fit_transform(labels)
+        >>> print(str(encoded))
+        [[1 0 0 0 0 0 0 0]
+        [0 0 0 0 0 1 0 0]
+        [0 0 0 0 0 0 0 1]
+        [0 0 0 0 0 0 1 0]
+        [0 0 1 0 0 0 0 0]
+        [0 0 0 0 1 0 0 0]
+        [0 1 0 0 0 0 0 0]
+        [1 0 0 0 0 0 0 0]
+        [1 0 0 0 0 0 0 0]
+        [0 0 0 0 1 0 0 0]
+        [0 0 0 1 0 0 0 0]
+        [0 0 1 0 0 0 0 0]
+        [0 1 0 0 0 0 0 0]]
+        >>> decoded = lb.inverse_transform(encoded)
+        >>> print(str(decoded))
+        [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
 
     """
 

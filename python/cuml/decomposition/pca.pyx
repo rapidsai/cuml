@@ -131,60 +131,62 @@ class PCA(Base,
     Examples
     --------
 
-    >>> # Both import methods supported
-    >>> from cuml import PCA
-    >>> from cuml.decomposition import PCA
+    .. code-block:: python
 
-    >>> import cudf
-    >>> import cupy as cp
+        >>> # Both import methods supported
+        >>> from cuml import PCA
+        >>> from cuml.decomposition import PCA
 
-    >>> gdf_float = cudf.DataFrame()
-    >>> gdf_float['0'] = cp.asarray([1.0,2.0,5.0], dtype = cp.float32)
-    >>> gdf_float['1'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
-    >>> gdf_float['2'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
+        >>> import cudf
+        >>> import cupy as cp
 
-    >>> pca_float = PCA(n_components = 2)
-    >>> pca_float.fit(gdf_float)
-    PCA()
+        >>> gdf_float = cudf.DataFrame()
+        >>> gdf_float['0'] = cp.asarray([1.0,2.0,5.0], dtype = cp.float32)
+        >>> gdf_float['1'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
+        >>> gdf_float['2'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
 
-    >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
-    components: 0           1           2
-    0  0.69225764  -0.5102837 -0.51028395
-    1 -0.72165036 -0.48949987  -0.4895003
-    >>> print(f'explained variance: {pca_float.explained_variance_}')
-    explained variance: 0   8.510...
-    1 0.489...
-    dtype: float32
-    >>> exp_var = pca_float.explained_variance_ratio_
-    >>> print(f'explained variance ratio: {exp_var}')
-    explained variance ratio: 0   0.9456...
-    1 0.054...
-    dtype: float32
+        >>> pca_float = PCA(n_components = 2)
+        >>> pca_float.fit(gdf_float)
+        PCA()
 
-    >>> print(f'singular values: {pca_float.singular_values_}')
-    singular values: 0 4.125...
-    1 0.989...
-    dtype: float32
-    >>> print(f'mean: {pca_float.mean_}')
-    mean: 0 2.666...
-    1 2.333...
-    2 2.333...
-    dtype: float32
-    >>> print(f'noise variance: {pca_float.noise_variance_}')
-    noise variance: 0  0.0
-    dtype: float32
-    >>> trans_gdf_float = pca_float.transform(gdf_float)
-    >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
-    Inverse: 0           1
-    0   -2.8547091 -0.42891636
-    1 -0.121316016  0.80743366
-    2    2.9760244 -0.37851727
-    >>> input_gdf_float = pca_float.inverse_transform(trans_gdf_float)
-    >>> print(f'Input: {input_gdf_float}') # doctest: +SKIP
-    Input: 0         1         2
-    0 1.0 4.0 4.0
-    1 2.0 2.0 2.0
-    2 5.0 1.0 1.0
+        >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
+        components: 0           1           2
+        0  0.69225764  -0.5102837 -0.51028395
+        1 -0.72165036 -0.48949987  -0.4895003
+        >>> print(f'explained variance: {pca_float.explained_variance_}')
+        explained variance: 0   8.510...
+        1 0.489...
+        dtype: float32
+        >>> exp_var = pca_float.explained_variance_ratio_
+        >>> print(f'explained variance ratio: {exp_var}')
+        explained variance ratio: 0   0.9456...
+        1 0.054...
+        dtype: float32
+
+        >>> print(f'singular values: {pca_float.singular_values_}')
+        singular values: 0 4.125...
+        1 0.989...
+        dtype: float32
+        >>> print(f'mean: {pca_float.mean_}')
+        mean: 0 2.666...
+        1 2.333...
+        2 2.333...
+        dtype: float32
+        >>> print(f'noise variance: {pca_float.noise_variance_}')
+        noise variance: 0  0.0
+        dtype: float32
+        >>> trans_gdf_float = pca_float.transform(gdf_float)
+        >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
+        Inverse: 0           1
+        0   -2.8547091 -0.42891636
+        1 -0.121316016  0.80743366
+        2    2.9760244 -0.37851727
+        >>> input_gdf_float = pca_float.inverse_transform(trans_gdf_float)
+        >>> print(f'Input: {input_gdf_float}') # doctest: +SKIP
+        Input: 0         1         2
+        0 1.0 4.0 4.0
+        1 2.0 2.0 2.0
+        2 5.0 1.0 1.0
 
     Parameters
     ----------

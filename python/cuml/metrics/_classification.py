@@ -53,11 +53,13 @@ def log_loss(y_true,
 
     Examples
     --------
-    >>> from cuml.metrics import log_loss
-    >>> import cupy as cp
-    >>> log_loss(cp.array([1, 0, 0, 1]),
-    ...          cp.array([[.1, .9], [.9, .1], [.8, .2], [.35, .65]]))
-    0.21616...
+    .. code-block:: python
+
+        >>> from cuml.metrics import log_loss
+        >>> import cupy as cp
+        >>> log_loss(cp.array([1, 0, 0, 1]),
+        ...          cp.array([[.1, .9], [.9, .1], [.8, .2], [.35, .65]]))
+        0.21616...
 
     References
     ----------

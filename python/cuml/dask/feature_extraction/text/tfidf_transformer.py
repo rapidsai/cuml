@@ -35,42 +35,44 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> from sklearn.datasets import fetch_20newsgroups
-    >>> from sklearn.feature_extraction.text import CountVectorizer
-    >>> from dask_cuda import LocalCUDACluster
-    >>> from dask.distributed import Client
-    >>> from cuml.dask.common import to_sparse_dask_array
-    >>> from cuml.dask.naive_bayes import MultinomialNB
-    >>> import dask
-    >>> from cuml.dask.feature_extraction.text import TfidfTransformer
+    .. code-block:: python
 
-    >>> # Create a local CUDA cluster
-    >>> cluster = LocalCUDACluster()
-    >>> client = Client(cluster)
+        >>> import cupy as cp
+        >>> from sklearn.datasets import fetch_20newsgroups
+        >>> from sklearn.feature_extraction.text import CountVectorizer
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> from cuml.dask.common import to_sparse_dask_array
+        >>> from cuml.dask.naive_bayes import MultinomialNB
+        >>> import dask
+        >>> from cuml.dask.feature_extraction.text import TfidfTransformer
 
-    >>> # Load corpus
-    >>> twenty_train = fetch_20newsgroups(subset='train',
-    ...                         shuffle=True, random_state=42)
-    >>> cv = CountVectorizer()
-    >>> xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
-    >>> X = to_sparse_dask_array(xformed, client)
+        >>> # Create a local CUDA cluster
+        >>> cluster = LocalCUDACluster()
+        >>> client = Client(cluster)
 
-    >>> y = dask.array.from_array(twenty_train.target, asarray=False,
-    ...                     fancy=False).astype(cp.int32)
+        >>> # Load corpus
+        >>> twenty_train = fetch_20newsgroups(subset='train',
+        ...                         shuffle=True, random_state=42)
+        >>> cv = CountVectorizer()
+        >>> xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
+        >>> X = to_sparse_dask_array(xformed, client)
 
-    >>> multi_gpu_transformer = TfidfTransformer()
-    >>> X_transformed = multi_gpu_transformer.fit_transform(X)
-    >>> X_transformed.compute_chunk_sizes()
-    dask.array<...>
+        >>> y = dask.array.from_array(twenty_train.target, asarray=False,
+        ...                     fancy=False).astype(cp.int32)
 
-    >>> model = MultinomialNB()
-    >>> model.fit(X_transformed, y)
-    <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
-    >>> result = model.score(X_transformed, y)
-    >>> print(result) # doctest: +SKIP
-    array(0.93264981)
-    >>> cluster.close()
+        >>> multi_gpu_transformer = TfidfTransformer()
+        >>> X_transformed = multi_gpu_transformer.fit_transform(X)
+        >>> X_transformed.compute_chunk_sizes()
+        dask.array<...>
+
+        >>> model = MultinomialNB()
+        >>> model.fit(X_transformed, y)
+        <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
+        >>> result = model.score(X_transformed, y)
+        >>> print(result) # doctest: +SKIP
+        array(0.93264981)
+        >>> cluster.close()
 
     """
 

@@ -89,36 +89,38 @@ class Ridge(Base,
     Examples
     --------
 
-    >>> import numpy as np
-    >>> import cudf
+    .. code-block:: python
 
-    >>> # Both import methods supported
-    >>> from cuml import Ridge
-    >>> from cuml.linear_model import Ridge
+        >>> import cupy as cp
+        >>> import cudf
 
-    >>> alpha = np.array([1e-5])
-    >>> ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
-    ...               solver = "eig")
+        >>> # Both import methods supported
+        >>> from cuml import Ridge
+        >>> from cuml.linear_model import Ridge
 
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-    >>> X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        >>> alpha = cp.array([1e-5])
+        >>> ridge = Ridge(alpha=alpha, fit_intercept=True, normalize=False,
+        ...               solver="eig")
 
-    >>> y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
 
-    >>> result_ridge = ridge.fit(X, y)
-    >>> print(result_ridge.coef_)
-    0 1.000...
-    1 1.999...
-    >>> print(result_ridge.intercept_)
-    3.0...
-    >>> X_new = cudf.DataFrame()
-    >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
-    >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
-    >>> preds = result_ridge.predict(X_new)
-    >>> print(preds)
-    0 15.999...
-    1 14.999...
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
+
+        >>> result_ridge = ridge.fit(X, y)
+        >>> print(result_ridge.coef_) # doctest: +SKIP
+        0 1.000...
+        1 1.999...
+        >>> print(result_ridge.intercept_)
+        3.0...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> preds = result_ridge.predict(X_new)
+        >>> print(preds) # doctest: +SKIP
+        0 15.999...
+        1 14.999...
 
     Parameters
     -----------

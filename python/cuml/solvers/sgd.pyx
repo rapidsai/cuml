@@ -132,31 +132,32 @@ class SGD(Base,
 
     Examples
     --------
+    .. code-block:: python
 
-    >>> import numpy as np
-    >>> import cudf
-    >>> from cuml.solvers import SGD as cumlSGD
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = np.array([1,1,2,2], dtype=np.float32)
-    >>> X['col2'] = np.array([1,2,2,3], dtype=np.float32)
-    >>> y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
-    >>> pred_data = cudf.DataFrame()
-    >>> pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
-    >>> pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
-    >>> cu_sgd = cumlSGD(learning_rate='constant', eta0=0.005, epochs=2000,
-    ...                  fit_intercept=True, batch_size=2,
-    ...                  tol=0.0, penalty='none', loss='squared_loss')
-    >>> cu_sgd.fit(X, y)
-    SGD()
-    >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
-    >>> print(" cuML intercept : ", cu_sgd.intercept_)
-    cuML intercept :  0.00418...
-    >>> print(" cuML coef : ", cu_sgd.coef_)
-    cuML coef :  0      0.9841...
-    1      0.0097...
-    dtype: float32
-    >>> print("cuML predictions : ", cu_pred)
-    cuML predictions :  [3.0055...  2.0214...]
+        >>> import numpy as np
+        >>> import cudf
+        >>> from cuml.solvers import SGD as cumlSGD
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = np.array([1,1,2,2], dtype=np.float32)
+        >>> X['col2'] = np.array([1,2,2,3], dtype=np.float32)
+        >>> y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
+        >>> pred_data = cudf.DataFrame()
+        >>> pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
+        >>> pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
+        >>> cu_sgd = cumlSGD(learning_rate='constant', eta0=0.005, epochs=2000,
+        ...                  fit_intercept=True, batch_size=2,
+        ...                  tol=0.0, penalty='none', loss='squared_loss')
+        >>> cu_sgd.fit(X, y)
+        SGD()
+        >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
+        >>> print(" cuML intercept : ", cu_sgd.intercept_) # doctest: +SKIP
+        cuML intercept :  0.00418...
+        >>> print(" cuML coef : ", cu_sgd.coef_) # doctest: +SKIP
+        cuML coef :  0      0.9841...
+        1      0.0097...
+        dtype: float32
+        >>> print("cuML predictions : ", cu_pred) # doctest: +SKIP
+        cuML predictions :  [3.0055...  2.0214...]
 
     Parameters
     -----------

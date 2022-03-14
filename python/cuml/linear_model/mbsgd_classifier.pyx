@@ -44,36 +44,39 @@ class MBSGDClassifier(Base,
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> import cudf
-    >>> from cuml.linear_model import MBSGDClassifier as cumlMBSGDClassifier
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
-    >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
-    >>> y = cudf.Series(cp.array([1, 1, 2, 2], dtype=cp.float32))
-    >>> pred_data = cudf.DataFrame()
-    >>> pred_data['col1'] = cp.asarray([3, 2], dtype=cp.float32)
-    >>> pred_data['col2'] = cp.asarray([5, 5], dtype=cp.float32)
-    >>> cu_mbsgd_classifier = cumlMBSGDClassifier(learning_rate='constant',
-    ...                                          eta0=0.05, epochs=2000,
-    ...                                          fit_intercept=True,
-    ...                                          batch_size=1, tol=0.0,
-    ...                                          penalty='l2',
-    ...                                          loss='squared_loss',
-    ...                                          alpha=0.5)
-    >>> cu_mbsgd_classifier.fit(X, y)
-    MBSGDClassifier()
-    >>> print("cuML intercept : ", cu_mbsgd_classifier.intercept_)
-    cuML intercept :  0.725...
-    >>> print("cuML coef : ", cu_mbsgd_classifier.coef_)
-    cuML coef :  0    0.273...
-    1    0.182...
-    dtype: float32
-    >>> cu_pred = cu_mbsgd_classifier.predict(pred_data)
-    >>> print("cuML predictions : ", cu_pred)
-    cuML predictions :  0   1.0
-    1    1.0
-    dtype: float32
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> import cudf
+        >>> from cuml.linear_model import MBSGDClassifier
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
+        >>> y = cudf.Series(cp.array([1, 1, 2, 2], dtype=cp.float32))
+        >>> pred_data = cudf.DataFrame()
+        >>> pred_data['col1'] = cp.asarray([3, 2], dtype=cp.float32)
+        >>> pred_data['col2'] = cp.asarray([5, 5], dtype=cp.float32)
+        >>> cu_mbsgd_classifier = MBSGDClassifier(learning_rate='constant',
+        ...                                       eta0=0.05, epochs=2000,
+        ...                                       fit_intercept=True,
+        ...                                       batch_size=1, tol=0.0,
+        ...                                       penalty='l2',
+        ...                                       loss='squared_loss',
+        ...                                       alpha=0.5)
+        >>> cu_mbsgd_classifier.fit(X, y)
+        MBSGDClassifier()
+        >>> print("cuML intercept : ", cu_mbsgd_classifier.intercept_)
+        cuML intercept :  0.725...
+        >>> print("cuML coef : ", cu_mbsgd_classifier.coef_)
+        cuML coef :  0    0.273...
+        1    0.182...
+        dtype: float32
+        >>> cu_pred = cu_mbsgd_classifier.predict(pred_data)
+        >>> print("cuML predictions : ", cu_pred)
+        cuML predictions :  0   1.0
+        1    1.0
+        dtype: float32
 
     Parameters
     -----------

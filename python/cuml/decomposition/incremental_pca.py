@@ -166,28 +166,28 @@ class IncrementalPCA(PCA):
         IncrementalPCA()
         >>>
         >>> # Components:
-        >>> ipca.components_
+        >>> ipca.components_ # doctest: +SKIP
         array([[ 0.23698335, -0.06073393,  0.04310868,  0.9686547 ],
                [ 0.27040346, -0.57185116,  0.76248786, -0.13594291]])
         >>>
         >>> # Singular Values:
-        >>> ipca.singular_values_
+        >>> ipca.singular_values_ # doctest: +SKIP
         array([5.06637586, 4.59406975])
         >>>
         >>> # Explained Variance:
-        >>> ipca.explained_variance_
+        >>> ipca.explained_variance_ # doctest: +SKIP
         array([0.02569386, 0.0211266 ])
         >>>
         >>> # Explained Variance Ratio:
-        >>> ipca.explained_variance_ratio_
+        >>> ipca.explained_variance_ratio_ # doctest: +SKIP
         array([0.30424536, 0.25016372])
         >>>
         >>> # Mean:
-        >>> ipca.mean_
+        >>> ipca.mean_ # doctest: +SKIP
         array([0.02693948, 0.0326928 , 0.03818463, 0.03861492])
         >>>
         >>> # Noise Variance:
-        >>> ipca.noise_variance_.item()
+        >>> ipca.noise_variance_.item() # doctest: +SKIP
         0.0037122774558343763
 
     """

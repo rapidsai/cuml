@@ -124,25 +124,29 @@ class KNeighborsRegressor(NearestNeighbors,
 
     Examples
     --------
-    >>> from cuml.neighbors import KNeighborsRegressor
-    >>> from cuml.datasets import make_regression
-    >>> from cuml.model_selection import train_test_split
 
-    >>> X, y = make_regression(n_samples=100, n_features=10,
-    ...                        random_state=5)
-    >>> X_train, X_test, y_train, y_test = train_test_split(
-    ...   X, y, train_size=0.80, random_state=5)
+    .. code-block:: python
 
-    >>> knn = KNeighborsRegressor(n_neighbors=10)
-    >>> knn.fit(X_train, y_train)
-    KNeighborsRegressor()
-    >>> knn.predict(X_test) # doctest: +SKIP
-    array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
-        21.589611  , -14.519918  , -60.25534   , -20.856869  ,
-        29.869623  , -34.83317   ,   0.45447388, 120.39675   ,
-       109.94834   ,  63.57794   , -17.956171  ,  78.77663   ,
-        30.412262  ,  32.575233  ,  74.72834   , 122.276855  ],
-      dtype=float32)
+        >>> from cuml.neighbors import KNeighborsRegressor
+        >>> from cuml.datasets import make_regression
+        >>> from cuml.model_selection import train_test_split
+
+        >>> X, y = make_regression(n_samples=100, n_features=10,
+        ...                        random_state=5)
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...   X, y, train_size=0.80, random_state=5)
+
+        >>> knn = KNeighborsRegressor(n_neighbors=10)
+        >>> knn.fit(X_train, y_train)
+        KNeighborsRegressor()
+        >>> knn.predict(X_test) # doctest: +SKIP
+        array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
+            21.589611  , -14.519918  , -60.25534   , -20.856869  ,
+            29.869623  , -34.83317   ,   0.45447388, 120.39675   ,
+            109.94834   ,  63.57794   , -17.956171  ,  78.77663   ,
+            30.412262  ,  32.575233  ,  74.72834   , 122.276855  ],
+        dtype=float32)
+
     Notes
     ------
 

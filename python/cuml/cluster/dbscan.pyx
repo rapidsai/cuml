@@ -109,26 +109,28 @@ class DBSCAN(Base,
     Examples
     --------
 
-    >>> # Both import methods supported
-    >>> from cuml import DBSCAN
-    >>> from cuml.cluster import DBSCAN
-    >>>
-    >>> import cudf
-    >>> import numpy as np
-    >>>
-    >>> gdf_float = cudf.DataFrame()
-    >>> gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
-    >>> gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-    >>> gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-    >>>
-    >>> dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
-    >>> dbscan_float.fit(gdf_float)
-    DBSCAN()
-    >>> dbscan_float.labels_
-    0    0
-    1    1
-    2    2
-    dtype: int32
+    .. code-block:: python
+
+        >>> # Both import methods supported
+        >>> from cuml import DBSCAN
+        >>> from cuml.cluster import DBSCAN
+        >>>
+        >>> import cudf
+        >>> import numpy as np
+        >>>
+        >>> gdf_float = cudf.DataFrame()
+        >>> gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
+        >>> gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        >>> gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        >>>
+        >>> dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
+        >>> dbscan_float.fit(gdf_float)
+        DBSCAN()
+        >>> dbscan_float.labels_
+        0    0
+        1    1
+        2    2
+        dtype: int32
 
     Parameters
     -----------

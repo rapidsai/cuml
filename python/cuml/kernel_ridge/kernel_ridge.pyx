@@ -161,33 +161,35 @@ class KernelRidge(Base, RegressorMixin):
     Examples
     --------
 
-    >>> import cupy as cp
-    >>> from cuml.kernel_ridge import KernelRidge
-    >>> from numba import cuda
-    >>> import math
+    .. code-block:: python
 
-    >>> n_samples, n_features = 10, 5
-    >>> rng = cp.random.RandomState(0)
-    >>> y = rng.randn(n_samples)
-    >>> X = rng.randn(n_samples, n_features)
+        >>> import cupy as cp
+        >>> from cuml.kernel_ridge import KernelRidge
+        >>> from numba import cuda
+        >>> import math
 
-    >>> model = KernelRidge(kernel="poly").fit(X, y)
-    >>> pred = model.predict(X)
+        >>> n_samples, n_features = 10, 5
+        >>> rng = cp.random.RandomState(0)
+        >>> y = rng.randn(n_samples)
+        >>> X = rng.randn(n_samples, n_features)
 
-
-    >>> @cuda.jit(device=True)
-    ... def custom_rbf_kernel(x, y, gamma=None):
-    ...     if gamma is None:
-    ...         gamma = 1.0 / len(x)
-    ...     sum = 0.0
-    ...     for i in range(len(x)):
-    ...         sum += (x[i] - y[i]) ** 2
-    ...     return math.exp(-gamma * sum)
+        >>> model = KernelRidge(kernel="poly").fit(X, y)
+        >>> pred = model.predict(X)
 
 
-    >>> model = KernelRidge(kernel=custom_rbf_kernel,
-    ...                     kernel_params={"gamma": 2.0}).fit(X, y)
-    >>> pred = model.predict(X)
+        >>> @cuda.jit(device=True)
+        ... def custom_rbf_kernel(x, y, gamma=None):
+        ...     if gamma is None:
+        ...         gamma = 1.0 / len(x)
+        ...     sum = 0.0
+        ...     for i in range(len(x)):
+        ...         sum += (x[i] - y[i]) ** 2
+        ...     return math.exp(-gamma * sum)
+
+
+        >>> model = KernelRidge(kernel=custom_rbf_kernel,
+        ...                     kernel_params={"gamma": 2.0}).fit(X, y)
+        >>> pred = model.predict(X)
 
     """
 

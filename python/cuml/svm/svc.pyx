@@ -115,16 +115,18 @@ class SVC(SVMBase,
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> from cuml.svm import SVC
-    >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-    ...              dtype=cp.float32);
-    >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
-    >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
-    >>> clf.fit(X, y)
-    SVC()
-    >>> print("Predicted labels:", clf.predict(X))
-    Predicted labels: [-1. -1.  1. -1.  1.  1.]
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> from cuml.svm import SVC
+        >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+        ...              dtype=cp.float32);
+        >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
+        >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
+        >>> clf.fit(X, y)
+        SVC()
+        >>> print("Predicted labels:", clf.predict(X))
+        Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
     Parameters
     ----------

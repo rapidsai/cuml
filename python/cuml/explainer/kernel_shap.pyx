@@ -154,39 +154,41 @@ class KernelExplainer(SHAPBase):
     Examples
     --------
 
-    >>> from cuml import SVR
-    >>> from cuml import make_regression
-    >>> from cuml import train_test_split
-    >>>
-    >>> from cuml.explainer import KernelExplainer
-    >>>
-    >>> X, y = make_regression(
-    ...     n_samples=102,
-    ...     n_features=10,
-    ...     noise=0.1,
-    ...     random_state=42)
-    >>>
-    >>> X_train, X_test, y_train, y_test = train_test_split(
-    ...     X,
-    ...     y,
-    ...     test_size=2,
-    ...     random_state=42)
-    >>>
-    >>> model = SVR().fit(X_train, y_train)
-    >>>
-    >>> cu_explainer = KernelExplainer(
-    ...     model=model.predict,
-    ...     data=X_train,
-    ...     is_gpu_model=True,
-    ...     random_state=42)
-    >>>
-    >>> cu_shap_values = cu_explainer.shap_values(X_test)
-    >>> cu_shap_values  # doctest: +SKIP
-    array([[-0.41163236, -0.29839307, -0.31082764, -0.21910861,  0.20798518,
-             1.525831  , -0.07726735, -0.23897147, -0.5901833 , -0.03319931],
-           [-0.37491834, -0.22581327, -1.2146976 ,  0.03793442, -0.24420738,
-            -0.4875331 , -0.05438256,  0.16568947, -1.9978098 , -0.19110584]],
-          dtype=float32)
+    .. code-block:: python
+
+        >>> from cuml import SVR
+        >>> from cuml import make_regression
+        >>> from cuml import train_test_split
+        >>>
+        >>> from cuml.explainer import KernelExplainer
+        >>>
+        >>> X, y = make_regression(
+        ...     n_samples=102,
+        ...     n_features=10,
+        ...     noise=0.1,
+        ...     random_state=42)
+        >>>
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...     X,
+        ...     y,
+        ...     test_size=2,
+        ...     random_state=42)
+        >>>
+        >>> model = SVR().fit(X_train, y_train)
+        >>>
+        >>> cu_explainer = KernelExplainer(
+        ...     model=model.predict,
+        ...     data=X_train,
+        ...     is_gpu_model=True,
+        ...     random_state=42)
+        >>>
+        >>> cu_shap_values = cu_explainer.shap_values(X_test)
+        >>> cu_shap_values  # doctest: +SKIP
+        array([[-0.41163236, -0.29839307, -0.31082764, -0.21910861, 0.20798518,
+              1.525831  , -0.07726735, -0.23897147, -0.5901833 , -0.03319931],
+            [-0.37491834, -0.22581327, -1.2146976 ,  0.03793442, -0.24420738,
+              -0.4875331 , -0.05438256, 0.16568947, -1.9978098 , -0.19110584]],
+            dtype=float32)
 
     """
 

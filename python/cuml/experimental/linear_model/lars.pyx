@@ -109,7 +109,7 @@ class Lars(Base, RegressorMixin):
         how many features we select for prediction. This number is also an
         upper limit of the number of iterations.
     handle : cuml.Handle
-        Specifies the `cuml.handle` that holds internal CUDA state for
+        Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating

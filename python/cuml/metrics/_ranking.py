@@ -67,18 +67,21 @@ def precision_recall_curve(
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> from cuml.metrics import precision_recall_curve
-    >>> y_true = cp.array([0, 0, 1, 1])
-    >>> y_scores = cp.array([0.1, 0.4, 0.35, 0.8])
-    >>> precision, recall, thresholds = precision_recall_curve(
-    ...     y_true, y_scores)
-    >>> print(precision)
-    [0.666... 0.5  1.  1. ]
-    >>> print(recall)
-    [1. 0.5 0.5 0. ]
-    >>> print(thresholds)
-    [0.35 0.4 0.8 ]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> from cuml.metrics import precision_recall_curve
+        >>> y_true = cp.array([0, 0, 1, 1])
+        >>> y_scores = cp.array([0.1, 0.4, 0.35, 0.8])
+        >>> precision, recall, thresholds = precision_recall_curve(
+        ...     y_true, y_scores)
+        >>> print(precision)
+        [0.666... 0.5  1.  1. ]
+        >>> print(recall)
+        [1. 0.5 0.5 0. ]
+        >>> print(thresholds)
+        [0.35 0.4 0.8 ]
 
     """
     y_true, n_rows, n_cols, ytype = \

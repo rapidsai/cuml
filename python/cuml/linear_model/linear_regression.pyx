@@ -78,34 +78,36 @@ class LinearRegression(Base,
     Examples
     --------
 
-    >>> import numpy as np
-    >>> import cudf
+    .. code-block:: python
 
-    >>> # Both import methods supported
-    >>> from cuml import LinearRegression
-    >>> from cuml.linear_model import LinearRegression
-    >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-    ...                       algorithm = "eig")
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-    >>> X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-    >>> y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
-    >>> reg = lr.fit(X,y)
-    >>> print(reg.coef_)
-    0   1.0
-    1   2.0
-    dtype: float32
-    >>> print(reg.intercept_)
-    3.000...
+        >>> import cupy as cp
+        >>> import cudf
 
-    >>> X_new = cudf.DataFrame()
-    >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
-    >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
-    >>> preds = lr.predict(X_new)
-    >>> print(preds)
-    0   15.999...
-    1   14.999...
-    dtype: float32
+        >>> # Both import methods supported
+        >>> from cuml import LinearRegression
+        >>> from cuml.linear_model import LinearRegression
+        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
+        ...                       algorithm = "eig")
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
+        >>> reg = lr.fit(X,y)
+        >>> print(reg.coef_)
+        0   1.0
+        1   2.0
+        dtype: float32
+        >>> print(reg.intercept_)
+        3.0...
+
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> preds = lr.predict(X_new)
+        >>> print(preds)
+        0   15.999...
+        1   14.999...
+        dtype: float32
 
 
     Parameters

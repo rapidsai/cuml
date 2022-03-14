@@ -206,16 +206,18 @@ class SVR(SVMBase, RegressorMixin):
 
     Examples
     --------
+    .. code-block:: python
 
-    >>> import cupy as cp
-    >>> from cuml.svm import SVR
-    >>> X = cp.array([[1], [2], [3], [4], [5]], dtype=cp.float32)
-    >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
-    >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
-    >>> reg.fit(X, y)
-    SVR()
-    >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
-    Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
+
+        >>> import cupy as cp
+        >>> from cuml.svm import SVR
+        >>> X = cp.array([[1], [2], [3], [4], [5]], dtype=cp.float32)
+        >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
+        >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
+        >>> reg.fit(X, y)
+        SVR()
+        >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
+        Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,

@@ -32,46 +32,45 @@ class LabelBinarizer(BaseEstimator):
     Examples
     --------
 
-    Examples
-    --------
-
     Create an array with labels and dummy encode them
 
-    >>> import cupy as cp
-    >>> import cupyx
-    >>> from cuml.dask.preprocessing import LabelBinarizer
+    .. code-block:: python
 
-    >>> from dask_cuda import LocalCUDACluster
-    >>> from dask.distributed import Client
-    >>> import dask
+        >>> import cupy as cp
+        >>> import cupyx
+        >>> from cuml.dask.preprocessing import LabelBinarizer
 
-    >>> cluster = LocalCUDACluster()
-    >>> client = Client(cluster)
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> import dask
 
-    >>> labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
-    ...                     dtype=cp.int32)
-    >>> labels = dask.array.from_array(labels)
+        >>> cluster = LocalCUDACluster()
+        >>> client = Client(cluster)
 
-    >>> lb = LabelBinarizer()
-    >>> encoded = lb.fit_transform(labels)
-    >>> print(encoded.compute())
-    [[1 0 0 0 0 0 0 0]
-    [0 0 0 0 0 1 0 0]
-    [0 0 0 0 0 0 0 1]
-    [0 0 0 0 0 0 1 0]
-    [0 0 1 0 0 0 0 0]
-    [0 0 0 0 1 0 0 0]
-    [0 1 0 0 0 0 0 0]
-    [1 0 0 0 0 0 0 0]
-    [1 0 0 0 0 0 0 0]
-    [0 0 0 0 1 0 0 0]
-    [0 0 0 1 0 0 0 0]
-    [0 0 1 0 0 0 0 0]
-    [0 1 0 0 0 0 0 0]]
-    >>> decoded = lb.inverse_transform(encoded)
-    >>> print(decoded.compute())
-    [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
-    >>> cluster.close()
+        >>> labels = cp.asarray([0, 5, 10, 7, 2, 4, 1, 0, 0, 4, 3, 2, 1],
+        ...                     dtype=cp.int32)
+        >>> labels = dask.array.from_array(labels)
+
+        >>> lb = LabelBinarizer()
+        >>> encoded = lb.fit_transform(labels)
+        >>> print(encoded.compute())
+        [[1 0 0 0 0 0 0 0]
+        [0 0 0 0 0 1 0 0]
+        [0 0 0 0 0 0 0 1]
+        [0 0 0 0 0 0 1 0]
+        [0 0 1 0 0 0 0 0]
+        [0 0 0 0 1 0 0 0]
+        [0 1 0 0 0 0 0 0]
+        [1 0 0 0 0 0 0 0]
+        [1 0 0 0 0 0 0 0]
+        [0 0 0 0 1 0 0 0]
+        [0 0 0 1 0 0 0 0]
+        [0 0 1 0 0 0 0 0]
+        [0 1 0 0 0 0 0 0]]
+        >>> decoded = lb.inverse_transform(encoded)
+        >>> print(decoded.compute())
+        [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+        >>> cluster.close()
 
     """
     def __init__(self, *, client=None, **kwargs):

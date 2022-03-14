@@ -49,40 +49,42 @@ class MultinomialNB(BaseEstimator,
     Load the 20 newsgroups dataset from Scikit-learn and train a
     Naive Bayes classifier.
 
-    >>> import cupy as cp
+    .. code-block:: python
 
-    >>> from sklearn.datasets import fetch_20newsgroups
-    >>> from sklearn.feature_extraction.text import CountVectorizer
+        >>> import cupy as cp
 
-    >>> from dask_cuda import LocalCUDACluster
-    >>> from dask.distributed import Client
-    >>> import dask
-    >>> from cuml.dask.common import to_sparse_dask_array
-    >>> from cuml.dask.naive_bayes import MultinomialNB
+        >>> from sklearn.datasets import fetch_20newsgroups
+        >>> from sklearn.feature_extraction.text import CountVectorizer
 
-    >>> # Create a local CUDA cluster
-    >>> cluster = LocalCUDACluster()
-    >>> client = Client(cluster)
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> import dask
+        >>> from cuml.dask.common import to_sparse_dask_array
+        >>> from cuml.dask.naive_bayes import MultinomialNB
 
-    >>> # Load corpus
-    >>> twenty_train = fetch_20newsgroups(subset='train',
-    ...                           shuffle=True, random_state=42)
+        >>> # Create a local CUDA cluster
+        >>> cluster = LocalCUDACluster()
+        >>> client = Client(cluster)
 
-    >>> cv = CountVectorizer()
-    >>> xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
-    >>> X = to_sparse_dask_array(xformed, client)
-    >>> y = dask.array.from_array(twenty_train.target, asarray=False,
-    ...                       fancy=False).astype(cp.int32)
+        >>> # Load corpus
+        >>> twenty_train = fetch_20newsgroups(subset='train',
+        ...                           shuffle=True, random_state=42)
 
-    >>> # Train model
-    >>> model = MultinomialNB()
-    >>> model.fit(X, y)
-    <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
+        >>> cv = CountVectorizer()
+        >>> xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
+        >>> X = to_sparse_dask_array(xformed, client)
+        >>> y = dask.array.from_array(twenty_train.target, asarray=False,
+        ...                       fancy=False).astype(cp.int32)
 
-    >>> # Compute accuracy on training set
-    >>> model.score(X, y)
-    array(0.924...)
-    >>> cluster.close()
+        >>> # Train model
+        >>> model = MultinomialNB()
+        >>> model.fit(X, y)
+        <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
+
+        >>> # Compute accuracy on training set
+        >>> model.score(X, y)
+        array(0.924...)
+        >>> cluster.close()
 
     """
     def __init__(self, *, client=None, verbose=False, **kwargs):

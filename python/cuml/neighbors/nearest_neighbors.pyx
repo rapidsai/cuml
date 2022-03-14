@@ -248,39 +248,42 @@ class NearestNeighbors(Base,
 
     Examples
     --------
-    >>> import cudf
-    >>> from cuml.neighbors import NearestNeighbors
-    >>> from cuml.datasets import make_blobs
 
-    >>> X, _ = make_blobs(n_samples=5, centers=5,
-    ...                   n_features=10, random_state=42)
+    .. code-block:: python
 
-    >>> # build a cudf Dataframe
-    >>> X_cudf = cudf.DataFrame(X)
+        >>> import cudf
+        >>> from cuml.neighbors import NearestNeighbors
+        >>> from cuml.datasets import make_blobs
 
-    >>> # fit model
-    >>> model = NearestNeighbors(n_neighbors=3)
-    >>> model.fit(X)
-    NearestNeighbors()
+        >>> X, _ = make_blobs(n_samples=5, centers=5,
+        ...                   n_features=10, random_state=42)
 
-    >>> # get 3 nearest neighbors
-    >>> distances, indices = model.kneighbors(X_cudf)
+        >>> # build a cudf Dataframe
+        >>> X_cudf = cudf.DataFrame(X)
 
-    >>> # print results
-    >>> print(indices)
-       0  1  2
-    0  0  1  3
-    1  1  0  2
-    2  2  4  0
-    3  3  0  2
-    4  4  2  3
-    >>> print(distances) # doctest: +SKIP
-              0          1          2
-    0  0.007812  24.786566  26.399996
-    1  0.000000  24.786566  30.045017
-    2  0.007812   5.458400  27.051241
-    3  0.000000  26.399996  27.543869
-    4  0.000000   5.458400  29.583437
+        >>> # fit model
+        >>> model = NearestNeighbors(n_neighbors=3)
+        >>> model.fit(X)
+        NearestNeighbors()
+
+        >>> # get 3 nearest neighbors
+        >>> distances, indices = model.kneighbors(X_cudf)
+
+        >>> # print results
+        >>> print(indices)
+        0  1  2
+        0  0  1  3
+        1  1  0  2
+        2  2  4  0
+        3  3  0  2
+        4  4  2  3
+        >>> print(distances) # doctest: +SKIP
+                0          1          2
+        0  0.007812  24.786566  26.399996
+        1  0.000000  24.786566  30.045017
+        2  0.007812   5.458400  27.051241
+        3  0.000000  26.399996  27.543869
+        4  0.000000   5.458400  29.583437
 
     Notes
     -----

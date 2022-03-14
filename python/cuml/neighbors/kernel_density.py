@@ -183,12 +183,14 @@ class KernelDensity(Base):
     Examples
     --------
 
-    >>> from cuml.neighbors import KernelDensity
-    >>> import cupy as cp
-    >>> rng = cp.random.RandomState(42)
-    >>> X = rng.random_sample((100, 3))
-    >>> kde = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(X)
-    >>> log_density = kde.score_samples(X[:3])
+    .. code-block:: python
+
+        >>> from cuml.neighbors import KernelDensity
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(42)
+        >>> X = rng.random_sample((100, 3))
+        >>> kde = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(X)
+        >>> log_density = kde.score_samples(X[:3])
 
     """
 

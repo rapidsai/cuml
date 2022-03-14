@@ -99,35 +99,37 @@ class CD(Base,
 
     Examples
     ---------
-    >>> import cupy as cp
-    >>> import cudf
-    >>> from cuml.solvers import CD as cumlCD
+    .. code-block:: python
 
-    >>> cd = cumlCD(alpha=0.0)
+        >>> import cupy as cp
+        >>> import cudf
+        >>> from cuml.solvers import CD as cumlCD
 
-    >>> X = cudf.DataFrame()
-    >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
-    >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+        >>> cd = cumlCD(alpha=0.0)
 
-    >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
 
-    >>> cd.fit(X,y)
-    CD()
-    >>> print(cd.coef_)
-    0 1.001...
-    1 1.998...
-    dtype: float32
-    >>> print(cd.intercept_)
-    3.00...
-    >>> X_new = cudf.DataFrame()
-    >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
-    >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
 
-    >>> preds = cd.predict(X_new)
-    >>> print(preds)
-    0 15.997...
-    1 14.995...
-    dtype: float32
+        >>> cd.fit(X,y)
+        CD()
+        >>> print(cd.coef_) # doctest: +SKIP
+        0 1.001...
+        1 1.998...
+        dtype: float32
+        >>> print(cd.intercept_) # doctest: +SKIP
+        3.00...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+
+        >>> preds = cd.predict(X_new)
+        >>> print(preds) # doctest: +SKIP
+        0 15.997...
+        1 14.995...
+        dtype: float32
 
     Parameters
     -----------

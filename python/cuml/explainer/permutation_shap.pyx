@@ -158,39 +158,39 @@ class PermutationExplainer(SHAPBase):
 
     Examples
     --------
-    >>> from cuml import SVR
-    >>> from cuml import make_regression
-    >>> from cuml import train_test_split
-    >>>
-    >>> from cuml.explainer import PermutationExplainer
-    >>>
-    >>> X, y = make_regression(
-    ...     n_samples=102,
-    ...     n_features=10,
-    ...     noise=0.1,
-    ...     random_state=42)
-    >>>
-    >>> X_train, X_test, y_train, y_test = train_test_split(
-    ...     X,
-    ...     y,
-    ...     test_size=2,
-    ...     random_state=42)
-    >>>
-    >>> model = SVR().fit(X_train, y_train)
-    >>>
-    >>> cu_explainer = PermutationExplainer(
-    ...     model=model.predict,
-    ...     data=X_train,
-    ...     random_state=42)
-    >>>
-    >>> cu_shap_values = cu_explainer.shap_values(X_test)
-    >>>
-    >>> cu_shap_values  # doctest: +SKIP
-    array([[ 0.16611198,  0.74156773,  0.05906528,  0.30015892,  2.5425286 ,
-             0.0970122 ,  0.12258395,  2.1998262 , -0.02968234, -0.8669155 ],
-           [-0.10587756,  0.77705824, -0.08259875, -0.71874434,  1.781551  ,
-            -0.05454511,  0.11826539, -1.1734306 , -0.09629871,  0.4571011]],
-          dtype=float32)
+
+    .. code-block:: python
+
+        >>> from cuml import SVR
+        >>> from cuml import make_regression
+        >>> from cuml import train_test_split
+
+        >>> from cuml.explainer import PermutationExplainer
+
+        >>> X, y = make_regression(
+        ...     n_samples=102,
+        ...     n_features=10,
+        ...     noise=0.1,
+        ...     random_state=42)
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...     X,
+        ...     y,
+        ...     test_size=2,
+        ...     random_state=42)
+        >>> model = SVR().fit(X_train, y_train)
+
+        >>> cu_explainer = PermutationExplainer(
+        ...     model=model.predict,
+        ...     data=X_train,
+        ...     random_state=42)
+
+        >>> cu_shap_values = cu_explainer.shap_values(X_test)
+        >>> cu_shap_values  # doctest: +SKIP
+        array([[ 0.16611198, 0.74156773, 0.05906528,  0.30015892, 2.5425286 ,
+                0.0970122 , 0.12258395, 2.1998262 , -0.02968234, -0.8669155 ],
+            [-0.10587756,  0.77705824, -0.08259875, -0.71874434,  1.781551  ,
+                -0.05454511, 0.11826539, -1.1734306 , -0.09629871, 0.4571011]],
+            dtype=float32)
 
     """
 

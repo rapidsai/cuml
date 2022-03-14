@@ -190,6 +190,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
+
+    .. code-block:: python
+
         >>> import cupy as cp
         >>> from cuml.metrics import pairwise_distances
         >>>
@@ -375,30 +378,33 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
-    >>> import cupyx
-    >>> from cuml.metrics import sparse_pairwise_distances
-    >>>
-    >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5, random_state=9)
-    >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5, random_state=9)
-    >>> X.todense()
-    array([[0.8098..., 0.537..., 0. ],
-           [0.        , 0.856..., 0. ]])
-    >>> Y.todense()
-    array([[0.        , 0.        , 0.993...]])
-    >>> # Cosine Pairwise Distance, Single Input:
-    >>> sparse_pairwise_distances(X, metric='cosine')
-    array([[0.      , 0.447...],
-           [0.447..., 0.        ]])
-    >>>
-    >>> # Squared euclidean Pairwise Distance, Multi-Input:
-    >>> sparse_pairwise_distances(X, Y, metric='sqeuclidean')
-    array([[1.931...],
-           [1.720...]])
-    >>>
-    >>> # Canberra Pairwise Distance, Multi-Input:
-    >>> sparse_pairwise_distances(X, Y, metric='canberra')
-    array([[3.],
-           [2.]])
+
+    .. code-block:: python
+
+        >>> import cupyx
+        >>> from cuml.metrics import sparse_pairwise_distances
+
+        >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5, random_state=9)
+        >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5, random_state=9)
+        >>> X.todense()
+        array([[0.8098..., 0.537..., 0. ],
+            [0.        , 0.856..., 0. ]])
+        >>> Y.todense()
+        array([[0.        , 0.        , 0.993...]])
+        >>> # Cosine Pairwise Distance, Single Input:
+        >>> sparse_pairwise_distances(X, metric='cosine')
+        array([[0.      , 0.447...],
+            [0.447..., 0.        ]])
+
+        >>> # Squared euclidean Pairwise Distance, Multi-Input:
+        >>> sparse_pairwise_distances(X, Y, metric='sqeuclidean')
+        array([[1.931...],
+            [1.720...]])
+
+        >>> # Canberra Pairwise Distance, Multi-Input:
+        >>> sparse_pairwise_distances(X, Y, metric='canberra')
+        array([[3.],
+            [2.]])
     """
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
