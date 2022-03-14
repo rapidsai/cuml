@@ -51,8 +51,8 @@ requirements:
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2021.11.1
-    - distributed>=2021.11.1
+    - dask>=2022.02.1
+    - distributed>=2022.02.1
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.5,<12.0
