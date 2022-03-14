@@ -48,7 +48,7 @@ struct vec;
 template <typename BinaryOp>
 struct Vectorized {
   BinaryOp op;
-  __device__ Vectorized(BinaryOp op_) : op(op_) {}
+  __host__ __device__ Vectorized(BinaryOp op_) : op(op_) {}
   template <int NITEMS, typename T>
   constexpr __host__ __device__ __forceinline__ vec<NITEMS, T> operator()(vec<NITEMS, T> a,
                                                                           vec<NITEMS, T> b) const
@@ -63,7 +63,7 @@ struct Vectorized {
 template <typename BinaryOp>
 constexpr __host__ __device__ Vectorized<BinaryOp> vectorized(BinaryOp op)
 {
-  return op;
+  return Vectorized<BinaryOp>(op);
 }
 
 template <int N, typename T>
@@ -369,25 +369,11 @@ __device__ __forceinline__ void write_best_class(
 }
 
 /// needed for softmax
-template <typename real_t>
-__device__ real_t shifted_exp(real_t margin, real_t max)
-{
-  // this is always false, since specializations are used for float and double
-  static_assert(std::is_same_v<real_t, float> || std::is_same_v<real_t, double>,
-                "only specializations of shifted_exp<real_t> can be used");
-}
+struct shifted_exp {
+  __device__ double operator()(double margin, double max) const { return exp(margin - max); }
 
-template <>
-__device__ double shifted_exp(double margin, double max)
-{
-  return exp(margin - max);
-}
-
-template <>
-__device__ float shifted_exp(float margin, float max)
-{
-  return expf(margin - max);
-}
+  __device__ float operator()(float margin, float max) const { return expf(margin - max); }
+};
 
 // *begin and *end shall be struct vec
 // tmp_storage may NOT overlap shared memory addressed by [begin, end)
@@ -395,12 +381,12 @@ template <typename Iterator>
 __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end, void* tmp_storage)
 {
   // subtract max before exponentiating for numerical stability
-  using real_t = typename std::iterator_traits<Iterator>::value_type;
-  real_t max   = allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
+  using value_type = typename std::iterator_traits<Iterator>::value_type;
+  value_type max   = allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
-    *it = vectorized(shifted_exp<real_t>)(*it, max);
+    *it = vectorized(shifted_exp())(*it, max);
   // sum of exponents
-  real_t soe = allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
+  value_type soe = allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it /= soe;
@@ -802,13 +788,13 @@ __device__ INLINE_CONFIG void load_data(real_t* sdata,
 }
 
 template <int NITEMS,
-          typename real_t,
           leaf_algo_t leaf_algo,
           bool cols_in_shmem,
           bool CATS_SUPPORTED,
           class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
+  using real_t = typename storage_type::real_t;
   extern __shared__ char smem[];
   real_t* sdata      = (real_t*)smem;
   int sdata_stride   = params.sdata_stride();
