@@ -913,6 +913,16 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
   dispatch_on_fil_template_params(infer_k_storage_template<storage_type>(forest, stream), params);
 }
 
+template void infer<dense_storage>(dense_storage forest,
+                                   predict_params params,
+                                   cudaStream_t stream);
+template void infer<sparse_storage16>(sparse_storage16 forest,
+                                      predict_params params,
+                                      cudaStream_t stream);
+template void infer<sparse_storage8>(sparse_storage8 forest,
+                                     predict_params params,
+                                     cudaStream_t stream);
+
 // struct instantiate_infer {
 //   template <typename fil_node_t>
 //   void operator()(fil_node_t)

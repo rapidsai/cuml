@@ -655,11 +655,11 @@ void convert(const raft::handle_t& handle,
   tl2fil.init_forest(handle, pforest);
 }
 
-template <typename F>
+template <typename real_t>
 constexpr bool type_supported()
 {
   // not using std::is_floating_point because we did not instantiate fp16-based nodes/trees/forests
-  return std::is_same<F, float>() || std::is_same<F, double>();
+  return std::is_same<real_t, float>() || std::is_same<real_t, double>();
 }
 
 template <typename threshold_t, typename leaf_t>
@@ -681,7 +681,7 @@ void from_treelite(const raft::handle_t& handle,
       "This may lead to predictions with reduced accuracy.");
   }
   // same as std::common_type: float+double=double, float+int64_t=float
-  typedef decltype(threshold_t{} + leaf_t{}) F;
+  typedef decltype(threshold_t{} + leaf_t{}) real_t;
 
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default

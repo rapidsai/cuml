@@ -393,7 +393,7 @@ struct categorical_sets {
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
   __host__ __device__ __forceinline__ int category_matches(node_t node,
-                                                           typename node_t::F category) const
+                                                           typename node_t::real_t category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed
@@ -409,7 +409,8 @@ struct categorical_sets {
     FIL will reject a model where an integer within [0, fid_num_cats] cannot be represented
     precisely as a 32-bit float.
     */
-    return static_cast<float>(category) < fid_num_cats[node.fid()] && category >= 0.0f &&
+    return static_cast<typename node_t::real_t>(category) < fid_num_cats[node.fid()] &&
+           category >= 0.0f &&
            fetch_bit(bits + node.set(), static_cast<uint32_t>(static_cast<int>(category)));
   }
   static int sizeof_mask_from_num_cats(int num_cats)

@@ -127,6 +127,7 @@ struct storage : storage_base<typename node_t_::real_t> {
   }
 };
 
+typedef storage<dense_node<float>> dense_storage;
 typedef storage<sparse_node16<float>> sparse_storage16;
 typedef storage<sparse_node8> sparse_storage8;
 
