@@ -92,13 +92,12 @@ Feature Scaling and Normalization (Single-GPU)
 Other preprocessing methods (Single-GPU)
 -------------
 .. automodule:: cuml.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MissingIndicator,
-             PolynomialFeatures, SimpleImputer,
+   :members: Binarizer, FunctionTransformer, KBinsDiscretizer,
+             MissingIndicator, PolynomialFeatures, SimpleImputer,
              add_dummy_feature, binarize
 
 .. automodule:: cuml.compose
-   :members: ColumnTransformer, FunctionTransformer, make_column_transformer,
-             make_column_selector
+   :members: ColumnTransformer, make_column_transformer, make_column_selector
 
 Text Preprocessing (Single-GPU)
 ---------------------------------------
