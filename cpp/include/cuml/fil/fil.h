@@ -55,15 +55,16 @@ enum algo_t {
 enum storage_type_t {
   /** decide automatically; currently always builds dense forests */
   AUTO,
-  /** import the forest as dense */
+  /** import the forest as dense (8 or 16-bytes nodes, depending on model precision */
   DENSE,
   /** import the forest as sparse (currently always with 16-byte nodes) */
   SPARSE,
   /** (experimental) import the forest as sparse with 8-byte nodes; can fail if
       8-byte nodes are not enough to store the forest, e.g. there are too many
-      nodes in a tree or too many features; note that the number of bits used to
-      store the child or feature index can change in the future; this can affect
-      whether a particular forest can be imported as SPARSE8 */
+      nodes in a tree or too many features or the thresholds are double precision;
+      note that the number of bits used to store the child or feature index can
+      change in the future; this can affect whether a particular forest can be
+      imported as SPARSE8 */
   SPARSE8,
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
