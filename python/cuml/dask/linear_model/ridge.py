@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import get_raft_comm_state
 
 
 class Ridge(BaseEstimator,

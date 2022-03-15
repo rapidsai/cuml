@@ -65,6 +65,7 @@ from cuml.model_selection import train_test_split
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.kernel_density import KernelDensity
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
@@ -90,10 +91,6 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.common.memory_utils import set_global_output_type, using_output_type
-
-# RAFT
-
-from cuml.raft import raft_include_test
 
 # Import verion. Remove at end of file
 from ._version import get_versions

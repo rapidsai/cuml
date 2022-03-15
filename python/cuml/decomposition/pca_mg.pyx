@@ -34,9 +34,10 @@ import cuml.common.opg_data_utils_mg as opg
 
 import cuml.internals
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common.opg_data_utils_mg cimport *
+
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
@@ -94,7 +95,6 @@ class PCAMG(BaseDecompositionMG, PCA):
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
-        params.n_iterations = self.iterated_power
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))

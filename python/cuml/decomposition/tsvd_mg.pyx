@@ -29,7 +29,7 @@ from cython.operator cimport dereference as deref
 
 import cuml.internals
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 import cuml.common.opg_data_utils_mg as opg
 from cuml.common.opg_data_utils_mg cimport *
@@ -74,7 +74,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
-        params.n_iterations = self.iterated_power
+        params.n_iterations = self.n_iter
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))

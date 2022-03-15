@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ from cuml.dask.common.utils import get_client
 from cuml import Base
 from cuml.common.array import CumlArray
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import Comms
+from raft.dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
 from cuml.internals import BaseMetaClass
