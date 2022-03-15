@@ -170,7 +170,8 @@ class LabelEncoder(Base):
             A fitted instance of itself to allow method chaining
 
         """
-        y, _ = self._to_cudf_series(y)
+        if _classes is None:
+            y, _ = self._to_cudf_series(y)
 
         self._validate_keywords()
 
@@ -293,8 +294,14 @@ class LabelEncoder(Base):
         elif isinstance(y, np.ndarray):
             y = cudf.Series(y)
             output_type = 'numpy'
-        else:
+        elif isinstance(y, cudf.Series):
             output_type = 'cudf'
+        else:
+            msg = ("input should be either 'cupy.ndarray'"
+                   " or 'numpy.ndarray' or 'pandas.Series',"
+                   " or 'cudf.Series'"
+                   "got {0}.".format(type(y)))
+            raise TypeError(msg)
         return y, output_type
 
     def _to_output(self, y, output_type):
