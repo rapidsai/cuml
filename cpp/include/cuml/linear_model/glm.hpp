@@ -34,6 +34,8 @@ namespace GLM {
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
+   for uniform weights)
  * @{
  */
 void olsFit(const raft::handle_t& handle,
@@ -45,7 +47,8 @@ void olsFit(const raft::handle_t& handle,
             float* intercept,
             bool fit_intercept,
             bool normalize,
-            int algo = 0);
+            int algo             = 0,
+            float* sample_weight = nullptr);
 void olsFit(const raft::handle_t& handle,
             double* input,
             int n_rows,
@@ -55,7 +58,8 @@ void olsFit(const raft::handle_t& handle,
             double* intercept,
             bool fit_intercept,
             bool normalize,
-            int algo = 0);
+            int algo              = 0,
+            double* sample_weight = nullptr);
 /** @} */
 
 /**
