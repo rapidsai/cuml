@@ -10,12 +10,14 @@
     - [Python Dependencies](#python-dependencies)
     - [Python Unit Test Dependencies](#python-unit-test-dependencies)
 - [Build Guide](#build-guide)
-   - [Using build.sh](#using-buildsh-for-c-and-python)
-   - [Building C++ Using CMake](#building-c-artifacts-with-cmake)
-   - [Building Python using `setup.py`](#building-python-artifacts-with-setuppy)
+    - [Using build.sh](#using-buildsh-for-c-and-python)
+    - [Building C++ Using CMake](#building-c-artifacts-with-cmake)
+        - [Single and Multi-GPU Components](#single-and-multi-gpu-components)
+        - [Configuring Algorithms Built](#configuring-algorithms-built)
+    - [Building Python using `setup.py`](#building-python-artifacts-with-setuppy)
 - [Unit Tests](#unit-tests)
-   - [C++ Unit Tests](#c-unit-tests)
-   - [Python Unit Tests](#python-unit-tests)
+    - [C++ Unit Tests](#c-unit-tests)
+    - [Python Unit Tests](#python-unit-tests)
 
 ## Quick Start Guide
 
@@ -29,7 +31,7 @@ The fast guide to build cuML is based on conda for getting most of the requireme
 - `GCC`/`G++` 9.3 or greater
 - `Ninja` or `make`
 - `OpenMP`
-- `conda` or `mamba` (`mamba` is recommended to speed up the process.)
+- `conda` or `mamba` (`mamba` is recommended to speed up the process.) **Note:** The single GPU C++ artifacts can be built without any further dependencies and without `conda`/`mamba` and the corresponding developer environments, though at the cost of _significantly_ longer compile time and binary size. For more details see [Building C++ Using CMake](#building-c-artifacts-with-cmake).
 
 2. Choose and create the appropriate conda development environment:
 
@@ -274,6 +276,118 @@ You may also wish to make use of `ccache` or `sccache` to reduce build times whe
 $ cmake .. -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache
 ```
 
+After CMake has run, you can build the C++ targets:
+
+```bash
+$ ninja -j  # replace with make if you're not using Ninja
+$ ninja install
+```
+
+To build doxygen docs for all C/C++ source files
+```bash
+$ ninja doc
+```
+
+#### Single and Multi-GPU Components
+
+By default, `libcuml++` will be built with all the algorithms in the codebase, including single and multi-GPU components. The multi-GPU algorithms add the following dependencies:
+
+- `libcumlprims`: Closed-source library, the algorithms that depend on it include: linear models, `PCA`, and `tSVD`.
+- `UCX`
+- `NCCL`
+
+`libcuml++` can be configured to avoid these dependencies, with the following CMake options:
+
+- `-DENABLE_CUMLPRIMS_MG=OFF`: Disables algorithms that depend on `libcumlprims`. Still depends on `UCX` and `NCCL` to run the remaining multi-GPU algorithms.
+- `-DSINGLE_GPU=ON`: Disables all multi-GPU algorithms, avoiding all `UCX`, `NCCL` and `libcumlprims` dependencies.
+
+Using the `SINGLE_GPU` option allows an "all-from-source" build, where the only dependencies are the ones in point 1. of the [Quick Start Guide](#quick-start-guide). That said, depending on your intentions, particularly to create a single binary that statically includes all dependencies, the following options will be useful:
+
+-`-DCUML_USE_FAISS_STATIC=ON`
+-`-DCUML_USE_TREELITE_STATIC=ON`
+
+__todo:__ Add documentation on building RAFT libraries statically
+
+#### Configuring Algorithms Built
+
+By default the `libcuml++.so` produced includes all single and multi-GPU algorithms, or only the single-GPU algorithms is configured that way as explained in the prior section. But sometimes further configurability is required, where `libcuml++.so` with only certain algorithms is desired. The build system has an experimental feature that allows this by using the following CMake option:
+
+- `-DCUML_ALGORITHMS`: This CMake option allows to specify exactly which groups of algorithms, or individual algorithms, will be built into `libcuml++.so`.
+
+**Note:** This is still an experimental/beta, in-progress, option of the build system, so no guarantees of everything working perfectly are set yet. Particularly, it doesn't support building the C-wrapper library (`libcuml`) and has not been extensively tested yet.
+
+Specifying a single or set of algorithms can reduce compilation time, binary size as well as reduce the dependencies needed at built and runtime. Strings (with any casing, but uppercase is recommended for consistency with other CMake options) and semicolon-separated list of strings are accepted, where each string can be a single algorithms or group of algorithms. Possible options include:
+
+<!-- - "ALL": Default option, builds all algorithms into `libcuml++.so`.
+- "CLUSTER"
+      set(dbscan_algo ON)
+      set(hdbscan_algo ON)
+      set(kmeans_algo ON)
+      set(hierarchicalclustering_algo ON)
+      set(spectralclustering_algo ON)
+
+- "DECOMPOSITION"
+  set(pca_algo ON)
+  set(tsvd_algo ON)
+
+- "ENSEMBLE"
+  set(randomforest_algo ON)
+
+- "LINEAR_MODEL"
+  set(linearregression_algo ON)
+  set(ridge_algo ON)
+  set(lasso_algo ON)
+  set(logisticregression_algo ON)
+
+  # we need solvers for ridge, lasso, logistic
+  set(solvers_algo ON)
+
+- "MANIFOLD"
+  set(tsne_algo ON)
+  set(umap_algo ON)
+
+- "SOLVERS"
+  set(lars_algo ON)
+  set(cd_algo ON)
+  set(sgd_algo ON)
+  set(qn_algo ON)
+
+- "TSA"
+  set(arima_algo ON)
+  set(autoarima_algo ON)
+  set(holtwinters_algo ON)
+
+###### Set linking options and algorithms that require other algorithms #######
+
+if(fil_algo OR treeshap_algo)
+  set(LINK_TREELITE ON)
+
+if(hdbscan_algo)
+    set(hierarchicalclustering_algo ON)
+
+if(hdbscan_algo OR tsne_algo OR umap_algo)
+    set(knn_algo ON)
+
+if(tsne_algo)
+  set(LINK_CUFFT ON)
+
+if(knn_algo)
+    set(CUML_USE_RAFT_NN ON)
+
+if(randomforest_algo)
+    set(decisiontree_algo ON)
+    set(LINK_TREELITE ON)
+
+if(hierarchicalclustering_algo OR kmeans_algo)
+  set(metrics_algo ON)
+
+if(metrics_algo)
+  set(CUML_USE_RAFT_DIST ON) -->
+
+
+
+#### Full Build Configuration Options
+
 There are many options to configure the build process with the following CMake options:
 
 | Flag | Possible Values | Default Value | Behavior |
@@ -297,17 +411,6 @@ There are many options to configure the build process with the following CMake o
 | CUML_USE_FAISS_STATIC | [ON, OFF]  | OFF  | Build and statically link the FAISS library for nearest neighbors search on GPU.  |
 | CUML_USE_TREELITE_STATIC | [ON, OFF]  | OFF  | Build and statically link the treelite library.  |
 
-After CMake has run, you can build the C++ targets:
-
-```bash
-$ ninja -j
-$ ninja install
-```
-
-To build doxygen docs for all C/C++ source files
-```bash
-$ ninja doc
-```
 
 ### Building Python Artifacts with `setup.py`
 
