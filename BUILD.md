@@ -21,8 +21,6 @@
 
 ## Quick Start Guide
 
-The fast guide to build cuML is based on conda for getting most of the requirements.
-
 1. System must have the following minimum requirements:
 
 - Pascal or newer NVIDIA GPU
@@ -95,8 +93,6 @@ If you are using conda, you can find 3 types of pre-defined environments:
 - `cuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ and Python artifacts.
 - `rapids_dev_cuda11.5yml`: Creates a conda environment suitable to build any RAPIDS project, including cuML, cuDF and cuGraph. Note, it doesn't include those packages, so if you want to build cuML Python in it, you can build or install cuDF in it.
 
-One of the reasons for providing these 3 packages is due to the significantly increased number of packages and size that the bigger environment required. Measured for cuML 22.04, these environments take:
-
 If you require another 11.x version of CUDA, just edit the `cudatoolkit=11.5` line inside those files. **Note**: cuDF requires CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
 
 It is recommended to use [`mamba`](https://mamba.readthedocs.io/en/latest/) to speed up creating the environments, but you can use `conda` as well:
@@ -105,7 +101,7 @@ It is recommended to use [`mamba`](https://mamba.readthedocs.io/en/latest/) to s
 mamba env create -f conda/environments/libcuml_dev_cuda11.5.yml python=3.9 -n libcuml_dev # change libcuml_dev for any name you want for the environment
 ```
 
-If you already have a C++ dependencies environment, say named `libcuml_dev`, and want to add the Python dependencies, that can be done with:
+If you already have an environment with the `libcuml++` dependencies, say named `libcuml_dev`, and want to add the Python dependencies, that can be done with:
 
 ```bash
 mamba env update --file conda/environments/cuml_dev_cuda11.5.yml --name libcuml_dev
@@ -160,7 +156,7 @@ To build the `cuml` Python package, the C++ requirements are needed plus:
 
 ### Python Unit Test Dependencies
 
-To run the (`pytest` based)
+To run the (`pytest` based) Python unit tests, the following additional packages are needed:
 
 20. `pytest`
 21. `scikit-learn=0.24`
@@ -253,9 +249,6 @@ $ pytest cuML/test --collect-only
 
 ### Full Process
 
-
-Refer to `--help` option to know more on its uage
-
 ### Building C++ Artifacts with CMake
 
 Once dependencies are present, to build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
@@ -332,6 +325,7 @@ Specifying a single or set of algorithms can reduce compilation time, binary siz
 - `"DECOMPOSITION"` to include decomposition algorithms, or specify indivual options: `"PCA"`, `"TSVD"`
 - `"ENSEMBLE"` or `"RANDOMFOREST"` to include Random Forest (and Decision Tree) algorithms.
 - `"FIL"` to include the Forest Inferencing Library (FIL).
+- `"KNN"` to include the Nearest Neighbors models.
 - `"LINEAR_MODEL"` to include linear models, or specify indivual options: `"LINEARREGRESSION"`, `"RIDGE"`, `"LASSO"`, `"LOGISTICREGRESSION"`.
 - `"MANIFOLD"` to include manifold models, or specify indivual options: `"TSNE"`, `"UMAP"`.
 - `"METRICS` to include metrics/scoring algorithms.
