@@ -111,7 +111,7 @@ if [ "$BUILD_CUML" == '1' ]; then
     
     gpuci_logger "FLASH TEMP COMMIT: using mamba build"
     gpuci_mamba_retry install -c conda-forge boa
-    gpuci_conda_retry conda mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=${PYTHON}
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=${PYTHON}
     mkdir -p ${CONDA_BLD_DIR}/cuml
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/cuml/work
   fi
