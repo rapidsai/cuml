@@ -52,7 +52,7 @@ PARALLEL_LEVEL=8 ./build.sh libcuml
 
 By default, `Ninja` is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
 ```bash
-CMAKE_GENERATOR='Unix Makefiles' ./build.sh
+PARALLEL_LEVEL=8 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
 
 - For building either the C++ and the Python libraries:
@@ -62,13 +62,13 @@ PARALLEL_LEVEL=8 ./build.sh libcuml cuml
 
 In all of the above commands, you can increase the parallel level to speed up compilation with more parallelism, at the cost of needing more RAM in the system.
 
-4. Run tests if desired:
+4. Run unit tests if desired:
 
 - C++ tests (from the repository root folder):
 
 ```bash
 cd cpp/build
-ninja
+ninja test
 ```
 
 - Python tests (from the repository root folder):
