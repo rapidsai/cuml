@@ -27,6 +27,7 @@
 #include <rmm/device_uvector.hpp>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+#include <utility>
 #include <vector>
 
 namespace raft {
@@ -89,19 +90,22 @@ enum output_t {
 };
 
 /** val_t is the payload within a FIL leaf */
+template <typename real_t>
 union val_t {
-  /** threshold value for parent node or output value (e.g. class
-      probability or regression summand) for leaf node */
-  float f = NAN;
+  /** floating-point threshold value for parent node or output value
+      (e.g. class probability or regression summand) for leaf node */
+  real_t f = NAN;
   /** class label, leaf vector index or categorical node set offset */
   int idx;
 };
 
 /** base_node contains common implementation details for dense and sparse nodes */
-struct base_node {
+template <typename real_t_>
+struct alignas(2 * sizeof(real_t_)) base_node {
+  using real_t = real_t_;  // floating-point type
   /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
-  val_t val;
+  val_t<real_t> val;
   /** bits encode various information about the node, with the exact nature of
       this information depending on the node type; it includes e.g. whether the
       node is a leaf or inner node, and for inner nodes, additional information,
@@ -115,16 +119,35 @@ struct base_node {
   static const int IS_CATEGORICAL_MASK   = 1 << IS_CATEGORICAL_OFFSET;
   static const int FID_MASK              = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
-  __host__ __device__ o_t output() const;
+  __host__ __device__ o_t output() const
+  {
+    static_assert(
+      std::is_same_v<o_t, int> || std::is_same_v<o_t, real_t> || std::is_same_v<o_t, val_t<real_t>>,
+      "invalid o_t type parameter in node.output()");
+    if constexpr (std::is_same_v<o_t, int>) {
+      return val.idx;
+    } else if constexpr (std::is_same_v<o_t, real_t>) {
+      return val.f;
+    } else if constexpr (std::is_same_v<o_t, val_t<real_t>>) {
+      return val;
+    }
+    // control flow should not reach here
+    return o_t();
+  }
   __host__ __device__ int set() const { return val.idx; }
-  __host__ __device__ float thresh() const { return val.f; }
-  __host__ __device__ val_t split() const { return val; }
+  __host__ __device__ real_t thresh() const { return val.f; }
+  __host__ __device__ val_t<real_t> split() const { return val; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
   __host__ __device__ base_node() : val{}, bits(0) {}
-  base_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  base_node(val_t<real_t> output,
+            val_t<real_t> split,
+            int fid,
+            bool def_left,
+            bool is_leaf,
+            bool is_categorical)
   {
     RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
@@ -136,34 +159,19 @@ struct base_node {
   }
 };
 
-template <>
-__host__ __device__ __forceinline__ float base_node::output<float>() const
-{
-  return val.f;
-}
-template <>
-__host__ __device__ __forceinline__ int base_node::output<int>() const
-{
-  return val.idx;
-}
-template <>
-__host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
-{
-  return val;
-}
-
 /** dense_node is a single node of a dense forest */
-struct alignas(8) dense_node : base_node {
+template <typename real_t>
+struct alignas(2 * sizeof(real_t)) dense_node : base_node<real_t> {
   dense_node() = default;
   /// ignoring left_index, this is useful to unify import from treelite
-  dense_node(val_t output,
-             val_t split,
+  dense_node(val_t<real_t> output,
+             val_t<real_t> split,
              int fid,
              bool def_left,
              bool is_leaf,
              bool is_categorical,
              int left_index = -1)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
+    : base_node<real_t>(output, split, fid, def_left, is_leaf, is_categorical)
   {
   }
   /** index of the left child, where curr is the index of the current node */
@@ -171,20 +179,18 @@ struct alignas(8) dense_node : base_node {
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-struct alignas(16) sparse_node16 : base_node {
+template <typename real_t>
+struct alignas(16) sparse_node16 : base_node<real_t> {
   int left_idx;
-  int dummy;  // make alignment explicit and reserve for future use
-  __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  sparse_node16(val_t output,
-                val_t split,
+  __host__ __device__ sparse_node16() : left_idx(0) {}
+  sparse_node16(val_t<real_t> output,
+                val_t<real_t> split,
                 int fid,
                 bool def_left,
                 bool is_leaf,
                 bool is_categorical,
                 int left_index)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical),
-      left_idx(left_index),
-      dummy(0)
+    : base_node<real_t>(output, split, fid, def_left, is_leaf, is_categorical), left_idx(left_index)
   {
   }
   __host__ __device__ int left_index() const { return left_idx; }
@@ -193,7 +199,7 @@ struct alignas(16) sparse_node16 : base_node {
 };
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
-struct alignas(8) sparse_node8 : base_node {
+struct alignas(8) sparse_node8 : base_node<float> {
   static const int LEFT_NUM_BITS = 16;
   static const int FID_NUM_BITS  = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
   static const int LEFT_OFFSET   = FID_NUM_BITS;
@@ -202,14 +208,14 @@ struct alignas(8) sparse_node8 : base_node {
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ int left_index() const { return (bits & LEFT_MASK) >> LEFT_OFFSET; }
   sparse_node8() = default;
-  sparse_node8(val_t output,
-               val_t split,
+  sparse_node8(val_t<float> output,
+               val_t<float> split,
                int fid,
                bool def_left,
                bool is_leaf,
                bool is_categorical,
                int left_index)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
+    : base_node<float>(output, split, fid, def_left, is_leaf, is_categorical)
   {
     RAFT_EXPECTS((fid & FID_MASK) == fid,
                  "internal error: feature ID doesn't fit into sparse_node8");
@@ -221,29 +227,30 @@ struct alignas(8) sparse_node8 : base_node {
   __host__ __device__ int left(int curr) const { return left_index(); }
 };
 
+template <typename node_t>
+struct storage;
+
+template <typename node_t>
 struct dense_forest;
 template <typename node_t>
 struct sparse_forest;
 
-struct dense_storage;
-template <typename node_t>
-struct sparse_storage;
-
 template <typename node_t>
 struct node_traits {
-  using storage              = sparse_storage<node_t>;
+  using real_t               = typename node_t::real_t;
+  using storage              = ML::fil::storage<node_t>;
   using forest               = sparse_forest<node_t>;
   static const bool IS_DENSE = false;
   static const storage_type_t storage_type_enum =
-    std::is_same<sparse_node16, node_t>() ? SPARSE : SPARSE8;
+    std::is_same<sparse_node16<typename node_t::real_t>, node_t>() ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
 };
 
-template <>
-struct node_traits<dense_node> {
-  using storage                                 = dense_storage;
-  using forest                                  = dense_forest;
+template <typename real_t>
+struct node_traits<dense_node<real_t>> {
+  using storage                                 = storage<dense_node<real_t>>;
+  using forest                                  = dense_forest<dense_node<real_t>>;
   static const bool IS_DENSE                    = true;
   static const storage_type_t storage_type_enum = DENSE;
   template <typename threshold_t, typename leaf_t>
@@ -288,27 +295,30 @@ enum leaf_algo_t {
   MAX_LEAF_ALGO = 5
 };
 
-template <leaf_algo_t leaf_algo>
+template <typename node_t>
+struct tree;
+
+template <leaf_algo_t leaf_algo, typename real_t>
 struct leaf_output_t {
 };
-template <>
-struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
-  typedef float T;
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY, real_t> {
+  typedef real_t T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF, real_t> {
   typedef int T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
-  typedef float T;
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES, real_t> {
+  typedef real_t T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
-  typedef float T;
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES, real_t> {
+  typedef real_t T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::VECTOR_LEAF> {
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::VECTOR_LEAF, real_t> {
   typedef int T;
 };
 
