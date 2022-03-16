@@ -61,11 +61,11 @@ __global__ void transform_k(real_t* preds,
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
   // will not be done on CATEGORICAL_LEAF because the whole kernel will not run
-  if ((output & output_t::CLASS) != 0) { result = result > threshold ? 1.0f : 0.0f; }
+  if ((output & output_t::CLASS) != 0) { result = result > threshold ? real_t(1) : real_t(0); }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
   if (complement_proba) {
-    preds[i]     = 1.0f - result;
+    preds[i]     = real_t(1) - result;
     preds[i + 1] = result;
   } else
     preds[i] = result;
