@@ -30,6 +30,7 @@ from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
+from cuml.common.input_utils import input_to_cuml_array
 import pytest
 
 
@@ -108,6 +109,28 @@ def normalize_clusters(a0, b0, n_clusters):
         b[c == a_to_b] = i
 
     return a, b
+
+
+def as_type(type, *args):
+    # Convert array args to type supported by
+    # CumlArray.to_output ('numpy','cudf','cupy'...)
+    # Ensure 2 dimensional inputs are not converted to 1 dimension
+    # None remains as None
+    # Scalar remains a scalar
+    result = []
+    for arg in args:
+        if arg is None or np.isscalar(arg):
+            result.append(arg)
+        else:
+            # make sure X with a single feature remains 2 dimensional
+            if type == 'cudf' and len(arg.shape) > 1:
+                result.append(input_to_cuml_array(
+                    arg).array.to_output('dataframe'))
+            else:
+                result.append(input_to_cuml_array(arg).array.to_output(type))
+    if len(result) == 1:
+        return result[0]
+    return tuple(result)
 
 
 def to_nparray(x):

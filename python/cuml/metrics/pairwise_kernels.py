@@ -19,6 +19,7 @@ import cupy as cp
 import numpy as np
 import cuml.internals
 from cuml.metrics import pairwise_distances
+from cuml.common.input_utils import input_to_cupy_array
 
 
 def linear_kernel(X, Y):
@@ -191,7 +192,8 @@ def custom_kernel(X, Y, func, **kwds):
 @cuml.internals.api_return_array(get_output_type=True)
 def pairwise_kernels(X, Y=None, metric="linear", *,
                      filter_params=False, convert_dtype=True, **kwds):
-    """Compute the kernel between arrays X and optional array Y.
+    """
+    Compute the kernel between arrays X and optional array Y.
     This method takes either a vector array or a kernel matrix, and returns
     a kernel matrix. If the input is a vector array, the kernels are
     computed. If the input is a kernel matrix, it is returned instead.
@@ -203,6 +205,7 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
     Valid values for metric are:
         ['additive_chi2', 'chi2', 'linear', 'poly', 'polynomial', 'rbf',
         'laplacian', 'sigmoid', 'cosine']
+
     Parameters
     ----------
     X : Dense matrix (device or host) of shape (n_samples_X, n_samples_X) or \
@@ -233,6 +236,7 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
         will increase memory used for the method.
     **kwds : optional keyword parameters
         Any further parameters are passed directly to the kernel function.
+
     Returns
     -------
     K : ndarray of shape (n_samples_X, n_samples_X) or \
@@ -241,6 +245,7 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
         ith and jth vectors of the given matrix X, if Y is None.
         If Y is not None, then K_{i, j} is the kernel between the ith array
         from X and the jth array from Y.
+
     Notes
     -----
     If metric is 'precomputed', Y is ignored and X is returned.
@@ -272,11 +277,11 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
         pairwise_kernels(X, Y, metric=custom_rbf_kernel)
 
     """
-    X = cp.asarray(X)
+    X = input_to_cupy_array(X).array
     if Y is None:
         Y = X
     else:
-        Y = cp.asarray(Y)
+        Y = input_to_cupy_array(Y).array
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
 
@@ -292,4 +297,5 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
     else:
         kwds = _filter_params(
             metric, filter_params, **kwds)
+
         return custom_kernel(X, Y, metric, **kwds)

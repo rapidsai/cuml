@@ -74,7 +74,7 @@ inline size_t binomial(const raft::handle_t& h, size_t n, double p, int random_s
   rmm::device_uvector<bool> rand_array(n, h.get_stream());
   rmm::device_scalar<int> successes(h.get_stream());
 
-  rng.bernoulli(rand_array.data(), n, p, h.get_stream());
+  rng.bernoulli(rand_array.data(), n, 1 - p, h.get_stream());
 
   cudaMemsetAsync(successes.data(), 0, sizeof(int), h.get_stream());
 
