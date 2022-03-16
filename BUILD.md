@@ -26,7 +26,7 @@ The fast guide to build cuML is based on conda for getting most of the requireme
 1. System must have the following minimum requirements:
 
 - Pascal or newer NVIDIA GPU
-- `CUDA` 11.0 or greater
+- `CUDA` 11.0 or greater. You can obtain CUDA from [https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads).
 - `CMake` 3.20.1 or greater
 - `GCC`/`G++` 9.3 or greater
 - `Ninja` or `make`
@@ -93,7 +93,9 @@ If you are using conda, you can find 3 types of pre-defined environments:
 
 - `libcuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ artifacts.
 - `cuml_dev_cuda11.5.yml`: Creates a conda environment suitable to build the C++ and Python artifacts.
-- `rapids_dev_cuda11.5yml`: Creates a conda environment suitable to build any RAPIDS project, including cuML, cuDF and cuGraph.
+- `rapids_dev_cuda11.5yml`: Creates a conda environment suitable to build any RAPIDS project, including cuML, cuDF and cuGraph. Note, it doesn't include those packages, so if you want to build cuML Python in it, you can build or install cuDF in it.
+
+One of the reasons for providing these 3 packages is due to the significantly increased number of packages and size that the bigger environment required. Measured for cuML 22.04, these environments take:
 
 If you require another 11.x version of CUDA, just edit the `cudatoolkit=11.5` line inside those files. **Note**: cuDF requires CUDA>=11.5 to be built, so take that into consideration if you are using the `rapids_dev_cuda11.5yml` to compile cuDF.
 
@@ -102,6 +104,14 @@ It is recommended to use [`mamba`](https://mamba.readthedocs.io/en/latest/) to s
 ```bash
 mamba env create -f conda/environments/libcuml_dev_cuda11.5.yml python=3.9 -n libcuml_dev # change libcuml_dev for any name you want for the environment
 ```
+
+If you already have a C++ dependencies environment, say named `libcuml_dev`, and want to add the Python dependencies, that can be done with:
+
+```bash
+mamba env update --file conda/environments/cuml_dev_cuda11.5.yml --name libcuml_dev
+```
+
+If a significant amount of time has passed between the creation of your environmente, there might be significant conflicts that could make this update fail, in that case it is suggested to create new environments.
 
 **Note**: If you're using the `rapids_dev_cuda11.5yml` environment that can build all of RAPIDS and want to upgrade any of the packages in it, you must first remove the meta-packages in it with:
 
@@ -303,10 +313,9 @@ By default, `libcuml++` will be built with all the algorithms in the codebase, i
 
 Using the `SINGLE_GPU` option allows an "all-from-source" build, where the only dependencies are the ones in point 1. of the [Quick Start Guide](#quick-start-guide). That said, depending on your intentions, particularly to create a single binary that statically includes all dependencies, the following options will be useful:
 
--`-DCUML_USE_FAISS_STATIC=ON`
--`-DCUML_USE_TREELITE_STATIC=ON`
-
-__todo:__ Add documentation on building RAFT libraries statically
+-`-DCUML_USE_RAFT_STATIC=ON` to statically link all RAFT binary dependencies.
+-`-DCUML_USE_FAISS_STATIC=ON` to statically link FAISS.
+-`-DCUML_USE_TREELITE_STATIC=ON` to statically link Treelite.
 
 #### Configuring Algorithms Built
 
@@ -318,73 +327,19 @@ By default the `libcuml++.so` produced includes all single and multi-GPU algorit
 
 Specifying a single or set of algorithms can reduce compilation time, binary size as well as reduce the dependencies needed at built and runtime. Strings (with any casing, but uppercase is recommended for consistency with other CMake options) and semicolon-separated list of strings are accepted, where each string can be a single algorithms or group of algorithms. Possible options include:
 
-<!-- - "ALL": Default option, builds all algorithms into `libcuml++.so`.
-- "CLUSTER"
-      set(dbscan_algo ON)
-      set(hdbscan_algo ON)
-      set(kmeans_algo ON)
-      set(hierarchicalclustering_algo ON)
-      set(spectralclustering_algo ON)
+- `"ALL"` is the default option, builds all algorithms into `libcuml++.so`.
+- `"CLUSTER"` to include all clustering algorithms, or specify the individual options: `"DBSCAN"`, `"HDBSCAN"`, `"KMEANS"`, `"HIERARCHICALCLUSTERING"`, `"SPECTRALCLUSTERING"`.
+- `"DECOMPOSITION"` to include decomposition algorithms, or specify indivual options: `"PCA"`, `"TSVD"`
+- `"ENSEMBLE"` or `"RANDOMFOREST"` to include Random Forest (and Decision Tree) algorithms.
+- `"FIL"` to include the Forest Inferencing Library (FIL).
+- `"LINEAR_MODEL"` to include linear models, or specify indivual options: `"LINEARREGRESSION"`, `"RIDGE"`, `"LASSO"`, `"LOGISTICREGRESSION"`.
+- `"MANIFOLD"` to include manifold models, or specify indivual options: `"TSNE"`, `"UMAP"`.
+- `"METRICS` to include metrics/scoring algorithms.
+- `"SOLVERS"` to include manifold models, or specify indivual options: `"LARS", `"CD", `"SGD", `"QN"
+- `"TSA"` to include time series models, or specify individual options: `"ARIMA"`, `"AUTOARIMA"`, `"HOLTWINTERS"`
+- `"TREESHAP"` to include GPUTreeSHAP.
 
-- "DECOMPOSITION"
-  set(pca_algo ON)
-  set(tsvd_algo ON)
-
-- "ENSEMBLE"
-  set(randomforest_algo ON)
-
-- "LINEAR_MODEL"
-  set(linearregression_algo ON)
-  set(ridge_algo ON)
-  set(lasso_algo ON)
-  set(logisticregression_algo ON)
-
-  # we need solvers for ridge, lasso, logistic
-  set(solvers_algo ON)
-
-- "MANIFOLD"
-  set(tsne_algo ON)
-  set(umap_algo ON)
-
-- "SOLVERS"
-  set(lars_algo ON)
-  set(cd_algo ON)
-  set(sgd_algo ON)
-  set(qn_algo ON)
-
-- "TSA"
-  set(arima_algo ON)
-  set(autoarima_algo ON)
-  set(holtwinters_algo ON)
-
-###### Set linking options and algorithms that require other algorithms #######
-
-if(fil_algo OR treeshap_algo)
-  set(LINK_TREELITE ON)
-
-if(hdbscan_algo)
-    set(hierarchicalclustering_algo ON)
-
-if(hdbscan_algo OR tsne_algo OR umap_algo)
-    set(knn_algo ON)
-
-if(tsne_algo)
-  set(LINK_CUFFT ON)
-
-if(knn_algo)
-    set(CUML_USE_RAFT_NN ON)
-
-if(randomforest_algo)
-    set(decisiontree_algo ON)
-    set(LINK_TREELITE ON)
-
-if(hierarchicalclustering_algo OR kmeans_algo)
-  set(metrics_algo ON)
-
-if(metrics_algo)
-  set(CUML_USE_RAFT_DIST ON) -->
-
-
+MultiGPU algorithms as well as any other missing components will be added in future releases.
 
 #### Full Build Configuration Options
 
@@ -414,14 +369,14 @@ There are many options to configure the build process with the following CMake o
 
 ### Building Python Artifacts with `setup.py`
 
-Build the `cuml` python package, from the repository root directory:
+To build the `cuml` python package, from the repository root directory:
 
 ```bash
 $ cd python
 $ python setup.py build_ext --inplace
 ```
 
-Finally, install the Python package to your Python path:
+Afterwards, install the Python package to your Python path:
 
 ```bash
 $ python setup.py install
@@ -439,28 +394,65 @@ $ cd cpp/build
 $ ninja test
 ```
 
-If you want a list of the available C++ tests:
+If you want a list of the available C++ tests, you can see them in the folder `test`, so from the `build` folder:
+
 ```bash
-$ ./test/ml --gtest_list_tests # Single GPU algorithm tests
-$ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
-$ ./test/prims --gtest_list_tests # ML Primitive function tests
+$ cd test
+$ ls -lt
+total 31100
+-rwxrwxr-x  1 galahad galahad 6725408 Mar 15 20:25 SG_TSNE_TEST
+-rwxrwxr-x  1 galahad galahad 6179888 Mar 15 20:25 SG_UMAP_PARAMETRIZABLE_TEST
+-rwxrwxr-x  1 galahad galahad 3135832 Mar 15 20:25 SG_SVC_TEST
+-rwxrwxr-x  1 galahad galahad  454192 Mar 15 20:25 SG_QUASI_NEWTON
+-rwxrwxr-x  1 galahad galahad 1553280 Mar 15 20:25 SG_RF_TEST
+-rwxrwxr-x  1 galahad galahad 2727696 Mar 15 20:25 SG_HDBSCAN_TEST
+-rwxrwxr-x  1 galahad galahad  603800 Mar 15 20:25 SG_FIL_TEST
+-rwxrwxr-x  1 galahad galahad  339776 Mar 15 20:25 SG_KNN_TEST
+-rwxrwxr-x  1 galahad galahad  591664 Mar 15 20:25 SG_TSVD_TEST
+-rwxrwxr-x  1 galahad galahad  216880 Mar 15 20:25 SG_RPROJ_TEST
+-rwxrwxr-x  1 galahad galahad 1141608 Mar 15 20:25 SG_SGD_TEST
+-rwxrwxr-x  1 galahad galahad  220176 Mar 15 20:25 SG_HOLTWINTERS_TEST
+-rwxrwxr-x  1 galahad galahad  366344 Mar 15 20:25 SG_DBSCAN_TEST
+-rwxrwxr-x  1 galahad galahad  436328 Mar 15 20:25 SG_LINKAGE_TEST
+-rwxrwxr-x  1 galahad galahad  306712 Mar 15 20:25 SG_SHAP_KERNEL_TEST
+-rwxrwxr-x  1 galahad galahad 1343976 Mar 15 20:25 SG_LARS_TEST
+-rwxrwxr-x  1 galahad galahad  226880 Mar 15 20:25 SG_KMEANS_TEST
+-rwxrwxr-x  1 galahad galahad  175712 Mar 15 20:25 SG_FIL_CHILD_INDEX_TEST
+-rwxrwxr-x  1 galahad galahad  101192 Mar 15 20:25 SG_TRUSTWORTHINESS_TEST
+-rwxrwxr-x  1 galahad galahad  419552 Mar 15 20:25 SG_GENETIC_NODE_TEST
+-rwxrwxr-x  1 galahad galahad   92232 Mar 15 20:25 SG_GENETIC_PARAM_TEST
+-rwxrwxr-x  1 galahad galahad   51248 Mar 15 20:25 SG_LOGGER_TEST
+-rwxrwxr-x  1 galahad galahad  849008 Mar 15 20:25 SG_CD_TEST
+-rwxrwxr-x  1 galahad galahad 1031408 Mar 15 20:25 SG_RIDGE_TEST
+-rwxrwxr-x  1 galahad galahad  985072 Mar 15 20:25 SG_PCA_TEST
+-rwxrwxr-x  1 galahad galahad 1010680 Mar 15 20:25 SG_OLS_TEST
+-rwxrwxr-x  1 galahad galahad  376928 Mar 15 20:25 SG_MULTI_SUM_TEST
+-rwxrwxr-x  1 galahad galahad   85000 Mar 15 20:25 SG_FNV_HASH_TEST
 ```
 
-To run tests (optional):
+Then, individual tests can be run
 ```bash
-$ ./test/ml # Single GPU algorithm tests
-$ ./test/ml_mg # Multi GPU algorithm tests
-$ ./test/prims # ML Primitive function tests
+$ ./SG_SVC_TEST
+Running main() from ../googletest/src/gtest_main.cc
+[==========] Running 36 tests from 14 test suites.
+[----------] Global test environment set-up.
+[----------] 2 tests from WorkingSetTest/0, where TypeParam = float
+[ RUN      ] WorkingSetTest/0.Init
+[       OK ] WorkingSetTest/0.Init (614 ms)
+[ RUN      ] WorkingSetTest/0.Select
+[       OK ] WorkingSetTest/0.Select (1 ms)
+[----------] 2 tests from WorkingSetTest/0 (615 ms total)
+
+[----------] 2 tests from WorkingSetTest/1, where TypeParam = double
+[ RUN      ] WorkingSetTest/1.Init
+[       OK ] WorkingSetTest/1.Init (0 ms)
+[ RUN      ] WorkingSetTest/1.Select
+[       OK ] WorkingSetTest/1.Select (1 ms)
+[----------] 2 tests from WorkingSetTest/1 (1 ms total)
+...
 ```
 
-If you want a list of the available tests:
-```bash
-$ ./test/ml --gtest_list_tests # Single GPU algorithm tests
-$ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
-$ ./test/prims --gtest_list_tests # ML Primitive function tests
-```
-
-To run cuML c++ benchmarks (optional):
+To run cuML c++ benchmarks, in the `build` directory:
 ```bash
 $ ./bench/sg_benchmark  # Single GPU benchmarks
 ```
@@ -471,10 +463,9 @@ To run ml-prims C++ benchmarks (optional):
 $ ./bench/prims_benchmark  # ml-prims benchmarks
 ```
 
-
 ### Python Unit Tests
 
-To run Python tests (optional):
+To run Python tests:
 
 ```bash
 $ pytest -v
@@ -488,5 +479,5 @@ $ pytest --ignore=cuml/test/dask
 
 If you want a list of the available tests:
 ```bash
-$ pytest cuML/test --collect-only
+$ pytest cuml/test --collect-only
 ```

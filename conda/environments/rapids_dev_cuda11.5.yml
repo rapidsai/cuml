@@ -9,6 +9,15 @@ dependencies:
 - rapids-build-env=22.04.*
 - rapids-notebook-env=22.04.*
 - rapids-doc-env=22.04.*
+- rmm=22.04.*
+- libcumlprims=22.04.*
+- libraft-headers=22.04.*
+- libraft-distance=22.04.*
+- libraft-nn=22.04.*
+- cudf=22.04.*
+- pyraft=22.04.*
+- dask-cudf=22.04.*
+- dask-cuda=22.04.*
 - pip
 - pip:
     - sphinx_markdown_tables
