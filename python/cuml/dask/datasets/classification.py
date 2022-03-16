@@ -81,8 +81,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         [-0.9788184  -0.89851004 -0.08339313  0.1130247 ]
         [-1.0549078  -0.8993015  -0.11921967  0.04821599]
         [-1.8388828  -1.4063598  -0.02838472 -1.0874642 ]]
-        >>> print(y.compute())
+        >>> print(y.compute()) # doctest: +SKIP
         [1 0 0 0 0 1 0 0 0 0]
+        >>> client.close()
         >>> cluster.close()
 
     Parameters

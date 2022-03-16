@@ -72,6 +72,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         >>> result = model.score(X_transformed, y)
         >>> print(result) # doctest: +SKIP
         array(0.93264981)
+        >>> client.close()
         >>> cluster.close()
 
     """

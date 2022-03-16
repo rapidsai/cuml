@@ -112,6 +112,7 @@ class LabelEncoder(BaseEstimator,
         0    c
         1    b
         dtype: object
+        >>> client.close()
         >>> cluster.close()
 
     """

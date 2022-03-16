@@ -65,6 +65,7 @@ class TruncatedSVD(BaseDecomposition,
         [ 9.000192   0.         0.       ]
         [ 6.7628784  0.         0.       ]
         [10.40526    0.         0.       ]]
+        >>> client.close()
         >>> cluster.close()
 
     Parameters

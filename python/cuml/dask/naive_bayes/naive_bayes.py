@@ -84,6 +84,7 @@ class MultinomialNB(BaseEstimator,
         >>> # Compute accuracy on training set
         >>> model.score(X, y)
         array(0.924...)
+        >>> client.close()
         >>> cluster.close()
 
     """

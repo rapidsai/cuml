@@ -70,6 +70,7 @@ class LabelBinarizer(BaseEstimator):
         >>> decoded = lb.inverse_transform(encoded)
         >>> print(decoded.compute())
         [ 0  5 10  7  2  4  1  0  0  4  3  2  1]
+        >>> client.close()
         >>> cluster.close()
 
     """

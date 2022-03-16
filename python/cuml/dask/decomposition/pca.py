@@ -76,6 +76,7 @@ class PCA(BaseDecomposition,
         [-6.7228684e-05]
         [-5.0618490e-03]
         [ 1.0557819e-02]]
+        >>> client.close()
         >>> cluster.close()
 
     Parameters

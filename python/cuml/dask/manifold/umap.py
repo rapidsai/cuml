@@ -65,6 +65,7 @@ class UMAP(BaseEstimator,
         [ -6.6378727   -0.15353012]
         [ -3.1891193   -0.83906937]
         [ -0.5042019    2.1454725 ]]
+        >>> client.close()
         >>> cluster.close()
 
     Notes
