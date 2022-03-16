@@ -128,17 +128,19 @@ void free(const raft::handle_t& h, forest_t f);
  *  @param h cuML handle used by this function
  *  @param f forest used for predictions
  *  @param preds array in GPU memory to store predictions into
-        size == predict_proba ? (2*num_rows) : num_rows
+ *      size = predict_proba ? (2*num_rows) : num_rows
+ *      type = the type used for the forest representation (float or double)
  *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
+ *      type = the type used for the forest representation (float or double)
  *  @param num_rows number of data rows
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
 void predict(const raft::handle_t& h,
              forest_t f,
-             float* preds,
-             const float* data,
+             void* preds,
+             const void* data,
              size_t num_rows,
              bool predict_proba = false);
 

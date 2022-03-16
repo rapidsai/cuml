@@ -640,23 +640,16 @@ void free(const raft::handle_t& h, forest_t f)
 /// part of C API - overload instead of template
 void predict(const raft::handle_t& h,
              forest_t f,
-             double* preds,
-             const double* data,
+             void* preds,
+             const void* data,
              size_t num_rows,
              bool predict_proba)
 {
-  f->predict(h, preds, data, num_rows, predict_proba);
-}
-
-/// part of C API - overload instead of template
-void predict(const raft::handle_t& h,
-             forest_t f,
-             float* preds,
-             const float* data,
-             size_t num_rows,
-             bool predict_proba)
-{
-  f->predict(h, preds, data, num_rows, predict_proba);
+  f->predict(h,
+             reinterpret_cast<float*>(preds),
+             reinterpret_cast<const float*>(data),
+             num_rows,
+             predict_proba);
 }
 
 }  // namespace fil
