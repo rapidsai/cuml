@@ -103,7 +103,8 @@ sccache --show-stats
 if [ "$BUILD_CUML" == '1' ]; then
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Build conda pkg for cuml"
-    conda install -c gpuci -c conda-forge gpuci-tools boa
+    gpuci_logger "TEMP COMMIT: using mamba build"
+    conda create -n tmp -c gpuci -c conda-forge gpuci-tools boa
     gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
