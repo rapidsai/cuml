@@ -38,33 +38,40 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int dept
   return num_trees * tree_num_nodes(depth);
 }
 
+template <typename real_t>
 struct storage_base {
   categorical_sets sets_;
-  float* vector_leaf_;
+  real_t* vector_leaf_;
   bool cats_present() const { return sets_.cats_present(); }
 };
 
-/** dense_tree represents a dense tree */
-
-struct dense_tree : tree_base {
-  __host__ __device__ dense_tree(categorical_sets cat_sets, dense_node* nodes, int node_pitch)
+/** represents a dense tree */
+template <typename real_t>
+struct tree<dense_node<real_t>> : tree_base {
+  __host__ __device__ tree(categorical_sets cat_sets, dense_node<real_t>* nodes, int node_pitch)
     : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
   {
   }
-  __host__ __device__ const dense_node& operator[](int i) const { return nodes_[i * node_pitch_]; }
-  dense_node* nodes_ = nullptr;
-  int node_pitch_    = 0;
+  __host__ __device__ const dense_node<real_t>& operator[](int i) const
+  {
+    return nodes_[i * node_pitch_];
+  }
+  dense_node<real_t>* nodes_ = nullptr;
+  int node_pitch_            = 0;
 };
 
-/** dense_storage stores the forest as a collection of dense nodes */
-struct dense_storage : storage_base {
-  __host__ __device__ dense_storage(categorical_sets cat_sets,
-                                    float* vector_leaf,
-                                    dense_node* nodes,
-                                    int num_trees,
-                                    int tree_stride,
-                                    int node_pitch)
-    : storage_base{cat_sets, vector_leaf},
+/** partial specialization of storage. Stores the forest on GPU as a collection of dense nodes */
+template <typename real_t_>
+struct storage<dense_node<real_t_>> : storage_base<real_t_> {
+  using real_t = real_t_;
+  using node_t = dense_node<real_t>;
+  __host__ __device__ storage(categorical_sets cat_sets,
+                              real_t* vector_leaf,
+                              node_t* nodes,
+                              int num_trees,
+                              int tree_stride,
+                              int node_pitch)
+    : storage_base<real_t>{cat_sets, vector_leaf},
       nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
@@ -72,20 +79,21 @@ struct dense_storage : storage_base {
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ dense_tree operator[](int i) const
+  __host__ __device__ tree<node_t> operator[](int i) const
   {
-    return dense_tree(sets_, nodes_ + i * tree_stride_, node_pitch_);
+    // sets_ is a dependent name (in template sense)
+    return tree<node_t>(this->sets_, nodes_ + i * tree_stride_, node_pitch_);
   }
-  dense_node* nodes_ = nullptr;
-  int num_trees_     = 0;
-  int tree_stride_   = 0;
-  int node_pitch_    = 0;
+  node_t* nodes_   = nullptr;
+  int num_trees_   = 0;
+  int tree_stride_ = 0;
+  int node_pitch_  = 0;
 };
 
-/** sparse_tree is a sparse tree */
+/** sparse tree */
 template <typename node_t>
-struct sparse_tree : tree_base {
-  __host__ __device__ sparse_tree(categorical_sets cat_sets, node_t* nodes)
+struct tree : tree_base {
+  __host__ __device__ tree(categorical_sets cat_sets, node_t* nodes)
     : tree_base{cat_sets}, nodes_(nodes)
   {
   }
@@ -93,26 +101,32 @@ struct sparse_tree : tree_base {
   node_t* nodes_ = nullptr;
 };
 
-/** sparse_storage stores the forest as a collection of sparse nodes */
-template <typename node_t>
-struct sparse_storage : storage_base {
+/** storage stores the forest on GPU as a collection of sparse nodes */
+template <typename node_t_>
+struct storage : storage_base<typename node_t_::real_t> {
+  using node_t   = node_t_;
+  using real_t   = typename node_t::real_t;
   int* trees_    = nullptr;
   node_t* nodes_ = nullptr;
   int num_trees_ = 0;
-  __host__ __device__ sparse_storage(
-    categorical_sets cat_sets, float* vector_leaf, int* trees, node_t* nodes, int num_trees)
-    : storage_base{cat_sets, vector_leaf}, trees_(trees), nodes_(nodes), num_trees_(num_trees)
+  __host__ __device__
+  storage(categorical_sets cat_sets, real_t* vector_leaf, int* trees, node_t* nodes, int num_trees)
+    : storage_base<real_t>{cat_sets, vector_leaf},
+      trees_(trees),
+      nodes_(nodes),
+      num_trees_(num_trees)
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ sparse_tree<node_t> operator[](int i) const
+  __host__ __device__ tree<node_t> operator[](int i) const
   {
-    return sparse_tree<node_t>(sets_, &nodes_[trees_[i]]);
+    // sets_ is a dependent name (in template sense)
+    return tree<node_t>(this->sets_, &nodes_[trees_[i]]);
   }
 };
 
-typedef sparse_storage<sparse_node16> sparse_storage16;
-typedef sparse_storage<sparse_node8> sparse_storage8;
+typedef storage<sparse_node16<float>> sparse_storage16;
+typedef storage<sparse_node8> sparse_storage8;
 
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
@@ -143,6 +157,8 @@ struct shmem_size_params {
   int block_dim_x = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
+  /// sizeof_real is the size in bytes of all floating-point variables during inference
+  std::size_t sizeof_real = 4;
 
   __host__ __device__ int sdata_stride()
   {
@@ -150,7 +166,7 @@ struct shmem_size_params {
   }
   __host__ __device__ int cols_shmem_size()
   {
-    return cols_in_shmem ? sizeof(float) * sdata_stride() * n_items << log2_threads_per_tree : 0;
+    return cols_in_shmem ? sizeof_real * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
   template <int NITEMS, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
@@ -164,9 +180,9 @@ struct predict_params : shmem_size_params {
   // number of outputs for the forest per each data row
   int num_outputs;
 
-  // Data parameters.
-  float* preds;
-  const float* data;
+  // Data parameters; preds and data are pointers to either float or double.
+  void* preds;
+  const void* data;
   // number of data rows (instances) to predict on
   int64_t num_rows;
 

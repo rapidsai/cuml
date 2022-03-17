@@ -25,6 +25,7 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/meanvar.cuh>
 #include <raft/stats/stddev.cuh>
+#include <raft/stats/weighted_mean.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -61,14 +62,15 @@ void preProcessData(const raft::handle_t& handle,
                     math_t* norm2_input,
                     bool fit_intercept,
                     bool normalize,
-                    cudaStream_t stream)
+                    cudaStream_t stream,
+                    math_t* sample_weight = nullptr)
 {
   raft::common::nvtx::range fun_scope("ML::GLM::preProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
 
   if (fit_intercept) {
-    if (normalize) {
+    if (normalize && sample_weight == nullptr) {
       raft::stats::meanvar(mu_input, norm2_input, input, n_cols, n_rows, false, false, stream);
       raft::linalg::unaryOp(
         norm2_input,
@@ -87,10 +89,32 @@ void preProcessData(const raft::handle_t& handle,
         mu_input,
         norm2_input);
     } else {
-      raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+      if (sample_weight != nullptr) {
+        raft::stats::weightedMean(
+          mu_input, input, sample_weight, n_cols, n_rows, false, false, stream);
+      } else {
+        raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+      }
       raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
+      if (normalize) {
+        raft::linalg::colNorm(norm2_input,
+                              input,
+                              n_cols,
+                              n_rows,
+                              raft::linalg::L2Norm,
+                              false,
+                              stream,
+                              [] __device__(math_t v) { return raft::mySqrt(v); });
+        raft::matrix::matrixVectorBinaryDivSkipZero(
+          input, norm2_input, n_rows, n_cols, false, true, stream, true);
+      }
     }
-    raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+
+    if (sample_weight != nullptr) {
+      raft::stats::weightedMean(mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
+    } else {
+      raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+    }
     raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
   }
 }

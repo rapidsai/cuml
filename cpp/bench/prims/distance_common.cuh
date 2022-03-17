@@ -49,6 +49,13 @@ struct Distance : public Fixture {
     workspace.resize(worksize, stream);
   }
 
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
+    x.release();
+    y.release();
+    out.release();
+    workspace.release();
+  }
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {

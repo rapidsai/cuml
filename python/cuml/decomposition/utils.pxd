@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,5 +39,20 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
         solver algorithm  # = solver::COV_EIG_DQ
 
     cdef cppclass paramsPCA(paramsTSVD):
+        bool copy
+        bool whiten
+
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML" nogil:
+
+    ctypedef enum mg_solver "ML::mg_solver":
+        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
+        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
+        QR "ML::mg_solver::QR"
+
+    cdef cppclass paramsTSVDMG(paramsSolver):
+        size_t n_components
+        mg_solver algorithm  # = solver::COV_EIG_DQ
+
+    cdef cppclass paramsPCAMG(paramsTSVDMG):
         bool copy
         bool whiten

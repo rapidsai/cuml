@@ -40,6 +40,11 @@ struct MakeBlobs : public Fixture {
     labels.resize(params.rows, stream);
   }
 
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
+    data.release();
+    labels.release();
+  }
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {

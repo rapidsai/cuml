@@ -198,7 +198,6 @@ int main(int argc, char* argv[])
 
   /* ======================= Begin GPU memory allocation ======================= */
   std::cout << "***************************************" << std::endl;
-  std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator());
 
   cudaStream_t stream;
   raft::handle_t handle{stream};

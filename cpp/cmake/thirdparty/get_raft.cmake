@@ -18,22 +18,34 @@ set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_raft)
-
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_NN USE_FAISS_STATIC CLONE_ON_PIN)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
-        message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+        message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
         set(CPM_DOWNLOAD_raft ON)
     endif()
 
-    string(APPEND RAFT_COMPONENTS "distance")
+    if(PKG_USE_RAFT_STATIC)
+        message(STATUS "CUML: Cloning raft locally to build static libraries.")
+        set(CPM_DOWNLOAD_raft ON)
+    endif()
+
+    if(PKG_USE_RAFT_DIST)
+        string(APPEND RAFT_COMPONENTS "distance")
+    endif()
     if(PKG_USE_RAFT_NN)
         string(APPEND RAFT_COMPONENTS " nn")
     endif()
 
-    message("CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
+    if(PKG_USE_RAFT_DIST AND PKG_USE_RAFT_NN)
+        set(RAFT_COMPILE_LIBRARIES ON)
+    else()
+        set(RAFT_COMPILE_LIBRARIES OFF)
+    endif()
+
+    message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
@@ -46,6 +58,9 @@ function(find_and_configure_raft)
             FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
+              "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
+              "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
+              "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
               "NVTX ${NVTX}"
     )
@@ -71,5 +86,7 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         # even if it's already installed.
                         CLONE_ON_PIN     ON
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
+                        USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
+                        USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )
