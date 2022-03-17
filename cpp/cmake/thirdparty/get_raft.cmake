@@ -18,13 +18,18 @@ set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_FAISS_STATIC CLONE_ON_PIN)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
     set(RAFT_STATIC_LINK_LIBRARIES OFF)
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
-        message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+        message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+        set(CPM_DOWNLOAD_raft ON)
+    endif()
+
+    if(PKG_USE_RAFT_STATIC)
+        message(STATUS "CUML: Cloning raft locally to build static libraries.")
         set(CPM_DOWNLOAD_raft ON)
         set(RAFT_CXX_FLAGS ${RAFT_CXX_FLAGS} -fPIC)
         set(RAFT_CUDA_FLAGS ${RAFT_CUDA_FLAGS} -fPIC)
@@ -46,7 +51,7 @@ function(find_and_configure_raft)
         set(RAFT_COMPILE_LIBRARIES OFF)
     endif()
 
-    message("CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
+    message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
@@ -89,5 +94,6 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         CLONE_ON_PIN     ON
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
+                        USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )

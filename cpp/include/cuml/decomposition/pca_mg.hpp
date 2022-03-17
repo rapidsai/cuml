@@ -22,13 +22,6 @@
 #include "pca.hpp"
 
 namespace ML {
-
-enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
-
-typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;
-
-typedef paramsPCATemplate<mg_solver> paramsPCAMG;
-
 namespace PCA {
 namespace opg {
 
