@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,11 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
-
 typedef paramsPCATemplate<> paramsPCA;
+
+enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
+
+typedef paramsPCATemplate<mg_solver> paramsPCAMG;
+typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;
 
 };  // end namespace ML
