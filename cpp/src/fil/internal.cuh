@@ -409,8 +409,8 @@ struct categorical_sets {
     FIL will reject a model where an integer within [0, fid_num_cats] cannot be represented
     precisely as a 32-bit float.
     */
-    return static_cast<typename node_t::real_t>(category) < fid_num_cats[node.fid()] &&
-           category >= 0.0f &&
+    using real_t = typename node_t::real_t;
+    return category < static_cast<real_t>(fid_num_cats[node.fid()]) && category >= real_t(0) &&
            fetch_bit(bits + node.set(), static_cast<uint32_t>(static_cast<int>(category)));
   }
   static int sizeof_mask_from_num_cats(int num_cats)

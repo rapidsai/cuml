@@ -127,9 +127,11 @@ struct storage : storage_base<typename node_t_::real_t> {
   }
 };
 
-typedef storage<dense_node<float>> dense_storage;
-typedef storage<sparse_node16<float>> sparse_storage16;
-typedef storage<sparse_node8> sparse_storage8;
+using dense_storage_f32    = storage<dense_node<float>>;
+using dense_storage_f64    = storage<dense_node<double>>;
+using sparse_storage16_f32 = storage<sparse_node16<float>>;
+using sparse_storage16_f64 = storage<sparse_node16<double>>;
+using sparse_storage8      = storage<sparse_node8>;
 
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
