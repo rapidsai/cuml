@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,9 +32,11 @@ class PCA(BaseDecomposition,
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's multi-node multi-gpu (MNMG) PCA expects a dask cuDF input, and
-    provides a "Full" algorithm. It uses a full eigendecomposition
-    then selects the top K eigenvectors.
+    cuML's multi-node multi-gpu (MNMG) PCA expects a dask-cuDF object as input
+    and provides 2 algorithms, Full and Jacobi. Full (default) uses a full
+    eigendecomposition then selects the top K eigenvectors. The Jacobi
+    algorithm can be much faster as it iteratively tries to correct the top K
+    eigenvectors, but might be less accurate.
 
     Examples
     --------
@@ -107,9 +109,10 @@ class PCA(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full', 'jacobi', or 'tsqr'
-        'full': run exact full SVD and select the components by postprocessing
-        'jacobi': iteratively compute SVD of the covariance matrix
+    svd_solver : 'full', 'jacobi', 'auto'
+        'full': Run exact full SVD and select the components by postprocessing
+        'jacobi': Iteratively compute SVD of the covariance matrix
+        'auto': For compatiblity with Scikit-learn. Alias for 'jacobi'.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
