@@ -144,12 +144,10 @@ struct forest {
 
   virtual ~forest() {}
 
-  int num_trees_      = 0;
-  int depth_          = 0;
-  algo_t algo_        = algo_t::NAIVE;
-  output_t output_    = output_t::RAW;
-  double threshold_   = 0.5;
-  double global_bias_ = 0;
+  int num_trees_   = 0;
+  int depth_       = 0;
+  algo_t algo_     = algo_t::NAIVE;
+  output_t output_ = output_t::RAW;
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
@@ -171,8 +169,8 @@ struct template_forest : public forest {
     num_trees_                       = params->num_trees;
     algo_                            = params->algo;
     output_                          = params->output;
-    threshold_                       = params->threshold;
-    global_bias_                     = params->global_bias;
+    threshold_                       = static_cast<real_t>(params->threshold);
+    global_bias_                     = static_cast<real_t>(params->global_bias);
     proba_ssp_.n_items               = params->n_items;
     proba_ssp_.log2_threads_per_tree = log2(params->threads_per_tree);
     proba_ssp_.leaf_algo             = params->leaf_algo;
@@ -298,7 +296,7 @@ struct template_forest : public forest {
     // Simulating treelite order, which cancels out bias.
     // If non-proba prediction used, it still will not matter
     // for the same reason softmax will not.
-    real_t global_bias    = (ot & output_t::SOFTMAX) != 0 ? real_t(0.0) : global_bias_;
+    real_t global_bias    = (ot & output_t::SOFTMAX) != 0 ? real_t(0) : global_bias_;
     bool complement_proba = false, do_transform;
 
     if (predict_proba) {
@@ -316,24 +314,24 @@ struct template_forest : public forest {
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
           do_transform =
-            (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != real_t(0.0);
+            (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != real_t(0);
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = params.num_classes;
-          do_transform       = ot != output_t::RAW || global_bias_ != real_t(0.0);
+          do_transform       = ot != output_t::RAW || global_bias_ != real_t(0);
           break;
         case leaf_algo_t::VECTOR_LEAF:
           // for VECTOR_LEAF, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
           do_transform =
-            (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != real_t(0.0);
+            (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != real_t(0);
           break;
         default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
     } else {
       if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
-        do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+        do_transform = ot != output_t::RAW || global_bias_ != real_t(0);
       } else {
         // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
         // all transforms are monotonic. also, would break current code
@@ -352,9 +350,9 @@ struct template_forest : public forest {
         preds,
         num_values_to_transform,
         ot,
-        num_trees_ > 0 ? (real_t(1.0) / num_trees_) : real_t(1.0),
-        real_t(threshold_),
-        real_t(global_bias),
+        num_trees_ > 0 ? (real_t(1) / num_trees_) : real_t(1),
+        threshold_,
+        global_bias,
         complement_proba);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
@@ -366,6 +364,8 @@ struct template_forest : public forest {
     forest::free(h);
   }
 
+  real_t threshold_   = 0.5;
+  real_t global_bias_ = 0;
   // vector_leaf_ is only used if {class,proba}_ssp_.leaf_algo is VECTOR_LEAF,
   // otherwise it is empty
   rmm::device_uvector<real_t> vector_leaf_;
@@ -460,7 +460,7 @@ struct dense_forest<dense_node<real_t>> : template_forest<real_t> {
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
     storage<node_t> forest(this->cat_sets_.accessor(),
-                           reinterpret_cast<real_t*>(this->vector_leaf_.data()),
+                           this->vector_leaf_.data(),
                            nodes_.data(),
                            this->num_trees_,
                            this->algo_ == algo_t::NAIVE ? tree_num_nodes(this->depth_) : 1,
@@ -522,7 +522,7 @@ struct sparse_forest : template_forest<typename node_t::real_t> {
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
     storage<node_t> forest(this->cat_sets_.accessor(),
-                           reinterpret_cast<real_t*>(this->vector_leaf_.data()),
+                           this->vector_leaf_.data(),
                            trees_.data(),
                            nodes_.data(),
                            this->num_trees_);
@@ -678,7 +678,7 @@ void free(const raft::handle_t& h, forest_t f)
   delete f;
 }
 
-/// part of C API - overload instead of template
+/// part of C API - preds and data are either both pointers to float or to double
 void predict(const raft::handle_t& h,
              forest_t f,
              void* preds,

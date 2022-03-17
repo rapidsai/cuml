@@ -242,7 +242,7 @@ struct node_traits {
   using forest               = sparse_forest<node_t>;
   static const bool IS_DENSE = false;
   static const storage_type_t storage_type_enum =
-    std::is_same<sparse_node16<typename node_t::real_t>, node_t>() ? SPARSE : SPARSE8;
+    std::is_same<sparse_node16<real_t>, node_t>() ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
 };
@@ -431,7 +431,7 @@ struct tree_base {
   template <bool CATS_SUPPORTED, typename node_t>
   __host__ __device__ __forceinline__ int child_index(const node_t& node,
                                                       int node_idx,
-                                                      float val) const
+                                                      typename node_t::real_t val) const
   {
     bool cond;
 
