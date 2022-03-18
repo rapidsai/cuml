@@ -20,7 +20,6 @@
 #include <opg/matrix/part_descriptor.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace GLM {
