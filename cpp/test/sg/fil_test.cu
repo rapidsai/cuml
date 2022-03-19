@@ -645,17 +645,24 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
 template <typename fil_node_t>
 class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_t> {
+  using real_t = typename fil_node_t::real_t;
+
  protected:
-  void dense2sparse_node(const fil::dense_node<float>* dense_root,
+  void dense2sparse_node(const fil::dense_node<real_t>* dense_root,
                          int i_dense,
                          int i_sparse_root,
                          int i_sparse)
   {
-    const fil::dense_node<float>& node = dense_root[i_dense];
+    const fil::dense_node<real_t>& node = dense_root[i_dense];
     if (node.is_leaf()) {
       // leaf sparse node
-      sparse_nodes[i_sparse] = fil_node_t(
-        node.output<val_t<float>>(), {}, node.fid(), node.def_left(), node.is_leaf(), false, 0);
+      sparse_nodes[i_sparse] = fil_node_t(node.template output<fil::val_t<real_t>>(),
+                                          {},
+                                          node.fid(),
+                                          node.def_left(),
+                                          node.is_leaf(),
+                                          false,
+                                          0);
       return;
     }
     // inner sparse node
@@ -674,7 +681,7 @@ class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_t> {
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root, left_index + 1);
   }
 
-  void dense2sparse_tree(const fil::dense_node<float>* dense_root)
+  void dense2sparse_tree(const fil::dense_node<real_t>* dense_root)
   {
     int i_sparse_root = sparse_nodes.size();
     sparse_nodes.push_back(fil_node_t());
@@ -730,9 +737,11 @@ class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_t> {
   std::vector<int> trees;
 };
 
-typedef BasePredictFilTest<fil::dense_node<float>> PredictDenseFilTest;
-typedef BasePredictFilTest<fil::sparse_node16<float>> PredictSparse16FilTest;
-typedef BasePredictFilTest<fil::sparse_node8> PredictSparse8FilTest;
+using PredictDenseFloat32FilTest    = BasePredictFilTest<fil::dense_node<float>>;
+using PredictDenseFloat64FilTest    = BasePredictFilTest<fil::dense_node<double>>;
+using PredictSparse16Float32FilTest = BasePredictFilTest<fil::sparse_node16<float>>;
+using PredictSparse16Float64FilTest = BasePredictFilTest<fil::sparse_node16<double>>;
+using PredictSparse8FilTest         = BasePredictFilTest<fil::sparse_node8>;
 
 class TreeliteFilTest : public BaseFilTest<float> {
  protected:
@@ -1097,9 +1106,15 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   max_magnitude_of_matching_cat = 5),
 };
 
-TEST_P(PredictDenseFilTest, Predict) { compare(); }
+TEST_P(PredictDenseFloat32FilTest, Predict) { compare(); }
+TEST_P(PredictDenseFloat64FilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, PredictDenseFilTest, testing::ValuesIn(predict_dense_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictDenseFloat32FilTest,
+                        testing::ValuesIn(predict_dense_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictDenseFloat64FilTest,
+                        testing::ValuesIn(predict_dense_inputs));
 
 std::vector<FilTestParams> predict_sparse_inputs = {
   FIL_TEST_PARAMS(),
@@ -1175,10 +1190,15 @@ std::vector<FilTestParams> predict_sparse_inputs = {
                   max_magnitude_of_matching_cat = 5),
 };
 
-TEST_P(PredictSparse16FilTest, Predict) { compare(); }
+TEST_P(PredictSparse16Float32FilTest, Predict) { compare(); }
+TEST_P(PredictSparse16Float64FilTest, Predict) { compare(); }
 
-// Temporarily disabled, see https://github.com/rapidsai/cuml/issues/3205
-INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest, testing::ValuesIn(predict_sparse_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictSparse16Float32FilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictSparse16Float64FilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
 
 TEST_P(PredictSparse8FilTest, Predict) { compare(); }
 
