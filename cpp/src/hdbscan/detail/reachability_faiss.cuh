@@ -212,7 +212,8 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
   auto stream = handle.get_stream();
 
   faiss::gpu::DeviceScope ds(device);
-  raft::spatial::knn::RmmGpuResources res;
+//  raft::spatial::knn::RmmGpuResources res;
+  faiss::gpu::StandardGpuResources res;
 
   res.noTempMemory();
   res.setDefaultStream(device, stream);
