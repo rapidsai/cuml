@@ -24,6 +24,7 @@
 #pragma once
 
 #include <faiss/gpu/GpuResources.h>
+#include <faiss/gpu/StandardGpuResources.h>
 
 #include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/impl/FaissException.h>
