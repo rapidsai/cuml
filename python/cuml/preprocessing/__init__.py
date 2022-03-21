@@ -20,7 +20,7 @@ from cuml.preprocessing.encoders import OneHotEncoder
 from cuml.preprocessing.TargetEncoder import TargetEncoder
 from cuml.preprocessing import text
 
-from cuml._thirdparty.sklearn.preprocessing import  Binarizer, \
+from cuml._thirdparty.sklearn.preprocessing import Binarizer, \
     FunctionTransformer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, \
     MissingIndicator, Normalizer, PolynomialFeatures, RobustScaler, \
     SimpleImputer, StandardScaler
