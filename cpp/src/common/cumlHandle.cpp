@@ -22,8 +22,6 @@
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
 

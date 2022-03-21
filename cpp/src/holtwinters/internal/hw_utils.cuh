@@ -20,7 +20,6 @@
 #include <iostream>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 #define IDX(n, m, N) (n + (m) * (N))
