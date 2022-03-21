@@ -26,8 +26,6 @@
 #include <raft/linalg/gemm.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 #include <rmm/device_uvector.hpp>
 

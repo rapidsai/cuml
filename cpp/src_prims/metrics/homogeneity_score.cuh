@@ -22,7 +22,6 @@
 
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"
-#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
