@@ -32,7 +32,6 @@
 
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>

@@ -27,7 +27,6 @@
 #include <raft/random/rng.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.hpp>
 
 #ifdef _OPENMP
