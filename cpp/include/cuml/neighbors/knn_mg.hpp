@@ -19,8 +19,8 @@
 #include <raft/handle.hpp>
 #include <vector>
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include <cumlprims/opg/matrix/data.hpp>
+#include <cumlprims/opg/matrix/part_descriptor.hpp>
 
 namespace ML {
 namespace KNN {
