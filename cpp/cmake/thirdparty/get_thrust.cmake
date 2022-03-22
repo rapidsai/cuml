@@ -17,7 +17,7 @@ function(find_and_configure_thrust)
     include(${rapids-cmake-dir}/cpm/thrust.cmake)
 
     rapids_cpm_thrust(NAMESPACE cuml)
-    rapids_export_package(BUILD thrust cuml-exports)
+    rapids_export_package(BUILD Thrust cuml-exports)
 endfunction()
 
 find_and_configure_thrust()
