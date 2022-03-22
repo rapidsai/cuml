@@ -162,7 +162,7 @@ class RandomForest {
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
-      auto s        = handle.get_stream_from_stream_pool(i);
+      auto s        = handle.get_stream_from_stream_pool(stream_id);
 
       this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
