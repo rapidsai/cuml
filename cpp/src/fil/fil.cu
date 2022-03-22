@@ -379,8 +379,6 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    static_assert(std::is_same_v<typename storage_type::real_t, float>,
-                  "real_t must be float; to be removed in the following pull requests");
     auto kernel = infer_k<KernelParams::N_ITEMS,
                           KernelParams::LEAF_ALGO,
                           KernelParams::COLS_IN_SHMEM,
@@ -633,8 +631,6 @@ void init(const raft::handle_t& h,
   check_params(params, node_traits<fil_node_t>::IS_DENSE);
   using forest_type = typename node_traits<fil_node_t>::forest;
   forest_type* f    = new forest_type(h);
-  static_assert(std::is_same_v<typename fil_node_t::real_t, float>,
-                "real_t must be float; to be removed in the following pull requests");
   f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
