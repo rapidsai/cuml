@@ -44,7 +44,7 @@ __device__ void serial_multi_sum(const T* in, T* out, int n_groups, int n_values
 }
 
 // the most threads a block can have
-const int MAX_THREADS = 1024;
+const int max_threads = 1024;
 
 struct MultiSumTestParams {
   int radix;     // number of elements summed to 1 at each stage of the sum
@@ -52,22 +52,14 @@ struct MultiSumTestParams {
   int n_values;  // number of elements to add in each sum
 };
 
-template <typename T>
-struct multi_sum_test_shmem {
-  T work[MAX_THREADS];
-  T correct_result[MAX_THREADS];
-};
-
 template <int R, typename T>
-__device__ void test_single_radix(multi_sum_test_shmem<T>& s,
-                                  T thread_value,
-                                  MultiSumTestParams p,
-                                  int* block_error_flag)
+__device__ void test_single_radix(T thread_value, MultiSumTestParams p, int* block_error_flag)
 {
-  s.work[threadIdx.x] = thread_value;
-  serial_multi_sum(s.work, s.correct_result, p.n_groups, p.n_values);
-  T sum = multi_sum<R>(s.work, p.n_groups, p.n_values);
-  if (threadIdx.x < p.n_groups && 1e-4 < fabsf(sum - s.correct_result[threadIdx.x])) {
+  __shared__ T work[max_threads], correct_result[max_threads];
+  work[threadIdx.x] = thread_value;
+  serial_multi_sum(work, correct_result, p.n_groups, p.n_values);
+  T sum = multi_sum<R>(work, p.n_groups, p.n_values);
+  if (threadIdx.x < p.n_groups && 1e-4 < fabsf(sum - correct_result[threadIdx.x])) {
     atomicAdd(block_error_flag, 1);
   }
 }
@@ -75,14 +67,13 @@ __device__ void test_single_radix(multi_sum_test_shmem<T>& s,
 template <typename T>
 __global__ void test_multi_sum_k(T* data, MultiSumTestParams* params, int* error_flags)
 {
-  __shared__ multi_sum_test_shmem<T> s;
   MultiSumTestParams p = params[blockIdx.x];
   switch (p.radix) {
-    case 2: test_single_radix<2>(s, data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
-    case 3: test_single_radix<3>(s, data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
-    case 4: test_single_radix<4>(s, data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
-    case 5: test_single_radix<5>(s, data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
-    case 6: test_single_radix<6>(s, data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
+    case 2: test_single_radix<2>(data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
+    case 3: test_single_radix<3>(data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
+    case 4: test_single_radix<4>(data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
+    case 5: test_single_radix<5>(data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
+    case 6: test_single_radix<6>(data[threadIdx.x], p, &error_flags[blockIdx.x]); break;
   }
 }
 
@@ -151,12 +142,12 @@ std::vector<int> block_sizes = []() {
   std::vector<int> res;
   for (int i = 2; i < 50; ++i)
     res.push_back(i);
-  for (int i = MAX_THREADS - 50; i <= MAX_THREADS; ++i)
+  for (int i = max_threads - 50; i <= max_threads; ++i)
     res.push_back(i);
   return res;
 }();
 
-class MultiSumTestFloat32 : public MultiSumTest<float> {
+class MultiSumTestFloat : public MultiSumTest<float> {
  public:
   void generate_data()
   {
@@ -164,20 +155,8 @@ class MultiSumTestFloat32 : public MultiSumTest<float> {
     r.uniform(data_d.data().get(), data_d.size(), -1.0f, 1.0f, cudaStreamDefault);
   }
 };
-TEST_P(MultiSumTestFloat32, Import) { check(); }
-INSTANTIATE_TEST_CASE_P(FilTests, MultiSumTestFloat32, testing::ValuesIn(block_sizes));
-
-class MultiSumTestFloat64 : public MultiSumTest<double> {
- public:
-  void generate_data()
-  {
-    raft::random::Rng r(4321);
-    r.uniform(data_d.data().get(), data_d.size(), -1.0, 1.0, cudaStreamDefault);
-  }
-};
-
-TEST_P(MultiSumTestFloat64, Import) { check(); }
-INSTANTIATE_TEST_CASE_P(FilTests, MultiSumTestFloat64, testing::ValuesIn(block_sizes));
+TEST_P(MultiSumTestFloat, Import) { check(); }
+INSTANTIATE_TEST_CASE_P(FilTests, MultiSumTestFloat, testing::ValuesIn(block_sizes));
 
 class MultiSumTestInt : public MultiSumTest<int> {
  public:
