@@ -52,21 +52,15 @@ struct proto_inner_node {
       split.f = static_cast<real_t>(thresh);
     return split;
   }
-  operator dense_node<float>()
+  template <typename real_t>
+  operator dense_node<real_t>()
   {
-    return dense_node<float>({}, split<float>(), fid, def_left, false, is_categorical);
+    return dense_node<real_t>({}, split<real_t>(), fid, def_left, false, is_categorical);
   }
-  operator dense_node<double>()
+  template <typename real_t>
+  operator sparse_node16<real_t>()
   {
-    return dense_node<double>({}, split<double>(), fid, def_left, false, is_categorical);
-  }
-  operator sparse_node16<float>()
-  {
-    return sparse_node16<float>({}, split<float>(), fid, def_left, false, is_categorical, left);
-  }
-  operator sparse_node16<double>()
-  {
-    return sparse_node16<double>({}, split<double>(), fid, def_left, false, is_categorical, left);
+    return sparse_node16<real_t>({}, split<real_t>(), fid, def_left, false, is_categorical, left);
   }
   operator sparse_node8()
   {
