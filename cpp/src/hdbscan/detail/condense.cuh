@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
     n_elements_to_traverse =
       thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());

@@ -68,7 +68,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
                      counting + this->params.batch_size,
                      [=] __device__(int bid) { x[(bid + 1) * N - 1] = 1.0; });
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // Benchmark loop
     this->loopOnState(state, [this]() {

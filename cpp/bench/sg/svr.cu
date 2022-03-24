@@ -67,7 +67,7 @@ class SVR : public RegressionFixture<D> {
                       this->svm_param,
                       this->kernel,
                       *(this->model));
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      this->handle->sync_stream(this->stream);
       ML::SVM::svmFreeBuffers(*this->handle, *(this->model));
     });
   }

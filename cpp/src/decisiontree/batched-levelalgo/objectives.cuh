@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "input.h"
+#include "dataset.h"
 #include "split.cuh"
 #include <cub/cub.cuh>
 #include <limits>
@@ -47,7 +47,7 @@ class GiniObjectiveFunction {
   /**
    * @brief compute the gini impurity reduction for each split
    */
-  HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft)
   {
     IdxT nRight         = len - nLeft;
     constexpr DataT One = DataT(1.0);
@@ -62,12 +62,12 @@ class GiniObjectiveFunction {
 
     for (IdxT j = 0; j < nclasses; ++j) {
       int val_i   = 0;
-      auto lval_i = hist[nbins * j + i].x;
+      auto lval_i = hist[n_bins * j + i].x;
       auto lval   = DataT(lval_i);
       gain += lval * invLeft * lval * invLen;
 
       val_i += lval_i;
-      auto total_sum = hist[nbins * j + nbins - 1].x;
+      auto total_sum = hist[n_bins * j + n_bins - 1].x;
       auto rval_i    = total_sum - lval_i;
       auto rval      = DataT(rval_i);
       gain += rval * invRight * rval * invLen;
@@ -80,15 +80,15 @@ class GiniObjectiveFunction {
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
+  DI Split<DataT, IdxT> Gain(BinT* shist, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins)
   {
     Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       IdxT nLeft = 0;
       for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += shist[nbins * j + i].x;
+        nLeft += shist[n_bins * j + i].x;
       }
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -127,7 +127,7 @@ class EntropyObjectiveFunction {
   /**
    * @brief compute the Entropy (or information gain) for each split
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft)
   {
     IdxT nRight{len - nLeft};
     auto gain{DataT(0.0)};
@@ -140,14 +140,14 @@ class EntropyObjectiveFunction {
       auto invLen{DataT(1.0) / len};
       for (IdxT c = 0; c < nclasses; ++c) {
         int val_i   = 0;
-        auto lval_i = hist[nbins * c + i].x;
+        auto lval_i = hist[n_bins * c + i].x;
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
           gain += raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval * invLen;
         }
 
         val_i += lval_i;
-        auto total_sum = hist[nbins * c + nbins - 1].x;
+        auto total_sum = hist[n_bins * c + n_bins - 1].x;
         auto rval_i    = total_sum - lval_i;
         if (rval_i != 0) {
           auto rval = DataT(rval_i);
@@ -165,15 +165,15 @@ class EntropyObjectiveFunction {
     }
   }
 
-  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
+  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins)
   {
     Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       IdxT nLeft = 0;
       for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += scdf_labels[nbins * j + i].x;
+        nLeft += scdf_labels[n_bins * j + i].x;
       }
-      sp.update({sbins[i], col, GainPerSplit(scdf_labels, i, nbins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, GainPerSplit(scdf_labels, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -220,7 +220,7 @@ class MSEObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       mean-squared errors.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
   {
     auto gain{DataT(0)};
     IdxT nRight{len - nLeft};
@@ -229,7 +229,7 @@ class MSEObjectiveFunction {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
     } else {
-      auto label_sum        = hist[nbins - 1].label_sum;
+      auto label_sum        = hist[n_bins - 1].label_sum;
       DataT parent_obj      = -label_sum * label_sum * invLen;
       DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
       DataT right_label_sum = hist[i].label_sum - label_sum;
@@ -242,12 +242,12 @@ class MSEObjectiveFunction {
   }
 
   DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -294,7 +294,7 @@ class PoissonObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       poisson half deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
   {
     // get the lens'
     IdxT nRight = len - nLeft;
@@ -304,9 +304,9 @@ class PoissonObjectiveFunction {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
-    auto label_sum       = hist[nbins - 1].label_sum;
+    auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
-    auto right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+    auto right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
 
     // label sum cannot be non-positive
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
@@ -323,12 +323,12 @@ class PoissonObjectiveFunction {
   }
 
   DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -374,7 +374,7 @@ class GammaObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       gamma half deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
   {
     IdxT nRight = len - nLeft;
     auto invLen = DataT(1) / len;
@@ -383,9 +383,9 @@ class GammaObjectiveFunction {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
-    DataT label_sum       = hist[nbins - 1].label_sum;
+    DataT label_sum       = hist[n_bins - 1].label_sum;
     DataT left_label_sum  = (hist[i].label_sum);
-    DataT right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+    DataT right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
 
     // label sum cannot be non-positive
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
@@ -402,12 +402,12 @@ class GammaObjectiveFunction {
   }
 
   DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -452,7 +452,7 @@ class InverseGaussianObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       inverse gaussian deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
   {
     // get the lens'
     IdxT nRight = len - nLeft;
@@ -461,9 +461,9 @@ class InverseGaussianObjectiveFunction {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
-    auto label_sum       = hist[nbins - 1].label_sum;
+    auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
-    auto right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+    auto right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
 
     // label sum cannot be non-positive
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
@@ -480,12 +480,12 @@ class InverseGaussianObjectiveFunction {
   }
 
   DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
   }

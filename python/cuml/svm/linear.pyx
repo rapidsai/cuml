@@ -29,7 +29,8 @@ from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
+from raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
@@ -43,7 +44,7 @@ from cuda.ccudart cimport(
 __all__ = ['LinearSVM', 'LinearSVM_defaults']
 
 
-cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM" nogil:
 
     cdef enum Penalty "ML::SVM::LinearSVMParams::Penalty":
         L1 "ML::SVM::LinearSVMParams::L1"
@@ -288,29 +289,39 @@ cdef class LinearSVMWrapper:
         self.dtype = X.dtype if do_training else coefs.dtype
         cdef cuda_stream_view stream = self.handle.get_stream()
         nClasses = 0
-        nCols = 0
 
         if self.dtype != np.float32 and self.dtype != np.float64:
             raise TypeError('Input data type must be float32 or float64')
 
+        cdef uintptr_t Xptr = <uintptr_t>X.ptr
+        cdef uintptr_t yptr = <uintptr_t>y.ptr
+        cdef uintptr_t swptr = <uintptr_t>sampleWeight.ptr \
+            if sampleWeight is not None else 0
+        cdef size_t nCols = 0
+        cdef size_t nRows = 0
         if do_training:
             nCols = X.shape[1]
+            nRows = X.shape[0]
             sw_ptr = sampleWeight.ptr if sampleWeight is not None else 0
             if self.dtype == np.float32:
-                self.model.float32 = LinearSVMModel[float].fit(
-                    deref(self.handle), self.params,
-                    <const float*><uintptr_t>X.ptr,
-                    X.shape[0], nCols,
-                    <const float*><uintptr_t>y.ptr,
-                    <const float*><uintptr_t>sw_ptr)
+                with cuda_interruptible():
+                    with nogil:
+                        self.model.float32 = LinearSVMModel[float].fit(
+                            deref(self.handle), self.params,
+                            <const float*>Xptr,
+                            nRows, nCols,
+                            <const float*>yptr,
+                            <const float*>swptr)
                 nClasses = self.model.float32.nClasses
             elif self.dtype == np.float64:
-                self.model.float64 = LinearSVMModel[double].fit(
-                    deref(self.handle), self.params,
-                    <const double*><uintptr_t>X.ptr,
-                    X.shape[0], nCols,
-                    <const double*><uintptr_t>y.ptr,
-                    <const double*><uintptr_t>sw_ptr)
+                with cuda_interruptible():
+                    with nogil:
+                        self.model.float64 = LinearSVMModel[double].fit(
+                            deref(self.handle), self.params,
+                            <const double*>Xptr,
+                            nRows, nCols,
+                            <const double*>yptr,
+                            <const double*>swptr)
                 nClasses = self.model.float64.nClasses
         else:
             nCols = coefs.shape[1]

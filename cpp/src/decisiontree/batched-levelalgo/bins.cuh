@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ struct CountBin {
   HDI CountBin(int x_) : x(x_) {}
   HDI CountBin() : x(0) {}
 
-  DI static void IncrementHistogram(CountBin* hist, int nbins, int b, int label)
+  DI static void IncrementHistogram(CountBin* hist, int n_bins, int b, int label)
   {
-    auto offset = label * nbins + b;
+    auto offset = label * n_bins + b;
     CountBin::AtomicAdd(hist + offset, {1});
   }
   DI static void AtomicAdd(CountBin* address, CountBin val) { atomicAdd(&address->x, val.x); }
@@ -51,7 +51,7 @@ struct AggregateBin {
   HDI AggregateBin() : label_sum(0.0), count(0) {}
   HDI AggregateBin(double label_sum, int count) : label_sum(label_sum), count(count) {}
 
-  DI static void IncrementHistogram(AggregateBin* hist, int nbins, int b, double label)
+  DI static void IncrementHistogram(AggregateBin* hist, int n_bins, int b, double label)
   {
     AggregateBin::AtomicAdd(hist + b, {label, 1});
   }

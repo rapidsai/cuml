@@ -21,7 +21,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 #include <random>
 #include <test_utils.h>
 #include <vector>
@@ -84,7 +84,7 @@ class RPROJTest : public ::testing::Test {
                             params1.n_components,
                             stream);  // From column major to row major
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void sparseTest()
@@ -113,7 +113,7 @@ class RPROJTest : public ::testing::Test {
                             params2.n_components,
                             stream);  // From column major to row major
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void SetUp() override
@@ -148,7 +148,7 @@ class RPROJTest : public ::testing::Test {
     rmm::device_uvector<T> d_pdist(N * N, stream);
     ML::Metrics::pairwise_distance(
       handle, d_input.data(), d_input.data(), d_pdist.data(), N, N, M, distance_type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     T* h_pdist = new T[N * N];
     raft::update_host(h_pdist, d_pdist.data(), N * N, stream);
@@ -156,7 +156,7 @@ class RPROJTest : public ::testing::Test {
     rmm::device_uvector<T> d_pdist1(N * N, stream);
     ML::Metrics::pairwise_distance(
       handle, d_output1.data(), d_output1.data(), d_pdist1.data(), N, N, D, distance_type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     T* h_pdist1 = new T[N * N];
     raft::update_host(h_pdist1, d_pdist1.data(), N * N, stream);
@@ -164,7 +164,7 @@ class RPROJTest : public ::testing::Test {
     rmm::device_uvector<T> d_pdist2(N * N, stream);
     ML::Metrics::pairwise_distance(
       handle, d_output2.data(), d_output2.data(), d_pdist2.data(), N, N, D, distance_type);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     T* h_pdist2 = new T[N * N];
     raft::update_host(h_pdist2, d_pdist2.data(), N * N, stream);

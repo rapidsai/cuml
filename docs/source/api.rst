@@ -181,6 +181,10 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.pairwise_distances
     :members:
 
+  .. automodule:: cuml.metrics.pairwise_kernels
+    :members:
+
+
 Metrics (clustering and manifold learning)
 ------------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
@@ -351,6 +355,13 @@ Nearest Neighbors Regression
     :members:
     :noindex:
 
+Kernel Ridge Regression
+-----------------------
+
+.. autoclass:: cuml.KernelRidge
+    :members:
+
+
 Clustering
 ==========
 
@@ -443,6 +454,12 @@ Nearest Neighbors Regression
 --------------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
+    :members:
+
+Kernel Density Estimation
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KernelDensity
     :members:
 
 Time Series

@@ -18,10 +18,10 @@
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
 #include <gtest/gtest.h>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/reduce.cuh>
-#include <raft/linalg/transpose.h>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -306,22 +306,22 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     const int dropNRows = nRows - takeNRows;
     rmm::device_uvector<T> x1(takeNRows * nCols, stream);
     rmm::device_uvector<T> x2(dropNRows * nCols, stream);
-    CUDA_CHECK(cudaMemcpy2DAsync(x1.data(),
-                                 sizeof(T) * takeNRows,
-                                 x.data(),
-                                 sizeof(T) * nRows,
-                                 sizeof(T) * takeNRows,
-                                 nCols,
-                                 cudaMemcpyDeviceToDevice,
-                                 stream));
-    CUDA_CHECK(cudaMemcpy2DAsync(x2.data(),
-                                 sizeof(T) * dropNRows,
-                                 x.data() + takeNRows,
-                                 sizeof(T) * nRows,
-                                 sizeof(T) * dropNRows,
-                                 nCols,
-                                 cudaMemcpyDeviceToDevice,
-                                 stream));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(x1.data(),
+                                    sizeof(T) * takeNRows,
+                                    x.data(),
+                                    sizeof(T) * nRows,
+                                    sizeof(T) * takeNRows,
+                                    nCols,
+                                    cudaMemcpyDeviceToDevice,
+                                    stream));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(x2.data(),
+                                    sizeof(T) * dropNRows,
+                                    x.data() + takeNRows,
+                                    sizeof(T) * nRows,
+                                    sizeof(T) * dropNRows,
+                                    nCols,
+                                    cudaMemcpyDeviceToDevice,
+                                    stream));
     return std::make_tuple(std::move(x1), std::move(x2));
   }
 };

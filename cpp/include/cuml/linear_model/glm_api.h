@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,55 +15,41 @@
  */
 #pragma once
 
+#include <cuml/linear_model/qn.h>
+
 #include <cuml/cuml_api.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
+namespace ML::GLM {
 extern "C" {
 #endif
 
 cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle,
+                        const qn_params* pams,
                         float* X,
                         float* y,
                         int N,
                         int D,
                         int C,
-                        bool fit_intercept,
-                        float l1,
-                        float l2,
-                        int max_iter,
-                        float grad_tol,
-                        float change_tol,
-                        int linesearch_max_iter,
-                        int lbfgs_memory,
-                        int verbosity,
                         float* w0,
                         float* f,
                         int* num_iters,
-                        bool X_col_major,
-                        int loss_type);
+                        bool X_col_major);
 
 cumlError_t cumlDpQnFit(cumlHandle_t cuml_handle,
+                        const qn_params* pams,
                         double* X,
                         double* y,
                         int N,
                         int D,
                         int C,
-                        bool fit_intercept,
-                        double l1,
-                        double l2,
-                        int max_iter,
-                        double grad_tol,
-                        double change_tol,
-                        int linesearch_max_iter,
-                        int lbfgs_memory,
-                        int verbosity,
                         double* w0,
                         double* f,
                         int* num_iters,
-                        bool X_col_major,
-                        int loss_type);
+                        bool X_col_major);
 
 #ifdef __cplusplus
+}
 }
 #endif

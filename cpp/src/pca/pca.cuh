@@ -19,21 +19,18 @@
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/eig.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/eig.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
+#include <raft/stats/cov.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
-#include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename math_t, typename enum_solver = solver>
 void truncCompExpVars(const raft::handle_t& handle,
@@ -113,7 +110,8 @@ void pcaFit(const raft::handle_t& handle,
   auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
 
-  Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
+  raft::stats::cov(
+    handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
   truncCompExpVars(
     handle, cov.data(), components, explained_var, explained_var_ratio, prms, stream);
 

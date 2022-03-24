@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.raft.common.handle import Handle
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle import Handle
+from raft.common.handle cimport handle_t
 
-cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
+cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
 
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"
@@ -89,7 +89,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     if n_neighbors > X.shape[0]:
         raise ValueError("n_neighbors must be <= the number of rows.")
 
-    handle = cuml.raft.common.handle.Handle() if handle is None else handle
+    handle = Handle() if handle is None else handle
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr

@@ -24,9 +24,8 @@
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <rmm/device_uvector.hpp>
 
 // Auxiliary functions in anonymous namespace
@@ -160,7 +159,7 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   // Interpolate valid values
   fillna_interpolate_kernel<false><<<n_blocks, TPB, 0, stream>>>(
     data, batch_size * n_obs, indices_fwd.data(), indices_bwd.data());
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 }  // namespace TimeSeries

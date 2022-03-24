@@ -27,11 +27,10 @@
 #include <matrix/kernelmatrices.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/map_then_reduce.cuh>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/random/rng.hpp>
-#include <random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <string>
 #include <svm/smoblocksolve.cuh>
@@ -198,7 +197,7 @@ class KernelCacheTest : public ::testing::Test {
     raft::update_host(ws_idx_h.data(), ws_idx, n_ws, stream);
     std::vector<int> kidx_h(n_ws);
     raft::update_host(kidx_h.data(), kColIdx, n_ws, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     // Note: kernel cache can permute the working set, so we have to look
     // up which rows we compare
     for (int i = 0; i < n_ws; i++) {
@@ -409,7 +408,7 @@ class SmoUpdateTest : public ::testing::Test {
       kernel_dev(n_rows * n_ws, stream),
       delta_alpha_dev(n_ws, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(f_dev.data(), 0, f_dev.size() * sizeof(float), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(f_dev.data(), 0, f_dev.size() * sizeof(float), stream));
     raft::update_device(kernel_dev.data(), kernel_host, n_ws * n_rows, stream);
     raft::update_device(delta_alpha_dev.data(), delta_alpha_host, n_ws, stream);
   }
@@ -458,8 +457,8 @@ class SmoBlockSolverTest : public ::testing::Test {
       kernel_dev(n_ws * n_rows, stream),
       return_buff_dev(2, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(alpha_dev.data(), 0, alpha_dev.size() * sizeof(math_t), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(cudaMemsetAsync(alpha_dev.data(), 0, alpha_dev.size() * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(delta_alpha_dev.data(), 0, delta_alpha_dev.size() * sizeof(math_t), stream));
     init_C(C, C_dev.data(), n_rows, stream);
     raft::update_device(ws_idx_dev.data(), ws_idx_host, n_ws, stream);
@@ -483,7 +482,7 @@ class SmoBlockSolverTest : public ::testing::Test {
                                                         1e-3f,
                                                         return_buff_dev.data(),
                                                         1);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     math_t return_buff_exp[2] = {0.2, 1};
     devArrMatchHost(
@@ -618,7 +617,7 @@ void checkResults(SvmModel<math_t> model,
   }
   math_t* dual_coefs_host = new math_t[model.n_support];
   raft::update_host(dual_coefs_host, model.dual_coefs, model.n_support, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
   math_t ay = 0;
   for (int i = 0; i < model.n_support; i++) {
     ay += dual_coefs_host[i];
@@ -641,7 +640,7 @@ void checkResults(SvmModel<math_t> model,
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
   raft::update_host(x_support_host, model.x_support, model.n_support * model.n_cols, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  raft::interruptible::synchronize(stream);
 
   if (w_exp) {
     std::vector<math_t> w(model.n_cols, 0);
@@ -686,8 +685,8 @@ class SmoSolverTest : public ::testing::Test {
       return_buff_dev(2, stream),
       sample_weights_dev(n_rows, stream)
   {
-    CUDA_CHECK(cudaMemsetAsync(alpha_dev.data(), 0, alpha_dev.size() * sizeof(math_t), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(cudaMemsetAsync(alpha_dev.data(), 0, alpha_dev.size() * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(delta_alpha_dev.data(), 0, delta_alpha_dev.size() * sizeof(math_t), stream));
   }
 
@@ -702,7 +701,7 @@ class SmoSolverTest : public ::testing::Test {
     init_C(C, C_dev.data(), n_rows, stream);
     raft::update_device(f_dev.data(), f_host, n_rows, stream);
     raft::update_device(kernel_dev.data(), kernel_host, n_ws * n_rows, stream);
-    CUDA_CHECK(cudaMemsetAsync(delta_alpha_dev.data(), 0, n_ws * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha_dev.data(), 0, n_ws * sizeof(math_t), stream));
 
     kernel = std::make_unique<Matrix::GramMatrixBase<math_t>>(cublas_handle);
   }
@@ -721,11 +720,11 @@ class SmoSolverTest : public ::testing::Test {
                                                         C_dev.data(),
                                                         1e-3,
                                                         return_buff_dev.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     math_t return_buff[2];
     raft::update_host(return_buff, return_buff_dev.data(), 2, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     EXPECT_FLOAT_EQ(return_buff[0], 2.0f) << return_buff[0];
     EXPECT_LT(return_buff[1], 100) << return_buff[1];
 
@@ -798,11 +797,11 @@ class SmoSolverTest : public ::testing::Test {
                                                         10,
                                                         EPSILON_SVR,
                                                         kColIdx_dev.data());
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     math_t return_buff[2];
     raft::update_host(return_buff, return_buff_dev.data(), 2, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     EXPECT_LT(return_buff[1], 10) << return_buff[1];
 
     math_t alpha_exp[] = {0, 0.8, 0.8, 0};
@@ -1088,10 +1087,10 @@ void make_blobs(const raft::handle_t& handle,
     cast<<<raft::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
       x2.data(), n_rows * n_cols, x_float.data());
     raft::linalg::transpose(handle, x2.data(), x, n_cols, n_rows, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
   cast<<<raft::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows, y_int.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 struct is_same_functor {
@@ -1171,7 +1170,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
   // This will lead to NaN diff in SmoSolver, which whill throw an exception
   // to stop fitting.
   size_t free1, total, free2;
-  CUDA_CHECK(cudaMemGetInfo(&free1, &total));
+  RAFT_CUDA_TRY(cudaMemGetInfo(&free1, &total));
   for (auto d : data) {
     auto p = d.first;
     SCOPED_TRACE(p);
@@ -1188,8 +1187,8 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
     } else {
       svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
       rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-      CUDA_CHECK(cudaMemGetInfo(&free2, &total));
+      raft::interruptible::synchronize(stream);
+      RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
       float delta = (free1 - free2);
       // Just to make sure that we measure any mem consumption at all:
       // we check if we see the memory consumption of x[n_rows*n_cols].
@@ -1197,11 +1196,11 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       // it (one could additionally control the exec time by the max_iter arg to
       // SVC).
       EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      raft::interruptible::synchronize(stream);
       svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
     }
   }
-  CUDA_CHECK(cudaMemGetInfo(&free2, &total));
+  RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
   float delta = (free1 - free2);
   EXPECT_EQ(delta, 0);
 }

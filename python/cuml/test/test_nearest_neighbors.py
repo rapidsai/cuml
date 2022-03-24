@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -547,14 +547,8 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
         brute_d, brute_i = knn_cu_brute.kneighbors(
             X[:query_rows, :], n_neighbors=n_neighbors)
 
-    rbc_i = cp.sort(rbc_i, axis=1)
-    brute_i = cp.sort(brute_i, axis=1)
-
-    # TODO: These are failing with 1 or 2 mismatched elements
-    # for very small values of k:
-    # https://github.com/rapidsai/cuml/issues/4262
-    assert len(brute_d[brute_d != rbc_d]) <= 1
-    assert len(brute_i[brute_i != rbc_i]) <= 1
+    assert len(brute_d[brute_d != rbc_d]) == 0
+    assert len(brute_i[brute_i != rbc_i]) == 0
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())

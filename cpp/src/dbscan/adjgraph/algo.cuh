@@ -52,7 +52,7 @@ void launcher(const raft::handle_t& handle,
   raft::sparse::convert::csr_adj_graph_batched<Index_>(
     data.ex_scan, data.N, data.adjnnz, batch_size, data.adj, data.adj_graph, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Algo

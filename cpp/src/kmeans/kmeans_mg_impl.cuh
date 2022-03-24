@@ -280,12 +280,12 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     /// <<<< End of Step-4 >>>>
 
     int* nPtsSampledByRank;
-    CUDA_CHECK(cudaMallocHost(&nPtsSampledByRank, n_rank * sizeof(int)));
+    RAFT_CUDA_TRY(cudaMallocHost(&nPtsSampledByRank, n_rank * sizeof(int)));
 
     /// <<<< Step-5 >>> : C = C U C'
     // append the data in Cp from all ranks to the buffer holding the
     // potentialCentroids
-    // CUDA_CHECK(cudaMemsetAsync(nPtsSampledByRank, 0, n_rank * sizeof(int), stream));
+    // RAFT_CUDA_TRY(cudaMemsetAsync(nPtsSampledByRank, 0, n_rank * sizeof(int), stream));
     std::fill(nPtsSampledByRank, nPtsSampledByRank + n_rank, 0);
     nPtsSampledByRank[my_rank] = inRankCp.getSize(0);
     comm.allgather(&(nPtsSampledByRank[my_rank]), nPtsSampledByRank, 1, stream);
@@ -303,7 +303,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
         return val * n_features;
       });
 
-    CUDA_CHECK_NO_THROW(cudaFreeHost(nPtsSampledByRank));
+    RAFT_CUDA_TRY_NO_THROW(cudaFreeHost(nPtsSampledByRank));
 
     std::vector<size_t> displs(n_rank);
     thrust::exclusive_scan(thrust::host, sizes.begin(), sizes.end(), displs.begin());
@@ -412,12 +412,12 @@ void checkWeights(const raft::handle_t& handle,
 
   int n_samples             = weight.getSize(0);
   size_t temp_storage_bytes = 0;
-  CUDA_CHECK(cub::DeviceReduce::Sum(
+  RAFT_CUDA_TRY(cub::DeviceReduce::Sum(
     nullptr, temp_storage_bytes, weight.data(), wt_aggr.data(), n_samples, stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
-  CUDA_CHECK(cub::DeviceReduce::Sum(
+  RAFT_CUDA_TRY(cub::DeviceReduce::Sum(
     workspace.data(), temp_storage_bytes, weight.data(), wt_aggr.data(), n_samples, stream));
 
   comm.allreduce<DataT>(wt_aggr.data(),  // sendbuff
@@ -426,7 +426,7 @@ void checkWeights(const raft::handle_t& handle,
                         raft::comms::op_t::SUM,
                         stream);
   DataT wt_sum = wt_aggr.value(stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   if (wt_sum != n_samples) {
     LOG(handle,
@@ -526,19 +526,19 @@ void fit(const raft::handle_t& handle,
 
     // Calculates weighted sum of all the samples assigned to cluster-i and
     // store the result in newCentroids[i]
-    MLCommon::LinAlg::reduce_rows_by_key(X.data(),
-                                         X.getSize(1),
-                                         itr,
-                                         weight.data(),
-                                         workspace.data(),
-                                         X.getSize(0),
-                                         X.getSize(1),
-                                         n_clusters,
-                                         newCentroids.data(),
-                                         stream);
+    raft::linalg::reduce_rows_by_key(X.data(),
+                                     X.getSize(1),
+                                     itr,
+                                     weight.data(),
+                                     workspace.data(),
+                                     X.getSize(0),
+                                     X.getSize(1),
+                                     n_clusters,
+                                     newCentroids.data(),
+                                     stream);
 
     // Reduce weights by key to compute weight in each cluster
-    MLCommon::LinAlg::reduce_cols_by_key(
+    raft::linalg::reduce_cols_by_key(
       weight.data(), itr, wtInCluster.data(), 1, weight.getSize(0), n_clusters, stream);
 
     // merge the local histogram from all ranks
@@ -662,7 +662,7 @@ void fit(const raft::handle_t& handle,
       priorClusteringCost = curClusteringCost;
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {

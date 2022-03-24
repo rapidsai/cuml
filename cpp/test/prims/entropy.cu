@@ -19,6 +19,7 @@
 #include <iostream>
 #include <metrics/entropy.cuh>
 #include <raft/cudart_utils.h>
+#include <raft/interruptible.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
@@ -73,15 +74,15 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     }
 
     // allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> clusterArray(nElements, stream);
     raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
     // calling the entropy CUDA implementation
     computedEntropy = MLCommon::Metrics::entropy(
       clusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   // declaring the data values

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ def test_pca_fit_then_transform(datatype, input_type,
     cupca.handle.sync()
 
     if name != 'blobs':
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 
@@ -196,7 +196,7 @@ def test_pca_fit_transform(datatype, input_type,
     cupca.handle.sync()
 
     if name != 'blobs':
-        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=False)
         assert Xskpca.shape[0] == X_cupca.shape[0]
         assert Xskpca.shape[1] == X_cupca.shape[1]
 

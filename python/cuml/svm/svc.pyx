@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
+from raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
@@ -90,7 +91,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
@@ -283,6 +284,20 @@ class SVC(SVMBase,
 
     @property
     @cuml.internals.api_base_return_array_skipall
+    def support_(self):
+        if self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+            return cp.concatenate(
+                [cp.asarray(cls._support_) for cls in estimators])
+        else:
+            return self._support_
+
+    @support_.setter
+    def support_(self, value):
+        self._support_ = value
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
         if self.n_classes_ > 2:
             estimators = self.multiclass_svc.multiclass_estimator.estimators_
@@ -372,6 +387,27 @@ class SVC(SVMBase,
             estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
+
+        # if using one-vs-one we align support_ indices to those of
+        # full dataset
+        if strategy == 'ovo':
+            y = cp.array(y)
+            classes = cp.unique(y)
+            n_classes = len(classes)
+            estimator_index = 0
+            # Loop through multiclass estimators and re-align support_ indices
+            for i in range(n_classes):
+                for j in range(i + 1, n_classes):
+                    cond = cp.logical_or(y == classes[i], y == classes[j])
+                    ovo_support = cp.array(
+                        self.multiclass_svc.multiclass_estimator.estimators_[
+                            estimator_index
+                        ].support_)
+                    self.multiclass_svc.multiclass_estimator.estimators_[
+                        estimator_index
+                    ].support_ = cp.nonzero(cond)[0][ovo_support]
+                    estimator_index += 1
+
         self._fit_status_ = 0
         return self
 
@@ -447,17 +483,25 @@ class SVC(SVMBase,
         cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0], <float*>sample_weight_ptr)
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <float*>X_ptr, n_rows,
+                        n_cols, <float*>y_ptr, param, _kernel_params,
+                        deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0], <double*>sample_weight_ptr)
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <double*>X_ptr, n_rows,
+                        n_cols, <double*>y_ptr, param, _kernel_params,
+                        deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
