@@ -159,7 +159,7 @@ class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
     if (std::is_same_v<real_t, float> && param.skip_f32) return;
 
     tree_base tree{param.cso.accessor()};
-    if (!std::is_same_v<fil_node_t, fil::dense_node<real_t>>) {
+    if constexpr (!std::is_same_v<fil_node_t, fil::dense_node<real_t>>) {
       // test that the logic uses node.left instead of parent_node_idx
       param.node.left       = param.parent_node_idx * 2 + 1;
       param.parent_node_idx = INT_MIN;
