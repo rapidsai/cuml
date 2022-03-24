@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 
@@ -52,7 +52,6 @@ from libc.stdint cimport uintptr_t, int64_t, uint32_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
-
 
 from numba import cuda
 import rmm
@@ -197,9 +196,10 @@ class NearestNeighbors(Base,
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
         'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
-    p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
-        is equivalent to manhattan distance (l1), and euclidean distance (l2)
-        for p = 2. For arbitrary p, minkowski distance (lp) is used.
+    p : float (default=2)
+        Parameter for the Minkowski metric. When p = 1, this is equivalent to
+        manhattan distance (l1), and euclidean distance (l2) for p = 2. For
+        arbitrary p, minkowski distance (lp) is used.
     algo_params : dict, optional (default=None)
         Named arguments for controlling the behavior of different nearest
         neighbors algorithms.
@@ -214,8 +214,8 @@ class NearestNeighbors(Base,
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
-    algo_params : dict, optional (default = None) Used to configure the
-        nearest neighbor algorithm to be used.
+    algo_params : dict, optional (default = None)
+        Used to configure the nearest neighbor algorithm to be used.
         If set to None, parameters will be generated automatically.
         Parameters for algorithm ``'ivfflat'``:
 
@@ -374,7 +374,8 @@ class NearestNeighbors(Base,
                 self.working_algorithm_ = "brute"
 
         if self.algorithm == "rbc" and self.n_dims > 2:
-            raise ValueError("rbc algorithm currently only supports 2d data")
+            raise ValueError("The rbc algorithm is not supported for"
+                             " >2 dimensions currently.")
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
@@ -391,6 +392,7 @@ class NearestNeighbors(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+        self._output_index = self.X_m.index
 
         if self.metric not in \
                 valid_metrics[self.working_algorithm_]:
@@ -453,7 +455,7 @@ class NearestNeighbors(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params", "algo_params"]
+                "p", "metric_params", "algo_params", "n_jobs"]
 
     @staticmethod
     def _build_metric_type(metric):
@@ -654,6 +656,7 @@ class NearestNeighbors(Base,
             # expanded metrics. This code correct numerical instabilities
             # that could arise.
             if metric_is_l2_based:
+                index = I_ndarr.index
                 X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
@@ -670,7 +673,9 @@ class NearestNeighbors(Base,
                 I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
 
                 D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                D_ndarr.index = index
                 I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
+                I_ndarr.index = index
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)
@@ -702,9 +707,11 @@ class NearestNeighbors(Base,
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
+        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C",
+                                  index=X_m.index)
         D_ndarr = CumlArray.zeros((N, n_neighbors),
-                                  dtype=np.float32, order="C")
+                                  dtype=np.float32, order="C",
+                                  index=X_m.index)
 
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr

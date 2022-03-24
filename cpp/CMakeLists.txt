@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-21.10/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.12.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.04.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -57,16 +57,14 @@ option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
-option(DISABLE_FORCE_CLONE_RAFT "By default, CPM will clone RAFT even if it's already in the environment. Set to disable that behavior." OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
-
-set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
-set_property(CACHE CUML_CPP_ALGORITHMS PROPERTY STRINGS "ALL" "FIL")
-message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_CPP_ALGORITHMS}'.")
+option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
+option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
+option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 
 message(VERBOSE "CUML: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -87,6 +85,12 @@ message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
+message(VERBOSE "CUML: Build and statically link RAFT libraries: ${CUML_USE_RAFT_STATIC}")
+message(VERBOSE "CUML: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
+message(VERBOSE "CUML: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
+
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
+message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -97,12 +101,12 @@ message(VERBOSE "CUML: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 # - Target names -------------------------------------------------------------
 
 set(CUML_CPP_TARGET "cuml++")
-set(CUML_CPP_TEST_TARGET "ml")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
-set(CUML_C_TARGET "cuml")
+if(${BUILD_CUML_C_LIBRARY})
+  set(CUML_C_TARGET "cuml")
+endif()
 set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
 set(CUML_MG_TEST_TARGET "ml_mg")
-set(PRIMS_TEST_TARGET "prims")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
 
 ##############################################################################
@@ -136,8 +140,14 @@ rapids_find_package(CUDAToolkit REQUIRED
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
+
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
+set(CUML_USE_RAFT_NN OFF)
+set(CUML_USE_RAFT_DIST OFF)
+set(LINK_TREELITE OFF)
+set(LINK_CUFFT OFF)
+include(cmake/modules/ConfigureAlgorithms.cmake)
 
 # Enabling libcuml enables building libcuml++
 if(BUILD_CUML_C_LIBRARY)
@@ -150,15 +160,6 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
-endif()
-
-if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
-  set(LINK_FAISS ON)
-elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
-  set(SINGLEGPU ON)
-  set(BUILD_CUML_C_LIBRARY OFF)
-  set(BUILD_CUML_EXAMPLES OFF)
-  set(LINK_FAISS OFF)
 endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
@@ -189,15 +190,15 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-include(cmake/thirdparty/get_thrust.cmake)
-include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_raft.cmake)
 
-if(LINK_FAISS)
-  include(cmake/thirdparty/get_faiss.cmake)
+if(LINK_TREELITE)
+  include(cmake/thirdparty/get_treelite.cmake)
 endif()
 
-include(cmake/thirdparty/get_treelite.cmake)
-include(cmake/thirdparty/get_raft.cmake)
+if(all_algo OR treeshap_algo)
+  include(cmake/thirdparty/get_gputreeshap.cmake)
+endif()
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
@@ -212,7 +213,7 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_CUML_BENCH)
+if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   include(cmake/thirdparty/get_gbench.cmake)
 endif()
 
@@ -233,44 +234,123 @@ endif()
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
-
   # common components
   add_library(${CUML_CPP_TARGET} SHARED
-              src/common/logger.cpp
-              src/common/nvtx.cu)
+              src/common/logger.cpp)
 
-
-  # FIL components
-  target_sources(${CUML_CPP_TARGET}
-    PRIVATE
-      src/fil/fil.cu
-      src/fil/infer.cu)
-
-  # Rest of the algorithms
-  if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+  if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/arima/batched_arima.cu
-        src/arima/batched_kalman.cu
+        src/arima/batched_kalman.cu)
+  endif()
+
+  if(all_algo OR datasets_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/datasets/make_arima.cu
         src/datasets/make_blobs.cu
-        src/datasets/make_regression.cu
-        src/dbscan/dbscan.cu
-        src/decisiontree/decisiontree.cu
+        src/datasets/make_regression.cu)
+  endif()
+
+  if(all_algo OR dbscan_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/dbscan/dbscan.cu)
+  endif()
+
+  if(all_algo OR decisiontree_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
+        src/decisiontree/decisiontree.cu)
+  endif()
+
+  if(all_algo OR explainer_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/explainer/kernel_shap.cu
-        src/explainer/permutation_shap.cu
+        src/explainer/permutation_shap.cu)
+  endif()
+
+  if(all_algo OR treeshap_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/explainer/tree_shap.cu)
+  endif()
+
+  # FIL components
+  if(all_algo OR fil_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/fil/fil.cu
         src/fil/infer.cu
-        src/glm/glm.cu
+        src/fil/treelite_import.cu)
+  endif()
+
+  # todo: organize linear models better
+  if(all_algo OR linearregression_algo OR ridge_algo OR lasso_algo OR logisticregression_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/glm/glm.cu)
+  endif()
+
+  if(all_algo OR genetic_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/genetic/genetic.cu
+        src/genetic/node.cu)
+  endif()
+
+  if(all_algo OR hdbscan_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/genetic/program.cu
         src/genetic/node.cu
         src/hdbscan/hdbscan.cu
-        src/hdbscan/condensed_hierarchy.cu
-        src/holtwinters/holtwinters.cu
-        src/kmeans/kmeans.cu
+        src/hdbscan/condensed_hierarchy.cu)
+  endif()
+
+  if(all_algo OR holtwinters_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/holtwinters/holtwinters.cu)
+  endif()
+
+  if(all_algo OR kmeans_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/kmeans/kmeans.cu)
+  endif()
+
+  if(all_algo OR knn_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/knn/knn.cu
-        src/knn/knn_sparse.cu
-        src/hierarchy/linkage.cu
+        src/knn/knn_sparse.cu)
+  endif()
+
+  if(all_algo OR hierarchicalclustering_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/hierarchy/linkage.cu)
+  endif()
+
+  if(all_algo OR metrics_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/metrics/accuracy_score.cu
         src/metrics/adjusted_rand_index.cu
         src/metrics/completeness_score.cu
@@ -295,20 +375,72 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
         src/metrics/trustworthiness.cu
-        src/metrics/v_measure.cu
-        src/pca/pca.cu
-        src/randomforest/randomforest.cu
-        src/randomprojection/randomprojection.cu
+        src/metrics/v_measure.cu)
+  endif()
+
+  if(all_algo OR pca_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/pca/pca.cu)
+  endif()
+
+  if(all_algo OR randomforest_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/randomforest/randomforest.cu)
+  endif()
+
+  if(all_algo OR randomprojection_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+      src/randomprojection/randomprojection.cu)
+  endif()
+
+  # todo: separate solvers better
+  if(all_algo OR solvers_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/solver/lars.cu
-        src/solver/solver.cu
-        src/spectral/spectral.cu
+        src/solver/solver.cu)
+  endif()
+
+  if(all_algo OR spectralclustering_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/spectral/spectral.cu)
+  endif()
+
+  if(all_algo OR svm_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/ws_util.cu
+        src/svm/linear.cu
+        src/svm/ws_util.cu)
+  endif()
+
+  if(all_algo OR autoarima_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/tsa/auto_arima.cu
-        src/tsa/stationarity.cu
-        src/tsne/tsne.cu
-        src/tsvd/tsvd.cu
+        src/tsa/stationarity.cu)
+  endif()
+
+  if(all_algo OR tsne_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/tsne/tsne.cu)
+  endif()
+
+  if(all_algo OR tsvd_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/tsvd/tsvd.cu)
+  endif()
+
+  if(all_algo OR umap_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/umap/umap.cu)
   endif()
 
@@ -346,7 +478,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
-      $<$<BOOL:${NVTX}>:NVTX_ENABLED>
       DISABLE_CUSPARSE_DEPRECATED
     PRIVATE
       CUML_CPP_API
@@ -373,21 +504,14 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      rmm::rmm
-      cuml::Thrust
       raft::raft
+      $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
+      $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     PRIVATE
-      CUDA::cublas
-      CUDA::cufft
-      CUDA::curand
-      CUDA::cusolver
-      CUDA::cudart
-      CUDA::cusparse
-      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-      $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
-      $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
+      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
+      ${TREELITE_LIBS}
+      $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
+      ${OpenMP_CXX_LIB_NAMES}
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
       $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>
@@ -431,8 +555,6 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
-    PRIVATE
-      FAISS::FAISS
   )
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
@@ -491,14 +613,34 @@ functions that share compatible APIs with other RAPIDS projects.
 
 ]=])
 
-set(code_string
+set(code_string )
+
+if (TARGET treelite::treelite)
+    string(APPEND code_string
 [=[
-thrust_create_target(cuml::Thrust FROM_OPTIONS)
+if (TARGET treelite::treelite AND (NOT TARGET treelite))
+    add_library(treelite ALIAS treelite::treelite)
+endif()
+if (TARGET treelite::treelite_runtime AND (NOT TARGET treelite_runtime))
+    add_library(treelite_runtime ALIAS treelite::treelite_runtime)
+endif()
+]=])
+else()
+    string(APPEND code_string
+[=[
+if (TARGET treelite::treelite_static AND (NOT TARGET treelite_static))
+    add_library(treelite_static ALIAS treelite::treelite_static)
+endif()
+if (TARGET treelite::treelite_runtime_static AND (NOT TARGET treelite_runtime_static))
+    add_library(treelite_runtime_static ALIAS treelite::treelite_runtime_static)
+endif()
 ]=])
 
- rapids_export(INSTALL cuml
+endif()
+
+rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
-    GLOBAL_TARGETS cuml
+    GLOBAL_TARGETS ${CUML_C_TARGET} ${CUML_CPP_TARGET}
     NAMESPACE cuml::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
@@ -509,7 +651,7 @@ thrust_create_target(cuml::Thrust FROM_OPTIONS)
 
 rapids_export(BUILD cuml
     EXPORT_SET cuml-exports
-    GLOBAL_TARGETS cuml
+    GLOBAL_TARGETS ${CUML_C_TARGET} ${CUML_CPP_TARGET}
     NAMESPACE cuml::
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string

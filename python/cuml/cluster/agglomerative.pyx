@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import numpy as np
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
@@ -135,9 +135,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                  handle=None, verbose=False, connectivity='knn',
                  n_neighbors=10, output_type=None):
 
-        super().__init__(handle,
-                         verbose,
-                         output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if linkage is not "single":
             raise ValueError("Only single linkage clustering is "

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -251,11 +251,16 @@ class DBSCAN(Base,
             input_to_cuml_array(X, order='C',
                                 check_dtype=[np.float32, np.float64])
 
+        if n_rows == 0:
+            raise ValueError("No rows in the input array. DBScan cannot be "
+                             "fitted!")
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype)
+        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
+                                       index=X_m.index)
         cdef uintptr_t labels_ptr = self.labels_.ptr
 
         cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -89,25 +89,15 @@ static std::vector<Params<T>> getInputs()
     {32 * 1024 * 1024 + 1, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
     {1024 * 1024 * 1024 + 1, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},
 
-    {1024 * 1024, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 + 2, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 2, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 2, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 + 1, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 1, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 1, RNG_Uniform, GenTaps, T(-1.0), T(1.0)},
-
-    {1024 * 1024, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 + 2, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 2, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 2, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 + 1, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {32 * 1024 * 1024 + 1, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
-    {1024 * 1024 * 1024 + 1, RNG_Uniform, GenKiss99, T(-1.0), T(1.0)},
+    {1024 * 1024, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {1024 * 1024 + 2, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 2, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 2, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {1024 * 1024 + 1, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {32 * 1024 * 1024 + 1, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
+    {1024 * 1024 * 1024 + 1, RNG_Uniform, GenPC, T(-1.0), T(1.0)},
 
     {1024 * 1024, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},
     {32 * 1024 * 1024, RNG_Fill, GenPhilox, T(-1.0), T(1.0)},

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,9 @@ import cupy as cp
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
+
+from raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
@@ -192,7 +194,7 @@ def condense_hierarchy(dendrogram,
     condensed_tree : hdbscan.plots.CondensedTree object
     """
 
-    handle = cuml.raft.common.handle.Handle()
+    handle = Handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     n_leaves = dendrogram.shape[0]+1
@@ -580,7 +582,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
 
-        self.labels_ = CumlArray.empty(n_rows, dtype="int32")
+        self.labels_ = CumlArray.empty(n_rows, dtype="int32", index=X_m.index)
         self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
         self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
         self.sizes_ = CumlArray.empty(n_rows, dtype="int32")

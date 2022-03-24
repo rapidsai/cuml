@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,24 +40,27 @@ struct proto_inner_node {
   int set             = 0;      // which bit set represents the matching category list
   float thresh        = 0.0f;   // threshold, see base_node::thresh
   int left            = 1;      // left child idx, see sparse_node*::left_index()
-  val_t split()
+  val_t<float> split()
   {
-    val_t split;
+    val_t<float> split;
     if (is_categorical)
       split.idx = set;
     else
       split.f = thresh;
     return split;
   }
-  operator sparse_node16()
+  operator sparse_node16<float>()
   {
-    return sparse_node16({}, split(), fid, def_left, false, is_categorical, left);
+    return sparse_node16<float>({}, split(), fid, def_left, false, is_categorical, left);
   }
   operator sparse_node8()
   {
     return sparse_node8({}, split(), fid, def_left, false, is_categorical, left);
   }
-  operator dense_node() { return dense_node({}, split(), fid, def_left, false, is_categorical); }
+  operator dense_node<float>()
+  {
+    return dense_node<float>({}, split(), fid, def_left, false, is_categorical);
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
@@ -86,18 +89,18 @@ struct ProtoCategorySets {
   // each bit set for each feature id is in a separate vector
   // read each uint8_t from right to left, and the vector(s) - from left to right
   std::vector<std::vector<uint8_t>> bits;
-  std::vector<int> max_matching;
+  std::vector<float> fid_num_cats;
   operator cat_sets_owner()
   {
-    ASSERT(
-      bits.size() == max_matching.size(),
-      "internal error: ProtoCategorySets::bits.size() != ProtoCategorySets::max_matching.size()");
+    ASSERT(bits.size() == fid_num_cats.size(),
+           "internal error: ProtoCategorySets::bits.size() != "
+           "ProtoCategorySets::fid_num_cats.size()");
     std::vector<uint8_t> flat;
     for (std::vector<uint8_t> v : bits) {
       for (uint8_t b : v)
         flat.push_back(b);
     }
-    return {flat, max_matching};
+    return {flat, fid_num_cats};
   }
 };
 
@@ -138,7 +141,7 @@ class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
   {
     ChildIndexTestParams param = GetParam();
     tree_base tree{param.cso.accessor()};
-    if (!std::is_same<fil_node_t, fil::dense_node>::value) {
+    if (!std::is_same<fil_node_t, fil::dense_node<float>>::value) {
       // test that the logic uses node.left instead of parent_node_idx
       param.node.left       = param.parent_node_idx * 2 + 1;
       param.parent_node_idx = INT_MIN;
@@ -153,8 +156,8 @@ class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
   }
 };
 
-typedef ChildIndexTest<fil::dense_node> ChildIndexTestDense;
-typedef ChildIndexTest<fil::sparse_node16> ChildIndexTestSparse16;
+typedef ChildIndexTest<fil::dense_node<float>> ChildIndexTestDense;
+typedef ChildIndexTest<fil::sparse_node16<float>> ChildIndexTestSparse16;
 typedef ChildIndexTest<fil::sparse_node8> ChildIndexTestSparse8;
 
 /* for dense nodes, left (false) == parent * 2 + 1, right (true) == parent * 2 + 2
@@ -207,43 +210,86 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
   CHILD_INDEX_TEST_PARAMS(
     node = NODE(def_left = true), input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
-  // cannot match ( > max_matching)
+  // cannot match ( < 0 and realistic fid_num_cats)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {},
-                          cso.max_matching = {-1},
-                          input            = 0,
+                          cso.fid_num_cats = {11.0f},
+                          input            = -5,
+                          correct          = 1),
+  // Skipping category < 0 and dummy categorical node: fid_num_cats == 0. Prevented by FIL
+  // import. cannot match ( > INT_MAX)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.fid_num_cats = {8.0f},
+                          input            = (float)(1ll << 33ll),
+                          correct          = 1),
+  // cannot match ( >= fid_num_cats and integer)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.fid_num_cats = {2.0f},
+                          input            = 2,
+                          correct          = 1),
+  // matches ( < fid_num_cats because comparison is floating-point and there's no rounding)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.fid_num_cats = {2.0f},
+                          input            = 1.8f,
+                          correct          = 2),
+  // cannot match ( >= fid_num_cats)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.fid_num_cats = {2.0f},
+                          input            = 2.1f,
                           correct          = 1),
   // does not match (bits[category] == 0, category == 0)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b0000'0000},
-                          cso.max_matching = {0},
+                          cso.fid_num_cats = {1.0f},
                           input            = 0,
                           correct          = 1),
-  // matches
+  // matches (negative zero)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b0000'0001},
-                          cso.max_matching = {0},
+                          cso.fid_num_cats = {1.0f},
+                          input            = -0.0f,
+                          correct          = 2),
+  // matches (positive zero)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b0000'0001},
+                          cso.fid_num_cats = {1.0f},
                           input            = 0,
                           correct          = 2),
   // matches
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2, -1},
+                          cso.fid_num_cats = {3.0f, 1.0f},
                           input            = 2,
                           correct          = 2),
   // does not match (bits[category] == 0, category > 0)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2},
+                          cso.fid_num_cats = {3.0f},
                           input            = 1,
                           correct          = 1),
-  // cannot match (max_matching[fid=1] == -1)
+  // cannot match (fid_num_cats[fid=1] <= input)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           node.fid         = 1,
                           cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2, -1},
+                          cso.fid_num_cats = {3.0f, 1.0f},
                           input            = 2,
                           correct          = 1),
+  // default left
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = true),
+                          cso.bits         = {0b0000'0101},
+                          cso.fid_num_cats = {3.0f},
+                          input            = NAN,
+                          correct          = 1),
+  // default right
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = false),
+                          cso.bits         = {0b0000'0101},
+                          cso.fid_num_cats = {3.0f},
+                          input            = NAN,
+                          correct          = 2),
 };
 
 TEST_P(ChildIndexTestDense, Predict) { check(); }

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool
@@ -208,7 +208,8 @@ class KNeighborsClassifier(NearestNeighbors,
 
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
-        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C")
+        classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
+                                  index=knn_indices.index)
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -277,7 +278,8 @@ class KNeighborsClassifier(NearestNeighbors,
             classes = CumlArray.zeros((n_rows,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
-                                      order="C")
+                                      order="C",
+                                      index=knn_indices.index)
             out_classes.append(classes)
             classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)

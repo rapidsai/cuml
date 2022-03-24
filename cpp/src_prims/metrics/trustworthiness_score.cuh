@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,9 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
+#include <raft/distance/specializations.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
@@ -99,19 +101,19 @@ void run_knn(const raft::handle_t& h,
   ptrs[0]  = input;
   sizes[0] = n;
 
-  raft::spatial::knn::brute_force_knn(h,
-                                      ptrs,
-                                      sizes,
-                                      d,
-                                      input,
-                                      n,
-                                      indices,
-                                      distances,
-                                      n_neighbors,
-                                      true,
-                                      true,
-                                      nullptr,
-                                      distance_type);
+  raft::spatial::knn::brute_force_knn<int64_t, float, int>(h,
+                                                           ptrs,
+                                                           sizes,
+                                                           d,
+                                                           input,
+                                                           n,
+                                                           indices,
+                                                           distances,
+                                                           n_neighbors,
+                                                           true,
+                                                           true,
+                                                           nullptr,
+                                                           distance_type);
 }
 
 /**
@@ -190,7 +192,7 @@ double trustworthiness_score(const raft::handle_t& h,
     build_lookup_table<<<n_blocks, N_THREADS, 0, stream>>>(
       lookup_table.data(), X_ind.data(), n, work);
 
-    CUDA_CHECK(cudaMemsetAsync(t_dbuf.data(), 0, sizeof(double), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(t_dbuf.data(), 0, sizeof(double), stream));
 
     work     = curBatchSize * (n_neighbors + 1);
     n_blocks = raft::ceildiv(work, N_THREADS);
@@ -201,7 +203,7 @@ double trustworthiness_score(const raft::handle_t& h,
       n,
       n_neighbors + 1,
       work);
-    CUDA_CHECK(cudaPeekAtLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     t += t_dbuf.value(stream);
 

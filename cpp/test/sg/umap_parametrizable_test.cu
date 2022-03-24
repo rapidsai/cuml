@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,23 @@
 
 #include <umap/runner.cuh>
 
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/metrics/metrics.hpp>
+#include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuml/datasets/make_blobs.hpp>
-#include <cuml/manifold/umap.hpp>
-#include <cuml/metrics/metrics.hpp>
-#include <cuml/neighbors/knn.hpp>
 
 #include <datasets/digits.h>
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
@@ -152,7 +151,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                                           knn_dists,
                                           umap_params.n_neighbors);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
     }
 
     float* model_embedding = nullptr;
@@ -165,10 +164,10 @@ class UMAPParametrizableTest : public ::testing::Test {
       model_embedding = model_embedding_b->data();
     }
 
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       model_embedding, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     if (test_params.supervised) {
       ML::UMAP::fit(
@@ -198,13 +197,13 @@ class UMAPParametrizableTest : public ::testing::Test {
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     if (!test_params.fit_transform) {
-      CUDA_CHECK(cudaMemsetAsync(
+      RAFT_CUDA_TRY(cudaMemsetAsync(
         embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       ML::UMAP::transform(handle,
                           X,
@@ -219,7 +218,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                           &umap_params,
                           embedding_ptr);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       delete model_embedding_b;
     }
@@ -294,11 +293,11 @@ class UMAPParametrizableTest : public ::testing::Test {
                              10.f,
                              1234ULL);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
-    MLCommon::LinAlg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
+    raft::linalg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     rmm::device_uvector<float> embeddings1(n_samples * umap_params.n_components, stream);
 

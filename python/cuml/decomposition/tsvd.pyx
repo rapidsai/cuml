@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -346,7 +346,7 @@ class TruncatedSVD(Base,
             self.singular_values_.ptr
 
         _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
-                                        dtype=self.dtype)
+                                        dtype=self.dtype, index=X_m.index)
         cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
         if self.n_components> self.n_cols:
@@ -389,7 +389,7 @@ class TruncatedSVD(Base,
 
         """
 
-        trans_input, n_rows, _, dtype = \
+        X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None))
@@ -400,9 +400,9 @@ class TruncatedSVD(Base,
         params.n_cols = self.n_cols
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=self.dtype)
+                                     dtype=self.dtype, index=X_m.index)
 
-        cdef uintptr_t trans_input_ptr = trans_input.ptr
+        cdef uintptr_t trans_input_ptr = X_m.ptr
         cdef uintptr_t input_ptr = input_data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
 
@@ -436,7 +436,7 @@ class TruncatedSVD(Base,
         Perform dimensionality reduction on X.
 
         """
-        input, n_rows, _, dtype = \
+        X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
@@ -449,9 +449,9 @@ class TruncatedSVD(Base,
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=self.dtype)
+                            dtype=self.dtype, index=X_m.index)
 
-        cdef uintptr_t input_ptr = input.ptr
+        cdef uintptr_t input_ptr = X_m.ptr
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
 

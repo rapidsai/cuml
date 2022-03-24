@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from pandas.testing import assert_frame_equal
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 
-def from_df_to_array(df):
+def from_df_to_numpy(df):
     if isinstance(df, pd.DataFrame):
         return list(zip(*[df[feature] for feature in df.columns]))
     else:
@@ -39,7 +39,7 @@ def _from_df_to_cupy(df):
                 df[col] = [ord(c) for c in df[col]]
             else:
                 df[col] = [ord(c) for c in df[col].values_host]
-    return cp.array(from_df_to_array(df))
+    return cp.array(from_df_to_numpy(df))
 
 
 def _convert_drop(drop):
@@ -63,7 +63,7 @@ def generate_inputs_from_categories(categories=None,
     rd = np.random.RandomState(seed)
     pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
                               for name, cat in categories.items()})
-    ary = from_df_to_array(pandas_df)
+    ary = from_df_to_numpy(pandas_df)
     if as_array:
         inp_ary = cp.array(ary)
         return inp_ary, ary
@@ -82,7 +82,7 @@ def assert_inverse_equal(ours, ref):
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 def test_onehot_vs_skonehot(as_array):
     X = DataFrame({'gender': ['M', 'F', 'F'], 'int': [1, 3, 2]})
-    skX = from_df_to_array(X)
+    skX = from_df_to_numpy(X)
     if as_array:
         X = _from_df_to_cupy(X)
         skX = cp.asnumpy(X)
@@ -129,6 +129,8 @@ def test_onehot_categories(as_array):
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)unknown((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_onehot_fit_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
@@ -166,6 +168,8 @@ def test_onehot_transform_handle_unknown(as_array):
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)unknown((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_onehot_inverse_transform_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y_ohe = cp.array([[0., 0., 1., 0.],
@@ -223,7 +227,7 @@ def test_onehot_drop_idx_first(as_array):
 def test_onehot_drop_one_of_each(as_array):
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
     drop = dict({'chars': 'b', 'int': 2, 'letters': 'b'})
-    X_ary = from_df_to_array(X)
+    X_ary = from_df_to_numpy(X)
     drop_ary = ['b', 2, 'b']
     if as_array:
         X = _from_df_to_cupy(X)
@@ -272,7 +276,7 @@ def test_onehot_get_categories(as_array):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_array())
+        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
@@ -280,7 +284,7 @@ def test_onehot_sparse_drop(as_array):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2], 'l': [5, 5, 6]})
     drop = {'g': 'F', 'i': 3, 'l': 6}
 
-    ary = from_df_to_array(X)
+    ary = from_df_to_numpy(X)
     drop_ary = ['F', 3, 6]
     if as_array:
         X = _from_df_to_cupy(X)
@@ -371,3 +375,26 @@ def test_onehot_category_class_count(total_classes: int):
 
         assert (encoder.fit_transform(example_df).shape[1] == class_per_row *
                 row_count)
+
+
+@pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+def test_onehot_get_feature_names(as_array):
+    fruits = ['apple', 'banana', 'strawberry']
+    if as_array:
+        fruits = [ord(fruit[0]) for fruit in fruits]
+    sizes = [0, 1, 2]
+    X = DataFrame({'fruits': fruits, 'sizes': sizes})
+    if as_array:
+        X = _from_df_to_cupy(X)
+
+    enc = OneHotEncoder().fit(X)
+
+    feature_names_ref = ['x0_'+str(fruit) for fruit in fruits] + \
+                        ['x1_'+str(size) for size in sizes]
+    feature_names = enc.get_feature_names()
+    assert np.array_equal(feature_names, feature_names_ref)
+
+    feature_names_ref = ['fruit_'+str(fruit) for fruit in fruits] + \
+                        ['size_'+str(size) for size in sizes]
+    feature_names = enc.get_feature_names(['fruit', 'size'])
+    assert np.array_equal(feature_names, feature_names_ref)

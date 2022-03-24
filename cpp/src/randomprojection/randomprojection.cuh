@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,17 @@
 
 #pragma once
 
-#include <cuml/randomprojection/randomprojection_c.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/sparse/cusparse_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
 #include "randomprojection_utils.cuh"
+
+#include <cuml/randomprojection/randomprojection_c.h>
+
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+
+// TODO: This needs to be removed.
+#include <raft/sparse/detail/cusparse_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
 
 #include <cstddef>
 #include <random>
@@ -146,24 +151,25 @@ void RPROJtransform(const raft::handle_t& handle,
     auto& ldb = k;
     auto& ldc = m;
 
-    CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
-                                          CUBLAS_OP_N,
-                                          CUBLAS_OP_N,
-                                          params->n_samples,
-                                          n,
-                                          k,
-                                          &alfa,
-                                          input,
-                                          lda,
-                                          random_matrix->dense_data.data(),
-                                          ldb,
-                                          &beta,
-                                          output,
-                                          ldc,
-                                          stream));
+    // #TODO: Call from public API when ready
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_N,
+                                                     params->n_samples,
+                                                     n,
+                                                     k,
+                                                     &alfa,
+                                                     input,
+                                                     lda,
+                                                     random_matrix->dense_data.data(),
+                                                     ldb,
+                                                     &beta,
+                                                     output,
+                                                     ldc,
+                                                     stream));
 
   } else if (random_matrix->type == sparse) {
-    cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
+    auto cusparse_handle = handle.get_cusparse_handle();
 
     const math_t alfa = 1;
     const math_t beta = 0;
@@ -176,21 +182,22 @@ void RPROJtransform(const raft::handle_t& handle,
     auto& lda = m;
     auto& ldc = m;
 
-    CUSPARSE_CHECK(raft::sparse::cusparsegemmi(cusparse_handle,
-                                               m,
-                                               n,
-                                               k,
-                                               nnz,
-                                               &alfa,
-                                               input,
-                                               lda,
-                                               random_matrix->sparse_data.data(),
-                                               random_matrix->indptr.data(),
-                                               random_matrix->indices.data(),
-                                               &beta,
-                                               output,
-                                               ldc,
-                                               stream));
+    // TODO: Need to wrap this in a RAFT public API.
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsegemmi(cusparse_handle,
+                                                          m,
+                                                          n,
+                                                          k,
+                                                          nnz,
+                                                          &alfa,
+                                                          input,
+                                                          lda,
+                                                          random_matrix->sparse_data.data(),
+                                                          random_matrix->indptr.data(),
+                                                          random_matrix->indices.data(),
+                                                          &beta,
+                                                          output,
+                                                          ldc,
+                                                          stream));
   } else {
     ASSERT(false,
            "Could not find a random matrix. Please perform a fit operation "

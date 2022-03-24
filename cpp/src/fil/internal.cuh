@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,27 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
-#include <cuml/fil/fil.h>
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
 #include <bitset>
 #include <cstdint>
+#include <cuml/fil/fil.h>
 #include <iostream>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
 #include <rmm/device_uvector.hpp>
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
+#include <utility>
 #include <vector>
 
 namespace raft {
 class handle_t;
+}
+
+// needed for node_traits<...>
+namespace treelite {
+template <typename, typename>
+struct ModelImpl;
 }
 
 namespace ML {
@@ -83,19 +90,22 @@ enum output_t {
 };
 
 /** val_t is the payload within a FIL leaf */
+template <typename real_t>
 union val_t {
-  /** threshold value for parent node or output value (e.g. class
-      probability or regression summand) for leaf node */
-  float f = NAN;
+  /** floating-point threshold value for parent node or output value
+      (e.g. class probability or regression summand) for leaf node */
+  real_t f = NAN;
   /** class label, leaf vector index or categorical node set offset */
   int idx;
 };
 
 /** base_node contains common implementation details for dense and sparse nodes */
-struct base_node {
+template <typename real_t_>
+struct alignas(2 * sizeof(real_t_)) base_node {
+  using real_t = real_t_;  // floating-point type
   /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
-  val_t val;
+  val_t<real_t> val;
   /** bits encode various information about the node, with the exact nature of
       this information depending on the node type; it includes e.g. whether the
       node is a leaf or inner node, and for inner nodes, additional information,
@@ -109,16 +119,35 @@ struct base_node {
   static const int IS_CATEGORICAL_MASK   = 1 << IS_CATEGORICAL_OFFSET;
   static const int FID_MASK              = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
-  __host__ __device__ o_t output() const;
+  __host__ __device__ o_t output() const
+  {
+    static_assert(
+      std::is_same_v<o_t, int> || std::is_same_v<o_t, real_t> || std::is_same_v<o_t, val_t<real_t>>,
+      "invalid o_t type parameter in node.output()");
+    if constexpr (std::is_same_v<o_t, int>) {
+      return val.idx;
+    } else if constexpr (std::is_same_v<o_t, real_t>) {
+      return val.f;
+    } else if constexpr (std::is_same_v<o_t, val_t<real_t>>) {
+      return val;
+    }
+    // control flow should not reach here
+    return o_t();
+  }
   __host__ __device__ int set() const { return val.idx; }
-  __host__ __device__ float thresh() const { return val.f; }
-  __host__ __device__ val_t split() const { return val; }
+  __host__ __device__ real_t thresh() const { return val.f; }
+  __host__ __device__ val_t<real_t> split() const { return val; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
   __host__ __device__ base_node() : val{}, bits(0) {}
-  base_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  base_node(val_t<real_t> output,
+            val_t<real_t> split,
+            int fid,
+            bool def_left,
+            bool is_leaf,
+            bool is_categorical)
   {
     RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
@@ -130,27 +159,19 @@ struct base_node {
   }
 };
 
-template <>
-__host__ __device__ __forceinline__ float base_node::output<float>() const
-{
-  return val.f;
-}
-template <>
-__host__ __device__ __forceinline__ int base_node::output<int>() const
-{
-  return val.idx;
-}
-template <>
-__host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
-{
-  return val;
-}
-
 /** dense_node is a single node of a dense forest */
-struct alignas(8) dense_node : base_node {
+template <typename real_t>
+struct alignas(2 * sizeof(real_t)) dense_node : base_node<real_t> {
   dense_node() = default;
-  dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
+  /// ignoring left_index, this is useful to unify import from treelite
+  dense_node(val_t<real_t> output,
+             val_t<real_t> split,
+             int fid,
+             bool def_left,
+             bool is_leaf,
+             bool is_categorical,
+             int left_index = -1)
+    : base_node<real_t>(output, split, fid, def_left, is_leaf, is_categorical)
   {
   }
   /** index of the left child, where curr is the index of the current node */
@@ -158,20 +179,18 @@ struct alignas(8) dense_node : base_node {
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-struct alignas(16) sparse_node16 : base_node {
+template <typename real_t>
+struct alignas(16) sparse_node16 : base_node<real_t> {
   int left_idx;
-  int dummy;  // make alignment explicit and reserve for future use
-  __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  sparse_node16(val_t output,
-                val_t split,
+  __host__ __device__ sparse_node16() : left_idx(0) {}
+  sparse_node16(val_t<real_t> output,
+                val_t<real_t> split,
                 int fid,
                 bool def_left,
                 bool is_leaf,
                 bool is_categorical,
                 int left_index)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical),
-      left_idx(left_index),
-      dummy(0)
+    : base_node<real_t>(output, split, fid, def_left, is_leaf, is_categorical), left_idx(left_index)
   {
   }
   __host__ __device__ int left_index() const { return left_idx; }
@@ -180,7 +199,7 @@ struct alignas(16) sparse_node16 : base_node {
 };
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
-struct alignas(8) sparse_node8 : base_node {
+struct alignas(8) sparse_node8 : base_node<float> {
   static const int LEFT_NUM_BITS = 16;
   static const int FID_NUM_BITS  = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
   static const int LEFT_OFFSET   = FID_NUM_BITS;
@@ -189,14 +208,14 @@ struct alignas(8) sparse_node8 : base_node {
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ int left_index() const { return (bits & LEFT_MASK) >> LEFT_OFFSET; }
   sparse_node8() = default;
-  sparse_node8(val_t output,
-               val_t split,
+  sparse_node8(val_t<float> output,
+               val_t<float> split,
                int fid,
                bool def_left,
                bool is_leaf,
                bool is_categorical,
                int left_index)
-    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
+    : base_node<float>(output, split, fid, def_left, is_leaf, is_categorical)
   {
     RAFT_EXPECTS((fid & FID_MASK) == fid,
                  "internal error: feature ID doesn't fit into sparse_node8");
@@ -208,10 +227,44 @@ struct alignas(8) sparse_node8 : base_node {
   __host__ __device__ int left(int curr) const { return left_index(); }
 };
 
+template <typename node_t>
+struct storage;
+
+template <typename node_t>
+struct dense_forest;
+template <typename node_t>
+struct sparse_forest;
+
+template <typename node_t>
+struct node_traits {
+  using real_t               = typename node_t::real_t;
+  using storage              = ML::fil::storage<node_t>;
+  using forest               = sparse_forest<node_t>;
+  static const bool IS_DENSE = false;
+  static const storage_type_t storage_type_enum =
+    std::is_same<sparse_node16<typename node_t::real_t>, node_t>() ? SPARSE : SPARSE8;
+  template <typename threshold_t, typename leaf_t>
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
+};
+
+template <typename real_t>
+struct node_traits<dense_node<real_t>> {
+  using storage                                 = storage<dense_node<real_t>>;
+  using forest                                  = dense_forest<dense_node<real_t>>;
+  static const bool IS_DENSE                    = true;
+  static const storage_type_t storage_type_enum = DENSE;
+  template <typename threshold_t, typename leaf_t>
+  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+  {
+  }
+};
+
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)
     and how FIL aggregates them into class margins/regression result/best class
 **/
 enum leaf_algo_t {
+  /** For iteration purposes */
+  MIN_LEAF_ALGO = 0,
   /** storing a class probability or regression summand. We add all margins
       together and determine regression result or use threshold to determine
       one of the two classes. **/
@@ -239,29 +292,33 @@ enum leaf_algo_t {
   /** Leaf contains an index into a vector of class probabilities. **/
   VECTOR_LEAF = 5,
   // to be extended
+  MAX_LEAF_ALGO = 5
 };
 
-template <leaf_algo_t leaf_algo>
+template <typename node_t>
+struct tree;
+
+template <leaf_algo_t leaf_algo, typename real_t>
 struct leaf_output_t {
 };
-template <>
-struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
-  typedef float T;
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY, real_t> {
+  typedef real_t T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF, real_t> {
   typedef int T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
-  typedef float T;
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES, real_t> {
+  typedef real_t T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
-  typedef float T;
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES, real_t> {
+  typedef real_t T;
 };
-template <>
-struct leaf_output_t<leaf_algo_t::VECTOR_LEAF> {
+template <typename real_t>
+struct leaf_output_t<leaf_algo_t::VECTOR_LEAF, real_t> {
   typedef int T;
 };
 
@@ -300,16 +357,18 @@ struct forest_params_t {
   // at once inside a block (sharing trees means splitting input rows)
   int threads_per_tree;
   // n_items is how many input samples (items) any thread processes. If 0 is given,
-  // choose most (up to 4) that fit into shared memory.
+  // choose most (up to MAX_N_ITEMS) that fit into shared memory.
   int n_items;
 };
 
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-constexpr std::int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+// 1 << 24 is the largest integer representable exactly as a float.
+// To avoid edge cases, 16'777'214 is the most FIL will use.
+constexpr std::int32_t MAX_FIL_INT_FLOAT = (1 << 24) - 2;
 
-__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
+__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, uint32_t bit)
 {
   return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
@@ -318,42 +377,47 @@ struct categorical_sets {
   // arrays are const to use fast GPU read instructions by default
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
-  // largest matching category in the model, per feature ID
-  const int* max_matching       = nullptr;
-  std::size_t bits_size         = 0;
-  std::size_t max_matching_size = 0;
+  // number of matching categories FIL stores in the bit array, per feature ID
+  const float* fid_num_cats = nullptr;
+  std::size_t bits_size     = 0;
+  // either 0 or num_cols. When 0, indicates intended empty array.
+  std::size_t fid_num_cats_size = 0;
 
   __host__ __device__ __forceinline__ bool cats_present() const
   {
-    // If this is constructed from cat_sets_owner, will return true
-    // default-initialized will return false
-    // Defining edge case: there are categorical nodes, but all have max_matching == -1
-    // (all categorical nodes are empty). node.thresh() would have returned 0.0f
-    // and the branch condition wouldn't have always been false (i.e branched left).
-    // Alternatively, we could have converted all empty categorical nodes to
-    // NAN-threshold numerical nodes.
-    return max_matching != nullptr;
+    // If this is constructed from cat_sets_owner, will return true; but false by default
+    // We have converted all empty categorical nodes to NAN-threshold numerical nodes.
+    return fid_num_cats != nullptr;
   }
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int category_matches(node_t node, int category) const
+  __host__ __device__ __forceinline__ int category_matches(node_t node, float category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed
     // to set number). If we run out of uint32_t and we have hundreds of
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
-    // {.max_matching, .first_node_offset} = ...[feature_id]
-    return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
+    // {.fid_num_cats, .first_node_offset} = ...[feature_id]
+
+    /* category < 0.0f or category > INT_MAX is equivalent to out-of-dictionary category
+    (not matching, branch left). -0.0f represents category 0.
+    If (float)(int)category != category, we will discard the fractional part.
+    E.g. 3.8f represents category 3 regardless of fid_num_cats value.
+    FIL will reject a model where an integer within [0, fid_num_cats] cannot be represented
+    precisely as a 32-bit float.
+    */
+    return category < fid_num_cats[node.fid()] && category >= 0.0f &&
+           fetch_bit(bits + node.set(), static_cast<uint32_t>(static_cast<int>(category)));
   }
-  static int sizeof_mask_from_max_matching(int max_matching)
+  static int sizeof_mask_from_num_cats(int num_cats)
   {
-    return raft::ceildiv(max_matching + 1, BITS_PER_BYTE);
+    return raft::ceildiv(num_cats, BITS_PER_BYTE);
   }
   int sizeof_mask(int feature_id) const
   {
-    return sizeof_mask_from_max_matching(max_matching[feature_id]);
+    return sizeof_mask_from_num_cats(static_cast<int>(fid_num_cats[feature_id]));
   }
 };
 
@@ -372,7 +436,7 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
-      cond = cat_sets.category_matches(node, static_cast<int>(val));
+      cond = cat_sets.category_matches(node, val);
     } else {
       cond = val >= node.thresh();
     }
@@ -398,7 +462,7 @@ struct cat_sets_owner {
   std::vector<uint8_t> bits;
   // largest matching category in the model, per feature ID. uses int because GPU code can only fit
   // int
-  std::vector<int> max_matching;
+  std::vector<float> fid_num_cats;
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
   // per tree, size and offset of bit pool within the overall bit pool
@@ -408,16 +472,16 @@ struct cat_sets_owner {
   {
     return {
       .bits              = bits.data(),
-      .max_matching      = max_matching.data(),
+      .fid_num_cats      = fid_num_cats.data(),
       .bits_size         = bits.size(),
-      .max_matching_size = max_matching.size(),
+      .fid_num_cats_size = fid_num_cats.size(),
     };
   }
 
   void consume_counters(const std::vector<cat_feature_counters>& counters)
   {
     for (cat_feature_counters cf : counters) {
-      max_matching.push_back(cf.max_matching);
+      fid_num_cats.push_back(static_cast<float>(cf.max_matching + 1));
       n_nodes.push_back(cf.n_nodes);
     }
   }
@@ -432,8 +496,8 @@ struct cat_sets_owner {
   }
 
   cat_sets_owner() {}
-  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
-    : bits(bits_), max_matching(max_matching_)
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<float> fid_num_cats_)
+    : bits(bits_), fid_num_cats(fid_num_cats_)
   {
   }
 };
@@ -444,80 +508,71 @@ struct cat_sets_device_owner {
   // arrays from each node ID are concatenated first, then from all categories
   rmm::device_uvector<uint8_t> bits;
   // largest matching category in the model, per feature ID
-  rmm::device_uvector<int> max_matching;
+  rmm::device_uvector<float> fid_num_cats;
 
   categorical_sets accessor() const
   {
     return {
       .bits              = bits.data(),
-      .max_matching      = max_matching.data(),
+      .fid_num_cats      = fid_num_cats.data(),
       .bits_size         = bits.size(),
-      .max_matching_size = max_matching.size(),
+      .fid_num_cats_size = fid_num_cats.size(),
     };
   }
-  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), max_matching(0, stream) {}
+  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), fid_num_cats(0, stream) {}
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
-    : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
+    : bits(cat_sets.bits_size, stream), fid_num_cats(cat_sets.fid_num_cats_size, stream)
   {
-    ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + 1ull,
+    ASSERT(bits.size() <= std::size_t(INT_MAX) + std::size_t(1),
            "too many categories/categorical nodes: cannot store bits offset in node");
-    if (cat_sets.max_matching_size > 0) {
-      ASSERT(cat_sets.max_matching != nullptr, "internal error: cat_sets.max_matching is nil");
-      CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),
-                                 cat_sets.max_matching,
-                                 max_matching.size() * sizeof(int),
-                                 cudaMemcpyDefault,
-                                 stream));
+    if (cat_sets.fid_num_cats_size > 0) {
+      ASSERT(cat_sets.fid_num_cats != nullptr, "internal error: cat_sets.fid_num_cats is nil");
+      RAFT_CUDA_TRY(cudaMemcpyAsync(fid_num_cats.data(),
+                                    cat_sets.fid_num_cats,
+                                    fid_num_cats.size() * sizeof(float),
+                                    cudaMemcpyDefault,
+                                    stream));
     }
     if (cat_sets.bits_size > 0) {
       ASSERT(cat_sets.bits != nullptr, "internal error: cat_sets.bits is nil");
-      CUDA_CHECK(cudaMemcpyAsync(
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
         bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
     }
   }
   void release()
   {
     bits.release();
-    max_matching.release();
+    fid_num_cats.release();
   }
 };
 
-/** init_dense uses params and nodes to initialize the dense forest stored in pf
+/** init uses params, trees and nodes to initialize the forest
+ *  with nodes stored in pf
+ *  @tparam fil_node_t node type to use with the forest;
+ *    must be sparse_node16, sparse_node8 or dense_node
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
- *  @param nodes nodes for the forest, of length
-      (2**(params->depth + 1) - 1) * params->ntrees
- *  @param params pointer to parameters used to initialize the forest
- *  @param vector_leaf optional vector leaves
- */
-void init_dense(const raft::handle_t& h,
-                forest_t* pf,
-                const categorical_sets& cat_sets,
-                const std::vector<float>& vector_leaf,
-                const dense_node* nodes,
-                const forest_params_t* params);
-
-/** init_sparse uses params, trees and nodes to initialize the sparse forest
- *  with sparse nodes stored in pf
- *  @tparam fil_node_t node type to use with the sparse forest;
- *    must be sparse_node16 or sparse_node8
- *  @param h cuML handle used by this function
- *  @param pf pointer to where to store the newly created forest
- *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
- *  @param nodes nodes for the forest, of length params->num_nodes
+ *  @param trees for sparse forests, indices of tree roots in the nodes arrray, of length
+ params->ntrees; ignored for dense forests
+ *  @param nodes nodes for the forest, of length params->num_nodes for sparse
+      or (2**(params->depth + 1) - 1) * params->ntrees for dense forests
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
 template <typename fil_node_t>
-void init_sparse(const raft::handle_t& h,
-                 forest_t* pf,
-                 const categorical_sets& cat_sets,
-                 const std::vector<float>& vector_leaf,
-                 const int* trees,
-                 const fil_node_t* nodes,
-                 const forest_params_t* params);
+void init(const raft::handle_t& h,
+          forest_t* pf,
+          const categorical_sets& cat_sets,
+          const std::vector<float>& vector_leaf,
+          const int* trees,
+          const fil_node_t* nodes,
+          const forest_params_t* params);
+
+struct predict_params;
 
 }  // namespace fil
+
+static const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
 
 std::string output2str(fil::output_t output);
 }  // namespace ML

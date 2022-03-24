@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,24 +25,34 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
         COV_EIG_JACOBI "ML::solver::COV_EIG_JACOBI"
 
     cdef cppclass params:
-        int n_rows
-        int n_cols
+        size_t n_rows
+        size_t n_cols
         int gpu_id
 
     cdef cppclass paramsSolver(params):
-        int n_rows
-        int n_cols
         float tol
-        int n_iterations
-        int random_state
+        unsigned n_iterations
         int verbose
 
     cdef cppclass paramsTSVD(paramsSolver):
-        int n_components
-        int max_sweeps
+        size_t n_components
         solver algorithm  # = solver::COV_EIG_DQ
-        bool trans_input
 
     cdef cppclass paramsPCA(paramsTSVD):
+        bool copy
+        bool whiten
+
+cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML" nogil:
+
+    ctypedef enum mg_solver "ML::mg_solver":
+        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
+        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
+        QR "ML::mg_solver::QR"
+
+    cdef cppclass paramsTSVDMG(paramsSolver):
+        size_t n_components
+        mg_solver algorithm  # = solver::COV_EIG_DQ
+
+    cdef cppclass paramsPCAMG(paramsTSVDMG):
         bool copy
         bool whiten

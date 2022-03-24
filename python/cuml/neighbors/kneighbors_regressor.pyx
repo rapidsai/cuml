@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp.vector cimport vector
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -205,7 +205,8 @@ class KNeighborsRegressor(NearestNeighbors,
         res_cols = 1 if len(self.y.shape) == 1 else self.y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
-                                  order="C")
+                                  order="C",
+                                  index=knn_indices.index)
 
         cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr

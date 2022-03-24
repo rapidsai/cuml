@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,24 +31,24 @@ enum class solver : int {
 
 class params {
  public:
-  int n_rows;
-  int n_cols;
+  std::size_t n_rows;
+  std::size_t n_cols;
   int gpu_id = 0;
 };
 
 class paramsSolver : public params {
  public:
   // math_t tol = 0.0;
-  float tol        = 0.0;
-  int n_iterations = 15;
-  int verbose      = 0;
+  float tol                  = 0.0;
+  std::uint32_t n_iterations = 15;
+  int verbose                = 0;
 };
 
 template <typename enum_solver = solver>
 class paramsTSVDTemplate : public paramsSolver {
  public:
-  int n_components      = 1;
-  enum_solver algorithm = enum_solver::COV_EIG_DQ;
+  std::size_t n_components = 1;
+  enum_solver algorithm    = enum_solver::COV_EIG_DQ;
 };
 
 /**
@@ -77,7 +77,11 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
-
 typedef paramsPCATemplate<> paramsPCA;
+
+enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
+
+typedef paramsPCATemplate<mg_solver> paramsPCAMG;
+typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;
 
 };  // end namespace ML

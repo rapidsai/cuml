@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@ from cuml.explainer.common import model_func_call
 from cuml.explainer.common import output_list_shap_values
 from cuml.linear_model import Lasso
 from cuml.linear_model import LinearRegression
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from functools import lru_cache
 from itertools import combinations
 from numbers import Number
 from random import randint
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport uint64_t
 
@@ -134,7 +134,7 @@ class KernelExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.raft.common.handle (default = None)
+    handle : raft.common.handle (default = None)
         Specifies the handle that holds internal CUDA state for
         computations in this model, a new one is created if it is None.
         Most importantly, this specifies the CUDA stream that will be used for
@@ -645,8 +645,13 @@ def _weighted_linear_regression(X,
         # from nonzero_inds and some additional arrays
         # nonzero_inds tells us which cols of X to use
         y = y - X[:, nonzero_inds[-1]] * (fx - expected_value)
-        Xw = cp.transpose(
-            cp.transpose(X[:, nonzero_inds[:-1]]) - X[:, nonzero_inds[-1]])
+        if len(nonzero_inds) == 1:
+            # when only one index is nonzero, use that column
+            Xw = X[:, nonzero_inds]
+        else:
+            Xw = cp.transpose(
+                    cp.transpose(
+                        X[:, nonzero_inds[:-1]]) - X[:, nonzero_inds[-1]])
 
         Xw = Xw * cp.sqrt(weights[:, cp.newaxis])
         y = y * cp.sqrt(weights)

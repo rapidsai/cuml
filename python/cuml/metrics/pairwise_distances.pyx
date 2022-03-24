@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 import cupy as cp
 import numpy as np
 import scipy
@@ -84,11 +84,11 @@ PAIRWISE_DISTANCE_METRICS = {
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "cityblock": DistanceType.L1,
     "cosine": DistanceType.CosineExpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
     "l1": DistanceType.L1,
-    "l2": DistanceType.L2SqrtUnexpanded,
+    "l2": DistanceType.L2SqrtExpanded,
     "manhattan": DistanceType.L1,
-    "sqeuclidean": DistanceType.L2Unexpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
     "canberra": DistanceType.Canberra,
     "inner_product": DistanceType.InnerProduct,
     "minkowski": DistanceType.LpUnexpanded,

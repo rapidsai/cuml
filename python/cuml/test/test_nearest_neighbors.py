@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,10 @@ import sklearn
 import cuml
 from cuml.common import has_scipy
 import gc
+
+
+pytestmark = pytest.mark.filterwarnings("ignore:((.|\n)*)#4020((.|\n)*):"
+                                        "UserWarning:cuml[.*]")
 
 
 def predict(neigh_ind, _y, n_neighbors):
@@ -126,8 +130,8 @@ def test_self_neighboring(datatype, metric_p, nrows):
 
     if datatype == 'dataframe':
         assert isinstance(neigh_ind, cudf.DataFrame)
-        neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
-        neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
+        neigh_ind = neigh_ind.to_numpy()
+        neigh_dist = neigh_dist.to_numpy()
     else:
         assert isinstance(neigh_ind, cp.ndarray)
         neigh_ind = neigh_ind.get()
@@ -180,7 +184,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 
     if datatype == "dataframe":
         assert isinstance(neigh_ind, cudf.DataFrame)
-        neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
+        neigh_ind = neigh_ind.to_numpy()
     else:
         assert isinstance(neigh_ind, cp.ndarray)
 
@@ -352,8 +356,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     if input_type == "dataframe":
         assert isinstance(D_cuml, cudf.DataFrame)
         assert isinstance(I_cuml, cudf.DataFrame)
-        D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
-        I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
+        D_cuml_np = D_cuml.to_numpy()
+        I_cuml_np = I_cuml.to_numpy()
     else:
         assert isinstance(D_cuml, cp.ndarray)
         assert isinstance(I_cuml, cp.ndarray)
@@ -480,26 +484,26 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
                       n_features=n_feats, random_state=0)
 
     if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(X.get(), k, mode,
+        sparse_sk = sklearn.neighbors.kneighbors_graph(X.get(), k, mode=mode,
                                                        metric=metric, p=p,
                                                        include_self='auto')
     else:
         knn_sk = skKNN(metric=metric, p=p)
         knn_sk.fit(X.get())
-        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode)
+        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode=mode)
 
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
     with cuml.using_output_type(output_type):
         if as_instance:
-            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
+            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode=mode,
                                                         metric=metric, p=p,
                                                         include_self='auto')
         else:
             knn_cu = cuKNN(metric=metric, p=p)
             knn_cu.fit(X)
-            sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode=mode)
 
     assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
     assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
@@ -543,14 +547,8 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
         brute_d, brute_i = knn_cu_brute.kneighbors(
             X[:query_rows, :], n_neighbors=n_neighbors)
 
-    rbc_i = cp.sort(rbc_i, axis=1)
-    brute_i = cp.sort(brute_i, axis=1)
-
-    # TODO: These are failing with 1 or 2 mismatched elements
-    # for very small values of k:
-    # https://github.com/rapidsai/cuml/issues/4262
-    assert len(brute_d[brute_d != rbc_d]) <= 1
-    assert len(brute_i[brute_i != rbc_i]) <= 1
+    assert len(brute_d[brute_d != rbc_d]) == 0
+    assert len(brute_i[brute_i != rbc_i]) == 0
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
@@ -560,6 +558,7 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
      (10, 35, 0.8, 4, 10, 20000),
      (40, 35, 0.5, 4, 20000, 10),
      (35, 35, 0.8, 4, 20000, 20000)])
+@pytest.mark.filterwarnings("ignore:(.*)converted(.*)::")
 def test_nearest_neighbors_sparse(metric,
                                   nrows,
                                   ncols,
@@ -570,10 +569,10 @@ def test_nearest_neighbors_sparse(metric,
     if nrows == 1 and n_neighbors > 1:
         return
 
-    a = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=35)
-    b = cp.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=38)
+    a = cupyx.scipy.sparse.random(nrows, ncols, format='csr', density=density,
+                                  random_state=35)
+    b = cupyx.scipy.sparse.random(nrows, ncols, format='csr', density=density,
+                                  random_state=38)
 
     if metric == 'jaccard':
         a = a.astype('bool').astype('float32')
@@ -661,3 +660,8 @@ def test_haversine_fails_high_dimensions():
                  algorithm='brute')
 
     cunn.fit(data).kneighbors(data)
+
+
+def test_n_jobs_parameter_passthrough():
+    cunn = cuKNN()
+    cunn.set_params(n_jobs=12)

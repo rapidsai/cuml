@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@
 #include "pack.h"
 
 #include <raft/cuda_utils.cuh>
-#include <raft/sparse/convert/csr.cuh>
-
-using namespace thrust;
+#include <raft/sparse/convert/csr.hpp>
 
 namespace ML {
 namespace Dbscan {
@@ -44,15 +42,17 @@ void launcher(const raft::handle_t& handle,
               Index_ batch_size,
               cudaStream_t stream)
 {
+  using namespace thrust;
+
   device_ptr<Index_> dev_vd      = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 
   exclusive_scan(handle.get_thrust_policy(), dev_vd, dev_vd + batch_size, dev_ex_scan);
 
-  raft::sparse::convert::csr_adj_graph_batched<Index_, TPB_X>(
+  raft::sparse::convert::csr_adj_graph_batched<Index_>(
     data.ex_scan, data.N, data.adjnnz, batch_size, data.adj, data.adj_graph, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Algo

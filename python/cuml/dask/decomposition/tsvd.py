@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ class TruncatedSVD(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
+    svd_solver : 'full', 'jacobi'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
     verbose : int or boolean, default=False
@@ -121,8 +121,8 @@ class TruncatedSVD(BaseDecomposition,
         """
         Constructor for distributed TruncatedSVD model
         """
-        super().__init__(TruncatedSVD._create_tsvd,
-                         client,
+        super().__init__(model_func=TruncatedSVD._create_tsvd,
+                         client=client,
                          **kwargs)
 
     def fit(self, X, _transform=False):

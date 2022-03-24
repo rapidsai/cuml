@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 from distutils.version import LooseVersion
 import cudf
+from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
@@ -42,23 +43,30 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
 
 
-def _make_regression_dataset_uncached(nrows, ncols, n_info):
+pytestmark = pytest.mark.filterwarnings("ignore: Regressors in active "
+                                        "set degenerate(.*)::sklearn[.*]")
+
+
+def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
     X, y = make_regression(
-        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+        **kwargs, n_samples=nrows, n_features=ncols, n_informative=n_info,
+        random_state=0
     )
     return train_test_split(X, y, train_size=0.8, random_state=10)
 
 
 @lru_cache(4)
-def _make_regression_dataset_from_cache(nrows, ncols, n_info):
-    return _make_regression_dataset_uncached(nrows, ncols, n_info)
+def _make_regression_dataset_from_cache(nrows, ncols, n_info, **kwargs):
+    return _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs)
 
 
-def make_regression_dataset(datatype, nrows, ncols, n_info):
+def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
     if nrows * ncols < 1e8:  # Keep cache under 4 GB
-        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info)
+        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info,
+                                                      **kwargs)
     else:
-        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info)
+        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info,
+                                                    **kwargs)
 
     return map(lambda arr: arr.astype(datatype), dataset)
 
@@ -124,6 +132,54 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info):
         assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
+@pytest.mark.parametrize(
+    "fit_intercept, normalize, distribution", [
+        (True, True, "lognormal"),
+        (True, True, "exponential"),
+        (True, False, "uniform"),
+        (True, False, "exponential"),
+        (False, True, "lognormal"),
+        (False, False, "uniform"),
+    ]
+)
+def test_weighted_linear_regression(datatype, algorithm, fit_intercept,
+                                    normalize, distribution):
+    nrows, ncols, n_info = 1000, 20, 10
+    max_weight = 10
+    noise = 20
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info, noise=noise
+    )
+
+    # set weight per sample to be from 1 to max_weight
+    if distribution == "uniform":
+        wt = np.random.randint(1, high=max_weight, size=len(X_train))
+    elif distribution == "exponential":
+        wt = np.random.exponential(size=len(X_train))
+    else:
+        wt = np.random.lognormal(size=len(X_train))
+
+    # Initialization of cuML's linear regression model
+    cuols = cuLinearRegression(fit_intercept=fit_intercept,
+                               normalize=normalize,
+                               algorithm=algorithm)
+
+    # fit and predict cuml linear regression model
+    cuols.fit(X_train, y_train, sample_weight=wt)
+    cuols_predict = cuols.predict(X_test)
+
+    # sklearn linear regression model initialization, fit and predict
+    skols = skLinearRegression(fit_intercept=fit_intercept,
+                               normalize=normalize)
+    skols.fit(X_train, y_train, sample_weight=wt)
+
+    skols_predict = skols.predict(X_test)
+
+    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
+
 @pytest.mark.skipif(
     rmm._cuda.gpu.runtimeGetVersion() < 11000,
     reason='svd solver does not support more than 46340 rows or columns for'
@@ -133,7 +189,8 @@ def test_linear_regression_single_column():
     '''Test that linear regression can be run on single column with more than
     46340 rows (a limitation on CUDA <11)'''
     model = cuLinearRegression()
-    model.fit(cp.random.rand(46341), cp.random.rand(46341))
+    with pytest.warns(UserWarning):
+        model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -239,6 +296,9 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 )
 @pytest.mark.parametrize("nrows", [unit_param(1000)])
 @pytest.mark.parametrize("column_info", [unit_param([20, 10])])
+# ignoring UserWarnings in sklearn about setting unused parameters
+# like l1 for none penalty
+@pytest.mark.filterwarnings("ignore::UserWarning:sklearn[.*]")
 def test_logistic_regression(
     num_classes, dtype, penalty, l1_ratio,
     fit_intercept, nrows, column_info, C, tol
@@ -257,9 +317,13 @@ def test_logistic_regression(
     )
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
+
     culog = cuLog(
-        penalty=penalty, l1_ratio=l1_ratio, C=C,
-        fit_intercept=fit_intercept, tol=tol
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        fit_intercept=fit_intercept,
+        tol=tol
     )
     culog.fit(X_train, y_train)
 
@@ -633,6 +697,8 @@ def test_logistic_regression_weighting(regression_dataset,
 
 
 @pytest.mark.parametrize('algo', [cuLog, cuRidge])
+# ignoring warning about change of solver
+@pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
 def test_linear_models_set_params(algo):
     x = np.linspace(0, 1, 50)
     y = 2 * x
@@ -657,3 +723,37 @@ def test_linear_models_set_params(algo):
 
     assert not array_equal(coef_before, coef_after)
     assert array_equal(coef_after, coef_test)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("alpha", [0.1, 1.0, 10.0])
+@pytest.mark.parametrize("l1_ratio", [0.1, 0.5, 0.9])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500])
+    ],
+)
+def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
+
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info
+    )
+
+    kwargs = {'alpha': alpha, 'l1_ratio': l1_ratio}
+    cd = cuElasticNet(solver='cd', **kwargs)
+    cd.fit(X_train, y_train)
+    cd_res = cd.predict(X_test)
+
+    qn = cuElasticNet(solver='qn', **kwargs)
+    qn.fit(X_train, y_train)
+    # the results of the two models should be close (even if both are bad)
+    assert qn.score(X_test, cd_res) > 0.95
+    # coefficients of the two models should be close
+    assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98

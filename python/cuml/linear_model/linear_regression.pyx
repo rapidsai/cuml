@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -49,7 +49,9 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo) except +
+                     bool normalize,
+                     int algo,
+                     float *sample_weight) except +
 
     cdef void olsFit(handle_t& handle,
                      double *input,
@@ -59,7 +61,9 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo) except +
+                     bool normalize,
+                     int algo,
+                     double *sample_weight) except +
 
 
 class LinearRegression(Base,
@@ -150,9 +154,12 @@ class LinearRegression(Base,
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
-        If True, the predictors in X will be normalized by dividing by it's
-        L2 norm.
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
         If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -209,7 +216,7 @@ class LinearRegression(Base,
         if handle is None and algorithm == 'eig':
             # if possible, create two streams, so that eigenvalue decomposition
             # can benefit from running independent operations concurrently.
-            handle = Handle(2)
+            handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -239,12 +246,13 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True) -> "LinearRegression":
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr
+        cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
@@ -255,6 +263,16 @@ class LinearRegression(Base,
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
         y_ptr = y_m.ptr
+
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=(
+                                        self.dtype if convert_dtype else None),
+                                    check_rows=n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
+        else:
+            sample_weight_ptr = 0
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -288,7 +306,8 @@ class LinearRegression(Base,
                    <float*>&c_intercept1,
                    <bool>self.fit_intercept,
                    <bool>self.normalize,
-                   <int>self.algo)
+                   <int>self.algo,
+                   <float*>sample_weight_ptr)
 
             self.intercept_ = c_intercept1
         else:
@@ -301,7 +320,8 @@ class LinearRegression(Base,
                    <double*>&c_intercept2,
                    <bool>self.fit_intercept,
                    <bool>self.normalize,
-                   <int>self.algo)
+                   <int>self.algo,
+                   <double*>sample_weight_ptr)
 
             self.intercept_ = c_intercept2
 
@@ -309,6 +329,8 @@ class LinearRegression(Base,
 
         del X_m
         del y_m
+        if sample_weight is not None:
+            del sample_weight_m
 
         return self
 

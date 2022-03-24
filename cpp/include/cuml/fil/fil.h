@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #pragma once
 
 #include <stddef.h>
+
 #include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
@@ -54,15 +55,16 @@ enum algo_t {
 enum storage_type_t {
   /** decide automatically; currently always builds dense forests */
   AUTO,
-  /** import the forest as dense */
+  /** import the forest as dense (8 or 16-bytes nodes, depending on model precision */
   DENSE,
   /** import the forest as sparse (currently always with 16-byte nodes) */
   SPARSE,
   /** (experimental) import the forest as sparse with 8-byte nodes; can fail if
       8-byte nodes are not enough to store the forest, e.g. there are too many
-      nodes in a tree or too many features; note that the number of bits used to
-      store the child or feature index can change in the future; this can affect
-      whether a particular forest can be imported as SPARSE8 */
+      nodes in a tree or too many features or the thresholds are double precision;
+      note that the number of bits used to store the child or feature index can
+      change in the future; this can affect whether a particular forest can be
+      imported as SPARSE8 */
   SPARSE8,
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
@@ -71,6 +73,9 @@ struct forest;
 
 /** forest_t is the predictor handle */
 typedef forest* forest_t;
+
+/** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
+constexpr int MAX_N_ITEMS = 4;
 
 /** treelite_params_t are parameters for importing treelite models */
 struct treelite_params_t {
@@ -94,7 +99,7 @@ struct treelite_params_t {
   // can only be a power of 2
   int threads_per_tree;
   // n_items is how many input samples (items) any thread processes. If 0 is given,
-  // choose most (up to 4) that fit into shared memory.
+  // choose most (up to MAX_N_ITEMS) that fit into shared memory.
   int n_items;
   // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
   // contains forest shape

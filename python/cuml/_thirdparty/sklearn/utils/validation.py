@@ -18,7 +18,7 @@
 import numbers
 import numpy as np
 import cupy as cp
-import cupy.sparse as sp
+import cupyx.scipy.sparse as sp
 from inspect import isclass
 
 from ....common.exceptions import NotFittedError

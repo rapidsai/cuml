@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #include "common.cuh"
 
-#include <fil/internal.cuh>
+#include "internal.cuh"
 
 #include <cuml/fil/multi_sum.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <thrust/functional.h>
 
@@ -41,7 +41,7 @@
 namespace ML {
 namespace fil {
 
-// vec wraps float[N] for cub::BlockReduce
+// vec wraps float[N], int[N] or double[N] for cub::BlockReduce
 template <int N, typename T>
 struct vec;
 
@@ -96,33 +96,35 @@ struct vec {
   }
 };
 
-struct best_margin_label : cub::KeyValuePair<int, float> {
-  __host__ __device__ best_margin_label(cub::KeyValuePair<int, float> pair)
-    : cub::KeyValuePair<int, float>(pair)
+template <typename real_t>
+struct best_margin_label : cub::KeyValuePair<int, real_t> {
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, real_t> pair)
+    : cub::KeyValuePair<int, real_t>(pair)
   {
   }
-  __host__ __device__ best_margin_label(int c = 0, float f = -INFINITY)
-    : cub::KeyValuePair<int, float>({c, f})
+  __host__ __device__ best_margin_label(int c = 0, real_t f = -INFINITY)
+    : cub::KeyValuePair<int, real_t>({c, f})
   {
   }
 };
 
 template <int NITEMS>
-__device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(int c, vec<NITEMS, float> margin)
+__device__ __forceinline__ vec<NITEMS, best_margin_label<float>> to_vec(int c,
+                                                                        vec<NITEMS, float> margin)
 {
-  vec<NITEMS, best_margin_label> ret;
+  vec<NITEMS, best_margin_label<float>> ret;
   CUDA_PRAGMA_UNROLL
   for (int i = 0; i < NITEMS; ++i)
-    ret[i] = best_margin_label(c, margin[i]);
+    ret[i] = best_margin_label<float>(c, margin[i]);
   return ret;
 }
 
 struct ArgMax {
   template <int NITEMS>
-  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label> operator()(
-    vec<NITEMS, best_margin_label> a, vec<NITEMS, best_margin_label> b) const
+  __host__ __device__ __forceinline__ vec<NITEMS, best_margin_label<float>> operator()(
+    vec<NITEMS, best_margin_label<float>> a, vec<NITEMS, best_margin_label<float>> b) const
   {
-    vec<NITEMS, best_margin_label> c;
+    vec<NITEMS, best_margin_label<float>> c;
     CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = cub::ArgMax()(a[i], b[i]);
@@ -231,7 +233,7 @@ size_t block_reduce_footprint_host()
 template <int NITEMS>
 size_t block_reduce_best_class_footprint_host()
 {
-  return sizeof(typename cub::BlockReduce<vec<NITEMS, best_margin_label>,
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, best_margin_label<float>>,
                                           FIL_TPB,
                                           cub::BLOCK_REDUCE_WARP_REDUCTIONS,
                                           1,
@@ -355,7 +357,7 @@ __device__ __forceinline__ void write_best_class(
 {
   // reduce per-class candidate margins to one best class candidate
   // per thread (for each of the NITEMS rows)
-  auto best = vec<begin->NITEMS, best_margin_label>();
+  auto best = vec<begin->NITEMS, best_margin_label<float>>();
   for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
     best = vectorized(cub::ArgMax())(best, to_vec(c, begin[c]));
   // [begin, end) may overlap tmp_storage
@@ -800,7 +802,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
        block_row0 += rows_per_block * gridDim.x) {
     int block_num_rows =
       max(0, (int)min((int64_t)rows_per_block, (int64_t)params.num_rows - block_row0));
-    const float* block_input = params.data + block_row0 * num_cols;
+    const float* block_input = reinterpret_cast<const float*>(params.data) + block_row0 * num_cols;
     if constexpr (cols_in_shmem)
       load_data(sdata, block_input, params, rows_per_block, block_num_rows);
 
@@ -820,7 +822,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
          and is made exact below.
          Same with thread_num_rows > 0
       */
-      typedef typename leaf_output_t<leaf_algo>::T pred_t;
+      typedef typename leaf_output_t<leaf_algo, float>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
         prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
@@ -833,7 +835,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       // Dummy threads can be marked as having 0 rows
       acc.accumulate(prediction, tree, tree < forest.num_trees() ? thread_num_rows : 0);
     }
-    acc.finalize(params.preds + params.num_outputs * block_row0,
+    acc.finalize(reinterpret_cast<float*>(params.preds) + params.num_outputs * block_row0,
                  block_num_rows,
                  params.num_outputs,
                  params.transform,
@@ -851,125 +853,57 @@ size_t shmem_size_params::get_smem_footprint()
   size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(num_classes) +
     cols_shmem_size();
-
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <int NITEMS>
-size_t shmem_size_params::get_smem_footprint()
+template <class KernelParams>
+int compute_smem_footprint::run(predict_params ssp)
 {
-  switch (leaf_algo) {
-    case FLOAT_UNARY_BINARY: return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>();
-    case CATEGORICAL_LEAF: return get_smem_footprint<NITEMS, CATEGORICAL_LEAF>();
-    case GROVE_PER_CLASS:
-      if (num_classes > FIL_TPB) return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>();
-      return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>();
-    case VECTOR_LEAF: return get_smem_footprint<NITEMS, VECTOR_LEAF>();
-    default: ASSERT(false, "internal error: unexpected leaf_algo_t");
-  }
+  return ssp.template get_smem_footprint<KernelParams::N_ITEMS, KernelParams::LEAF_ALGO>();
 }
 
-void shmem_size_params::compute_smem_footprint()
-{
-  switch (n_items) {
-    case 1: shm_sz = get_smem_footprint<1>(); break;
-    case 2: shm_sz = get_smem_footprint<2>(); break;
-    case 3: shm_sz = get_smem_footprint<3>(); break;
-    case 4: shm_sz = get_smem_footprint<4>(); break;
-    default: ASSERT(false, "internal error: n_items > 4");
-  }
-}
+// make sure to instantiate all possible get_smem_footprint instantiations
+template int dispatch_on_fil_template_params(compute_smem_footprint, predict_params);
 
-template <leaf_algo_t leaf_algo, bool COLS_IN_SHMEM, bool CATS_SUPPORTED, typename storage_type>
-void infer_k_nitems_launcher(storage_type forest,
-                             predict_params params,
-                             cudaStream_t stream,
-                             int block_dim_x)
-{
-  switch (params.n_items) {
-    case 1:
-      infer_k<1, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
-      break;
-    case 2:
-      infer_k<2, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
-      break;
-    case 3:
-      infer_k<3, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
-      break;
-    case 4:
-      infer_k<4, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
-      break;
-    default: ASSERT(false, "internal error: nitems > 4");
+template <typename storage_type>
+struct infer_k_storage_template : dispatch_functor<void> {
+  storage_type forest;
+  cudaStream_t stream;
+  infer_k_storage_template(storage_type forest_, cudaStream_t stream_)
+    : forest(forest_), stream(stream_)
+  {
   }
-  CUDA_CHECK(cudaPeekAtLastError());
-}
 
-template <leaf_algo_t leaf_algo, bool COLS_IN_SHMEM, typename storage_type>
-void infer_k_categorical_launcher(storage_type forest,
-                                  predict_params params,
-                                  cudaStream_t stream,
-                                  int blockdim_x)
-{
-  if (forest.cats_present()) {
-    infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, true>(forest, params, stream, blockdim_x);
-  } else {
-    infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, false>(forest, params, stream, blockdim_x);
+  template <class KernelParams = KernelTemplateParams<>>
+  void run(predict_params params)
+  {
+    params.num_blocks = params.num_blocks != 0
+                          ? params.num_blocks
+                          : raft::ceildiv(int(params.num_rows), params.n_items);
+    infer_k<KernelParams::N_ITEMS,
+            KernelParams::LEAF_ALGO,
+            KernelParams::COLS_IN_SHMEM,
+            KernelParams::CATS_SUPPORTED>
+      <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(forest, params);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
-}
-
-template <leaf_algo_t leaf_algo, typename storage_type>
-void infer_k_cols_launcher(storage_type forest,
-                           predict_params params,
-                           cudaStream_t stream,
-                           int blockdim_x)
-{
-  params.num_blocks = params.num_blocks != 0 ? params.num_blocks
-                                             : raft::ceildiv(int(params.num_rows), params.n_items);
-  if (params.cols_in_shmem) {
-    infer_k_categorical_launcher<leaf_algo, true>(forest, params, stream, blockdim_x);
-  } else {
-    infer_k_categorical_launcher<leaf_algo, false>(forest, params, stream, blockdim_x);
-  }
-}
+};
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream)
 {
-  switch (params.leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      infer_k_cols_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
-      break;
-    case GROVE_PER_CLASS:
-      if (params.num_classes > FIL_TPB) {
-        params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
-        infer_k_cols_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream, FIL_TPB);
-      } else {
-        params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
-        infer_k_cols_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
-          forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
-      }
-      break;
-    case CATEGORICAL_LEAF:
-      infer_k_cols_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
-      break;
-    case VECTOR_LEAF: infer_k_cols_launcher<VECTOR_LEAF>(forest, params, stream, FIL_TPB); break;
-    default: ASSERT(false, "internal error: invalid leaf_algo");
-  }
+  dispatch_on_fil_template_params(infer_k_storage_template<storage_type>(forest, stream), params);
 }
 
-template void infer<dense_storage>(dense_storage forest,
-                                   predict_params params,
-                                   cudaStream_t stream);
-template void infer<sparse_storage16>(sparse_storage16 forest,
-                                      predict_params params,
-                                      cudaStream_t stream);
-template void infer<sparse_storage8>(sparse_storage8 forest,
-                                     predict_params params,
-                                     cudaStream_t stream);
+template void infer<storage<dense_node<float>>>(storage<dense_node<float>> forest,
+                                                predict_params params,
+                                                cudaStream_t stream);
+template void infer<storage<sparse_node16<float>>>(storage<sparse_node16<float>> forest,
+                                                   predict_params params,
+                                                   cudaStream_t stream);
+template void infer<storage<sparse_node8>>(storage<sparse_node8> forest,
+                                           predict_params params,
+                                           cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,9 @@ def test_singlets_holtwinters(seasonal, h, datatype):
     if seasonal == "multiplicative":
         pytest.xfail("Statsmodels nan errors with gcc 9.3 (Issue #3384)")
 
-    sm_hw = sm_ES(train, seasonal=seasonal,
+    sm_hw = sm_ES(train,
+                  initialization_method='heuristic',
+                  seasonal=seasonal,
                   seasonal_periods=12)
     sm_hw = sm_hw.fit()
 
@@ -87,7 +89,7 @@ def test_singlets_holtwinters(seasonal, h, datatype):
 
     cu_pred = cu_hw.forecast(h)
     sm_pred = sm_hw.forecast(h)
-    cu_r2 = r2_score(cu_pred.to_array(), test)
+    cu_r2 = r2_score(cu_pred.to_numpy(), test)
     sm_r2 = r2_score(sm_pred, test)
 
     assert (cu_r2 >= sm_r2) or (abs(cu_r2 - sm_r2) < 2e-1)
@@ -113,9 +115,11 @@ def test_multits_holtwinters(seasonal, h, datatype):
                     seasonal_periods=12, ts_num=2)
 
     sm_air_hw = sm_ES(air_train,
+                      initialization_method='heuristic',
                       seasonal=seasonal,
                       seasonal_periods=12)
     sm_co2_hw = sm_ES(co2_train,
+                      initialization_method='heuristic',
                       seasonal=seasonal,
                       seasonal_periods=12)
     cu_hw.fit()
@@ -127,8 +131,8 @@ def test_multits_holtwinters(seasonal, h, datatype):
     sm_air_pred = sm_air_hw.forecast(h)
     sm_co2_pred = sm_co2_hw.forecast(h)
 
-    cu_air_r2 = r2_score(cu_air_pred.to_array(), air_test)
-    cu_co2_r2 = r2_score(cu_co2_pred.to_array(), co2_test)
+    cu_air_r2 = r2_score(cu_air_pred.to_numpy(), air_test)
+    cu_co2_r2 = r2_score(cu_co2_pred.to_numpy(), co2_test)
     sm_air_r2 = r2_score(sm_air_pred, air_test)
     sm_co2_r2 = r2_score(sm_co2_pred, co2_test)
 
@@ -136,8 +140,8 @@ def test_multits_holtwinters(seasonal, h, datatype):
     assert (cu_co2_r2 >= sm_co2_r2) or (abs(cu_co2_r2 - sm_co2_r2) < 4)
 
     full_cu_pred = cu_hw.forecast(h)
-    air_cu_r2 = r2_score(full_cu_pred[0].to_array(), air_test)
-    co2_cu_r2 = r2_score(full_cu_pred[1].to_array(), co2_test)
+    air_cu_r2 = r2_score(full_cu_pred[0].to_numpy(), air_test)
+    co2_cu_r2 = r2_score(full_cu_pred[1].to_numpy(), co2_test)
     assert (air_cu_r2 >= sm_air_r2) or (abs(air_cu_r2 - sm_air_r2) < 4)
     assert (co2_cu_r2 >= sm_co2_r2) or (abs(co2_cu_r2 - sm_co2_r2) < 4)
 
@@ -204,7 +208,7 @@ def test_get_level(level):
     data = np.array([level]*100, dtype=np.float64)
     cu_hw = cuml_ES(data)
     cu_hw.fit()
-    assert pytest.approx(cu_hw.get_level().to_array(), 1e-4) == level
+    assert pytest.approx(cu_hw.get_level().to_numpy(), 1e-4) == level
 
 
 @pytest.mark.parametrize('slope', [1, 2, -2, 0.5])
@@ -212,7 +216,7 @@ def test_get_trend(slope):
     data = np.arange(0, 100*slope, slope, dtype=np.float64)
     cu_hw = cuml_ES(data)
     cu_hw.fit()
-    assert pytest.approx(cu_hw.get_trend().to_array(), 1e-4) == slope
+    assert pytest.approx(cu_hw.get_trend().to_numpy(), 1e-4) == slope
 
 
 @pytest.mark.parametrize('freq', [1, 0.5, 5])
@@ -222,7 +226,7 @@ def test_get_season(freq):
     cu_hw.fit()
     evens = np.arange(0, 98, 2)
     odds = evens+1
-    seasons = cu_hw.get_season().to_array()
+    seasons = cu_hw.get_season().to_numpy()
     base = seasons[0]
     assert pytest.approx(seasons[evens], 1e-4) == base
     assert pytest.approx(seasons[odds], 1e-4) == -1*base

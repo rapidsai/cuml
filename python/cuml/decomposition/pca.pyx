@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common.input_utils import input_to_cuml_array
@@ -693,7 +693,7 @@ class PCA(Base,
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype.type)
+                            dtype=dtype.type, index=X_m.index)
 
         cdef uintptr_t _trans_input_ptr = t_input_data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr

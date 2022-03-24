@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -149,7 +149,7 @@ class SGD(Base,
                         fit_intercept=True, batch_size=2,
                         tol=0.0, penalty='none', loss='squared_loss')
         cu_sgd.fit(X, y)
-        cu_pred = cu_sgd.predict(pred_data).to_array()
+        cu_pred = cu_sgd.predict(pred_data).to_numpy()
         print(" cuML intercept : ", cu_sgd.intercept_)
         print(" cuML coef : ", cu_sgd.coef_)
         print("cuML predictions : ", cu_pred)
@@ -417,7 +417,7 @@ class SGD(Base,
         cdef uintptr_t X_ptr = X_m.ptr
 
         cdef uintptr_t coef_ptr = self.coef_.ptr
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -465,7 +465,7 @@ class SGD(Base,
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        preds = CumlArray.zeros(n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 

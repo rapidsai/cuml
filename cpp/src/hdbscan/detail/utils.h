@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,20 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
-
 #include <cub/cub.cuh>
 
 #include <raft/cudart_utils.h>
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/op/sort.hpp>
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include <algorithm>
 
-#include <hdbscan/condensed_hierarchy.cu>
+#include "../condensed_hierarchy.cu"
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>

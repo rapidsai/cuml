@@ -76,12 +76,13 @@ class SpeedupComparisonRunner:
         cuml_param_overrides={},
         cpu_param_overrides={},
         dataset_param_overrides={},
+        dtype=np.float32,
         run_cpu=True,
         verbose=False,
     ):
         data = datagen.gen_data(
             self.dataset_name, self.input_type, n_samples, n_features,
-            **dataset_param_overrides
+            dtype=dtype, **dataset_param_overrides
         )
 
         setup_overrides = algo_pair.setup_cuml(
@@ -147,6 +148,7 @@ class SpeedupComparisonRunner:
         cuml_param_overrides={},
         cpu_param_overrides={},
         dataset_param_overrides={},
+        dtype=np.float32,
         *,
         run_cpu=True,
         raise_on_error=False,
@@ -165,6 +167,7 @@ class SpeedupComparisonRunner:
                             cuml_param_overrides=cuml_param_overrides,
                             cpu_param_overrides=cpu_param_overrides,
                             dataset_param_overrides=dataset_param_overrides,
+                            dtype=dtype,
                             run_cpu=run_cpu,
                             verbose=verbose,
                         )
@@ -208,6 +211,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         cuml_param_overrides={},
         cpu_param_overrides={},
         dataset_param_overrides={},
+        dtype=np.float32,
         run_cpu=True,
         verbose=False,
     ):
@@ -216,6 +220,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             self.input_type,
             n_samples,
             n_features,
+            dtype=dtype,
             test_fraction=self.test_fraction,
             **dataset_param_overrides
         )
@@ -243,7 +248,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             else:
                 y_pred_cuml = cuml_model.transform(X_test)
             if isinstance(y_pred_cuml, Series):
-                y_pred_cuml = y_pred_cuml.to_array()
+                y_pred_cuml = y_pred_cuml.to_numpy()
             cuml_accuracy = algo_pair.accuracy_function(
                 y_test, y_pred_cuml
             )
@@ -304,6 +309,7 @@ def run_variations(
     cuml_param_override_list=[{}],
     cpu_param_override_list=[{}],
     dataset_param_override_list=[{}],
+    dtype=np.float32,
     input_type="numpy",
     test_fraction=0.1,
     run_cpu=True,
@@ -334,6 +340,8 @@ def run_variations(
       Dicts containing parameters to pass to __init__ of the cpu algo only.
     dataset_param_override_list : dict
       Dicts containing parameters to pass to dataset generator function
+    dtype: [np.float32|np.float64]
+      Specifies the dataset precision to be used for benchmarking.
     test_fraction : float
       The fraction of data to use for testing.
     run_cpu : boolean
@@ -358,6 +366,7 @@ def run_variations(
                 cuml_param_overrides=cuml_overrides,
                 cpu_param_overrides=cpu_overrides,
                 dataset_param_overrides=dataset_overrides,
+                dtype=dtype,
                 run_cpu=run_cpu,
                 raise_on_error=raise_on_error,
             )
