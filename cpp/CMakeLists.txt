@@ -230,7 +230,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # single GPU components
 
   # common components
-  add_library(${CUML_CPP_TARGET} SHARED
+  add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
 
   # FIL components
@@ -409,7 +409,7 @@ endif()
 # - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
-  add_library(${CUML_C_TARGET} SHARED
+  add_library(${CUML_C_TARGET}
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
