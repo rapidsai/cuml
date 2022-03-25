@@ -20,11 +20,11 @@
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 
-#include <opg/linalg/qr_based_svd.hpp>
-#include <opg/matrix/matrix_utils.hpp>
-#include <opg/stats/cov.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
+#include <cumlprims/opg/linalg/qr_based_svd.hpp>
+#include <cumlprims/opg/matrix/matrix_utils.hpp>
+#include <cumlprims/opg/stats/cov.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
