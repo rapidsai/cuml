@@ -17,9 +17,9 @@
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/svd.hpp>
-#include <opg/stats/mean.hpp>
+#include <cumlprims/opg/linalg/mv_aTb.hpp>
+#include <cumlprims/opg/linalg/svd.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>

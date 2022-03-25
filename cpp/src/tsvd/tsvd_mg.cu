@@ -20,10 +20,10 @@
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
 
-#include <opg/linalg/mm_aTa.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
-#include <opg/stats/stddev.hpp>
+#include <cumlprims/opg/linalg/mm_aTa.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
+#include <cumlprims/opg/stats/stddev.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
