@@ -17,8 +17,8 @@
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/lstsq.hpp>
-#include <opg/stats/mean.hpp>
+#include <cumlprims/opg/linalg/lstsq.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
