@@ -330,20 +330,20 @@ struct forest {
 
   virtual ~forest() {}
 
-  int num_trees_   = 0;
-  int depth_       = 0;
-  algo_t algo_     = algo_t::NAIVE;
-  output_t output_ = output_t::RAW;
-  shmem_size_params class_ssp_;
-  shmem_size_params proba_ssp_;
+  int num_trees_         = 0;
+  int depth_             = 0;
+  algo_t algo_           = algo_t::NAIVE;
+  output_t output_       = output_t::RAW;
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
   real_t threshold_      = 0.5;
   real_t global_bias_    = 0;
-  cat_sets_device_owner cat_sets_;
+  shmem_size_params class_ssp_;
+  shmem_size_params proba_ssp_;
   // vector_leaf_ is only used if {class,proba}_ssp_.leaf_algo is VECTOR_LEAF,
   // otherwise it is empty
   rmm::device_uvector<real_t> vector_leaf_;
+  cat_sets_device_owner cat_sets_;
 };
 
 template <typename storage_type>
@@ -640,7 +640,6 @@ void free(const raft::handle_t& h, forest_t<real_t> f)
 
 template void free<float>(const raft::handle_t& h, forest_t<float> f);
 
-/// part of C API - preds and data are either both pointers to float or to double
 template <typename real_t>
 void predict(const raft::handle_t& h,
              forest_t<real_t> f,
