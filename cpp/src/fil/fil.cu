@@ -35,8 +35,11 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 namespace ML {
 namespace fil {
 
-__host__ __device__ double sigmoid(double x) { return 1.0 / (1.0 + exp(-x)); }
-__host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
+template <typename real_t>
+__host__ __device__ real_t sigmoid(real_t x)
+{
+  return real_t(1) / (real_t(1) + exp(-x));
+}
 
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include

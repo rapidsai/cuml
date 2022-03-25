@@ -241,8 +241,8 @@ struct node_traits {
   using storage              = ML::fil::storage<node_t>;
   using forest               = sparse_forest<node_t>;
   static const bool IS_DENSE = false;
-  static const storage_type_t storage_type_enum =
-    std::is_same<sparse_node16<real_t>, node_t>() ? SPARSE : SPARSE8;
+  static constexpr storage_type_t storage_type_enum =
+    std::is_same_v<sparse_node16<real_t>, node_t> ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
 };

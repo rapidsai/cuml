@@ -659,7 +659,7 @@ template <typename real_t>
 constexpr bool type_supported()
 {
   // not using std::is_floating_point because we did not instantiate fp16-based nodes/trees/forests
-  return std::is_same<real_t, float>() || std::is_same<real_t, double>();
+  return std::is_same_v<real_t, float> || std::is_same_v<real_t, double>;
 }
 
 template <typename threshold_t, typename leaf_t>

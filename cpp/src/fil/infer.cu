@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __forceinline__
+#define INLINE_CONFIG __noinline__
 
 namespace ML {
 namespace fil {
@@ -370,9 +370,11 @@ __device__ __forceinline__ void write_best_class(
 
 /// needed for softmax
 struct shifted_exp {
-  __device__ double operator()(double margin, double max) const { return exp(margin - max); }
-
-  __device__ float operator()(float margin, float max) const { return expf(margin - max); }
+  template <typename real_t>
+  __device__ double operator()(real_t margin, real_t max) const
+  {
+    return exp(margin - max);
+  }
 };
 
 // *begin and *end shall be struct vec
@@ -826,7 +828,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
          and is made exact below.
          Same with thread_num_rows > 0
       */
-      typedef typename leaf_output_t<leaf_algo, real_t>::T pred_t;
+      using pred_t = typename leaf_output_t<leaf_algo, real_t>::T;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
         prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
