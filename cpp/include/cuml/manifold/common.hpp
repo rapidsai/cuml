@@ -30,7 +30,10 @@ typedef int knn_indices_sparse_t;
  */
 template <typename value_idx, typename value_t>
 struct knn_graph {
-  knn_graph(value_idx n_rows_, int n_neighbors_) : n_rows(n_rows_), n_neighbors(n_neighbors_) {}
+  knn_graph(value_idx n_rows_, int n_neighbors_)
+    : n_rows(n_rows_), n_neighbors(n_neighbors_), knn_indices{nullptr}, knn_dists{nullptr}
+  {
+  }
 
   knn_graph(value_idx n_rows_, int n_neighbors_, value_idx* knn_indices_, value_t* knn_dists_)
     : n_rows(n_rows_), n_neighbors(n_neighbors_), knn_indices(knn_indices_), knn_dists(knn_dists_)
