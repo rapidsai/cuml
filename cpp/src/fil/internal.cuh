@@ -563,7 +563,7 @@ struct cat_sets_device_owner {
  */
 template <typename fil_node_t, typename real_t = typename fil_node_t::real_t>
 void init(const raft::handle_t& h,
-          forest_t* pf,
+          forest_t<real_t>* pf,
           const categorical_sets& cat_sets,
           const std::vector<real_t>& vector_leaf,
           const int* trees,

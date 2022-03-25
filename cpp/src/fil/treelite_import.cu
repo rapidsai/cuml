@@ -631,7 +631,7 @@ struct tl2fil_t {
   }
 
   /// initializes FIL forest object, to be ready to infer
-  void init_forest(const raft::handle_t& handle, forest_t* pforest)
+  void init_forest(const raft::handle_t& handle, forest_t<float>* pforest)
   {
     ML::fil::init(
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
@@ -646,7 +646,7 @@ struct tl2fil_t {
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
 void convert(const raft::handle_t& handle,
-             forest_t* pforest,
+             forest_t<float>* pforest,
              const tl::ModelImpl<threshold_t, leaf_t>& model,
              const treelite_params_t& tl_params)
 {
@@ -664,7 +664,7 @@ constexpr bool type_supported()
 
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
@@ -713,7 +713,7 @@ void from_treelite(const raft::handle_t& handle,
 }
 
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params)
 {
