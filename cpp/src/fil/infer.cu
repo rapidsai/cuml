@@ -796,7 +796,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
 {
   using real_t = typename storage_type::real_t;
   extern __shared__ char smem[];
-  real_t* sdata      = (real_t*)smem;
+  real_t* sdata      = reinterpret_cast<real_t*>(smem);
   int sdata_stride   = params.sdata_stride();
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols       = params.num_cols;
@@ -871,7 +871,7 @@ int compute_smem_footprint::run(predict_params ssp)
       return ssp
         .template get_smem_footprint<KernelParams::N_ITEMS, double, KernelParams::LEAF_ALGO>();
     default:
-      ASSERT(ssp.sizeof_real == 4 || ssp.sizeof_real == 8,
+      ASSERT(false,
              "internal error: sizeof_real == %d, but must be 4 or 8",
              static_cast<int>(ssp.sizeof_real));
       // unreachable

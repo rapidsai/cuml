@@ -148,7 +148,8 @@ struct forest {
   int depth_       = 0;
   algo_t algo_     = algo_t::NAIVE;
   output_t output_ = output_t::RAW;
-  shmem_size_params class_ssp_, proba_ssp_;
+  shmem_size_params class_ssp_;
+  shmem_size_params proba_ssp_;
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
   cat_sets_device_owner cat_sets_;

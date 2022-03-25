@@ -681,7 +681,7 @@ void from_treelite(const raft::handle_t& handle,
       "This may lead to predictions with reduced accuracy.");
   }
   // same as std::common_type: float+double=double, float+int64_t=float
-  typedef decltype(threshold_t{} + leaf_t{}) real_t;
+  using real_t = decltype(threshold_t(0) + leaf_t(0));
 
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
