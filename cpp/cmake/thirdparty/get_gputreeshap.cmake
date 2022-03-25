@@ -27,6 +27,37 @@ function(find_and_configure_gputreeshap)
             GIT_TAG         ${PKG_PINNED_TAG}
     )
 
+    if (GPUTreeShap_ADDED)
+        install(TARGETS GPUTreeShap
+                EXPORT  gputreeshap-exports)
+
+        # generate gputreeshap-targets.cmake for install dir
+        rapids_export(INSTALL GPUTreeShap
+            EXPORT_SET gputreeshap-exports
+            GLOBAL_TARGETS GPUTreeShap
+            NAMESPACE GPUTreeShap::)
+
+        # generate gputreeshap-targets.cmake for binary dir
+        rapids_export(BUILD GPUTreeShap
+            EXPORT_SET gputreeshap-exports
+            GLOBAL_TARGETS GPUTreeShap
+            NAMESPACE GPUTreeShap::)
+
+        get_target_property(all_sources GPUTreeShap INTERFACE_SOURCES)
+        set_target_properties(GPUTreeShap PROPERTIES INTERFACE_SOURCES "")
+        get_target_property(all_includes GPUTreeShap INTERFACE_INCLUDE_DIRECTORIES)
+        set_target_properties(GPUTreeShap PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
+        target_include_directories(GPUTreeShap INTERFACE $<BUILD_INTERFACE:${all_includes}> $<INSTALL_INTERFACE:include>)
+    endif()
+
+    # do `find_dependency(GPUTreeShap) in build and install`
+    rapids_export_package(BUILD GPUTreeShap cuml-exports)
+    rapids_export_package(INSTALL GPUTreeShap cuml-exports)
+
+    # Tell cmake where it can find the generated gputreeshap-config.cmake we wrote.
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    rapids_export_find_package_root(BUILD GPUTreeShap [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
+
     set(GPUTreeShap_ADDED ${GPUTreeShap_ADDED} PARENT_SCOPE)
 
 endfunction()
