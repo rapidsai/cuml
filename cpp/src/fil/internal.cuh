@@ -100,9 +100,9 @@ union val_t {
 };
 
 /** base_node contains common implementation details for dense and sparse nodes */
-template <typename real_t_>
-struct alignas(2 * sizeof(real_t_)) base_node {
-  using real_t = real_t_;  // floating-point type
+template <typename real_t>
+struct alignas(2 * sizeof(real_t)) base_node {
+  using real_type = real_t;  // floating-point type
   /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
   val_t<real_t> val;
@@ -237,12 +237,12 @@ struct sparse_forest;
 
 template <typename node_t>
 struct node_traits {
-  using real_t               = typename node_t::real_t;
+  using real_type            = typename node_t::real_type;
   using storage              = ML::fil::storage<node_t>;
   using forest               = sparse_forest<node_t>;
   static const bool IS_DENSE = false;
   static constexpr storage_type_t storage_type_enum =
-    std::is_same_v<sparse_node16<real_t>, node_t> ? SPARSE : SPARSE8;
+    std::is_same_v<sparse_node16<real_type>, node_t> ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
   static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
 };
@@ -392,8 +392,8 @@ struct categorical_sets {
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int category_matches(node_t node,
-                                                           typename node_t::real_t category) const
+  __host__ __device__ __forceinline__ int category_matches(
+    node_t node, typename node_t::real_type category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed
@@ -409,7 +409,7 @@ struct categorical_sets {
     FIL will reject a model where an integer within [0, fid_num_cats] cannot be represented
     precisely as a 32-bit float.
     */
-    using real_t = typename node_t::real_t;
+    using real_t = typename node_t::real_type;
     return category < static_cast<real_t>(fid_num_cats[node.fid()]) && category >= real_t(0) &&
            fetch_bit(bits + node.set(), static_cast<uint32_t>(static_cast<int>(category)));
   }
@@ -431,7 +431,7 @@ struct tree_base {
   template <bool CATS_SUPPORTED, typename node_t>
   __host__ __device__ __forceinline__ int child_index(const node_t& node,
                                                       int node_idx,
-                                                      typename node_t::real_t val) const
+                                                      typename node_t::real_type val) const
   {
     bool cond;
 
@@ -561,7 +561,7 @@ struct cat_sets_device_owner {
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
-template <typename fil_node_t, typename real_t = typename fil_node_t::real_t>
+template <typename fil_node_t, typename real_t = typename fil_node_t::real_type>
 void init(const raft::handle_t& h,
           forest_t<real_t>* pf,
           const categorical_sets& cat_sets,

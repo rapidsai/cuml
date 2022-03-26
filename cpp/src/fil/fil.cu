@@ -454,17 +454,17 @@ struct dense_forest<dense_node<real_t>> : forest<real_t> {
 };
 
 template <typename node_t>
-struct sparse_forest : forest<typename node_t::real_t> {
-  using real_t = typename node_t::real_t;
+struct sparse_forest : forest<typename node_t::real_type> {
+  using real_type = typename node_t::real_type;
 
   sparse_forest(const raft::handle_t& h)
-    : forest<typename node_t::real_t>(h), trees_(0, h.get_stream()), nodes_(0, h.get_stream())
+    : forest<typename node_t::real_type>(h), trees_(0, h.get_stream()), nodes_(0, h.get_stream())
   {
   }
 
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
-            const std::vector<real_t>& vector_leaf,
+            const std::vector<real_type>& vector_leaf,
             const int* trees,
             const node_t* nodes,
             const forest_params_t* params)
@@ -504,7 +504,7 @@ struct sparse_forest : forest<typename node_t::real_t> {
 
   void free(const raft::handle_t& h) override
   {
-    forest<real_t>::free(h);
+    forest<real_type>::free(h);
     trees_.release();
     nodes_.release();
   }

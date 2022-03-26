@@ -46,9 +46,9 @@ struct storage_base {
 };
 
 /** represents a dense tree */
-template <typename real_t_>
-struct tree<dense_node<real_t_>> : tree_base {
-  using real_t = real_t_;
+template <typename real_t>
+struct tree<dense_node<real_t>> : tree_base {
+  using real_type = real_t;
   __host__ __device__ tree(categorical_sets cat_sets, dense_node<real_t>* nodes, int node_pitch)
     : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
   {
@@ -62,10 +62,10 @@ struct tree<dense_node<real_t_>> : tree_base {
 };
 
 /** partial specialization of storage. Stores the forest on GPU as a collection of dense nodes */
-template <typename real_t_>
-struct storage<dense_node<real_t_>> : storage_base<real_t_> {
-  using real_t = real_t_;
-  using node_t = dense_node<real_t>;
+template <typename real_t>
+struct storage<dense_node<real_t>> : storage_base<real_t> {
+  using real_type = real_t;
+  using node_t    = dense_node<real_t>;
   __host__ __device__ storage(categorical_sets cat_sets,
                               real_t* vector_leaf,
                               node_t* nodes,
@@ -94,7 +94,7 @@ struct storage<dense_node<real_t_>> : storage_base<real_t_> {
 /** sparse tree */
 template <typename node_t>
 struct tree : tree_base {
-  using real_t = typename node_t::real_t;
+  using real_type = typename node_t::real_type;
   __host__ __device__ tree(categorical_sets cat_sets, node_t* nodes)
     : tree_base{cat_sets}, nodes_(nodes)
   {
@@ -105,15 +105,15 @@ struct tree : tree_base {
 
 /** storage stores the forest on GPU as a collection of sparse nodes */
 template <typename node_t_>
-struct storage : storage_base<typename node_t_::real_t> {
-  using node_t   = node_t_;
-  using real_t   = typename node_t::real_t;
-  int* trees_    = nullptr;
-  node_t* nodes_ = nullptr;
-  int num_trees_ = 0;
-  __host__ __device__
-  storage(categorical_sets cat_sets, real_t* vector_leaf, int* trees, node_t* nodes, int num_trees)
-    : storage_base<real_t>{cat_sets, vector_leaf},
+struct storage : storage_base<typename node_t_::real_type> {
+  using node_t    = node_t_;
+  using real_type = typename node_t::real_type;
+  int* trees_     = nullptr;
+  node_t* nodes_  = nullptr;
+  int num_trees_  = 0;
+  __host__ __device__ storage(
+    categorical_sets cat_sets, real_type* vector_leaf, int* trees, node_t* nodes, int num_trees)
+    : storage_base<real_type>{cat_sets, vector_leaf},
       trees_(trees),
       nodes_(nodes),
       num_trees_(num_trees)

@@ -157,7 +157,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
 
 template <int NITEMS, bool CATS_SUPPORTED, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
-  tree_type tree, const typename tree_type::real_t* input, int cols, int n_rows)
+  tree_type tree, const typename tree_type::real_type* input, int cols, int n_rows)
 {
   // find the leaf nodes for each row
   int curr[NITEMS];
@@ -186,7 +186,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
 
 template <typename output_type, typename tree_type>
 __device__ __forceinline__ vec<1, output_type> infer_one_tree(
-  tree_type tree, const typename tree_type::real_t* input, int cols, int rows)
+  tree_type tree, const typename tree_type::real_type* input, int cols, int rows)
 {
   int curr = 0;
   for (;;) {
@@ -796,7 +796,7 @@ template <int NITEMS,
           class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
-  using real_t = typename storage_type::real_t;
+  using real_t = typename storage_type::real_type;
   extern __shared__ char smem[];
   real_t* sdata      = reinterpret_cast<real_t*>(smem);
   int sdata_stride   = params.sdata_stride();
