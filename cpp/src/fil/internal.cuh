@@ -341,10 +341,10 @@ struct forest_params_t {
   output_t output;
   // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output &
   // OUTPUT_CLASS) != 0 && !predict_proba, and is ignored otherwise
-  float threshold;
+  double threshold;
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
-  float global_bias;
+  double global_bias;
   // only used for CATEGORICAL_LEAF inference. since we're storing the
   // labels in leaves instead of the whole vector, this keeps track
   // of the number of classes

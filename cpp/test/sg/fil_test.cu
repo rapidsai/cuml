@@ -70,9 +70,9 @@ struct FilTestParams {
   // Order Of Magnitude for maximum matching category for categorical nodes
   float max_magnitude_of_matching_cat = 1.0f;
   // output parameters
-  output_t output   = output_t::RAW;
-  float threshold   = 0.0f;
-  float global_bias = 0.0f;
+  output_t output    = output_t::RAW;
+  double threshold   = 0.0f;
+  double global_bias = 0.0f;
   // runtime parameters
   int blocks_per_sm       = 0;
   int threads_per_tree    = 1;
