@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -260,6 +260,7 @@ class TfidfVectorizer(CountVectorizer):
     def get_feature_names(self):
         """
         Array mapping from feature integer indices to feature name.
+
         Returns
         -------
         feature_names : Series
