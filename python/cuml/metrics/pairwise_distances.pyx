@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 import cupy as cp
 import numpy as np
 import scipy
@@ -341,6 +341,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         See the documentation for scipy.spatial.distance for details on these
         metrics.
     - ['inner_product', 'hellinger']
+
     Parameters
     ----------
     X : array-like (device or host) of shape (n_samples_x, n_features)

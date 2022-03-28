@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ from cuml.explainer.common import model_func_call
 from cuml.test.utils import ClassEnumerator
 from cuml.datasets import make_regression
 from sklearn.linear_model import LinearRegression as skreg
+
+from raft.common.handle import Handle
 
 
 models_config = ClassEnumerator(module=cuml)
@@ -147,7 +149,7 @@ def test_get_handle_from_cuml_model_func(model):
     handle = get_handle_from_cuml_model_func(mod.get_param_names,
                                              create_new=True)
 
-    assert isinstance(handle, cuml.raft.common.handle.Handle)
+    assert isinstance(handle, Handle)
 
 
 @pytest.mark.parametrize("create_new", [True, False])
@@ -155,7 +157,7 @@ def test_get_handle_from_dummy_func(create_new):
     handle = get_handle_from_cuml_model_func(dummy_func,
                                              create_new=create_new)
 
-    res = isinstance(handle, cuml.raft.common.handle.Handle)
+    res = isinstance(handle, Handle)
 
     assert res == create_new
 

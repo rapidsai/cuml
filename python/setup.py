@@ -34,7 +34,6 @@ import numpy
 from setuputils import clean_folder
 from setuputils import get_environment_option
 from setuputils import get_cli_option
-from setuputils import use_raft_package
 
 import versioneer
 from cython_build_ext import cython_build_ext
@@ -46,7 +45,6 @@ install_requires = ['numba', 'cython']
 
 cuda_home = get_environment_option("CUDA_HOME")
 libcuml_path = get_environment_option('CUML_BUILD_PATH')
-raft_path = get_environment_option('RAFT_PATH')
 
 clean_artifacts = get_cli_option('clean')
 
@@ -82,8 +80,6 @@ if clean_artifacts:
         shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
-        os.remove(setup_file_path + '/cuml/raft')
-
         clean_folder(setup_file_path + '/cuml')
         shutil.rmtree(setup_file_path + '/build')
 
@@ -100,12 +96,6 @@ if clean_artifacts:
     if len(sys.argv) == 1:
         sys.exit(0)
 
-##############################################################################
-# - Cloning RAFT and dependencies if needed ----------------------------------
-
-# Use RAFT repository in cuml.raft
-
-raft_include_dir = use_raft_package(raft_path, libcuml_path)
 
 if "--multigpu" in sys.argv:
     warnings.warn("Flag --multigpu is deprecated. By default cuML is"
@@ -157,7 +147,6 @@ class cuml_build(_build):
             '../cpp/src',
             '../cpp/include',
             '../cpp/src_prims',
-            raft_include_dir,
             cuda_include_dir,
             numpy.get_include(),
             '../cpp/build/faiss/src/faiss',
@@ -169,7 +158,7 @@ class cuml_build(_build):
         if (self.singlegpu):
             python_exc_list = ["*.dask", "*.dask.*"]
         else:
-            libs.append('cumlprims')
+            libs.append('cumlprims_mg')
             libs.append('nccl')
 
             sys_include = os.path.dirname(sysconfig.get_path("include"))
@@ -253,8 +242,6 @@ class cuml_build_ext(cython_build_ext, object):
         if (self.singlegpu):
             cython_exc_list = glob.glob('cuml/*/*_mg.pyx')
             cython_exc_list = cython_exc_list + glob.glob('cuml/*/*_mg.pxd')
-            cython_exc_list.append('cuml/raft/dask/common/nccl.pyx')
-            cython_exc_list.append('cuml/raft/dask/common/comms_utils.pyx')
 
             print('--singlegpu: excluding the following Cython components:')
             pprint(cython_exc_list)

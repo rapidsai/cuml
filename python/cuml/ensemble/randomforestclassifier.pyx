@@ -29,7 +29,7 @@ from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -47,7 +47,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -159,6 +159,7 @@ class RandomForestClassifier(BaseRandomForestModel,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+
         only ``0``/``'gini'`` and ``1``/``'entropy'`` valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n

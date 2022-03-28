@@ -81,7 +81,6 @@ BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
-DISABLE_FORCE_CLONE_RAFT=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -163,7 +162,7 @@ while true; do
             exit 0
             ;;
         -v | --verbose )
-            VERBOSE=true
+            VERBOSE_FLAG="-v"
             CMAKE_LOG_LEVEL=VERBOSE
             ;;
         -g | --debug )
@@ -251,12 +250,12 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
+          -DCUML_ALGORITHMS="ALL" \
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
           -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
-          -DDISABLE_FORCE_CLONE_RAFT=${DISABLE_FORCE_CLONE_RAFT} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
@@ -266,41 +265,10 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           ..
 fi
 
-# Run all make targets at once
-
-MAKE_TARGETS=
-if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml"
-    if ! hasArg --nolibcumltest; then
-      MAKE_TARGETS="${MAKE_TARGETS} ml"
-    fi
-fi
-if hasArg cpp-mgtests; then
-    MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
-fi
-if hasArg prims; then
-    MAKE_TARGETS="${MAKE_TARGETS} prims"
-fi
-if hasArg bench; then
-    MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
-fi
-if hasArg prims-bench; then
-    MAKE_TARGETS="${MAKE_TARGETS} prims_benchmark"
-fi
-
 # If `./build.sh cuml` is called, don't build C/C++ components
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     cd ${LIBCUML_BUILD_DIR}
-    build_args="--target ${MAKE_TARGETS} ${INSTALL_TARGET}"
-    if [ ! -z ${VERBOSE} ]
-    then
-      build_args="-v ${build_args}"
-    fi
-    if [ ! -z ${PARALLEL_LEVEL} ]
-    then
-      build_args="-j${PARALLEL_LEVEL} ${build_args}"
-    fi
-    cmake --build ${LIBCUML_BUILD_DIR} ${build_args}
+    cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
 fi
 
 if hasArg cppdocs; then

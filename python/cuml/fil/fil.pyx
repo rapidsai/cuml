@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from libc.stdlib cimport calloc, malloc, free
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
@@ -578,7 +578,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-    {}
         preds : gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
@@ -607,7 +606,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-    {}
         preds : gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results

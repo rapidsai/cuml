@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 
@@ -196,9 +196,10 @@ class NearestNeighbors(Base,
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
         'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
-    p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
-        is equivalent to manhattan distance (l1), and euclidean distance (l2)
-        for p = 2. For arbitrary p, minkowski distance (lp) is used.
+    p : float (default=2)
+        Parameter for the Minkowski metric. When p = 1, this is equivalent to
+        manhattan distance (l1), and euclidean distance (l2) for p = 2. For
+        arbitrary p, minkowski distance (lp) is used.
     algo_params : dict, optional (default=None)
         Named arguments for controlling the behavior of different nearest
         neighbors algorithms.
@@ -213,8 +214,8 @@ class NearestNeighbors(Base,
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
         by using the expanded form and not computing the n-th roots.
-    algo_params : dict, optional (default = None) Used to configure the
-        nearest neighbor algorithm to be used.
+    algo_params : dict, optional (default = None)
+        Used to configure the nearest neighbor algorithm to be used.
         If set to None, parameters will be generated automatically.
         Parameters for algorithm ``'ivfflat'``:
 
