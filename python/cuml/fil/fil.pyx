@@ -193,7 +193,8 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef cppclass forest[real_t]:
         pass
 
-    # TODO(canonizer): use something like ctypedef forest[real_t]* forest_t[real_t]
+    # TODO(canonizer): use something like
+    # ctypedef forest[real_t]* forest_t[real_t]
     # once it is supported in Cython
 
     cdef struct treelite_params_t:
@@ -227,9 +228,9 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                               bool) except +
 
     cdef forest[float]* from_treelite(handle_t& handle,
-                                       forest[float]**,
-                                       ModelHandle,
-                                       treelite_params_t*) except +
+                                      forest[float]**,
+                                      ModelHandle,
+                                      treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
