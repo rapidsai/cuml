@@ -284,6 +284,11 @@ else
     unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
 
+    if [ "$CUDA_REL" != "11.0" ]; then
+        gpuci_logger "Building python docs"
+        $WORKSPACE/build.sh pydocs
+    fi
+
 fi
 
 if [ -n "${CODECOV_TOKEN}" ]; then
