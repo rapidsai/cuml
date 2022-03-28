@@ -609,7 +609,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-
         preds : gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results

@@ -1531,6 +1531,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
         """Fit Naive Bayes classifier according to X, y
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
@@ -1546,6 +1547,7 @@ class CategoricalNB(_BaseDiscreteNB):
         sample_weight : array-like of shape (n_samples), default=None
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
+
         Returns
         -------
         self : object
@@ -1563,6 +1565,7 @@ class CategoricalNB(_BaseDiscreteNB):
         This method has some performance overhead hence it is better to call
         partial_fit on chunks of data that are as large as possible
         (as long as fitting in the memory budget) to hide the overhead.
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
@@ -1582,6 +1585,7 @@ class CategoricalNB(_BaseDiscreteNB):
         sample_weight : array-like of shape (n_samples), default=None
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
+
         Returns
         -------
         self : object

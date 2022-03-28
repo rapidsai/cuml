@@ -17,8 +17,8 @@
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/lstsq.hpp>
-#include <opg/stats/mean.hpp>
+#include <cumlprims/opg/linalg/lstsq.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
@@ -26,8 +26,6 @@
 #include <raft/linalg/gemm.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 #include <rmm/device_uvector.hpp>
 

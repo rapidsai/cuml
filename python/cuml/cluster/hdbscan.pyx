@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -310,9 +309,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     cluster_selection_epsilon : float, optional (default=0.0)
         A distance threshold. Clusters below this value will be merged.
-        Note that this should not be used if we want to predict the cluster
-        labels for new points in future (e.g. using approximate_predict), as
-        the approximate_predict function is not aware of this argument.
+        Note that this should not be used
+        if we want to predict the cluster labels for new points in future
+        (e.g. using approximate_predict), as the approximate_predict function
+        is not aware of this argument.
 
     max_cluster_size : int, optional (default=0)
         A limit to the size of clusters returned by the eom algorithm.
@@ -340,6 +340,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         to find the most persistent clusters. Alternatively you can instead
         select the clusters at the leaves of the tree -- this provides the
         most fine grained and homogeneous clusters. Options are:
+
             * ``eom``
             * ``leaf``
 
@@ -349,17 +350,17 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         the case that you feel this is a valid result for your dataset.
 
     gen_min_span_tree : bool, optional (default=False)
-        Whether to populate the minimum_spanning_tree_ member for
+        Whether to populate the `minimum_spanning_tree_` member for
         utilizing plotting tools. This requires the `hdbscan` CPU Python
         package to be installed.
 
     gen_condensed_tree : bool, optional (default=False)
-        Whether to populate the condensed_tree_ member for
+        Whether to populate the `condensed_tree_` member for
         utilizing plotting tools. This requires the `hdbscan` CPU
         Python package to be installed.
 
     gen_single_linkage_tree_ : bool, optinal (default=False)
-        Whether to populate the single_linkage_tree_ member for
+        Whether to populate the `single_linkage_tree_` member for
         utilizing plotting tools. This requires the `hdbscan` CPU
         Python package t be installed.
 
