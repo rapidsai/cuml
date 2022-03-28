@@ -22,7 +22,6 @@
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <hierarchy/pw_dist_graph.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.hpp>
