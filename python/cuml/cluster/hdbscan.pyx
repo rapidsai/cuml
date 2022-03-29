@@ -323,7 +323,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         for new points in future (e.g. using approximate_predict), as
         the approximate_predict function is not aware of this argument.
 
-    metric : string or callable, optional (default='minkowski')
+    metric : string or callable, optional (default='euclidean')
         The metric to use when calculating distance between instances in a
         feature array. If metric is a string or callable, it must be one of
         the options allowed by metrics.pairwise.pairwise_distances for its
