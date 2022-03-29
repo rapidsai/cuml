@@ -100,18 +100,22 @@ def make_regression(
 
     .. code-block:: python
 
-        from cuml.datasets.regression import make_regression
-        from cuml.linear_model import LinearRegression
+        >>> from cuml.datasets.regression import make_regression
+        >>> from cuml.linear_model import LinearRegression
 
-        # Create regression problem
-        data, values = make_regression(n_samples=200, n_features=12,
-                                       n_informative=7, bias=-4.2, noise=0.3)
+        >>> # Create regression problem
+        >>> data, values = make_regression(n_samples=200, n_features=12,
+        ...                                n_informative=7, bias=-4.2,
+        ...                                noise=0.3, random_state=10)
 
-        # Perform a linear regression on this problem
-        lr = LinearRegression(fit_intercept = True, normalize = False,
-                              algorithm = "eig")
-        reg = lr.fit(data, values)
-        print(reg.coef_)
+        >>> # Perform a linear regression on this problem
+        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
+        ...                       algorithm = "eig")
+        >>> reg = lr.fit(data, values)
+        >>> print(reg.coef_) # doctest: +SKIP
+        [-2.6980877e-02  7.7027252e+01  1.1498465e+01  8.5468025e+00
+        5.8548538e+01  6.0772545e+01  3.6876743e+01  4.0023815e+01
+        4.3908358e-03 -2.0275116e-02  3.5066366e-02 -3.4512520e-02]
 
     Parameters
     ----------
