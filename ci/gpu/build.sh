@@ -32,7 +32,7 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 
 # ucx-py version
-export UCX_PY_VERSION='0.25.*'
+export UCX_PY_VERSION='0.26.*'
 
 export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
 export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
@@ -127,8 +127,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -222,8 +222,8 @@ else
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -283,6 +283,11 @@ else
     #Need to run in standard directory, not our artifact dir
     unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
+
+    if [ "$CUDA_REL" != "11.0" ]; then
+        gpuci_logger "Building python docs"
+        $WORKSPACE/build.sh pydocs
+    fi
 
 fi
 

@@ -40,3 +40,26 @@ from cuml.metrics.pairwise_kernels import pairwise_kernels
 from cuml.metrics.pairwise_kernels import PAIRWISE_KERNEL_FUNCTIONS
 from cuml.metrics.hinge_loss import hinge_loss
 from cuml.metrics.kl_divergence import kl_divergence
+
+__all__ = [
+    "trustworthiness",
+    "r2_score",
+    "mean_squared_error",
+    "mean_squared_log_error",
+    "mean_absolute_error",
+    "accuracy_score",
+    "adjusted_rand_score",
+    "roc_auc_score",
+    "precision_recall_curve",
+    "log_loss",
+    "homogeneity_score",
+    "completeness_score",
+    "mutual_info_score",
+    "confusion_matrix",
+    "entropy",
+    "pairwise_distances",
+    "sparse_pairwise_distances",
+    "pairwise_kernels",
+    "hinge_loss",
+    "kl_divergence",
+]

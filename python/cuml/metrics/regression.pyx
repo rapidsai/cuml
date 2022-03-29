@@ -177,7 +177,8 @@ def mean_squared_error(y_true, y_pred,
         Estimated target values.
     sample_weight : array-like (device or host) shape = (n_samples,), optional
         Sample weights.
-    multioutput : string in ['raw_values', 'uniform_average']
+    multioutput : string in ['raw_values', 'uniform_average'] \
+            (default='uniform_average')
         or array-like of shape (n_outputs)
         Defines aggregating of multiple output values.
         Array-like value defines weights used to average errors.
