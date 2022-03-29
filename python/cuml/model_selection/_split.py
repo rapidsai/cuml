@@ -17,7 +17,6 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
-import pandas as pd
 
 from cuml.common.memory_utils import _strides_to_order
 from cuml.common import input_to_cuml_array
