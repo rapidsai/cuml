@@ -215,7 +215,7 @@ class SVC(SVMBase,
         Only available for linear kernels. It is the normal of the
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-    classes_ : shape (n_classes_,)
+    classes_ : shape (`n_classes_`,)
         Array of class labels
     n_classes_ : int
         Number of classes
