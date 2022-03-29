@@ -43,6 +43,8 @@ TBD
 
 ## Documentation
 We mostly follow [PEP 257](https://www.python.org/dev/peps/pep-0257/) style docstrings for documenting the interfaces.
+The examples in the documentation are checked through doctest. To skip the check for an example's output, use the command `# doctest: +SKIP`.
+Examples subject to numerical imprecision, or that can't be reproduced consistently should be skipped.
 
 ## Testing and Unit Testing
 We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/test`.
