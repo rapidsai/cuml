@@ -529,7 +529,6 @@ class StratifiedKFold:
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.seed = random_state
-        self.tpb = 64  # threads per bloc
 
     def get_n_splits(self, X=None, y=None):
         return self.n_splits
@@ -563,7 +562,7 @@ class StratifiedKFold:
 
         got = grpby.apply_grouped(get_order_in_group, incols=['y', 'ids'],
                                   outcols={'order': 'int32'},
-                                  tpb=self.tpb)
+                                  tpb=64)
         got = got.sort_values('ids')
 
         for i in range(self.n_splits):
