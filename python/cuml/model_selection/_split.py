@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from cuml.common.memory_utils import _strides_to_order
+from cuml.common import input_to_cuml_array
 from numba import cuda
 from typing import Union
 
@@ -575,28 +576,13 @@ class StratifiedKFold:
 
     def _to_cupy_array(self, y):
         """
-        Convert input data with strings to cudf dataframe.
+        Convert the target column to cupy array.
         Supported data types are:
-            1D or 2D numpy/cupy arrays
+            numpy/cupy arrays
             pandas/cudf Series
             pandas/cudf DataFrame
-        Input data could have one or more string columns.
         """
-        self._check_array_shape(y)
-        if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
-            data = y.values.ravel()
-        elif isinstance(y, pd.DataFrame) or isinstance(y, pd.Series):
-            data = cp.asarray(y.values.ravel())
-        elif isinstance(y, np.ndarray) \
-            or isinstance(y, cp.ndarray) \
-                or isinstance(y, list):
-            data = cp.asarray(y)
-        else:
-            raise TypeError(
-                f"Input of type {type(y)} is not cudf.Series, cudf.DataFrame "
-                "or pandas.Series or pandas.DataFrame"
-                "or cupy.ndarray or numpy.ndarray")
-        return data
+        return input_to_cuml_array(y).array.to_output('cupy')
 
     def _check_array_shape(self, y):
         if y is None:
