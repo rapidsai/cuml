@@ -40,62 +40,46 @@ class PCA(BaseDecomposition,
 
     Examples
     --------
-
     .. code-block:: python
 
-        from dask_cuda import LocalCUDACluster
-        from dask.distributed import Client, wait
-        import numpy as np
-        from cuml.dask.decomposition import PCA
-        from cuml.dask.datasets import make_blobs
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client, wait
+        >>> import cupy as cp
+        >>> from cuml.dask.decomposition import PCA
+        >>> from cuml.dask.datasets import make_blobs
 
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
 
-        nrows = 6
-        ncols = 3
-        n_parts = 2
+        >>> nrows = 6
+        >>> ncols = 3
+        >>> n_parts = 2
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=0.01,
-                        verbose=cuml.logger.level_info,
-                        random_state=10, dtype=np.float32)
+        >>> X_cudf, _ = make_blobs(n_samples=nrows, n_features=ncols,
+        ...                        centers=1, n_parts=n_parts,
+        ...                        cluster_std=0.01, random_state=10,
+        ...                        dtype=cp.float32)
 
-        wait(X_cudf)
+        >>> blobs = X_cudf.compute()
+        >>> print(blobs) # doctest: +SKIP
+        [[8.688037  3.122401  1.2581943]
+        [8.705028  3.1070278 1.2705998]
+        [8.70239   3.1102846 1.2716919]
+        [8.695665  3.1042147 1.2635932]
+        [8.681095  3.0980906 1.2745825]
+        [8.705454  3.100002  1.2657361]]
 
-        print("Input Matrix")
-        print(X_cudf.compute())
-
-        cumlModel = PCA(n_components = 1, whiten=False)
-        XT = cumlModel.fit_transform(X_cudf)
-
-        print("Transformed Input Matrix")
-        print(XT.compute())
-
-    Output:
-
-    .. code-block:: python
-
-          Input Matrix:
-                    0         1         2
-                    0 -6.520953  0.015584 -8.828546
-                    1 -6.507554  0.016524 -8.836799
-                    2 -6.518214  0.010457 -8.821301
-                    0 -6.520953  0.015584 -8.828546
-                    1 -6.507554  0.016524 -8.836799
-                    2 -6.518214  0.010457 -8.821301
-
-          Transformed Input Matrix:
-                              0
-                    0 -0.003271
-                    1  0.011454
-                    2 -0.008182
-                    0 -0.003271
-                    1  0.011454
-                    2 -0.008182
-
-    .. note:: Everytime this code is run, the output will be different because
-        "make_blobs" function generates random matrices.
+        >>> cumlModel = PCA(n_components = 1, whiten=False)
+        >>> XT = cumlModel.fit_transform(X_cudf)
+        >>> print(XT.compute()) # doctest: +SKIP
+        [[-1.7516235e-02]
+        [ 7.8094802e-03]
+        [ 4.2757220e-03]
+        [-6.7228684e-05]
+        [-5.0618490e-03]
+        [ 1.0557819e-02]]
+        >>> client.close()
+        >>> cluster.close()
 
     Parameters
     ----------

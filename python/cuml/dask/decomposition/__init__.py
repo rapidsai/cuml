@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,3 +15,8 @@
 
 from cuml.dask.decomposition.pca import PCA
 from cuml.dask.decomposition.tsvd import TruncatedSVD
+
+__all__ = [
+    "PCA",
+    "TruncatedSVD"
+]
