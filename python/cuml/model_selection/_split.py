@@ -538,6 +538,9 @@ class StratifiedKFold:
         if len(x) != len(y):
             raise ValueError('Expecting same length of x and y')
         y = self._to_cupy_array(y)
+        if len(cp.unique(y)) < 2:
+            raise ValueError(
+                'number of unique classes cannot be less than 2')
         df = cudf.DataFrame()
         ids = cp.arange(y.shape[0])
 
