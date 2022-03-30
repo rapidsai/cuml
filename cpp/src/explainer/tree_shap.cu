@@ -27,6 +27,11 @@
 #include <raft/error.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/memory.h>
 #include <treelite/tree.h>
 #include <type_traits>
 #include <variant>

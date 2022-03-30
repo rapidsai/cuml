@@ -25,7 +25,11 @@
 #include <raft/random/rng.hpp>
 
 #include <cuml/cluster/spectral.hpp>
+
 #include <iostream>
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
 
 namespace UMAPAlgo {
 

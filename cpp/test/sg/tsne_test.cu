@@ -31,6 +31,8 @@
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
+
+#include <thrust/reduce.h>
 #include <vector>
 
 using namespace MLCommon;

@@ -31,6 +31,7 @@
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>

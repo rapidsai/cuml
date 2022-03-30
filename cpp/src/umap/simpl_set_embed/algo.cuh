@@ -42,7 +42,10 @@
 #include <string>
 
 #include <raft/sparse/op/filter.hpp>
+#include <thrust/execution_policy.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
+#include <thrust/reduce.h>
 #pragma once
 
 namespace UMAPAlgo {
