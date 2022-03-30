@@ -14,8 +14,9 @@
 # limitations under the License.
 
 from libcpp cimport bool
+from cuml.decomposition.utils cimport *
 
-cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML" nogil:
+cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
     ctypedef enum mg_solver "ML::mg_solver":
         COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
