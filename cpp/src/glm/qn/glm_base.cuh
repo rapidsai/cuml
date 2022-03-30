@@ -28,6 +28,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
+
 #include <vector>
 
 namespace ML {

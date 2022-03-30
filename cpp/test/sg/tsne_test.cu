@@ -28,11 +28,10 @@
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <thrust/reduce.h>
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
-
-#include <thrust/reduce.h>
 #include <vector>
 
 using namespace MLCommon;

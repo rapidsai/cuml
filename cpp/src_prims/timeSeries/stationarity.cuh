@@ -25,21 +25,24 @@
 
 #pragma once
 
-#include <math.h>
+#include "arima_helpers.cuh"
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/reduce.hpp>
+#include <raft/stats/mean.hpp>
+
+#include <rmm/device_uvector.hpp>
+
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
-#include <vector>
 
-#include "arima_helpers.cuh"
-#include <raft/cudart_utils.h>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/reduce.hpp>
-#include <raft/stats/mean.hpp>
-#include <rmm/device_uvector.hpp>
+#include <cmath>
+#include <vector>
 
 namespace MLCommon {
 
