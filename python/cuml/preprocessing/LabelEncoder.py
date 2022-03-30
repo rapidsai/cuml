@@ -54,6 +54,7 @@ class LabelEncoder(Base):
 
     Examples
     --------
+
     Converting a categorical implementation to a numerical one
     .. code-block:: python
 
@@ -216,7 +217,7 @@ class LabelEncoder(Base):
         return input_to_cuml_array(encoded).array
 
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def fit_transform(self, y, z=None) -> cudf.Series:
+    def fit_transform(self, y, z=None):
         """
         Simultaneously fit and transform an input
 
