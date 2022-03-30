@@ -65,6 +65,7 @@ from cuml.model_selection import train_test_split
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.kernel_density import KernelDensity
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
@@ -110,3 +111,62 @@ def __getattr__(name):
             return _global_settings_data.settings
 
     raise AttributeError(f"module {__name__} has no attribute {name}")
+
+
+__all__ = [
+    # Modules
+    "common",
+    "metrics",
+    "multiclass",
+    "naive_bayes",
+    "preprocessing",
+    # Classes
+    "AgglomerativeClustering",
+    "ARIMA",
+    "AutoARIMA",
+    "Base",
+    "CD",
+    "cuda",
+    "DBSCAN",
+    "ElasticNet",
+    "ExponentialSmoothing",
+    "ForestInference",
+    "GaussianRandomProjection",
+    "Handle",
+    "HDBSCAN",
+    "IncrementalPCA",
+    "KernelDensity",
+    "KernelExplainer",
+    "KernelRidge",
+    "KMeans",
+    "KNeighborsClassifier",
+    "KNeighborsRegressor",
+    "Lasso",
+    "LinearRegression",
+    "LinearSVC",
+    "LinearSVR",
+    "LogisticRegression",
+    "MBSGDClassifier",
+    "MBSGDRegressor",
+    "NearestNeighbors",
+    "PCA",
+    "PermutationExplainer",
+    "QN",
+    "RandomForestClassifier",
+    "RandomForestRegressor",
+    "Ridge",
+    "SGD",
+    "SparseRandomProjection",
+    "SVC",
+    "SVR",
+    "TruncatedSVD",
+    "TSNE",
+    "UMAP",
+    # Functions
+    "johnson_lindenstrauss_min_dim",
+    "make_arima",
+    "make_blobs",
+    "make_classification",
+    "make_regression",
+    "stationarity",
+]

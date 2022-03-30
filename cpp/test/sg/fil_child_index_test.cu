@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,24 +40,27 @@ struct proto_inner_node {
   int set             = 0;      // which bit set represents the matching category list
   float thresh        = 0.0f;   // threshold, see base_node::thresh
   int left            = 1;      // left child idx, see sparse_node*::left_index()
-  val_t split()
+  val_t<float> split()
   {
-    val_t split;
+    val_t<float> split;
     if (is_categorical)
       split.idx = set;
     else
       split.f = thresh;
     return split;
   }
-  operator sparse_node16()
+  operator sparse_node16<float>()
   {
-    return sparse_node16({}, split(), fid, def_left, false, is_categorical, left);
+    return sparse_node16<float>({}, split(), fid, def_left, false, is_categorical, left);
   }
   operator sparse_node8()
   {
     return sparse_node8({}, split(), fid, def_left, false, is_categorical, left);
   }
-  operator dense_node() { return dense_node({}, split(), fid, def_left, false, is_categorical); }
+  operator dense_node<float>()
+  {
+    return dense_node<float>({}, split(), fid, def_left, false, is_categorical);
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
@@ -138,7 +141,7 @@ class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
   {
     ChildIndexTestParams param = GetParam();
     tree_base tree{param.cso.accessor()};
-    if (!std::is_same<fil_node_t, fil::dense_node>::value) {
+    if (!std::is_same<fil_node_t, fil::dense_node<float>>::value) {
       // test that the logic uses node.left instead of parent_node_idx
       param.node.left       = param.parent_node_idx * 2 + 1;
       param.parent_node_idx = INT_MIN;
@@ -153,8 +156,8 @@ class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
   }
 };
 
-typedef ChildIndexTest<fil::dense_node> ChildIndexTestDense;
-typedef ChildIndexTest<fil::sparse_node16> ChildIndexTestSparse16;
+typedef ChildIndexTest<fil::dense_node<float>> ChildIndexTestDense;
+typedef ChildIndexTest<fil::sparse_node16<float>> ChildIndexTestSparse16;
 typedef ChildIndexTest<fil::sparse_node8> ChildIndexTestSparse8;
 
 /* for dense nodes, left (false) == parent * 2 + 1, right (true) == parent * 2 + 2

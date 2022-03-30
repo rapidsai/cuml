@@ -32,7 +32,6 @@
 
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>
@@ -109,6 +108,12 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     score = MLCommon::Metrics::compute_adjusted_rand_index(
       out.get_labels(), labels_ref.data(), params.n_row, handle.get_stream());
+
+    if (score < 0.85) {
+      std::cout << "Test failed. score=" << score << std::endl;
+      raft::print_device_vector("actual labels", out.get_labels(), params.n_row, std::cout);
+      raft::print_device_vector("expected labels", labels_ref.data(), params.n_row, std::cout);
+    }
   }
 
   void SetUp() override { basicTest(); }
