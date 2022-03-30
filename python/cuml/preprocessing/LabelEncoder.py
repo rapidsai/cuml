@@ -164,7 +164,7 @@ class LabelEncoder(Base):
 
         """
         if _classes is None:
-            y, _ = self._to_cudf_series(y)
+            y = self._to_cudf_series(y)
 
         self._validate_keywords()
 
@@ -202,7 +202,7 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
-        y, output_type = self._to_cudf_series(y)
+        y = self._to_cudf_series(y)
 
         self._check_is_fitted()
 
@@ -225,7 +225,7 @@ class LabelEncoder(Base):
         `LabelEncoder().fit(y).transform(y)`
         """
 
-        y, output_type = self._to_cudf_series(y)
+        y = self._to_cudf_series(y)
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
         y = y.astype('category')
@@ -253,7 +253,7 @@ class LabelEncoder(Base):
         # check LabelEncoder is fitted
         self._check_is_fitted()
         # check input type is cudf.Series
-        y, output_type = self._to_cudf_series(y)
+        y = self._to_cudf_series(y)
 
         # check if ord_label out of bound
         ord_label = y.unique()
@@ -281,19 +281,14 @@ class LabelEncoder(Base):
     def _to_cudf_series(self, y):
         if isinstance(y, pdSeries):
             y = cudf.from_pandas(y)
-            output_type = 'pandas'
         elif isinstance(y, cp.ndarray):
             y = cudf.Series(y)
-            output_type = 'cupy'
         elif isinstance(y, np.ndarray):
             y = cudf.Series(y)
-            output_type = 'numpy'
-        elif isinstance(y, cudf.Series):
-            output_type = 'cudf'
-        else:
+        elif not isinstance(y, cudf.Series):
             msg = ("input should be either 'cupy.ndarray'"
                    " or 'numpy.ndarray' or 'pandas.Series',"
                    " or 'cudf.Series'"
                    "got {0}.".format(type(y)))
             raise TypeError(msg)
-        return y, output_type
+        return y
