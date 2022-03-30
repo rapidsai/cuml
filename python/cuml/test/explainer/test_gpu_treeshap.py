@@ -16,17 +16,22 @@
 
 import json
 import pytest
+import sklearn
 import treelite
 import numpy as np
 import pandas as pd
 import cupy as cp
 import cudf
+from hypothesis import given, settings, assume, strategies as st
+import hypothesis
 from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
+import cuml
+from cuml.test.utils import as_type
 
 if has_xgboost():
     import xgboost as xgb
@@ -42,33 +47,41 @@ if has_sklearn():
 
 def make_classification_with_categorical(
         *, n_samples, n_features, n_categorical, n_informative, n_redundant,
-        n_repeated, n_classes, random_state):
+        n_repeated, n_classes, random_state, numeric_dtype):
     X, y = make_classification(n_samples=n_samples, n_features=n_features,
                                n_informative=n_informative,
                                n_redundant=n_redundant, n_repeated=n_repeated,
-                               n_classes=n_classes, random_state=random_state)
-    X, y = X.astype(np.float32), y.astype(np.float32)
+                               n_classes=n_classes, random_state=random_state, n_clusters_per_class=min(2, n_features))
+    X, y = X.astype(numeric_dtype), y.astype(numeric_dtype)
 
     # Turn some columns into categorical, by taking quartiles
+    n = np.atleast_1d(y).shape[0]
     X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
     for i in range(n_categorical):
         column = f'f{i}'
-        X[column] = pd.qcut(X[column], 4, labels=range(4))
+        n_bins = min(4, n)
+        X[column] = pd.qcut(X[column], n_bins, labels=range(n_bins))
+    # make sure each target exists
+    y[0:n_classes] = range(n_classes)
+
+    assert len(np.unique(y)) == n_classes
     return X, y
 
 
 def make_regression_with_categorical(
-        *, n_samples, n_features, n_categorical, n_informative, random_state):
+        *, n_samples, n_features, n_categorical, n_informative, random_state, numeric_dtype, n_targets=1):
     X, y = make_regression(n_samples=n_samples, n_features=n_features,
-                           n_informative=n_informative, n_targets=1,
+                           n_informative=n_informative, n_targets=n_targets,
                            random_state=random_state)
-    X, y = X.astype(np.float32), y.astype(np.float32)
+    X, y = X.astype(numeric_dtype), y.astype(numeric_dtype)
 
     # Turn some columns into categorical, by taking quartiles
+    n = np.atleast_1d(y).shape[0]
     X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
     for i in range(n_categorical):
         column = f'f{i}'
-        X[column] = pd.qcut(X[column], 4, labels=range(4))
+        n_bins = min(4, n)
+        X[column] = pd.qcut(X[column], n_bins, labels=range(n_bins))
     return X, y
 
 
@@ -349,9 +362,9 @@ def test_xgb_classifier_with_categorical(n_classes):
     n_samples = 100
     n_features = 8
     X, y = make_classification_with_categorical(
-            n_samples=n_samples, n_features=n_features, n_categorical=4,
-            n_informative=n_features, n_redundant=0, n_repeated=0,
-            n_classes=n_classes, random_state=2022)
+        n_samples=n_samples, n_features=n_features, n_categorical=4,
+        n_informative=n_features, n_redundant=0, n_repeated=0,
+        n_classes=n_classes, random_state=2022)
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {"tree_method": "gpu_hist", "max_depth": 6,
@@ -396,8 +409,8 @@ def test_xgb_regressor_with_categorical():
     n_samples = 100
     n_features = 8
     X, y = make_regression_with_categorical(
-            n_samples=n_samples, n_features=n_features, n_categorical=4,
-            n_informative=n_features, random_state=2022)
+        n_samples=n_samples, n_features=n_features, n_categorical=4,
+        n_informative=n_features, random_state=2022)
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
     params = {"tree_method": "gpu_hist", "max_depth": 6,
@@ -425,16 +438,17 @@ def test_lightgbm_regressor_with_categorical():
     n_features = 8
     n_categorical = 8
     X, y = make_regression_with_categorical(
-            n_samples=n_samples, n_features=n_features,
-            n_categorical=n_categorical, n_informative=n_features,
-            random_state=2022)
+        n_samples=n_samples, n_features=n_features,
+        n_categorical=n_categorical, n_informative=n_features,
+        random_state=2022)
 
     dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
     params = {"num_leaves": 64, "seed": 0, "objective": "regression",
               "metric": "rmse", "min_data_per_group": 1}
     lgb_model = lgb.train(params, dtrain, num_boost_round=10,
                           valid_sets=[dtrain], valid_names=['train'])
-    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
+    assert count_categorical_split(
+        treelite.Model.from_lightgbm(lgb_model)) > 0
 
     explainer = TreeExplainer(model=lgb_model)
     out = explainer.shap_values(X)
@@ -455,10 +469,10 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     n_features = 8
     n_categorical = 8
     X, y = make_classification_with_categorical(
-            n_samples=n_samples, n_features=n_features,
-            n_categorical=n_categorical, n_informative=n_features,
-            n_redundant=0, n_repeated=0, n_classes=n_classes,
-            random_state=2022)
+        n_samples=n_samples, n_features=n_features,
+        n_categorical=n_categorical, n_informative=n_features,
+        n_redundant=0, n_repeated=0, n_classes=n_classes,
+        random_state=2022)
 
     dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
     params = {"num_leaves": 64, "seed": 0, "min_data_per_group": 1}
@@ -471,7 +485,8 @@ def test_lightgbm_classifier_with_categorical(n_classes):
         params["num_class"] = n_classes
     lgb_model = lgb.train(params, dtrain, num_boost_round=10,
                           valid_sets=[dtrain], valid_names=['train'])
-    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
+    assert count_categorical_split(
+        treelite.Model.from_lightgbm(lgb_model)) > 0
 
     # Insert NaN randomly into X
     X_test = X.values.copy()
@@ -493,3 +508,165 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(explainer.expected_value,
                                    ref_expected_value, decimal=5)
+
+
+def learn_model(draw, X, y, task, learner, n_estimators, n_targets, n_categorical):
+    if learner == 'xgb':
+        assume(has_xgboost())
+        if task == 'regression':
+            objective = draw(st.sampled_from(['reg:squarederror',
+                                              'reg:pseudohubererror']))
+            model = xgb.XGBRegressor(
+                n_estimators=n_estimators, tree_method='gpu_hist', objective=objective, enable_categorical=True, verbosity=0).fit(X, y)
+        elif task == 'classification':
+            valid_objectives = ['binary:logistic', 'binary:hinge',
+                                'binary:logitraw', 'count:poisson', ]
+            if n_targets > 2:
+                valid_objectives += ['rank:pairwise', 'rank:ndcg', 'rank:map',
+                                     'multi:softmax', 'multi:softprob']
+
+            objective = draw(st.sampled_from(valid_objectives))
+            model = xgb.XGBClassifier(
+                n_estimators=n_estimators, tree_method='gpu_hist', objective=objective, enable_categorical=True, verbosity=0).fit(X, y)
+        return model.get_booster(), model.predict(X, output_margin=True)
+    elif learner == 'rf':
+        predict_model = 'GPU 'if y.dtype == np.float32 else 'CPU'
+        if task == 'regression':
+            model = cuml.ensemble.RandomForestRegressor(
+                n_estimators=n_estimators)
+            model.fit(X, y)
+            pred = model.predict(X, predict_model=predict_model)
+        elif task == 'classification':
+            model = cuml.ensemble.RandomForestClassifier(
+                n_estimators=n_estimators)
+            model.fit(X, y)
+            pred = model.predict_proba(X)
+        return model, pred
+    elif learner == 'skl_rf':
+        assume(has_sklearn())
+        if task == 'regression':
+            model = sklearn.ensemble.RandomForestRegressor(
+                n_estimators=n_estimators)
+            model.fit(X, y)
+            pred = model.predict(X)
+        elif task == 'classification':
+            model = sklearn.ensemble.RandomForestClassifier(
+                n_estimators=n_estimators)
+            model.fit(X, y)
+            pred = model.predict_proba(X)
+        return model, pred
+    elif learner == 'lgbm':
+        assume(has_lightgbm())
+        if task == 'regression':
+            model = lgb.LGBMRegressor(
+                n_estimators=n_estimators).fit(X, y)
+        elif task == 'classification':
+            model = lgb.LGBMClassifier(
+                n_estimators=n_estimators).fit(X, y)
+        return model.booster_, model.predict(X, raw_score=True)
+
+
+@st.composite
+def shap_strategy(draw):
+    task = draw(st.sampled_from(['regression', 'classification']))
+
+    n_estimators = draw(st.integers(1, 16))
+    n_samples = draw(st.integers(2, 100))
+    n_features = draw(st.integers(2, 100))
+    learner = draw(st.sampled_from(['xgb', 'rf', 'skl_rf', 'lgbm']))
+    supports_categorical = learner in ['xgb', 'lgbm']
+    supports_nan = learner in ['xgb', 'lgbm']
+    # skl supports multi-output regression
+    if task == 'classification' or learner == 'skl_rf':
+        n_targets = draw(st.integers(2, 5))
+        n_targets = min(n_targets, n_features)
+        n_targets = min(n_targets, n_samples)
+    else:
+        n_targets = 1
+    has_categoricals = draw(st.booleans()) and supports_categorical
+    dtype = draw(st.sampled_from([np.float32, np.float64]))
+    if has_categoricals:
+        n_categorical = draw(st.integers(1, n_features))
+    else:
+        n_categorical = 0
+
+    has_nan = not has_categoricals and supports_nan
+
+    # Filter issues and invalid examples here
+    if task == 'classification' and learner == 'rf':
+        # No way to predict_proba with RandomForestClassifier trained on 64-bit data
+        # https://github.com/rapidsai/cuml/issues/4663
+        assume(dtype == np.float32)
+    if task == 'regression' and learner == 'skl_rf':
+        # multi-output regression not working
+        # https://github.com/dmlc/treelite/issues/375
+        assume(n_targets == 1)
+
+    # 64 bit thresholds can fail
+    # https://github.com/rapidsai/cuml/issues/4670
+    if learner in ['rf', 'skl_rf']:
+        assume(dtype == np.float32)
+
+    # treelite considers a binary classification model to have
+    # n_classes=1, which produces an unexpected output shape
+    # in the shap values
+    if task == 'classification' and learner == 'skl_rf':
+        assume(n_targets > 2)
+
+    # ensure we get some variation in test datasets
+    dataset_seed = draw(st.integers(1, 5))
+    if task == 'classification':
+        X, y = make_classification_with_categorical(
+            n_samples=n_samples, n_features=n_features,
+            n_categorical=n_categorical, n_informative=n_features, n_redundant=0, n_repeated=0,
+            random_state=dataset_seed, n_classes=n_targets, numeric_dtype=dtype)
+    else:
+        X, y = make_regression_with_categorical(
+            n_samples=n_samples, n_features=n_features,
+            n_categorical=n_categorical, n_informative=n_features,
+            random_state=dataset_seed, numeric_dtype=dtype, n_targets=n_targets)
+
+    if has_nan:
+        # set about half the first column to nan
+        X.iloc[np.random.randint(0, n_samples, n_samples//2), 0] = np.nan
+
+    assert len(X.select_dtypes(include='category').columns) == n_categorical
+
+    model, preds = learn_model(
+        draw, X, y, task, learner, n_estimators, n_targets, n_categorical)
+
+    return X, y, model, preds
+
+
+def check_efficiency(expected_value, pred, shap_values):
+    # shap values add up to prediction
+    if len(shap_values.shape) <= 2:
+        assert np.allclose(np.sum(shap_values, axis=-1) +
+                           expected_value, pred, 1e-3, 1e-3)
+    else:
+        n_targets = shap_values.shape[0]
+        for i in range(n_targets):
+            assert np.allclose(
+                np.sum(shap_values[i], axis=-1) + expected_value[i], pred[:, i], 1e-3, 1e-3)
+
+
+
+@settings(deadline=None,max_examples=20)
+@given(shap_strategy())
+def test_with_hypothesis(params):
+    X, y, model, preds = params
+    explainer = TreeExplainer(model=model)
+    out = explainer.shap_values(X)
+    check_efficiency(explainer.expected_value, preds, out)
+
+
+@settings(deadline=None)
+@given(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+def test_input_types(input_type):
+    # simple test to not crash on different input data-frames
+    X = np.array([[0.0, 2.0], [1.0, 0.5]])
+    y = np.array([0, 1])
+    X, y = as_type(input_type, X, y)
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+    explainer = TreeExplainer(model=model)
+    out = explainer.shap_values(X)
