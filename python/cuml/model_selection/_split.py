@@ -527,7 +527,7 @@ class StratifiedKFold:
     def split(self, x, y):
         if len(x) != len(y):
             raise ValueError('Expecting same length of x and y')
-        y = self._to_cupy_array(y)
+        y = input_to_cuml_array(y).array.to_output('cupy')
         if len(cp.unique(y)) < 2:
             raise ValueError(
                 'number of unique classes cannot be less than 2')
@@ -566,16 +566,6 @@ class StratifiedKFold:
             if len(test) == 0:
                 break
             yield train, test
-
-    def _to_cupy_array(self, y):
-        """
-        Convert the target column to cupy array.
-        Supported data types are:
-            numpy/cupy arrays
-            pandas/cudf Series
-            pandas/cudf DataFrame
-        """
-        return input_to_cuml_array(y).array.to_output('cupy')
 
     def _check_array_shape(self, y):
         if y is None:
