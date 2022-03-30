@@ -216,7 +216,7 @@ class BaseRandomForestModel(Base):
                 self.treelite_serialized_model)
 
         else:
-            if self.dtype not in [np.float32,np.float64]:
+            if self.dtype not in [np.float32, np.float64]:
                 raise ValueError("Unknown dtype.")
 
             if self.RF_type == CLASSIFICATION:
@@ -245,7 +245,7 @@ class BaseRandomForestModel(Base):
                 elif self.dtype==np.float64:
                     build_treelite_forest(
                         &tl_handle,
-                        <RandomForestMetaData[double,double]*>
+                        <RandomForestMetaData[double, double]*>
                         <uintptr_t> self.rf_forest64,
                         <int> self.n_cols
                         )

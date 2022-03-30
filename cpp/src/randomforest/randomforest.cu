@@ -250,7 +250,7 @@ void build_treelite_forest(ModelHandle* model_handle,
   ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
   // Determine number of outputs
-  ASSERT(forest->trees.size() ==forest->rf_params.n_trees, "Inconsistent number of trees.");
+  ASSERT(forest->trees.size() == forest->rf_params.n_trees, "Inconsistent number of trees.");
   ASSERT(forest->trees.size() > 0, "Empty forest.");
   int num_outputs = forest->trees.front()->num_outputs;
   ASSERT(num_outputs > 0, "Invalid forest");
