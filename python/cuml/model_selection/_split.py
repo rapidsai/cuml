@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -264,42 +264,33 @@ def train_test_split(X,
 
     Examples
     --------
-
     .. code-block:: python
 
-        import cudf
-        from cuml.model_selection import train_test_split
-
-        # Generate some sample data
-        df = cudf.DataFrame({'x': range(10),
-                             'y': [0, 1] * 5})
-        print(f'Original data: {df.shape[0]} elements')
-
-        # Suppose we want an 80/20 split
-        X_train, X_test, y_train, y_test = train_test_split(df, 'y',
-                                                            train_size=0.8)
-        print(f'X_train: {X_train.shape[0]} elements')
-        print(f'X_test: {X_test.shape[0]} elements')
-        print(f'y_train: {y_train.shape[0]} elements')
-        print(f'y_test: {y_test.shape[0]} elements')
-
-        # Alternatively, if our labels are stored separately
-        labels = df['y']
-        df = df.drop(['y'], axis=1)
-
-        # we can also do
-        X_train, X_test, y_train, y_test = train_test_split(df, labels,
-                                                            train_size=0.8)
-
-    Output:
-
-    .. code-block:: python
-
+        >>> import cudf
+        >>> from cuml.model_selection import train_test_split
+        >>> # Generate some sample data
+        >>> df = cudf.DataFrame({'x': range(10),
+        ...                      'y': [0, 1] * 5})
+        >>> print(f'Original data: {df.shape[0]} elements')
         Original data: 10 elements
+        >>> # Suppose we want an 80/20 split
+        >>> X_train, X_test, y_train, y_test = train_test_split(df, 'y',
+        ...                                                     train_size=0.8)
+        >>> print(f'X_train: {X_train.shape[0]} elements')
         X_train: 8 elements
+        >>> print(f'X_test: {X_test.shape[0]} elements')
         X_test: 2 elements
+        >>> print(f'y_train: {y_train.shape[0]} elements')
         y_train: 8 elements
+        >>> print(f'y_test: {y_test.shape[0]} elements')
         y_test: 2 elements
+
+        >>> # Alternatively, if our labels are stored separately
+        >>> labels = df['y']
+        >>> df = df.drop(['y'], axis=1)
+        >>> # we can also do
+        >>> X_train, X_test, y_train, y_test = train_test_split(df, labels,
+        ...                                                     train_size=0.8)
 
     Returns
     -------

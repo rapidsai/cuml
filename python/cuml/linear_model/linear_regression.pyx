@@ -84,56 +84,39 @@ class LinearRegression(Base,
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
+        >>> import cupy as cp
+        >>> import cudf
 
-        # Both import methods supported
-        from cuml import LinearRegression
-        from cuml.linear_model import LinearRegression
+        >>> # Both import methods supported
+        >>> from cuml import LinearRegression
+        >>> from cuml.linear_model import LinearRegression
+        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
+        ...                       algorithm = "eig")
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
+        >>> reg = lr.fit(X,y)
+        >>> print(reg.coef_)
+        0   1.0
+        1   2.0
+        dtype: float32
+        >>> print(reg.intercept_)
+        3.0...
 
-        lr = LinearRegression(fit_intercept = True, normalize = False,
-                              algorithm = "eig")
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> preds = lr.predict(X_new)
+        >>> print(preds)
+        0   15.999...
+        1   14.999...
+        dtype: float32
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
-
-        reg = lr.fit(X,y)
-        print("Coefficients:")
-        print(reg.coef_)
-        print("Intercept:")
-        print(reg.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = lr.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 1.0000001
-                    1 1.9999998
-
-        Intercept:
-                    3.0
-
-        Predictions:
-
-                    0 15.999999
-                    1 14.999999
 
     Parameters
     -----------
-    algorithm : {'svd', 'eig', `qr`, 'svd-qr', 'svd-jacobi'}, (default = 'eig')
+    algorithm : {'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'eig')
         Choose an algorithm:
 
           * 'svd' - alias for svd-jacobi;
@@ -146,7 +129,7 @@ class LinearRegression(Base,
         number of features is larger than the sample size; this algorithm
         is force-selected automatically in such a case.
 
-        For the broad range of inputs, 'eig' and `qr` are usually the fastest,
+        For the broad range of inputs, 'eig' and 'qr' are usually the fastest,
         followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
         algorithms are more stable.
     fit_intercept : boolean (default = True)
@@ -203,7 +186,7 @@ class LinearRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`__.
 
 
     """

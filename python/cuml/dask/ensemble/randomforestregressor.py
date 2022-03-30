@@ -75,6 +75,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+
         ``0``, ``'gini'``, ``1``, ``'entropy'`` not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
@@ -292,7 +293,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
                more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'auto'`` - choose the algorithm automatically. (Default)
              * ``'batch_tree_reorg'`` is used for dense storage
                and 'naive' for sparse storage
 

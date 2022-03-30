@@ -202,9 +202,8 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
     array.
     If Y is given (default is None), then the returned matrix is the pairwise
     kernel between the arrays from both X and Y.
-    Valid values for metric are:
-        ['additive_chi2', 'chi2', 'linear', 'poly', 'polynomial', 'rbf',
-        'laplacian', 'sigmoid', 'cosine']
+    Valid values for metric are: ['additive_chi2', 'chi2', 'linear', 'poly',
+    'polynomial', 'rbf', 'laplacian', 'sigmoid', 'cosine']
 
     Parameters
     ----------
@@ -215,7 +214,7 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
         metric == "precomputed" and (n_samples_X, n_features) otherwise.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
-    Y : Dense matrix (device or host) of shape (n_samples_Y, n_features),
+    Y : Dense matrix (device or host) of shape (n_samples_Y, n_features), \
         default=None
         A second feature array only if X has shape (n_samples_X, n_features).
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -255,27 +254,31 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
 
     .. code-block:: python
 
-        import cupy as cp
-        from cuml.metrics import pairwise_kernels
-        from numba import cuda
-        import math
+        >>> import cupy as cp
+        >>> from cuml.metrics import pairwise_kernels
+        >>> from numba import cuda
+        >>> import math
 
-        X = cp.array([[2, 3], [3, 5], [5, 8]])
-        Y = cp.array([[1, 0], [2, 1]])
+        >>> X = cp.array([[2, 3], [3, 5], [5, 8]])
+        >>> Y = cp.array([[1, 0], [2, 1]])
 
-        pairwise_kernels(X, Y, metric='linear')
+        >>> pairwise_kernels(X, Y, metric='linear')
+        array([[ 2,  7],
+            [ 3, 11],
+            [ 5, 18]])
+        >>> @cuda.jit(device=True)
+        ... def custom_rbf_kernel(x, y, gamma=None):
+        ...     if gamma is None:
+        ...         gamma = 1.0 / len(x)
+        ...     sum = 0.0
+        ...     for i in range(len(x)):
+        ...         sum += (x[i] - y[i]) ** 2
+        ...     return math.exp(-gamma * sum)
 
-        @cuda.jit(device=True)
-        def custom_rbf_kernel(x, y, gamma=None):
-            if gamma is None:
-                gamma = 1.0 / len(x)
-            sum = 0.0
-            for i in range(len(x)):
-                sum += (x[i] - y[i]) ** 2
-            return math.exp(-gamma * sum)
-
-        pairwise_kernels(X, Y, metric=custom_rbf_kernel)
-
+        >>> pairwise_kernels(X, Y, metric=custom_rbf_kernel) # doctest: +SKIP
+        array([[6.73794700e-03, 1.35335283e-01],
+            [5.04347663e-07, 2.03468369e-04],
+            [4.24835426e-18, 2.54366565e-13]])
     """
     X = input_to_cupy_array(X).array
     if Y is None:
