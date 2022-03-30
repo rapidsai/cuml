@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ def log_loss(y_true,
     y_true : array-like, shape = (n_samples,)
     y_pred : array-like of float,
         shape = (n_samples, n_classes) or (n_samples,)
-    eps : float
+    eps : float (default=1e-15)
         Log loss is undefined for p=0 or p=1, so probabilities are
         clipped to max(eps, min(1 - eps, p)).
     normalize : bool, optional (default=True)
@@ -53,11 +53,13 @@ def log_loss(y_true,
 
     Examples
     --------
-    >>> from cuml.metrics import log_loss
-    >>> import numpy as np
-    >>> log_loss(np.array([1, 0, 0, 1]),
-    ...          np.array([[.1, .9], [.9, .1], [.8, .2], [.35, .65]]))
-    0.21616...
+    .. code-block:: python
+
+        >>> from cuml.metrics import log_loss
+        >>> import cupy as cp
+        >>> log_loss(cp.array([1, 0, 0, 1]),
+        ...          cp.array([[.1, .9], [.9, .1], [.8, .2], [.35, .65]]))
+        0.21616...
 
     References
     ----------
