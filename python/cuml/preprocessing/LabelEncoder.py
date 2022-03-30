@@ -18,6 +18,8 @@ import cudf
 import cupy as cp
 import numpy as np
 from cuml import Base
+import cuml
+from cuml.common import input_to_cuml_array
 from pandas import Series as pdSeries
 
 from cuml.common.exceptions import NotFittedError
@@ -56,56 +58,65 @@ class LabelEncoder(Base):
 
     .. code-block:: python
 
-        >>> from cudf import DataFrame, Series
-        >>> from cuml.preprocessing import LabelEncoder
-        >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
+        from cudf import DataFrame, Series
 
-        >>> # There are two functionally equivalent ways to do this
-        >>> le = LabelEncoder()
-        >>> le.fit(data.category)  # le = le.fit(data.category) also works
-        LabelEncoder()
-        >>> encoded = le.transform(data.category)
+        data = DataFrame({'category': ['a', 'b', 'c', 'd']})
 
-        >>> print(encoded)
+        # There are two functionally equivalent ways to do this
+        le = LabelEncoder()
+        le.fit(data.category)  # le = le.fit(data.category) also works
+        encoded = le.transform(data.category)
+
+        print(encoded)
+
+        # This method is preferred
+        le = LabelEncoder()
+        encoded = le.fit_transform(data.category)
+
+        print(encoded)
+
+        # We can assign this to a new column
+        data = data.assign(encoded=encoded)
+        print(data.head())
+
+        # We can also encode more data
+        test_data = Series(['c', 'a'])
+        encoded = le.transform(test_data)
+        print(encoded)
+
+        # After train, ordinal label can be inverse_transform() back to
+        # string labels
+        ord_label = cudf.Series([0, 0, 1, 2, 1])
+        ord_label = dask_cudf.from_cudf(data, npartitions=2)
+        str_label = le.inverse_transform(ord_label)
+        print(str_label)
+
+    Output:
+
+    .. code-block:: python
+
         0    0
         1    1
         2    2
         3    3
-        dtype: uint8
+        dtype: int64
 
-        >>> # This method is preferred
-        >>> le = LabelEncoder()
-        >>> encoded = le.fit_transform(data.category)
-
-        >>> print(encoded)
         0    0
         1    1
         2    2
         3    3
-        dtype: uint8
+        dtype: int32
 
-        >>> # We can assign this to a new column
-        >>> data = data.assign(encoded=encoded)
-        >>> print(data.head())
         category  encoded
         0         a        0
         1         b        1
         2         c        2
         3         d        3
 
-        >>> # We can also encode more data
-        >>> test_data = Series(['c', 'a'])
-        >>> encoded = le.transform(test_data)
-        >>> print(encoded)
         0    2
         1    0
-        dtype: uint8
+        dtype: int64
 
-        >>> # After train, ordinal label can be inverse_transform() back to
-        >>> # string labels
-        >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
-        >>> str_label = le.inverse_transform(ord_label)
-        >>> print(str_label)
         0    a
         1    a
         2    b
@@ -152,7 +163,7 @@ class LabelEncoder(Base):
             Series containing the categories to be encoded. It's elements
             may or may not be unique
 
-        _classes : int or None.
+        _classes: int or None.
             Passed by the dask client when dask LabelEncoder is used.
 
         Returns
@@ -175,7 +186,8 @@ class LabelEncoder(Base):
         self._fitted = True
         return self
 
-    def transform(self, y) -> cudf.Series:
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def transform(self, y):
         """
         Transform an input into its categorical keys.
 
@@ -206,14 +218,14 @@ class LabelEncoder(Base):
         y = y.astype('category')
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
-
-        encoded = cudf.Series(encoded, index=y.index)
+        encoded = cudf.Series(encoded, index=y.index).astype('int32')
 
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
 
-        return self._to_output(encoded, output_type)
+        return input_to_cuml_array(encoded).array
 
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def fit_transform(self, y, z=None) -> cudf.Series:
         """
         Simultaneously fit and transform an input
@@ -229,8 +241,8 @@ class LabelEncoder(Base):
         self.classes_ = y._column.categories
 
         self._fitted = True
-        res = cudf.Series(y._column.codes, index=y.index)
-        return self._to_output(res, output_type)
+        res = cudf.Series(y._column.codes, index=y.index).astype('int32')
+        return input_to_cuml_array(res).array
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
@@ -268,7 +280,7 @@ class LabelEncoder(Base):
         reverted = y._column.find_and_replace(ran_idx, self.classes_, False)
 
         res = cudf.Series(reverted)
-        return self._to_output(res, output_type)
+        return res
 
     def get_param_names(self):
         return super().get_param_names() + [
@@ -294,13 +306,3 @@ class LabelEncoder(Base):
                    "got {0}.".format(type(y)))
             raise TypeError(msg)
         return y, output_type
-
-    def _to_output(self, y, output_type):
-        if output_type == 'pandas':
-            return y.to_pandas()
-        elif output_type == 'cupy':
-            return y.values
-        elif output_type == 'numpy':
-            return y.values.get()
-        else:
-            return y
