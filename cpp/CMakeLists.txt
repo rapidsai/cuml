@@ -206,6 +206,11 @@ endif()
 
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
+  # Workaround until https://github.com/rapidsai/rapids-cmake/issues/176 is resolved
+  if(NOT BUILD_SHARED_LIBS)
+    rapids_export_package(BUILD GPUTreeShap cuml-exports)
+    rapids_export_package(INSTALL GPUTreeShap cuml-exports)
+  endif()
 endif()
 
 if(NOT SINGLEGPU)
