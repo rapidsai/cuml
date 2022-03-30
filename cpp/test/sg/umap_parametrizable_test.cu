@@ -36,7 +36,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 

@@ -27,7 +27,6 @@
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/spatial/knn/specializations.hpp>
 

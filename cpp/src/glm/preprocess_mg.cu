@@ -16,10 +16,10 @@
 
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/norm.hpp>
-#include <opg/matrix/math.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
+#include <cumlprims/opg/linalg/norm.hpp>
+#include <cumlprims/opg/matrix/math.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
