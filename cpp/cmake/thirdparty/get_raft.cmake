@@ -22,10 +22,7 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
-        message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
-        set(CPM_DOWNLOAD_raft ON)
-    endif()
+    set(CPM_DOWNLOAD_raft ON)
 
     if(PKG_USE_RAFT_STATIC)
         message(STATUS "CUML: Cloning raft locally to build static libraries.")
