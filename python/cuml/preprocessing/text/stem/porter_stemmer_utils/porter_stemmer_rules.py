@@ -17,7 +17,6 @@
 from .consonant_vowel_utils import is_vowel, is_consonant
 from .len_flags_utils import len_gt_n, len_eq_n
 import cudf
-import numpy as np
 
 
 def ends_with_double_constant(string_ser):
@@ -101,7 +100,7 @@ def ends_cvc(string_ser, mode="NLTK_EXTENSIONS"):
         # and not self._is_consonant(word, 0)
         # and self._is_consonant(word, 1)
         len_flag = len_eq_n(string_ser, 2)
-        first_char = np.logical_not(is_consonant(string_ser, 0))
+        first_char = ~is_consonant(string_ser, 0)
         second_char = is_consonant(string_ser, 1)
         rule_2 = len_flag & first_char & second_char
 
