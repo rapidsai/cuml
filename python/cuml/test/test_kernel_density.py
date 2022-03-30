@@ -102,7 +102,7 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         assert np.allclose(np.exp(as_type("numpy", cuml_prob_test)),
                            ref_prob_test, rtol=tol, atol=tol, equal_nan=True)
 
-    if kernel in ["gaussian", "tophat"] and metric == "euclidian":
+    if kernel in ["gaussian", "tophat"] and metric == "euclidean":
         sample = kde.sample(100, random_state=32).get()
         nearest = skl_pairwise_distances(sample, X, metric=metric)
         nearest = nearest.min(axis=1)
