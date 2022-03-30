@@ -28,7 +28,6 @@ from cuml.common.exceptions import NotFittedError
 class LabelEncoder(Base):
     """
     An nvcategory based implementation of ordinal label encoding
-
     Parameters
     ----------
     handle_unknown : {'error', 'ignore'}, default='error'
@@ -51,79 +50,59 @@ class LabelEncoder(Base):
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
-
     Examples
     --------
     Converting a categorical implementation to a numerical one
-
     .. code-block:: python
-
-        from cudf import DataFrame, Series
-
-        data = DataFrame({'category': ['a', 'b', 'c', 'd']})
-
-        # There are two functionally equivalent ways to do this
-        le = LabelEncoder()
-        le.fit(data.category)  # le = le.fit(data.category) also works
-        encoded = le.transform(data.category)
-
-        print(encoded)
-
-        # This method is preferred
-        le = LabelEncoder()
-        encoded = le.fit_transform(data.category)
-
-        print(encoded)
-
-        # We can assign this to a new column
-        data = data.assign(encoded=encoded)
-        print(data.head())
-
-        # We can also encode more data
-        test_data = Series(['c', 'a'])
-        encoded = le.transform(test_data)
-        print(encoded)
-
-        # After train, ordinal label can be inverse_transform() back to
-        # string labels
-        ord_label = cudf.Series([0, 0, 1, 2, 1])
-        ord_label = dask_cudf.from_cudf(data, npartitions=2)
-        str_label = le.inverse_transform(ord_label)
-        print(str_label)
-
-    Output:
-
-    .. code-block:: python
-
+        >>> from cudf import DataFrame, Series
+        >>> from cuml.preprocessing import LabelEncoder
+        >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
+        >>> # There are two functionally equivalent ways to do this
+        >>> le = LabelEncoder()
+        >>> le.fit(data.category)  # le = le.fit(data.category) also works
+        LabelEncoder()
+        >>> encoded = le.transform(data.category)
+        >>> print(encoded)
         0    0
         1    1
         2    2
         3    3
-        dtype: int64
-
+        dtype: uint8
+        >>> # This method is preferred
+        >>> le = LabelEncoder()
+        >>> encoded = le.fit_transform(data.category)
+        >>> print(encoded)
         0    0
         1    1
         2    2
         3    3
-        dtype: int32
-
+        dtype: uint8
+        >>> # We can assign this to a new column
+        >>> data = data.assign(encoded=encoded)
+        >>> print(data.head())
         category  encoded
         0         a        0
         1         b        1
         2         c        2
         3         d        3
-
+        >>> # We can also encode more data
+        >>> test_data = Series(['c', 'a'])
+        >>> encoded = le.transform(test_data)
+        >>> print(encoded)
         0    2
         1    0
-        dtype: int64
-
+        dtype: uint8
+        >>> # After train, ordinal label can be inverse_transform() back to
+        >>> # string labels
+        >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
+        >>> str_label = le.inverse_transform(ord_label)
+        >>> print(str_label)
         0    a
         1    a
         2    b
         3    c
         4    b
         dtype: object
-
     """
 
     def __init__(self, *,
