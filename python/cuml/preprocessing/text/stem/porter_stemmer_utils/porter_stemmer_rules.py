@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ def ends_cvc(string_ser, mode="NLTK_EXTENSIONS"):
         # and not self._is_consonant(word, 0)
         # and self._is_consonant(word, 1)
         len_flag = len_eq_n(string_ser, 2)
-        first_char = cudf.logical_not(is_consonant(string_ser, 0))
+        first_char = ~is_consonant(string_ser, 0)
         second_char = is_consonant(string_ser, 1)
         rule_2 = len_flag & first_char & second_char
 
