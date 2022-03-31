@@ -70,12 +70,19 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        n_neighbors : int, optional (default: 5)
+        n_neighbors : int, optional (default=5)
             Number of neighbors considered
 
-        convert_dtype : bool, optional (default = False)
+        metric : str in ['euclidean'] (default='euclidean')
+            Metric used to compute the trustworthiness. For the moment only
+            'euclidean' is supported.
+
+        convert_dtype : bool, optional (default=False)
             When set to True, the trustworthiness method will automatically
             convert the inputs to np.float32.
+
+        batch_size : int (default=512)
+            The number of samples to use for each batch.
 
     Returns
     -------
