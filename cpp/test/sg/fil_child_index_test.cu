@@ -142,7 +142,7 @@ std::ostream& operator<<(std::ostream& os, const ChildIndexTestParams& ps)
 
 template <typename fil_node_t>
 class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
-  using real_t = typename fil_node_t::real_t;
+  using real_t = typename fil_node_t::real_type;
 
  protected:
   void check()
