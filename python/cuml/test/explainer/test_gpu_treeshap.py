@@ -45,7 +45,7 @@ if has_sklearn():
 
 def make_classification_with_categorical(
         *, n_samples, n_features, n_categorical, n_informative, n_redundant,
-        n_repeated, n_classes, random_state, numeric_dtype):
+        n_repeated, n_classes, random_state, numeric_dtype=np.float32):
     X, y = make_classification(
         n_samples=n_samples, n_features=n_features,
         n_informative=n_informative, n_redundant=n_redundant,
@@ -69,7 +69,7 @@ def make_classification_with_categorical(
 
 def make_regression_with_categorical(
         *, n_samples, n_features, n_categorical, n_informative, random_state,
-        numeric_dtype, n_targets=1):
+        numeric_dtype=np.float32, n_targets=1):
     X, y = make_regression(n_samples=n_samples, n_features=n_features,
                            n_informative=n_informative, n_targets=n_targets,
                            random_state=random_state)
