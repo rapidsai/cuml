@@ -21,8 +21,8 @@
 
 #include <functions/softThres.cuh>
 
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/norm.hpp>
+#include <cumlprims/opg/linalg/mv_aTb.hpp>
+#include <cumlprims/opg/linalg/norm.hpp>
 
 #include "shuffle.h"
 #include <raft/comms/comms.hpp>
