@@ -38,71 +38,28 @@ else:
     sklrfc = object
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out)
+    ctypedef void * ModelHandle
+    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t * out)
 
 cdef extern from "treelite/c_api_common.h":
-    cdef const char* TreeliteGetLastError()
+    cdef const char * TreeliteGetLastError()
 
 cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
     cdef cppclass TreePathInfo:
         pass
 
     cdef unique_ptr[TreePathInfo] extract_path_info(ModelHandle model) except +
-    cdef void gpu_treeshap(TreePathInfo* path_info,
-                           const float* data,
+    cdef void gpu_treeshap(TreePathInfo * path_info,
+                           const float * data,
                            size_t n_rows,
                            size_t n_cols,
-                           float* out_preds) except +
+                           float * out_preds) except +
 
-cdef class TreeExplainer_impl():
-    cdef ModelHandle model_ptr
+
+cdef class TreeExplainer:
+    cdef public object expected_value
     cdef unique_ptr[TreePathInfo] path_info
     cdef size_t num_class
-    cdef public object expected_value
-
-    def __cinit__(self, handle=None):
-        self.model_ptr = <ModelHandle> <uintptr_t> handle
-        self.num_class = 0
-        if TreeliteQueryNumClass(self.model_ptr, &self.num_class) != 0:
-            raise RuntimeError('Treelite error: {}'.format(
-                TreeliteGetLastError()))
-        self.path_info = move(extract_path_info(self.model_ptr))
-
-    def shap_values(self, X):
-        cdef uintptr_t X_ptr
-        cdef uintptr_t preds_ptr
-        X_type = determine_array_type(X)
-        # Coerce to CuPy / NumPy because we may need to return 3D array
-        output_type = 'numpy' if X_type == 'numpy' else 'cupy'
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
-        # Storing a C-order 3D array in a CumlArray leads to cryptic error
-        # ValueError: len(shape) != len(strides)
-        # So we use 2D array here
-        pred_shape = (n_rows, self.num_class * (n_cols + 1))
-        preds = CumlArray.empty(shape=pred_shape, dtype=np.float32, order='C')
-        X_ptr = X_m.ptr
-        preds_ptr = preds.ptr
-        gpu_treeshap(self.path_info.get(), <const float*> X_ptr,
-                     <size_t> n_rows, <size_t> n_cols, <float*> preds_ptr)
-        # Reshape to 3D as appropriate
-        # To follow the convention of the SHAP package:
-        # 1. Store the bias term in the 'expected_value' attribute.
-        # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
-        preds = preds.to_output(output_type=output_type)
-        if self.num_class > 1:
-            preds = preds.reshape((n_rows, self.num_class, n_cols + 1))
-            preds = preds.transpose((1, 0, 2))
-            self.expected_value = preds[:, 0, -1]
-            return preds[:, :, :-1]
-        else:
-            assert self.num_class == 1
-            self.expected_value = preds[0, -1]
-            return preds[:, :-1]
-
-
-class TreeExplainer:
     """
     Explainer for tree models, using GPUTreeSHAP
     """
@@ -120,11 +77,7 @@ class TreeExplainer:
             handle = model.handle.value
         # cuML RF model object
         elif isinstance(model, (curfr, curfc)):
-            try:
-                model = model.convert_to_treelite_model()
-            except NotFittedError as e:
-                raise NotFittedError(
-                        'Cannot compute SHAP for un-fitted model') from e
+            model = model.convert_to_treelite_model()
             handle = model.handle
         # scikit-learn RF model object
         elif isinstance(model, (sklrfr, sklrfc)):
@@ -136,12 +89,41 @@ class TreeExplainer:
             handle = model.handle
         else:
             raise ValueError('Unrecognized model object type')
-        self.impl_ = TreeExplainer_impl(handle=handle)
+
+        cdef ModelHandle model_ptr = <ModelHandle > <uintptr_t > handle
+        self.num_class = 0
+        if TreeliteQueryNumClass(model_ptr, & self.num_class) != 0:
+            raise RuntimeError('Treelite error: {}'.format(
+                TreeliteGetLastError()))
+        self.path_info = move(extract_path_info(model_ptr))
 
     def shap_values(self, X) -> CumlArray:
         """
         Interface to estimate the SHAP values for a set of samples.
         """
-        out = self.impl_.shap_values(X)
-        self.expected_value = self.impl_.expected_value
-        return out
+        X_type = determine_array_type(X)
+        # Coerce to CuPy / NumPy because we may need to return 3D array
+        output_type = 'numpy' if X_type == 'numpy' else 'cupy'
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
+        # Storing a C-order 3D array in a CumlArray leads to cryptic error
+        # ValueError: len(shape) != len(strides)
+        # So we use 2D array here
+        pred_shape = (n_rows, self.num_class * (n_cols + 1))
+        preds = CumlArray.empty(shape=pred_shape, dtype=np.float32, order='C')
+        gpu_treeshap(self.path_info.get(), < const float*> < uintptr_t > X_m.ptr,
+                     < size_t > n_rows, < size_t > n_cols, < float*> < uintptr_t > preds.ptr)
+        # Reshape to 3D as appropriate
+        # To follow the convention of the SHAP package:
+        # 1. Store the bias term in the 'expected_value' attribute.
+        # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
+        preds = preds.to_output(output_type=output_type)
+        if self.num_class > 1:
+            preds = preds.reshape((n_rows, self.num_class, n_cols + 1))
+            preds = preds.transpose((1, 0, 2))
+            self.expected_value = preds[:, 0, -1]
+            return preds[:, :, :-1]
+        else:
+            assert self.num_class == 1
+            self.expected_value = preds[0, -1]
+            return preds[:, :-1]
