@@ -109,25 +109,21 @@ class ExponentialSmoothing(Base):
 
     .. code-block:: python
 
-        from cuml import ExponentialSmoothing
-        import cudf
-        import numpy as np
-        data = cudf.Series([1, 2, 3, 4, 5, 6,
-                            7, 8, 9, 10, 11, 12,
-                            2, 3, 4, 5, 6, 7,
-                            8, 9, 10, 11, 12, 13,
-                            3, 4, 5, 6, 7, 8, 9,
-                            10, 11, 12, 13, 14],
-                            dtype=np.float64)
-        cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
-        cu_hw.fit()
-        cu_pred = cu_hw.forecast(4)
-        print('Forecasted points:', cu_pred)
-
-    Output:
-
-    .. code-block:: python
-
+        >>> from cuml import ExponentialSmoothing
+        >>> import cudf
+        >>> import cupy as cp
+        >>> data = cudf.Series([1, 2, 3, 4, 5, 6,
+        ...                     7, 8, 9, 10, 11, 12,
+        ...                     2, 3, 4, 5, 6, 7,
+        ...                     8, 9, 10, 11, 12, 13,
+        ...                     3, 4, 5, 6, 7, 8, 9,
+        ...                     10, 11, 12, 13, 14],
+        ...                     dtype=cp.float64)
+        >>> cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
+        >>> cu_hw.fit()
+        ExponentialSmoothing()
+        >>> cu_pred = cu_hw.forecast(4)
+        >>> print('Forecasted points:', cu_pred) # doctest: +SKIP
         Forecasted points :
         0    4.000143766093652
         1    5.000000163513641

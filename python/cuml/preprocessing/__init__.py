@@ -55,5 +55,8 @@ __all__ = [
     'normalize',
     'robust_scale',
     'scale',
-    'train_test_split'
+    'label_binarize',
+    'train_test_split',
+    # Modules
+    'text',
 ]

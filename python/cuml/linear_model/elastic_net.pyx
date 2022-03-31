@@ -49,47 +49,29 @@ class ElasticNet(Base,
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
-        from cuml.linear_model import ElasticNet
-
-        enet = ElasticNet(alpha = 0.1, l1_ratio=0.5)
-
-        X = cudf.DataFrame()
-        X['col1'] = np.array([0, 1, 2], dtype = np.float32)
-        X['col2'] = np.array([0, 1, 2], dtype = np.float32)
-
-        y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
-
-        result_enet = enet.fit(X, y)
-        print("Coefficients:")
-        print(result_enet.coef_)
-        print("intercept:")
-        print(result_enet.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_enet.predict(X_new)
-
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 0.448408
-                    1 0.443341
-
-        Intercept:
-                    0.1082506
-
-        Preds:
-
-                    0 3.67018
-                    1 3.22177
+        >>> import cupy as cp
+        >>> import cudf
+        >>> from cuml.linear_model import ElasticNet
+        >>> enet = ElasticNet(alpha = 0.1, l1_ratio=0.5)
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([0, 1, 2], dtype = cp.float32)
+        >>> X['col2'] = cp.array([0, 1, 2], dtype = cp.float32)
+        >>> y = cudf.Series(cp.array([0.0, 1.0, 2.0], dtype = cp.float32) )
+        >>> result_enet = enet.fit(X, y)
+        >>> print(result_enet.coef_)
+        0    0.448...
+        1    0.443...
+        dtype: float32
+        >>> print(result_enet.intercept_)
+        0.1082506...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype = cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype = cp.float32)
+        >>> preds = result_enet.predict(X_new)
+        >>> print(preds)
+        0    3.670...
+        1    3.221...
+        dtype: float32
 
     Parameters
     -----------
@@ -100,7 +82,7 @@ class ElasticNet(Base,
         For numerical reasons, using alpha = 0 with the Lasso object is not
         advised.
         Given this, you should use the LinearRegression object.
-    l1_ratio: float (default = 0.5)
+    l1_ratio : float (default = 0.5)
         The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
         For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is
         an L1 penalty.
@@ -130,9 +112,9 @@ class ElasticNet(Base,
         You may find the alternative 'qn' algorithm is faster when the number
         of features is sufficiently large, but the sample size is small.
     selection : {'cyclic', 'random'} (default='cyclic')
-        If set to ‘random’, a random coefficient is updated every iteration
+        If set to 'random', a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
-        This (setting to ‘random’) often leads to significantly faster
+        This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for

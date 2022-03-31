@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class TfidfVectorizer(CountVectorizer):
         such that min_n <= n <= max_n will be used. For example an
         ``ngram_range`` of ``(1, 1)`` means only unigrams, ``(1, 2)`` means
         unigrams and bigrams, and ``(2, 2)`` means only bigrams.
-    analyzer : string, {'word', 'char', 'char_wb'}
+    analyzer : string, {'word', 'char', 'char_wb'}, default='word'
         Whether the feature should be made of word n-gram or character
         n-grams.
         Option 'char_wb' creates character n-grams only from text inside
@@ -260,6 +260,7 @@ class TfidfVectorizer(CountVectorizer):
     def get_feature_names(self):
         """
         Array mapping from feature integer indices to feature name.
+
         Returns
         -------
         feature_names : Series

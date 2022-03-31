@@ -158,7 +158,7 @@ class cuml_build(_build):
         if (self.singlegpu):
             python_exc_list = ["*.dask", "*.dask.*"]
         else:
-            libs.append('cumlprims')
+            libs.append('cumlprims_mg')
             libs.append('nccl')
 
             sys_include = os.path.dirname(sysconfig.get_path("include"))

@@ -42,17 +42,17 @@ class TargetEncoder:
         Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
-    split_method : {'random', 'continuous', 'interleaved'},
-        default='interleaved'
+    split_method : {'random', 'continuous', 'interleaved'}, \
+        (default='interleaved')
         Method to split train data into `n_folds`.
         'random': random split.
         'continuous': consecutive samples are grouped into one folds.
         'interleaved': samples are assign to each fold in a round robin way.
         'customize': customize splitting by providing a `fold_ids` array
-                     in `fit()` or `fit_transform()` functions.
-    output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
+        in `fit()` or `fit_transform()` functions.
+    output_type : {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
-    stat: {'mean','var'}, default = 'mean'
+    stat : {'mean','var'}, default = 'mean'
         The statistic used in encoding, mean or variance of the target.
 
     References
@@ -65,23 +65,18 @@ class TargetEncoder:
 
     .. code-block:: python
 
-        from cudf import DataFrame, Series
+        >>> from cudf import DataFrame, Series
+        >>> from cuml.preprocessing import TargetEncoder
+        >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
+        ...                    'label': [1, 0, 1, 1]})
+        >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
-        train = DataFrame({'category': ['a', 'b', 'b', 'a'],
-                           'label': [1, 0, 1, 1]})
-        test = DataFrame({'category': ['a', 'c', 'b', 'a']})
-
-        encoder = TargetEncoder()
-        train_encoded = encoder.fit_transform(train.category, train.label)
-        test_encoded = encoder.transform(test.category)
-        print(train_encoded)
-        print(test_encoded)
-
-    Output:
-
-    .. code-block:: python
-
+        >>> encoder = TargetEncoder()
+        >>> train_encoded = encoder.fit_transform(train.category, train.label)
+        >>> test_encoded = encoder.transform(test.category)
+        >>> print(train_encoded)
         [1. 1. 0. 1.]
+        >>> print(test_encoded)
         [1.   0.75 0.5  1.  ]
 
     """
@@ -134,12 +129,12 @@ class TargetEncoder:
 
         Parameters
         ----------
-        x: cudf.Series or cudf.DataFrame or cupy.ndarray
+        x : cudf.Series or cudf.DataFrame or cupy.ndarray
            categories to be encoded. It's elements may or may
            not be unique
         y : cudf.Series or cupy.ndarray
             Series containing the target variable.
-        fold_ids: cudf.Series or cupy.ndarray
+        fold_ids : cudf.Series or cupy.ndarray
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
@@ -177,12 +172,12 @@ class TargetEncoder:
 
         Parameters
         ----------
-        x: cudf.Series or cudf.DataFrame or cupy.ndarray
+        x : cudf.Series or cudf.DataFrame or cupy.ndarray
            categories to be encoded. It's elements may or may
            not be unique
         y : cudf.Series or cupy.ndarray
             Series containing the target variable.
-        fold_ids: cudf.Series or cupy.ndarray
+        fold_ids : cudf.Series or cupy.ndarray
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,

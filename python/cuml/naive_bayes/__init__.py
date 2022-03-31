@@ -19,3 +19,11 @@ from cuml.naive_bayes.naive_bayes import BernoulliNB
 from cuml.naive_bayes.naive_bayes import GaussianNB
 from cuml.naive_bayes.naive_bayes import ComplementNB
 from cuml.naive_bayes.naive_bayes import CategoricalNB
+
+__all__ = [
+    "MultinomialNB",
+    "BernoulliNB",
+    "GaussianNB",
+    "ComplementNB",
+    "CategoricalNB",
+]
