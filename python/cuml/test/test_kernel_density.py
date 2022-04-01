@@ -107,7 +107,13 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         nearest = skl_pairwise_distances(sample, X_np, metric=metric)
         nearest = nearest.min(axis=1)
         if kernel == "gaussian":
-            assert np.all(nearest < 5 * bandwidth)
+            from scipy.stats import chi
+            # The euclidean distance of each sample from its cluster
+            # follows a chi distribution (not squared) with DoF=dimension
+            # and scale = bandwidth
+            # Fail the test if the largest observed distance
+            # is vanishingly unlikely
+            assert chi.sf(nearest.max(), X.shape[1], scale=bandwidth) > 1e-8
         elif kernel == "tophat":
             assert np.all(nearest <= bandwidth)
     else:
