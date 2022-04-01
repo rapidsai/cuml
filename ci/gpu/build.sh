@@ -69,8 +69,12 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "xgboost=1.5.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
-      "rapids-doc-env=${MINOR_VERSION}.*" \
       "shap>=0.37,<=0.39"
+
+if [ "$(arch)" = "x86_64" ]; then
+    gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+        "rapids-doc-env=${MINOR_VERSION}.*"
+fi
 
 # https://docs.rapids.ai/maintainers/depmgmt/
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
@@ -279,14 +283,16 @@ else
         python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
     fi
 
-    gpuci_logger "Building doxygen C++ docs"
-    #Need to run in standard directory, not our artifact dir
-    unset LIBCUML_BUILD_DIR
-    $WORKSPACE/build.sh cppdocs -v
+    if [ "$(arch)" = "x86_64" ]; then
+        gpuci_logger "Building doxygen C++ docs"
+        #Need to run in standard directory, not our artifact dir
+        unset LIBCUML_BUILD_DIR
+        $WORKSPACE/build.sh cppdocs -v
 
-    if [ "$CUDA_REL" != "11.0" ]; then
-        gpuci_logger "Building python docs"
-        $WORKSPACE/build.sh pydocs
+        if [ "$CUDA_REL" != "11.0" ]; then
+            gpuci_logger "Building python docs"
+            $WORKSPACE/build.sh pydocs
+        fi
     fi
 
 fi
