@@ -190,10 +190,12 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
-    cdef struct forest:
+    cdef cppclass forest[real_t]:
         pass
 
-    ctypedef forest* forest_t
+    # TODO(canonizer): use something like
+    # ctypedef forest[real_t]* forest_t[real_t]
+    # once it is supported in Cython
 
     cdef struct treelite_params_t:
         algo_t algo
@@ -215,25 +217,25 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
 
-    cdef void free(handle_t& handle,
-                   forest_t)
+    cdef void free[real_t](handle_t& handle,
+                           forest[real_t]*)
 
-    cdef void predict(handle_t& handle,
-                      forest_t,
-                      float*,
-                      float*,
-                      size_t,
-                      bool) except +
+    cdef void predict[real_t](handle_t& handle,
+                              forest[real_t]*,
+                              real_t*,
+                              real_t*,
+                              size_t,
+                              bool) except +
 
-    cdef forest_t from_treelite(handle_t& handle,
-                                forest_t*,
-                                ModelHandle,
-                                treelite_params_t*) except +
+    cdef forest[float]* from_treelite(handle_t& handle,
+                                      forest[float]**,
+                                      ModelHandle,
+                                      treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
     cdef object handle
-    cdef forest_t forest_data
+    cdef forest[float]* forest_data
     cdef size_t num_class
     cdef bool output_class
     cdef char* shape_str
