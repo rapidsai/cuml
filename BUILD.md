@@ -318,7 +318,7 @@ By default the `libcuml++.so` produced includes all single- and multi-GPU algori
 
 **Note:** This is still an experimental/beta, in-progress, option of the build system, so no guarantees of everything working perfectly are set yet. Particularly, it doesn't support building the C-wrapper library (`libcuml`) and has not been extensively tested yet.
 
-Specifying a single or set of algorithms can reduce compilation time, binary size as well as reduce the dependencies needed at built and runtime. Strings (with any casing, but uppercase is recommended for consistency with other CMake options) and semicolon-separated list of strings are accepted, where each string can be a single algorithms or group of algorithms. Possible options include:
+Specifying a single or set of algorithms can reduce compilation time, binary size as well as reduce the dependencies needed at built and runtime. Strings (with any casing, but uppercase is recommended for consistency with other CMake options) and semicolon-separated list of strings are accepted, where each string can be a single algorithm or group of algorithms. Possible options include:
 
 - `"ALL"` is the default option, builds all algorithms into `libcuml++.so`.
 - `"CLUSTER"` to include all clustering algorithms, or specify the individual options: `"DBSCAN"`, `"HDBSCAN"`, `"KMEANS"`, `"HIERARCHICALCLUSTERING"`, `"SPECTRALCLUSTERING"`.
