@@ -83,7 +83,7 @@ pytest cuml/test
 
 There are two groups of dependencies that need to be met, the core dependencies to build the C++ artifacts, and then the dependencies of the Python package which are a superset of those.
 
-There are predefined conda environments that meet all the requirements, or they can be added manually. Additionally, many requirements can be fetched automatically by CMake (using CPM), but that can lead to significantly slower build times.
+There are predefined conda environments that can be used to install all the requirements, or they can be added manually. Additionally, many requirements can be fetched automatically by CMake (using CPM), but that can lead to significantly slower build times.
 
 ### Conda Developer Environments
 
