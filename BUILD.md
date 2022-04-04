@@ -60,7 +60,7 @@ PARALLEL_LEVEL=8 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 PARALLEL_LEVEL=8 ./build.sh libcuml cuml
 ```
 
-In all of the above commands, you can increase the parallel level to speed up compilation with more parallelism, at the cost of needing more RAM in the system.
+In all of the above commands, you can increase the parallel level to speed up compilation with more parallelism at the cost of needing more RAM in the system.
 
 4. Run unit tests if desired:
 
