@@ -50,7 +50,7 @@ mamba env create -f conda/environments/cuml_dev_cuda11.5.yml python=3.9 -n cuml_
 PARALLEL_LEVEL=8 ./build.sh libcuml
 ```
 
-By default, `Ninja` is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+By default, `Ninja` is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accordingly:
 ```bash
 PARALLEL_LEVEL=8 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
