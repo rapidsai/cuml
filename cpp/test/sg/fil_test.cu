@@ -139,8 +139,11 @@ __global__ void nan_kernel(real_t* data, const bool* mask, int len, real_t nan)
   if (!mask[tid]) data[tid] = nan;
 }
 
-float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
-double sigmoid(double x) { return 1.0 / (1.0 + exp(-x)); }
+template <typename real_t>
+real_t sigmoid(real_t x)
+{
+  return real_t(1) / (real_t(1) + exp(-x));
+}
 
 void hard_clipped_bernoulli(
   raft::random::Rng rng, float* d, std::size_t n_vals, float prob_of_zero, cudaStream_t stream)
@@ -168,12 +171,12 @@ struct replace_some_floating_with_categorical {
     real_t tmp = data * (fid_num_cats + real_t(3));
     // Also test invalid (negative and above fid_num_cats) categories: samples within
     // [fid_num_cats+2.5, fid_num_cats+3) and opposite will test infinite floats as categorical.
-    if (tmp + fid_num_cats < real_t(-2.5f)) return -INFINITY;
-    if (tmp - fid_num_cats > real_t(+2.5f)) return +INFINITY;
+    if (tmp + fid_num_cats < real_t(-2.5f)) return -std::numeric_limits<real_t>::infinity();
+    if (tmp - fid_num_cats > real_t(+2.5f)) return +std::numeric_limits<real_t>::infinity();
     // Samples within [fid_num_cats+2, fid_num_cats+2.5) (and their negative counterparts) will
     // test huge invalid categories.
-    if (tmp + fid_num_cats < real_t(-2.0f)) tmp -= MAX_FIL_INT_FLOAT;
-    if (tmp - fid_num_cats > real_t(+2.0f)) tmp += MAX_FIL_INT_FLOAT;
+    if (tmp + fid_num_cats < real_t(-2.0f)) tmp -= real_t(MAX_FIL_INT_FLOAT);
+    if (tmp - fid_num_cats > real_t(+2.0f)) tmp += real_t(MAX_FIL_INT_FLOAT);
     // Samples within [0, fid_num_cats+2) will be valid categories, rounded towards 0 with a cast.
     // Negative categories are always invalid. For correct interpretation, see
     // cpp/src/fil/internal.cuh `int category_matches(node_t node, float category)`
