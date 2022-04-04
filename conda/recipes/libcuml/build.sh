@@ -7,4 +7,4 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     export MACOSX_DEPLOYMENT_TARGET=10.11
 fi
 
-./build.sh -n clean libcuml libcuml_c prims -v --allgpuarch
+./build.sh -n clean libcuml libcuml_c cppexamples prims -v --allgpuarch
