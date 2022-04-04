@@ -608,11 +608,6 @@ def shap_strategy(draw):
         # https://github.com/dmlc/treelite/issues/375
         assume(n_targets == 1)
 
-    # 64 bit thresholds can fail
-    # https://github.com/rapidsai/cuml/issues/4670
-    if learner in ['rf', 'skl_rf']:
-        assume(dtype == np.float32)
-
     # treelite considers a binary classification model to have
     # n_classes=1, which produces an unexpected output shape
     # in the shap values
@@ -643,7 +638,8 @@ def shap_strategy(draw):
     model, preds = learn_model(
         draw, X, y, task, learner, n_estimators, n_targets)
 
-    return X, y, model, preds
+    # convert any DataFrame categorical columns to numeric
+    return X.astype(dtype), y.astype(dtype), model, preds
 
 
 def check_efficiency(expected_value, pred, shap_values):

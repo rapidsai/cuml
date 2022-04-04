@@ -387,18 +387,19 @@ class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
   ThresholdTypeEnum GetThresholdType() const override { return threshold_type; }
 };
 
+template <typename ThresholdT>
 class DenseDatasetWrapper {
-  const float* data;
+  const ThresholdT* data;
   std::size_t num_rows;
   std::size_t num_cols;
 
  public:
   DenseDatasetWrapper() = default;
-  DenseDatasetWrapper(const float* data, int num_rows, int num_cols)
+  DenseDatasetWrapper(const ThresholdT* data, int num_rows, int num_cols)
     : data(data), num_rows(num_rows), num_cols(num_cols)
   {
   }
-  __device__ float GetElement(std::size_t row_idx, std::size_t col_idx) const
+  __device__ ThresholdT GetElement(std::size_t row_idx, std::size_t col_idx) const
   {
     return data[row_idx * num_cols + col_idx];
   }
@@ -406,12 +407,12 @@ class DenseDatasetWrapper {
   __host__ __device__ std::size_t NumCols() const { return num_cols; }
 };
 
-template <typename ThresholdType>
-void gpu_treeshap_impl(TreePathInfoImpl<ThresholdType>* path_info,
-                       const float* data,
+template <typename ThresholdT, typename DataT>
+void gpu_treeshap_impl(TreePathInfoImpl<ThresholdT>* path_info,
+                       const DataT* data,
                        std::size_t n_rows,
                        std::size_t n_cols,
-                       float* out_preds)
+                       DataT* out_preds)
 {
   // Marshall bit fields to GPU memory
   auto& categorical_bitfields = path_info->categorical_bitfields;
@@ -426,7 +427,7 @@ void gpu_treeshap_impl(TreePathInfoImpl<ThresholdType>* path_info,
                     .Subspan(bitfield_segments[path_seg_idx], n_bitfields));
   }
 
-  DenseDatasetWrapper X(data, n_rows, n_cols);
+  DenseDatasetWrapper<DataT> X(data, n_rows, n_cols);
 
   std::size_t num_groups = 1;
   if (path_info->task_param.num_class > 1) {
@@ -434,7 +435,7 @@ void gpu_treeshap_impl(TreePathInfoImpl<ThresholdType>* path_info,
   }
   std::size_t pred_size = n_rows * num_groups * (n_cols + 1);
 
-  thrust::device_ptr<float> out_preds_ptr = thrust::device_pointer_cast(out_preds);
+  thrust::device_ptr<DataT> out_preds_ptr = thrust::device_pointer_cast(out_preds);
   gpu_treeshap::GPUTreeShap(X,
                             path_segments.begin(),
                             path_segments.end(),
@@ -763,5 +764,23 @@ void gpu_treeshap(TreePathInfo* path_info,
   }
 }
 
+void gpu_treeshap(TreePathInfo* path_info,
+                  const double* data,
+                  std::size_t n_rows,
+                  std::size_t n_cols,
+                  double* out_preds)
+{
+    switch (path_info->GetThresholdType()) {
+    case TreePathInfo::ThresholdTypeEnum::kDouble: {
+      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<double>*>(path_info);
+      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
+    } break;
+    case TreePathInfo::ThresholdTypeEnum::kFloat:
+    default: {
+      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<float>*>(path_info);
+      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
+    } break;
+  }
+}
 }  // namespace Explainer
 }  // namespace ML

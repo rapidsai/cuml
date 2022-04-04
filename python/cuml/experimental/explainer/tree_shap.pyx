@@ -18,7 +18,6 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import determine_array_type
-from cuml.common.exceptions import NotFittedError
 from cuml.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -54,6 +53,11 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
                            size_t n_rows,
                            size_t n_cols,
                            float * out_preds) except +
+    cdef void gpu_treeshap(TreePathInfo * path_info,
+                           const double * data,
+                           size_t n_rows,
+                           size_t n_cols,
+                           double * out_preds) except +
 
 
 cdef class TreeExplainer:
@@ -63,6 +67,7 @@ cdef class TreeExplainer:
     """
     Explainer for tree models, using GPUTreeSHAP
     """
+
     def __init__(self, *, model):
         # Handle various kinds of tree model objects
         cls = model.__class__
@@ -104,15 +109,29 @@ cdef class TreeExplainer:
         X_type = determine_array_type(X)
         # Coerce to CuPy / NumPy because we may need to return 3D array
         output_type = 'numpy' if X_type == 'numpy' else 'cupy'
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C', convert_to_dtype=np.float32)
+        try:
+            X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+                X, order='C', check_dtype=[np.float32, np.float64])
+        except ValueError:
+            # input can be a DataFrame with mixed types
+            # in this case coerce to 64-bit
+            X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+                X, order='C', convert_to_dtype=np.float64)
+
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
-        preds = CumlArray.empty(shape=pred_shape, dtype=np.float32, order='C')
-        gpu_treeshap(self.path_info.get(), < const float*> < uintptr_t > X_m.ptr,
-                     < size_t > n_rows, < size_t > n_cols, < float*> < uintptr_t > preds.ptr)
+        preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
+        if dtype == np.float32:
+            gpu_treeshap(self.path_info.get(), < const float*> < uintptr_t > X_m.ptr,
+                         < size_t > n_rows, < size_t > n_cols, < float*> < uintptr_t > preds.ptr)
+        elif dtype == np.float64:
+            gpu_treeshap(self.path_info.get(), < const double * > < uintptr_t > X_m.ptr,
+                         < size_t > n_rows, < size_t > n_cols, < double * > < uintptr_t > preds.ptr)
+        else:
+            raise ValueError("Unsupported dtype")
+            
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:
         # 1. Store the bias term in the 'expected_value' attribute.

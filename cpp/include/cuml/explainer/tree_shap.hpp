@@ -40,5 +40,11 @@ void gpu_treeshap(TreePathInfo* path_info,
                   std::size_t n_cols,
                   float* out_preds);
 
+void gpu_treeshap(TreePathInfo* path_info,
+                  const double* data,
+                  std::size_t n_rows,
+                  std::size_t n_cols,
+                  double * out_preds);
+
 }  // namespace Explainer
 }  // namespace ML
