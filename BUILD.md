@@ -312,7 +312,7 @@ Using the `SINGLE_GPU` option allows an "all-from-source" build, where the only 
 
 #### Configuring Algorithms Built
 
-By default the `libcuml++.so` produced includes all single and multi-GPU algorithms, or only the single-GPU algorithms is configured that way as explained in the prior section. But sometimes further configurability is required, where `libcuml++.so` with only certain algorithms is desired. The build system has an experimental feature that allows this by using the following CMake option:
+By default the `libcuml++.so` produced includes all single- and multi-GPU algorithms, or only the single-GPU algorithms are configured that way as explained in the prior section. But sometimes further configurability is required, where `libcuml++.so` with only certain algorithms is desired. The build system has an experimental feature that allows this by using the following CMake option:
 
 - `-DCUML_ALGORITHMS`: This CMake option allows to specify exactly which groups of algorithms, or individual algorithms, will be built into `libcuml++.so`.
 
