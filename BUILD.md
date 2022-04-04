@@ -55,7 +55,7 @@ By default, `Ninja` is used as the cmake generator. To override this and use (e.
 PARALLEL_LEVEL=8 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
 
-- For building either the C++ and the Python libraries:
+- For building either the C++ or the Python libraries (or both):
 ```bash
 PARALLEL_LEVEL=8 ./build.sh libcuml cuml
 ```
