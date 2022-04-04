@@ -324,8 +324,8 @@ struct forest {
 
   virtual void free(const raft::handle_t& h)
   {
+    cat_sets_.release();
     vector_leaf_.release();
-    forest::free(h);
   }
 
   virtual ~forest() {}
@@ -504,9 +504,9 @@ struct sparse_forest : forest<typename node_t::real_type> {
 
   void free(const raft::handle_t& h) override
   {
-    forest<real_type>::free(h);
     trees_.release();
     nodes_.release();
+    forest<real_type>::free(h);
   }
 
   int num_nodes_ = 0;
