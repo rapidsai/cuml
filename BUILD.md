@@ -247,8 +247,6 @@ If you want a list of the available Python tests:
 $ pytest cuML/test --collect-only
 ```
 
-### Full Process
-
 ### Building C++ Artifacts with CMake
 
 Once dependencies are present, to build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
@@ -329,7 +327,7 @@ Specifying a single or set of algorithms can reduce compilation time, binary siz
 - `"LINEAR_MODEL"` to include linear models, or specify indivual options: `"LINEARREGRESSION"`, `"RIDGE"`, `"LASSO"`, `"LOGISTICREGRESSION"`.
 - `"MANIFOLD"` to include manifold models, or specify indivual options: `"TSNE"`, `"UMAP"`.
 - `"METRICS` to include metrics/scoring algorithms.
-- `"SOLVERS"` to include manifold models, or specify indivual options: `"LARS", `"CD", `"SGD", `"QN"
+- `"SOLVERS"` to include solver models, or specify indivual options: `"LARS", `"CD", `"SGD", `"QN"
 - `"TSA"` to include time series models, or specify individual options: `"ARIMA"`, `"AUTOARIMA"`, `"HOLTWINTERS"`
 - `"TREESHAP"` to include GPUTreeSHAP.
 
@@ -357,6 +355,7 @@ There are many options to configure the build process with the following CMake o
 | CUDA_ENABLE_LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 | NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
 | ENABLE_CUMLPRIMS_MG | [ON, OFF]  | ON  | Enable algorithms that use libcumlprims_mg.  |
+| CUML_USE_RAFT_STATIC | [ON, OFF]  | OFF  | Build and statically link the RAFT components: libraft_nn and libraft_distance.  |
 | CUML_USE_FAISS_STATIC | [ON, OFF]  | OFF  | Build and statically link the FAISS library for nearest neighbors search on GPU.  |
 | CUML_USE_TREELITE_STATIC | [ON, OFF]  | OFF  | Build and statically link the treelite library.  |
 
