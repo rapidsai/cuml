@@ -162,7 +162,7 @@ struct replace_some_floating_with_categorical {
   int num_cols;
   __device__ real_t operator()(real_t data, int data_idx)
   {
-    real_t fid_num_cats = fid_num_cats_d[data_idx % num_cols];
+    real_t fid_num_cats = static_cast<real_t>(fid_num_cats_d[data_idx % num_cols]);
     if (fid_num_cats == real_t(0)) return data;
     // Transform `data` from (uniform on) [-1.0, 1.0] into [-fid_num_cats-3, fid_num_cats+3].
     real_t tmp = data * (fid_num_cats + real_t(3));
@@ -561,20 +561,19 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     handle.sync_stream();
   }
 
-  virtual void init_forest(fil::forest_t<float>* pforest) = 0;
+  virtual void init_forest(fil::forest_t<real_t>* pforest) = 0;
 
   void predict_on_gpu()
   {
-    auto stream                 = handle.get_stream();
-    fil::forest_t<float> forest = nullptr;
+    auto stream                  = handle.get_stream();
+    fil::forest_t<real_t> forest = nullptr;
     init_forest(&forest);
 
     // predict
     preds_d.resize(ps.num_preds_outputs(), stream);
     proba_d.resize(ps.num_proba_outputs(), stream);
-    fil::predict(handle, forest, (void*)preds_d.data(), (const void*)data_d.data(), ps.num_rows);
-    fil::predict(
-      handle, forest, (void*)proba_d.data(), (const void*)data_d.data(), ps.num_rows, true);
+    fil::predict(handle, forest, preds_d.data(), data_d.data(), ps.num_rows);
+    fil::predict(handle, forest, proba_d.data(), data_d.data(), ps.num_rows, true);
     handle.sync_stream();
 
     // cleanup
@@ -644,8 +643,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 };
 
 template <typename fil_node_t>
-class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_t> {
-  using real_t = typename fil_node_t::real_t;
+class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_type> {
+  using real_t = typename fil_node_t::real_type;
 
  protected:
   void dense2sparse_node(const fil::dense_node<real_t>* dense_root,
@@ -696,7 +695,7 @@ class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_t> {
     }
   }
 
-  void init_forest(fil::forest_t<float>* pforest) override
+  void init_forest(fil::forest_t<real_t>* pforest) override
   {
     constexpr bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
     std::vector<fil_node_t> init_nodes;
