@@ -69,10 +69,12 @@ enum storage_type_t {
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
+template <typename real_t>
 struct forest;
 
 /** forest_t is the predictor handle */
-typedef forest* forest_t;
+template <typename real_t>
+using forest_t = forest<real_t>*;
 
 /** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
 constexpr int MAX_N_ITEMS = 4;
@@ -112,8 +114,9 @@ struct treelite_params_t {
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
+// TODO (canonizer): use std::variant<forest_t<float> forest_t<double>>* for pforest
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params);
 
@@ -121,7 +124,8 @@ void from_treelite(const raft::handle_t& handle,
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function
  */
-void free(const raft::handle_t& h, forest_t f);
+template <typename real_t>
+void free(const raft::handle_t& h, forest_t<real_t> f);
 
 /** predict predicts on data (with n rows) using forest and writes results into preds;
  *  the number of columns is stored in forest, and both preds and data point to GPU memory
@@ -129,7 +133,6 @@ void free(const raft::handle_t& h, forest_t f);
  *  @param f forest used for predictions
  *  @param preds array in GPU memory to store predictions into
  *      size = predict_proba ? (2*num_rows) : num_rows
- *      type = the type used for the forest representation (float or double)
  *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
  *      type = the type used for the forest representation (float or double)
@@ -137,10 +140,11 @@ void free(const raft::handle_t& h, forest_t f);
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
+template <typename real_t>
 void predict(const raft::handle_t& h,
-             forest_t f,
-             void* preds,
-             const void* data,
+             forest_t<real_t> f,
+             real_t* preds,
+             const real_t* data,
              size_t num_rows,
              bool predict_proba = false);
 

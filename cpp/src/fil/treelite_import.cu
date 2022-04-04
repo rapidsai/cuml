@@ -631,7 +631,7 @@ struct tl2fil_t {
   }
 
   /// initializes FIL forest object, to be ready to infer
-  void init_forest(const raft::handle_t& handle, forest_t* pforest)
+  void init_forest(const raft::handle_t& handle, forest_t<float>* pforest)
   {
     ML::fil::init(
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
@@ -646,7 +646,7 @@ struct tl2fil_t {
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
 void convert(const raft::handle_t& handle,
-             forest_t* pforest,
+             forest_t<float>* pforest,
              const tl::ModelImpl<threshold_t, leaf_t>& model,
              const treelite_params_t& tl_params)
 {
@@ -659,12 +659,12 @@ template <typename real_t>
 constexpr bool type_supported()
 {
   // not using std::is_floating_point because we did not instantiate fp16-based nodes/trees/forests
-  return std::is_same<real_t, float>() || std::is_same<real_t, double>();
+  return std::is_same_v<real_t, float> || std::is_same_v<real_t, double>;
 }
 
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
@@ -681,7 +681,7 @@ void from_treelite(const raft::handle_t& handle,
       "This may lead to predictions with reduced accuracy.");
   }
   // same as std::common_type: float+double=double, float+int64_t=float
-  typedef decltype(threshold_t{} + leaf_t{}) real_t;
+  using real_t = decltype(threshold_t(0) + leaf_t(0));
 
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
@@ -713,7 +713,7 @@ void from_treelite(const raft::handle_t& handle,
 }
 
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params)
 {

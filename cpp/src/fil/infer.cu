@@ -157,7 +157,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
 
 template <int NITEMS, bool CATS_SUPPORTED, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
-  tree_type tree, const typename tree_type::real_t* input, int cols, int n_rows)
+  tree_type tree, const typename tree_type::real_type* input, int cols, int n_rows)
 {
   // find the leaf nodes for each row
   int curr[NITEMS];
@@ -186,7 +186,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
 
 template <typename output_type, typename tree_type>
 __device__ __forceinline__ vec<1, output_type> infer_one_tree(
-  tree_type tree, const typename tree_type::real_t* input, int cols, int rows)
+  tree_type tree, const typename tree_type::real_type* input, int cols, int rows)
 {
   int curr = 0;
   for (;;) {
@@ -370,9 +370,11 @@ __device__ __forceinline__ void write_best_class(
 
 /// needed for softmax
 struct shifted_exp {
-  __device__ double operator()(double margin, double max) const { return exp(margin - max); }
-
-  __device__ float operator()(float margin, float max) const { return expf(margin - max); }
+  template <typename real_t>
+  __device__ double operator()(real_t margin, real_t max) const
+  {
+    return exp(margin - max);
+  }
 };
 
 // *begin and *end shall be struct vec
@@ -794,9 +796,9 @@ template <int NITEMS,
           class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
-  using real_t = typename storage_type::real_t;
+  using real_t = typename storage_type::real_type;
   extern __shared__ char smem[];
-  real_t* sdata      = (real_t*)smem;
+  real_t* sdata      = reinterpret_cast<real_t*>(smem);
   int sdata_stride   = params.sdata_stride();
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols       = params.num_cols;
@@ -826,7 +828,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
          and is made exact below.
          Same with thread_num_rows > 0
       */
-      typedef typename leaf_output_t<leaf_algo, real_t>::T pred_t;
+      using pred_t = typename leaf_output_t<leaf_algo, real_t>::T;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
         prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
@@ -871,7 +873,7 @@ int compute_smem_footprint::run(predict_params ssp)
       return ssp
         .template get_smem_footprint<KernelParams::N_ITEMS, double, KernelParams::LEAF_ALGO>();
     default:
-      ASSERT(ssp.sizeof_real == 4 || ssp.sizeof_real == 8,
+      ASSERT(false,
              "internal error: sizeof_real == %d, but must be 4 or 8",
              static_cast<int>(ssp.sizeof_real));
       // unreachable
