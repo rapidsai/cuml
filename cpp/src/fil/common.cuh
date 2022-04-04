@@ -46,15 +46,9 @@ struct storage_base {
 };
 
 /** represents a dense tree */
-<<<<<<< HEAD
-template <typename real_t_>
-struct tree<dense_node<real_t_>> : tree_base {
-  using real_t = real_t_;
-=======
 template <typename real_t>
 struct tree<dense_node<real_t>> : tree_base {
   using real_type = real_t;
->>>>>>> branch-22.06
   __host__ __device__ tree(categorical_sets cat_sets, dense_node<real_t>* nodes, int node_pitch)
     : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
   {
