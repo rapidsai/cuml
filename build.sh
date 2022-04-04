@@ -47,7 +47,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --codecov         - Enable code coverage support by compiling with Cython linetracing
                        and profiling enabled (WARNING: Impacts performance)
    --ccache          - Use ccache to speed up rebuilds. Deprecated, use '--cachectool ccache' insted.
-   --cachetool:      - Specify one of sccache | ccache for speeding up builds and rebuilds.
+   --cachetool       - Specify one of sccache | ccache for speeding up builds and rebuilds.
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
    --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
@@ -142,7 +142,7 @@ LONG_ARGUMENT_LIST=(
     "nolibcumltest"
     "nocloneraft"
     "ccache"
-    "cachetool:"
+    "cachetool"
 )
 
 # Short arguments
@@ -309,15 +309,17 @@ if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg be
 
     cd ${LIBCUML_BUILD_DIR}
     compile_start=$(date +%s)
-    cmake --build . -j${PARALLEL_LEVEL} ${VERBOSE_FLAG}
+
+    if [ -n "${INSTALL_TARGET}" ]; then
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
+    else
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
+    fi
+
     compile_end=$(date +%s)
     compile_total=$(( compile_end - compile_start ))
 
     echo "Total Compilation Time: ${compile_total}"
-
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        cmake --build . -j${PARALLEL_LEVEL} --target install ${VERBOSE_FLAG}
-    fi
 fi
 
 

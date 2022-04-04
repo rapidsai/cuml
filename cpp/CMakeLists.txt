@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.04/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,12 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 22.04.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.06.00 LANGUAGES CXX CUDA)
+
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
+# `Threads::Threads` is the same value in first run and subsequent runs.
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -181,6 +186,8 @@ endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
+
+find_package(Threads)
 
 include(cmake/thirdparty/get_raft.cmake)
 
@@ -483,7 +490,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-      $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>

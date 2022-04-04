@@ -26,7 +26,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/linalg/unary_op.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 // Auxiliary functions in anonymous namespace

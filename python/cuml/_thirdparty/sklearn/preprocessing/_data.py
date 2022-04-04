@@ -258,7 +258,9 @@ class MinMaxScaler(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import MinMaxScaler
+    >>> import cupy as cp
     >>> data = [[-1, 2], [-0.5, 6], [0, 10], [1, 18]]
+    >>> data = cp.array(data)
     >>> scaler = MinMaxScaler()
     >>> print(scaler.fit(data))
     MinMaxScaler()
@@ -269,7 +271,7 @@ class MinMaxScaler(TransformerMixin,
      [0.25 0.25]
      [0.5  0.5 ]
      [1.   1.  ]]
-    >>> print(scaler.transform([[2, 2]]))
+    >>> print(scaler.transform(cp.array([[2, 2]])))
     [[1.5 0. ]]
 
     See also
@@ -577,7 +579,9 @@ class StandardScaler(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import StandardScaler
+    >>> import cupy as cp
     >>> data = [[0, 0], [0, 0], [1, 1], [1, 1]]
+    >>> data = cp.array(data)
     >>> scaler = StandardScaler()
     >>> print(scaler.fit(data))
     StandardScaler()
@@ -588,7 +592,7 @@ class StandardScaler(TransformerMixin,
      [-1. -1.]
      [ 1.  1.]
      [ 1.  1.]]
-    >>> print(scaler.transform([[2, 2]]))
+    >>> print(scaler.transform(cp.array([[2, 2]])))
     [[3. 3.]]
 
     See also
@@ -649,7 +653,7 @@ class StandardScaler(TransformerMixin,
             The data used to compute the mean and standard deviation
             used for later scaling along the features axis.
 
-        y
+        y : None
             Ignored
         """
 
@@ -893,9 +897,11 @@ class MaxAbsScaler(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import MaxAbsScaler
+    >>> import cupy as cp
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
+    >>> X = cp.array(X)
     >>> transformer = MaxAbsScaler().fit(X)
     >>> transformer
     MaxAbsScaler()
@@ -1151,9 +1157,11 @@ class RobustScaler(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import RobustScaler
+    >>> import cupy as cp
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
+    >>> X = cp.array(X)
     >>> transformer = RobustScaler().fit(X)
     >>> transformer
     RobustScaler()
@@ -1786,9 +1794,11 @@ class Normalizer(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import Normalizer
+    >>> import cupy as cp
     >>> X = [[4, 1, 2, 2],
     ...      [1, 3, 9, 3],
     ...      [5, 7, 5, 1]]
+    >>> X = cp.array(X)
     >>> transformer = Normalizer().fit(X)  # fit does nothing.
     >>> transformer
     Normalizer()
@@ -1913,9 +1923,11 @@ class Binarizer(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import Binarizer
+    >>> import cupy as cp
     >>> X = [[ 1., -1.,  2.],
     ...      [ 2.,  0.,  0.],
     ...      [ 0.,  1., -1.]]
+    >>> X = cp.array(X)
     >>> transformer = Binarizer().fit(X)  # fit does nothing.
     >>> transformer
     Binarizer()
@@ -1996,7 +2008,8 @@ def add_dummy_feature(X, value=1.0):
     --------
 
     >>> from cuml.preprocessing import add_dummy_feature
-    >>> add_dummy_feature([[0, 1], [1, 0]])
+    >>> import cupy as cp
+    >>> add_dummy_feature(cp.array([[0, 1], [1, 0]]))
     array([[1., 0., 1.],
            [1., 1., 0.]])
     """

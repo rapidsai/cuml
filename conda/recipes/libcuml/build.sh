@@ -1,3 +1,5 @@
+#!/bin/bash
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     # C++11 requires 10.9
@@ -5,8 +7,4 @@ if [ -n "$MACOSX_DEPLOYMENT_TARGET" ]; then
     export MACOSX_DEPLOYMENT_TARGET=10.11
 fi
 
-if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    ./build.sh clean libcuml libcuml_c -v --allgpuarch
-else
-    ./build.sh clean libcuml libcuml_c prims -v --allgpuarch
-fi
+./build.sh -n clean libcuml libcuml_c prims -v --allgpuarch

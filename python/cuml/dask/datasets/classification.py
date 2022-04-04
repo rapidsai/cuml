@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,41 +60,31 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     Examples
     --------
-
     .. code-block:: python
 
-        from dask.distributed import Client
-        from dask_cuda import LocalCUDACluster
-        from cuml.dask.datasets.classification import make_classification
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
-        X, y = make_classification(n_samples=10, n_features=4,
-                                   n_informative=2, n_classes=2)
-
-        print("X:")
-        print(X.compute())
-
-        print("y:")
-        print(y.compute())
-
-    Output:
-
-    .. code-block:: python
-
-        X:
-        [[-1.6990056  -0.8241044  -0.06997631  0.45107925]
-        [-1.8105277   1.7829906   0.492909    0.05390119]
-        [-0.18290454 -0.6155432   0.6667889  -1.0053712 ]
-        [-2.7530136  -0.888528   -0.5023055   1.3983376 ]
-        [-0.9788184  -0.89851004  0.10802134 -0.10021686]
-        [-0.76883423 -1.0689086   0.01249526 -0.1404741 ]
-        [-1.5676656  -0.83082974 -0.03072987  0.34499463]
-        [-0.9381793  -1.0971068  -0.07465998  0.02618019]
-        [-1.3021476  -0.87076336  0.02249984  0.15187258]
-        [ 1.1820307   1.7524253   1.5087451  -2.4626074 ]]
-
-        y:
-        [0 1 0 0 0 0 0 0 0 1]
+        >>> from dask.distributed import Client
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from cuml.dask.datasets.classification import make_classification
+        >>> cluster = LocalCUDACluster()
+        >>> client = Client(cluster)
+        >>> X, y = make_classification(n_samples=10, n_features=4,
+        ...                            random_state=1, n_informative=2,
+        ...                            n_classes=2)
+        >>> print(X.compute()) # doctest: +SKIP
+        [[-1.1273878   1.2844919  -0.32349187  0.1595734 ]
+        [ 0.80521786 -0.65946865 -0.40753683  0.15538901]
+        [ 1.0404129  -1.481386    1.4241115   1.2664981 ]
+        [-0.92821544 -0.6805706  -0.26001272  0.36004275]
+        [-1.0392245  -1.1977317   0.16345565 -0.21848428]
+        [ 1.2273135  -0.529214    2.4799604   0.44108105]
+        [-1.9163864  -0.39505136 -1.9588828  -1.8881643 ]
+        [-0.9788184  -0.89851004 -0.08339313  0.1130247 ]
+        [-1.0549078  -0.8993015  -0.11921967  0.04821599]
+        [-1.8388828  -1.4063598  -0.02838472 -1.0874642 ]]
+        >>> print(y.compute()) # doctest: +SKIP
+        [1 0 0 0 0 1 0 0 0 0]
+        >>> client.close()
+        >>> cluster.close()
 
     Parameters
     ----------

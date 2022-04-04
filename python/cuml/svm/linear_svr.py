@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,19 +29,16 @@ class LinearSVR(LinearSVM, RegressorMixin):
     --------
     .. code-block:: python
 
-        import numpy as np
-        from cuml.svm import LinearSVR
-        X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
-        y = np.array([1.1, 4, 5, 3.9, 8.], dtype=np.float32)
-        reg = LinearSVR(loss='epsilon_insensitive', C=10, epsilon=0.1)
-        reg.fit(X, y)
-        print("Predicted values:", reg.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
-        Predicted labels: [1.3187336 2.9640512 4.609369  6.2546864 7.9000034]
+        >>> import cupy as cp
+        >>> from cuml.svm import LinearSVR
+        >>> X = cp.array([[1], [2], [3], [4], [5]], dtype=cp.float32)
+        >>> y = cp.array([1.1, 4, 5, 3.9, 8.], dtype=cp.float32)
+        >>> reg = LinearSVR(loss='epsilon_insensitive', C=10,
+        ...                 epsilon=0.1, verbose=0)
+        >>> reg.fit(X, y)
+        LinearSVR()
+        >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
+        Predicted labels: [1.8993504 3.3995128 4.899675  6.399837  7.899999]
 
     Parameters
     ----------

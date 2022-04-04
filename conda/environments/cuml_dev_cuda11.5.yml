@@ -6,26 +6,26 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=11.5
-- rapids-doc-env=22.04.*
-- rmm=22.04.*
-- libcumlprims=22.04.*
-- libraft-headers=22.04.*
-- libraft-distance=22.04.*
-- libraft-nn=22.04.*
-- cmake>=3.20.1
+- rapids-doc-env=22.06.*
+- rmm=22.06.*
+- libcumlprims=22.06.*
+- libraft-headers=22.06.*
+- libraft-distance=22.06.*
+- libraft-nn=22.06.*
+- cmake>=3.20.1,<3.23
 - ninja
 - ccache
-- ucx-py=0.25.*
+- ucx-py=0.26.*
 - ucx-proc=*=gpu
 - doxygen>=1.8.20
 - treelite=2.3.0
 - gtest=1.10
 - gmock
 - cuda-python >=11.5,<12.0
-- cudf=22.04.*
-- pyraft=22.04.*
-- dask-cudf=22.04.*
-- dask-cuda=22.04.*
+- cudf=22.06.*
+- pyraft=22.06.*
+- dask-cudf=22.06.*
+- dask-cuda=22.06.*
 - dask-ml
 - umap-learn
 - scikit-learn=0.24
@@ -36,5 +36,13 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask.git@2022.03.0
+    - git+https://github.com/dask/distributed.git@2022.03.0
+
+# rapids-doc-env is defined in
+# https://docs.rapids.ai/maintainers/depmgmt/
+
+# To install different versions of packages contained in those meta packages,
+# it is recommended to remove those meta packages (without removing the actual
+# packages contained in the environment) first with:
+# conda remove --force rapids-doc-env
