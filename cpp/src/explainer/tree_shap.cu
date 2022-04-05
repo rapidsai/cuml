@@ -358,7 +358,6 @@ struct PathSegmentExtractor {
 template <typename ThresholdType>
 class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
  public:
-  ThresholdTypeEnum threshold_type;
   int num_tree;
   float global_bias;
   tl::TaskType task_type;
@@ -374,17 +373,7 @@ class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
                   std::is_same<ThresholdType, double>::value,
                 "ThresholdType must be a float or double");
 
-  TreePathInfoImpl()
-  {
-    if constexpr (std::is_same<ThresholdType, double>::value) {
-      threshold_type = ThresholdTypeEnum::kDouble;
-    } else {
-      threshold_type = ThresholdTypeEnum::kFloat;
-    }
-  }
   virtual ~TreePathInfoImpl() = default;
-
-  ThresholdTypeEnum GetThresholdType() const override { return threshold_type; }
 };
 
 template <typename ThresholdT>
@@ -744,6 +733,15 @@ std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model)
     return extract_path_info_impl(model_inner);
   });
 }
+template <typename FuncT>
+void TreePathInfo::Dispatch(FuncT f){
+  if (auto x = dynamic_cast<TreePathInfoImpl<float>*>(this)){
+    f(x);
+}
+  else if (auto x = dynamic_cast<TreePathInfoImpl<double>*>(this)){
+    f(x);
+}
+}
 
 void gpu_treeshap(TreePathInfo* path_info,
                   const float* data,
@@ -751,17 +749,9 @@ void gpu_treeshap(TreePathInfo* path_info,
                   std::size_t n_cols,
                   float* out_preds)
 {
-  switch (path_info->GetThresholdType()) {
-    case TreePathInfo::ThresholdTypeEnum::kDouble: {
-      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<double>*>(path_info);
-      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
-    } break;
-    case TreePathInfo::ThresholdTypeEnum::kFloat:
-    default: {
-      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<float>*>(path_info);
-      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
-    } break;
-  }
+  path_info->Dispatch([&](auto* info_downcast) {
+      gpu_treeshap_impl(info_downcast, data, n_rows, n_cols, out_preds);
+  });
 }
 
 void gpu_treeshap(TreePathInfo* path_info,
@@ -770,17 +760,9 @@ void gpu_treeshap(TreePathInfo* path_info,
                   std::size_t n_cols,
                   double* out_preds)
 {
-    switch (path_info->GetThresholdType()) {
-    case TreePathInfo::ThresholdTypeEnum::kDouble: {
-      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<double>*>(path_info);
-      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
-    } break;
-    case TreePathInfo::ThresholdTypeEnum::kFloat:
-    default: {
-      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<float>*>(path_info);
-      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
-    } break;
-  }
+  path_info->Dispatch([&](auto* info_downcast) {
+      gpu_treeshap_impl(info_downcast, data, n_rows, n_cols, out_preds);
+  });
 }
 }  // namespace Explainer
 }  // namespace ML
