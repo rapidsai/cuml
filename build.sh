@@ -271,7 +271,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
+if completeBuild || hasArg libcuml || hasArg libcuml_c || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -307,6 +307,10 @@ if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg be
           ${CUML_EXTRA_CMAKE_ARGS} \
           ..
 
+fi
+
+# If `./build.sh cuml` is called, don't build C/C++ components
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     cd ${LIBCUML_BUILD_DIR}
     compile_start=$(date +%s)
 
@@ -322,7 +326,7 @@ if completeBuild || hasArg libcuml || hasarg cuml_c || hasArg prims || hasArg be
     echo "Total Compilation Time: ${compile_total}"
 fi
 
-
+# Build C++ docs
 if hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}
     cmake --build ${LIBCUML_BUILD_DIR} --target docs_cuml
