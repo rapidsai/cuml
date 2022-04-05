@@ -70,9 +70,9 @@ struct FilTestParams {
   // Order Of Magnitude for maximum matching category for categorical nodes
   float max_magnitude_of_matching_cat = 1.0f;
   // output parameters
-  output_t output   = output_t::RAW;
-  float threshold   = 0.0f;
-  float global_bias = 0.0f;
+  output_t output    = output_t::RAW;
+  double threshold   = 0.0f;
+  double global_bias = 0.0f;
   // runtime parameters
   int blocks_per_sm       = 0;
   int threads_per_tree    = 1;
@@ -553,12 +553,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     handle.sync_stream();
   }
 
-  virtual void init_forest(fil::forest_t* pforest) = 0;
+  virtual void init_forest(fil::forest_t<float>* pforest) = 0;
 
   void predict_on_gpu()
   {
-    auto stream          = handle.get_stream();
-    fil::forest_t forest = nullptr;
+    auto stream                 = handle.get_stream();
+    fil::forest_t<float> forest = nullptr;
     init_forest(&forest);
 
     // predict
@@ -678,7 +678,7 @@ class BasePredictFilTest : public BaseFilTest {
     }
   }
 
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<float>* pforest) override
   {
     constexpr bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
     std::vector<fil_node_t> init_nodes;
@@ -806,7 +806,7 @@ class TreeliteFilTest : public BaseFilTest {
     return key;
   }
 
-  void init_forest_impl(fil::forest_t* pforest, fil::storage_type_t storage_type)
+  void init_forest_impl(fil::forest_t<float>* pforest, fil::storage_type_t storage_type)
   {
     auto stream             = handle.get_stream();
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
@@ -888,7 +888,7 @@ class TreeliteFilTest : public BaseFilTest {
 
 class TreeliteDenseFilTest : public TreeliteFilTest {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<float>* pforest) override
   {
     init_forest_impl(pforest, fil::storage_type_t::DENSE);
   }
@@ -896,7 +896,7 @@ class TreeliteDenseFilTest : public TreeliteFilTest {
 
 class TreeliteSparse16FilTest : public TreeliteFilTest {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<float>* pforest) override
   {
     init_forest_impl(pforest, fil::storage_type_t::SPARSE);
   }
@@ -904,7 +904,7 @@ class TreeliteSparse16FilTest : public TreeliteFilTest {
 
 class TreeliteSparse8FilTest : public TreeliteFilTest {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<float>* pforest) override
   {
     init_forest_impl(pforest, fil::storage_type_t::SPARSE8);
   }
@@ -912,7 +912,7 @@ class TreeliteSparse8FilTest : public TreeliteFilTest {
 
 class TreeliteAutoFilTest : public TreeliteFilTest {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<float>* pforest) override
   {
     init_forest_impl(pforest, fil::storage_type_t::AUTO);
   }

@@ -117,19 +117,15 @@ class SVC(SVMBase,
     --------
     .. code-block:: python
 
-        import numpy as np
-        from cuml.svm import SVC
-        X = np.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-                        dtype=np.float32);
-        y = np.array([-1, -1, 1, -1, 1, 1], dtype=np.float32)
-        clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
-        clf.fit(X, y)
-        print("Predicted labels:", clf.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
+        >>> import cupy as cp
+        >>> from cuml.svm import SVC
+        >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+        ...              dtype=cp.float32);
+        >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
+        >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
+        >>> clf.fit(X, y)
+        SVC()
+        >>> print("Predicted labels:", clf.predict(X))
         Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
     Parameters
@@ -172,8 +168,9 @@ class SVC(SVMBase,
         Weights to modify the parameter C for class i to class_weight[i]*C. The
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
-    max_iter : int (default = 100*n_samples)
-        Limit the number of outer iterations in the solver
+    max_iter : int (default = -1)
+        Limit the number of outer iterations in the solver.
+        If -1 (default) then ``max_iter=100*n_samples``
     multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -218,7 +215,7 @@ class SVC(SVMBase,
         Only available for linear kernels. It is the normal of the
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-    classes_: shape (n_classes_,)
+    classes_ : shape (`n_classes_`,)
         Array of class labels
     n_classes_ : int
         Number of classes
