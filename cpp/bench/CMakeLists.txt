@@ -104,6 +104,11 @@ if(BUILD_CUML_PRIMS_BENCH)
       raft::distance
   )
 
+  if(NVTX)
+    target_compile_options(${PRIMS_BENCH_TARGET} PRIVATE "-DNVTX_ENABLED")
+    target_link_libraries(${PRIMS_BENCH_TARGET} PRIVATE nvToolsExt)
+  endif()
+
   target_include_directories(${PRIMS_BENCH_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>

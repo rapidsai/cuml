@@ -57,6 +57,11 @@ function(ConfigureTest)
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
 
+  if(NVTX)
+    target_compile_options(${TEST_NAME} PRIVATE "-DNVTX_ENABLED")
+    target_link_libraries(${TEST_NAME} PRIVATE nvToolsExt)
+  endif()
+
   target_compile_options(${TEST_NAME}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
