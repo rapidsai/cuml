@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from abc import ABCMeta, abstractmethod
 import cudf
 import cupy as cp
 import cupyx
@@ -23,8 +24,9 @@ from numba import cuda
 from typing import Union
 
 
-def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
-                    random_state):
+def _stratify_split(
+    X, stratify, labels, n_train, n_test, x_numba, y_numba, random_state
+):
     """
     Function to perform a stratified split based on stratify column.
     Based on scikit-learn stratified split implementation.
@@ -50,8 +52,9 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
         x_cudf = True
     elif hasattr(X, "__cuda_array_interface__"):
         X = cp.asarray(X)
-        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
-                                    cp.dtype(X.dtype))
+        x_order = _strides_to_order(
+            X.__cuda_array_interface__["strides"], cp.dtype(X.dtype)
+        )
 
     # labels and stratify will be only cp arrays
     if isinstance(labels, cudf.Series):
@@ -62,14 +65,16 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
     elif isinstance(stratify, cudf.DataFrame):
         # ensuring it has just one column
         if labels.shape[1] != 1:
-            raise ValueError('Expected one column for labels, but found df'
-                             'with shape = %d' % (labels.shape))
+            raise ValueError(
+                "Expected one column for labels, but found df"
+                "with shape = %d" % (labels.shape)
+            )
         labels_cudf = True
         labels = labels[0].values
 
     labels_order = _strides_to_order(
-                        labels.__cuda_array_interface__['strides'],
-                        cp.dtype(labels.dtype))
+        labels.__cuda_array_interface__["strides"], cp.dtype(labels.dtype)
+    )
 
     # Converting to cupy array removes the need to add an if-else block
     # for startify column
@@ -80,8 +85,10 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
     elif isinstance(stratify, cudf.DataFrame):
         # ensuring it has just one column
         if stratify.shape[1] != 1:
-            raise ValueError('Expected one column, but found column'
-                             'with shape = %d' % (stratify.shape))
+            raise ValueError(
+                "Expected one column, but found column"
+                "with shape = %d" % (stratify.shape)
+            )
         stratify = stratify[0].values
 
     classes, stratify_indices = cp.unique(stratify, return_inverse=True)
@@ -89,18 +96,22 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
     n_classes = classes.shape[0]
     class_counts = cp.bincount(stratify_indices)
     if cp.min(class_counts) < 2:
-        raise ValueError("The least populated class in y has only 1"
-                         " member, which is too few. The minimum"
-                         " number of groups for any class cannot"
-                         " be less than 2.")
+        raise ValueError(
+            "The least populated class in y has only 1"
+            " member, which is too few. The minimum"
+            " number of groups for any class cannot"
+            " be less than 2."
+        )
 
     if n_train < n_classes:
-        raise ValueError('The train_size = %d should be greater or '
-                         'equal to the number of classes = %d' % (n_train,
-                                                                  n_classes))
+        raise ValueError(
+            "The train_size = %d should be greater or "
+            "equal to the number of classes = %d" % (n_train, n_classes)
+        )
 
-    class_indices = cp.split(cp.argsort(stratify_indices),
-                             cp.cumsum(class_counts)[:-1].tolist())
+    class_indices = cp.split(
+        cp.argsort(stratify_indices), cp.cumsum(class_counts)[:-1].tolist()
+    )
 
     X_train = None
 
@@ -117,19 +128,18 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
         permutation = random_state.permutation(class_counts[i].item())
         perm_indices_class_i = class_indices[i].take(permutation)
 
-        y_train_i = cp.array(labels[perm_indices_class_i[:n_i[i]]],
-                             order=labels_order)
-        y_test_i = cp.array(labels[perm_indices_class_i[n_i[i]:n_i[i] +
-                                                        t_i[i]]],
-                            order=labels_order)
-        if hasattr(X, "__cuda_array_interface__") or \
-           isinstance(X, cupyx.scipy.sparse.csr_matrix):
+        y_train_i = cp.array(labels[perm_indices_class_i[: n_i[i]]], order=labels_order)
+        y_test_i = cp.array(
+            labels[perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]], order=labels_order
+        )
+        if hasattr(X, "__cuda_array_interface__") or isinstance(
+            X, cupyx.scipy.sparse.csr_matrix
+        ):
 
-            X_train_i = cp.array(X[perm_indices_class_i[:n_i[i]]],
-                                 order=x_order)
-            X_test_i = cp.array(X[perm_indices_class_i[n_i[i]:n_i[i] +
-                                                       t_i[i]]],
-                                order=x_order)
+            X_train_i = cp.array(X[perm_indices_class_i[: n_i[i]]], order=x_order)
+            X_test_i = cp.array(
+                X[perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]], order=x_order
+            )
 
             if X_train is None:
                 X_train = cp.array(X_train_i, order=x_order)
@@ -143,8 +153,8 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
                 y_test = cp.concatenate([y_test, y_test_i], axis=0)
 
         elif x_cudf:
-            X_train_i = X.iloc[perm_indices_class_i[:n_i[i]]]
-            X_test_i = X.iloc[perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]]]
+            X_train_i = X.iloc[perm_indices_class_i[: n_i[i]]]
+            X_test_i = X.iloc[perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]]
 
             if X_train is None:
                 X_train = X_train_i
@@ -211,7 +221,7 @@ def _approximate_mode(class_counts, n_draws, rng):
         # add according to remainder, but break ties
         # randomly to avoid biases
         for value in values:
-            inds, = cp.where(remainder == value)
+            (inds,) = cp.where(remainder == value)
             # if we need_to_add less than what's in inds
             # we draw randomly from them.
             # if we need to add more, we add them all and
@@ -225,17 +235,15 @@ def _approximate_mode(class_counts, n_draws, rng):
     return floored.astype(int)
 
 
-def train_test_split(X,
-                     y=None,
-                     test_size: Union[float,
-                                      int] = None,
-                     train_size: Union[float,
-                                       int] = None,
-                     shuffle: bool = True,
-                     random_state: Union[int,
-                                         cp.random.RandomState,
-                                         np.random.RandomState] = None,
-                     stratify=None):
+def train_test_split(
+    X,
+    y=None,
+    test_size: Union[float, int] = None,
+    train_size: Union[float, int] = None,
+    shuffle: bool = True,
+    random_state: Union[int, cp.random.RandomState, np.random.RandomState] = None,
+    stratify=None,
+):
     """
     Partitions device data into four collated objects, mimicking
     Scikit-learn's `train_test_split
@@ -309,55 +317,72 @@ def train_test_split(X,
             y = X[name]
             X = X.drop(name, axis=1)
         else:
-            raise TypeError("X needs to be a cuDF Dataframe when y is a \
-                             string")
+            raise TypeError(
+                "X needs to be a cuDF Dataframe when y is a \
+                             string"
+            )
 
     # todo: this check will be replaced with upcoming improvements
     # to input_utils
     #
     if y is not None:
-        if not hasattr(X, "__cuda_array_interface__") and not \
-                isinstance(X, cudf.DataFrame):
-            raise TypeError("X needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant array.")
+        if not hasattr(X, "__cuda_array_interface__") and not isinstance(
+            X, cudf.DataFrame
+        ):
+            raise TypeError(
+                "X needs to be either a cuDF DataFrame, Series or \
+                            a cuda_array_interface compliant array."
+            )
 
-        if not hasattr(y, "__cuda_array_interface__") and not \
-                isinstance(y, cudf.DataFrame):
-            raise TypeError("y needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant array.")
+        if not hasattr(y, "__cuda_array_interface__") and not isinstance(
+            y, cudf.DataFrame
+        ):
+            raise TypeError(
+                "y needs to be either a cuDF DataFrame, Series or \
+                            a cuda_array_interface compliant array."
+            )
 
         if X.shape[0] != y.shape[0]:
-            raise ValueError("X and y must have the same first dimension"
-                             "(found {} and {})".format(
-                                 X.shape[0],
-                                 y.shape[0]))
+            raise ValueError(
+                "X and y must have the same first dimension"
+                "(found {} and {})".format(X.shape[0], y.shape[0])
+            )
     else:
-        if not hasattr(X, "__cuda_array_interface__") and not \
-                isinstance(X, cudf.DataFrame):
-            raise TypeError("X needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant object.")
+        if not hasattr(X, "__cuda_array_interface__") and not isinstance(
+            X, cudf.DataFrame
+        ):
+            raise TypeError(
+                "X needs to be either a cuDF DataFrame, Series or \
+                            a cuda_array_interface compliant object."
+            )
 
     if isinstance(train_size, float):
         if not 0 <= train_size <= 1:
-            raise ValueError("proportion train_size should be between"
-                             "0 and 1 (found {})".format(train_size))
+            raise ValueError(
+                "proportion train_size should be between"
+                "0 and 1 (found {})".format(train_size)
+            )
 
     if isinstance(train_size, int):
         if not 0 <= train_size <= X.shape[0]:
             raise ValueError(
                 "Number of instances train_size should be between 0 and the"
-                "first dimension of X (found {})".format(train_size))
+                "first dimension of X (found {})".format(train_size)
+            )
 
     if isinstance(test_size, float):
         if not 0 <= test_size <= 1:
-            raise ValueError("proportion test_size should be between"
-                             "0 and 1 (found {})".format(train_size))
+            raise ValueError(
+                "proportion test_size should be between"
+                "0 and 1 (found {})".format(train_size)
+            )
 
     if isinstance(test_size, int):
         if not 0 <= test_size <= X.shape[0]:
             raise ValueError(
                 "Number of instances test_size should be between 0 and the"
-                "first dimension of X (found {})".format(test_size))
+                "first dimension of X (found {})".format(test_size)
+            )
 
     x_numba = cuda.devicearray.is_cuda_ndarray(X)
     y_numba = cuda.devicearray.is_cuda_ndarray(y)
@@ -394,8 +419,10 @@ def train_test_split(X,
             idxs = np.arange(X.shape[0])
 
         else:
-            raise TypeError("`random_state` must be an int, NumPy RandomState \
-                             or CuPy RandomState.")
+            raise TypeError(
+                "`random_state` must be an int, NumPy RandomState \
+                             or CuPy RandomState."
+            )
 
         random_state.shuffle(idxs)
 
@@ -414,50 +441,50 @@ def train_test_split(X,
             y = cp.asarray(y)[idxs]
 
         if stratify is not None:
-            if isinstance(stratify, cudf.DataFrame) or \
-                    isinstance(stratify, cudf.Series):
+            if isinstance(stratify, cudf.DataFrame) or isinstance(
+                stratify, cudf.Series
+            ):
                 stratify = stratify.iloc[idxs]
 
             elif hasattr(stratify, "__cuda_array_interface__"):
                 stratify = cp.asarray(stratify)[idxs]
 
-            split_return = _stratify_split(X,
-                                           stratify,
-                                           y,
-                                           train_size,
-                                           test_size,
-                                           x_numba,
-                                           y_numba,
-                                           random_state)
+            split_return = _stratify_split(
+                X, stratify, y, train_size, test_size, x_numba, y_numba, random_state
+            )
             return split_return
 
     # If not stratified, perform train_test_split splicing
     if hasattr(X, "__cuda_array_interface__"):
-        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
-                                    cp.dtype(X.dtype))
+        x_order = _strides_to_order(
+            X.__cuda_array_interface__["strides"], cp.dtype(X.dtype)
+        )
 
     if hasattr(y, "__cuda_array_interface__"):
-        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
-                                    cp.dtype(y.dtype))
+        y_order = _strides_to_order(
+            y.__cuda_array_interface__["strides"], cp.dtype(y.dtype)
+        )
 
-    if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cupyx.scipy.sparse.csr_matrix):
+    if hasattr(X, "__cuda_array_interface__") or isinstance(
+        X, cupyx.scipy.sparse.csr_matrix
+    ):
         X_train = cp.array(X[0:train_size], order=x_order)
-        X_test = cp.array(X[-1 * test_size:], order=x_order)
+        X_test = cp.array(X[-1 * test_size :], order=x_order)
         if y is not None:
             y_train = cp.array(y[0:train_size], order=y_order)
-            y_test = cp.array(y[-1 * test_size:], order=y_order)
+            y_test = cp.array(y[-1 * test_size :], order=y_order)
     elif isinstance(X, cudf.DataFrame):
         X_train = X.iloc[0:train_size]
-        X_test = X.iloc[-1 * test_size:]
+        X_test = X.iloc[-1 * test_size :]
         if y is not None:
             if isinstance(y, cudf.Series):
                 y_train = y.iloc[0:train_size]
-                y_test = y.iloc[-1 * test_size:]
-            elif hasattr(y, "__cuda_array_interface__") or \
-                    isinstance(y, cupyx.scipy.sparse.csr_matrix):
+                y_test = y.iloc[-1 * test_size :]
+            elif hasattr(y, "__cuda_array_interface__") or isinstance(
+                y, cupyx.scipy.sparse.csr_matrix
+            ):
                 y_train = cp.array(y[0:train_size], order=y_order)
-                y_test = cp.array(y[-1 * test_size:], order=y_order)
+                y_test = cp.array(y[-1 * test_size :], order=y_order)
 
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
@@ -471,3 +498,483 @@ def train_test_split(X,
         return X_train, X_test, y_train, y_test
     else:
         return X_train, X_test
+
+
+class BaseCrossValidator(metaclass=ABCMeta):
+    """Base class for all cross-validators
+    Implementations must define `_iter_test_masks` or `_iter_test_indices`.
+    """
+
+    def split(self, X, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+        y : array-like of shape (n_samples,)
+            The target variable for supervised learning problems.
+        groups : array-like of shape (n_samples,), default=None
+            Group labels for the samples used while splitting the dataset into
+            train/test set.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+        X, y, groups = indexable(X, y, groups)
+        indices = np.arange(_num_samples(X))
+        for test_index in self._iter_test_masks(X, y, groups):
+            train_index = indices[np.logical_not(test_index)]
+            test_index = indices[test_index]
+            yield train_index, test_index
+
+    # Since subclasses must implement either _iter_test_masks or
+    # _iter_test_indices, neither can be abstract.
+    def _iter_test_masks(self, X=None, y=None, groups=None):
+        """Generates boolean masks corresponding to test sets.
+        By default, delegates to _iter_test_indices(X, y, groups)
+        """
+        for test_index in self._iter_test_indices(X, y, groups):
+            test_mask = np.zeros(_num_samples(X), dtype=bool)
+            test_mask[test_index] = True
+            yield test_mask
+
+    def _iter_test_indices(self, X=None, y=None, groups=None):
+        """Generates integer indices corresponding to test sets."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_n_splits(self, X=None, y=None, groups=None):
+        """Returns the number of splitting iterations in the cross-validator"""
+        pass
+
+    def __repr__(self):
+        return _build_repr(self)
+
+
+class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
+    """Base class for KFold, GroupKFold, and StratifiedKFold"""
+
+    @abstractmethod
+    def __init__(self, n_splits, *, shuffle, random_state):
+        if not isinstance(n_splits, numbers.Integral):
+            raise ValueError(
+                "The number of folds must be of Integral type. "
+                "%s of type %s was passed." % (n_splits, type(n_splits))
+            )
+        n_splits = int(n_splits)
+
+        if n_splits <= 1:
+            raise ValueError(
+                "k-fold cross-validation requires at least one"
+                " train/test split by setting n_splits=2 or more,"
+                " got n_splits={0}.".format(n_splits)
+            )
+
+        if not isinstance(shuffle, bool):
+            raise TypeError("shuffle must be True or False; got {0}".format(shuffle))
+
+        if not shuffle and random_state is not None:  # None is the default
+            raise ValueError(
+                "Setting a random_state has no effect since shuffle is "
+                "False. You should leave "
+                "random_state to its default (None), or set shuffle=True.",
+            )
+
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.random_state = random_state
+
+    def split(self, X, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+        groups : array-like of shape (n_samples,), default=None
+            Group labels for the samples used while splitting the dataset into
+            train/test set.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+        X, y, groups = indexable(X, y, groups)
+        n_samples = _num_samples(X)
+        if self.n_splits > n_samples:
+            raise ValueError(
+                (
+                    "Cannot have number of splits n_splits={0} greater"
+                    " than the number of samples: n_samples={1}."
+                ).format(self.n_splits, n_samples)
+            )
+
+        for train, test in super().split(X, y, groups):
+            yield train, test
+
+    def get_n_splits(self, X=None, y=None, groups=None):
+        """Returns the number of splitting iterations in the cross-validator
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+        y : object
+            Always ignored, exists for compatibility.
+        groups : object
+            Always ignored, exists for compatibility.
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
+
+
+class KFold(_BaseKFold):
+    """K-Folds cross-validator
+    Provides train/test indices to split data in train/test sets. Split
+    dataset into k consecutive folds (without shuffling by default).
+    Each fold is then used once as a validation while the k - 1 remaining
+    folds form the training set.
+    Read more in the :ref:`User Guide <k_fold>`.
+    Parameters
+    ----------
+    n_splits : int, default=5
+        Number of folds. Must be at least 2.
+        .. versionchanged:: 0.22
+            ``n_splits`` default value changed from 3 to 5.
+    shuffle : bool, default=False
+        Whether to shuffle the data before splitting into batches.
+        Note that the samples within each split will not be shuffled.
+    random_state : int, RandomState instance or None, default=None
+        When `shuffle` is True, `random_state` affects the ordering of the
+        indices, which controls the randomness of each fold. Otherwise, this
+        parameter has no effect.
+        Pass an int for reproducible output across multiple function calls.
+        See :term:`Glossary <random_state>`.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import KFold
+    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = np.array([1, 2, 3, 4])
+    >>> kf = KFold(n_splits=2)
+    >>> kf.get_n_splits(X)
+    2
+    >>> print(kf)
+    KFold(n_splits=2, random_state=None, shuffle=False)
+    >>> for train_index, test_index in kf.split(X):
+    ...     print("TRAIN:", train_index, "TEST:", test_index)
+    ...     X_train, X_test = X[train_index], X[test_index]
+    ...     y_train, y_test = y[train_index], y[test_index]
+    TRAIN: [2 3] TEST: [0 1]
+    TRAIN: [0 1] TEST: [2 3]
+    Notes
+    -----
+    The first ``n_samples % n_splits`` folds have size
+    ``n_samples // n_splits + 1``, other folds have size
+    ``n_samples // n_splits``, where ``n_samples`` is the number of samples.
+    Randomized CV splitters may return different results for each call of
+    split. You can make the results identical by setting `random_state`
+    to an integer.
+    See Also
+    --------
+    StratifiedKFold : Takes group information into account to avoid building
+        folds with imbalanced class distributions (for binary or multiclass
+        classification tasks).
+    GroupKFold : K-fold iterator variant with non-overlapping groups.
+    RepeatedKFold : Repeats K-Fold n times.
+    """
+
+    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
+        super().__init__(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+
+    def _iter_test_indices(self, X, y=None, groups=None):
+        n_samples = _num_samples(X)
+        indices = np.arange(n_samples)
+        if self.shuffle:
+            check_random_state(self.random_state).shuffle(indices)
+
+        n_splits = self.n_splits
+        fold_sizes = np.full(n_splits, n_samples // n_splits, dtype=int)
+        fold_sizes[: n_samples % n_splits] += 1
+        current = 0
+        for fold_size in fold_sizes:
+            start, stop = current, current + fold_size
+            yield indices[start:stop]
+            current = stop
+
+
+class GroupKFold(_BaseKFold):
+    """K-fold iterator variant with non-overlapping groups.
+    The same group will not appear in two different folds (the number of
+    distinct groups has to be at least equal to the number of folds).
+    The folds are approximately balanced in the sense that the number of
+    distinct groups is approximately the same in each fold.
+    Read more in the :ref:`User Guide <group_k_fold>`.
+    Parameters
+    ----------
+    n_splits : int, default=5
+        Number of folds. Must be at least 2.
+        .. versionchanged:: 0.22
+            ``n_splits`` default value changed from 3 to 5.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import GroupKFold
+    >>> X = np.array([[1, 2], [3, 4], [5, 6], [7, 8]])
+    >>> y = np.array([1, 2, 3, 4])
+    >>> groups = np.array([0, 0, 2, 2])
+    >>> group_kfold = GroupKFold(n_splits=2)
+    >>> group_kfold.get_n_splits(X, y, groups)
+    2
+    >>> print(group_kfold)
+    GroupKFold(n_splits=2)
+    >>> for train_index, test_index in group_kfold.split(X, y, groups):
+    ...     print("TRAIN:", train_index, "TEST:", test_index)
+    ...     X_train, X_test = X[train_index], X[test_index]
+    ...     y_train, y_test = y[train_index], y[test_index]
+    ...     print(X_train, X_test, y_train, y_test)
+    ...
+    TRAIN: [0 1] TEST: [2 3]
+    [[1 2]
+     [3 4]] [[5 6]
+     [7 8]] [1 2] [3 4]
+    TRAIN: [2 3] TEST: [0 1]
+    [[5 6]
+     [7 8]] [[1 2]
+     [3 4]] [3 4] [1 2]
+    See Also
+    --------
+    LeaveOneGroupOut : For splitting the data according to explicit
+        domain-specific stratification of the dataset.
+    """
+
+    def __init__(self, n_splits=5):
+        super().__init__(n_splits, shuffle=False, random_state=None)
+
+    def _iter_test_indices(self, X, y, groups):
+        if groups is None:
+            raise ValueError("The 'groups' parameter should not be None.")
+        groups = check_array(groups, ensure_2d=False, dtype=None)
+
+        unique_groups, groups = np.unique(groups, return_inverse=True)
+        n_groups = len(unique_groups)
+
+        if self.n_splits > n_groups:
+            raise ValueError(
+                "Cannot have number of splits n_splits=%d greater"
+                " than the number of groups: %d." % (self.n_splits, n_groups)
+            )
+
+        # Weight groups by their number of occurrences
+        n_samples_per_group = np.bincount(groups)
+
+        # Distribute the most frequent groups first
+        indices = np.argsort(n_samples_per_group)[::-1]
+        n_samples_per_group = n_samples_per_group[indices]
+
+        # Total weight of each fold
+        n_samples_per_fold = np.zeros(self.n_splits)
+
+        # Mapping from group index to fold index
+        group_to_fold = np.zeros(len(unique_groups))
+
+        # Distribute samples by adding the largest weight to the lightest fold
+        for group_index, weight in enumerate(n_samples_per_group):
+            lightest_fold = np.argmin(n_samples_per_fold)
+            n_samples_per_fold[lightest_fold] += weight
+            group_to_fold[indices[group_index]] = lightest_fold
+
+        indices = group_to_fold[groups]
+
+        for f in range(self.n_splits):
+            yield np.where(indices == f)[0]
+
+    def split(self, X, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+        groups : array-like of shape (n_samples,)
+            Group labels for the samples used while splitting the dataset into
+            train/test set.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+        return super().split(X, y, groups)
+
+
+class StratifiedKFold(_BaseKFold):
+    """Stratified K-Folds cross-validator.
+    Provides train/test indices to split data in train/test sets.
+    This cross-validation object is a variation of KFold that returns
+    stratified folds. The folds are made by preserving the percentage of
+    samples for each class.
+    Read more in the :ref:`User Guide <stratified_k_fold>`.
+    Parameters
+    ----------
+    n_splits : int, default=5
+        Number of folds. Must be at least 2.
+        .. versionchanged:: 0.22
+            ``n_splits`` default value changed from 3 to 5.
+    shuffle : bool, default=False
+        Whether to shuffle each class's samples before splitting into batches.
+        Note that the samples within each split will not be shuffled.
+    random_state : int, RandomState instance or None, default=None
+        When `shuffle` is True, `random_state` affects the ordering of the
+        indices, which controls the randomness of each fold for each class.
+        Otherwise, leave `random_state` as `None`.
+        Pass an int for reproducible output across multiple function calls.
+        See :term:`Glossary <random_state>`.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import StratifiedKFold
+    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = np.array([0, 0, 1, 1])
+    >>> skf = StratifiedKFold(n_splits=2)
+    >>> skf.get_n_splits(X, y)
+    2
+    >>> print(skf)
+    StratifiedKFold(n_splits=2, random_state=None, shuffle=False)
+    >>> for train_index, test_index in skf.split(X, y):
+    ...     print("TRAIN:", train_index, "TEST:", test_index)
+    ...     X_train, X_test = X[train_index], X[test_index]
+    ...     y_train, y_test = y[train_index], y[test_index]
+    TRAIN: [1 3] TEST: [0 2]
+    TRAIN: [0 2] TEST: [1 3]
+    Notes
+    -----
+    The implementation is designed to:
+    * Generate test sets such that all contain the same distribution of
+      classes, or as close as possible.
+    * Be invariant to class label: relabelling ``y = ["Happy", "Sad"]`` to
+      ``y = [1, 0]`` should not change the indices generated.
+    * Preserve order dependencies in the dataset ordering, when
+      ``shuffle=False``: all samples from class k in some test set were
+      contiguous in y, or separated in y by samples from classes other than k.
+    * Generate test sets where the smallest and largest differ by at most one
+      sample.
+    .. versionchanged:: 0.22
+        The previous implementation did not follow the last constraint.
+    See Also
+    --------
+    RepeatedStratifiedKFold : Repeats Stratified K-Fold n times.
+    """
+
+    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
+        super().__init__(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+
+    def _make_test_folds(self, X, y=None):
+        rng = check_random_state(self.random_state)
+        y = np.asarray(y)
+        type_of_target_y = type_of_target(y)
+        allowed_target_types = ("binary", "multiclass")
+        if type_of_target_y not in allowed_target_types:
+            raise ValueError(
+                "Supported target types are: {}. Got {!r} instead.".format(
+                    allowed_target_types, type_of_target_y
+                )
+            )
+
+        y = column_or_1d(y)
+
+        _, y_idx, y_inv = np.unique(y, return_index=True, return_inverse=True)
+        # y_inv encodes y according to lexicographic order. We invert y_idx to
+        # map the classes so that they are encoded by order of appearance:
+        # 0 represents the first label appearing in y, 1 the second, etc.
+        _, class_perm = np.unique(y_idx, return_inverse=True)
+        y_encoded = class_perm[y_inv]
+
+        n_classes = len(y_idx)
+        y_counts = np.bincount(y_encoded)
+        min_groups = np.min(y_counts)
+        if np.all(self.n_splits > y_counts):
+            raise ValueError(
+                "n_splits=%d cannot be greater than the"
+                " number of members in each class." % (self.n_splits)
+            )
+        if self.n_splits > min_groups:
+            warnings.warn(
+                "The least populated class in y has only %d"
+                " members, which is less than n_splits=%d."
+                % (min_groups, self.n_splits),
+                UserWarning,
+            )
+
+        # Determine the optimal number of samples from each class in each fold,
+        # using round robin over the sorted y. (This can be done direct from
+        # counts, but that code is unreadable.)
+        y_order = np.sort(y_encoded)
+        allocation = np.asarray(
+            [
+                np.bincount(y_order[i :: self.n_splits], minlength=n_classes)
+                for i in range(self.n_splits)
+            ]
+        )
+
+        # To maintain the data order dependencies as best as possible within
+        # the stratification constraint, we assign samples from each class in
+        # blocks (and then mess that up when shuffle=True).
+        test_folds = np.empty(len(y), dtype="i")
+        for k in range(n_classes):
+            # since the kth column of allocation stores the number of samples
+            # of class k in each test set, this generates blocks of fold
+            # indices corresponding to the allocation for class k.
+            folds_for_class = np.arange(self.n_splits).repeat(allocation[:, k])
+            if self.shuffle:
+                rng.shuffle(folds_for_class)
+            test_folds[y_encoded == k] = folds_for_class
+        return test_folds
+
+    def _iter_test_masks(self, X, y=None, groups=None):
+        test_folds = self._make_test_folds(X, y)
+        for i in range(self.n_splits):
+            yield test_folds == i
+
+    def split(self, X, y, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+            Note that providing ``y`` is sufficient to generate the splits and
+            hence ``np.zeros(n_samples)`` may be used as a placeholder for
+            ``X`` instead of actual training data.
+        y : array-like of shape (n_samples,)
+            The target variable for supervised learning problems.
+            Stratification is done based on the y labels.
+        groups : object
+            Always ignored, exists for compatibility.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        Notes
+        -----
+        Randomized CV splitters may return different results for each call of
+        split. You can make the results identical by setting `random_state`
+        to an integer.
+        """
+        y = check_array(y, ensure_2d=False, dtype=None)
+        return super().split(X, y, groups)
