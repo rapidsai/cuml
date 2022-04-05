@@ -117,7 +117,7 @@ class FIL : public RegressionFixture<float> {
   }
 
  private:
-  ML::fil::forest_t forest;
+  ML::fil::forest_t<float> forest;
   ModelHandle model;
   Params p_rest;
 };
