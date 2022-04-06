@@ -287,7 +287,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     r.uniform(thresholds_d.data(), num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d.data(), num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d.data(), num_nodes, 0.5f, stream);
-    r.bernoulli(is_leafs_d.data(), num_nodes, 1.0f - ps.leaf_prob, stream);
+    r.bernoulli(is_leafs_d.data(), num_nodes, ps.leaf_prob, stream);
     hard_clipped_bernoulli(
       r, is_categoricals_d.data(), num_nodes, 1.0f - ps.node_categorical_prob, stream);
 
@@ -378,12 +378,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // initialize nodes
     nodes.resize(num_nodes);
     for (size_t i = 0; i < num_nodes; ++i) {
-      fil::val_t w;
+      fil::val_t<float> w;
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::CATEGORICAL_LEAF: w.idx = weights_h[i]; break;
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
-          // not relying on fil::val_t internals
+          // not relying on fil::val_t<float> internals
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
           break;
@@ -392,13 +392,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       }
       // make sure nodes are categorical only when their feature ID is categorical
       bool is_categorical = is_categoricals_h[i] == 1.0f;
-      val_t split;
+      val_t<float> split;
       if (is_categorical)
         split.idx = node_cat_set[i];
       else
         split.f = thresholds_h[i];
       nodes[i] =
-        fil::dense_node(w, split, fids_h[i], def_lefts_h[i], is_leafs_h[i], is_categorical);
+        fil::dense_node<float>(w, split, fids_h[i], def_lefts_h[i], is_leafs_h[i], is_categorical);
     }
 
     // clean up
@@ -423,7 +423,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                       thrust::counting_iterator(0),
                       data_d.data(),
                       replace_some_floating_with_categorical{fid_num_cats_d.data(), ps.num_cols});
-    r.bernoulli(mask_d.data(), num_data, ps.nan_prob, stream);
+    r.bernoulli(mask_d.data(), num_data, 1 - ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
       data_d.data(), mask_d.data(), num_data, std::numeric_limits<float>::quiet_NaN());
@@ -591,13 +591,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                                   stream));
   }
 
-  fil::val_t infer_one_tree(fil::dense_node* root, float* data, const tree_base& tree)
+  fil::val_t<float> infer_one_tree(fil::dense_node<float>* root, float* data, const tree_base& tree)
   {
     int curr = 0;
-    fil::val_t output{.f = 0.0f};
+    fil::val_t<float> output{.f = 0.0f};
     for (;;) {
-      const fil::dense_node& node = root[curr];
-      if (node.is_leaf()) return node.template output<val_t>();
+      const fil::dense_node<float>& node = root[curr];
+      if (node.is_leaf()) return node.template output<val_t<float>>();
       float val = data[node.fid()];
       curr      = tree.child_index<true>(node, curr, val);
     }
@@ -625,7 +625,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> want_proba_h;
 
   // forest data
-  std::vector<fil::dense_node> nodes;
+  std::vector<fil::dense_node<float>> nodes;
   std::vector<float> vector_leaf;
   cat_sets_owner cat_sets_h;
   rmm::device_uvector<int> fids_d           = rmm::device_uvector<int>(0, cudaStream_t());
@@ -635,16 +635,16 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 template <typename fil_node_t>
 class BasePredictFilTest : public BaseFilTest {
  protected:
-  void dense2sparse_node(const fil::dense_node* dense_root,
+  void dense2sparse_node(const fil::dense_node<float>* dense_root,
                          int i_dense,
                          int i_sparse_root,
                          int i_sparse)
   {
-    const fil::dense_node& node = dense_root[i_dense];
+    const fil::dense_node<float>& node = dense_root[i_dense];
     if (node.is_leaf()) {
       // leaf sparse node
-      sparse_nodes[i_sparse] =
-        fil_node_t(node.output<val_t>(), {}, node.fid(), node.def_left(), node.is_leaf(), false, 0);
+      sparse_nodes[i_sparse] = fil_node_t(
+        node.output<val_t<float>>(), {}, node.fid(), node.def_left(), node.is_leaf(), false, 0);
       return;
     }
     // inner sparse node
@@ -663,7 +663,7 @@ class BasePredictFilTest : public BaseFilTest {
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root, left_index + 1);
   }
 
-  void dense2sparse_tree(const fil::dense_node* dense_root)
+  void dense2sparse_tree(const fil::dense_node<float>* dense_root)
   {
     int i_sparse_root = sparse_nodes.size();
     sparse_nodes.push_back(fil_node_t());
@@ -719,8 +719,8 @@ class BasePredictFilTest : public BaseFilTest {
   std::vector<int> trees;
 };
 
-typedef BasePredictFilTest<fil::dense_node> PredictDenseFilTest;
-typedef BasePredictFilTest<fil::sparse_node16> PredictSparse16FilTest;
+typedef BasePredictFilTest<fil::dense_node<float>> PredictDenseFilTest;
+typedef BasePredictFilTest<fil::sparse_node16<float>> PredictSparse16FilTest;
 typedef BasePredictFilTest<fil::sparse_node8> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
@@ -732,7 +732,7 @@ class TreeliteFilTest : public BaseFilTest {
   {
     int key = (*pkey)++;
     builder->CreateNode(key);
-    const fil::dense_node& dense_node = nodes[node];
+    const fil::dense_node<float>& dense_node = nodes[node];
     std::vector<std::uint32_t> left_categories;
     if (dense_node.is_leaf()) {
       switch (ps.leaf_algo) {
@@ -867,7 +867,7 @@ class TreeliteFilTest : public BaseFilTest {
     params.n_items           = ps.n_items;
     params.pforest_shape_str = ps.print_forest_shape ? &forest_shape_str : nullptr;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     if (ps.print_forest_shape) {
       std::string str(forest_shape_str);
       for (const char* substr : {"model size",

@@ -42,16 +42,18 @@ class TargetEncoder:
         Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
-    split_method : {'random', 'continuous', 'interleaved'},
-        default='interleaved'
+    split_method : {'random', 'continuous', 'interleaved'}, \
+        (default='interleaved')
         Method to split train data into `n_folds`.
         'random': random split.
         'continuous': consecutive samples are grouped into one folds.
         'interleaved': samples are assign to each fold in a round robin way.
         'customize': customize splitting by providing a `fold_ids` array
-                     in `fit()` or `fit_transform()` functions.
-    output_type: {'cupy', 'numpy', 'auto'}, default = 'auto'
+        in `fit()` or `fit_transform()` functions.
+    output_type : {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
+    stat : {'mean','var'}, default = 'mean'
+        The statistic used in encoding, mean or variance of the target.
 
     References
     ----------
@@ -63,28 +65,24 @@ class TargetEncoder:
 
     .. code-block:: python
 
-        from cudf import DataFrame, Series
+        >>> from cudf import DataFrame, Series
+        >>> from cuml.preprocessing import TargetEncoder
+        >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
+        ...                    'label': [1, 0, 1, 1]})
+        >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
-        train = DataFrame({'category': ['a', 'b', 'b', 'a'],
-                           'label': [1, 0, 1, 1]})
-        test = DataFrame({'category': ['a', 'c', 'b', 'a']})
-
-        encoder = TargetEncoder()
-        train_encoded = encoder.fit_transform(train.category, train.label)
-        test_encoded = encoder.transform(test.category)
-        print(train_encoded)
-        print(test_encoded)
-
-    Output:
-
-    .. code-block:: python
-
+        >>> encoder = TargetEncoder()
+        >>> train_encoded = encoder.fit_transform(train.category, train.label)
+        >>> test_encoded = encoder.transform(test.category)
+        >>> print(train_encoded)
         [1. 1. 0. 1.]
+        >>> print(test_encoded)
         [1.   0.75 0.5  1.  ]
 
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
-                 split_method='interleaved', output_type='auto'):
+                 split_method='interleaved', output_type='auto',
+                 stat='mean'):
         if smooth < 0:
             raise ValueError(f'smooth {smooth} is not zero or positive')
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -95,6 +93,10 @@ class TargetEncoder:
                    " or 'numpy' or 'auto', "
                    "got {0}.".format(output_type))
             raise ValueError(msg)
+        if stat not in {'mean', 'var'}:
+            msg = ("stat should be either 'mean' or 'var'."
+                   f"got {stat}.")
+            raise ValueError(msg)
 
         if not isinstance(seed, int):
             raise ValueError('seed {} is not an integer'.format(seed))
@@ -103,20 +105,23 @@ class TargetEncoder:
                                 'customize'}:
             msg = ("split_method should be either 'random'"
                    " or 'continuous' or 'interleaved', or 'customize'"
-                   "got {0}.".format(self.split))
+                   "got {0}.".format(split_method))
             raise ValueError(msg)
 
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
-        self.split = split_method
+        self.split_method = split_method
         self.y_col = '__TARGET__'
+        self.y_col2 = '__TARGET__SQUARE__'
         self.x_col = '__FEA__'
         self.out_col = '__TARGET_ENCODE__'
+        self.out_col2 = '__TARGET_ENCODE__SQUARE__'
         self.fold_col = '__FOLD__'
         self.id_col = '__INDEX__'
         self.train = None
         self.output_type = output_type
+        self.stat = stat
 
     def fit(self, x, y, fold_ids=None):
         """
@@ -124,12 +129,12 @@ class TargetEncoder:
 
         Parameters
         ----------
-        x: cudf.Series or cudf.DataFrame or cupy.ndarray
+        x : cudf.Series or cudf.DataFrame or cupy.ndarray
            categories to be encoded. It's elements may or may
            not be unique
         y : cudf.Series or cupy.ndarray
             Series containing the target variable.
-        fold_ids: cudf.Series or cupy.ndarray
+        fold_ids : cudf.Series or cupy.ndarray
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
@@ -139,12 +144,12 @@ class TargetEncoder:
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-        if self.split == 'customize' and fold_ids is None:
+        if self.split_method == 'customize' and fold_ids is None:
             raise ValueError("`fold_ids` is required "
                              "since split_method is set to"
                              "'customize'.")
-        if fold_ids is not None and self.split != 'customize':
-            self.split == 'customize'
+        if fold_ids is not None and self.split_method != 'customize':
+            self.split_method == 'customize'
             warnings.warn("split_method is set to 'customize'"
                           "since `fold_ids` are provided.")
         if fold_ids is not None and len(fold_ids) != len(x):
@@ -167,12 +172,12 @@ class TargetEncoder:
 
         Parameters
         ----------
-        x: cudf.Series or cudf.DataFrame or cupy.ndarray
+        x : cudf.Series or cudf.DataFrame or cupy.ndarray
            categories to be encoded. It's elements may or may
            not be unique
         y : cudf.Series or cupy.ndarray
             Series containing the target variable.
-        fold_ids: cudf.Series or cupy.ndarray
+        fold_ids : cudf.Series or cupy.ndarray
             Series containing the indices of the customized
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
@@ -229,13 +234,26 @@ class TargetEncoder:
 
         self.mean = train[self.y_col].mean()
 
+        if self.stat == 'var':
+            y_cols = [self.y_col, self.y_col2]
+            train[self.y_col2] = self._make_y_column(y*y)
+            self.mean2 = train[self.y_col2].mean()
+            var = self.mean2 - self.mean**2
+            n = train.shape[0]
+            self.var = var * n / (n-1)
+        else:
+            y_cols = [self.y_col]
+
         y_count_each_fold, y_count_all = self._groupby_agg(train,
                                                            x_cols,
-                                                           op='count')
+                                                           op='count',
+                                                           y_cols=y_cols)
 
         y_sum_each_fold, y_sum_all = self._groupby_agg(train,
                                                        x_cols,
-                                                       op='sum')
+                                                       op='sum',
+                                                       y_cols=y_cols)
+
         """
         Note:
             encode_each_fold is used to encode train data.
@@ -245,11 +263,14 @@ class TargetEncoder:
         encode_each_fold = self._compute_output(y_sum_each_fold,
                                                 y_count_each_fold,
                                                 cols,
-                                                f'{self.y_col}_x')
+                                                f'{self.y_col}_x',
+                                                f'{self.y_col2}_x')
         encode_all = self._compute_output(y_sum_all,
                                           y_count_all,
                                           x_cols,
-                                          self.y_col)
+                                          self.y_col,
+                                          self.y_col2)
+
         self.encode_all = encode_all
 
         train = train.merge(encode_each_fold, on=cols, how='left')
@@ -279,29 +300,29 @@ class TargetEncoder:
 
     def _make_fold_column(self, len_train, fold_ids):
         """
-        Create a fold id column for each split_method
+        Create a fold id column for each split
         """
 
-        if self.split == 'random':
+        if self.split_method == 'random':
             return cp.random.randint(0, self.n_folds, len_train)
-        elif self.split == 'continuous':
+        elif self.split_method == 'continuous':
             return (cp.arange(len_train) /
                     (len_train/self.n_folds)) % self.n_folds
-        elif self.split == 'interleaved':
+        elif self.split_method == 'interleaved':
             return cp.arange(len_train) % self.n_folds
-        elif self.split == 'customize':
+        elif self.split_method == 'customize':
             if fold_ids is None:
                 raise ValueError("fold_ids can't be None"
                                  "since split_method is set to"
                                  "'customize'.")
             return fold_ids
         else:
-            msg = ("split should be either 'random'"
+            msg = ("split_method should be either 'random'"
                    " or 'continuous' or 'interleaved', "
-                   "got {0}.".format(self.split))
+                   "got {0}.".format(self.split_method))
             raise ValueError(msg)
 
-    def _compute_output(self, df_sum, df_count, cols, y_col):
+    def _compute_output(self, df_sum, df_count, cols, y_col, y_col2=None):
         """
         Compute the output encoding based on aggregated sum and count
         """
@@ -311,22 +332,33 @@ class TargetEncoder:
                                 smooth*self.mean) / \
                                (df_sum[f'{y_col}_y'] +
                                 smooth)
+        if self.stat == 'var':
+            df_sum[self.out_col2] = (df_sum[f'{y_col2}_x'] +
+                                     smooth*self.mean2) / \
+                                    (df_sum[f'{y_col2}_y'] +
+                                     smooth)
+            df_sum[self.out_col] = df_sum[self.out_col2] - \
+                df_sum[self.out_col]**2
+            df_sum[self.out_col] = df_sum[self.out_col] * \
+                df_sum[f'{y_col2}_y'] / \
+                (df_sum[f'{y_col2}_y'] - 1)
         return df_sum
 
-    def _groupby_agg(self, train, x_cols, op):
+    def _groupby_agg(self, train, x_cols, op, y_cols):
         """
         Compute aggregated value of each fold and overall dataframe
         grouped by `x_cols` and agg by `op`
         """
         cols = [self.fold_col]+x_cols
         df_each_fold = train.groupby(cols, as_index=False)\
-            .agg({self.y_col: op})
+            .agg({y_col: op for y_col in y_cols})
         df_all = df_each_fold.groupby(x_cols, as_index=False)\
-            .agg({self.y_col: 'sum'})
+            .agg({y_col: 'sum' for y_col in y_cols})
 
         df_each_fold = df_each_fold.merge(df_all, on=x_cols, how='left')
-        df_each_fold[f'{self.y_col}_x'] = df_each_fold[f'{self.y_col}_y'] -\
-            df_each_fold[f'{self.y_col}_x']
+        for y_col in y_cols:
+            df_each_fold[f'{y_col}_x'] = df_each_fold[f'{y_col}_y'] -\
+                df_each_fold[f'{y_col}_x']
         return df_each_fold, df_all
 
     def _check_is_fitted(self):
@@ -355,8 +387,9 @@ class TargetEncoder:
         """
         Impute and sort the result encoding in the same row order as input
         """
+        impute_val = self.var if self.stat == 'var' else self.mean
         df[self.out_col] = df[self.out_col].nans_to_nulls()
-        df[self.out_col] = df[self.out_col].fillna(self.mean)
+        df[self.out_col] = df[self.out_col].fillna(impute_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
         if self.output_type == 'numpy':
@@ -394,7 +427,7 @@ class TargetEncoder:
                 "or pandas.Series or pandas.DataFrame"
                 "or cupy.ndarray or numpy.ndarray")
         df[self.id_col] = cp.arange(len(x))
-        return df
+        return df.reset_index(drop=True)
 
     def _get_output_type(self, x):
         """
@@ -407,3 +440,19 @@ class TargetEncoder:
                 or isinstance(x, pandas.Series):
             return 'numpy'
         return 'cupy'
+
+    def get_param_names(self):
+        return [
+            "n_folds", "smooth", "seed", "split_method",
+        ]
+
+    def get_params(self, deep=False):
+        """
+        Returns a dict of all params owned by this class.
+        """
+        params = dict()
+        variables = self.get_param_names()
+        for key in variables:
+            var_value = getattr(self, key, None)
+            params[key] = var_value
+        return params

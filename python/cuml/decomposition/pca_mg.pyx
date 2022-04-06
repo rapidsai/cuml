@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,34 +31,16 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
-
 import cuml.internals
+
+from raft.common.handle cimport handle_t
+
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
-from cuml.decomposition.utils cimport paramsSolver
 from cuml.common.opg_data_utils_mg cimport *
-
 from cuml.decomposition import PCA
-from cuml.decomposition.base_mg import BaseDecompositionMG
-
-
-ctypedef int underlying_type_t_solver
-
-
-cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
-
-    ctypedef enum mg_solver "ML::mg_solver":
-        COV_EIG_DQ "ML::mg_solver::COV_EIG_DQ"
-        COV_EIG_JACOBI "ML::mg_solver::COV_EIG_JACOBI"
-        QR "ML::mg_solver::QR"
-
-    cdef cppclass paramsTSVDMG(paramsSolver):
-        size_t n_components
-        mg_solver algorithm  # = solver::COV_EIG_DQ
-
-    cdef cppclass paramsPCAMG(paramsTSVDMG):
-        bool copy
-        bool whiten
+from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
+from cuml.decomposition.utils cimport *
+from cuml.decomposition.utils_mg cimport *
 
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
@@ -88,12 +70,6 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
 
-class MGSolver(IntEnum):
-    COV_EIG_DQ = <underlying_type_t_solver> mg_solver.COV_EIG_DQ
-    COV_EIG_JACOBI = <underlying_type_t_solver> mg_solver.COV_EIG_JACOBI
-    QR = <underlying_type_t_solver> mg_solver.QR
-
-
 class PCAMG(BaseDecompositionMG, PCA):
 
     def __init__(self, **kwargs):
@@ -103,6 +79,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         algo_map = {
             'full': MGSolver.COV_EIG_DQ,
             'auto': MGSolver.COV_EIG_JACOBI,
+            'jacobi': MGSolver.COV_EIG_JACOBI,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
         }
@@ -118,7 +95,6 @@ class PCAMG(BaseDecompositionMG, PCA):
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
-        params.n_iterations = self.iterated_power
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))

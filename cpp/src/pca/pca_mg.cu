@@ -20,16 +20,16 @@
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 
-#include <opg/linalg/qr_based_svd.hpp>
-#include <opg/matrix/matrix_utils.hpp>
-#include <opg/stats/cov.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
+#include <cumlprims/opg/linalg/qr_based_svd.hpp>
+#include <cumlprims/opg/matrix/matrix_utils.hpp>
+#include <cumlprims/opg/stats/cov.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
+#include <raft/linalg/transpose.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/stats/mean_center.hpp>
 
@@ -129,7 +129,7 @@ void fit_impl(raft::handle_t& handle,
              n_streams,
              verbose);
     for (std::uint32_t i = 0; i < n_streams; i++) {
-      RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+      handle.sync_stream(streams[i]);
     }
   } else if (prms.algorithm == mg_solver::QR) {
     const raft::handle_t& h = handle;
@@ -141,7 +141,7 @@ void fit_impl(raft::handle_t& handle,
     Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
     Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams, n_streams);
     for (std::uint32_t i = 0; i < n_streams; i++) {
-      RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+      handle.sync_stream(streams[i]);
     }
 
     // Allocate Q, S and V and call QR
@@ -205,7 +205,7 @@ void fit_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -283,7 +283,7 @@ void transform_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 }
 
@@ -342,7 +342,7 @@ void transform_impl(raft::handle_t& handle,
                  verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -411,7 +411,7 @@ void inverse_transform_impl(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 }
 
@@ -468,7 +468,7 @@ void inverse_transform_impl(raft::handle_t& handle,
                          verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -550,7 +550,7 @@ void fit_transform_impl(raft::handle_t& handle,
   sign_flip(handle, trans_data, input_desc, components, prms.n_components, streams, n_streams);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {

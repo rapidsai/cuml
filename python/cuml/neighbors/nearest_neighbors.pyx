@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 
@@ -170,7 +170,7 @@ class NearestNeighbors(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    algorithm : string (default='brute')
+    algorithm : string (default='auto')
         The query algorithm to use. Valid options are:
 
         - ``'auto'``: to automatically select brute-force or
@@ -196,26 +196,20 @@ class NearestNeighbors(Base,
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
         'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
-    p : float (default=2) Parameter for the Minkowski metric. When p = 1, this
-        is equivalent to manhattan distance (l1), and euclidean distance (l2)
-        for p = 2. For arbitrary p, minkowski distance (lp) is used.
+    p : float (default=2)
+        Parameter for the Minkowski metric. When p = 1, this is equivalent to
+        manhattan distance (l1), and euclidean distance (l2) for p = 2. For
+        arbitrary p, minkowski distance (lp) is used.
     algo_params : dict, optional (default=None)
-        Named arguments for controlling the behavior of different nearest
-        neighbors algorithms.
-
-        When algorithm='brute' and inputs are sparse:
+        Used to configure the nearest neighbor algorithm to be used.
+        If set to None, parameters will be generated automatically.
+        Parameters for algorithm ``'brute'`` when inputs are sparse:
 
             - batch_size_index : (int) number of rows in each batch of \
                                  index array
             - batch_size_query : (int) number of rows in each batch of \
                                  query array
 
-    metric_expanded : bool
-        Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
-        by using the expanded form and not computing the n-th roots.
-    algo_params : dict, optional (default = None) Used to configure the
-        nearest neighbor algorithm to be used.
-        If set to None, parameters will be generated automatically.
         Parameters for algorithm ``'ivfflat'``:
 
             - nlist: (int) number of cells to partition dataset into
@@ -238,6 +232,11 @@ class NearestNeighbors(Base,
               QT_6bit)
             - encodeResidual: (bool) wether to encode residuals
 
+    metric_expanded : bool
+        Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
+        by using the expanded form and not computing the n-th roots.
+        This is currently ignored.
+
     metric_params : dict, optional (default = None)
         This is currently ignored.
 
@@ -249,60 +248,42 @@ class NearestNeighbors(Base,
 
     Examples
     --------
+
     .. code-block:: python
 
-        import cudf
-        from cuml.neighbors import NearestNeighbors
-        from cuml.datasets import make_blobs
+        >>> import cudf
+        >>> from cuml.neighbors import NearestNeighbors
+        >>> from cuml.datasets import make_blobs
 
-        X, _ = make_blobs(n_samples=25, centers=5,
-                            n_features=10, random_state=42)
+        >>> X, _ = make_blobs(n_samples=5, centers=5,
+        ...                   n_features=10, random_state=42)
 
-        # build a cudf Dataframe
-        X_cudf = cudf.DataFrame(X)
+        >>> # build a cudf Dataframe
+        >>> X_cudf = cudf.DataFrame(X)
 
-        # fit model
-        model = NearestNeighbors(n_neighbors=3)
-        model.fit(X)
+        >>> # fit model
+        >>> model = NearestNeighbors(n_neighbors=3)
+        >>> model.fit(X)
+        NearestNeighbors()
 
-        # get 3 nearest neighbors
-        distances, indices = model.kneighbors(X_cudf)
+        >>> # get 3 nearest neighbors
+        >>> distances, indices = model.kneighbors(X_cudf)
 
-        # print results
-        print(indices)
-        print(distances)
-
-
-    Output:
-
-    .. code-block::
-
-        indices:
-
-             0   1   2
-        0    0  14  21
-        1    1  19   8
-        2    2   9  23
-        3    3  14  21
-        ...
-
-        22  22  18  11
-        23  23  16   9
-        24  24  17  10
-
-        distances:
-
-              0         1         2
-        0   0.0  4.883116  5.570006
-        1   0.0  3.047896  4.105496
-        2   0.0  3.558557  3.567704
-        3   0.0  3.806127  3.880100
-        ...
-
-        22  0.0  4.210738  4.227068
-        23  0.0  3.357889  3.404269
-        24  0.0  3.428183  3.818043
-
+        >>> # print results
+        >>> print(indices)
+        0  1  2
+        0  0  1  3
+        1  1  0  2
+        2  2  4  0
+        3  3  0  2
+        4  4  2  3
+        >>> print(distances) # doctest: +SKIP
+                0          1          2
+        0  0.007812  24.786566  26.399996
+        1  0.000000  24.786566  30.045017
+        2  0.007812   5.458400  27.051241
+        3  0.000000  26.399996  27.543869
+        4  0.000000   5.458400  29.583437
 
     Notes
     -----
@@ -950,7 +931,26 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         If it is None, a new one is created.
 
     algorithm : string (default='brute')
-        The query algorithm to use. Currently, only 'brute' is supported.
+        The query algorithm to use. Valid options are:
+
+        - ``'auto'``: to automatically select brute-force or
+          random ball cover based on data shape and metric
+        - ``'rbc'``: for the random ball algorithm, which partitions
+          the data space and uses the triangle inequality to lower the
+          number of potential distances. Currently, this algorithm
+          supports 2d Euclidean and Haversine.
+        - ``'brute'``: for brute-force, slow but produces exact results
+        - ``'ivfflat'``: for inverted file, divide the dataset in partitions
+          and perform search on relevant partitions only
+        - ``'ivfpq'``: for inverted file and product quantization,
+          same as inverted list, in addition the vectors are broken
+          in n_features/M sub-vectors that will be encoded thanks
+          to intermediary k-means clusterings. This encoding provide
+          partial information allowing faster distances calculations
+        - ``'ivfsq'``: for inverted file and scalar quantization,
+          same as inverted list, in addition vectors components
+          are quantized into reduced binary representation allowing
+          faster distances calculations
 
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',

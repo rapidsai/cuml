@@ -19,14 +19,11 @@
 #include <pca/pca.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
 #include <raft/random/rng.hpp>
 #include <test_utils.h>
 #include <vector>
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename T>
 struct PcaInputs {
@@ -71,7 +68,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
  protected:
   void basicTest()
   {
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenPC);
     int len = params.len;
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
@@ -137,7 +134,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
   void advancedTest()
   {
-    raft::random::Rng r(params.seed, raft::random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenPC);
     int len = params.len2;
 
     paramsPCA prms;

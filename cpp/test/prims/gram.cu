@@ -23,7 +23,6 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mr/host/allocator.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -116,7 +115,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
     std::vector<math_t> x2_host(x2.size());
     raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     for (int i = 0; i < params.n1; i++) {
       for (int j = 0; j < params.n2; j++) {

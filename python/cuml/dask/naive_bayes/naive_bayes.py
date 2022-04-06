@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,50 +51,41 @@ class MultinomialNB(BaseEstimator,
 
     .. code-block:: python
 
-        import cupy as cp
+        >>> import cupy as cp
 
-        from sklearn.datasets import fetch_20newsgroups
-        from sklearn.feature_extraction.text import CountVectorizer
+        >>> from sklearn.datasets import fetch_20newsgroups
+        >>> from sklearn.feature_extraction.text import CountVectorizer
 
-        from dask_cuda import LocalCUDACluster
-        from dask.distributed import Client
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> import dask
+        >>> from cuml.dask.common import to_sparse_dask_array
+        >>> from cuml.dask.naive_bayes import MultinomialNB
 
-        from cuml.dask.common import to_sparse_dask_array
+        >>> # Create a local CUDA cluster
+        >>> cluster = LocalCUDACluster()
+        >>> client = Client(cluster)
 
-        from cuml.dask.naive_bayes import MultinomialNB
+        >>> # Load corpus
+        >>> twenty_train = fetch_20newsgroups(subset='train',
+        ...                           shuffle=True, random_state=42)
 
-        # Create a local CUDA cluster
+        >>> cv = CountVectorizer()
+        >>> xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
+        >>> X = to_sparse_dask_array(xformed, client)
+        >>> y = dask.array.from_array(twenty_train.target, asarray=False,
+        ...                       fancy=False).astype(cp.int32)
 
-        cluster = LocalCUDACluster()
-        client = Client(cluster)
+        >>> # Train model
+        >>> model = MultinomialNB()
+        >>> model.fit(X, y)
+        <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
 
-        # Load corpus
-
-        twenty_train = fetch_20newsgroups(subset='train',
-                                  shuffle=True, random_state=42)
-
-        cv = CountVectorizer()
-        xformed = cv.fit_transform(twenty_train.data).astype(cp.float32)
-
-        X = to_sparse_dask_array(xformed, client)
-        y = dask.array.from_array(twenty_train.target, asarray=False,
-                              fancy=False).astype(cp.int32)
-
-        # Train model
-
-        model = MultinomialNB()
-        model.fit(X, y)
-
-        # Compute accuracy on training set
-
-        model.score(X, y)
-
-
-    Output:
-
-    .. code-block:: python
-
-        0.9244298934936523
+        >>> # Compute accuracy on training set
+        >>> model.score(X, y)
+        array(0.924...)
+        >>> client.close()
+        >>> cluster.close()
 
     """
     def __init__(self, *, client=None, verbose=False, **kwargs):

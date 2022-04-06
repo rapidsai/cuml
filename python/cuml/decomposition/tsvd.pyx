@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -119,63 +119,54 @@ class TruncatedSVD(Base,
 
     .. code-block:: python
 
-        # Both import methods supported
-        from cuml import TruncatedSVD
-        from cuml.decomposition import TruncatedSVD
+        >>> # Both import methods supported
+        >>> from cuml import TruncatedSVD
+        >>> from cuml.decomposition import TruncatedSVD
 
-        import cudf
-        import numpy as np
+        >>> import cudf
+        >>> import cupy as cp
 
-        gdf_float = cudf.DataFrame()
-        gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
-        gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-        gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        >>> gdf_float = cudf.DataFrame()
+        >>> gdf_float['0'] = cp.asarray([1.0,2.0,5.0], dtype=cp.float32)
+        >>> gdf_float['1'] = cp.asarray([4.0,2.0,1.0], dtype=cp.float32)
+        >>> gdf_float['2'] = cp.asarray([4.0,2.0,1.0], dtype=cp.float32)
 
-        tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
-                                  n_iter = 20, tol = 1e-9)
-        tsvd_float.fit(gdf_float)
+        >>> tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
+        ...                           n_iter = 20, tol = 1e-9)
+        >>> tsvd_float.fit(gdf_float)
+        TruncatedSVD()
+        >>> print(f'components: {tsvd_float.components_}') # doctest: +SKIP
+        components:           0         1         2
+        0  0.587259  0.572331  0.572331
+        1  0.809399 -0.415255 -0.415255
+        >>> exp_var = tsvd_float.explained_variance_
+        >>> print(f'explained variance: {exp_var}')
+        explained variance: 0    0.494...
+        1    5.505...
+        dtype: float32
+        >>> exp_var_ratio = tsvd_float.explained_variance_ratio_
+        >>> print(f'explained variance ratio: {exp_var_ratio}')
+        explained variance ratio: 0    0.082...
+        1    0.917...
+        dtype: float32
+        >>> sing_values = tsvd_float.singular_values_
+        >>> print(f'singular values: {sing_values}')
+        singular values: 0    7.439...
+        1    4.081...
+        dtype: float32
 
-        print(f'components: {tsvd_float.components_}')
-        print(f'explained variance: {tsvd_float._explained_variance_}')
-        exp_var = tsvd_float._explained_variance_ratio_
-        print(f'explained variance ratio: {exp_var}')
-        print(f'singular values: {tsvd_float._singular_values_}')
-
-        trans_gdf_float = tsvd_float.transform(gdf_float)
-        print(f'Transformed matrix: {trans_gdf_float}')
-
-        input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
-        print(f'Input matrix: {input_gdf_float}')
-
-    Output:
-
-    .. code-block:: python
-
-        components:            0           1          2
-        0 0.58725953  0.57233137  0.5723314
-        1 0.80939883 -0.41525528 -0.4152552
-        explained variance:
-        0  55.33908
-        1 16.660923
-
-        explained variance ratio:
-        0  0.7685983
-        1 0.23140171
-
-        singular values:
-        0  7.439024
-        1 4.0817795
-
-        Transformed Matrix:
-        0           1         2
-        0   5.1659107    -2.512643
-        1   3.4638448    -0.042223275
-        2    4.0809603   3.2164836
-
-        Input matrix:           0         1         2
-        0       1.0  4.000001  4.000001
-        1 2.0000005 2.0000005 2.0000007
-        2  5.000001 0.9999999 1.0000004
+        >>> trans_gdf_float = tsvd_float.transform(gdf_float)
+        >>> print(f'Transformed matrix: {trans_gdf_float}') # doctest: +SKIP
+        Transformed matrix:           0         1
+        0  5.165910 -2.512643
+        1  3.463844 -0.042223
+        2  4.080960  3.216484
+        >>> input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
+        >>> print(f'Input matrix: {input_gdf_float}')
+        Input matrix:      0    1    2
+        0  1.0  4.0  4.0
+        1  2.0  2.0  2.0
+        2  5.0  1.0  1.0
 
     Parameters
     -----------

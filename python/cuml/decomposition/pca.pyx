@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common.input_utils import input_to_cuml_array
@@ -133,81 +133,60 @@ class PCA(Base,
 
     .. code-block:: python
 
-        # Both import methods supported
-        from cuml import PCA
-        from cuml.decomposition import PCA
+        >>> # Both import methods supported
+        >>> from cuml import PCA
+        >>> from cuml.decomposition import PCA
 
-        import cudf
-        import numpy as np
+        >>> import cudf
+        >>> import cupy as cp
 
-        gdf_float = cudf.DataFrame()
-        gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
-        gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-        gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        >>> gdf_float = cudf.DataFrame()
+        >>> gdf_float['0'] = cp.asarray([1.0,2.0,5.0], dtype = cp.float32)
+        >>> gdf_float['1'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
+        >>> gdf_float['2'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
 
-        pca_float = PCA(n_components = 2)
-        pca_float.fit(gdf_float)
+        >>> pca_float = PCA(n_components = 2)
+        >>> pca_float.fit(gdf_float)
+        PCA()
 
-        print(f'components: {pca_float.components_}')
-        print(f'explained variance: {pca_float.explained_variance_}')
-        exp_var = pca_float.explained_variance_ratio_
-        print(f'explained variance ratio: {exp_var}')
+        >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
+        components: 0           1           2
+        0  0.69225764  -0.5102837 -0.51028395
+        1 -0.72165036 -0.48949987  -0.4895003
+        >>> print(f'explained variance: {pca_float.explained_variance_}')
+        explained variance: 0   8.510...
+        1 0.489...
+        dtype: float32
+        >>> exp_var = pca_float.explained_variance_ratio_
+        >>> print(f'explained variance ratio: {exp_var}')
+        explained variance ratio: 0   0.9456...
+        1 0.054...
+        dtype: float32
 
-        print(f'singular values: {pca_float.singular_values_}')
-        print(f'mean: {pca_float.mean_}')
-        print(f'noise variance: {pca_float.noise_variance_}')
-
-        trans_gdf_float = pca_float.transform(gdf_float)
-        print(f'Inverse: {trans_gdf_float}')
-
-        input_gdf_float = pca_float.inverse_transform(trans_gdf_float)
-        print(f'Input: {input_gdf_float}')
-
-    Output:
-
-    .. code-block:: python
-
-          components:
-                      0           1           2
-                      0  0.69225764  -0.5102837 -0.51028395
-                      1 -0.72165036 -0.48949987  -0.4895003
-
-          explained variance:
-
-                      0   8.510402
-                      1 0.48959687
-
-          explained variance ratio:
-
-                       0   0.9456003
-                       1 0.054399658
-
-          singular values:
-
-                     0 4.1256275
-                     1 0.9895422
-
-          mean:
-
-                    0 2.6666667
-                    1 2.3333333
-                    2 2.3333333
-
-          noise variance:
-
-                0  0.0
-
-          transformed matrix:
-                       0           1
-                       0   -2.8547091 -0.42891636
-                       1 -0.121316016  0.80743366
-                       2    2.9760244 -0.37851727
-
-          Input Matrix:
-                    0         1         2
-                    0 1.0000001 3.9999993       4.0
-                    1       2.0 2.0000002 1.9999999
-                    2 4.9999995 1.0000006       1.0
+        >>> print(f'singular values: {pca_float.singular_values_}')
+        singular values: 0 4.125...
+        1 0.989...
+        dtype: float32
+        >>> print(f'mean: {pca_float.mean_}')
+        mean: 0 2.666...
+        1 2.333...
+        2 2.333...
+        dtype: float32
+        >>> print(f'noise variance: {pca_float.noise_variance_}')
+        noise variance: 0  0.0
+        dtype: float32
+        >>> trans_gdf_float = pca_float.transform(gdf_float)
+        >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
+        Inverse: 0           1
+        0   -2.8547091 -0.42891636
+        1 -0.121316016  0.80743366
+        2    2.9760244 -0.37851727
+        >>> input_gdf_float = pca_float.inverse_transform(trans_gdf_float)
+        >>> print(f'Input: {input_gdf_float}') # doctest: +SKIP
+        Input: 0         1         2
+        0 1.0 4.0 4.0
+        1 2.0 2.0 2.0
+        2 5.0 1.0 1.0
 
     Parameters
     ----------
@@ -229,7 +208,7 @@ class PCA(Base,
         Must be <= number(columns). If n_components is not set, then all
         components are kept:
 
-            n_components = min(n_samples, n_features)
+            ``n_components = min(n_samples, n_features)``
 
     random_state : int / None (default = None)
         If you want results to be the same when you restart Python, select a

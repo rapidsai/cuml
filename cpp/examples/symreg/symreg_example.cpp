@@ -29,7 +29,6 @@
 #include <cuml/genetic/program.h>
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -198,7 +197,6 @@ int main(int argc, char* argv[])
 
   /* ======================= Begin GPU memory allocation ======================= */
   std::cout << "***************************************" << std::endl;
-  std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator());
 
   cudaStream_t stream;
   raft::handle_t handle{stream};

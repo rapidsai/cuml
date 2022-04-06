@@ -21,12 +21,11 @@
 #include "stabilities.cuh"
 #include "utils.h"
 
-#include <label/classlabels.cuh>
+#include <raft/label/classlabels.hpp>
 
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/label/classlabels.cuh>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/op/sort.hpp>
 
@@ -119,7 +118,7 @@ void do_labelling_on_host(const raft::handle_t& handle,
   raft::update_host(
     lambda_h.data(), condensed_tree.get_lambdas(), condensed_tree.get_n_edges(), stream);
 
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   auto parents       = thrust::device_pointer_cast(condensed_tree.get_parents());
   auto thrust_policy = handle.get_thrust_policy();
@@ -230,7 +229,7 @@ value_idx extract_clusters(const raft::handle_t& handle,
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(), stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   std::set<value_idx> clusters;
   for (std::size_t i = 0; i < is_cluster_h.size(); i++) {

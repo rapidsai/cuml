@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from cuml.explainer.common import model_func_call
 from numba import cuda
 from pandas import DataFrame as pd_df
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -139,7 +139,7 @@ class PermutationExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.raft.common.handle (default = None)
+    handle : raft.common.handle (default = None)
         Specifies the handle that holds internal CUDA state for
         computations in this model, a new one is created if it is None.
         Most importantly, this specifies the CUDA stream that will be used for
@@ -158,39 +158,39 @@ class PermutationExplainer(SHAPBase):
 
     Examples
     --------
-    >>> from cuml import SVR
-    >>> from cuml import make_regression
-    >>> from cuml import train_test_split
-    >>>
-    >>> from cuml.explainer import PermutationExplainer
-    >>>
-    >>> X, y = make_regression(
-    ...     n_samples=102,
-    ...     n_features=10,
-    ...     noise=0.1,
-    ...     random_state=42)
-    >>>
-    >>> X_train, X_test, y_train, y_test = train_test_split(
-    ...     X,
-    ...     y,
-    ...     test_size=2,
-    ...     random_state=42)
-    >>>
-    >>> model = SVR().fit(X_train, y_train)
-    >>>
-    >>> cu_explainer = PermutationExplainer(
-    ...     model=model.predict,
-    ...     data=X_train)
-    >>>
-    >>> cu_shap_values = cu_explainer.shap_values(X_test)
-    <class 'list'>
-    >>>
-    >>> cu_shap_values
-    array([[-0.0225287 , -0.15753658, -0.14129443, -0.04841001, -0.21607995,
-            -0.08518306, -0.0558504 , -0.09816966, -0.06009924, -0.05091984],
-           [ 0.23368585,  0.14425121, -0.10782719,  0.4295706 ,  0.12154603,
-             0.509903  ,  0.22636597, -0.01573469,  0.24435756,  0.15525377]],
-          dtype=float32)
+
+    .. code-block:: python
+
+        >>> from cuml import SVR
+        >>> from cuml import make_regression
+        >>> from cuml import train_test_split
+
+        >>> from cuml.explainer import PermutationExplainer
+
+        >>> X, y = make_regression(
+        ...     n_samples=102,
+        ...     n_features=10,
+        ...     noise=0.1,
+        ...     random_state=42)
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...     X,
+        ...     y,
+        ...     test_size=2,
+        ...     random_state=42)
+        >>> model = SVR().fit(X_train, y_train)
+
+        >>> cu_explainer = PermutationExplainer(
+        ...     model=model.predict,
+        ...     data=X_train,
+        ...     random_state=42)
+
+        >>> cu_shap_values = cu_explainer.shap_values(X_test)
+        >>> cu_shap_values  # doctest: +SKIP
+        array([[ 0.16611198, 0.74156773, 0.05906528,  0.30015892, 2.5425286 ,
+                0.0970122 , 0.12258395, 2.1998262 , -0.02968234, -0.8669155 ],
+            [-0.10587756,  0.77705824, -0.08259875, -0.71874434,  1.781551  ,
+                -0.05454511, 0.11826539, -1.1734306 , -0.09629871, 0.4571011]],
+            dtype=float32)
 
     """
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import cudf
 
 from cython.operator cimport dereference as deref
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool
@@ -88,7 +88,7 @@ class KNeighborsClassifier(NearestNeighbors,
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    algorithm : string (default='brute')
+    algorithm : string (default='auto')
         The query algorithm to use. Currently, only 'brute' is supported.
     metric : string (default='euclidean').
         Distance metric to use.
@@ -113,32 +113,25 @@ class KNeighborsClassifier(NearestNeighbors,
 
     Examples
     --------
-    .. code-block:: python
-
-      from cuml.neighbors import KNeighborsClassifier
-
-      from sklearn.datasets import make_blobs
-      from sklearn.model_selection import train_test_split
-
-      X, y = make_blobs(n_samples=100, centers=5,
-                        n_features=10)
-
-      knn = KNeighborsClassifier(n_neighbors=10)
-
-      X_train, X_test, y_train, y_test =
-        train_test_split(X, y, train_size=0.80)
-
-      knn.fit(X_train, y_train)
-
-      knn.predict(X_test)
-
-
-    Output:
 
     .. code-block:: python
 
-      array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
-             0, 3, 0, 0, 0, 0, 3, 2, 0, 0, 0], dtype=int32)
+        >>> from cuml.neighbors import KNeighborsClassifier
+        >>> from cuml.datasets import make_blobs
+        >>> from cuml.model_selection import train_test_split
+
+        >>> X, y = make_blobs(n_samples=100, centers=5,
+        ...                   n_features=10, random_state=5)
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...     X, y, train_size=0.80, random_state=5)
+
+        >>> knn = KNeighborsClassifier(n_neighbors=10)
+
+        >>> knn.fit(X_train, y_train)
+        KNeighborsClassifier()
+        >>> knn.predict(X_test) # doctest: +SKIP
+        array([1., 2., 2., 3., 4., 2., 4., 4., 2., 3., 1., 4., 3., 1., 3., 4., 3., # noqa: E501
+            4., 1., 3.], dtype=float32)
 
     Notes
     ------

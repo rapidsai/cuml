@@ -21,18 +21,18 @@
 
 #include <functions/softThres.cuh>
 
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/norm.hpp>
+#include <cumlprims/opg/linalg/mv_aTb.hpp>
+#include <cumlprims/opg/linalg/norm.hpp>
 
 #include "shuffle.h"
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/multiply.cuh>
-#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/multiply.hpp>
+#include <raft/linalg/subtract.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 
@@ -192,7 +192,7 @@ void fit_impl(raft::handle_t& handle,
       }
 
       for (int k = 0; k < n_streams; k++) {
-        RAFT_CUDA_TRY(cudaStreamSynchronize(streams[k]));
+        handle.sync_stream(streams[k]);
       }
 
       coef_loc_data.ptr       = coef_loc;
@@ -206,7 +206,7 @@ void fit_impl(raft::handle_t& handle,
 
       coef_prev = h_coef[ci];
       raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(streams[0]));
+      handle.sync_stream(streams[0]);
 
       T diff = abs(coef_prev - h_coef[ci]);
 
@@ -231,7 +231,7 @@ void fit_impl(raft::handle_t& handle,
       }
 
       for (int k = 0; k < n_streams; k++) {
-        RAFT_CUDA_TRY(cudaStreamSynchronize(streams[k]));
+        handle.sync_stream(streams[k]);
       }
     }
 
@@ -330,7 +330,7 @@ void fit_impl(raft::handle_t& handle,
            verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -405,7 +405,7 @@ void predict_impl(raft::handle_t& handle,
     handle, input_data, input_desc, coef, intercept, preds_data, streams, n_streams, verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (int i = 0; i < n_streams; i++) {

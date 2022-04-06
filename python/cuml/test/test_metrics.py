@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1474,3 +1474,11 @@ def test_mean_squared_error():
 
     assert mean_squared_error(y1, y2) == 0
     assert mean_squared_error(y2, y1) == 0
+
+
+def test_mean_squared_error_cudf_series():
+    a = cudf.Series([1.1, 2.2, 3.3, 4.4])
+    b = cudf.Series([0.1, 0.2, 0.3, 0.4])
+    err1 = mean_squared_error(a, b)
+    err2 = mean_squared_error(a.values, b.values)
+    assert err1 == err2

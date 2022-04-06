@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 
@@ -122,65 +122,41 @@ class KMeans(Base,
 
     .. code-block:: python
 
-        # Both import methods supported
-        from cuml import KMeans
-        from cuml.cluster import KMeans
-
-        import cudf
-        import numpy as np
-        import pandas as pd
-
-        def np2cudf(df):
-            # convert numpy array to cuDF dataframe
-            df = pd.DataFrame({'fea%d'%i:df[:,i] for i in range(df.shape[1])})
-            pdf = cudf.DataFrame()
-            for c,column in enumerate(df):
-              pdf[str(c)] = df[column]
-            return pdf
-
-
-        a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],
-                       dtype=np.float32)
-        b = np2cudf(a)
-        print("input:")
-        print(b)
-
-        print("Calling fit")
-        kmeans_float = KMeans(n_clusters=2)
-        kmeans_float.fit(b)
-
-        print("labels:")
-        print(kmeans_float.labels_)
-        print("cluster_centers:")
-        print(kmeans_float.cluster_centers_)
-
-
-    Output:
-
-    .. code-block:: python
-
-          input:
-
-               0    1
-           0  1.0  1.0
-           1  1.0  2.0
-           2  3.0  2.0
-           3  4.0  3.0
-
-          Calling fit
-
-          labels:
-
-             0    0
-             1    0
-             2    1
-             3    1
-
-          cluster_centers:
-
-             0    1
-          0  1.0  1.5
-          1  3.5  2.5
+        >>> # Both import methods supported
+        >>> from cuml import KMeans
+        >>> from cuml.cluster import KMeans
+        >>> import cudf
+        >>> import numpy as np
+        >>> import pandas as pd
+        >>>
+        >>> a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],
+        ...                dtype=np.float32)
+        >>> b = cudf.DataFrame(a)
+        >>> # Input:
+        >>> b
+            0    1
+        0  1.0  1.0
+        1  1.0  2.0
+        2  3.0  2.0
+        3  4.0  3.0
+        >>>
+        >>> # Calling fit
+        >>> kmeans_float = KMeans(n_clusters=2)
+        >>> kmeans_float.fit(b)
+        KMeans()
+        >>>
+        >>> # Labels:
+        >>> kmeans_float.labels_
+        0    0
+        1    0
+        2    1
+        3    1
+        dtype: int32
+        >>> # cluster_centers:
+        >>> kmeans_float.cluster_centers_
+            0    1
+        0  1.0  1.5
+        1  3.5  2.5
 
     Parameters
     ----------
@@ -203,16 +179,20 @@ class KMeans(Base,
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
-    init : 'scalable-kmeans++', 'k-means||' , 'random' or an ndarray (default = 'scalable-k-means++')  # noqa
-        'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ initialization.
-        'random': Choose 'n_cluster' observations (rows) at random from data
-        for the initial centroids. If an ndarray is passed, it should be of
-        shape (n_clusters, n_features) and gives the initial centers.
+    init : {'scalable-kmeans++', 'k-means||', 'random'} or an \
+            ndarray (default = 'scalable-k-means++')
+
+         - ``'scalable-k-means++'`` or ``'k-means||'``: Uses fast and stable
+           scalable kmeans++ initialization.
+         - ``'random'``: Choose `n_cluster` observations (rows) at random
+           from data for the initial centroids.
+         - If an ndarray is passed, it should be of
+           shape (`n_clusters`, `n_features`) and gives the initial centers.
+
     n_init: int (default = 1)
-        Number of instances the k-means algorithm will be called with different seeds.
-        The final results will be from the instance that produces lowest inertia out
-        of n_init instances.
+        Number of instances the k-means algorithm will be called with
+        different seeds. The final results will be from the instance
+        that produces lowest inertia out of n_init instances.
     oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
@@ -220,13 +200,12 @@ class KMeans(Base,
         cost of memory. The total number of centroids sampled in scalable
         k-means++ is oversampling_factor * n_clusters * 8.
     max_samples_per_batch : int (default = 32768)
-        The number of data
-        samples to use for batches of the pairwise distance computation.
-        This computation is done throughout both fit predict. The default
-        should suit most cases. The total number of elements in the batched
-        pairwise distance computation is max_samples_per_batch * n_clusters.
-        It might become necessary to lower this number when n_clusters
-        becomes prohibitively large.
+        The number of data samples to use for batches of the pairwise distance
+        computation. This computation is done throughout both fit predict. The
+        default should suit most cases. The total number of elements in the
+        batched pairwise distance computation is :py:`max_samples_per_batch *
+        n_clusters`. It might become necessary to lower this number when
+        `n_clusters` becomes prohibitively large.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
@@ -243,7 +222,7 @@ class KMeans(Base,
 
     Notes
     ------
-    KMeans requires n_clusters to be specified. This means one needs to
+    KMeans requires `n_clusters` to be specified. This means one needs to
     approximately guess or know how many clusters a dataset has. If one is not
     sure, one can start with a small number of clusters, and visualize the
     resulting clusters with PCA, UMAP or T-SNE, and verify that they look

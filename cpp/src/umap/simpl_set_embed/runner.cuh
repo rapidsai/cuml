@@ -18,7 +18,6 @@
 
 #include "algo.cuh"
 #include <cuml/manifold/umapparams.h>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/sparse/coo.hpp>
 

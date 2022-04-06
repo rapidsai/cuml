@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 import cupy as cp
 import numpy as np
 import scipy
@@ -190,6 +190,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
+
+    .. code-block:: python
+
         >>> import cupy as cp
         >>> from cuml.metrics import pairwise_distances
         >>>
@@ -198,15 +201,15 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         >>>
         >>> # Euclidean Pairwise Distance, Single Input:
         >>> pairwise_distances(X, metric='euclidean')
-        array([[0.        , 2.23606798, 5.83095189],
-            [2.23606798, 0.        , 3.60555128],
-            [5.83095189, 3.60555128, 0.        ]])
+        array([[0.        , 2.236..., 5.830...],
+            [2.236..., 0.        , 3.605...],
+            [5.830..., 3.605..., 0.        ]])
         >>>
         >>> # Cosine Pairwise Distance, Multi-Input:
         >>> pairwise_distances(X, Y, metric='cosine')
-        array([[0.4452998 , 0.13175686],
-            [0.48550424, 0.15633851],
-            [0.47000106, 0.14671817]])
+        array([[0.445... , 0.131...],
+            [0.485..., 0.156...],
+            [0.470..., 0.146...]])
         >>>
         >>> # Manhattan Pairwise Distance, Multi-Input:
         >>> pairwise_distances(X, Y, metric='manhattan')
@@ -341,6 +344,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         See the documentation for scipy.spatial.distance for details on these
         metrics.
     - ['inner_product', 'hellinger']
+
     Parameters
     ----------
     X : array-like (device or host) of shape (n_samples_x, n_features)
@@ -375,30 +379,33 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
+
+    .. code-block:: python
+
         >>> import cupyx
         >>> from cuml.metrics import sparse_pairwise_distances
-        >>>
-        >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5)
-        >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5)
+
+        >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5, random_state=9)
+        >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5, random_state=9)
         >>> X.todense()
-        array([[0.02797998, 0.        , 0.66309184],
-               [0.        , 0.        , 0.92316052]])
+        array([[0.8098..., 0.537..., 0. ],
+            [0.        , 0.856..., 0. ]])
         >>> Y.todense()
-        array([[0.        , 0.        , 0.32750517]])
+        array([[0.        , 0.        , 0.993...]])
         >>> # Cosine Pairwise Distance, Single Input:
         >>> sparse_pairwise_distances(X, metric='cosine')
-        array([[0.        , 0.00088907],
-               [0.00088907, 0.        ]])
-        >>>
+        array([[0.      , 0.447...],
+            [0.447..., 0.        ]])
+
         >>> # Squared euclidean Pairwise Distance, Multi-Input:
         >>> sparse_pairwise_distances(X, Y, metric='sqeuclidean')
-        array([[0.11340129],
-               [0.3548053]])
-        >>>
+        array([[1.931...],
+            [1.720...]])
+
         >>> # Canberra Pairwise Distance, Multi-Input:
         >>> sparse_pairwise_distances(X, Y, metric='canberra')
-        array([[1.33877214],
-               [0.47627064]])
+        array([[3.],
+            [2.]])
     """
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()

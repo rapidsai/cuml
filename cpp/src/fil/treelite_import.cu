@@ -324,7 +324,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
                                                std::size_t* bit_pool_offset)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
-  val_t split         = {.f = NAN};  // yes there's a default initializer already
+  val_t<float> split  = {.f = NAN};  // yes there's a default initializer already
   int feature_id      = tree.SplitIndex(tl_node_id);
   bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
                         tree.MatchingCategories(tl_node_id).size() > 0;
@@ -352,7 +352,8 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
   bool default_left = tree.DefaultLeft(tl_node_id) ^ swap_child_nodes;
-  fil_node_t node(val_t{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
+  fil_node_t node(
+    val_t<float>{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   return conversion_state<fil_node_t>{node, swap_child_nodes};
 }
 
@@ -636,7 +637,7 @@ struct tl2fil_t {
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
     // sync is necessary as nodes_ are used in init(),
     // but destructed at the end of this function
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
     if (tl_params_.pforest_shape_str) {
       *tl_params_.pforest_shape_str = sprintf_shape(model_, nodes_, roots_, cat_sets_);
     }
@@ -692,8 +693,12 @@ void from_treelite(const raft::handle_t& handle,
   }
 
   switch (storage_type) {
-    case storage_type_t::DENSE: convert<dense_node>(handle, pforest, model, *tl_params); break;
-    case storage_type_t::SPARSE: convert<sparse_node16>(handle, pforest, model, *tl_params); break;
+    case storage_type_t::DENSE:
+      convert<dense_node<float>>(handle, pforest, model, *tl_params);
+      break;
+    case storage_type_t::SPARSE:
+      convert<sparse_node16<float>>(handle, pforest, model, *tl_params);
+      break;
     case storage_type_t::SPARSE8: convert<sparse_node8>(handle, pforest, model, *tl_params); break;
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }

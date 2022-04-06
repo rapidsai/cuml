@@ -24,17 +24,19 @@ build:
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
-    - CCACHE_DIR
-    - CCACHE_NOHASHDIR
-    - CCACHE_COMPILERCHECK
     - CMAKE_GENERATOR
     - CMAKE_C_COMPILER_LAUNCHER
     - CMAKE_CXX_COMPILER_LAUNCHER
     - CMAKE_CUDA_COMPILER_LAUNCHER
+    - SCCACHE_S3_KEY_PREFIX=libcuml-aarch64 # [aarch64]
+    - SCCACHE_S3_KEY_PREFIX=libcuml-linux64 # [linux64]
+    - SCCACHE_BUCKET=rapids-sccache
+    - SCCACHE_REGION=us-west-2
+    - SCCACHE_IDLE_TIMEOUT=32768
 
 requirements:
   build:
-    - cmake>=3.20.1
+    - cmake>=3.20.1,<3.23
   host:
     - nccl>=2.9.9
     - cudf {{ minor_version }}
@@ -42,20 +44,26 @@ requirements:
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
+    - libraft-headers {{ minor_version }}
+    - libraft-distance {{ minor_version }}
+    - libraft-nn {{ minor_version }}
     - lapack
-    - treelite=2.2.1
+    - treelite=2.3.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - gmock
     - libfaiss 1.7.0 *_cuda
   run:
     - libcumlprims {{ minor_version }}
+    - libraft-headers {{ minor_version }}
+    - libraft-distance {{ minor_version }}
+    - libraft-nn {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - treelite=2.2.1
+    - treelite=2.3.0
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
     - libcusolver>=11.2.1

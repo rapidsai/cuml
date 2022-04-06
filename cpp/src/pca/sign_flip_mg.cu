@@ -18,8 +18,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 
-#include <common/allocatorAdapter.hpp>
-
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -148,7 +146,7 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_stream; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   findMaxAbsOfColumns(
@@ -166,7 +164,7 @@ void sign_flip_imp(raft::handle_t& handle,
   }
 
   for (std::uint32_t i = 0; i < n_stream; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   flip(components, input_desc.N, n_components, max_vals.data(), streams[0]);

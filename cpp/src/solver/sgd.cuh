@@ -25,13 +25,12 @@
 #include <glm/preprocess.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/gemv.h>
-#include <raft/linalg/norm.cuh>
-#include <raft/linalg/subtract.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/gemv.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/linalg/subtract.hpp>
+#include <raft/linalg/unary_op.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
@@ -274,7 +273,7 @@ void sgdFit(const raft::handle_t& handle,
       }
 
       raft::update_host(&curr_loss_value, loss_value.data(), 1, stream);
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       if (i > 0) {
         if (curr_loss_value > (prev_loss_value - tol)) {

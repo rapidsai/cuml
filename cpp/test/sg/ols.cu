@@ -18,17 +18,36 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/cuda_stream_pool.hpp>
 #include <test_utils.h>
 #include <vector>
 
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
+enum class hconf { SINGLE, LEGACY_ONE, LEGACY_TWO, NON_BLOCKING_ONE, NON_BLOCKING_TWO };
+
+raft::handle_t create_handle(hconf type)
+{
+  switch (type) {
+    case hconf::LEGACY_ONE:
+      return raft::handle_t(rmm::cuda_stream_legacy, std::make_shared<rmm::cuda_stream_pool>(1));
+    case hconf::LEGACY_TWO:
+      return raft::handle_t(rmm::cuda_stream_legacy, std::make_shared<rmm::cuda_stream_pool>(2));
+    case hconf::NON_BLOCKING_ONE:
+      return raft::handle_t(rmm::cuda_stream_per_thread,
+                            std::make_shared<rmm::cuda_stream_pool>(1));
+    case hconf::NON_BLOCKING_TWO:
+      return raft::handle_t(rmm::cuda_stream_per_thread,
+                            std::make_shared<rmm::cuda_stream_pool>(2));
+    case hconf::SINGLE:
+    default: return raft::handle_t();
+  }
+}
 
 template <typename T>
 struct OlsInputs {
+  hconf hc;
   T tol;
   int n_row;
   int n_col;
@@ -41,6 +60,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
  public:
   OlsTest()
     : params(::testing::TestWithParam<OlsInputs<T>>::GetParam()),
+      handle(create_handle(params.hc)),
       stream(handle.get_stream()),
       coef(params.n_col, stream),
       coef2(params.n_col, stream),
@@ -216,10 +236,11 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   }
 
  protected:
+  OlsInputs<T> params;
+
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  OlsInputs<T> params;
   rmm::device_uvector<T> coef, coef_ref, pred, pred_ref;
   rmm::device_uvector<T> coef2, coef2_ref, pred2, pred2_ref;
   rmm::device_uvector<T> coef3, coef3_ref, pred3, pred3_ref;
@@ -228,11 +249,15 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   T intercept, intercept2, intercept3;
 };
 
-const std::vector<OlsInputs<float>> inputsf2 = {
-  {0.001f, 4, 2, 2, 0}, {0.001f, 4, 2, 2, 1}, {0.001f, 4, 2, 2, 2}};
+const std::vector<OlsInputs<float>> inputsf2 = {{hconf::NON_BLOCKING_ONE, 0.001f, 4, 2, 2, 0},
+                                                {hconf::NON_BLOCKING_TWO, 0.001f, 4, 2, 2, 1},
+                                                {hconf::LEGACY_ONE, 0.001f, 4, 2, 2, 2},
+                                                {hconf::LEGACY_TWO, 0.001f, 4, 2, 2, 2},
+                                                {hconf::SINGLE, 0.001f, 4, 2, 2, 2}};
 
-const std::vector<OlsInputs<double>> inputsd2 = {
-  {0.001, 4, 2, 2, 0}, {0.001, 4, 2, 2, 1}, {0.001, 4, 2, 2, 2}};
+const std::vector<OlsInputs<double>> inputsd2 = {{hconf::SINGLE, 0.001, 4, 2, 2, 0},
+                                                 {hconf::LEGACY_ONE, 0.001, 4, 2, 2, 1},
+                                                 {hconf::LEGACY_TWO, 0.001, 4, 2, 2, 2}};
 
 typedef OlsTest<float> OlsTestF;
 TEST_P(OlsTestF, Fit)

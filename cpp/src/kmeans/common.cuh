@@ -24,23 +24,22 @@
 
 #include <common/tensor.hpp>
 
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
-#include <random/permute.cuh>
+#include <raft/linalg/reduce_cols_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
+#include <raft/random/permute.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/distance/fused_l2_nn.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/mean_squared_error.cuh>
-#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/mean_squared_error.hpp>
+#include <raft/linalg/reduce.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <random/permute.cuh>
 #include <random>
 
 #include <thrust/equal.h>
@@ -55,9 +54,6 @@
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <linalg/reduce_cols_by_key.cuh>
-#include <linalg/reduce_rows_by_key.cuh>
-#include <matrix/gather.cuh>
 
 #include <fstream>
 #include <numeric>
@@ -233,7 +229,7 @@ Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
 
   int nPtsSampledInRank = 0;
   raft::copy(&nPtsSampledInRank, nSelected.data(), nSelected.numElements(), stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   int* rawPtr_isSampleCentroid = isSampleCentroid.data();
   thrust::for_each_n(handle.get_thrust_policy(),
@@ -591,7 +587,7 @@ void shuffleAndGather(const raft::handle_t& handle,
 
   if (workspace) {
     // shuffle indices on device using ml-prims
-    MLCommon::Random::permute<DataT>(
+    raft::random::permute<DataT>(
       indices.data(), nullptr, nullptr, in.getSize(1), in.getSize(0), true, stream);
   } else {
     // shuffle indices on host and copy to device...
@@ -769,7 +765,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     // Choose 'n_trials' centroid candidates from X with probability proportional to the squared
     // distance to the nearest existing cluster
     raft::copy(h_wt.data(), minClusterDistance.data(), minClusterDistance.numElements(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     // Note - n_trials is relative small here, we don't need MLCommon::gather call
     std::discrete_distribution<> d(h_wt.begin(), h_wt.end());
@@ -880,7 +876,7 @@ void checkWeights(const raft::handle_t& handle,
 
   DataT wt_sum = 0;
   raft::copy(&wt_sum, wt_aggr.data(), 1, stream);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
 
   if (wt_sum != n_samples) {
     LOG(handle,

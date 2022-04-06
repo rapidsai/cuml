@@ -26,7 +26,6 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <thrust/fill.h>
 
 namespace ML {
@@ -100,7 +99,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     T inertia  = 0;
     int n_iter = 0;
@@ -116,7 +115,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         inertia,
                         n_iter);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 

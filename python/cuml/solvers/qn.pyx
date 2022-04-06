@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,214 +28,214 @@ from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics import accuracy_score
 
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
-    void qnFit(
-        handle_t& cuml_handle,
-        float *X,
+    cdef enum qn_loss_type "ML::GLM::qn_loss_type":
+        QN_LOSS_LOGISTIC "ML::GLM::QN_LOSS_LOGISTIC"
+        QN_LOSS_SQUARED  "ML::GLM::QN_LOSS_SQUARED"
+        QN_LOSS_SOFTMAX  "ML::GLM::QN_LOSS_SOFTMAX"
+        QN_LOSS_SVC_L1   "ML::GLM::QN_LOSS_SVC_L1"
+        QN_LOSS_SVC_L2   "ML::GLM::QN_LOSS_SVC_L2"
+        QN_LOSS_SVR_L1   "ML::GLM::QN_LOSS_SVR_L1"
+        QN_LOSS_SVR_L2   "ML::GLM::QN_LOSS_SVR_L2"
+        QN_LOSS_ABS      "ML::GLM::QN_LOSS_ABS"
+        QN_LOSS_UNKNOWN  "ML::GLM::QN_LOSS_UNKNOWN"
+
+    cdef struct qn_params:
+        qn_loss_type loss
+        double penalty_l1
+        double penalty_l2
+        double grad_tol
+        double change_tol
+        int max_iter
+        int linesearch_max_iter
+        int lbfgs_memory
+        int verbose
+        bool fit_intercept
+        bool penalty_normalized
+
+    void qnFit[T, I](
+        const handle_t& cuml_handle,
+        const qn_params& pams,
+        T *X,
         bool X_col_major,
-        float *y,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        float l1,
-        float l2,
-        int max_iter,
-        float grad_tol,
-        float change_tol,
-        int linesearch_max_iter,
-        int lbfgs_memory,
-        int verbosity,
-        float *w0,
-        float *f,
+        T *y,
+        I N,
+        I D,
+        I C,
+        T *w0,
+        T *f,
         int *num_iters,
-        int loss_type,
-        float *sample_weight) except +
+        T *sample_weight) except +
 
-    void qnFit(
-        handle_t& cuml_handle,
-        double *X,
-        bool X_col_major,
-        double *y,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        double l1,
-        double l2,
-        int max_iter,
-        double grad_tol,
-        double change_tol,
-        int linesearch_max_iter,
-        int lbfgs_memory,
-        int verbosity,
-        double *w0,
-        double *f,
+    void qnFitSparse[T, I](
+        const handle_t& cuml_handle,
+        const qn_params& pams,
+        T *X_values,
+        I *X_cols,
+        I *X_row_ids,
+        I X_nnz,
+        T *y,
+        I N,
+        I D,
+        I C,
+        T *w0,
+        T *f,
         int *num_iters,
-        int loss_type,
-        double *sample_weight) except +
+        T *sample_weight) except +
 
-    void qnFitSparse(
-        handle_t& cuml_handle,
-        float *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        float *y,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        float l1,
-        float l2,
-        int max_iter,
-        float grad_tol,
-        float change_tol,
-        int linesearch_max_iter,
-        int lbfgs_memory,
-        int verbosity,
-        float *w0,
-        float *f,
-        int *num_iters,
-        int loss_type,
-        float *sample_weight) except +
-
-    void qnFitSparse(
-        handle_t& cuml_handle,
-        double *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        double *y,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        double l1,
-        double l2,
-        int max_iter,
-        double grad_tol,
-        double change_tol,
-        int linesearch_max_iter,
-        int lbfgs_memory,
-        int verbosity,
-        double *w0,
-        double *f,
-        int *num_iters,
-        int loss_type,
-        double *sample_weight) except +
-
-    void qnDecisionFunction(
-        handle_t& cuml_handle,
-        float *X,
+    void qnDecisionFunction[T, I](
+        const handle_t& cuml_handle,
+        const qn_params& pams,
+        T *X,
         bool X_col_major,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        float *params,
-        int loss_type,
-        float *scores) except +
+        I N,
+        I D,
+        I C,
+        T *params,
+        T *scores) except +
 
-    void qnDecisionFunction(
-        handle_t& cuml_handle,
-        double *X,
+    void qnDecisionFunctionSparse[T, I](
+        const handle_t& cuml_handle,
+        const qn_params& pams,
+        T *X_values,
+        I *X_cols,
+        I *X_row_ids,
+        I X_nnz,
+        I N,
+        I D,
+        I C,
+        T *params,
+        T *scores) except +
+
+    void qnPredict[T, I](
+        const handle_t& cuml_handle,
+        const qn_params& pams,
+        T *X,
         bool X_col_major,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        double *params,
-        int loss_type,
-        double *scores) except +
+        I N,
+        I D,
+        I C,
+        T *params,
+        T *preds) except +
 
-    void qnDecisionFunctionSparse(
-        handle_t& cuml_handle,
-        float *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        float *params,
-        int loss_type,
-        float *scores) except +
+    void qnPredictSparse[T, I](
+        const handle_t& cuml_handle,
+        const qn_params& pams,
+        T *X_values,
+        I *X_cols,
+        I *X_row_ids,
+        I X_nnz,
+        I N,
+        I D,
+        I C,
+        T *params,
+        T *preds) except +
 
-    void qnDecisionFunctionSparse(
-        handle_t& cuml_handle,
-        double *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        double *params,
-        int loss_type,
-        double *scores) except +
 
-    void qnPredict(
-        handle_t& cuml_handle,
-        float *X,
-        bool X_col_major,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        float *params,
-        int loss_type,
-        float *preds) except +
+class StructWrapper(type):
+    '''Define a property for each key in `get_param_defaults`,
+       for which there is no explicit property defined in the class.
+    '''
+    def __new__(cls, name, bases, attrs):
+        def add_prop(prop_name):
+            setattr(x, prop_name, property(
+                lambda self: self._getparam(prop_name),
+                lambda self, value: self._setparam(prop_name, value)
+            ))
 
-    void qnPredict(
-        handle_t& cuml_handle,
-        double *X,
-        bool X_col_major,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        double *params,
-        int loss_type,
-        double *preds) except +
+        x = super().__new__(cls, name, bases, attrs)
 
-    void qnPredictSparse(
-        handle_t& cuml_handle,
-        float *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        float *params,
-        int loss_type,
-        float *preds) except +
+        for prop_name in getattr(x, 'get_param_defaults', lambda: {})():
+            if not hasattr(x, prop_name):
+                add_prop(prop_name)
+        del add_prop
 
-    void qnPredictSparse(
-        handle_t& cuml_handle,
-        double *X_values,
-        int *X_cols,
-        int *X_row_ids,
-        int X_nnz,
-        int N,
-        int D,
-        int C,
-        bool fit_intercept,
-        double *params,
-        int loss_type,
-        double *preds) except +
+        return x
+
+
+class StructParams(metaclass=StructWrapper):
+    params: dict
+
+    def __new__(cls, *args, **kwargs):
+        x = object.__new__(cls)
+        x.params = cls.get_param_defaults().copy()
+        return x
+
+    def __init__(self, **kwargs):
+        allowed_keys = set(self.get_param_names())
+        for key, val in kwargs.items():
+            if key in allowed_keys:
+                setattr(self, key, val)
+
+    def _getparam(self, key):
+        return self.params[key]
+
+    def _setparam(self, key, val):
+        self.params[key] = val
+
+    def get_param_names(self):
+        return self.get_param_defaults().keys()
+
+    def __str__(self):
+        return type(self).__name__ + str(self.params)
+
+
+class QNParams(StructParams):
+
+    @staticmethod
+    def get_param_defaults():
+        cdef qn_params ps
+        return ps
+
+    @property
+    def loss(self) -> str:
+        loss = self._getparam('loss')
+        if loss == qn_loss_type.QN_LOSS_LOGISTIC:
+            return "sigmoid"
+        if loss == qn_loss_type.QN_LOSS_SQUARED:
+            return "l2"
+        if loss == qn_loss_type.QN_LOSS_SOFTMAX:
+            return "softmax"
+        if loss == qn_loss_type.QN_LOSS_SVC_L1:
+            return "svc_l1"
+        if loss == qn_loss_type.QN_LOSS_SVC_L2:
+            return "svc_l2"
+        if loss == qn_loss_type.QN_LOSS_SVR_L1:
+            return "svr_l1"
+        if loss == qn_loss_type.QN_LOSS_SVR_L2:
+            return "svr_l2"
+        if loss == qn_loss_type.QN_LOSS_ABS:
+            return "l1"
+        raise ValueError(f"Unknown loss enum value: {loss}")
+
+    @loss.setter
+    def loss(self, loss: str):
+        if loss in {"sigmoid", "logistic"}:
+            self._setparam('loss', qn_loss_type.QN_LOSS_LOGISTIC)
+        elif loss == "softmax":
+            self._setparam('loss', qn_loss_type.QN_LOSS_SOFTMAX)
+        elif loss in {"normal", "l2"}:
+            self._setparam('loss', qn_loss_type.QN_LOSS_SQUARED)
+        elif loss == "l1":
+            self._setparam('loss', qn_loss_type.QN_LOSS_ABS)
+        elif loss == "svc_l1":
+            self._setparam('loss', qn_loss_type.QN_LOSS_SVC_L1)
+        elif loss == "svc_l2":
+            self._setparam('loss', qn_loss_type.QN_LOSS_SVC_L2)
+        elif loss == "svr_l1":
+            self._setparam('loss', qn_loss_type.QN_LOSS_SVR_L1)
+        elif loss == "svr_l2":
+            self._setparam('loss', qn_loss_type.QN_LOSS_SVR_L2)
+        else:
+            raise ValueError(f"Unknown loss string value: {loss}")
 
 
 class QN(Base,
@@ -260,78 +260,69 @@ class QN(Base,
     --------
     .. code-block:: python
 
-        import cudf
-        import numpy as np
+        >>> import cudf
+        >>> import cupy as cp
 
-        # Both import methods supported
-        # from cuml import QN
-        from cuml.solvers import QN
+        >>> # Both import methods supported
+        >>> # from cuml import QN
+        >>> from cuml.solvers import QN
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-        y = cudf.Series( np.array([0.0, 0.0, 1.0, 1.0], dtype = np.float32) )
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+        >>> y = cudf.Series(cp.array([0.0, 0.0, 1.0, 1.0], dtype=cp.float32) )
 
-        solver = QN()
-        solver.fit(X,y)
+        >>> solver = QN()
+        >>> solver.fit(X,y)
+        QN()
 
-        # Note: for now, the coefficients also include the intercept in the
-        # last position if fit_intercept=True
-        print("Coefficients:")
-        print(solver.coef_)
-        print("Intercept:")
-        print(solver.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([1,5], dtype = np.float32)
-        X_new['col2'] = np.array([2,5], dtype = np.float32)
-
-        preds = solver.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-                    10.647417
-                    0.3267412
-                    -17.158297
-        Intercept:
-                    -17.158297
-        Predictions:
-                    0    0.0
-                    1    1.0
+        >>> # Note: for now, the coefficients also include the intercept in the
+        >>> # last position if fit_intercept=True
+        >>> print(solver.coef_) # doctest: +SKIP
+        0   37.371...
+        1   0.949...
+        dtype: float32
+        >>> print(solver.intercept_) # doctest: +SKIP
+        0   -57.738...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([1,5], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([2,5], dtype=cp.float32)
+        >>> preds = solver.predict(X_new)
+        >>> print(preds)
+        0    0.0
+        1    1.0
+        dtype: float32
 
     Parameters
     -----------
-    loss: 'sigmoid', 'softmax', 'squared_loss' (default = 'squared_loss')
-        'sigmoid' loss used for single class logistic regression
-        'softmax' loss used for multiclass logistic regression
-        'normal' used for normal/square loss
+    loss: 'sigmoid', 'softmax', 'l1', 'l2', 'svc_l1', 'svc_l2', 'svr_l1', \
+        'svr_l2' (default = 'sigmoid').
+        'sigmoid' loss used for single class logistic regression;
+        'softmax' loss used for multiclass logistic regression;
+        'l1'/'l2' loss used for regression.
     fit_intercept: boolean (default = True)
         If True, the model tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     l1_strength: float (default = 0.0)
         l1 regularization strength (if non-zero, will run OWL-QN, else L-BFGS).
-        Note, that as in Scikit-learn, the bias will not be regularized.
+        Use `penalty_normalized` to control whether the solver divides this
+        by the sample size.
     l2_strength: float (default = 0.0)
-        l2 regularization strength. Note, that as in Scikit-learn, the bias
-        will not be regularized.
+        l2 regularization strength.
+        Use `penalty_normalized` to control whether the solver divides this
+        by the sample size.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
     tol: float (default = 1e-4)
         The training process will stop if
 
-        `norm(current_loss_grad, inf) <= tol * max(current_loss, tol)`.
+        `norm(current_loss_grad) <= tol * max(current_loss, tol)`.
 
         This differs slightly from the `gtol`-controlled stopping condition in
-        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        `scipy.optimize.minimize(method='L-BFGS-B')
         <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_:
 
-        `norm(current_loss_projected_grad, inf) <= gtol`.
+        `norm(current_loss_projected_grad) <= gtol`.
 
         Note, `sklearn.LogisticRegression()
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_
@@ -352,7 +343,7 @@ class QN(Base,
         internally.
 
         Note, this parameter corresponds to `ftol` in
-        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        `scipy.optimize.minimize(method='L-BFGS-B')
         <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_,
         which is set by default to a miniscule `2.2e-9` and is not exposed in
         `sklearn.LogisticRegression()
@@ -385,6 +376,10 @@ class QN(Base,
     warm_start : bool, default=False
         When set to True, reuse the solution of the previous call to fit as
         initialization, otherwise, just erase the previous solution.
+    penalty_normalized : bool, default=True
+        When set to True, l1 and l2 parameters are divided by the sample size.
+        This flag can be used to achieve a behavior compatible with other
+        implementations, such as sklearn's.
 
     Attributes
     -----------
@@ -413,7 +408,7 @@ class QN(Base,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-4,
                  delta=None, linesearch_max_iter=50, lbfgs_memory=5,
                  verbose=False, handle=None, output_type=None,
-                 warm_start=False):
+                 warm_start=False, penalty_normalized=True):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -431,18 +426,8 @@ class QN(Base,
         self._coef_ = None
         self.intercept_ = None
         self.warm_start = warm_start
-
-        if loss not in ['sigmoid', 'softmax', 'normal']:
-            raise ValueError("loss " + str(loss) + " not supported.")
-
+        self.penalty_normalized = penalty_normalized
         self.loss = loss
-
-    def _get_loss_int(self, loss):
-        return {
-            'sigmoid': 0,
-            'softmax': 2,
-            'normal': 1
-        }[loss]
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -478,8 +463,6 @@ class QN(Base,
         )
         cdef uintptr_t y_ptr = y_m.ptr
 
-        self._num_classes = len(cp.unique(y_m))
-
         cdef uintptr_t sample_weight_ptr = 0
         if sample_weight is not None:
             sample_weight, _, _, _ = \
@@ -491,16 +474,49 @@ class QN(Base,
                                                       else None))
             sample_weight_ptr = sample_weight.ptr
 
-        self.loss_type = self._get_loss_int(self.loss)
-        if self.loss_type != 2 and self._num_classes > 2:
-            raise ValueError("Only softmax (multinomial) loss supports more"
-                             "than 2 classes.")
+        self.qnparams = QNParams(
+            loss=self.loss,
+            penalty_l1=self.l1_strength,
+            penalty_l2=self.l2_strength,
+            grad_tol=self.tol,
+            change_tol=self.delta
+            if self.delta is not None else (self.tol * 0.01),
+            max_iter=self.max_iter,
+            linesearch_max_iter=self.linesearch_max_iter,
+            lbfgs_memory=self.lbfgs_memory,
+            verbose=self.verbose,
+            fit_intercept=self.fit_intercept,
+            penalty_normalized=self.penalty_normalized
+        )
 
-        if self.loss_type == 2 and self._num_classes <= 2:
+        cdef qn_params qnpams = self.qnparams.params
+
+        solves_classification = qnpams.loss in {
+            qn_loss_type.QN_LOSS_LOGISTIC,
+            qn_loss_type.QN_LOSS_SOFTMAX,
+            qn_loss_type.QN_LOSS_SVC_L1,
+            qn_loss_type.QN_LOSS_SVC_L2
+        }
+        solves_multiclass = qnpams.loss in {
+            qn_loss_type.QN_LOSS_SOFTMAX
+        }
+
+        if solves_classification:
+            self._num_classes = len(cp.unique(y_m))
+        else:
+            self._num_classes = 1
+
+        if not solves_multiclass and self._num_classes > 2:
+            raise ValueError(
+                f"The selected solver ({self.loss}) does not support"
+                f" more than 2 classes ({self._num_classes} discovered).")
+
+        if qnpams.loss == qn_loss_type.QN_LOSS_SOFTMAX \
+           and self._num_classes <= 2:
             raise ValueError("Two classes or less cannot be trained"
                              "with softmax (multinomial).")
 
-        if self.loss_type == 0:
+        if solves_classification and not solves_multiclass:
             self._num_classes_dim = self._num_classes - 1
         else:
             self._num_classes_dim = self._num_classes
@@ -522,12 +538,11 @@ class QN(Base,
 
         cdef int num_iters
 
-        delta = self.delta if self.delta is not None else (self.tol * 0.01)
-
         if self.dtype == np.float32:
             if sparse_input:
-                qnFitSparse(
+                qnFitSparse[float, int](
                     handle_[0],
+                    qnpams,
                     <float*><uintptr_t> X_m.data.ptr,
                     <int*><uintptr_t> X_m.indices.ptr,
                     <int*><uintptr_t> X_m.indptr.ptr,
@@ -536,51 +551,33 @@ class QN(Base,
                     <int> n_rows,
                     <int> self.n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
-                    <float> self.l1_strength,
-                    <float> self.l2_strength,
-                    <int> self.max_iter,
-                    <float> self.tol,
-                    <float> delta,
-                    <int> self.linesearch_max_iter,
-                    <int> self.lbfgs_memory,
-                    <int> self.verbose,
                     <float*> coef_ptr,
                     <float*> &objective32,
                     <int*> &num_iters,
-                    <int> self.loss_type,
                     <float*> sample_weight_ptr)
 
             else:
-                qnFit(
+                qnFit[float, int](
                     handle_[0],
+                    qnpams,
                     <float*><uintptr_t> X_m.ptr,
                     <bool> __is_col_major(X_m),
                     <float*> y_ptr,
                     <int> n_rows,
                     <int> self.n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
-                    <float> self.l1_strength,
-                    <float> self.l2_strength,
-                    <int> self.max_iter,
-                    <float> self.tol,
-                    <float> delta,
-                    <int> self.linesearch_max_iter,
-                    <int> self.lbfgs_memory,
-                    <int> self.verbose,
                     <float*> coef_ptr,
                     <float*> &objective32,
                     <int*> &num_iters,
-                    <int> self.loss_type,
                     <float*> sample_weight_ptr)
 
             self.objective = objective32
 
         else:
             if sparse_input:
-                qnFitSparse(
+                qnFitSparse[double, int](
                     handle_[0],
+                    qnpams,
                     <double*><uintptr_t> X_m.data.ptr,
                     <int*><uintptr_t> X_m.indices.ptr,
                     <int*><uintptr_t> X_m.indptr.ptr,
@@ -589,43 +586,24 @@ class QN(Base,
                     <int> n_rows,
                     <int> self.n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
-                    <double> self.l1_strength,
-                    <double> self.l2_strength,
-                    <int> self.max_iter,
-                    <double> self.tol,
-                    <double> delta,
-                    <int> self.linesearch_max_iter,
-                    <int> self.lbfgs_memory,
-                    <int> self.verbose,
                     <double*> coef_ptr,
                     <double*> &objective64,
                     <int*> &num_iters,
-                    <int> self.loss_type,
                     <double*> sample_weight_ptr)
 
             else:
-                qnFit(
+                qnFit[double, int](
                     handle_[0],
+                    qnpams,
                     <double*><uintptr_t> X_m.ptr,
                     <bool> __is_col_major(X_m),
                     <double*> y_ptr,
                     <int> n_rows,
                     <int> self.n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
-                    <double> self.l1_strength,
-                    <double> self.l2_strength,
-                    <int> self.max_iter,
-                    <double> self.tol,
-                    <double> delta,
-                    <int> self.linesearch_max_iter,
-                    <int> self.lbfgs_memory,
-                    <int> self.verbose,
                     <double*> coef_ptr,
                     <double*> &objective64,
                     <int*> &num_iters,
-                    <int> self.loss_type,
                     <double*> sample_weight_ptr)
 
             self.objective = objective64
@@ -691,10 +669,12 @@ class QN(Base,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef qn_params qnpams = self.qnparams.params
         if self.dtype == np.float32:
             if sparse_input:
-                qnDecisionFunctionSparse(
+                qnDecisionFunctionSparse[float, int](
                     handle_[0],
+                    qnpams,
                     <float*><uintptr_t> X_m.data.ptr,
                     <int*><uintptr_t> X_m.indices.ptr,
                     <int*><uintptr_t> X_m.indptr.ptr,
@@ -702,27 +682,25 @@ class QN(Base,
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <float*> coef_ptr,
-                    <int> self.loss_type,
                     <float*> scores_ptr)
             else:
-                qnDecisionFunction(
+                qnDecisionFunction[float, int](
                     handle_[0],
+                    qnpams,
                     <float*><uintptr_t> X_m.ptr,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <float*> coef_ptr,
-                    <int> self.loss_type,
                     <float*> scores_ptr)
 
         else:
             if sparse_input:
-                qnDecisionFunctionSparse(
+                qnDecisionFunctionSparse[double, int](
                     handle_[0],
+                    qnpams,
                     <double*><uintptr_t> X_m.data.ptr,
                     <int*><uintptr_t> X_m.indices.ptr,
                     <int*><uintptr_t> X_m.indptr.ptr,
@@ -730,21 +708,18 @@ class QN(Base,
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <double*> coef_ptr,
-                    <int> self.loss_type,
                     <double*> scores_ptr)
             else:
-                qnDecisionFunction(
+                qnDecisionFunction[double, int](
                     handle_[0],
+                    qnpams,
                     <double*><uintptr_t> X_m.ptr,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <double*> coef_ptr,
-                    <int> self.loss_type,
                     <double*> scores_ptr)
 
         self._calc_intercept()
@@ -800,10 +775,12 @@ class QN(Base,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef qn_params qnpams = self.qnparams.params
         if self.dtype == np.float32:
             if sparse_input:
-                qnPredictSparse(
+                qnPredictSparse[float, int](
                     handle_[0],
+                    qnpams,
                     <float*><uintptr_t> X_m.data.ptr,
                     <int*><uintptr_t> X_m.indices.ptr,
                     <int*><uintptr_t> X_m.indptr.ptr,
@@ -811,27 +788,25 @@ class QN(Base,
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <float*> coef_ptr,
-                    <int> self.loss_type,
                     <float*> pred_ptr)
             else:
-                qnPredict(
+                qnPredict[float, int](
                     handle_[0],
+                    qnpams,
                     <float*><uintptr_t> X_m.ptr,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <float*> coef_ptr,
-                    <int> self.loss_type,
                     <float*> pred_ptr)
 
         else:
             if sparse_input:
-                qnPredictSparse(
+                qnPredictSparse[double, int](
                     handle_[0],
+                    qnpams,
                     <double*><uintptr_t> X_m.data.ptr,
                     <int*><uintptr_t> X_m.indices.ptr,
                     <int*><uintptr_t> X_m.indptr.ptr,
@@ -839,21 +814,18 @@ class QN(Base,
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <double*> coef_ptr,
-                    <int> self.loss_type,
                     <double*> pred_ptr)
             else:
-                qnPredict(
+                qnPredict[double, int](
                     handle_[0],
+                    qnpams,
                     <double*><uintptr_t> X_m.ptr,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
-                    <bool> self.fit_intercept,
                     <double*> coef_ptr,
-                    <int> self.loss_type,
                     <double*> pred_ptr)
 
         self._calc_intercept()
@@ -883,7 +855,7 @@ class QN(Base,
         return super().get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'warm_start', 'delta']
+                'warm_start', 'delta', 'penalty_normalized']
 
 
 def __is_col_major(X):

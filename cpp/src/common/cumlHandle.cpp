@@ -18,11 +18,10 @@
 
 #include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/cusolver_wrappers.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-#include <raft/sparse/cusparse_wrappers.h>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+// #TODO: Replace with public header when ready
+#include <raft/linalg/detail/cusolver_wrappers.hpp>
 
 namespace ML {
 

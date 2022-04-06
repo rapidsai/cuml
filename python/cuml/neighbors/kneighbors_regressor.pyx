@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp.vector cimport vector
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -80,8 +80,27 @@ class KNeighborsRegressor(NearestNeighbors,
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    algorithm : string (default='brute')
-        The query algorithm to use. Currently, only 'brute' is supported.
+    algorithm : string (default='auto')
+        The query algorithm to use. Valid options are:
+
+        - ``'auto'``: to automatically select brute-force or
+          random ball cover based on data shape and metric
+        - ``'rbc'``: for the random ball algorithm, which partitions
+          the data space and uses the triangle inequality to lower the
+          number of potential distances. Currently, this algorithm
+          supports 2d Euclidean and Haversine.
+        - ``'brute'``: for brute-force, slow but produces exact results
+        - ``'ivfflat'``: for inverted file, divide the dataset in partitions
+          and perform search on relevant partitions only
+        - ``'ivfpq'``: for inverted file and product quantization,
+          same as inverted list, in addition the vectors are broken
+          in n_features/M sub-vectors that will be encoded thanks
+          to intermediary k-means clusterings. This encoding provide
+          partial information allowing faster distances calculations
+        - ``'ivfsq'``: for inverted file and scalar quantization,
+          same as inverted list, in addition vectors components
+          are quantized into reduced binary representation allowing
+          faster distances calculations
     metric : string (default='euclidean').
         Distance metric to use.
     weights : string (default='uniform')
@@ -105,40 +124,28 @@ class KNeighborsRegressor(NearestNeighbors,
 
     Examples
     --------
-    .. code-block:: python
-
-      from cuml.neighbors import KNeighborsRegressor
-
-      from sklearn.datasets import make_blobs
-      from sklearn.model_selection import train_test_split
-
-      X, y = make_blobs(n_samples=100, centers=5,
-                        n_features=10)
-
-      knn = KNeighborsRegressor(n_neighbors=10)
-
-      X_train, X_test, y_train, y_test =
-        train_test_split(X, y, train_size=0.80)
-
-      knn.fit(X_train, y_train)
-
-      knn.predict(X_test)
-
-
-    Output:
-
 
     .. code-block:: python
 
-      array([3.        , 1.        , 1.        , 3.79999995, 2.        ,
-             0.        , 3.79999995, 3.79999995, 3.79999995, 0.        ,
-             3.79999995, 0.        , 1.        , 2.        , 3.        ,
-             1.        , 0.        , 0.        , 0.        , 2.        ,
-             3.        , 3.        , 0.        , 3.        , 3.79999995,
-             3.79999995, 3.79999995, 3.79999995, 3.        , 2.        ,
-             3.79999995, 3.79999995, 0.        ])
+        >>> from cuml.neighbors import KNeighborsRegressor
+        >>> from cuml.datasets import make_regression
+        >>> from cuml.model_selection import train_test_split
 
+        >>> X, y = make_regression(n_samples=100, n_features=10,
+        ...                        random_state=5)
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...   X, y, train_size=0.80, random_state=5)
 
+        >>> knn = KNeighborsRegressor(n_neighbors=10)
+        >>> knn.fit(X_train, y_train)
+        KNeighborsRegressor()
+        >>> knn.predict(X_test) # doctest: +SKIP
+        array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
+            21.589611  , -14.519918  , -60.25534   , -20.856869  ,
+            29.869623  , -34.83317   ,   0.45447388, 120.39675   ,
+            109.94834   ,  63.57794   , -17.956171  ,  78.77663   ,
+            30.412262  ,  32.575233  ,  74.72834   , 122.276855  ],
+        dtype=float32)
 
     Notes
     ------

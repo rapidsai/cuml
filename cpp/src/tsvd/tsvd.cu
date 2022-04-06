@@ -19,8 +19,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 void tsvdFit(raft::handle_t& handle,
              float* input,
              float* components,

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -111,29 +111,26 @@ class DBSCAN(Base,
 
     .. code-block:: python
 
-            # Both import methods supported
-            from cuml import DBSCAN
-            from cuml.cluster import DBSCAN
-
-            import cudf
-            import numpy as np
-
-            gdf_float = cudf.DataFrame()
-            gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
-            gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-            gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-
-            dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
-            dbscan_float.fit(gdf_float)
-            print(dbscan_float.labels_)
-
-    Output:
-
-    .. code-block:: python
-
-            0    0
-            1    1
-            2    2
+        >>> # Both import methods supported
+        >>> from cuml import DBSCAN
+        >>> from cuml.cluster import DBSCAN
+        >>>
+        >>> import cudf
+        >>> import numpy as np
+        >>>
+        >>> gdf_float = cudf.DataFrame()
+        >>> gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
+        >>> gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        >>> gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        >>>
+        >>> dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
+        >>> dbscan_float.fit(gdf_float)
+        DBSCAN()
+        >>> dbscan_float.labels_
+        0    0
+        1    1
+        2    2
+        dtype: int32
 
     Parameters
     -----------

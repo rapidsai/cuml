@@ -21,7 +21,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -113,7 +112,7 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
                    params.max_samples,
                    params.seed);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     int counter;
 

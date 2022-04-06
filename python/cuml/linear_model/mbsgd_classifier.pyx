@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,52 +44,50 @@ class MBSGDClassifier(Base,
 
     Examples
     --------
-    .. code-block:: python
-
-        import numpy as np
-        import cudf
-        from cuml.linear_model import MBSGDClassifier as cumlMBSGDClassifier
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-        y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
-        pred_data = cudf.DataFrame()
-        pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
-        pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
-        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate='constant',
-                                                 eta0=0.05, epochs=2000,
-                                                 fit_intercept=True,
-                                                 batch_size=1, tol=0.0,
-                                                 penalty='l2',
-                                                 loss='squared_loss',
-                                                 alpha=0.5)
-        cu_mbsgd_classifier.fit(X, y)
-        cu_pred = cu_mbsgd_classifier.predict(pred_data).to_numpy()
-        print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
-        print(" cuML coef : ", cu_mbsgd_classifier.coef_)
-        print("cuML predictions : ", cu_pred)
-
-    Output:
 
     .. code-block:: python
 
-        cuML intercept :  0.7150013446807861
-        cuML coef :  0    0.27320495
-                    1     0.1875956
-                    dtype: float32
-        cuML predictions :  [1. 1.]
-
+        >>> import cupy as cp
+        >>> import cudf
+        >>> from cuml.linear_model import MBSGDClassifier
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
+        >>> y = cudf.Series(cp.array([1, 1, 2, 2], dtype=cp.float32))
+        >>> pred_data = cudf.DataFrame()
+        >>> pred_data['col1'] = cp.asarray([3, 2], dtype=cp.float32)
+        >>> pred_data['col2'] = cp.asarray([5, 5], dtype=cp.float32)
+        >>> cu_mbsgd_classifier = MBSGDClassifier(learning_rate='constant',
+        ...                                       eta0=0.05, epochs=2000,
+        ...                                       fit_intercept=True,
+        ...                                       batch_size=1, tol=0.0,
+        ...                                       penalty='l2',
+        ...                                       loss='squared_loss',
+        ...                                       alpha=0.5)
+        >>> cu_mbsgd_classifier.fit(X, y)
+        MBSGDClassifier()
+        >>> print("cuML intercept : ", cu_mbsgd_classifier.intercept_)
+        cuML intercept :  0.725...
+        >>> print("cuML coef : ", cu_mbsgd_classifier.coef_)
+        cuML coef :  0    0.273...
+        1    0.182...
+        dtype: float32
+        >>> cu_pred = cu_mbsgd_classifier.predict(pred_data)
+        >>> print("cuML predictions : ", cu_pred)
+        cuML predictions :  0   1.0
+        1    1.0
+        dtype: float32
 
     Parameters
     -----------
-    loss : {'hinge', 'log', 'squared_loss'} (default = 'squared_loss')
+    loss : {'hinge', 'log', 'squared_loss'} (default = 'hinge')
        'hinge' uses linear SVM
 
        'log' uses logistic regression
 
        'squared_loss' uses linear regression
 
-    penalty: {'none', 'l1', 'l2', 'elasticnet'} (default = 'none')
+    penalty : {'none', 'l1', 'l2', 'elasticnet'} (default = 'l2')
        'none' does not perform any regularization
 
        'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
@@ -101,13 +99,13 @@ class MBSGDClassifier(Base,
        'elasticnet' performs Elastic Net regularization which is a weighted
        average of L1 and L2 norms
 
-    alpha: float (default = 0.0001)
+    alpha : float (default = 0.0001)
         The constant value which decides the degree of regularization
-    l1_ratio: float (default=0.15)
+    l1_ratio : float (default=0.15)
         The l1_ratio is used only when `penalty = elasticnet`. The value for
         l1_ratio should be `0 <= l1_ratio <= 1`. When `l1_ratio = 0` then the
         `penalty = 'l2'` and if `l1_ratio = 1` then `penalty = 'l1'`
-    batch_size: int (default = 32)
+    batch_size : int (default = 32)
         It sets the number of samples that will be included in each batch.
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
@@ -124,7 +122,7 @@ class MBSGDClassifier(Base,
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'}
+    learning_rate : {'optimal', 'constant', 'invscaling', 'adaptive'} \
         (default = 'constant')
 
         `optimal` option will be supported in a future version

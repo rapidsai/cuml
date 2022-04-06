@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from libc.stdlib cimport calloc, malloc, free
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
@@ -479,20 +479,23 @@ class ForestInference(Base,
 
     .. code-block:: python
 
-        # Assume that the file 'xgb.model' contains a classifier model that was
-        # previously saved by XGBoost's save_model function.
+        >>> # Assume that the file 'xgb.model' contains a classifier model
+        >>> # that was previously saved by XGBoost's save_model function.
 
-        import sklearn, sklearn.datasets, numpy as np
-        from numba import cuda
-        from cuml import ForestInference
+        >>> import sklearn, sklearn.datasets
+        >>> import numpy as np
+        >>> from numba import cuda
+        >>> from cuml import ForestInference
 
-        model_path = 'xgb.model'
-        X_test, y_test = sklearn.datasets.make_classification()
-        X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
-        fm = ForestInference.load(model_path, output_class=True)
-        fil_preds_gpu = fm.predict(X_gpu)
-        accuracy_score = sklearn.metrics.accuracy_score(y_test,
-                       np.asarray(fil_preds_gpu))
+        >>> model_path = 'xgb.model'
+        >>> X_test, y_test = sklearn.datasets.make_classification()
+        >>> X_gpu = cuda.to_device(
+        ...     np.ascontiguousarray(X_test.astype(np.float32)))
+        >>> fm = ForestInference.load(
+        ...     model_path, output_class=True) # doctest: +SKIP
+        >>> fil_preds_gpu = fm.predict(X_gpu) # doctest: +SKIP
+        >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
+        ...     np.asarray(fil_preds_gpu)) # doctest: +SKIP
 
     Notes
     ------
@@ -578,7 +581,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-    {}
         preds : gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
@@ -607,7 +609,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-    {}
         preds : gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results

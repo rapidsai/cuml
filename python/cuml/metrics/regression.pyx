@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.raft.common.handle import Handle
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle import Handle
+from raft.common.handle cimport handle_t
 from cuml.metrics cimport regression
 from cuml.common.input_utils import input_to_cuml_array
 
@@ -104,12 +104,12 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
     Helper function to avoid code duplication for regression metrics.
     Converts inputs to CumlArray and check multioutput parameter validity.
     """
-    y_true = y_true.squeeze() if len(y_true) > 1 else y_true
+    y_true = y_true.squeeze() if len(y_true.shape) > 1 else y_true
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
                                                  np.int32, np.int64])
 
-    y_pred = y_pred.squeeze() if len(y_pred) > 1 else y_pred
+    y_pred = y_pred.squeeze() if len(y_pred.shape) > 1 else y_pred
     y_pred, _, _, _ = \
         input_to_cuml_array(y_pred, check_dtype=ytype, check_rows=n_rows,
                             check_cols=n_cols)
@@ -177,7 +177,8 @@ def mean_squared_error(y_true, y_pred,
         Estimated target values.
     sample_weight : array-like (device or host) shape = (n_samples,), optional
         Sample weights.
-    multioutput : string in ['raw_values', 'uniform_average']
+    multioutput : string in ['raw_values', 'uniform_average'] \
+            (default='uniform_average')
         or array-like of shape (n_outputs)
         Defines aggregating of multiple output values.
         Array-like value defines weights used to average errors.

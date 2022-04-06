@@ -26,8 +26,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/distance_type.h>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -35,7 +34,6 @@
 #include <faiss/gpu/GpuIndexIVFPQ.h>
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/gpu/utils/Tensor.cuh>
@@ -339,7 +337,7 @@ void knn_regress(const raft::handle_t& handle,
       <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }

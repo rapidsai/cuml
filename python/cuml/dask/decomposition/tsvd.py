@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,62 +28,45 @@ class TruncatedSVD(BaseDecomposition,
     """
     Examples
     --------
-
     .. code-block:: python
 
-        from dask_cuda import LocalCUDACluster
-        from dask.distributed import Client, wait
-        import numpy as np
-        from cuml.dask.decomposition import TruncatedSVD
-        from cuml.dask.datasets import make_blobs
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client, wait
+        >>> import cupy as cp
+        >>> from cuml.dask.decomposition import TruncatedSVD
+        >>> from cuml.dask.datasets import make_blobs
 
-        cluster = LocalCUDACluster(threads_per_worker=1)
-        client = Client(cluster)
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
 
-        nrows = 6
-        ncols = 3
-        n_parts = 2
+        >>> nrows = 6
+        >>> ncols = 3
+        >>> n_parts = 2
 
-        X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=1.8,
-                        verbose=cuml.logger.level_info,
-                        random_state=10, dtype=np.float32)
-
-        wait(X_cudf)
-
-        print("Input Matrix")
-        print(X_cudf.compute())
-
-        cumlModel = TruncatedSVD(n_components = 1)
-        XT = cumlModel.fit_transform(X_cudf)
-
-        print("Transformed Input Matrix")
-        print(XT.compute())
-
-    Output:
-
-    .. code-block:: python
-
-        Input Matrix:
-                            0         1          2
-                  0 -8.519647 -8.519222  -8.865648
-                  1 -6.107700 -8.350124 -10.351215
-                  2 -8.026635 -9.442240  -7.561770
-                  0 -8.519647 -8.519222  -8.865648
-                  1 -6.107700 -8.350124 -10.351215
-                  2 -8.026635 -9.442240  -7.561770
-
-        Transformed Input Matrix:
-                             0
-                  0  14.928891
-                  1  14.487295
-                  2  14.431235
-                  0  14.928891
-                  1  14.487295
-                  2  14.431235
-
-    .. note:: Everytime this code is run, the output will be different because
-        "make_blobs" function generates random matrices.
+        >>> X_cudf, _ = make_blobs(n_samples=nrows, n_features=ncols,
+        ...                        centers=1, n_parts=n_parts,
+        ...                        cluster_std=1.8, random_state=10,
+        ...                        dtype=cp.float32)
+        >>> in_blobs = X_cudf.compute()
+        >>> print(in_blobs) # doctest: +SKIP
+        [[ 6.953966    6.2313757   0.84974563]
+        [10.012338    3.4641726   3.0827546 ]
+        [ 9.537406    4.0504313   3.2793145 ]
+        [ 8.32713     2.957846    1.8215517 ]
+        [ 5.7044296   1.855514    3.7996366 ]
+        [10.089077    2.1995444   2.2072687 ]]
+        >>> cumlModel = TruncatedSVD(n_components = 1)
+        >>> XT = cumlModel.fit_transform(X_cudf)
+        >>> result = XT.compute()
+        >>> print(result) # doctest: +SKIP
+        [[ 8.699628   0.         0.       ]
+        [11.018815   0.         0.       ]
+        [10.8554535  0.         0.       ]
+        [ 9.000192   0.         0.       ]
+        [ 6.7628784  0.         0.       ]
+        [10.40526    0.         0.       ]]
+        >>> client.close()
+        >>> cluster.close()
 
     Parameters
     ----------
@@ -97,7 +80,7 @@ class TruncatedSVD(BaseDecomposition,
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
-    svd_solver : 'full'
+    svd_solver : 'full', 'jacobi'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
     verbose : int or boolean, default=False

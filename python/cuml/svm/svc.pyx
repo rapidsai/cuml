@@ -34,7 +34,8 @@ from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
+from raft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
@@ -90,7 +91,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels
 
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
@@ -116,19 +117,15 @@ class SVC(SVMBase,
     --------
     .. code-block:: python
 
-        import numpy as np
-        from cuml.svm import SVC
-        X = np.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
-                        dtype=np.float32);
-        y = np.array([-1, -1, 1, -1, 1, 1], dtype=np.float32)
-        clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
-        clf.fit(X, y)
-        print("Predicted labels:", clf.predict(X))
-
-    Output:
-
-    .. code-block:: none
-
+        >>> import cupy as cp
+        >>> from cuml.svm import SVC
+        >>> X = cp.array([[1,1], [2,1], [1,2], [2,2], [1,3], [2,3]],
+        ...              dtype=cp.float32);
+        >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
+        >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
+        >>> clf.fit(X, y)
+        SVC()
+        >>> print("Predicted labels:", clf.predict(X))
         Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
     Parameters
@@ -171,8 +168,9 @@ class SVC(SVMBase,
         Weights to modify the parameter C for class i to class_weight[i]*C. The
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
-    max_iter : int (default = 100*n_samples)
-        Limit the number of outer iterations in the solver
+    max_iter : int (default = -1)
+        Limit the number of outer iterations in the solver.
+        If -1 (default) then ``max_iter=100*n_samples``
     multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -217,7 +215,7 @@ class SVC(SVMBase,
         Only available for linear kernels. It is the normal of the
         hyperplane.
         coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-    classes_: shape (n_classes_,)
+    classes_ : shape (`n_classes_`,)
         Array of class labels
     n_classes_ : int
         Number of classes
@@ -482,17 +480,25 @@ class SVC(SVMBase,
         cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            svcFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0], <float*>sample_weight_ptr)
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <float*>X_ptr, n_rows,
+                        n_cols, <float*>y_ptr, param, _kernel_params,
+                        deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            svcFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0], <double*>sample_weight_ptr)
+            with cuda_interruptible():
+                with nogil:
+                    svcFit(
+                        deref(handle_), <double*>X_ptr, n_rows,
+                        n_cols, <double*>y_ptr, param, _kernel_params,
+                        deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')

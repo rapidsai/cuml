@@ -223,7 +223,7 @@ std::size_t run(const raft::handle_t& handle,
       raft::common::nvtx::pop_range();
     }
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
     raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");

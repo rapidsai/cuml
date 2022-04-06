@@ -17,17 +17,15 @@
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/lstsq.hpp>
-#include <opg/stats/mean.hpp>
+#include <cumlprims/opg/linalg/lstsq.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/gemm.hpp>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -153,7 +151,7 @@ void fit_impl(raft::handle_t& handle,
            verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -227,7 +225,7 @@ void predict_impl(raft::handle_t& handle,
     handle, input_data, input_desc, coef, intercept, preds_data, streams, n_streams, verbose);
 
   for (int i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(streams[i]));
+    handle.sync_stream(streams[i]);
   }
 
   for (int i = 0; i < n_streams; i++) {

@@ -7,15 +7,19 @@ channels:
 dependencies:
 - cudatoolkit=11.5
 - cuda-python >=11.5,<12.0
-- rapids-build-env=22.02.*
-- rapids-notebook-env=22.02.*
-- rapids-doc-env=22.02.*
-- cudf=22.02.*
-- rmm=22.02.*
-- libcumlprims=22.02.*
-- dask-cudf=22.02.*
-- dask-cuda=22.02.*
-- ucx-py=0.24.*
+- rapids-build-env=22.04.*
+- rapids-notebook-env=22.04.*
+- rapids-doc-env=22.04.*
+- cudf=22.04.*
+- rmm=22.04.*
+- libcumlprims=22.04.*
+- libraft-headers=22.04.*
+- libraft-distance=22.04.*
+- libraft-nn=22.04.*
+- pyraft=22.04.*
+- dask-cudf=22.04.*
+- dask-cuda=22.04.*
+- ucx-py=0.25.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
@@ -23,7 +27,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
-- treelite=2.2.1
+- treelite=2.3.0
 - statsmodels
 - seaborn
 - hdbscan
@@ -31,8 +35,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@2022.01.0
-    - git+https://github.com/dask/distributed.git@2022.01.0
+    - git+https://github.com/dask/dask.git@2022.03.0
+    - git+https://github.com/dask/distributed.git@2022.03.0
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/

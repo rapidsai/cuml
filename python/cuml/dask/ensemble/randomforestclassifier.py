@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+
         ``2``, ``'mse'``, ``4``, ``'poisson'``, ``5``, ``'gamma'``, ``6``,
         ``'inverse_gaussian'`` not valid for classification
     bootstrap : boolean (default = True)
@@ -91,8 +92,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
          * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure), If ``-1``.
+    max_depth : int (default = 16)
+        Maximum tree depth. Must be greater than 0.
+        Unlimited depth (i.e, until leaves are pure)
+        is not supported.\n
+        .. note:: This default differs from scikit-learn's
+          random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited, If ``-1``.
     max_features : float (default = 'auto')
@@ -105,8 +110,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
          * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
          * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
          * If ``None``, then ``max_features = 1.0``.
+
     n_bins : int (default = 128)
-        Number of bins used by the split algorithm.
+        Maximum number of bins used by the split algorithm per feature.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
          * If type ``int``, then ``min_samples_leaf`` represents the minimum
@@ -114,6 +120,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
          * If ``float``, then ``min_samples_leaf`` represents a fraction
            and ``ceil(min_samples_leaf * n_rows)`` is the minimum number of
            samples for each leaf node.
+
     min_samples_split : int or float (default = 2)
         The minimum number of samples required to split an internal
         node.\n
@@ -122,6 +129,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
          * If type ``float``, then ``min_samples_split`` represents a fraction
            and ``ceil(min_samples_split * n_rows)`` is the minimum number of
            samples for each split.
+
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
@@ -227,8 +235,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
-                                                           X_dask_cudf=workers,
-                                                           y_dask_cudf=workers
+                                                           X_dask_cudf:workers,
+                                                           y_dask_cudf:workers
                                                            })
 
         Parameters
@@ -300,7 +308,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'auto'`` - choose the algorithm automatically. (Default)
              * ``'batch_tree_reorg'`` is used for dense storage
                and 'naive' for sparse storage
 
@@ -489,7 +497,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'auto'`` - choose the algorithm automatically. (Default)
              * ``'batch_tree_reorg'`` is used for dense storage
                and 'naive' for sparse storage
 

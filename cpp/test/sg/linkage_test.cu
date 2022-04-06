@@ -22,10 +22,9 @@
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <hierarchy/pw_dist_graph.cuh>
-#include <raft/mr/device/allocator.hpp>
 
-#include <raft/linalg/distance_type.h>
-#include <raft/linalg/transpose.h>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/transpose.hpp>
 #include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -80,7 +79,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
     raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, handle.get_stream());
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
 
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
     out_arrs.labels = labels.data();
@@ -107,7 +106,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                   params.n_clusters);
     }
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }

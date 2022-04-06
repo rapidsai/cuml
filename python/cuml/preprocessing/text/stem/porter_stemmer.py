@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,20 +76,16 @@ class PorterStemmer:
 
     .. code-block:: python
 
-        import cudf
-        from cuml.preprocessing.text.stem import PorterStemmer
-        stemmer = PorterStemmer()
-        word_str_ser =  cudf.Series(['revival','singing','adjustable'])
-        print(stemmer.stem(word_str_ser))
-
-    Output:
-
-    .. code-block:: python
-
+        >>> import cudf
+        >>> from cuml.preprocessing.text.stem import PorterStemmer
+        >>> stemmer = PorterStemmer()
+        >>> word_str_ser =  cudf.Series(['revival','singing','adjustable'])
+        >>> print(stemmer.stem(word_str_ser))
         0     reviv
         1      sing
         2    adjust
         dtype: object
+
     """
 
     def __init__(self, mode="NLTK_EXTENSIONS"):

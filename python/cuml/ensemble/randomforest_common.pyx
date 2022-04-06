@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from inspect import signature
 import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.exceptions import NotFittedError
@@ -119,7 +119,7 @@ class BaseRandomForestModel(Base):
             verbose=verbose,
             output_type=output_type)
 
-        if max_depth < 0:
+        if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
 
         if (str(split_criterion) not in

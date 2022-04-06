@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import cupy
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
@@ -163,7 +163,7 @@ class TSNE(Base,
         Setting this can make repeated runs look more similar. Note, however,
         that this highly parallelized t-SNE implementation is not completely
         deterministic between runs, even with the same `random_state`.
-    method : str 'barnes_hut', 'fft' or 'exact' (default 'barnes_hut')
+    method : str 'fft', 'barnes_hut' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
     angle : float (default 0.5)
@@ -262,7 +262,7 @@ class TSNE(Base,
                  init='random',
                  verbose=False,
                  random_state=None,
-                 method='barnes_hut',
+                 method='fft',
                  angle=0.5,
                  learning_rate_method='adaptive',
                  n_neighbors=90,
@@ -340,6 +340,9 @@ class TSNE(Base,
             raise ValueError("post_momentum = {} should be more than "
                              "pre_momentum = {}".format(post_momentum,
                                                         pre_momentum))
+        if method == "fft":
+            warnings.warn("Starting from version 22.04, the default method "
+                          "of TSNE is 'fft'.")
 
         self.n_components = n_components
         self.perplexity = perplexity

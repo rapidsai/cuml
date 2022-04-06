@@ -15,7 +15,6 @@
  */
 
 #include "knn_test_helper.cuh"
-#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace KNN {
@@ -28,7 +27,6 @@ void generate_partitions(float* data,
                          int n_cols,
                          int n_clusters,
                          int my_rank,
-                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream)
 {
   Random::make_blobs<float, int>(data,

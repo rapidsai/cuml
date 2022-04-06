@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
 from cuml.common import has_scipy
@@ -172,11 +172,11 @@ class ARIMA(Base):
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
         Missing values are accepted, represented by NaN.
-    order : Tuple[int, int, int]
+    order : Tuple[int, int, int] (default=(1,1,1))
         The ARIMA order (p, d, q) of the model
-    seasonal_order: Tuple[int, int, int, int]
+    seasonal_order : Tuple[int, int, int, int] (default=(0,0,0,0))
         The seasonal ARIMA order (P, D, Q, s) of the model
-    exog : dataframe or array-like (device or host)
+    exog : dataframe or array-like (device or host) (default=None)
         Exogenous variables, assumed to have each time series in columns,
         such that variables associated with a same batch member are adjacent
         (number of columns: n_exog * batch_size)
@@ -185,7 +185,7 @@ class ARIMA(Base):
         Missing values are not supported.
     fit_intercept : bool or int (default = True)
         Whether to include a constant trend mu in the model
-    simple_differencing: bool or int (default = True)
+    simple_differencing : bool or int (default = True)
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         In some cases this setting can be ignored: computing forecasts with
@@ -214,15 +214,15 @@ class ARIMA(Base):
     ----------
     order : ARIMAOrder
         The ARIMA order of the model (p, d, q, P, D, Q, s, k, n_exog)
-    d_y: device array
+    d_y : device array
         Time series data on device
-    n_obs: int
+    n_obs : int
         Number of observations
-    batch_size: int
+    batch_size : int
         Number of time series in the batch
-    dtype: numpy.dtype
+    dtype : numpy.dtype
         Floating-point type of the data and parameters
-    niter: numpy.ndarray
+    niter : numpy.ndarray
         After fitting, contains the number of iterations before convergence
         for each time series.
 
@@ -251,44 +251,39 @@ class ARIMA(Base):
     --------
     .. code-block:: python
 
-            import numpy as np
-            from cuml.tsa.arima import ARIMA
+        >>> import cupy as cp
+        >>> from cuml.tsa.arima import ARIMA
 
-            # Create seasonal data with a trend, a seasonal pattern and noise
-            n_obs = 100
-            np.random.seed(12)
-            x = np.linspace(0, 1, n_obs)
-            pattern = np.array([[0.05, 0.0], [0.07, 0.03],
-                                [-0.03, 0.05], [0.02, 0.025]])
-            noise = np.random.normal(scale=0.01, size=(n_obs, 2))
-            y = (np.column_stack((0.5*x, -0.25*x)) + noise
-                + np.tile(pattern, (25, 1)))
+        >>> # Create seasonal data with a trend, a seasonal pattern and noise
+        >>> n_obs = 100
+        >>> cp.random.seed(12)
+        >>> x = cp.linspace(0, 1, n_obs)
+        >>> pattern = cp.array([[0.05, 0.0], [0.07, 0.03],
+        ...                     [-0.03, 0.05], [0.02, 0.025]])
+        >>> noise = cp.random.normal(scale=0.01, size=(n_obs, 2))
+        >>> y = (cp.column_stack((0.5*x, -0.25*x)) + noise
+        ...     + cp.tile(pattern, (25, 1)))
 
-            # Fit a seasonal ARIMA model
-            model = ARIMA(y,
-                          order=(0,1,1),
-                          seasonal_order=(0,1,1,4),
-                          fit_intercept=False)
-            model.fit()
-
-            # Forecast
-            fc = model.forecast(10)
-            print(fc)
-
-    Output:
-
-    .. code-block:: python
-
-            [[ 0.55204599 -0.25681163]
-            [ 0.57430705 -0.2262438 ]
-            [ 0.48120315 -0.20583011]
-            [ 0.535594   -0.24060046]
-            [ 0.57207541 -0.26695497]
-            [ 0.59433647 -0.23638713]
-            [ 0.50123257 -0.21597344]
-            [ 0.55562342 -0.25074379]
-            [ 0.59210483 -0.27709831]
-            [ 0.61436589 -0.24653047]]
+        >>> # Fit a seasonal ARIMA model
+        >>> model = ARIMA(y,
+        ...               order=(0,1,1),
+        ...               seasonal_order=(0,1,1,4),
+        ...               fit_intercept=False)
+        >>> model.fit()
+        ARIMA(...)
+        >>> # Forecast
+        >>> fc = model.forecast(10)
+        >>> print(fc) # doctest: +SKIP
+        [[ 0.55204599 -0.25681163]
+        [ 0.57430705 -0.2262438 ]
+        [ 0.48120315 -0.20583011]
+        [ 0.535594   -0.24060046]
+        [ 0.57207541 -0.26695497]
+        [ 0.59433647 -0.23638713]
+        [ 0.50123257 -0.21597344]
+        [ 0.55562342 -0.25074379]
+        [ 0.59210483 -0.27709831]
+        [ 0.61436589 -0.24653047]]
 
     """
 
@@ -607,12 +602,12 @@ class ARIMA(Base):
 
         Parameters
         ----------
-        start: int (default = 0)
+        start : int (default = 0)
             Index where to start the predictions (0 <= start <= num_samples)
-        end: int (default = None)
+        end : int (default = None)
             Index where to end the predictions, excluded (end > start), or
             ``None`` to predict until the last observation
-        level: float or None (default = None)
+        level : float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. ``0 < level < 1``
         exog : dataframe or array-like (device or host)
@@ -752,10 +747,10 @@ class ARIMA(Base):
         ----------
         nsteps : int
             The number of steps to forecast beyond end of the given series
-        level: float or None (default = None)
+        level : float or None (default = None)
             Confidence level for prediction intervals, or None to return only
             the point forecasts. 0 < level < 1
-        exog : dataframe or array-like (device or host)
+        exog : dataframe or array-like (device or host) (default=None)
             Future values for exogenous variables. Assumed to have each time
             series in columns, such that variables associated with a same
             batch member are adjacent.
@@ -765,10 +760,10 @@ class ARIMA(Base):
         -------
         y_fc : array-like
             Forecasts. Shape = (nsteps, batch_size)
-        lower: array-like (device) (optional)
+        lower : array-like (device) (optional)
             Lower limit of the prediction interval if level != None
             Shape = (end - start, batch_size)
-        upper: array-like (device) (optional)
+        upper : array-like (device) (optional)
             Upper limit of the prediction interval if level != None
             Shape = (end - start, batch_size)
 
@@ -859,19 +854,19 @@ class ARIMA(Base):
             * `0<n<100` for output every `n` steps
             * `n>100` for more detailed output
 
-        h : float
+        h : float (default=1e-8)
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
             :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})` # noqa
 
-        maxiter : int
+        maxiter : int (default=1000)
             Maximum number of iterations of L-BFGS-B
-        method : str
+        method : str (default="ml")
             Estimation method - "css", "css-ml" or "ml".
             CSS uses a sum-of-squares approximation.
             ML estimates the log-likelihood with statespace methods.
             CSS-ML starts with CSS and refines with ML.
-        truncate : int
+        truncate : int (default=0)
             When using CSS, start the sum of squares after a given number of
             observations
         """
@@ -940,13 +935,13 @@ class ARIMA(Base):
         ----------
         x : array-like
             Packed parameter array, grouped by series
-        trans : bool
+        trans : bool (default=True)
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
-        method : str
+        method : str (default="ml")
             Estimation method: "css" for sum-of-squares, "ml" for
             an estimation with statespace methods
-        truncate : int
+        truncate : int (default=0)
             When using CSS, start the sum of squares after a given number of
             observations
 
@@ -1008,13 +1003,13 @@ class ARIMA(Base):
             Shape: (n_params * batch_size,)
         h : float
             The finite-difference stepsize
-        trans : bool
+        trans : bool (default=True)
             Should the Jones' transform be applied?
             Note: The parameters from a fit model are already transformed.
-        method : str
+        method : str (default="ml")
             Estimation method: "css" for sum-of-squares, "ml" for
             an estimation with statespace methods
-        truncate : int
+        truncate : int (default=0)
             When using CSS, start the sum of squares after a given number of
             observations
 

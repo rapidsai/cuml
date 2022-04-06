@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@ from cuml.explainer.common import model_func_call
 from cuml.explainer.common import output_list_shap_values
 from cuml.linear_model import Lasso
 from cuml.linear_model import LinearRegression
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from functools import lru_cache
 from itertools import combinations
 from numbers import Number
 from random import randint
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport uint64_t
 
@@ -134,7 +134,7 @@ class KernelExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.raft.common.handle (default = None)
+    handle : raft.common.handle (default = None)
         Specifies the handle that holds internal CUDA state for
         computations in this model, a new one is created if it is None.
         Most importantly, this specifies the CUDA stream that will be used for
@@ -154,38 +154,41 @@ class KernelExplainer(SHAPBase):
     Examples
     --------
 
-    >>> from cuml import SVR
-    >>> from cuml import make_regression
-    >>> from cuml import train_test_split
-    >>>
-    >>> from cuml.explainer import KernelExplainer
-    >>>
-    >>> X, y = make_regression(
-    ...     n_samples=102,
-    ...     n_features=10,
-    ...     noise=0.1,
-    ...     random_state=42)
-    >>>
-    >>> X_train, X_test, y_train, y_test = train_test_split(
-    ...     X,
-    ...     y,
-    ...     test_size=2,
-    ...     random_state=42)
-    >>>
-    >>> model = SVR().fit(X_train, y_train)
-    >>>
-    >>> cu_explainer = KernelExplainer(
-    ...     model=model.predict,
-    ...     data=X_train,
-    ...     gpu_model=True)
-    >>>
-    >>> cu_shap_values = cu_explainer.shap_values(X_test)
-    >>> cu_shap_values
-    array([[ 0.02104662, -0.03674018, -0.01316485,  0.02408933, -0.5943235 ,
-             0.15274985, -0.01287319, -0.3050412 ,  0.0262317 , -0.07229283],
-           [ 0.15244992,  0.16341315, -0.09833339,  0.07259235, -0.17099564,
-             2.7372282 ,  0.0998467 , -0.29607034, -0.11780564, -0.50097287]],
-          dtype=float32)
+    .. code-block:: python
+
+        >>> from cuml import SVR
+        >>> from cuml import make_regression
+        >>> from cuml import train_test_split
+        >>>
+        >>> from cuml.explainer import KernelExplainer
+        >>>
+        >>> X, y = make_regression(
+        ...     n_samples=102,
+        ...     n_features=10,
+        ...     noise=0.1,
+        ...     random_state=42)
+        >>>
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...     X,
+        ...     y,
+        ...     test_size=2,
+        ...     random_state=42)
+        >>>
+        >>> model = SVR().fit(X_train, y_train)
+        >>>
+        >>> cu_explainer = KernelExplainer(
+        ...     model=model.predict,
+        ...     data=X_train,
+        ...     is_gpu_model=True,
+        ...     random_state=42)
+        >>>
+        >>> cu_shap_values = cu_explainer.shap_values(X_test)
+        >>> cu_shap_values  # doctest: +SKIP
+        array([[-0.41163236, -0.29839307, -0.31082764, -0.21910861, 0.20798518,
+              1.525831  , -0.07726735, -0.23897147, -0.5901833 , -0.03319931],
+            [-0.37491834, -0.22581327, -1.2146976 ,  0.03793442, -0.24420738,
+              -0.4875331 , -0.05438256, 0.16568947, -1.9978098 , -0.19110584]],
+            dtype=float32)
 
     """
 

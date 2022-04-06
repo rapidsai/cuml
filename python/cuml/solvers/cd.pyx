@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -101,50 +101,41 @@ class CD(Base,
     ---------
     .. code-block:: python
 
-        import numpy as np
-        import cudf
-        from cuml.solvers import CD as cumlCD
+        >>> import cupy as cp
+        >>> import cudf
+        >>> from cuml.solvers import CD as cumlCD
 
-        cd = cumlCD(alpha=0.0)
+        >>> cd = cumlCD(alpha=0.0)
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
 
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
 
-        reg = cd.fit(X,y)
+        >>> cd.fit(X,y)
+        CD()
+        >>> print(cd.coef_) # doctest: +SKIP
+        0 1.001...
+        1 1.998...
+        dtype: float32
+        >>> print(cd.intercept_) # doctest: +SKIP
+        3.00...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
 
-        print("Coefficients:")
-        print(reg.coef_)
-        print("intercept:")
-        print(reg.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-
-        preds = cd.predict(X_new)
-
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-                    0 1.0019531
-                    1 1.9980469
-        Intercept:
-                    3.0
-        Preds:
-                    0 15.997
-                    1 14.995
+        >>> preds = cd.predict(X_new)
+        >>> print(preds) # doctest: +SKIP
+        0 15.997...
+        1 14.995...
+        dtype: float32
 
     Parameters
     -----------
-    loss : 'squared_loss' (Only 'squared_loss' is supported right now)
-       'squared_loss' uses linear regression
+    loss : 'squared_loss'
+        Only 'squared_loss' is supported right now.
+        'squared_loss' uses linear regression in its predict step.
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization.
         'alpha = 0' is equivalent to an ordinary least square, solved by the
@@ -157,16 +148,18 @@ class CD(Base,
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.
+    normalize : boolean (default = False)
+        Whether to normalize the data or not.
     max_iter : int (default = 1000)
         The number of times the model should iterate through the entire
-        dataset during training (default = 1000)
+        dataset during training
     tol : float (default = 1e-3)
        The tolerance for the optimization: if the updates are smaller than tol,
        solver stops.
     shuffle : boolean (default = True)
-       If set to ‘True’, a random coefficient is updated every iteration rather
+       If set to 'True', a random coefficient is updated every iteration rather
        than looping over features sequentially by default.
-       This (setting to ‘True’) often leads to significantly faster convergence
+       This (setting to 'True') often leads to significantly faster convergence
        especially when tol is higher than 1e-4.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for

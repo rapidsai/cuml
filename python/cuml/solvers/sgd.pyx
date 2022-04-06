@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -132,38 +132,32 @@ class SGD(Base,
 
     Examples
     --------
-
     .. code-block:: python
 
-        import numpy as np
-        import cudf
-        from cuml.solvers import SGD as cumlSGD
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype=np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype=np.float32)
-        y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
-        pred_data = cudf.DataFrame()
-        pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
-        pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
-        cu_sgd = cumlSGD(learning_rate='constant', eta0=0.005, epochs=2000,
-                        fit_intercept=True, batch_size=2,
-                        tol=0.0, penalty='none', loss='squared_loss')
-        cu_sgd.fit(X, y)
-        cu_pred = cu_sgd.predict(pred_data).to_numpy()
-        print(" cuML intercept : ", cu_sgd.intercept_)
-        print(" cuML coef : ", cu_sgd.coef_)
-        print("cuML predictions : ", cu_pred)
-
-    Output:
-
-    .. code-block:: python
-
-        cuML intercept :  0.0041877031326293945
-        cuML coef :  0      0.984174
-                     1      0.009776
-                    dtype: float32
-        cuML predictions :  [3.005588  2.0214138]
-
+        >>> import numpy as np
+        >>> import cudf
+        >>> from cuml.solvers import SGD as cumlSGD
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = np.array([1,1,2,2], dtype=np.float32)
+        >>> X['col2'] = np.array([1,2,2,3], dtype=np.float32)
+        >>> y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
+        >>> pred_data = cudf.DataFrame()
+        >>> pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
+        >>> pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
+        >>> cu_sgd = cumlSGD(learning_rate='constant', eta0=0.005, epochs=2000,
+        ...                  fit_intercept=True, batch_size=2,
+        ...                  tol=0.0, penalty='none', loss='squared_loss')
+        >>> cu_sgd.fit(X, y)
+        SGD()
+        >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
+        >>> print(" cuML intercept : ", cu_sgd.intercept_) # doctest: +SKIP
+        cuML intercept :  0.00418...
+        >>> print(" cuML coef : ", cu_sgd.coef_) # doctest: +SKIP
+        cuML coef :  0      0.9841...
+        1      0.0097...
+        dtype: float32
+        >>> print("cuML predictions : ", cu_pred) # doctest: +SKIP
+        cuML predictions :  [3.0055...  2.0214...]
 
     Parameters
     -----------
@@ -171,7 +165,7 @@ class SGD(Base,
         'hinge' uses linear SVM
         'log' uses logistic regression
         'squared_loss' uses linear regression
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
         'none' does not perform any regularization
         'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
         of coefficients
@@ -179,7 +173,7 @@ class SGD(Base,
         the coefficients
         'elasticnet' performs Elastic Net regularization which is a weighted
         average of L1 and L2 norms
-    alpha: float (default = 0.0001)
+    alpha : float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
         If True, the model tries to correct for the global mean of y.
@@ -196,15 +190,17 @@ class SGD(Base,
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
+    batch_size : int (default=32)
+        The number of samples to use for each batch.
     learning_rate : 'optimal', 'constant', 'invscaling', \
                     'adaptive' (default = 'constant')
-        optimal option supported in the next version
+        Optimal option supported in the next version
         constant keeps the learning rate constant
         adaptive changes the learning rate if the training loss or the
         validation accuracy does not improve for n_iter_no_change epochs.
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
-        the number of epochs to train without any imporvement in the model
+        The number of epochs to train without any imporvement in the model
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA

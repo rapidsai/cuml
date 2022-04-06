@@ -28,14 +28,13 @@
 #include <test_utils.h>
 
 #include <datasets/digits.h>
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
@@ -152,7 +151,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                                           knn_dists,
                                           umap_params.n_neighbors);
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
     }
 
     float* model_embedding = nullptr;
@@ -168,7 +167,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     RAFT_CUDA_TRY(cudaMemsetAsync(
       model_embedding, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     if (test_params.supervised) {
       ML::UMAP::fit(
@@ -198,13 +197,13 @@ class UMAPParametrizableTest : public ::testing::Test {
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }
     }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     if (!test_params.fit_transform) {
       RAFT_CUDA_TRY(cudaMemsetAsync(
         embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       ML::UMAP::transform(handle,
                           X,
@@ -219,7 +218,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                           &umap_params,
                           embedding_ptr);
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       delete model_embedding_b;
     }
@@ -294,11 +293,11 @@ class UMAPParametrizableTest : public ::testing::Test {
                              10.f,
                              1234ULL);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
-    MLCommon::LinAlg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
+    raft::linalg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     rmm::device_uvector<float> embeddings1(n_samples * umap_params.n_components, stream);
 

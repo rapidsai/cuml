@@ -22,7 +22,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "test_utils.h"
@@ -87,7 +86,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     /* Copy to device */
     raft::update_device(
       y.data(), h_y.data(), params.n_obs * params.batch_size, handle.get_stream());
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    handle.sync_stream(handle.get_stream());
 
     /* Compute using tested prims */
     fillna(y.data(), params.batch_size, params.n_obs, handle.get_stream());

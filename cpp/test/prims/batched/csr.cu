@@ -21,7 +21,6 @@
 #include <sparse/batched/csr.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 
 #include <gtest/gtest.h>
 
@@ -162,7 +161,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
         break;
     }
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::interruptible::synchronize(stream);
   }
 
   void TearDown() override
