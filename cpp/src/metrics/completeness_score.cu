@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/completeness_score.hpp>
+#include <raft/stats/homogeneity_score.cuh>
 
 namespace ML {
 
@@ -29,8 +29,8 @@ double completeness_score(const raft::handle_t& handle,
                           const int lower_class_range,
                           const int upper_class_range)
 {
-  return raft::stats::completeness_score(
-    y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
+  return raft::stats::homogeneity_score(
+    y_hat, y, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 
 }  // namespace Metrics
