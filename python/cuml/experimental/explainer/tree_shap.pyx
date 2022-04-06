@@ -47,18 +47,26 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
     cdef cppclass TreePathHandle:
         pass
 
+    cdef cppclass FloatPointer:
+        pass
+
     cdef TreePathHandle extract_path_info(ModelHandle model) except +
     cdef void gpu_treeshap(TreePathHandle  path_info,
-                           const float * data,
+                           const FloatPointer data,
                            size_t n_rows,
                            size_t n_cols,
-                           float * out_preds) except +
-    cdef void gpu_treeshap(TreePathHandle  path_info,
-                           const double * data,
-                           size_t n_rows,
-                           size_t n_cols,
-                           double * out_preds) except +
+                           FloatPointer out_preds) except +
 
+
+cdef FloatPointer type_erase_float_ptr(array):
+    cdef FloatPointer ptr
+    if array.dtype == np.float32:
+        ptr = <FloatPointer > <float*> < uintptr_t > array.ptr
+    elif array.dtype == np.float64:
+        ptr = <FloatPointer > <double*> < uintptr_t > array.ptr
+    else:
+        raise ValueError("Unsupported dtype")
+    return ptr
 
 cdef class TreeExplainer:
     cdef public object expected_value
@@ -164,14 +172,9 @@ cdef class TreeExplainer:
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
         preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
-        if dtype == np.float32:
-            gpu_treeshap(self.path_info, < const float*> < uintptr_t > X_m.ptr,
-                         < size_t > n_rows, < size_t > n_cols, < float*> < uintptr_t > preds.ptr)
-        elif dtype == np.float64:
-            gpu_treeshap(self.path_info, < const double * > < uintptr_t > X_m.ptr,
-                         < size_t > n_rows, < size_t > n_cols, < double * > < uintptr_t > preds.ptr)
-        else:
-            raise ValueError("Unsupported dtype")
+
+        gpu_treeshap(self.path_info, type_erase_float_ptr(X_m),
+                     < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds))
 
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:

@@ -28,21 +28,18 @@ namespace Explainer {
 template <typename T>
 class TreePathInfo;
 
-using TreePathHandle = std::variant<std::shared_ptr<TreePathInfo <float >>,std::shared_ptr<TreePathInfo <double>>>;
+using TreePathHandle =
+  std::variant<std::shared_ptr<TreePathInfo<float>>, std::shared_ptr<TreePathInfo<double>>>;
+
+using FloatPointer = std::variant<float*, double*>;
 
 TreePathHandle extract_path_info(ModelHandle model);
 
 void gpu_treeshap(TreePathHandle path_info,
-                  const float* data,
+                  const FloatPointer data,
                   std::size_t n_rows,
                   std::size_t n_cols,
-                  float* out_preds);
-
-void gpu_treeshap(TreePathHandle path_info,
-                  const double* data,
-                  std::size_t n_rows,
-                  std::size_t n_cols,
-                  double * out_preds);
+                  FloatPointer out_preds);
 
 }  // namespace Explainer
 }  // namespace ML
