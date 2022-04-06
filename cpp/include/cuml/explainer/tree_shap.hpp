@@ -25,17 +25,20 @@
 namespace ML {
 namespace Explainer {
 
-using TreePathInfo = void;
+template <typename T>
+class TreePathInfo;
 
-std::shared_ptr<TreePathInfo> extract_path_info(ModelHandle model);
+using TreePathHandle = std::variant<std::shared_ptr<TreePathInfo <float >>,std::shared_ptr<TreePathInfo <double>>>;
 
-void gpu_treeshap(TreePathInfo* path_info,
+TreePathHandle extract_path_info(ModelHandle model);
+
+void gpu_treeshap(TreePathHandle path_info,
                   const float* data,
                   std::size_t n_rows,
                   std::size_t n_cols,
                   float* out_preds);
 
-void gpu_treeshap(TreePathInfo* path_info,
+void gpu_treeshap(TreePathHandle path_info,
                   const double* data,
                   std::size_t n_rows,
                   std::size_t n_cols,

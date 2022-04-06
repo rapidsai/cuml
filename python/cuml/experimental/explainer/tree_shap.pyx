@@ -44,16 +44,16 @@ cdef extern from "treelite/c_api_common.h":
     cdef const char * TreeliteGetLastError()
 
 cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
-    cdef cppclass TreePathInfo:
+    cdef cppclass TreePathHandle:
         pass
 
-    cdef shared_ptr[TreePathInfo] extract_path_info(ModelHandle model) except +
-    cdef void gpu_treeshap(TreePathInfo * path_info,
+    cdef TreePathHandle extract_path_info(ModelHandle model) except +
+    cdef void gpu_treeshap(TreePathHandle  path_info,
                            const float * data,
                            size_t n_rows,
                            size_t n_cols,
                            float * out_preds) except +
-    cdef void gpu_treeshap(TreePathInfo * path_info,
+    cdef void gpu_treeshap(TreePathHandle  path_info,
                            const double * data,
                            size_t n_rows,
                            size_t n_cols,
@@ -62,7 +62,7 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
 
 cdef class TreeExplainer:
     cdef public object expected_value
-    cdef shared_ptr[TreePathInfo] path_info
+    cdef TreePathHandle path_info
     cdef size_t num_class
     """ 
     Model explainer that calculates Shapley values for the predictions of tree-based models. Shapley values are a method of attributing the contribution of various input features to a given model prediction. 
@@ -165,10 +165,10 @@ cdef class TreeExplainer:
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
         preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
         if dtype == np.float32:
-            gpu_treeshap(self.path_info.get(), < const float*> < uintptr_t > X_m.ptr,
+            gpu_treeshap(self.path_info, < const float*> < uintptr_t > X_m.ptr,
                          < size_t > n_rows, < size_t > n_cols, < float*> < uintptr_t > preds.ptr)
         elif dtype == np.float64:
-            gpu_treeshap(self.path_info.get(), < const double * > < uintptr_t > X_m.ptr,
+            gpu_treeshap(self.path_info, < const double * > < uintptr_t > X_m.ptr,
                          < size_t > n_rows, < size_t > n_cols, < double * > < uintptr_t > preds.ptr)
         else:
             raise ValueError("Unsupported dtype")
