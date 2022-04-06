@@ -22,6 +22,7 @@
 #include <cuml/explainer/tree_shap.hpp>
 #include <iostream>
 #include <limits>
+#include <variant>
 #include <memory>
 #include <numeric>
 #include <raft/error.hpp>
@@ -355,8 +356,11 @@ struct PathSegmentExtractor {
   void new_path_handler() { ++path_idx; }
 };
 
+};
+namespace ML {
+namespace Explainer {
 template <typename ThresholdType>
-class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
+class TreePathInfoImpl{
  public:
   int num_tree;
   float global_bias;
@@ -373,9 +377,11 @@ class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
                   std::is_same<ThresholdType, double>::value,
                 "ThresholdType must be a float or double");
 
-  virtual ~TreePathInfoImpl() = default;
 };
+}
+}
 
+namespace {
 template <typename ThresholdT>
 class DenseDatasetWrapper {
   const ThresholdT* data;
@@ -397,7 +403,7 @@ class DenseDatasetWrapper {
 };
 
 template <typename ThresholdT, typename DataT>
-void gpu_treeshap_impl(TreePathInfoImpl<ThresholdT>* path_info,
+void gpu_treeshap_impl(ML::Explainer::TreePathInfoImpl<ThresholdT>* path_info,
                        const DataT* data,
                        std::size_t n_rows,
                        std::size_t n_cols,
@@ -601,6 +607,7 @@ std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_t
   return path_segments;
 }
 
+
 // Extract the path segments from a single tree. Each path segment will have path_idx field, which
 // uniquely identifies the path to which the segment belongs. The path_idx_offset parameter sets
 // the path_idx field of the first path segment.
@@ -668,8 +675,10 @@ extract_path_segments_from_tree(const std::vector<tl::Tree<ThresholdType, LeafTy
   return path_segments;
 }
 
+using TreePathInfoVariant = std::variant<TreePathInfoImpl<float >,TreePathInfoImpl<double>>;
+
 template <typename ThresholdType, typename LeafType>
-std::unique_ptr<TreePathInfo> extract_path_info_impl(
+std::shared_ptr<TreePathInfo> extract_path_info_impl(
   const tl::ModelImpl<ThresholdType, LeafType>& model)
 {
   if (!std::is_same<ThresholdType, LeafType>::value) {
@@ -679,8 +688,9 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
     RAFT_FAIL("ThresholdType must be either float32 or float64");
   }
 
-  std::unique_ptr<TreePathInfo> path_info_ptr = std::make_unique<TreePathInfoImpl<ThresholdType>>();
-  auto* path_info = dynamic_cast<TreePathInfoImpl<ThresholdType>*>(path_info_ptr.get());
+  std::shared_ptr<TreePathInfoVariant> path_info_ptr = std::make_unique<TreePathInfoVariant>();
+  *path_info_ptr = TreePathInfoImpl<ThresholdType>();
+  auto* path_info =  &std::get<TreePathInfoImpl<ThresholdType>>(*path_info_ptr);
 
   /* 1. Scan the model for categorical splits and pre-allocate bit fields. */
   CategoricalSplitCounter<ThresholdType, LeafType> cat_counter{model.num_feature};
@@ -724,7 +734,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
   return path_info_ptr;
 }
 
-std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model)
+std::shared_ptr<TreePathInfo> extract_path_info(ModelHandle model)
 {
   const tl::Model& model_ref = *static_cast<tl::Model*>(model);
 
@@ -733,15 +743,7 @@ std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model)
     return extract_path_info_impl(model_inner);
   });
 }
-template <typename FuncT>
-void TreePathInfo::Dispatch(FuncT f){
-  if (auto x = dynamic_cast<TreePathInfoImpl<float>*>(this)){
-    f(x);
-}
-  else if (auto x = dynamic_cast<TreePathInfoImpl<double>*>(this)){
-    f(x);
-}
-}
+
 
 void gpu_treeshap(TreePathInfo* path_info,
                   const float* data,
@@ -749,9 +751,9 @@ void gpu_treeshap(TreePathInfo* path_info,
                   std::size_t n_cols,
                   float* out_preds)
 {
-  path_info->Dispatch([&](auto* info_downcast) {
-      gpu_treeshap_impl(info_downcast, data, n_rows, n_cols, out_preds);
-  });
+  std::visit([&](auto &arg){
+    gpu_treeshap_impl(&arg,data,n_rows,n_cols,out_preds);
+  },*static_cast<TreePathInfoVariant*>(path_info));
 }
 
 void gpu_treeshap(TreePathInfo* path_info,
@@ -759,10 +761,9 @@ void gpu_treeshap(TreePathInfo* path_info,
                   std::size_t n_rows,
                   std::size_t n_cols,
                   double* out_preds)
-{
-  path_info->Dispatch([&](auto* info_downcast) {
-      gpu_treeshap_impl(info_downcast, data, n_rows, n_cols, out_preds);
-  });
+{  std::visit([&](auto &arg){
+    gpu_treeshap_impl(&arg,data,n_rows,n_cols,out_preds);
+  },*static_cast<TreePathInfoVariant*>(path_info));
 }
 }  // namespace Explainer
 }  // namespace ML

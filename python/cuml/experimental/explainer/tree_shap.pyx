@@ -22,7 +22,7 @@ from cuml.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 
-from libcpp.memory cimport unique_ptr
+from libcpp.memory cimport shared_ptr
 from libc.stdint cimport uintptr_t
 from libcpp.utility cimport move
 import re
@@ -47,7 +47,7 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
     cdef cppclass TreePathInfo:
         pass
 
-    cdef unique_ptr[TreePathInfo] extract_path_info(ModelHandle model) except +
+    cdef shared_ptr[TreePathInfo] extract_path_info(ModelHandle model) except +
     cdef void gpu_treeshap(TreePathInfo * path_info,
                            const float * data,
                            size_t n_rows,
@@ -62,10 +62,41 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
 
 cdef class TreeExplainer:
     cdef public object expected_value
-    cdef unique_ptr[TreePathInfo] path_info
+    cdef shared_ptr[TreePathInfo] path_info
     cdef size_t num_class
-    """
-    Explainer for tree models, using GPUTreeSHAP
+    """ 
+    Model explainer that calculates Shapley values for the predictions of tree-based models. Shapley values are a method of attributing the contribution of various input features to a given model prediction. 
+    
+    Uses GPUTreeShap as a back-end to accelerate computation using GPUs.
+
+    Mitchell, Rory, Eibe Frank, and Geoffrey Holmes.
+    "GPUTreeShap: Massively Parallel Exact Calculation of SHAP Scores for Tree Ensembles."
+    arXiv preprint arXiv:2010.13972 (2020).
+
+    Different variants of Shapley values exist based on different interpretations of marginalising out (or conditioning on) features. For the "tree_path_dependent" approach, see:
+    Lundberg, Scott M., et al. "From local explanations to global understanding with explainable AI for trees." Nature machine intelligence 2.1 (2020): 56-67.
+
+    For the "interventional" approach see:
+    Janzing, Dominik, Lenon Minorics, and Patrick Blöbaum. "Feature relevance quantification in explainable AI: A causal problem." International Conference on artificial intelligence and statistics. PMLR, 2020.
+
+    We also provide two variants of feature interactions. For the "standard" variant of interactions:
+    Lundberg, Scott M., et al. "From local explanations to global understanding with explainable AI for trees." Nature machine intelligence 2.1 (2020): 56-67.
+
+    For the "taylor" variant, see:
+    Sundararajan, Mukund, Kedar Dhamdhere, and Ashish Agarwal. "The Shapley Taylor Interaction Index." International Conference on Machine Learning. PMLR, 2020. 
+
+
+    Parameters
+    ----------
+    model : model object
+        The tree based machine learning model. XGBoost, LightGBM, cuml random forest and sklearn random forest models are supported. Categorical features in XGBoost or LightGBM models are natively supported.
+    data : array or DataFrame
+        Optional background dataset to use for integrating out features. This argument is used with the "interventional" feature perturbation method. Computation time increases with the size of this background data set, consider starting with between 100-1000 examples.
+    feature_perturbation : "interventional" (default when data is specified) or "tree_path_dependent" (default when data=None).
+        Method of conditioning on features. See the above references for more information.
+
+    Example
+    --------
     """
 
     def __init__(self, *, model):
@@ -100,11 +131,21 @@ cdef class TreeExplainer:
         if TreeliteQueryNumClass(model_ptr, & self.num_class) != 0:
             raise RuntimeError('Treelite error: {}'.format(
                 TreeliteGetLastError()))
-        self.path_info = move(extract_path_info(model_ptr))
+        self.path_info = extract_path_info(model_ptr)
 
     def shap_values(self, X) -> CumlArray:
-        """
-        Interface to estimate the SHAP values for a set of samples.
+        """ 
+        Estimate the SHAP values for a set of samples.
+
+        Parameters
+        ----------
+        X : 
+            A matrix of samples (# samples x # features) on which to explain the model's output.
+
+        Returns
+        -------
+        array
+            Returns a matrix of SHAP values of shape (# classes x # samples x # features).
         """
         X_type = determine_array_type(X)
         # Coerce to CuPy / NumPy because we may need to return 3D array
@@ -131,7 +172,7 @@ cdef class TreeExplainer:
                          < size_t > n_rows, < size_t > n_cols, < double * > < uintptr_t > preds.ptr)
         else:
             raise ValueError("Unsupported dtype")
-            
+
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:
         # 1. Store the bias term in the 'expected_value' attribute.

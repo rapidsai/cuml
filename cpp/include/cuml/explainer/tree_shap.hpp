@@ -20,21 +20,14 @@
 #include <cstdint>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <memory>
+#include <variant>
 
 namespace ML {
 namespace Explainer {
 
-// An abstract class representing an opaque handle to path information
-// extracted from a tree model. The implementation in tree_shap.cu will
-// define an internal class that inherits from this abtract class.
-class TreePathInfo; {
-  public:
-  virtual void Redundant(){}
-  template <typename FuncT>
- void Dispatch(FuncT f);
-};
+using TreePathInfo = void;
 
-std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
+std::shared_ptr<TreePathInfo> extract_path_info(ModelHandle model);
 
 void gpu_treeshap(TreePathInfo* path_info,
                   const float* data,
@@ -47,22 +40,6 @@ void gpu_treeshap(TreePathInfo* path_info,
                   std::size_t n_rows,
                   std::size_t n_cols,
                   double * out_preds);
-
-/*
-void gpu_treeshap_interventional(TreePathInfo* path_info,
-                  const float* background_data,
-                  const float* data,
-                  std::size_t n_rows,
-                  std::size_t n_cols,
-                  float* out_preds);
-
-void gpu_treeshap_interventional(TreePathInfo* path_info,
-                  const double* background_data,
-                  const double* data,
-                  std::size_t n_rows,
-                  std::size_t n_cols,
-                  double * out_preds);
-*/
 
 }  // namespace Explainer
 }  // namespace ML
