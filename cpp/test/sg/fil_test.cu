@@ -165,7 +165,7 @@ struct replace_some_floating_with_categorical {
   int num_cols;
   __device__ real_t operator()(real_t data, int data_idx)
   {
-    real_t fid_num_cats = static_cast<real_t>(fid_num_cats_d[data_idx % num_cols]);
+    auto fid_num_cats = static_cast<real_t>(fid_num_cats_d[data_idx % num_cols]);
     if (fid_num_cats == real_t(0)) return data;
     // Transform `data` from (uniform on) [-1.0, 1.0] into [-fid_num_cats-3, fid_num_cats+3].
     real_t tmp = data * (fid_num_cats + real_t(3));
