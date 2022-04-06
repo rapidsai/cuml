@@ -160,7 +160,8 @@ void ridgeFit(const raft::handle_t& handle,
               bool fit_intercept,
               bool normalize,
               cudaStream_t stream,
-              int algo = 0)
+              int algo = 0,
+              math_t* sample_weight = nullptr)
 {
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
@@ -187,7 +188,20 @@ void ridgeFit(const raft::handle_t& handle,
                    norm2_input.data(),
                    fit_intercept,
                    normalize,
-                   stream);
+                   stream,
+                   sample_weight);
+  }
+  if (sample_weight != nullptr) {
+    raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
+    raft::matrix::matrixVectorBinaryMult(
+      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(
+      labels,
+      n_rows,
+      [] __device__(math_t a, math_t b) { return a * b; },
+      stream,
+      labels,
+      sample_weight);
   }
 
   if (algo == 0 || n_cols == 1) {
@@ -198,6 +212,19 @@ void ridgeFit(const raft::handle_t& handle,
     ASSERT(false, "ridgeFit: no algorithm with this id has been implemented");
   } else {
     ASSERT(false, "ridgeFit: no algorithm with this id has been implemented");
+  }
+
+  if (sample_weight != nullptr) {
+    raft::matrix::matrixVectorBinaryDivSkipZero(
+      input, sample_weight, n_rows, n_cols, false, false, stream);
+    raft::linalg::map(
+      labels,
+      n_rows,
+      [] __device__(math_t a, math_t b) { return a / b; },
+      stream,
+      labels,
+      sample_weight);
+    raft::linalg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
   }
 
   if (fit_intercept) {
