@@ -78,6 +78,10 @@ struct forest;
 template <typename real_t>
 using forest_t = forest<real_t>*;
 
+/** forest32_t and forest64_t are definitions required in Cython */
+using forest32_t = forest<float>*;
+using forest64_t = forest<double>*;
+
 /** forest_variant is used to get a forest represented with either float or double. */
 using forest_variant = std::variant<forest_t<float>, forest_t<double>>;
 
