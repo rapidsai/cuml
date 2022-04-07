@@ -251,6 +251,12 @@ cdef class ForestInference_impl():
     cdef bool output_class
     cdef char* shape_str
 
+    cdef forest32_t get_forest32(self):
+        return get[forest32_t, forest32_t, forest64_t](self.forest_data)
+
+    cdef forest64_t get_forest64(self):
+        return get[forest64_t, forest32_t, forest64_t](self.forest_data)
+
     def __cinit__(self,
                   handle=None):
         self.handle = handle
@@ -374,14 +380,14 @@ cdef class ForestInference_impl():
 
         if fil_dtype == np.float32:
             predict(handle_[0],
-                    get[forest32_t, forest32_t, forest64_t](self.forest_data),
+                    self.get_forest32(),
                     <float*> preds_ptr,
                     <float*> X_ptr,
                     <size_t> n_rows,
                     <bool> predict_proba)
         elif fil_dtype == np.float64:
             predict(handle_[0],
-                    get[forest64_t, forest32_t, forest64_t](self.forest_data),
+                    self.get_forest64(),
                     <double*> preds_ptr,
                     <double*> X_ptr,
                     <size_t> n_rows,
@@ -389,7 +395,7 @@ cdef class ForestInference_impl():
         else:
             # should not reach here
             assert False, 'invalid fil_dtype, must be np.float32 or np.float64'
-            
+
         self.handle.sync()
 
         # special case due to predict and predict_proba
@@ -443,11 +449,11 @@ cdef class ForestInference_impl():
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         fil_dtype = self.get_dtype()
         if fil_dtype == np.float32:
-            if get[forest32_t, forest32_t, forest64_t](self.forest_data) != NULL:
-                free[float](handle_[0], get[forest32_t, forest32_t, forest64_t](self.forest_data))
+            if self.get_forest32() != NULL:
+                free[float](handle_[0], self.get_forest32())
         elif fil_dtype == np.float64:
-            if get[forest64_t, forest32_t, forest64_t](self.forest_data) != NULL:
-                free[double](handle_[0], get[forest64_t, forest32_t, forest64_t](self.forest_data))
+            if self.get_forest64() != NULL:
+                free[double](handle_[0], self.get_forest64())
         else:
             # should not reach here
             assert False, 'invalid fil_dtype, must be np.float32 or np.float64'
