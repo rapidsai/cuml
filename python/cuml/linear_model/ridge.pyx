@@ -305,7 +305,7 @@ class Ridge(Base,
                      <bool>self.fit_intercept,
                      <bool>self.normalize,
                      <int>self.algo,
-                     <double*>sample_weight_ptr)
+                     <float*>sample_weight_ptr)
 
             self.intercept_ = c_intercept1
         else:

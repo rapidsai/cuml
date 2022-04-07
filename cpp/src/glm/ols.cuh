@@ -19,7 +19,7 @@
 #include <raft/linalg/add.hpp>
 #include <raft/linalg/gemv.hpp>
 #include <raft/linalg/lstsq.hpp>
-#include <raft/linalg/map.cuh>
+#include <raft/linalg/map.hpp>
 #include <raft/linalg/norm.hpp>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/sqrt.cuh>
