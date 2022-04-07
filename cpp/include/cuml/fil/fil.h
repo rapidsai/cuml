@@ -20,6 +20,8 @@
 
 #include <stddef.h>
 
+#include <variant>  // for std::get<>, std::variant<>
+
 #include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
@@ -76,6 +78,9 @@ struct forest;
 template <typename real_t>
 using forest_t = forest<real_t>*;
 
+/** forest_variant is used to get a forest represented with either float or double. */
+using forest_variant = std::variant<forest_t<float>, forest_t<double>>;
+
 /** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
 constexpr int MAX_N_ITEMS = 4;
 
@@ -116,7 +121,7 @@ struct treelite_params_t {
  */
 // TODO (canonizer): use std::variant<forest_t<float> forest_t<double>>* for pforest
 void from_treelite(const raft::handle_t& handle,
-                   forest_t<float>* pforest,
+                   forest_variant* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params);
 

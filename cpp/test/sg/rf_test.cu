@@ -172,8 +172,9 @@ auto FilPredict(const raft::handle_t& handle,
                                    1,
                                    0,
                                    nullptr};
-  fil::forest_t<float> fil_forest;
-  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::forest_variant forest_variant;
+  fil::from_treelite(handle, &forest_variant, model, &tl_params);
+  fil::forest_t<float> fil_forest = std::get<fil::forest_t<float>>(forest_variant);
   fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, false);
   return pred;
 }
@@ -191,8 +192,9 @@ auto FilPredictProba(const raft::handle_t& handle,
   build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{
     fil::algo_t::ALGO_AUTO, 0, 0.0f, fil::storage_type_t::AUTO, 8, 1, 0, nullptr};
-  fil::forest_t<float> fil_forest;
-  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::forest_variant forest_variant;
+  fil::from_treelite(handle, &forest_variant, model, &tl_params);
+  fil::forest_t<float> fil_forest = std::get<fil::forest_t<float>>(forest_variant);
   fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, true);
   return pred;
 }
@@ -557,8 +559,9 @@ TEST(RfTests, IntegerOverflow)
                                    1,
                                    0,
                                    nullptr};
-  fil::forest_t<float> fil_forest;
-  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::forest_variant forest_variant;
+  fil::from_treelite(handle, &forest_variant, model, &tl_params);
+  fil::forest_t<float> fil_forest = std::get<fil::forest_t<float>>(forest_variant);
   fil::predict(handle, fil_forest, pred.data().get(), X.data().get(), m, false);
 }
 
