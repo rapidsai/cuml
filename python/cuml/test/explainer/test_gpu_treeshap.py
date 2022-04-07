@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import cupy as cp
 import cudf
-from hypothesis import given, settings, assume, strategies as st
+from hypothesis import given, settings, assume, HealthCheck, strategies as st
 from cuml.experimental.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap
 from cuml.common.import_utils import has_sklearn
@@ -661,7 +661,10 @@ def check_efficiency(expected_value, pred, shap_values):
                 1e-3, 1e-3)
 
 
-@settings(deadline=None, max_examples=100)
+# Generating input data/models can be time consuming and triggers
+# hypothesis HealthCheck
+@settings(deadline=None, max_examples=20,
+          suppress_health_check=[HealthCheck.too_slow])
 @given(shap_strategy())
 def test_with_hypothesis(params):
     X, y, model, preds = params
