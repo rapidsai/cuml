@@ -119,7 +119,7 @@ class BaseRandomForestModel(Base):
             verbose=verbose,
             output_type=output_type)
 
-        if max_depth < 0:
+        if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
 
         if (str(split_criterion) not in
