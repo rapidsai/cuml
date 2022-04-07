@@ -180,6 +180,7 @@ cdef class TreeliteModel():
 cdef extern from "variant" namespace "std":
     cdef cppclass variant[T1, T2]:
         variant()
+        variant(T1)
         size_t index()
 
     cdef T& get[T, T1, T2](variant[T1, T2]& v)
@@ -260,7 +261,7 @@ cdef class ForestInference_impl():
     def __cinit__(self,
                   handle=None):
         self.handle = handle
-        self.forest_data = forest_variant()
+        self.forest_data = forest_variant(<forest32_t> NULL)
         self.shape_str = NULL
 
     def get_shape_str(self):
@@ -406,7 +407,7 @@ cdef class ForestInference_impl():
         return preds
 
     def load_from_treelite_model_handle(self, **kwargs):
-        self.forest_data = forest_variant()
+        self.forest_data = forest_variant(<forest32_t> NULL)
         return self.load_using_treelite_handle(**kwargs)
 
     def load_from_treelite_model(self, **kwargs):
