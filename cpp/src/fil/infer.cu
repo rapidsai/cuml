@@ -917,7 +917,13 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
 template void infer<dense_storage_f32>(dense_storage_f32 forest,
                                        predict_params params,
                                        cudaStream_t stream);
+template void infer<dense_storage_f64>(dense_storage_f64 forest,
+                                       predict_params params,
+                                       cudaStream_t stream);
 template void infer<sparse_storage16_f32>(sparse_storage16_f32 forest,
+                                          predict_params params,
+                                          cudaStream_t stream);
+template void infer<sparse_storage16_f64>(sparse_storage16_f64 forest,
                                           predict_params params,
                                           cudaStream_t stream);
 template void infer<sparse_storage8>(sparse_storage8 forest,
