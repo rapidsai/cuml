@@ -160,7 +160,7 @@ void ridgeFit(const raft::handle_t& handle,
               bool fit_intercept,
               bool normalize,
               cudaStream_t stream,
-              int algo = 0,
+              int algo              = 0,
               math_t* sample_weight = nullptr)
 {
   auto cublas_handle   = handle.get_cublas_handle();
