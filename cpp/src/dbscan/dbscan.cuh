@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include "runner.cuh"
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>
@@ -60,6 +60,7 @@ size_t compute_batch_size(size_t& estimated_memory,
   // from the over-estimation of the sparse adjacency matrix
 
   // Batch size determined based on available memory
+  ASSERT(est_mem_per_row > 0, "Estimated memory per row is 0 for DBSCAN");
   size_t batch_size = (max_mbytes_per_batch * 1000000 - est_mem_fixed) / est_mem_per_row;
 
   // Limit batch size to number of owned rows
@@ -107,7 +108,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    cudaStream_t stream,
                    int verbosity)
 {
-  ML::PUSH_RANGE("ML::Dbscan::Fit");
+  raft::common::nvtx::range fun_scope("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
   int algo_vd  = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;
@@ -117,6 +118,8 @@ void dbscanFitImpl(const raft::handle_t& handle,
   int n_rank{1};
   Index_ start_row{0};
   Index_ n_owned_rows{n_rows};
+
+  ASSERT(n_rows > 0, "No rows in the input array. DBSCAN cannot be fitted!");
 
   if (opg) {
     const auto& comm     = handle.get_comms();
@@ -137,7 +140,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
   if (max_mbytes_per_batch == 0) {
     // Query memory information to get the total memory on the device
     size_t free_memory, total_memory;
-    CUDA_CHECK(cudaMemGetInfo(&free_memory, &total_memory));
+    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
 
     // X can either be a feature matrix or distance matrix
     size_t dataset_memory = (metric == raft::distance::Precomputed)
@@ -198,7 +201,6 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               workspace.data(),
                               batch_size,
                               stream);
-  ML::POP_RANGE();
 }
 
 }  // namespace Dbscan

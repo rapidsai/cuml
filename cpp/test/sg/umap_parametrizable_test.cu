@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,23 @@
 
 #include <umap/runner.cuh>
 
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <cuml/metrics/metrics.hpp>
+#include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuml/datasets/make_blobs.hpp>
-#include <cuml/manifold/umap.hpp>
-#include <cuml/metrics/metrics.hpp>
-#include <cuml/neighbors/knn.hpp>
 
 #include <datasets/digits.h>
-#include <linalg/reduce_rows_by_key.cuh>
+#include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
@@ -109,6 +108,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     bool fit_transform;
     bool supervised;
     bool knn_params;
+    bool refine;
     int n_samples;
     int n_features;
     int n_clusters;
@@ -151,7 +151,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                                           knn_dists,
                                           umap_params.n_neighbors);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
     }
 
     float* model_embedding = nullptr;
@@ -164,10 +164,10 @@ class UMAPParametrizableTest : public ::testing::Test {
       model_embedding = model_embedding_b->data();
     }
 
-    CUDA_CHECK(cudaMemsetAsync(
+    RAFT_CUDA_TRY(cudaMemsetAsync(
       model_embedding, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     if (test_params.supervised) {
       ML::UMAP::fit(
@@ -183,13 +183,27 @@ class UMAPParametrizableTest : public ::testing::Test {
                     &umap_params,
                     model_embedding);
     }
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    if (test_params.refine) {
+      std::cout << "using refine";
+      if (test_params.supervised) {
+        auto cgraph_coo = ML::UMAP::get_graph(handle, X, y, n_samples, n_features, &umap_params);
+        ML::UMAP::refine(
+          handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
+      } else {
+        auto cgraph_coo =
+          ML::UMAP::get_graph(handle, X, nullptr, n_samples, n_features, &umap_params);
+        ML::UMAP::refine(
+          handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
+      }
+    }
+    handle.sync_stream(stream);
 
     if (!test_params.fit_transform) {
-      CUDA_CHECK(cudaMemsetAsync(
+      RAFT_CUDA_TRY(cudaMemsetAsync(
         embedding_ptr, 0, n_samples * umap_params.n_components * sizeof(float), stream));
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       ML::UMAP::transform(handle,
                           X,
@@ -204,7 +218,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                           &umap_params,
                           embedding_ptr);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
 
       delete model_embedding_b;
     }
@@ -249,10 +263,10 @@ class UMAPParametrizableTest : public ::testing::Test {
               << umap_params.random_state << std::endl;
 
     std::cout << "test_params : [" << std::boolalpha << test_params.fit_transform << "-"
-              << test_params.supervised << "-" << test_params.knn_params << "-"
-              << test_params.n_samples << "-" << test_params.n_features << "-"
-              << test_params.n_clusters << "-" << test_params.min_trustworthiness << "]"
-              << std::endl;
+              << test_params.supervised << "-" << test_params.refine << "-"
+              << test_params.knn_params << "-" << test_params.n_samples << "-"
+              << test_params.n_features << "-" << test_params.n_clusters << "-"
+              << test_params.min_trustworthiness << "]" << std::endl;
 
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
@@ -279,16 +293,23 @@ class UMAPParametrizableTest : public ::testing::Test {
                              10.f,
                              1234ULL);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
-    MLCommon::LinAlg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
+    raft::linalg::convert_array((float*)y_d.data(), y_d.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     rmm::device_uvector<float> embeddings1(n_samples * umap_params.n_components, stream);
 
     float* e1 = embeddings1.data();
 
+#if CUDART_VERSION >= 11020
+    // Always use random init w/ CUDA 11.2. For some reason the
+    // spectral solver doesn't always converge w/ this CUDA version.
+    umap_params.init         = 0;
+    umap_params.random_state = 43;
+    umap_params.n_epochs     = 500;
+#endif
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params, umap_params);
 
     assertions(handle, X_d.data(), e1, test_params, umap_params);
@@ -323,14 +344,14 @@ class UMAPParametrizableTest : public ::testing::Test {
 
   void SetUp() override
   {
-    std::vector<TestParams> test_params_vec = {{false, false, false, 2000, 50, 20, 0.45},
-                                               {true, false, false, 2000, 50, 20, 0.45},
-                                               {false, true, false, 2000, 50, 20, 0.45},
-                                               {false, false, true, 2000, 50, 20, 0.45},
-                                               {true, true, false, 2000, 50, 20, 0.45},
-                                               {true, false, true, 2000, 50, 20, 0.45},
-                                               {false, true, true, 2000, 50, 20, 0.45},
-                                               {true, true, true, 2000, 50, 20, 0.45}};
+    std::vector<TestParams> test_params_vec = {{false, false, false, true, 2000, 50, 20, 0.45},
+                                               {true, false, false, false, 2000, 50, 20, 0.45},
+                                               {false, true, false, true, 2000, 50, 20, 0.45},
+                                               {false, false, true, false, 2000, 50, 20, 0.45},
+                                               {true, true, false, true, 2000, 50, 20, 0.45},
+                                               {true, false, true, false, 2000, 50, 20, 0.45},
+                                               {false, true, true, true, 2000, 50, 20, 0.45},
+                                               {true, true, true, false, 2000, 50, 20, 0.45}};
 
     std::vector<UMAPParams> umap_params_vec(4);
     umap_params_vec[0].n_components = 2;

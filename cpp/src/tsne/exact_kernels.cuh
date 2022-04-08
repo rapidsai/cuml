@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <float.h>
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.hpp>
 
 #define restrict __restrict__
 
@@ -158,8 +158,8 @@ void perplexity_search(const value_t* restrict distances,
   else
     sigmas_kernel<<<raft::ceildiv(n, (value_idx)1024), 1024, 0, stream>>>(
       distances, P, perplexity, desired_entropy, epochs, tol, n, dim);
-  CUDA_CHECK(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  handle.sync_stream(stream);
 }
 
 /****************************************/
@@ -172,11 +172,11 @@ __global__ void attractive_kernel(const value_t* restrict VAL,
                                   const value_t* restrict Y,
                                   const value_t* restrict norm,
                                   value_t* restrict attract,
+                                  value_t* restrict Qs,
                                   const value_idx NNZ,
                                   const value_idx n,
                                   const value_idx dim,
-                                  const float df_power,  // -(df + 1)/2)
-                                  const float recp_df)   // 1 / df
+                                  const value_t dof)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -185,18 +185,23 @@ __global__ void attractive_kernel(const value_t* restrict VAL,
   // Euclidean distances
   // TODO: can provide any distance ie cosine
   // #862
-  value_t d = 0;
+  value_t dist = 0;
   for (int k = 0; k < dim; k++)
-    d += Y[k * n + i] * Y[k * n + j];
-  const value_t euclidean_d = -2.0f * d + norm[i] + norm[j];
+    dist += Y[k * n + i] * Y[k * n + j];
+  dist = norm[i] + norm[j] - 2.0f * dist;
 
-  // TODO: Calculate Kullback-Leibler divergence
-  // #863
-  const value_t PQ = VAL[index] * __powf((1.0f + euclidean_d * recp_df), df_power);  // P*Q
+  const value_t P  = VAL[index];
+  const value_t Q  = compute_q(dist, dof);
+  const value_t PQ = P * Q;
 
   // Apply forces
-  for (int k = 0; k < dim; k++)
+  for (int k = 0; k < dim; k++) {
     raft::myAtomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
+  }
+
+  if (Qs) {  // when computing KL div
+    Qs[index] = Q;
+  }
 }
 
 /****************************************/
@@ -211,7 +216,9 @@ __global__ void attractive_kernel_2d(const value_t* restrict VAL,
                                      const value_t* restrict norm,
                                      value_t* restrict attract1,
                                      value_t* restrict attract2,
-                                     const value_idx NNZ)
+                                     value_t* restrict Qs,
+                                     const value_idx NNZ,
+                                     const value_t dof)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -220,15 +227,19 @@ __global__ void attractive_kernel_2d(const value_t* restrict VAL,
   // Euclidean distances
   // TODO: can provide any distance ie cosine
   // #862
-  const value_t euclidean_d = norm[i] + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]);
+  const value_t dist = norm[i] + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]);
 
-  // TODO: Calculate Kullback-Leibler divergence
-  // #863
-  const value_t PQ = __fdividef(VAL[index], (1.0f + euclidean_d));  // P*Q
+  const value_t P  = VAL[index];
+  const value_t Q  = compute_q(dist, dof);
+  const value_t PQ = P * Q;
 
   // Apply forces
   raft::myAtomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
   raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
+
+  if (Qs) {  // when computing KL div
+    Qs[index] = Q;
+  }
 }
 
 /****************************************/
@@ -239,28 +250,28 @@ void attractive_forces(const value_t* restrict VAL,
                        const value_t* restrict Y,
                        const value_t* restrict norm,
                        value_t* restrict attract,
+                       value_t* restrict Qs,
                        const value_idx NNZ,
                        const value_idx n,
                        const value_idx dim,
-                       const float df_power,  // -(df + 1)/2)
-                       const float recp_df,   // 1 / df
+                       const value_t dof,
                        cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(attract, 0, sizeof(value_t) * n * dim, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(attract, 0, sizeof(value_t) * n * dim, stream));
 
   // TODO: Calculate Kullback-Leibler divergence
   // #863
   // For general embedding dimensions
   if (dim != 2) {
     attractive_kernel<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
-      VAL, COL, ROW, Y, norm, attract, NNZ, n, dim, df_power, recp_df);
+      VAL, COL, ROW, Y, norm, attract, Qs, NNZ, n, dim, dof);
   }
   // For special case dim == 2
   else {
     attractive_kernel_2d<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
-      VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, NNZ);
+      VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, Qs, NNZ, dof);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /****************************************/
@@ -360,8 +371,8 @@ value_t repulsive_forces(const value_t* restrict Y,
                          const value_t recp_df,
                          cudaStream_t stream)
 {
-  CUDA_CHECK(cudaMemsetAsync(Z_sum, 0, sizeof(value_t) * 2 * n, stream));
-  CUDA_CHECK(cudaMemsetAsync(repel, 0, sizeof(value_t) * n * dim, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(Z_sum, 0, sizeof(value_t) * 2 * n, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(repel, 0, sizeof(value_t) * n * dim, stream));
 
   const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(raft::ceildiv(n, (value_idx)TPB_X), raft::ceildiv(n, (value_idx)TPB_Y));
@@ -376,7 +387,7 @@ value_t repulsive_forces(const value_t* restrict Y,
     repulsive_kernel_2d<<<numBlocks, threadsPerBlock, 0, stream>>>(
       Y, Y + n, repel, repel + n, norm, Z_sum, Z_sum + n, n);
   }
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Find sum(Z_sum)
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(Z_sum);
@@ -450,7 +461,7 @@ value_t apply_forces(value_t* restrict Y,
 {
   // cudaMemset(means, 0, sizeof(float) * dim);
   if (check_convergence)
-    CUDA_CHECK(cudaMemsetAsync(gradient, 0, sizeof(value_t) * n * dim, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(gradient, 0, sizeof(value_t) * n * dim, stream));
 
   apply_kernel<<<raft::ceildiv(n * dim, (value_idx)1024), 1024, 0, stream>>>(Y,
                                                                              velocity,
@@ -468,7 +479,7 @@ value_t apply_forces(value_t* restrict Y,
                                                                              min_gain,
                                                                              gradient,
                                                                              check_convergence);
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Find sum of gradient norms
   float gradient_norm = INFINITY;

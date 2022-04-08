@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ import inspect
 import cuml
 import pytest
 import numpydoc.docscrape
+
+from raft.common.cuda import Stream
+
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
@@ -40,9 +43,8 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    handle = cuml.Handle()
-    stream = cuml.cuda.Stream()
-    handle.setStream(stream)
+    stream = Stream()
+    handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()
     del base
@@ -145,6 +147,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
 
 @pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+# ignore ColumnTransformer init warning
+@pytest.mark.filterwarnings("ignore:Transformers are required")
 def test_base_children_get_param_names(child_class: str):
 
     """

@@ -16,6 +16,8 @@
 import numpy as np
 import pytest
 import os
+import pandas as pd
+from math import ceil
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -35,18 +37,21 @@ if has_xgboost():
     import xgboost as xgb
 
 
-def simulate_data(m, n, k=2, random_state=None, classification=True,
-                  bias=0.0):
+def simulate_data(m, n, k=2, n_informative='auto', random_state=None,
+                  classification=True, bias=0.0):
+    if n_informative == 'auto':
+        n_informative = n // 5
     if classification:
         features, labels = make_classification(n_samples=m,
                                                n_features=n,
-                                               n_informative=int(n/5),
+                                               n_informative=n_informative,
+                                               n_redundant=n - n_informative,
                                                n_classes=k,
                                                random_state=random_state)
     else:
         features, labels = make_regression(n_samples=m,
                                            n_features=n,
-                                           n_informative=int(n/5),
+                                           n_informative=n_informative,
                                            n_targets=1,
                                            bias=bias,
                                            random_state=random_state)
@@ -486,16 +491,83 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
+def to_categorical(features, n_categorical, invalid_frac, random_state):
+    """ returns data in two formats: pandas (for LightGBM) and numpy (for FIL)
+        LightGBM needs a DataFrame to recognize and fit on categorical columns.
+        Second fp32 output is to test invalid categories for prediction only.
+    """
+    features = features.copy()  # avoid clobbering source matrix
+    rng = np.random.default_rng(hash(random_state))  # allow RandomState object
+    # the main bottleneck (>80%) of to_categorical() is the pandas operations
+    n_features = features.shape[1]
+    # all categorical columns
+    cat_cols = features[:, :n_categorical]
+    # axis=1 means 0th dimension remains. Row-major FIL means 0th dimension is
+    # the number of columns. We reduce within columns, across rows.
+    cat_cols = cat_cols - cat_cols.min(axis=0, keepdims=True)  # range [0, ?]
+    cat_cols /= cat_cols.max(axis=0, keepdims=True)  # range [0, 1]
+    rough_n_categories = 100
+    # round into rough_n_categories bins
+    cat_cols = (cat_cols * rough_n_categories).astype(int)
+
+    # mix categorical and numerical columns
+    new_col_idx = \
+        rng.choice(n_features, n_features, replace=False, shuffle=True)
+    df_cols = {}
+    for icol in range(n_categorical):
+        col = cat_cols[:, icol]
+        df_cols[new_col_idx[icol]] = pd.Series(pd.Categorical(col,
+                                               categories=np.unique(col)))
+    # all numerical columns
+    for icol in range(n_categorical, n_features):
+        df_cols[new_col_idx[icol]] = pd.Series(features[:, icol])
+    fit_df = pd.DataFrame(df_cols)
+
+    # randomly inject invalid categories only into predict_matrix
+    invalid_idx = rng.choice(
+        a=cat_cols.size,
+        size=ceil(cat_cols.size * invalid_frac),
+        replace=False,
+        shuffle=False)
+    cat_cols.flat[invalid_idx] += rough_n_categories
+    # mix categorical and numerical columns
+    predict_matrix = np.concatenate([cat_cols, features[:, n_categorical:]],
+                                    axis=1)
+    predict_matrix[:, new_col_idx] = predict_matrix
+
+    return fit_df, predict_matrix
+
+
 @pytest.mark.parametrize('num_classes', [2, 5])
+@pytest.mark.parametrize('n_categorical', [0, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(tmp_path, num_classes):
+def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
-    X, y = simulate_data(500,
-                         10 if num_classes == 2 else 50,
+
+    if n_categorical > 0:
+        n_features = 10
+        n_rows = 1000
+        n_informative = n_features
+    else:
+        n_features = 10 if num_classes == 2 else 50
+        n_rows = 500
+        n_informative = 'auto'
+
+    X, y = simulate_data(n_rows,
+                         n_features,
                          num_classes,
+                         n_informative=n_informative,
                          random_state=43210,
                          classification=True)
-    train_data = lgb.Dataset(X, label=y)
+    if n_categorical > 0:
+        X_fit, X_predict = to_categorical(X,
+                                          n_categorical=n_categorical,
+                                          invalid_frac=0.1,
+                                          random_state=43210)
+    else:
+        X_fit, X_predict = X, X
+
+    train_data = lgb.Dataset(X_fit, label=y)
     num_round = 5
     model_path = str(os.path.join(tmp_path, 'lgb.model'))
 
@@ -510,10 +582,10 @@ def test_lightgbm(tmp_path, num_classes):
                                   output_class=True,
                                   model_type="lightgbm")
         # binary classification
-        gbm_proba = bst.predict(X)
-        fil_proba = fm.predict_proba(X)[:, 1]
-        gbm_preds = (gbm_proba > 0.5)
-        fil_preds = fm.predict(X)
+        gbm_proba = bst.predict(X_predict)
+        fil_proba = fm.predict_proba(X_predict)[:, 1]
+        gbm_preds = (gbm_proba > 0.5).astype(float)
+        fil_preds = fm.predict(X_predict)
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(gbm_proba, fil_proba,
                                    atol=proba_atol[num_classes > 2])
@@ -522,15 +594,17 @@ def test_lightgbm(tmp_path, num_classes):
         lgm = lgb.LGBMClassifier(objective='multiclass',
                                  boosting_type='gbdt',
                                  n_estimators=num_round)
-        lgm.fit(X, y)
+        lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
+        lgm_preds = lgm.predict(X_predict).astype(int)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        lgm_preds = lgm.predict(X)
-        assert array_equal(lgm.booster_.predict(X).argmax(axis=1), lgm_preds)
-        assert array_equal(lgm_preds, fm.predict(X))
+        assert array_equal(lgm.booster_.predict(X_predict).argmax(axis=1),
+                           lgm_preds)
+        assert array_equal(lgm_preds, fm.predict(X_predict))
         # lightgbm uses float64 thresholds, while FIL uses float32
-        np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
+        np.testing.assert_allclose(lgm.predict_proba(X_predict),
+                                   fm.predict_proba(X_predict),
                                    atol=proba_atol[num_classes > 2])

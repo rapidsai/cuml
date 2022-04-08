@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #include <cuml/fil/fil.h>
 
+#include "benchmark.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -77,12 +77,11 @@ class FIL : public RegressionFixture<float> {
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr         = &rf_model;
-    mPtr->trees        = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle->sync_stream(stream);
 
-    ML::build_treelite_forest(&model, &rf_model, params.ncols, params.nclasses > 1 ? 2 : 1);
+    ML::build_treelite_forest(&model, &rf_model, params.ncols);
     ML::fil::treelite_params_t tl_params = {
       .algo              = p_rest.algo,
       .output_class      = params.nclasses > 1,    // cuML RF forest
@@ -118,7 +117,7 @@ class FIL : public RegressionFixture<float> {
   }
 
  private:
-  ML::fil::forest_t forest;
+  ML::fil::forest_t<float> forest;
   ModelHandle model;
   Params p_rest;
 };
@@ -149,7 +148,7 @@ std::vector<Params> getInputs()
   p.rf = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
                        1.f,                /* max_features */
-                       32,                 /* n_bins */
+                       32,                 /* max_n_bins */
                        3,                  /* min_samples_leaf */
                        3,                  /* min_samples_split */
                        0.0f,               /* min_impurity_decrease */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
 #include <metrics/mutual_info_score.cuh>
+#include <raft/cudart_utils.h>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -104,13 +104,13 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
     truthmutualInfo /= nElements;
 
     // allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> firstClusterArray(nElements, stream);
     rmm::device_uvector<T> secondClusterArray(nElements, stream);
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
 
     raft::update_device(firstClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -126,7 +126,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
   }
 
   // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   mutualInfoParam params;

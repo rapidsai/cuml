@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import cupy
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
@@ -92,7 +92,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int64_t* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -105,7 +106,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
 
 class TSNE(Base,
@@ -161,7 +163,7 @@ class TSNE(Base,
         Setting this can make repeated runs look more similar. Note, however,
         that this highly parallelized t-SNE implementation is not completely
         deterministic between runs, even with the same `random_state`.
-    method : str 'barnes_hut', 'fft' or 'exact' (default 'barnes_hut')
+    method : str 'fft', 'barnes_hut' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
     angle : float (default 0.5)
@@ -170,7 +172,8 @@ class TSNE(Base,
         0.8. (Barnes-Hut only.)
     learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. 'adaptive' tunes the learning rate, early
-        exaggeration and perplexity automatically based on input size.
+        exaggeration, perplexity and n_neighbors automatically based on
+        input size.
     n_neighbors : int (default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
@@ -203,6 +206,12 @@ class TSNE(Base,
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    kl_divergence_ : float
+        Kullback-Leibler divergence after optimization. An experimental
+        feature at this time.
 
     References
     -----------
@@ -253,7 +262,7 @@ class TSNE(Base,
                  init='random',
                  verbose=False,
                  random_state=None,
-                 method='barnes_hut',
+                 method='fft',
                  angle=0.5,
                  learning_rate_method='adaptive',
                  n_neighbors=90,
@@ -272,10 +281,6 @@ class TSNE(Base,
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
-        if n_components != 2 and (method == 'barnes_hut' or method == 'fft'):
-            warnings.warn("Barnes Hut and FFT only work when "
-                          "n_components == 2. Switching to exact.")
-            method = 'exact'
         if n_components != 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(n_components))
@@ -335,6 +340,9 @@ class TSNE(Base,
             raise ValueError("post_momentum = {} should be more than "
                              "pre_momentum = {}".format(post_momentum,
                                                         pre_momentum))
+        if method == "fft":
+            warnings.warn("Starting from version 22.04, the default method "
+                          "of TSNE is 'fft'.")
 
         self.n_components = n_components
         self.perplexity = perplexity
@@ -418,7 +426,6 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
-
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -447,7 +454,8 @@ class TSNE(Base,
         self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
             order="F",
-            dtype=np.float32)
+            dtype=np.float32,
+            index=self.X_m.index)
 
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
@@ -478,11 +486,6 @@ class TSNE(Base,
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
         elif self.method == 'fft':
-            warnings.warn("Method 'fft' is experimental and may be " +
-                          "unstable. If you find this implementation is not" +
-                          " behaving as intended, please consider using one" +
-                          " of the other methods, such as 'barnes_hut' or" +
-                          " 'exact'")
             algo = TSNE_ALGORITHM.FFT
         elif self.method == 'exact':
             algo = TSNE_ALGORITHM.EXACT
@@ -493,18 +496,23 @@ class TSNE(Base,
         cdef TSNEParams* params = <TSNEParams*> <size_t> \
             self._build_tsne_params(algo)
 
+        cdef float kl_divergence = 0
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
-                            <int*><uintptr_t> self.X_m.indptr.ptr,
-                            <int*><uintptr_t> self.X_m.indices.ptr,
-                            <float*><uintptr_t> self.X_m.data.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indptr.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indices.ptr,
+                            <float*><uintptr_t>
+                            self.X_m.data.ptr,
                             <float*> embed_ptr,
                             <int> self.X_m.nnz,
                             <int> n,
                             <int> p,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
-                            <TSNEParams&> deref(params))
+                            <TSNEParams&> deref(params),
+                            &kl_divergence)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -513,11 +521,14 @@ class TSNE(Base,
                      <int> p,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
-                     <TSNEParams&> deref(params))
+                     <TSNEParams&> deref(params),
+                     &kl_divergence)
 
         self.handle.sync()
         free(params)
 
+        self._kl_divergence_ = kl_divergence
+        logger.debug("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -573,6 +584,18 @@ class TSNE(Base,
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
         return <size_t> params
+
+    @property
+    def kl_divergence_(self):
+        if self.method == 'barnes_hut':
+            warnings.warn("The calculation of the Kullback-Leibler "
+                          "divergence is still an experimental feature "
+                          "while using the Barnes Hut algorithm.")
+        return self._kl_divergence_
+
+    @kl_divergence_.setter
+    def kl_divergence_(self, value):
+        self._kl_divergence_ = value
 
     def __del__(self):
 

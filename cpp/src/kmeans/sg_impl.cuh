@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 #pragma once
 
+#include "common.cuh"
+#include <cuml/cluster/kmeans.hpp>
 #include <raft/cudart_utils.h>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include "common.cuh"
 
 namespace ML {
 
@@ -134,19 +135,19 @@ void fit(const raft::handle_t& handle,
 
     // Calculates weighted sum of all the samples assigned to cluster-i and store the
     // result in newCentroids[i]
-    MLCommon::LinAlg::reduce_rows_by_key(X.data(),
-                                         X.getSize(1),
-                                         itr,
-                                         weight.data(),
-                                         workspace.data(),
-                                         X.getSize(0),
-                                         X.getSize(1),
-                                         n_clusters,
-                                         newCentroids.data(),
-                                         stream);
+    raft::linalg::reduce_rows_by_key(X.data(),
+                                     X.getSize(1),
+                                     itr,
+                                     weight.data(),
+                                     workspace.data(),
+                                     X.getSize(0),
+                                     X.getSize(1),
+                                     n_clusters,
+                                     newCentroids.data(),
+                                     stream);
 
     // Reduce weights by key to compute weight in each cluster
-    MLCommon::LinAlg::reduce_cols_by_key(
+    raft::linalg::reduce_cols_by_key(
       weight.data(), itr, wtInCluster.data(), 1, weight.getSize(0), n_clusters, stream);
 
     // Computes newCentroids[i] = newCentroids[i]/wtInCluster[i] where
@@ -231,7 +232,7 @@ void fit(const raft::handle_t& handle,
       DataT curClusteringCost = 0;
       raft::copy(&curClusteringCost, &(clusterCostD.data()->value), 1, stream);
 
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      handle.sync_stream(stream);
       ASSERT(curClusteringCost != (DataT)0.0,
              "Too few points and centriods being found is getting 0 cost from "
              "centers");
@@ -243,7 +244,7 @@ void fit(const raft::handle_t& handle,
       priorClusteringCost = curClusteringCost;
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
@@ -424,7 +425,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   // <<< End of Step-2 >>>
 
   // Scalable kmeans++ paper claims 8 rounds is sufficient
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  handle.sync_stream(stream);
   int niter = std::min(8, (int)ceil(log(psi)));
   LOG(handle, "KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
 

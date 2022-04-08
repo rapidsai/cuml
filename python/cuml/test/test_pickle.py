@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from cuml.test.utils import array_equal, unit_param, stress_param, \
 from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
-from sklearn.manifold.t_sne import trustworthiness
+from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
 
@@ -53,7 +53,8 @@ decomposition_models = decomposition_config.get_models()
 decomposition_config_xfail = ClassEnumerator(module=cuml.random_projection)
 decomposition_models_xfail = decomposition_config_xfail.get_models()
 
-neighbor_config = ClassEnumerator(module=cuml.neighbors)
+neighbor_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
+    cuml.neighbors.KernelDensity])
 neighbor_models = neighbor_config.get_models()
 
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
@@ -68,7 +69,7 @@ rf_module = ClassEnumerator(module=cuml.ensemble)
 rf_models = rf_module.get_models()
 
 k_neighbors_config = ClassEnumerator(module=cuml.neighbors, exclude_classes=[
-    cuml.neighbors.NearestNeighbors])
+    cuml.neighbors.NearestNeighbors, cuml.neighbors.KernelDensity])
 k_neighbors_models = k_neighbors_config.get_models()
 
 unfit_pickle_xfail = [
@@ -324,7 +325,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
         result["umap"] = trustworthiness(X_train,
                                          cu_before_pickle_transform,
-                                         n_neighbors)
+                                         n_neighbors=n_neighbors)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
@@ -335,7 +336,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
         cu_trust_after = trustworthiness(X_train,
                                          pickled_model.transform(X_train),
-                                         n_neighbors)
+                                         n_neighbors=n_neighbors)
         assert cu_trust_after >= result["umap"] - 0.2
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -366,6 +367,8 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
@@ -382,6 +385,8 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()
@@ -576,7 +581,7 @@ def test_tsne_pickle(tmpdir):
         result["fit_model"] = pickled_model.fit(X)
         result["data"] = X
         result["trust"] = trustworthiness(
-            X, pickled_model.embedding_, 10)
+            X, pickled_model.embedding_, n_neighbors=10)
 
     def create_mod_2():
         model = result["fit_model"]
@@ -584,7 +589,7 @@ def test_tsne_pickle(tmpdir):
 
     def assert_second_model(pickled_model, X):
         trust_after = trustworthiness(
-            X, pickled_model.embedding_, 10)
+            X, pickled_model.embedding_, n_neighbors=10)
         assert result["trust"] == trust_after
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -706,6 +711,8 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
 @pytest.mark.parametrize('nrows', [unit_param(100)])
 @pytest.mark.parametrize('ncols', [unit_param(20)])
 @pytest.mark.parametrize('n_info', [unit_param(10)])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
 
     result = {}

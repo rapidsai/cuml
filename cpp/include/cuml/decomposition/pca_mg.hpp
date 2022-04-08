@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,12 @@
 
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include <cumlprims/opg/matrix/data.hpp>
+#include <cumlprims/opg/matrix/part_descriptor.hpp>
+
 #include "pca.hpp"
+
 namespace ML {
-
-enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
-
-typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;
-
-typedef paramsPCATemplate<mg_solver> paramsPCAMG;
-
 namespace PCA {
 namespace opg {
 
@@ -86,7 +81,7 @@ void fit(raft::handle_t& handle,
  */
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
-                   size_t n_parts,
+                   std::uint32_t n_parts,
                    MLCommon::Matrix::floatData_t** input,
                    MLCommon::Matrix::floatData_t** trans_input,
                    float* components,
@@ -100,7 +95,7 @@ void fit_transform(raft::handle_t& handle,
 
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
-                   size_t n_parts,
+                   std::uint32_t n_parts,
                    MLCommon::Matrix::doubleData_t** input,
                    MLCommon::Matrix::doubleData_t** trans_input,
                    double* components,
@@ -127,7 +122,7 @@ void fit_transform(raft::handle_t& handle,
  */
 void transform(raft::handle_t& handle,
                MLCommon::Matrix::RankSizePair** rank_sizes,
-               size_t n_parts,
+               std::uint32_t n_parts,
                MLCommon::Matrix::Data<float>** input,
                float* components,
                MLCommon::Matrix::Data<float>** trans_input,
@@ -138,7 +133,7 @@ void transform(raft::handle_t& handle,
 
 void transform(raft::handle_t& handle,
                MLCommon::Matrix::RankSizePair** rank_sizes,
-               size_t n_parts,
+               std::uint32_t n_parts,
                MLCommon::Matrix::Data<double>** input,
                double* components,
                MLCommon::Matrix::Data<double>** trans_input,
@@ -162,7 +157,7 @@ void transform(raft::handle_t& handle,
  */
 void inverse_transform(raft::handle_t& handle,
                        MLCommon::Matrix::RankSizePair** rank_sizes,
-                       size_t n_parts,
+                       std::uint32_t n_parts,
                        MLCommon::Matrix::Data<float>** trans_input,
                        float* components,
                        MLCommon::Matrix::Data<float>** input,
@@ -173,7 +168,7 @@ void inverse_transform(raft::handle_t& handle,
 
 void inverse_transform(raft::handle_t& handle,
                        MLCommon::Matrix::RankSizePair** rank_sizes,
-                       size_t n_parts,
+                       std::uint32_t n_parts,
                        MLCommon::Matrix::Data<double>** trans_input,
                        double* components,
                        MLCommon::Matrix::Data<double>** input,
