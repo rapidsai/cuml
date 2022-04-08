@@ -377,7 +377,7 @@ class KernelDensity(Base):
 
         supported_kernels = ["gaussian", "tophat"]
         if (self.kernel not in supported_kernels
-                or self.metric != "euclidian"):
+                or self.metric != "euclidean"):
             raise NotImplementedError(
                 "Only {} kernels, and the euclidean"
                 " metric are supported.".format(supported_kernels))
