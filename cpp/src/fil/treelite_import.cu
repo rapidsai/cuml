@@ -324,7 +324,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
                                                std::size_t* bit_pool_offset)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
-  val_t split         = {.f = NAN};  // yes there's a default initializer already
+  val_t<float> split  = {.f = NAN};  // yes there's a default initializer already
   int feature_id      = tree.SplitIndex(tl_node_id);
   bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
                         tree.MatchingCategories(tl_node_id).size() > 0;
@@ -352,7 +352,8 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
   bool default_left = tree.DefaultLeft(tl_node_id) ^ swap_child_nodes;
-  fil_node_t node(val_t{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
+  fil_node_t node(
+    val_t<float>{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   return conversion_state<fil_node_t>{node, swap_child_nodes};
 }
 
@@ -630,7 +631,7 @@ struct tl2fil_t {
   }
 
   /// initializes FIL forest object, to be ready to infer
-  void init_forest(const raft::handle_t& handle, forest_t* pforest)
+  void init_forest(const raft::handle_t& handle, forest_t<float>* pforest)
   {
     ML::fil::init(
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
@@ -645,7 +646,7 @@ struct tl2fil_t {
 
 template <typename fil_node_t, typename threshold_t, typename leaf_t>
 void convert(const raft::handle_t& handle,
-             forest_t* pforest,
+             forest_t<float>* pforest,
              const tl::ModelImpl<threshold_t, leaf_t>& model,
              const treelite_params_t& tl_params)
 {
@@ -654,17 +655,23 @@ void convert(const raft::handle_t& handle,
   tl2fil.init_forest(handle, pforest);
 }
 
+template <typename real_t>
+constexpr bool type_supported()
+{
+  // not using std::is_floating_point because we did not instantiate fp16-based nodes/trees/forests
+  return std::is_same_v<real_t, float> || std::is_same_v<real_t, double>;
+}
+
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
   // Invariants on threshold and leaf types
-  static_assert(std::is_same<threshold_t, float>::value || std::is_same<threshold_t, double>::value,
+  static_assert(type_supported<threshold_t>(),
                 "Model must contain float32 or float64 thresholds for splits");
-  ASSERT((std::is_same<leaf_t, float>::value || std::is_same<leaf_t, double>::value),
-         "Models with integer leaf output are not yet supported");
+  ASSERT(type_supported<leaf_t>(), "Models with integer leaf output are not yet supported");
   // Display appropriate warnings when float64 values are being casted into
   // float32, as FIL only supports inferencing with float32 for the time being
   if (std::is_same<threshold_t, double>::value || std::is_same<leaf_t, double>::value) {
@@ -673,6 +680,8 @@ void from_treelite(const raft::handle_t& handle,
       "doesn't support inferencing models with float64 values. "
       "This may lead to predictions with reduced accuracy.");
   }
+  // same as std::common_type: float+double=double, float+int64_t=float
+  using real_t = decltype(threshold_t(0) + leaf_t(0));
 
   storage_type_t storage_type = tl_params->storage_type;
   // build dense trees by default
@@ -692,15 +701,19 @@ void from_treelite(const raft::handle_t& handle,
   }
 
   switch (storage_type) {
-    case storage_type_t::DENSE: convert<dense_node>(handle, pforest, model, *tl_params); break;
-    case storage_type_t::SPARSE: convert<sparse_node16>(handle, pforest, model, *tl_params); break;
+    case storage_type_t::DENSE:
+      convert<dense_node<float>>(handle, pforest, model, *tl_params);
+      break;
+    case storage_type_t::SPARSE:
+      convert<sparse_node16<float>>(handle, pforest, model, *tl_params);
+      break;
     case storage_type_t::SPARSE8: convert<sparse_node8>(handle, pforest, model, *tl_params); break;
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
 }
 
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_t<float>* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params)
 {

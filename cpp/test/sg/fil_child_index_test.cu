@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,26 +38,34 @@ struct proto_inner_node {
   bool is_categorical = false;  // see base_node::is_categorical
   int fid             = 0;      // feature id, see base_node::fid
   int set             = 0;      // which bit set represents the matching category list
-  float thresh        = 0.0f;   // threshold, see base_node::thresh
+  double thresh       = 0.0;    // threshold, see base_node::thresh
   int left            = 1;      // left child idx, see sparse_node*::left_index()
-  val_t split()
+  template <typename real_t>
+  val_t<real_t> split()
   {
-    val_t split;
+    val_t<real_t> split;
     if (is_categorical)
       split.idx = set;
+    else if (std::isnan(thresh))
+      split.f = std::numeric_limits<real_t>::quiet_NaN();
     else
-      split.f = thresh;
+      split.f = static_cast<real_t>(thresh);
     return split;
   }
-  operator sparse_node16()
+  template <typename real_t>
+  operator dense_node<real_t>()
   {
-    return sparse_node16({}, split(), fid, def_left, false, is_categorical, left);
+    return dense_node<real_t>({}, split<real_t>(), fid, def_left, false, is_categorical);
+  }
+  template <typename real_t>
+  operator sparse_node16<real_t>()
+  {
+    return sparse_node16<real_t>({}, split<real_t>(), fid, def_left, false, is_categorical, left);
   }
   operator sparse_node8()
   {
-    return sparse_node8({}, split(), fid, def_left, false, is_categorical, left);
+    return sparse_node8({}, split<float>(), fid, def_left, false, is_categorical, left);
   }
-  operator dense_node() { return dense_node({}, split(), fid, def_left, false, is_categorical); }
 };
 
 std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
@@ -105,8 +113,9 @@ struct ChildIndexTestParams {
   proto_inner_node node;
   int parent_node_idx = 0;
   cat_sets_owner cso;
-  float input = 0.0f;
-  int correct = INT_MAX;
+  double input  = 0.0;
+  int correct   = INT_MAX;
+  bool skip_f32 = false;  // if true, the test only runs for float64
 };
 
 std::ostream& operator<<(std::ostream& os, const ChildIndexTestParams& ps)
@@ -133,29 +142,36 @@ std::ostream& operator<<(std::ostream& os, const ChildIndexTestParams& ps)
 
 template <typename fil_node_t>
 class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
+  using real_t = typename fil_node_t::real_type;
+
  protected:
   void check()
   {
     ChildIndexTestParams param = GetParam();
+
+    // skip tests that require float64 to work correctly
+    if (std::is_same_v<real_t, float> && param.skip_f32) return;
+
     tree_base tree{param.cso.accessor()};
-    if (!std::is_same<fil_node_t, fil::dense_node>::value) {
+    if constexpr (!std::is_same_v<fil_node_t, fil::dense_node<real_t>>) {
       // test that the logic uses node.left instead of parent_node_idx
       param.node.left       = param.parent_node_idx * 2 + 1;
       param.parent_node_idx = INT_MIN;
     }
+    real_t input = isnan(param.input) ? std::numeric_limits<real_t>::quiet_NaN()
+                                      : static_cast<real_t>(param.input);
     // nan -> !def_left, categorical -> if matches, numerical -> input >= threshold
-    int test_idx =
-      tree.child_index<true>((fil_node_t)param.node, param.parent_node_idx, param.input);
-    ASSERT(test_idx == param.correct,
-           "child index test: actual %d != correct %d",
-           test_idx,
-           param.correct);
+    int test_idx = tree.child_index<true>((fil_node_t)param.node, param.parent_node_idx, input);
+    ASSERT_EQ(test_idx, param.correct)
+      << "child index test: actual " << test_idx << "  != correct %d" << param.correct;
   }
 };
 
-typedef ChildIndexTest<fil::dense_node> ChildIndexTestDense;
-typedef ChildIndexTest<fil::sparse_node16> ChildIndexTestSparse16;
-typedef ChildIndexTest<fil::sparse_node8> ChildIndexTestSparse8;
+using ChildIndexTestDenseFloat32    = ChildIndexTest<fil::dense_node<float>>;
+using ChildIndexTestDenseFloat64    = ChildIndexTest<fil::dense_node<double>>;
+using ChildIndexTestSparse16Float32 = ChildIndexTest<fil::sparse_node16<float>>;
+using ChildIndexTestSparse16Float64 = ChildIndexTest<fil::sparse_node16<double>>;
+using ChildIndexTestSparse8         = ChildIndexTest<fil::sparse_node8>;
 
 /* for dense nodes, left (false) == parent * 2 + 1, right (true) == parent * 2 + 2
    E.g. see tree below:
@@ -165,48 +181,52 @@ typedef ChildIndexTest<fil::sparse_node8> ChildIndexTestSparse8;
  3 -> 7, 8
  4 -> 9, 10
  */
-const float INF = std::numeric_limits<float>::infinity();
+const double INF  = std::numeric_limits<double>::infinity();
+const double QNAN = std::numeric_limits<double>::quiet_NaN();
 
 std::vector<ChildIndexTestParams> params = {
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = -INF, correct = 1),  // val !>= thresh
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = 0.0f, correct = 2),  // val >= thresh
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = +INF, correct = 2),  // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0), input = -INF, correct = 1),  // val !>= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0), input = 0.0, correct = 2),   // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0), input = +INF, correct = 2),  // val >= thresh
+  // the following two tests only work for float64
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0), input = -1e-50, correct = 1, skip_f32 = true),
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 1e-50), input = 0.0, correct = 1, skip_f32 = true),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 1.0f), input = -3.141592f, correct = 1),  // val !>= thresh
-  CHILD_INDEX_TEST_PARAMS(                                         // val >= thresh (e**pi > pi**e)
-    node    = NODE(thresh = 22.459158f),
-    input   = 23.140693f,
+    node = NODE(thresh = 1.0), input = -3.141592, correct = 1),  // val !>= thresh
+  CHILD_INDEX_TEST_PARAMS(                                       // val >= thresh (e**pi > pi**e)
+    node    = NODE(thresh = 22.459158),
+    input   = 23.140693,
     correct = 2),
   CHILD_INDEX_TEST_PARAMS(  // val >= thresh for both negative
-    node    = NODE(thresh = -0.37f),
-    input   = -0.36f,
-    correct = 2),                                                                   // val >= thresh
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = -INF), input = 0.36f, correct = 2),  // val >= thresh
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = NAN, correct = 2),    // !def_left
-  CHILD_INDEX_TEST_PARAMS(node = NODE(def_left = true), input = NAN, correct = 1),  // !def_left
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = NAN), input = NAN, correct = 2),     // !def_left
+    node    = NODE(thresh = -0.37),
+    input   = -0.36,
+    correct = 2),                                                                  // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = -INF), input = 0.36, correct = 2),  // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = QNAN, correct = 2),  // !def_left
+  CHILD_INDEX_TEST_PARAMS(node = NODE(def_left = true), input = QNAN, correct = 1),  // !def_left
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = QNAN), input = QNAN, correct = 2),    // !def_left
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(def_left = true, thresh = NAN), input = NAN, correct = 1),        // !def_left
-  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = NAN), input = 0.0f, correct = 1),  // val !>= thresh
+    node = NODE(def_left = true, thresh = QNAN), input = QNAN, correct = 1),      // !def_left
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = QNAN), input = 0.0, correct = 1),  // val !>= thresh
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 1, input = -INF, correct = 3),
+    node = NODE(thresh = 0.0), parent_node_idx = 1, input = -INF, correct = 3),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 1, input = 0.0f, correct = 4),
+    node = NODE(thresh = 0.0), parent_node_idx = 1, input = 0.0f, correct = 4),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 2, input = -INF, correct = 5),
+    node = NODE(thresh = 0.0), parent_node_idx = 2, input = -INF, correct = 5),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 2, input = 0.0f, correct = 6),
+    node = NODE(thresh = 0.0), parent_node_idx = 2, input = 0.0f, correct = 6),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 3, input = -INF, correct = 7),
+    node = NODE(thresh = 0.0), parent_node_idx = 3, input = -INF, correct = 7),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 3, input = 0.0f, correct = 8),
+    node = NODE(thresh = 0.0), parent_node_idx = 3, input = 0.0f, correct = 8),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 4, input = -INF, correct = 9),
+    node = NODE(thresh = 0.0), parent_node_idx = 4, input = -INF, correct = 9),
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(thresh = 0.0f), parent_node_idx = 4, input = 0.0f, correct = 10),
-  CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
+    node = NODE(thresh = 0.0), parent_node_idx = 4, input = 0.0, correct = 10),
+  CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = QNAN, correct = 10),  // !def_left
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(def_left = true), input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
+    node = NODE(def_left = true), input = QNAN, parent_node_idx = 4, correct = 9),  // !def_left
   // cannot match ( < 0 and realistic fid_num_cats)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {},
@@ -279,21 +299,25 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = true),
                           cso.bits         = {0b0000'0101},
                           cso.fid_num_cats = {3.0f},
-                          input            = NAN,
+                          input            = QNAN,
                           correct          = 1),
   // default right
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = false),
                           cso.bits         = {0b0000'0101},
                           cso.fid_num_cats = {3.0f},
-                          input            = NAN,
+                          input            = QNAN,
                           correct          = 2),
 };
 
-TEST_P(ChildIndexTestDense, Predict) { check(); }
-TEST_P(ChildIndexTestSparse16, Predict) { check(); }
+TEST_P(ChildIndexTestDenseFloat32, Predict) { check(); }
+TEST_P(ChildIndexTestDenseFloat64, Predict) { check(); }
+TEST_P(ChildIndexTestSparse16Float32, Predict) { check(); }
+TEST_P(ChildIndexTestSparse16Float64, Predict) { check(); }
 TEST_P(ChildIndexTestSparse8, Predict) { check(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestDense, testing::ValuesIn(params));
-INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestSparse16, testing::ValuesIn(params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestDenseFloat32, testing::ValuesIn(params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestDenseFloat64, testing::ValuesIn(params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestSparse16Float32, testing::ValuesIn(params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestSparse16Float64, testing::ValuesIn(params));
 INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestSparse8, testing::ValuesIn(params));
 }  // namespace ML

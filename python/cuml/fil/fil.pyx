@@ -190,10 +190,12 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
-    cdef struct forest:
+    cdef cppclass forest[real_t]:
         pass
 
-    ctypedef forest* forest_t
+    # TODO(canonizer): use something like
+    # ctypedef forest[real_t]* forest_t[real_t]
+    # once it is supported in Cython
 
     cdef struct treelite_params_t:
         algo_t algo
@@ -215,25 +217,25 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
 
-    cdef void free(handle_t& handle,
-                   forest_t)
+    cdef void free[real_t](handle_t& handle,
+                           forest[real_t]*)
 
-    cdef void predict(handle_t& handle,
-                      forest_t,
-                      float*,
-                      float*,
-                      size_t,
-                      bool) except +
+    cdef void predict[real_t](handle_t& handle,
+                              forest[real_t]*,
+                              real_t*,
+                              real_t*,
+                              size_t,
+                              bool) except +
 
-    cdef forest_t from_treelite(handle_t& handle,
-                                forest_t*,
-                                ModelHandle,
-                                treelite_params_t*) except +
+    cdef forest[float]* from_treelite(handle_t& handle,
+                                      forest[float]**,
+                                      ModelHandle,
+                                      treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
     cdef object handle
-    cdef forest_t forest_data
+    cdef forest[float]* forest_data
     cdef size_t num_class
     cdef bool output_class
     cdef char* shape_str
@@ -479,20 +481,23 @@ class ForestInference(Base,
 
     .. code-block:: python
 
-        # Assume that the file 'xgb.model' contains a classifier model that was
-        # previously saved by XGBoost's save_model function.
+        >>> # Assume that the file 'xgb.model' contains a classifier model
+        >>> # that was previously saved by XGBoost's save_model function.
 
-        import sklearn, sklearn.datasets, numpy as np
-        from numba import cuda
-        from cuml import ForestInference
+        >>> import sklearn, sklearn.datasets
+        >>> import numpy as np
+        >>> from numba import cuda
+        >>> from cuml import ForestInference
 
-        model_path = 'xgb.model'
-        X_test, y_test = sklearn.datasets.make_classification()
-        X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
-        fm = ForestInference.load(model_path, output_class=True)
-        fil_preds_gpu = fm.predict(X_gpu)
-        accuracy_score = sklearn.metrics.accuracy_score(y_test,
-                       np.asarray(fil_preds_gpu))
+        >>> model_path = 'xgb.model'
+        >>> X_test, y_test = sklearn.datasets.make_classification()
+        >>> X_gpu = cuda.to_device(
+        ...     np.ascontiguousarray(X_test.astype(np.float32)))
+        >>> fm = ForestInference.load(
+        ...     model_path, output_class=True) # doctest: +SKIP
+        >>> fil_preds_gpu = fm.predict(X_gpu) # doctest: +SKIP
+        >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
+        ...     np.asarray(fil_preds_gpu)) # doctest: +SKIP
 
     Notes
     ------
@@ -578,7 +583,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-    {}
         preds : gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
@@ -607,7 +611,6 @@ class ForestInference(Base,
 
         Parameters
         ----------
-    {}
         preds : gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results

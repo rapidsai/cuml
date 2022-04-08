@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,64 +45,75 @@ class LabelEncoder(BaseEstimator,
 
     .. code-block:: python
 
-        import cudf
-        import dask_cudf
-        df = cudf.DataFrame({'num_col':[10, 20, 30, 30, 30],
-                           'cat_col':['a','b','c','a','a']})
-        ddf = dask_cudf.from_cudf(df, npartitions=2)
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> import cudf
+        >>> import dask_cudf
+        >>> from cuml.dask.preprocessing import LabelEncoder
 
-        # There are two functionally equivalent ways to do this
-        le = LabelEncoder()
-        le.fit(ddf.cat_col)  # le = le.fit(data.category) also works
-        encoded = le.transform(ddf.cat_col)
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
+        >>> df = cudf.DataFrame({'num_col':[10, 20, 30, 30, 30],
+        ...                    'cat_col':['a','b','c','a','a']})
+        >>> ddf = dask_cudf.from_cudf(df, npartitions=2)
 
-        print(encoded.compute())
+        >>> # There are two functionally equivalent ways to do this
+        >>> le = LabelEncoder()
+        >>> le.fit(ddf.cat_col)  # le = le.fit(data.category) also works
+        <cuml.dask.preprocessing.LabelEncoder.LabelEncoder object at 0x...>
+        >>> encoded = le.transform(ddf.cat_col)
+        >>> print(encoded.compute())
+        0    0
+        1    1
+        2    2
+        3    0
+        4    0
+        dtype: uint8
 
-        # This method is preferred
-        le = LabelEncoder()
-        encoded = le.fit_transform(ddf.cat_col)
+        >>> # This method is preferred
+        >>> le = LabelEncoder()
+        >>> encoded = le.fit_transform(ddf.cat_col)
+        >>> print(encoded.compute())
+        0    0
+        1    1
+        2    2
+        3    0
+        4    0
+        dtype: uint8
 
-        print(encoded.compute())
-
-        # We can assign this to a new column
-        ddf = ddf.assign(encoded=encoded.values)
-        print(ddf.compute())
-
-        # We can also encode more data
-        test_data = cudf.Series(['c', 'a'])
-        encoded = le.transform(dask_cudf.from_cudf(test_data, npartitions=2))
-        print(encoded.compute())
-
-        # After train, ordinal label can be inverse_transform() back to
-        # string labels
-        ord_label = cudf.Series([0, 0, 1, 2, 1])
-        ord_label = dask_cudf.from_cudf(ord_label, npartitions=2)
-
-        print(ord_label.compute())
-
-    Output:
-
-    .. code-block:: python
-
-        [0 1 2 0 0]
-
-        [0 1 2 0 0]
-
-           num_col cat_col  encoded
+        >>> # We can assign this to a new column
+        >>> ddf = ddf.assign(encoded=encoded.values)
+        >>> print(ddf.compute())
+        num_col cat_col  encoded
         0       10       a        0
         1       20       b        1
         2       30       c        2
         3       30       a        0
         4       30       a        0
+        >>> # We can also encode more data
+        >>> test_data = cudf.Series(['c', 'a'])
+        >>> encoded = le.transform(dask_cudf.from_cudf(test_data,
+        ...                                            npartitions=2))
+        >>> print(encoded.compute())
+        0    2
+        1    0
+        dtype: uint8
 
-        [2 0]
+        >>> # After train, ordinal label can be inverse_transform() back to
+        >>> # string labels
+        >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
+        >>> ord_label = le.inverse_transform(
+        ...    dask_cudf.from_cudf(ord_label,npartitions=2))
 
+        >>> print(ord_label.compute())
         0    a
         1    a
         2    b
         0    c
         1    b
         dtype: object
+        >>> client.close()
+        >>> cluster.close()
 
     """
     def __init__(self, *, client=None, verbose=False, **kwargs):

@@ -28,7 +28,6 @@
 #include <raft/linalg/map_then_reduce.hpp>
 #include <raft/linalg/norm.hpp>
 #include <raft/linalg/unary_op.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
