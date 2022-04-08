@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,5 +51,7 @@ __all__ = [
     'robust_scale',
     'scale',
     'label_binarize',
-    'train_test_split'
+    'train_test_split',
+    # Modules
+    'text',
 ]

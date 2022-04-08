@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <cuml/tree/decisiontree.hpp>
 
 #include <map>
+#include <memory>
 
 namespace raft {
 class handle_t;  // forward decl
@@ -94,9 +95,6 @@ struct RF_params {
   DT::DecisionTreeParams tree_params;
 };
 
-void validity_check(const RF_params rf_params);
-void print(const RF_params rf_params);
-
 /* Update labels so they are unique from 0 to n_unique_vals.
    Create an old_label to new_label map per random forest.
 */
@@ -113,15 +111,8 @@ void postprocess_labels(int n_rows,
 
 template <class T, class L>
 struct RandomForestMetaData {
-  DT::TreeMetaDataNode<T, L>* trees;
+  std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
-  // TODO can add prepare, train time, if needed
-
-  RandomForestMetaData() : trees(nullptr) {}
-  ~RandomForestMetaData()
-  {
-    if (trees != nullptr) { delete[] trees; }
-  }
 };
 
 template <class T, class L>
@@ -139,8 +130,7 @@ std::string get_rf_json(const RandomForestMetaData<T, L>* forest);
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features,
-                           int task_category);
+                           int num_features);
 
 ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
 
@@ -201,7 +191,7 @@ RF_metrics score(const raft::handle_t& user_handle,
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
-                        int n_bins,
+                        int max_n_bins,
                         int min_samples_leaf,
                         int min_samples_split,
                         float min_impurity_decrease,

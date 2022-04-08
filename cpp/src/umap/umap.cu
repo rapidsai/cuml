@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
+#include "runner.cuh"
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
-#include "runner.cuh"
+#include <cuml/manifold/umapparams.h>
 
 #include <raft/cuda_utils.cuh>
 
@@ -134,6 +134,43 @@ void fit(const raft::handle_t& handle,
         handle, inputs, params, embeddings);
     }
   }
+}
+
+// get graph
+std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& handle,
+                                                         float* X,  // input matrix
+                                                         float* y,  // labels
+                                                         int n,
+                                                         int d,
+                                                         UMAPParams* params)
+{
+  manifold_dense_inputs_t<float> inputs(X, y, n, d);
+  auto cgraph_coo = std::make_unique<raft::sparse::COO<float>>(handle.get_stream());
+  if (y != nullptr) {
+    UMAPAlgo::
+      _get_graph_supervised<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+        handle, inputs, params, cgraph_coo.get());
+  } else {
+    UMAPAlgo::_get_graph<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+      handle, inputs, params, cgraph_coo.get());
+  }
+
+  return cgraph_coo;
+}
+
+// refine
+void refine(const raft::handle_t& handle,
+            float* X,  // input matrix
+            int n,
+            int d,
+            raft::sparse::COO<float>* cgraph_coo,
+            UMAPParams* params,
+            float* embeddings)
+{
+  CUML_LOG_DEBUG("Calling UMAP::refine() with precomputed KNN");
+  manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
+  UMAPAlgo::_refine<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+    handle, inputs, params, cgraph_coo, embeddings);
 }
 
 // Sparse fit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@ namespace DT {
 
 struct DecisionTreeParams {
   /**
-   * Maximum tree depth. Unlimited (e.g., until leaves are pure), if -1.
+   * Maximum tree depth. Unlimited (e.g., until leaves are pure), If `-1`.
    */
   int max_depth;
   /**
-   * Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+   * Maximum leaf nodes per tree. Soft constraint. Unlimited, If `-1`.
    */
   int max_leaves;
   /**
@@ -40,9 +40,9 @@ struct DecisionTreeParams {
    */
   float max_features;
   /**
-   * Number of bins used by the split algorithm.
+   * maximum number of bins used by the split algorithm per feature.
    */
-  int n_bins;
+  int max_n_bins;
   /**
    * The minimum number of samples (rows) in each leaf node.
    */
@@ -74,7 +74,7 @@ struct DecisionTreeParams {
  * @param[in] cfg_max_depth: maximum tree depth; default -1
  * @param[in] cfg_max_leaves: maximum leaves; default -1
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
- * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_max_n_bins: maximum number of bins; default 128
  * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
@@ -84,39 +84,28 @@ struct DecisionTreeParams {
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
               in a batch. This is used only for batched-level algo. Default
-              value 128.
+              value 4096.
  */
 void set_tree_params(DecisionTreeParams& params,
                      int cfg_max_depth               = -1,
                      int cfg_max_leaves              = -1,
                      float cfg_max_features          = 1.0f,
-                     int cfg_n_bins                  = 128,
+                     int cfg_max_n_bins              = 128,
                      int cfg_min_samples_leaf        = 1,
                      int cfg_min_samples_split       = 2,
                      float cfg_min_impurity_decrease = 0.0f,
                      CRITERION cfg_split_criterion   = CRITERION_END,
                      int cfg_max_batch_size          = 4096);
 
-/**
- * @brief Check validity of all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void validity_check(const DecisionTreeParams params);
-
-/**
- * @brief Print all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void print(const DecisionTreeParams params);
-
 template <class T, class L>
 struct TreeMetaDataNode {
   int treeid;
   int depth_counter;
   int leaf_counter;
-  double prepare_time;
   double train_time;
+  std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
+  int num_outputs;
 };
 
 /**

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,13 +28,14 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml import Handle
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -48,7 +49,9 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo) except +
+                     bool normalize,
+                     int algo,
+                     float *sample_weight) except +
 
     cdef void olsFit(handle_t& handle,
                      double *input,
@@ -58,7 +61,9 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo) except +
+                     bool normalize,
+                     int algo,
+                     double *sample_weight) except +
 
 
 class LinearRegression(Base,
@@ -79,67 +84,65 @@ class LinearRegression(Base,
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
+        >>> import cupy as cp
+        >>> import cudf
 
-        # Both import methods supported
-        from cuml import LinearRegression
-        from cuml.linear_model import LinearRegression
+        >>> # Both import methods supported
+        >>> from cuml import LinearRegression
+        >>> from cuml.linear_model import LinearRegression
+        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
+        ...                       algorithm = "eig")
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
+        >>> reg = lr.fit(X,y)
+        >>> print(reg.coef_)
+        0   1.0
+        1   2.0
+        dtype: float32
+        >>> print(reg.intercept_)
+        3.0...
 
-        lr = LinearRegression(fit_intercept = True, normalize = False,
-                              algorithm = "eig")
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> preds = lr.predict(X_new)
+        >>> print(preds)
+        0   15.999...
+        1   14.999...
+        dtype: float32
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
-
-        reg = lr.fit(X,y)
-        print("Coefficients:")
-        print(reg.coef_)
-        print("Intercept:")
-        print(reg.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = lr.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 1.0000001
-                    1 1.9999998
-
-        Intercept:
-                    3.0
-
-        Predictions:
-
-                    0 15.999999
-                    1 14.999999
 
     Parameters
     -----------
-    algorithm : 'eig' or 'svd' (default = 'eig')
-        Eig uses a eigendecomposition of the covariance matrix, and is much
-        faster.
-        SVD is slower, but guaranteed to be stable.
+    algorithm : {'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'eig')
+        Choose an algorithm:
+
+          * 'svd' - alias for svd-jacobi;
+          * 'eig' - use an eigendecomposition of the covariance matrix;
+          * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
+          * 'svd-qr' - compute SVD decomposition using QR algorithm
+          * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations.
+
+        Among these algorithms, only 'svd-jacobi' supports the case when the
+        number of features is larger than the sample size; this algorithm
+        is force-selected automatically in such a case.
+
+        For the broad range of inputs, 'eig' and 'qr' are usually the fastest,
+        followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
+        algorithms are more stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
-        If True, the predictors in X will be normalized by dividing by it's
-        L2 norm.
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
         If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -183,7 +186,7 @@ class LinearRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`__.
 
 
     """
@@ -193,6 +196,10 @@ class LinearRegression(Base,
 
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
+        if handle is None and algorithm == 'eig':
+            # if possible, create two streams, so that eigenvalue decomposition
+            # can benefit from running independent operations concurrently.
+            handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -203,7 +210,7 @@ class LinearRegression(Base,
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        if algorithm in ['svd', 'eig']:
+        if algorithm in ['svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi']:
             self.algorithm = algorithm
             self.algo = self._get_algorithm_int(algorithm)
         else:
@@ -215,16 +222,20 @@ class LinearRegression(Base,
     def _get_algorithm_int(self, algorithm):
         return {
             'svd': 0,
-            'eig': 1
+            'eig': 1,
+            'qr': 2,
+            'svd-qr': 3,
+            'svd-jacobi': 0
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True) -> "LinearRegression":
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr
+        cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
@@ -235,6 +246,16 @@ class LinearRegression(Base,
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
         y_ptr = y_m.ptr
+
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=(
+                                        self.dtype if convert_dtype else None),
+                                    check_rows=n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
+        else:
+            sample_weight_ptr = 0
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -268,7 +289,8 @@ class LinearRegression(Base,
                    <float*>&c_intercept1,
                    <bool>self.fit_intercept,
                    <bool>self.normalize,
-                   <int>self.algo)
+                   <int>self.algo,
+                   <float*>sample_weight_ptr)
 
             self.intercept_ = c_intercept1
         else:
@@ -281,7 +303,8 @@ class LinearRegression(Base,
                    <double*>&c_intercept2,
                    <bool>self.fit_intercept,
                    <bool>self.normalize,
-                   <int>self.algo)
+                   <int>self.algo,
+                   <double*>sample_weight_ptr)
 
             self.intercept_ = c_intercept2
 
@@ -289,6 +312,8 @@ class LinearRegression(Base,
 
         del X_m
         del y_m
+        if sample_weight is not None:
+            del sample_weight_m
 
         return self
 

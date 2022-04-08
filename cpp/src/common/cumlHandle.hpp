@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 #include <cuml/cuml_api.h>
 
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
 
@@ -33,10 +31,11 @@ class HandleMap {
   /**
    * @brief Creates new handle object with associated handle ID and insert into map.
    *
+   * @param[in] stream the stream to which cuML work should be ordered.
    * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
    *                   the handle is INVALID_HANDLE.
    */
-  std::pair<cumlHandle_t, cumlError_t> createAndInsertHandle();
+  std::pair<cumlHandle_t, cumlError_t> createAndInsertHandle(cudaStream_t stream);
 
   /**
    * @brief Lookup pointer to handle object for handle ID in map.

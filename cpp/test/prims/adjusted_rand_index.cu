@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
+#include <raft/cudart_utils.h>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -44,15 +44,15 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
 
     firstClusterArray.resize(nElements, stream);
     secondClusterArray.resize(nElements, stream);
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
 
     if (!params.testZeroArray) {
@@ -65,7 +65,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void SetUpDifferentArrays()
   {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
 #include <cmath>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -59,8 +59,7 @@ class RFRegressor : public RegressionFixture<D> {
       state.SkipWithError("RFRegressor only supports col-major inputs");
     }
     this->loopOnState(state, [this]() {
-      auto* mPtr  = &model.model;
-      mPtr->trees = nullptr;
+      auto* mPtr = &model.model;
       fit(*this->handle,
           mPtr,
           this->data.X,
@@ -68,7 +67,7 @@ class RFRegressor : public RegressionFixture<D> {
           this->params.ncols,
           this->data.y,
           rfParams);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      handle->sync_stream(this->stream);
     });
   }
 
@@ -96,7 +95,7 @@ std::vector<RegParams> getInputs()
   p.rf                          = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
                        0.3,                /* max_features */
-                       32,                 /* n_bins */
+                       32,                 /* max_n_bins */
                        3,                  /* min_samples_leaf */
                        3,                  /* min_samples_split */
                        0.0f,               /* min_impurity_decrease */

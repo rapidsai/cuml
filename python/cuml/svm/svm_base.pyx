@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,11 +30,13 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.exceptions import NotFittedError
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.logger import warn
 from cuml.common.mixins import FMajorInputTagMixin
 from libcpp cimport bool
+
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -80,13 +82,6 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         math_t *unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
-
-    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
-                             int n_rows, int n_cols, math_t *labels,
-                             const SvmParameter &param,
-                             KernelParams &kernel_params,
-                             SvmModel[math_t] &model,
-                             const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const handle_t &handle, math_t *input, int n_rows, int n_cols,
@@ -246,6 +241,14 @@ class SVMBase(Base,
         self._model = None  # structure of the model parameters
         self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
 
+        if (kernel == 'linear' or (kernel == 'poly' and degree == 1)) \
+           and not getattr(type(self), "_linear_kernel_warned", False):
+            setattr(type(self), "_linear_kernel_warned", True)
+            cname = type(self).__name__
+            warn(f'{cname} with the linear kernel can be much faster using '
+                 f'the specialized solver provided by Linear{cname}. Consider '
+                 f'switching to Linear{cname} if tranining takes too long.')
+
     def __del__(self):
         self._dealloc()
 
@@ -326,9 +329,9 @@ class SVMBase(Base,
     @cuml.internals.api_base_return_array_skipall
     def coef_(self):
         if self._c_kernel != LINEAR:
-            raise RuntimeError("coef_ is only available for linear kernels")
+            raise AttributeError("coef_ is only available for linear kernels")
         if self._model is None:
-            raise RuntimeError("Call fit before prediction")
+            raise AttributeError("Call fit before prediction")
         if self._internal_coef_ is None:
             self._internal_coef_ = self._calc_coef()
         # Call the base class to perform the output conversion
@@ -341,6 +344,8 @@ class SVMBase(Base,
     @property
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
+        if self._intercept_ is None:
+            raise AttributeError("intercept_ called before fit.")
         return self._intercept_
 
     @intercept_.setter
@@ -552,7 +557,7 @@ class SVMBase(Base,
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef SvmModel[float]* model_f

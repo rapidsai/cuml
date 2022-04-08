@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <raft/linalg/distance_type.h>
+#include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/ann_common.h>
+#include <raft/spatial/knn/ball_cover_common.h>
 
 namespace raft {
 class handle_t;
@@ -60,6 +61,16 @@ void brute_force_knn(const raft::handle_t& handle,
                      raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
                      float metric_arg                    = 2.0f);
 
+void rbc_build_index(const raft::handle_t& handle,
+                     raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index);
+
+void rbc_knn_query(const raft::handle_t& handle,
+                   raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index,
+                   uint32_t k,
+                   const float* search_items,
+                   uint32_t n_search_items,
+                   int64_t* out_inds,
+                   float* out_dists);
 /**
  * @brief Flat C++ API function to build an approximate nearest neighbors index
  * from an index array and a set of parameters.

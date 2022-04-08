@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 import numpy as np
+import nvtx
 import rmm
 import warnings
 
@@ -29,7 +30,7 @@ import cuml.internals
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -47,8 +48,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -114,129 +114,109 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     .. note:: Note that the underlying algorithm for tree node splits differs
       from that used in scikit-learn. By default, the cuML Random Forest uses a
-      histogram-based algorithm to determine splits, rather than an exact
-      count. You can tune the size of the histograms with the n_bins parameter.
+      quantile-based algorithm to determine splits, rather than an exact
+      count. You can tune the size of the quantiles with the `n_bins` parameter
 
     .. note:: You can export cuML Random Forest models and run predictions
       with them on machines without an NVIDIA GPUs. See
       https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
       for more details.
 
-    **Known Limitations**: This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
-
-      * GPU-based inference is only supported if the model was trained
-        with 32-bit (float32) datatypes. CPU-based inference may be used
-        in this case as a slower fallback.
-      * Very deep / very wide models may exhaust available GPU memory.
-        Future versions of cuML will provide an alternative algorithm to
-        reduce memory consumption.
 
     Examples
     --------
 
     .. code-block:: python
 
-        import numpy as np
-        from cuml.test.utils import get_handle
-        from cuml.ensemble import RandomForestRegressor as curfc
-        from cuml.test.utils import get_handle
-        X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
-        y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfc(max_features=1.0, n_bins=128,
-                            min_samples_leaf=1,
-                            min_samples_split=2,
-                            n_estimators=40, accuracy_metric='r2')
-        cuml_model.fit(X,y)
-        cuml_score = cuml_model.score(X,y)
-        print("MSE score of cuml : ", cuml_score)
-
-    Output:
-
-    .. code-block:: none
-
-        MSE score of cuml :  0.1123437201231765
+        >>> import cupy as cp
+        >>> from cuml.ensemble import RandomForestRegressor as curfr
+        >>> X = cp.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=cp.float32)
+        >>> y = cp.asarray([0.0,1.0,2.0,3.0], dtype=cp.float32)
+        >>> cuml_model = curfr(max_features=1.0, n_bins=128,
+        ...                    min_samples_leaf=1,
+        ...                    min_samples_split=2,
+        ...                    n_estimators=40, accuracy_metric='r2')
+        >>> cuml_model.fit(X,y)
+        RandomForestRegressor()
+        >>> cuml_score = cuml_model.score(X,y)
+        >>> print("MSE score of cuml : ", cuml_score) # doctest: +SKIP
+        MSE score of cuml :  0.9076250195503235
 
     Parameters
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    split_algo : int (default = 1)
-        The algorithm to determine how nodes are split in the tree.
-        Can be changed only for the old backend [deprecated].
-        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
-        The default backend does not support HIST.
-        HIST currently uses a slower tree-building algorithm so
-        GLOBAL_QUANTILE is recommended for most cases.
+    split_criterion : int or string (default = ``2`` (``'mse'``))
+        The criterion used to split nodes.\n
+         * ``0`` or ``'gini'`` for gini impurity
+         * ``1`` or ``'entropy'`` for information gain (entropy)
+         * ``2`` or ``'mse'`` for mean squared error
+         * ``4`` or ``'poisson'`` for poisson half deviance
+         * ``5`` or ``'gamma'`` for gamma half deviance
+         * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
 
-        .. deprecated:: 21.06
-           Parameter 'split_algo' is deprecated and will be removed in
-           subsequent release.
-    split_criterion : int (default = 2)
-        The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY,
-        2 for MSE
-        0 and 1 not valid for regression
+        ``0``, ``'gini'``, ``1`` and ``'entropy'`` not valid for regression.
     bootstrap : boolean (default = True)
-        Control bootstrapping.
-        If True, each tree in the forest is built
-        on a bootstrapped sample with replacement.
-        If False, the whole dataset is used to build each tree.
+        Control bootstrapping.\n
+            * If ``True``, eachtree in the forest is built
+              on a bootstrapped sample with replacement.
+            * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1.
-        *Note that this default differs from scikit-learn's
-        random forest, which defaults to unlimited depth.*
+        Maximum tree depth. Must be greater than 0.
+        Unlimited depth (i.e, until leaves are pure)
+        is not supported.\n
+        .. note:: This default differs from scikit-learn's
+          random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
-        if -1.
+        If ``-1``.
     max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider
-        per node split.
-        If int then max_features/n_features.
-        If float then max_features is used as a fraction.
-        If 'auto' then max_features=1.0.
-        If 'sqrt' then max_features=1/sqrt(n_features).
-        If 'log2' then max_features=log2(n_features)/n_features.
+        per node split.\n
+         * If type ``int`` then ``max_features`` is the absolute count of
+           features to be used.
+         * If type ``float`` then ``max_features`` is used as a fraction.
+         * If ``'auto'`` then ``max_features=1.0``.
+         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
     n_bins : int (default = 128)
-        Number of bins used by the split algorithm.
+        Maximum number of bins used by the split algorithm per feature.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     min_samples_leaf : int or float (default = 1)
-        The minimum number of samples (rows) in each leaf node.
-        If int, then min_samples_leaf represents the minimum number.
-        If float, then min_samples_leaf represents a fraction and
-        ceil(min_samples_leaf * n_rows) is the minimum number of samples
-        for each leaf node.
+        The minimum number of samples (rows) in each leaf node.\n
+         * If type ``int``, then ``min_samples_leaf`` represents the minimum
+           number.\n
+         * If ``float``, then ``min_samples_leaf`` represents a fraction and
+           ``ceil(min_samples_leaf * n_rows)`` is the minimum number of
+           samples for each leaf node.
     min_samples_split : int or float (default = 2)
-        The minimum number of samples required to split an internal node.
-        If int, then min_samples_split represents the minimum number.
-        If float, then min_samples_split represents a fraction and
-        ceil(min_samples_split * n_rows) is the minimum number of samples
-        for each split.
+        The minimum number of samples required to split an internal
+        node.\n
+         * If type ``int``, then min_samples_split represents the minimum
+           number.
+         * If type ``float``, then ``min_samples_split`` represents a fraction
+           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
+           samples for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
         In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.
-        for r-squared : 'r2'
-        for median of abs error : 'median_ae'
-        for mean of abs error : 'mean_ae'
-        for mean square error' : 'mse'
-    use_experimental_backend : boolean (default = True)
-        Deprecated and currrently has no effect.
-        .. deprecated:: 21.08
-    max_batch_size: int (default = 4096)
+        from mean squared error to r-squared.\n
+         * for r-squared : ``'r2'``
+         * for median of abs error : ``'median_ae'``
+         * for mean of abs error : ``'mean_ae'``
+         * for mean square error' : ``'mse'``
+    max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
-        currently fully guarantee the exact same results. **Note: Parameter
-        `seed` is removed since release 0.19.**
+        currently fully guarantee the exact same results.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -253,6 +233,19 @@ class RandomForestRegressor(BaseRandomForestModel,
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    Notes
+    -----
+    **Known Limitations**\n
+    This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+      * GPU-based inference is only supported with 32-bit (float32) datatypes.
+        Alternatives are to use CPU-based inference for 64-bit (float64)
+        datatypes, or let the default automatic datatype conversion occur
+        during GPU inference.
+
+    For additional docs, see `scikitlearn's RandomForestRegressor
+    <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
     def __init__(self, *,
@@ -414,6 +407,9 @@ class RandomForestRegressor(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
+    @nvtx.annotate(
+        message="fit RF-Regressor @randomforestregressor.pyx",
+        domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
     def fit(self, X, y, convert_dtype=True):
@@ -421,7 +417,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         Perform Random Forest Regression on the input data
 
         """
-        nvtx_range_push("Fit RF-Regressor @randomforestregressor.pyx")
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -485,7 +480,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.handle.sync()
         del X_m
         del y_m
-        nvtx_range_pop()
         return self
 
     def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
@@ -535,6 +529,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         del(X_m)
         return preds
 
+    @nvtx.annotate(
+        message="predict RF-Regressor @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU",
@@ -583,18 +580,18 @@ class RandomForestRegressor(BaseRandomForestModel,
         y : {}
 
         """
-        nvtx_range_push("predict RF-Regressor @randomforestregressor.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
-
         elif self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
         else:
             preds = self._predict_model_on_gpu(
                 X=X,
@@ -602,9 +599,11 @@ class RandomForestRegressor(BaseRandomForestModel,
                 convert_dtype=convert_dtype,
                 fil_sparse_format=fil_sparse_format)
 
-        nvtx_range_pop()
         return preds
 
+    @nvtx.annotate(
+        message="score RF-Regressor @randomforestclassifier.pyx",
+        domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
     def score(self, X, y, algo='auto', convert_dtype=True,
@@ -654,7 +653,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         median_abs_error : float or
         mean_abs_error : float
         """
-        nvtx_range_push("score RF-Regressor @randomforestregressor.pyx")
         from cuml.metrics.regression import r2_score
 
         cdef uintptr_t y_ptr
@@ -720,7 +718,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.handle.sync()
         del(y_m)
         del(preds_m)
-        nvtx_range_pop()
         return stats
 
     def get_summary_text(self):

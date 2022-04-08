@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -91,53 +91,36 @@ class Ridge(Base,
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
+        >>> import cupy as cp
+        >>> import cudf
 
-        # Both import methods supported
-        from cuml import Ridge
-        from cuml.linear_model import Ridge
+        >>> # Both import methods supported
+        >>> from cuml import Ridge
+        >>> from cuml.linear_model import Ridge
 
-        alpha = np.array([1e-5])
-        ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
-                      solver = "eig")
+        >>> alpha = cp.array([1e-5])
+        >>> ridge = Ridge(alpha=alpha, fit_intercept=True, normalize=False,
+        ...               solver="eig")
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
 
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
 
-        result_ridge = ridge.fit(X, y)
-        print("Coefficients:")
-        print(result_ridge.coef_)
-        print("Intercept:")
-        print(result_ridge.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_ridge.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 1.0000001
-                    1 1.9999998
-
-        Intercept:
-                    3.0
-
-        Preds:
-
-                    0 15.999999
-                    1 14.999999
+        >>> result_ridge = ridge.fit(X, y)
+        >>> print(result_ridge.coef_) # doctest: +SKIP
+        0 1.000...
+        1 1.999...
+        >>> print(result_ridge.intercept_)
+        3.0...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> preds = result_ridge.predict(X_new)
+        >>> print(preds) # doctest: +SKIP
+        0 15.999...
+        1 14.999...
 
     Parameters
     -----------
@@ -154,9 +137,12 @@ class Ridge(Base,
         If True, Ridge tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's L2
-        norm.
+        If True, the predictors in X will be normalized by dividing by the
+        column-wise standard deviation.
         If False, no scaling will be done.
+        Note: this is in contrast to sklearn's deprecated `normalize` flag,
+        which divides by the column-wise L2 norm; but this is the same as if
+        using sklearn's StandardScaler.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA

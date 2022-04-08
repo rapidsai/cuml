@@ -128,8 +128,8 @@ def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
     if datatype == "dataframe":
         assert isinstance(predictions, cudf.DataFrame)
-        predictions = predictions.as_gpu_matrix().copy_to_host()
-        y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
+        predictions = predictions.to_numpy()
+        y_test = y_test.to_numpy().reshape(y_test.shape[0])
     else:
         assert isinstance(predictions, np.ndarray)
 
@@ -163,7 +163,7 @@ def test_predict_proba_large_n_classes(datatype):
     predictions = knn_cu.predict_proba(X_test)
 
     if datatype == "dataframe":
-        predictions = predictions.as_gpu_matrix().copy_to_host()
+        predictions = predictions.to_numpy()
 
     assert np.rint(np.sum(predictions)) == len(y_test)
 
@@ -192,8 +192,8 @@ def test_predict_large_n_classes(datatype):
     y_hat = knn_cu.predict(X_test)
 
     if datatype == "dataframe":
-        y_hat = y_hat.to_gpu_array().copy_to_host()
-        y_test = y_test.as_gpu_matrix().copy_to_host().ravel()
+        y_hat = y_hat.to_numpy()
+        y_test = y_test.to_numpy().ravel()
 
     assert array_equal(y_hat.astype(np.int32), y_test.astype(np.int32))
 
@@ -218,7 +218,7 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     X_device_test = cudf.DataFrame.from_pandas(X_host_test)
 
     knn_sk = skKNN(algorithm="brute", n_neighbors=n_neighbors, n_jobs=1)
-    knn_sk.fit(X_host_train, y_host_train)
+    knn_sk.fit(X_host_train, y_host_train.values.ravel())
 
     sk_result = knn_sk.predict(X_host_test)
 
@@ -261,8 +261,8 @@ def test_nonmonotonic_labels(n_classes, n_rows, n_cols,
 
     if datatype == "dataframe":
         assert isinstance(p, cudf.Series)
-        p = p.to_frame().as_gpu_matrix().copy_to_host().reshape(p.shape[0])
-        y_test = y_test.as_gpu_matrix().copy_to_host().reshape(y_test.shape[0])
+        p = p.to_frame().to_numpy().reshape(p.shape[0])
+        y_test = y_test.to_numpy().reshape(y_test.shape[0])
 
     assert array_equal(p.astype(np.int32), y_test.astype(np.int32))
 

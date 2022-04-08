@@ -23,9 +23,12 @@ from cuml.test.utils import stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.datasets import make_blobs
-from sklearn.manifold.t_sne import trustworthiness
+from sklearn.manifold import trustworthiness
 from sklearn import datasets
 
+
+pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
+                                        "experimental::")
 
 DEFAULT_N_NEIGHBORS = 90
 DEFAULT_PERPLEXITY = 30

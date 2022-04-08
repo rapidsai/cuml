@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,33 @@
  */
 
 #include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/flatnode.h>
 #include <raft/handle.hpp>
 
-#include <cuml/tree/flatnode.h>
 #include "decisiontree.cuh"
 
 namespace ML {
 namespace DT {
+
+void validity_check(const DecisionTreeParams params)
+{
+  ASSERT((params.max_depth >= 0), "Invalid max depth %d", params.max_depth);
+  ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
+         "Invalid max leaves %d",
+         params.max_leaves);
+  ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
+         "max_features value %f outside permitted (0, 1] range",
+         params.max_features);
+  ASSERT((params.max_n_bins > 0), "Invalid max_n_bins %d", params.max_n_bins);
+  ASSERT((params.max_n_bins <= 1024), "max_n_bins should not be larger than 1024");
+  ASSERT((params.split_criterion != 3), "MAE not supported.");
+  ASSERT((params.min_samples_leaf >= 1),
+         "Invalid value for min_samples_leaf %d. Should be >= 1.",
+         params.min_samples_leaf);
+  ASSERT((params.min_samples_split >= 2),
+         "Invalid value for min_samples_split: %d. Should be >= 2.",
+         params.min_samples_split);
+}
 
 /**
  * @brief Set all DecisionTreeParams members.
@@ -29,7 +49,7 @@ namespace DT {
  * @param[in] cfg_max_depth: maximum tree depth; default -1
  * @param[in] cfg_max_leaves: maximum leaves; default -1
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
- * @param[in] cfg_n_bins: number of bins; default 8
+ * @param[in] cfg_max_n_bins: maximum number of bins; default 128
  * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
@@ -41,7 +61,7 @@ void set_tree_params(DecisionTreeParams& params,
                      int cfg_max_depth,
                      int cfg_max_leaves,
                      float cfg_max_features,
-                     int cfg_n_bins,
+                     int cfg_max_n_bins,
                      int cfg_min_samples_leaf,
                      int cfg_min_samples_split,
                      float cfg_min_impurity_decrease,
@@ -51,44 +71,13 @@ void set_tree_params(DecisionTreeParams& params,
   params.max_depth             = cfg_max_depth;
   params.max_leaves            = cfg_max_leaves;
   params.max_features          = cfg_max_features;
-  params.n_bins                = cfg_n_bins;
+  params.max_n_bins            = cfg_max_n_bins;
   params.min_samples_leaf      = cfg_min_samples_leaf;
   params.min_samples_split     = cfg_min_samples_split;
   params.split_criterion       = cfg_split_criterion;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size        = cfg_max_batch_size;
-}
-
-void validity_check(const DecisionTreeParams params)
-{
-  ASSERT((params.max_depth >= 0), "Invalid max depth %d", params.max_depth);
-  ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
-         "Invalid max leaves %d",
-         params.max_leaves);
-  ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
-         "max_features value %f outside permitted (0, 1] range",
-         params.max_features);
-  ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
-  ASSERT((params.split_criterion != 3), "MAE not supported.");
-  ASSERT((params.min_samples_leaf >= 1),
-         "Invalid value for min_samples_leaf %d. Should be >= 1.",
-         params.min_samples_leaf);
-  ASSERT((params.min_samples_split >= 2),
-         "Invalid value for min_samples_split: %d. Should be >= 2.",
-         params.min_samples_split);
-}
-
-void print(const DecisionTreeParams params)
-{
-  CUML_LOG_DEBUG("max_depth: %d", params.max_depth);
-  CUML_LOG_DEBUG("max_leaves: %d", params.max_leaves);
-  CUML_LOG_DEBUG("max_features: %f", params.max_features);
-  CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
-  CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
-  CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
-  CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
-  CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
-  CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
+  validity_check(params);
 }
 
 template <class T, class L>
@@ -97,12 +86,8 @@ std::string get_tree_summary_text(const TreeMetaDataNode<T, L>* tree)
   std::ostringstream oss;
   oss << " Decision Tree depth --> " << tree->depth_counter << " and n_leaves --> "
       << tree->leaf_counter << "\n"
-      << " Tree Fitting - Overall time --> " << (tree->prepare_time + tree->train_time)
-      << " milliseconds"
-      << "\n"
-      << "   - preparing for fit time: " << tree->prepare_time << " milliseconds"
-      << "\n"
-      << "   - tree growing time: " << tree->train_time << " milliseconds";
+      << " Tree Fitting - Overall time --> " << tree->train_time << " milliseconds"
+      << "\n";
   return oss.str();
 }
 
@@ -110,14 +95,14 @@ template <class T, class L>
 std::string get_tree_text(const TreeMetaDataNode<T, L>* tree)
 {
   std::string summary = get_tree_summary_text<T, L>(tree);
-  return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
+  return summary + "\n" + get_node_text<T, L>("", tree, 0, false);
 }
 
 template <class T, class L>
 std::string get_tree_json(const TreeMetaDataNode<T, L>* tree)
 {
   std::ostringstream oss;
-  return get_node_json("", tree->sparsetree, 0);
+  return get_node_json("", tree, 0);
 }
 
 // Functions' specializations

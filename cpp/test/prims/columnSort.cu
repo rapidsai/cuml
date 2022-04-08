@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "test_utils.h"
 #include <algorithm>
+#include <gtest/gtest.h>
 #include <numeric>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Selection {
@@ -68,7 +68,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
   {
     params  = ::testing::TestWithParam<columnSort<T>>::GetParam();
     int len = params.n_row * params.n_col;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     keyIn.resize(len, stream);
     valueOut.resize(len, stream);
     goldenValOut.resize(len, stream);
@@ -126,7 +126,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
                         stream,
                         keySorted.data());
     }
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:

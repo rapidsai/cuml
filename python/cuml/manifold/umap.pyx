@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
 import cuml.internals
 from cuml.common import using_output_type
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import logger
 from cuml.common.input_utils import input_to_cuml_array
@@ -560,7 +560,8 @@ class UMAP(Base,
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
-                                          order="C", dtype=np.float32)
+                                          order="C", dtype=np.float32,
+                                          index=self.X_m.index)
 
         if self.hash_input:
             with using_output_type("numpy"):
@@ -720,12 +721,14 @@ class UMAP(Base,
         if is_sparse(X):
             X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
                                   convert_format=False)
+            index = None
         else:
             X_m, n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+            index = X_m.index
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
@@ -745,7 +748,8 @@ class UMAP(Base,
 
         embedding = CumlArray.zeros((X_m.shape[0],
                                     self.n_components),
-                                    order="C", dtype=np.float32)
+                                    order="C", dtype=np.float32,
+                                    index=index)
         cdef uintptr_t xformed_ptr = embedding.ptr
 
         (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
