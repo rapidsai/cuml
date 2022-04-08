@@ -166,8 +166,9 @@ class RandomForestClassifier(BaseRandomForestModel,
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        If ``-1``. Unlimited depth is not supported.\n
+        Maximum tree depth. Must be greater than 0.
+        Unlimited depth (i.e, until leaves are pure)
+        is not supported.\n
         .. note:: This default differs from scikit-learn's
           random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)

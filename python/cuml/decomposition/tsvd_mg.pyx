@@ -27,12 +27,15 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
-import cuml.internals
-from cuml.common.base import Base
 from raft.common.handle cimport handle_t
-from cuml.decomposition.utils cimport *
+
+import cuml.internals
 import cuml.common.opg_data_utils_mg as opg
+
+from cuml.common.base import Base
 from cuml.common.opg_data_utils_mg cimport *
+from cuml.decomposition.utils cimport *
+from cuml.decomposition.utils_mg cimport *
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
