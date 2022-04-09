@@ -31,10 +31,8 @@ class handle_t;
 namespace ML {
 namespace fil {
 
-/** @note FIL only supports inference with single precision.
- *  TODO(canonizer): parameterize the functions and structures by the data type
- *  and the threshold/weight type.
- */
+/** @note FIL supports inference with both single and double precision. However,
+    the floating-point type used in the data and model must be the same. */
 
 /** Inference algorithm to use. */
 enum algo_t {
@@ -123,7 +121,6 @@ struct treelite_params_t {
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
-// TODO (canonizer): use std::variant<forest_t<float> forest_t<double>>* for pforest
 void from_treelite(const raft::handle_t& handle,
                    forest_variant* pforest,
                    ModelHandle model,
