@@ -657,13 +657,79 @@ def check_efficiency(expected_value, pred, shap_values):
                 1e-3, 1e-3)
 
 
+def check_efficiency_interactions(expected_value, pred, shap_values):
+    # shap values add up to prediction
+    if len(shap_values.shape) <= 3:
+        assert np.allclose(np.sum(shap_values, axis=(-2, -1)) +
+                           expected_value, pred, 1e-3, 1e-3)
+    else:
+        n_targets = shap_values.shape[0]
+        for i in range(n_targets):
+            assert np.allclose(
+                np.sum(shap_values[i],
+                       axis=(-2, -1)) + expected_value[i],
+                pred[:, i],
+                1e-3, 1e-3)
+
+
 @settings(deadline=None, max_examples=100)
-@given(shap_strategy())
-def test_with_hypothesis(params):
+@given(shap_strategy(),
+       st.sampled_from(["shapley-interaction", "shapley-taylor"]))
+def test_with_hypothesis(params, interactions_method):
     X, y, model, preds = params
     explainer = TreeExplainer(model=model)
-    out = explainer.shap_values(X)
-    check_efficiency(explainer.expected_value, preds, out)
+    shap_values = explainer.shap_values(X)
+    shap_interactions = explainer.shap_interaction_values(
+        X, method=interactions_method)
+    check_efficiency(explainer.expected_value, preds, shap_values)
+    check_efficiency_interactions(
+        explainer.expected_value, preds, shap_interactions)
+
+    # Interventional
+    explainer = TreeExplainer(model=model, data=X.sample(
+        n=15, replace=True, random_state=0))
+    interventional_shap_values = explainer.shap_values(X)
+    check_efficiency(explainer.expected_value, preds,
+                     interventional_shap_values)
+
+
+def test_wrong_inputs():
+    X = np.array([[0.0, 2.0], [1.0, 0.5]])
+    y = np.array([0, 1])
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+
+    # background/X different dtype
+    with pytest.raises(ValueError, match="Expected background data to have the same dtype"):
+        explainer = TreeExplainer(model=model, data=X.astype(np.float32))
+        explainer.shap_values(X)
+
+    # background/X different number columns
+    with pytest.raises(RuntimeError):
+        explainer = TreeExplainer(model=model, data=X[:, 0:1])
+        explainer.shap_values(X)
+
+    with pytest.raises(ValueError, match="Interventional algorithm not supported for interactions. Please specify data as None in constructor."):
+        explainer = TreeExplainer(model=model, data=X.astype(np.float32))
+        explainer.shap_interaction_values(X)
+
+    with pytest.raises(ValueError, match="Unknown interactions method."):
+        explainer = TreeExplainer(model=model)
+        explainer.shap_interaction_values(X, method='asdasd')
+
+
+def test_different_algorithms_different_output():
+    # ensure different algorithms are actually being called
+    rng = np.random.RandomState(3)
+    X = rng.normal(size=(100, 10))
+    y = rng.normal(size=100)
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+    interventional_explainer = TreeExplainer(model=model, data=X)
+    explainer = TreeExplainer(model=model)
+    assert not np.all(explainer.shap_values(
+        X) == interventional_explainer.shap_values(X))
+    assert not np.all(
+        explainer.shap_interaction_values(X, method="shapley-interaction") ==
+        explainer.shap_interaction_values(X, method="shapley-taylor"))
 
 
 @settings(deadline=None)

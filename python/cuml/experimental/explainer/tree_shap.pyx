@@ -55,9 +55,28 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
                            const FloatPointer data,
                            size_t n_rows,
                            size_t n_cols,
-                           FloatPointer out_preds) except +
+                           FloatPointer out_preds, size_t out_preds_size) except +
 
+    cdef void gpu_treeshap_interventional(TreePathHandle path_info,
+                                          const FloatPointer data,
+                                          size_t n_rows,
+                                          size_t n_cols,
+                                          const FloatPointer background_data,
+                                          size_t background_n_rows,
+                                          size_t background_n_cols,
+                                          FloatPointer out_preds, size_t out_preds_size) except +
 
+    cdef void gpu_treeshap_interactions(TreePathHandle  path_info,
+                                        const FloatPointer data,
+                                        size_t n_rows,
+                                        size_t n_cols,
+                                        FloatPointer out_preds, size_t out_preds_size) except +
+                                        
+    cdef void gpu_treeshap_taylor_interactions(TreePathHandle  path_info,
+                                        const FloatPointer data,
+                                        size_t n_rows,
+                                        size_t n_cols,
+                                        FloatPointer out_preds, size_t out_preds_size) except +
 cdef FloatPointer type_erase_float_ptr(array):
     cdef FloatPointer ptr
     if array.dtype == np.float32:
@@ -72,7 +91,8 @@ cdef class TreeExplainer:
     cdef public object expected_value
     cdef TreePathHandle path_info
     cdef size_t num_class
-    """ 
+    cdef object data
+    """
     Model explainer that calculates Shapley values for the predictions of tree-based models. Shapley values are a method of attributing the contribution of various input features to a given model prediction. 
     
     Uses GPUTreeShap as a back-end to accelerate computation using GPUs.
@@ -87,10 +107,10 @@ cdef class TreeExplainer:
     For the "interventional" approach see:
     Janzing, Dominik, Lenon Minorics, and Patrick Blöbaum. "Feature relevance quantification in explainable AI: A causal problem." International Conference on artificial intelligence and statistics. PMLR, 2020.
 
-    We also provide two variants of feature interactions. For the "standard" variant of interactions:
+    We also provide two variants of feature interactions. For the "shapley-interactions" variant of interactions:
     Lundberg, Scott M., et al. "From local explanations to global understanding with explainable AI for trees." Nature machine intelligence 2.1 (2020): 56-67.
 
-    For the "taylor" variant, see:
+    For the "shapley-taylor" variant, see:
     Sundararajan, Mukund, Kedar Dhamdhere, and Ashish Agarwal. "The Shapley Taylor Interaction Index." International Conference on Machine Learning. PMLR, 2020. 
 
 
@@ -99,15 +119,18 @@ cdef class TreeExplainer:
     model : model object
         The tree based machine learning model. XGBoost, LightGBM, cuml random forest and sklearn random forest models are supported. Categorical features in XGBoost or LightGBM models are natively supported.
     data : array or DataFrame
-        Optional background dataset to use for integrating out features. This argument is used with the "interventional" feature perturbation method. Computation time increases with the size of this background data set, consider starting with between 100-1000 examples.
-    feature_perturbation : "interventional" (default when data is specified) or "tree_path_dependent" (default when data=None).
-        Method of conditioning on features. See the above references for more information.
+        Optional background dataset to use for integrating out features. If this argument is supplied, an "interventional" approach is used to marginalise out features. Computation time increases with the size of this background data set, consider starting with between 100-1000 examples. If this argument is not supplied, statistics from the tree model are used to marginalise out features ("tree_path_dependent").
 
     Example
     --------
     """
 
-    def __init__(self, *, model):
+    def __init__(self, *, model, data=None):
+        if data is not None:
+            self.data, _, _, _ = self._prepare_input(data)
+        else:
+            self.data = None
+
         # Handle various kinds of tree model objects
         cls = model.__class__
         cls_module, cls_name = cls.__module__, cls.__name__
@@ -141,6 +164,21 @@ cdef class TreeExplainer:
                 TreeliteGetLastError()))
         self.path_info = extract_path_info(model_ptr)
 
+    def _prepare_input(self, X):
+        try:
+            return input_to_cuml_array(
+                X, order='C', check_dtype=[np.float32, np.float64])
+        except ValueError:
+            # input can be a DataFrame with mixed types
+            # in this case coerce to 64-bit
+            return input_to_cuml_array(
+                X, order='C', convert_to_dtype=np.float64)
+
+    def _determine_output_type(self, X):
+        X_type = determine_array_type(X)
+        # Coerce to CuPy / NumPy because we may need to return 3D array
+        return 'numpy' if X_type == 'numpy' else 'cupy'
+
     def shap_values(self, X) -> CumlArray:
         """ 
         Estimate the SHAP values for a set of samples.
@@ -155,32 +193,29 @@ cdef class TreeExplainer:
         array
             Returns a matrix of SHAP values of shape (# classes x # samples x # features).
         """
-        X_type = determine_array_type(X)
-        # Coerce to CuPy / NumPy because we may need to return 3D array
-        output_type = 'numpy' if X_type == 'numpy' else 'cupy'
-        try:
-            X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-                X, order='C', check_dtype=[np.float32, np.float64])
-        except ValueError:
-            # input can be a DataFrame with mixed types
-            # in this case coerce to 64-bit
-            X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-                X, order='C', convert_to_dtype=np.float64)
-
+        X_m, n_rows, n_cols, dtype = self._prepare_input(X)
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
         preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
 
-        gpu_treeshap(self.path_info, type_erase_float_ptr(X_m),
-                     < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds))
+        if self.data is None:
+            gpu_treeshap(self.path_info, type_erase_float_ptr(X_m),
+                         < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+        else:
+            if self.data.dtype != dtype:
+                raise ValueError(
+                    "Expected background data to have the same dtype as X.")
+            gpu_treeshap_interventional(self.path_info, type_erase_float_ptr(X_m),
+                                        < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(self.data),
+                                        < size_t > self.data.shape[0], < size_t > self.data.shape[1], type_erase_float_ptr(preds), preds.size)
 
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:
         # 1. Store the bias term in the 'expected_value' attribute.
         # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
-        preds = preds.to_output(output_type=output_type)
+        preds = preds.to_output(output_type=self._determine_output_type(X))
         if self.num_class > 1:
             preds = preds.reshape((n_rows, self.num_class, n_cols + 1))
             preds = preds.transpose((1, 0, 2))
@@ -190,3 +225,43 @@ cdef class TreeExplainer:
             assert self.num_class == 1
             self.expected_value = preds[0, -1]
             return preds[:, :-1]
+
+    def shap_interaction_values(self, X, method='shapley-interaction') -> CumlArray:
+        X_m, n_rows, n_cols, dtype = self._prepare_input(X)
+
+        # Storing a C-order 3D array in a CumlArray leads to cryptic error
+        # ValueError: len(shape) != len(strides)
+        # So we use 2D array here
+        pred_shape = (n_rows, self.num_class * (n_cols + 1)**2)
+        preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
+
+        if self.data is None:
+            if method=='shapley-interaction':
+                gpu_treeshap_interactions(self.path_info, type_erase_float_ptr(X_m),
+                                        < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+            elif method=='shapley-taylor':
+                gpu_treeshap_taylor_interactions(self.path_info, type_erase_float_ptr(X_m),
+                                        < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+            else:
+                raise ValueError("Unknown interactions method.")
+        else:
+            raise ValueError(
+                "Interventional algorithm not supported for interactions. Please specify data as None in constructor.")
+
+        # Reshape to 3D as appropriate
+        # To follow the convention of the SHAP package:
+        # 1. Store the bias term in the 'expected_value' attribute.
+        # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
+        preds = preds.to_output(output_type=self._determine_output_type(X))
+        if self.num_class > 1:
+            preds = preds.reshape(
+                (n_rows, self.num_class, n_cols + 1, n_cols + 1))
+            preds = preds.transpose((1, 0, 2, 3))
+            self.expected_value = preds[:, 0, -1, -1]
+            return preds[:, :, :-1, :-1]
+        else:
+            assert self.num_class == 1
+            preds = preds.reshape(
+                (n_rows,  n_cols + 1, n_cols + 1))
+            self.expected_value = preds[0, -1, -1]
+            return preds[:, :-1, :-1]
