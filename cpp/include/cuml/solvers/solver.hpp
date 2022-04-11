@@ -115,7 +115,8 @@ void cdFit(raft::handle_t& handle,
            float alpha,
            float l1_ratio,
            bool shuffle,
-           float tol);
+           float tol,
+           float* sample_weight);
 
 void cdFit(raft::handle_t& handle,
            double* input,
@@ -131,7 +132,8 @@ void cdFit(raft::handle_t& handle,
            double alpha,
            double l1_ratio,
            bool shuffle,
-           double tol);
+           double tol,
+           double* sample_weight);
 
 void cdPredict(raft::handle_t& handle,
                const float* input,

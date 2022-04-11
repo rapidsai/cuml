@@ -19,7 +19,10 @@ import numpy as np
 from cuml import Lasso as cuLasso
 from cuml.linear_model import ElasticNet as cuElasticNet
 from cuml.metrics import r2_score
-from cuml.test.utils import unit_param, quality_param, stress_param
+from cuml.test.utils import (
+    unit_param,
+    quality_param,
+    stress_param)
 
 from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.datasets import make_regression
@@ -92,6 +95,63 @@ def test_lasso_default(datatype, nrows, column_info):
     sk_lasso.fit(X_train, y_train)
     sk_predict = sk_lasso.predict(X_test)
     sk_r2 = r2_score(y_test, sk_predict)
+    assert cu_r2 >= sk_r2 - 0.07
+
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("model", ["lasso", "elastic-net"])
+@pytest.mark.parametrize(
+    "fit_intercept, normalize, distribution", [
+        (True, True, "lognormal"),
+        (True, True, "exponential"),
+        (True, False, "uniform"),
+        (True, False, "exponential"),
+        (False, True, "lognormal"),
+        (False, False, "uniform"),
+    ]
+)
+@pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
+def test_weighted_cd(datatype, model,
+                     fit_intercept, normalize, distribution):
+    nrows, ncols, n_info = 1000, 20, 10
+    max_weight = 10
+    noise = 20
+    X, y = make_regression(
+        nrows, ncols, n_informative=n_info, noise=noise
+    )
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
+                                                        random_state=0)
+
+    # set weight per sample to be from 1 to max_weight
+    if distribution == "uniform":
+        wt = np.random.randint(1, high=max_weight, size=len(X_train))
+    elif distribution == "exponential":
+        wt = np.random.exponential(scale=max_weight, size=len(X_train))
+    else:
+        wt = np.random.lognormal(size=len(X_train))
+
+    cuModel = cuLasso if model == 'lasso' else cuElasticNet
+    skModel = Lasso if model == 'lasso' else ElasticNet
+
+    # Initialization of cuML's linear regression model
+    cumodel = cuModel(fit_intercept=fit_intercept, tol=1e-10,
+                    normalize=normalize, max_iter=1000)
+
+    # fit and predict cuml linear regression model
+    cumodel.fit(X_train, y_train, sample_weight=wt)
+    cumodel_predict = cumodel.predict(X_test)
+
+    # sklearn linear regression model initialization, fit and predict
+    skmodel = skModel(fit_intercept=fit_intercept, tol=1e-10,
+                      normalize=normalize, max_iter=1000)
+    skmodel.fit(X_train, y_train, sample_weight=wt)
+
+    skmodel_predict = skmodel.predict(X_test)
+    cu_r2 = r2_score(y_test, cumodel_predict)
+    sk_r2 = r2_score(y_test, skmodel_predict)
     assert cu_r2 >= sk_r2 - 0.07
 
 
