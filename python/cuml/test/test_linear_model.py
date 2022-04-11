@@ -309,22 +309,22 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
         wt = np.random.lognormal(size=len(X_train))
 
     # Initialization of cuML's linear regression model
-    cuols = cuRidge(fit_intercept=fit_intercept,
+    curidge = cuRidge(fit_intercept=fit_intercept,
                     normalize=normalize,
                     solver=algorithm)
 
     # fit and predict cuml linear regression model
-    cuols.fit(X_train, y_train, sample_weight=wt)
-    cuols_predict = cuols.predict(X_test)
+    curidge.fit(X_train, y_train, sample_weight=wt)
+    curidge_predict = curidge.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skols = skRidge(fit_intercept=fit_intercept,
+    skridge = skRidge(fit_intercept=fit_intercept,
                     normalize=normalize)
-    skols.fit(X_train, y_train, sample_weight=wt)
+    skridge.fit(X_train, y_train, sample_weight=wt)
 
-    skols_predict = skols.predict(X_test)
+    skridge_predict = skridge.predict(X_test)
 
-    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+    assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
 
 
 @pytest.mark.parametrize(
