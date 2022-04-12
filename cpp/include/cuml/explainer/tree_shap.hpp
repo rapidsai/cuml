@@ -60,11 +60,11 @@ void gpu_treeshap_interactions(TreePathHandle path_info,
                                std::size_t out_preds_size);
 
 void gpu_treeshap_taylor_interactions(TreePathHandle path_info,
-                               const FloatPointer data,
-                               std::size_t n_rows,
-                               std::size_t n_cols,
-                               FloatPointer out_preds,
-                               std::size_t out_preds_size);
+                                      const FloatPointer data,
+                                      std::size_t n_rows,
+                                      std::size_t n_cols,
+                                      FloatPointer out_preds,
+                                      std::size_t out_preds_size);
 
 }  // namespace Explainer
 }  // namespace ML

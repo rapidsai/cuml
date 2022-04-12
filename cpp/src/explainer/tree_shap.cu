@@ -520,11 +520,11 @@ void gpu_treeshap_interactions_impl(ML::Explainer::TreePathInfo<ThresholdT>* pat
 
 template <typename ThresholdT, typename DataT>
 void gpu_treeshap_taylor_interactions_impl(ML::Explainer::TreePathInfo<ThresholdT>* path_info,
-                                    const DataT* data,
-                                    std::size_t n_rows,
-                                    std::size_t n_cols,
-                                    DataT* out_preds,
-                                    std::size_t out_preds_size)
+                                           const DataT* data,
+                                           std::size_t n_rows,
+                                           std::size_t n_cols,
+                                           DataT* out_preds,
+                                           std::size_t out_preds_size)
 {
   DenseDatasetWrapper<DataT> X(data, n_rows, n_cols);
 
@@ -532,11 +532,11 @@ void gpu_treeshap_taylor_interactions_impl(ML::Explainer::TreePathInfo<Threshold
   ASSERT(pred_size <= out_preds_size, "Predictions array is too small.");
 
   gpu_treeshap::GPUTreeShapTaylorInteractions(X,
-                                        path_info->path_segments.begin(),
-                                        path_info->path_segments.end(),
-                                        path_info->num_groups,
-                                        thrust::device_pointer_cast(out_preds),
-                                        thrust::device_pointer_cast(out_preds) + pred_size);
+                                              path_info->path_segments.begin(),
+                                              path_info->path_segments.end(),
+                                              path_info->num_groups,
+                                              thrust::device_pointer_cast(out_preds),
+                                              thrust::device_pointer_cast(out_preds) + pred_size);
 
   // Post-processing
   post_process(path_info, n_rows, n_cols, out_preds, pred_size, true);
@@ -853,22 +853,22 @@ void gpu_treeshap_interactions(TreePathHandle path_info,
 }
 
 void gpu_treeshap_taylor_interactions(TreePathHandle path_info,
-                               const FloatPointer data,
-                               std::size_t n_rows,
-                               std::size_t n_cols,
-                               FloatPointer out_preds,
-                               std::size_t out_preds_size)
+                                      const FloatPointer data,
+                                      std::size_t n_rows,
+                                      std::size_t n_cols,
+                                      FloatPointer out_preds,
+                                      std::size_t out_preds_size)
 {
   ASSERT(variants_hold_same_type(data, out_preds),
          "Expected variant inputs to have the same data type.");
   std::visit(
     [&](auto& tree_info, auto data_) {
       gpu_treeshap_taylor_interactions_impl(tree_info.get(),
-                                     data_,
-                                     n_rows,
-                                     n_cols,
-                                     std::get<decltype(data_)>(out_preds),
-                                     out_preds_size);
+                                            data_,
+                                            n_rows,
+                                            n_cols,
+                                            std::get<decltype(data_)>(out_preds),
+                                            out_preds_size);
     },
     path_info,
     data);

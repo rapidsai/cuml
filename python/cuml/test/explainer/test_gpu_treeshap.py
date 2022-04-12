@@ -674,7 +674,7 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
 
 @settings(deadline=None, max_examples=100)
 @given(shap_strategy(),
-       st.sampled_from(["shapley-interaction", "shapley-taylor"]))
+       st.sampled_from(["shapley-interactions", "shapley-taylor"]))
 def test_with_hypothesis(params, interactions_method):
     X, y, model, preds = params
     explainer = TreeExplainer(model=model)
@@ -728,7 +728,7 @@ def test_different_algorithms_different_output():
     assert not np.all(explainer.shap_values(
         X) == interventional_explainer.shap_values(X))
     assert not np.all(
-        explainer.shap_interaction_values(X, method="shapley-interaction") ==
+        explainer.shap_interaction_values(X, method="shapley-interactions") ==
         explainer.shap_interaction_values(X, method="shapley-taylor"))
 
 

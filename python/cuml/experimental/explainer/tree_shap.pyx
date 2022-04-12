@@ -22,9 +22,7 @@ from cuml.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 
-from libcpp.memory cimport shared_ptr
 from libc.stdint cimport uintptr_t
-from libcpp.utility cimport move
 import re
 import numpy as np
 import treelite
@@ -55,7 +53,8 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
                            const FloatPointer data,
                            size_t n_rows,
                            size_t n_cols,
-                           FloatPointer out_preds, size_t out_preds_size) except +
+                           FloatPointer out_preds,
+                           size_t out_preds_size) except +
 
     cdef void gpu_treeshap_interventional(TreePathHandle path_info,
                                           const FloatPointer data,
@@ -64,19 +63,22 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
                                           const FloatPointer background_data,
                                           size_t background_n_rows,
                                           size_t background_n_cols,
-                                          FloatPointer out_preds, size_t out_preds_size) except +
+                                          FloatPointer out_preds,
+                                          size_t out_preds_size) except +
 
     cdef void gpu_treeshap_interactions(TreePathHandle  path_info,
                                         const FloatPointer data,
                                         size_t n_rows,
                                         size_t n_cols,
-                                        FloatPointer out_preds, size_t out_preds_size) except +
-                                        
+                                        FloatPointer out_preds,
+                                        size_t out_preds_size) except +
+
     cdef void gpu_treeshap_taylor_interactions(TreePathHandle  path_info,
-                                        const FloatPointer data,
-                                        size_t n_rows,
-                                        size_t n_cols,
-                                        FloatPointer out_preds, size_t out_preds_size) except +
+                                               const FloatPointer data,
+                                               size_t n_rows,
+                                               size_t n_cols,
+                                               FloatPointer out_preds,
+                                               size_t out_preds_size) except +
 cdef FloatPointer type_erase_float_ptr(array):
     cdef FloatPointer ptr
     if array.dtype == np.float32:
@@ -88,30 +90,40 @@ cdef FloatPointer type_erase_float_ptr(array):
     return ptr
 
 cdef class TreeExplainer:
-    cdef public object expected_value
-    cdef TreePathHandle path_info
-    cdef size_t num_class
-    cdef object data
     """
-    Model explainer that calculates Shapley values for the predictions of tree-based models. Shapley values are a method of attributing the contribution of various input features to a given model prediction. 
-    
-    Uses GPUTreeShap as a back-end to accelerate computation using GPUs.
+    Model explainer that calculates Shapley values for the predictions of
+    tree-based models. Shapley values are a method of attributing various input
+    features to a given model prediction.
 
-    Mitchell, Rory, Eibe Frank, and Geoffrey Holmes.
-    "GPUTreeShap: Massively Parallel Exact Calculation of SHAP Scores for Tree Ensembles."
-    arXiv preprint arXiv:2010.13972 (2020).
+    Uses GPUTreeShap [1]_ as a back-end to accelerate computation using GPUs.
 
-    Different variants of Shapley values exist based on different interpretations of marginalising out (or conditioning on) features. For the "tree_path_dependent" approach, see:
-    Lundberg, Scott M., et al. "From local explanations to global understanding with explainable AI for trees." Nature machine intelligence 2.1 (2020): 56-67.
+    Different variants of Shapley values exist based on different
+    interpretations of marginalising out (or conditioning on) features. For the
+    "tree_path_dependent" approach, see [2]_.
 
-    For the "interventional" approach see:
-    Janzing, Dominik, Lenon Minorics, and Patrick Blöbaum. "Feature relevance quantification in explainable AI: A causal problem." International Conference on artificial intelligence and statistics. PMLR, 2020.
+    For the "interventional" approach, see [3]_.
 
-    We also provide two variants of feature interactions. For the "shapley-interactions" variant of interactions:
-    Lundberg, Scott M., et al. "From local explanations to global understanding with explainable AI for trees." Nature machine intelligence 2.1 (2020): 56-67.
+    We also provide two variants of feature interactions. For the
+    "shapley-interactions" variant of interactions, see [2]_, for
+    the "shapley-taylor" variant, see [4]_.
 
-    For the "shapley-taylor" variant, see:
-    Sundararajan, Mukund, Kedar Dhamdhere, and Ashish Agarwal. "The Shapley Taylor Interaction Index." International Conference on Machine Learning. PMLR, 2020. 
+
+    .. [1] Mitchell, Rory, Eibe Frank, and Geoffrey Holmes. "GPUTreeShap:
+        massively parallel exact calculation of SHAP scores for tree
+        ensembles." PeerJ Computer Science 8 (2022): e880.
+
+    .. [2] Lundberg, Scott M., et al. "From local explanations to global
+        understanding with explainable AI for trees." Nature machine
+        intelligence 2.1 (2020): 56-67.
+
+    .. [3] Janzing, Dominik, Lenon Minorics, and Patrick Blöbaum. "Feature
+        relevance quantification in explainable AI: A causal problem."
+        International Conference on artificial intelligence and statistics.
+        PMLR, 2020.
+
+    .. [4] Sundararajan, Mukund, Kedar Dhamdhere, and Ashish Agarwal.
+        "The Shapley Taylor Interaction Index." International Conference
+        on Machine Learning. PMLR, 2020.
 
 
     Parameters
@@ -119,11 +131,32 @@ cdef class TreeExplainer:
     model : model object
         The tree based machine learning model. XGBoost, LightGBM, cuml random forest and sklearn random forest models are supported. Categorical features in XGBoost or LightGBM models are natively supported.
     data : array or DataFrame
-        Optional background dataset to use for integrating out features. If this argument is supplied, an "interventional" approach is used to marginalise out features. Computation time increases with the size of this background data set, consider starting with between 100-1000 examples. If this argument is not supplied, statistics from the tree model are used to marginalise out features ("tree_path_dependent").
+        Optional background dataset to use for marginalising out features. If this argument is supplied, an "interventional" approach is used. Computation time increases with the size of this background data set, consider starting with between 100-1000 examples. If this argument is not supplied, statistics from the tree model are used to marginalise out features ("tree_path_dependent").
 
-    Example
+    Attributes
+    ----------
+    expected_value :
+        Model prediction when all input features are marginalised out. Is a vector for multiclass problems.
+
+    Examples
     --------
+
+    .. code-block:: python
+
+        >>> import numpy as np
+        >>> import cuml
+        >>> from cuml.experimental.explainer.tree_shap import TreeExplainer
+        >>> X = np.array([[0.0, 2.0], [1.0, 0.5]])
+        >>> y = np.array([0, 1])
+        >>> model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+        >>> explainer = TreeExplainer(model=model)
+        >>> shap_values = explainer.shap_values(X)
+
     """
+    cdef public object expected_value
+    cdef TreePathHandle path_info
+    cdef size_t num_class
+    cdef object data
 
     def __init__(self, *, model, data=None):
         if data is not None:
@@ -135,11 +168,13 @@ cdef class TreeExplainer:
         cls = model.__class__
         cls_module, cls_name = cls.__module__, cls.__name__
         # XGBoost model object
-        if re.match(r'xgboost.*$', cls_module) and cls_name == 'Booster':
+        if re.match(
+                r'xgboost.*$', cls_module) and cls_name == 'Booster':
             model = treelite.Model.from_xgboost(model)
             handle = model.handle.value
         # LightGBM model object
-        if re.match(r'lightgbm.*$', cls_module) and cls_name == 'Booster':
+        if re.match(
+                r'lightgbm.*$', cls_module) and cls_name == 'Booster':
             model = treelite.Model.from_lightgbm(model)
             handle = model.handle.value
         # cuML RF model object
@@ -181,7 +216,7 @@ cdef class TreeExplainer:
 
     def shap_values(self, X) -> CumlArray:
         """ 
-        Estimate the SHAP values for a set of samples.
+        Estimate the SHAP values for a set of samples. For a given row, the SHAP values plus the `expected_value` attribute sum up to the raw model prediction. 'Raw model prediction' means before the application of a link function, for example, the SHAP values of an XGBoost binary classification will be in the additive logit space as opposed to probability space. 
 
         Parameters
         ----------
@@ -198,7 +233,8 @@ cdef class TreeExplainer:
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1))
-        preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
+        preds = CumlArray.empty(
+            shape=pred_shape, dtype=dtype, order='C')
 
         if self.data is None:
             gpu_treeshap(self.path_info, type_erase_float_ptr(X_m),
@@ -215,9 +251,11 @@ cdef class TreeExplainer:
         # To follow the convention of the SHAP package:
         # 1. Store the bias term in the 'expected_value' attribute.
         # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
-        preds = preds.to_output(output_type=self._determine_output_type(X))
+        preds = preds.to_output(
+            output_type=self._determine_output_type(X))
         if self.num_class > 1:
-            preds = preds.reshape((n_rows, self.num_class, n_cols + 1))
+            preds = preds.reshape(
+                (n_rows, self.num_class, n_cols + 1))
             preds = preds.transpose((1, 0, 2))
             self.expected_value = preds[:, 0, -1]
             return preds[:, :, :-1]
@@ -226,22 +264,41 @@ cdef class TreeExplainer:
             self.expected_value = preds[0, -1]
             return preds[:, :-1]
 
-    def shap_interaction_values(self, X, method='shapley-interaction') -> CumlArray:
+    def shap_interaction_values(
+            self, X, method='shapley-interactions') -> CumlArray:
+        """ 
+        Estimate the SHAP interaction values for a set of samples. For a given row, the SHAP values plus the `expected_value` attribute sum up to the raw model prediction. 'Raw model prediction' means before the application of a link function, for example, the SHAP values of an XGBoost binary classification are in the additive logit space as opposed to probability space. 
+
+        Interventional feature marginalisation is not supported.
+
+        Parameters
+        ----------
+        X : 
+            A matrix of samples (# samples x # features) on which to explain the model's output.
+        method :
+            One of ['shapley-interactions', 'shapley-taylor']
+
+        Returns
+        -------
+        array
+            Returns a matrix of SHAP values of shape (# classes x # samples x # features x # features).
+        """
         X_m, n_rows, n_cols, dtype = self._prepare_input(X)
 
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
         pred_shape = (n_rows, self.num_class * (n_cols + 1)**2)
-        preds = CumlArray.empty(shape=pred_shape, dtype=dtype, order='C')
+        preds = CumlArray.empty(
+            shape=pred_shape, dtype=dtype, order='C')
 
         if self.data is None:
-            if method=='shapley-interaction':
+            if method == 'shapley-interactions':
                 gpu_treeshap_interactions(self.path_info, type_erase_float_ptr(X_m),
-                                        < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
-            elif method=='shapley-taylor':
+                                          < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+            elif method == 'shapley-taylor':
                 gpu_treeshap_taylor_interactions(self.path_info, type_erase_float_ptr(X_m),
-                                        < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+                                                 < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
             else:
                 raise ValueError("Unknown interactions method.")
         else:
@@ -252,7 +309,8 @@ cdef class TreeExplainer:
         # To follow the convention of the SHAP package:
         # 1. Store the bias term in the 'expected_value' attribute.
         # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
-        preds = preds.to_output(output_type=self._determine_output_type(X))
+        preds = preds.to_output(
+            output_type=self._determine_output_type(X))
         if self.num_class > 1:
             preds = preds.reshape(
                 (n_rows, self.num_class, n_cols + 1, n_cols + 1))
