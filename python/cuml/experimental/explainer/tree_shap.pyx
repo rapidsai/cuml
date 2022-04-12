@@ -129,14 +129,22 @@ cdef class TreeExplainer:
     Parameters
     ----------
     model : model object
-        The tree based machine learning model. XGBoost, LightGBM, cuml random forest and sklearn random forest models are supported. Categorical features in XGBoost or LightGBM models are natively supported.
+        The tree based machine learning model. XGBoost, LightGBM, cuml random
+        forest and sklearn random forest models are supported. Categorical
+        features in XGBoost or LightGBM models are natively supported.
     data : array or DataFrame
-        Optional background dataset to use for marginalising out features. If this argument is supplied, an "interventional" approach is used. Computation time increases with the size of this background data set, consider starting with between 100-1000 examples. If this argument is not supplied, statistics from the tree model are used to marginalise out features ("tree_path_dependent").
+        Optional background dataset to use for marginalising out features.
+        If this argument is supplied, an "interventional" approach is used.
+        Computation time increases with the size of this background data set,
+        consider starting with between 100-1000 examples. If this argument is
+        not supplied, statistics from the tree model are used to marginalise
+        out features ("tree_path_dependent").
 
     Attributes
     ----------
     expected_value :
-        Model prediction when all input features are marginalised out. Is a vector for multiclass problems.
+        Model prediction when all input features are marginalised out. Is a
+        vector for multiclass problems.
 
     Examples
     --------
@@ -215,18 +223,25 @@ cdef class TreeExplainer:
         return 'numpy' if X_type == 'numpy' else 'cupy'
 
     def shap_values(self, X) -> CumlArray:
-        """ 
-        Estimate the SHAP values for a set of samples. For a given row, the SHAP values plus the `expected_value` attribute sum up to the raw model prediction. 'Raw model prediction' means before the application of a link function, for example, the SHAP values of an XGBoost binary classification will be in the additive logit space as opposed to probability space. 
+        """
+        Estimate the SHAP values for a set of samples. For a given row, the
+        SHAP values plus the `expected_value` attribute sum up to the raw
+        model prediction. 'Raw model prediction' means before the application
+        of a link function, for example, the SHAP values of an XGBoost binary
+        classification will be in the additive logit space as opposed to
+        probability space.
 
         Parameters
         ----------
-        X : 
-            A matrix of samples (# samples x # features) on which to explain the model's output.
+        X :
+            A matrix of samples (# samples x # features) on which to explain
+            the model's output.
 
         Returns
         -------
         array
-            Returns a matrix of SHAP values of shape (# classes x # samples x # features).
+            Returns a matrix of SHAP values of shape
+            (# classes x # samples x # features).
         """
         X_m, n_rows, n_cols, dtype = self._prepare_input(X)
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
@@ -238,14 +253,19 @@ cdef class TreeExplainer:
 
         if self.data is None:
             gpu_treeshap(self.path_info, type_erase_float_ptr(X_m),
-                         < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+                         < size_t > n_rows, < size_t > n_cols,
+                         type_erase_float_ptr(preds), preds.size)
         else:
             if self.data.dtype != dtype:
                 raise ValueError(
                     "Expected background data to have the same dtype as X.")
-            gpu_treeshap_interventional(self.path_info, type_erase_float_ptr(X_m),
-                                        < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(self.data),
-                                        < size_t > self.data.shape[0], < size_t > self.data.shape[1], type_erase_float_ptr(preds), preds.size)
+            gpu_treeshap_interventional(
+                self.path_info,
+                type_erase_float_ptr(X_m),
+                < size_t > n_rows, < size_t > n_cols,
+                type_erase_float_ptr(self.data),
+                < size_t > self.data.shape[0], < size_t > self.data.shape[1],
+                type_erase_float_ptr(preds), preds.size)
 
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:
@@ -266,22 +286,29 @@ cdef class TreeExplainer:
 
     def shap_interaction_values(
             self, X, method='shapley-interactions') -> CumlArray:
-        """ 
-        Estimate the SHAP interaction values for a set of samples. For a given row, the SHAP values plus the `expected_value` attribute sum up to the raw model prediction. 'Raw model prediction' means before the application of a link function, for example, the SHAP values of an XGBoost binary classification are in the additive logit space as opposed to probability space. 
+        """
+        Estimate the SHAP interaction values for a set of samples. For a
+        given row, the SHAP values plus the `expected_value` attribute sum
+        up to the raw model prediction. 'Raw model prediction' means before
+        the application of a link function, for example, the SHAP values of
+        an XGBoost binary classification are in the additive logit space as
+        opposed to probability space.
 
         Interventional feature marginalisation is not supported.
 
         Parameters
         ----------
-        X : 
-            A matrix of samples (# samples x # features) on which to explain the model's output.
+        X :
+            A matrix of samples (# samples x # features) on which to explain
+            the model's output.
         method :
             One of ['shapley-interactions', 'shapley-taylor']
 
         Returns
         -------
         array
-            Returns a matrix of SHAP values of shape (# classes x # samples x # features x # features).
+            Returns a matrix of SHAP values of shape
+            (# classes x # samples x # features x # features).
         """
         X_m, n_rows, n_cols, dtype = self._prepare_input(X)
 
@@ -294,16 +321,22 @@ cdef class TreeExplainer:
 
         if self.data is None:
             if method == 'shapley-interactions':
-                gpu_treeshap_interactions(self.path_info, type_erase_float_ptr(X_m),
-                                          < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+                gpu_treeshap_interactions(
+                    self.path_info,
+                    type_erase_float_ptr(X_m),
+                    < size_t > n_rows, < size_t > n_cols,
+                    type_erase_float_ptr(preds), preds.size)
             elif method == 'shapley-taylor':
-                gpu_treeshap_taylor_interactions(self.path_info, type_erase_float_ptr(X_m),
-                                                 < size_t > n_rows, < size_t > n_cols, type_erase_float_ptr(preds), preds.size)
+                gpu_treeshap_taylor_interactions(
+                    self.path_info, type_erase_float_ptr(X_m),
+                    < size_t > n_rows, < size_t > n_cols,
+                    type_erase_float_ptr(preds), preds.size)
             else:
                 raise ValueError("Unknown interactions method.")
         else:
             raise ValueError(
-                "Interventional algorithm not supported for interactions. Please specify data as None in constructor.")
+                "Interventional algorithm not supported for interactions."
+                " Please specify data as None in constructor.")
 
         # Reshape to 3D as appropriate
         # To follow the convention of the SHAP package:

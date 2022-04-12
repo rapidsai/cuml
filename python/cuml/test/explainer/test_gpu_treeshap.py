@@ -699,7 +699,8 @@ def test_wrong_inputs():
     model = cuml.ensemble.RandomForestRegressor().fit(X, y)
 
     # background/X different dtype
-    with pytest.raises(ValueError, match="Expected background data to have the same dtype"):
+    with pytest.raises(ValueError, match="Expected background data"
+                       " to have the same dtype"):
         explainer = TreeExplainer(model=model, data=X.astype(np.float32))
         explainer.shap_values(X)
 
@@ -708,7 +709,9 @@ def test_wrong_inputs():
         explainer = TreeExplainer(model=model, data=X[:, 0:1])
         explainer.shap_values(X)
 
-    with pytest.raises(ValueError, match="Interventional algorithm not supported for interactions. Please specify data as None in constructor."):
+    with pytest.raises(ValueError, match="Interventional algorithm not"
+                       " supported for interactions. Please"
+                       " specify data as None in constructor."):
         explainer = TreeExplainer(model=model, data=X.astype(np.float32))
         explainer.shap_interaction_values(X)
 
