@@ -14,6 +14,9 @@
 #
 
 from abc import ABCMeta, abstractmethod
+from inspect import signature
+import numbers
+import warnings
 import cudf
 import cupy as cp
 import cupyx
@@ -22,6 +25,13 @@ import numpy as np
 from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 from typing import Union
+
+from python.cuml._thirdparty.sklearn.utils.validation import (
+    _num_samples,
+    check_random_state,
+    indexable,
+)
+from python.cuml.thirdparty_adapters.adapters import check_array
 
 
 def _stratify_split(
@@ -527,7 +537,7 @@ class BaseCrossValidator(metaclass=ABCMeta):
         X, y, groups = indexable(X, y, groups)
         indices = np.arange(_num_samples(X))
         for test_index in self._iter_test_masks(X, y, groups):
-            train_index = indices[np.logical_not(test_index)]
+            train_index = indices[cp.logical_not(test_index)]
             test_index = indices[test_index]
             yield train_index, test_index
 
@@ -538,7 +548,7 @@ class BaseCrossValidator(metaclass=ABCMeta):
         By default, delegates to _iter_test_indices(X, y, groups)
         """
         for test_index in self._iter_test_indices(X, y, groups):
-            test_mask = np.zeros(_num_samples(X), dtype=bool)
+            test_mask = cp.zeros(_num_samples(X), dtype=bool)
             test_mask[test_index] = True
             yield test_mask
 
@@ -699,12 +709,12 @@ class KFold(_BaseKFold):
 
     def _iter_test_indices(self, X, y=None, groups=None):
         n_samples = _num_samples(X)
-        indices = np.arange(n_samples)
+        indices = cp.arange(n_samples)
         if self.shuffle:
             check_random_state(self.random_state).shuffle(indices)
 
         n_splits = self.n_splits
-        fold_sizes = np.full(n_splits, n_samples // n_splits, dtype=int)
+        fold_sizes = cp.full(n_splits, n_samples // n_splits, dtype=int)
         fold_sizes[: n_samples % n_splits] += 1
         current = 0
         for fold_size in fold_sizes:
@@ -776,28 +786,28 @@ class GroupKFold(_BaseKFold):
             )
 
         # Weight groups by their number of occurrences
-        n_samples_per_group = np.bincount(groups)
+        n_samples_per_group = cp.bincount(groups)
 
         # Distribute the most frequent groups first
-        indices = np.argsort(n_samples_per_group)[::-1]
+        indices = cp.argsort(n_samples_per_group)[::-1]
         n_samples_per_group = n_samples_per_group[indices]
 
         # Total weight of each fold
-        n_samples_per_fold = np.zeros(self.n_splits)
+        n_samples_per_fold = cp.zeros(self.n_splits)
 
         # Mapping from group index to fold index
-        group_to_fold = np.zeros(len(unique_groups))
+        group_to_fold = cp.zeros(len(unique_groups))
 
         # Distribute samples by adding the largest weight to the lightest fold
         for group_index, weight in enumerate(n_samples_per_group):
-            lightest_fold = np.argmin(n_samples_per_fold)
+            lightest_fold = cp.argmin(n_samples_per_fold)
             n_samples_per_fold[lightest_fold] += weight
             group_to_fold[indices[group_index]] = lightest_fold
 
         indices = group_to_fold[groups]
 
         for f in range(self.n_splits):
-            yield np.where(indices == f)[0]
+            yield cp.where(indices == f)[0]
 
     def split(self, X, y=None, groups=None):
         """Generate indices to split data into training and test set.
@@ -978,3 +988,43 @@ class StratifiedKFold(_BaseKFold):
         """
         y = check_array(y, ensure_2d=False, dtype=None)
         return super().split(X, y, groups)
+
+
+def _build_repr(self):
+    # XXX This is copied from BaseEstimator's get_params
+    cls = self.__class__
+    init = getattr(cls.__init__, "deprecated_original", cls.__init__)
+    # Ignore varargs, kw and default values and pop self
+    init_signature = signature(init)
+    # Consider the constructor parameters excluding 'self'
+    if init is object.__init__:
+        args = []
+    else:
+        args = sorted(
+            [
+                p.name
+                for p in init_signature.parameters.values()
+                if p.name != "self" and p.kind != p.VAR_KEYWORD
+            ]
+        )
+    class_name = self.__class__.__name__
+    params = dict()
+    for key in args:
+        # We need deprecation warnings to always be on in order to
+        # catch deprecated param values.
+        # This is set in utils/__init__.py but it gets overwritten
+        # when running under python3 somehow.
+        warnings.simplefilter("always", FutureWarning)
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                value = getattr(self, key, None)
+                if value is None and hasattr(self, "cvargs"):
+                    value = self.cvargs.get(key, None)
+            if len(w) and w[0].category == FutureWarning:
+                # if the parameter is deprecated, don't show it
+                continue
+        finally:
+            warnings.filters.pop(0)
+        params[key] = value
+
+    return "%s(%s)" % (class_name, _pprint(params, offset=len(class_name)))
