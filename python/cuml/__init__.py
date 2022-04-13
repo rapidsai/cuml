@@ -39,6 +39,7 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
+from cuml.explainer.tree_shap import TreeExplainer
 
 from cuml.fil import fil
 
@@ -120,6 +121,7 @@ __all__ = [
     "multiclass",
     "naive_bayes",
     "preprocessing",
+    "experimental.explainer",
     # Classes
     "AgglomerativeClustering",
     "ARIMA",
@@ -160,6 +162,7 @@ __all__ = [
     "SVC",
     "SVR",
     "TruncatedSVD",
+    "TreeExplainer",
     "TSNE",
     "UMAP",
     # Functions
