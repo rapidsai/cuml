@@ -177,12 +177,16 @@ cdef class TreeExplainer:
         cls_module, cls_name = cls.__module__, cls.__name__
         # XGBoost model object
         if re.match(
-                r'xgboost.*$', cls_module) and cls_name == 'Booster':
+                r'xgboost.*$', cls_module):
+            if cls_name != 'Booster':
+                model = model.get_booster()
             model = treelite.Model.from_xgboost(model)
             handle = model.handle.value
         # LightGBM model object
         if re.match(
-                r'lightgbm.*$', cls_module) and cls_name == 'Booster':
+                r'lightgbm.*$', cls_module):
+            if cls_name != 'Booster':
+                model = model.booster_
             model = treelite.Model.from_lightgbm(model)
             handle = model.handle.value
         # cuML RF model object
@@ -338,10 +342,6 @@ cdef class TreeExplainer:
                 "Interventional algorithm not supported for interactions."
                 " Please specify data as None in constructor.")
 
-        # Reshape to 3D as appropriate
-        # To follow the convention of the SHAP package:
-        # 1. Store the bias term in the 'expected_value' attribute.
-        # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
         preds = preds.to_output(
             output_type=self._determine_output_type(X))
         if self.num_class > 1:

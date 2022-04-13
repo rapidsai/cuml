@@ -512,6 +512,8 @@ def test_lightgbm_classifier_with_categorical(n_classes):
 
 def learn_model(
         draw, X, y, task, learner, n_estimators, n_targets):
+    # for lgbm or xgb return the booster or sklearn object?
+    use_sklearn_estimator = draw(st.booleans())
     if learner == 'xgb':
         assume(has_xgboost())
         if task == 'regression':
@@ -533,7 +535,10 @@ def learn_model(
                 n_estimators=n_estimators, tree_method='gpu_hist',
                 objective=objective, enable_categorical=True, verbosity=0).fit(
                 X, y)
-        return model.get_booster(), model.predict(X, output_margin=True)
+        pred = model.predict(X, output_margin=True)
+        if not use_sklearn_estimator:
+            model = model.get_booster()
+        return model, pred
     elif learner == 'rf':
         predict_model = 'GPU 'if y.dtype == np.float32 else 'CPU'
         if task == 'regression':
@@ -568,7 +573,10 @@ def learn_model(
         elif task == 'classification':
             model = lgb.LGBMClassifier(
                 n_estimators=n_estimators).fit(X, y)
-        return model.booster_, model.predict(X, raw_score=True)
+        pred = model.predict(X, raw_score=True)
+        if not use_sklearn_estimator:
+            model = model.booster_
+        return model, pred
 
 
 @st.composite
