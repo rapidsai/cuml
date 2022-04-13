@@ -282,7 +282,7 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);  // colids
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.N);  // colids
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -321,9 +321,9 @@ struct Builder {
     d_work_items = reinterpret_cast<NodeWorkItem*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);
     workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
-    d_wspace += d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
+    d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
     colids = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.N);
 
     RAFT_CUDA_TRY(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, builder_stream));
@@ -393,19 +393,19 @@ struct Builder {
     auto [n_blocks_dimx, n_large_nodes] = this->updateWorkloadInfo(work_items);
 
     // Call feature sampling kernel
-    if (input.nSampledCols != input.N) {
+    if (dataset.n_sampled_rows != dataset.N) {
       // dim3 grid;
       // grid.x = work_items.size();
-      // grid.y = input.nSampledCols;
+      // grid.y = dataset.n_sampled_rows;
       // grid.z = 1;
       // select_kernel<<<grid, 128, 0, handle.get_stream()>>>(
-      //   colids, d_work_items, treeid, seed, input.N);
+      //   colids, d_work_items, treeid, seed, dataset.N);
       dim3 grid;
       grid.x = (work_items.size() + 127) / 128;
       grid.y = 1;
       grid.z = 1;
       adaptive_sample_kernel<<<grid, 128, 0, handle.get_stream()>>>(
-        colids, d_work_items, treeid, seed, input.N, input.nSampledCols);
+        colids, d_work_items, treeid, seed, dataset.N, dataset.n_sampled_rows);
     }
 
     // iterate through a batch of columns (to reduce the memory pressure) and

@@ -143,108 +143,6 @@ __device__ OutT* alignPointer(InT dataset)
 }
 
 /**
- * @brief For a given values of (treeid, nodeid, seed), this function generates
- *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
- *        from the permutation.
- * @return The 'k'th value from the permutation
- * @note This function does not allocated any temporary buffer, all the
- *       necessary values are recomputed.
- */
-template <typename IdxT>
-DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
-{
-  __shared__ int blksum;
-  uint32_t pivot_hash;
-  int cnt = 0;
-
-  if (threadIdx.x == 0) { blksum = 0; }
-  // Compute hash for the 'k'th index and use it as pivote for sorting
-  pivot_hash = fnv1a32_basis;
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
-
-  // Compute hash for rest of the indices and count instances where i_hash is
-  // less than pivot_hash
-  uint32_t i_hash;
-  for (int i = threadIdx.x; i < N; i += blockDim.x) {
-    if (i == k) continue;  // Skip since k is the pivote index
-    i_hash = fnv1a32_basis;
-    i_hash = fnv1a32(i_hash, uint32_t(i));
-    i_hash = fnv1a32(i_hash, uint32_t(treeid));
-    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
-    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
-    i_hash = fnv1a32(i_hash, uint32_t(seed));
-
-    if (i_hash < pivot_hash)
-      cnt++;
-    else if (i_hash == pivot_hash && i < k)
-      cnt++;
-  }
-  __syncthreads();
-  if (cnt > 0) atomicAdd(&blksum, cnt);
-  __syncthreads();
-  return blksum;
-}
-
-template <typename IdxT>
-__global__ void select_kernel(
-  IdxT* colids, const NodeWorkItem* work_items, IdxT treeid, uint64_t seed, IdxT N)
-{
-  const uint32_t nodeid = work_items[blockIdx.x].idx;
-
-  int blksum = select(IdxT(blockIdx.y), treeid, nodeid, seed, N);
-  if (threadIdx.x == 0) { colids[blockIdx.x * N + blockIdx.y] = blksum; }
-}
-
-__device__ uint32_t static kiss99(uint32_t& z, uint32_t& w, uint32_t& jsr, uint32_t& jcong)
-{
-  uint32_t MWC;
-  z   = 36969 * (z & 65535) + (z >> 16);
-  w   = 18000 * (w & 65535) + (w >> 16);
-  MWC = ((z << 16) + w);
-  jsr ^= (jsr << 17);
-  jsr ^= (jsr >> 13);
-  jsr ^= (jsr << 5);
-  jcong = 69069 * jcong + 1234567;
-  return ((MWC ^ jcong) + jsr);
-}
-
-template <typename IdxT>
-__global__ void adaptive_sample_kernel(
-  int* colids, const NodeWorkItem* work_items, IdxT treeid, uint64_t seed, int N, int M)
-{
-  int tid               = threadIdx.x + blockIdx.x * blockDim.x;
-  const uint32_t nodeid = work_items[tid].idx;
-  uint32_t z, w, jsr, jcong;
-
-  z     = fnv1a32_basis;
-  w     = fnv1a32(z, uint32_t(treeid));
-  jsr   = fnv1a32(w, uint32_t(nodeid));
-  jcong = fnv1a32(jsr, uint32_t(seed >> 32));
-  z     = fnv1a32(jcong, uint32_t(seed));
-  w     = fnv1a32(z, uint32_t(treeid));
-  jsr   = fnv1a32(w, uint32_t(nodeid));
-  jcong = fnv1a32(jsr, uint32_t(seed >> 32));
-
-  int selected_count = 0;
-  for (int i = 0; i < N; i++) {
-    uint32_t toss;
-    toss         = kiss99(z, w, jsr, jcong);
-    uint64_t lhs = uint64_t(M - selected_count);
-    lhs <<= 32;
-    uint64_t rhs = uint64_t(toss) * (N - i);
-    if (lhs > rhs) {
-      colids[tid * N + selected_count] = i;
-      selected_count++;
-      if (selected_count == M) break;
-    }
-  }
-}
-
-/**
  * @brief For every threadblock, converts the smem pdf-histogram to
  *        cdf-histogram inplace using inclusive block-sum-scan and returns
  *        the total_sum
@@ -318,7 +216,7 @@ __global__ void computeSplitKernel(BinT* histograms,
     col = colStart + blockIdx.y;
   } else {
     IdxT colIndex = colStart + blockIdx.y;
-    col           = colids[nid * input.N + colIndex];
+    col           = colids[nid * dataset.N + colIndex];
   }
 
   // getting the n_bins for that feature
@@ -435,6 +333,7 @@ computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   const Quantiles<_DataT, _IdxT> quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,
+  const _IdxT* colids,
   int* done_count,
   int* mutex,
   volatile Split<_DataT, _IdxT>* splits,
