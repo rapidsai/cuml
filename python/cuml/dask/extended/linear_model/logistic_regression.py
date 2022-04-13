@@ -94,9 +94,6 @@ class LogisticRegression(BaseEstimator):
         self.C = C
         self.max_iter = max_iter
 
-        if self.solver != "admm":
-            raise TypeError("Only admm solver is currently supported.")
-
         if self.penalty not in ("l2", "l1", "elastic_net"):
             raise TypeError(
                 "Only l2, l1, and elastic_net penalties are"
