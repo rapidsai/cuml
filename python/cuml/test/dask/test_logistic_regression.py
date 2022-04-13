@@ -54,6 +54,15 @@ def make_classification_dataset(datatype, nrows, ncols, n_info):
     return X, y
 
 
+def select_sk_solver(cuml_solver):
+    if cuml_solver == 'newton':
+        return 'newton-cg'
+    elif cuml_solver in ['admm', 'lbfgs']:
+        return 'lbfgs'
+    else:
+        pytest.xfail('No matched sklearn solver')
+
+
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
@@ -61,9 +70,14 @@ def make_classification_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("gpu_array_input", [False, True])
+@pytest.mark.parametrize("solver", ['admm', 'gradient_descent', 'newton',
+                                    'lbfgs', 'proximal_grad'])
 def test_lr_fit_predict_score(
-    nrows, ncols, n_parts, fit_intercept, datatype, gpu_array_input, client
+    nrows, ncols, n_parts, fit_intercept, datatype, gpu_array_input, solver,
+    client
 ):
+    sk_solver = select_sk_solver(cuml_solver=solver)
+
     def imp():
         import cuml.comm.serialize  # NOQA
 
@@ -86,7 +100,7 @@ def test_lr_fit_predict_score(
         gy._meta = cp.asarray(gy._meta)
 
     cuml_model = cumlLR_dask(fit_intercept=fit_intercept,
-                             solver="admm",
+                             solver=solver,
                              max_iter=10)
 
     # test fit and predict
@@ -94,7 +108,7 @@ def test_lr_fit_predict_score(
     cu_preds = cuml_model.predict(gX)
     accuracy_cuml = accuracy_score(y, cu_preds.compute().get())
 
-    sk_model = skLR(fit_intercept=fit_intercept, solver="lbfgs", max_iter=50)
+    sk_model = skLR(fit_intercept=fit_intercept, solver=sk_solver, max_iter=10)
     sk_model.fit(X, y)
     sk_preds = sk_model.predict(X)
     accuracy_sk = accuracy_score(y, sk_preds)
