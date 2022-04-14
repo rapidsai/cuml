@@ -31,7 +31,7 @@ class TreePathInfo {
  public:
   enum class ThresholdTypeEnum : std::uint8_t { kFloat, kDouble };
   virtual ThresholdTypeEnum GetThresholdType() const = 0;
-  //virtual ~TreePathInfo() {}
+  // virtual ~TreePathInfo() {}
 };
 
 std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
