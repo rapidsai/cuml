@@ -175,7 +175,7 @@ class LabelEncoder(Base):
         self._fitted = True
         return self
 
-    def transform(self, y):
+    def transform(self, y) -> cudf.Series:
         """
         Transform an input into its categorical keys.
 
@@ -213,7 +213,7 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y, z=None):
+    def fit_transform(self, y, z=None) -> cudf.Series:
         """
         Simultaneously fit and transform an input
 
