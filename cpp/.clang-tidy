@@ -1,5 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,-modernize-*,-clang-diagnostic-#pragma-messages,-readability-identifier-naming,-clang-diagnostic-switch'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,-modernize-*,-clang-diagnostic-#pragma-messages,-readability-identifier-naming,-clang-diagnostic-switch,cppcoreguidelines-virtual-class-destructor'
 WarningsAsErrors: '*'
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
