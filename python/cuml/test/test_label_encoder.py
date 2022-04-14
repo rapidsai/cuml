@@ -187,7 +187,9 @@ def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
     encoded = LabelEncoder().fit_transform(x)
 
     x_arr = _array_to_similarity_mat(x)
-    encoded_arr = _array_to_similarity_mat(encoded)
+    encoded_arr = _array_to_similarity_mat(encoded.values)
+    if dtype == 'numpy':
+        encoded_arr = encoded_arr.get()
     assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
 
 

@@ -18,8 +18,6 @@ import cudf
 import cupy as cp
 import numpy as np
 from cuml import Base
-import cuml
-from cuml.common import input_to_cuml_array
 from pandas import Series as pdSeries
 
 from cuml.common.exceptions import NotFittedError
@@ -177,7 +175,6 @@ class LabelEncoder(Base):
         self._fitted = True
         return self
 
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def transform(self, y):
         """
         Transform an input into its categorical keys.
@@ -194,7 +191,7 @@ class LabelEncoder(Base):
 
         Returns
         -------
-        encoded : the same type as y
+        encoded : cudf.Series
             The ordinally encoded input series
 
         Raises
@@ -209,14 +206,13 @@ class LabelEncoder(Base):
         y = y.astype('category')
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
-        encoded = cudf.Series(encoded, index=y.index).astype('int32')
+        encoded = cudf.Series(encoded, index=y.index)
 
         if encoded.has_nulls and self.handle_unknown == 'error':
             raise KeyError("Attempted to encode unseen key")
 
-        return input_to_cuml_array(encoded).array
+        return encoded
 
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
     def fit_transform(self, y, z=None):
         """
         Simultaneously fit and transform an input
@@ -232,8 +228,7 @@ class LabelEncoder(Base):
         self.classes_ = y._column.categories
 
         self._fitted = True
-        res = cudf.Series(y._column.codes, index=y.index).astype('int32')
-        return input_to_cuml_array(res).array
+        return cudf.Series(y._column.codes, index=y.index)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
