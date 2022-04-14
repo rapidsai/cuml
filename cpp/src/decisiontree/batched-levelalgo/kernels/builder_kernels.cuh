@@ -20,6 +20,8 @@
 #include "../objectives.cuh"
 #include "../quantiles.h"
 
+#include <raft/random/rng.hpp>
+
 namespace ML {
 namespace DT {
 
@@ -182,10 +184,17 @@ __device__ uint32_t static kiss99(uint32_t& z, uint32_t& w, uint32_t& jsr, uint3
 }
 
 template <typename IdxT>
-__global__ void adaptive_sample_kernel(
-  int* colids, const NodeWorkItem* work_items, IdxT treeid, uint64_t seed, int N, int M)
+__global__ void adaptive_sample_kernel(int* colids,
+                                       const NodeWorkItem* work_items,
+                                       size_t work_items_size,
+                                       IdxT treeid,
+                                       uint64_t seed,
+                                       int N,
+                                       int M)
 {
-  int tid               = threadIdx.x + blockIdx.x * blockDim.x;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= work_items_size) return;
+
   const uint32_t nodeid = work_items[tid].idx;
   uint32_t z, w, jsr, jcong;
 
