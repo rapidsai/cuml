@@ -93,8 +93,8 @@ class TargetEncoder:
                    " or 'numpy' or 'auto', "
                    "got {0}.".format(output_type))
             raise ValueError(msg)
-        if stat not in {'mean', 'var'}:
-            msg = ("stat should be either 'mean' or 'var'."
+        if stat not in {'mean', 'var', 'median'}:
+            msg = ("stat should be 'mean', 'var' or 'median'."
                    f"got {stat}.")
             raise ValueError(msg)
 
