@@ -153,7 +153,7 @@ cdef class TreeExplainer:
 
         >>> import numpy as np
         >>> import cuml
-        >>> from cuml.experimental.explainer.tree_shap import TreeExplainer
+        >>> from cuml.explainer import TreeExplainer
         >>> X = np.array([[0.0, 2.0], [1.0, 0.5]])
         >>> y = np.array([0, 1])
         >>> model = cuml.ensemble.RandomForestRegressor().fit(X, y)
