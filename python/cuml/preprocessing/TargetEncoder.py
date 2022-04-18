@@ -233,6 +233,9 @@ class TargetEncoder:
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
+        if self.stat in ['median']:
+            return self._fit_transform_for_loop(train, x_cols)
+
         self.mean = train[self.y_col].mean()
 
         if self.stat == 'var':
@@ -277,6 +280,12 @@ class TargetEncoder:
         train = train.merge(encode_each_fold, on=cols, how='left')
         del encode_each_fold
         return self._impute_and_sort(train), train
+
+    def _fit_transform_for_loop(self, train, x_cols):
+        res = []
+        for f in train[self.fold_col].unique():
+            mask = train[self.fold_col] == f
+            dg = train.loc[~mask].groupby(x_cols).agg({self.y_col:self.stat})
 
     def _make_y_column(self, y):
         """
