@@ -286,6 +286,12 @@ class TargetEncoder:
         for f in train[self.fold_col].unique():
             mask = train[self.fold_col] == f
             dg = train.loc[~mask].groupby(x_cols).agg({self.y_col:self.stat})
+            dg.columns = [self.out_col]
+            dg = dg.reset_index()
+            res.append(train.loc[mask].merge(dg, on=x_cols, how='left'))
+        res = cudf.concat(res,axis=0)
+        return self._impute_and_sort(res), train
+
 
     def _make_y_column(self, y):
         """
