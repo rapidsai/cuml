@@ -113,7 +113,6 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
   return start;
 }
 
-
 template <typename IdxT>
 __global__ void adaptive_sample_kernel(int* colids,
                                        const NodeWorkItem* work_items,
