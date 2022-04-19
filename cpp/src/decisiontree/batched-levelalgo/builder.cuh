@@ -393,19 +393,14 @@ struct Builder {
     auto [n_blocks_dimx, n_large_nodes] = this->updateWorkloadInfo(work_items);
 
     // Call feature sampling kernel
-    if (dataset.n_sampled_rows != dataset.N) {
-      // dim3 grid;
-      // grid.x = work_items.size();
-      // grid.y = dataset.n_sampled_rows;
-      // grid.z = 1;
-      // select_kernel<<<grid, 128, 0, handle.get_stream()>>>(
-      //   colids, d_work_items, treeid, seed, dataset.N);
+    if (dataset.n_sampled_cols != dataset.N) {
       dim3 grid;
       grid.x = (work_items.size() + 127) / 128;
       grid.y = 1;
       grid.z = 1;
-      adaptive_sample_kernel<<<grid, 128, 0, handle.get_stream()>>>(
-        colids, d_work_items, treeid, seed, dataset.N, dataset.n_sampled_rows);
+      adaptive_sample_kernel<<<grid, 128, 0, builder_stream>>>(
+        colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
 
     // iterate through a batch of columns (to reduce the memory pressure) and
