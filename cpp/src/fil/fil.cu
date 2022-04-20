@@ -35,35 +35,40 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 namespace ML {
 namespace fil {
 
-__host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
+template <typename real_t>
+__host__ __device__ real_t sigmoid(real_t x)
+{
+  return real_t(1) / (real_t(1) + exp(-x));
+}
 
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
     sigmoid and applying threshold. in case of complement_proba,
     fills in the complement probability */
-__global__ void transform_k(float* preds,
+template <typename real_t>
+__global__ void transform_k(real_t* preds,
                             size_t n,
                             output_t output,
-                            float inv_num_trees,
-                            float threshold,
-                            float global_bias,
+                            real_t inv_num_trees,
+                            real_t threshold,
+                            real_t global_bias,
                             bool complement_proba)
 {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;
   if (complement_proba && i % 2 != 0) return;
 
-  float result = preds[i];
+  real_t result = preds[i];
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
   // will not be done on CATEGORICAL_LEAF because the whole kernel will not run
-  if ((output & output_t::CLASS) != 0) { result = result > threshold ? 1.0f : 0.0f; }
+  if ((output & output_t::CLASS) != 0) { result = result > threshold ? real_t(1) : real_t(0); }
   // sklearn outputs numpy array in 'C' order, with the number of classes being last dimension
   // that is also the default order, so we should use the same one
   if (complement_proba) {
-    preds[i]     = 1.0f - result;
+    preds[i]     = real_t(1) - result;
     preds[i + 1] = result;
   } else
     preds[i] = result;
@@ -74,8 +79,11 @@ __global__ void transform_k(float* preds,
 // but rather one symbol for the whole template specialization, as below.
 extern template int dispatch_on_fil_template_params(compute_smem_footprint, predict_params);
 
+// forest is the base type for all forests and contains data and methods common
+// to both dense and sparse forests
+template <typename real_t>
 struct forest {
-  forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
+  forest(const raft::handle_t& h) : cat_sets_(h.get_stream()), vector_leaf_(0, h.get_stream()) {}
 
   void init_shmem_size(int device)
   {
@@ -129,7 +137,6 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
-  template <typename real_t>
   void init_common(const raft::handle_t& h,
                    const categorical_sets& cat_sets,
                    const std::vector<real_t>& vector_leaf,
@@ -139,8 +146,8 @@ struct forest {
     num_trees_                       = params->num_trees;
     algo_                            = params->algo;
     output_                          = params->output;
-    threshold_                       = params->threshold;
-    global_bias_                     = params->global_bias;
+    threshold_                       = static_cast<real_t>(params->threshold);
+    global_bias_                     = static_cast<real_t>(params->global_bias);
     proba_ssp_.n_items               = params->n_items;
     proba_ssp_.log2_threads_per_tree = log2(params->threads_per_tree);
     proba_ssp_.leaf_algo             = params->leaf_algo;
@@ -174,7 +181,7 @@ struct forest {
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
 
   void predict(
-    const raft::handle_t& h, float* preds, const float* data, size_t num_rows, bool predict_proba)
+    const raft::handle_t& h, real_t* preds, const real_t* data, size_t num_rows, bool predict_proba)
   {
     // Initialize prediction parameters.
     predict_params params(predict_proba ? proba_ssp_ : class_ssp_);
@@ -253,7 +260,7 @@ struct forest {
     // Simulating treelite order, which cancels out bias.
     // If non-proba prediction used, it still will not matter
     // for the same reason softmax will not.
-    float global_bias     = (ot & output_t::SOFTMAX) != 0 ? 0.0f : global_bias_;
+    real_t global_bias    = (ot & output_t::SOFTMAX) != 0 ? real_t(0) : global_bias_;
     bool complement_proba = false, do_transform;
 
     if (predict_proba) {
@@ -270,23 +277,25 @@ struct forest {
           // for GROVE_PER_CLASS, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
+          do_transform =
+            (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != real_t(0);
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = params.num_classes;
-          do_transform       = ot != output_t::RAW || global_bias_ != 0.0f;
+          do_transform       = ot != output_t::RAW || global_bias_ != real_t(0);
           break;
         case leaf_algo_t::VECTOR_LEAF:
           // for VECTOR_LEAF, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
+          do_transform =
+            (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != real_t(0);
           break;
         default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
     } else {
       if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
-        do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+        do_transform = ot != output_t::RAW || global_bias_ != real_t(0);
       } else {
         // GROVE_PER_CLASS, CATEGORICAL_LEAF: moot since choosing best class and
         // all transforms are monotonic. also, would break current code
@@ -305,7 +314,7 @@ struct forest {
         preds,
         num_values_to_transform,
         ot,
-        num_trees_ > 0 ? (1.0f / num_trees_) : 1.0f,
+        num_trees_ > 0 ? (real_t(1) / num_trees_) : real_t(1),
         threshold_,
         global_bias,
         complement_proba);
@@ -321,18 +330,19 @@ struct forest {
 
   virtual ~forest() {}
 
-  int num_trees_     = 0;
-  int depth_         = 0;
-  algo_t algo_       = algo_t::NAIVE;
-  output_t output_   = output_t::RAW;
-  float threshold_   = 0.5;
-  float global_bias_ = 0;
-  shmem_size_params class_ssp_, proba_ssp_;
+  int num_trees_         = 0;
+  int depth_             = 0;
+  algo_t algo_           = algo_t::NAIVE;
+  output_t output_       = output_t::RAW;
   int fixed_block_count_ = 0;
   int max_shm_           = 0;
+  real_t threshold_      = 0.5;
+  real_t global_bias_    = 0;
+  shmem_size_params class_ssp_;
+  shmem_size_params proba_ssp_;
   // vector_leaf_ is only used if {class,proba}_ssp_.leaf_algo is VECTOR_LEAF,
   // otherwise it is empty
-  rmm::device_uvector<std::uint8_t> vector_leaf_;
+  rmm::device_uvector<real_t> vector_leaf_;
   cat_sets_device_owner cat_sets_;
 };
 
@@ -344,8 +354,6 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    static_assert(std::is_same_v<typename storage_type::real_t, float>,
-                  "real_t must be float; to be removed in the following pull requests");
     auto kernel = infer_k<KernelParams::N_ITEMS,
                           KernelParams::LEAF_ALGO,
                           KernelParams::COLS_IN_SHMEM,
@@ -359,9 +367,9 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
 };
 
 template <typename real_t>
-struct dense_forest<dense_node<real_t>> : forest {
+struct dense_forest<dense_node<real_t>> : forest<real_t> {
   using node_t = dense_node<real_t>;
-  dense_forest(const raft::handle_t& h) : forest(h), nodes_(0, h.get_stream()) {}
+  dense_forest(const raft::handle_t& h) : forest<real_t>(h), nodes_(0, h.get_stream()) {}
 
   void transform_trees(const node_t* nodes)
   {
@@ -374,14 +382,14 @@ struct dense_forest<dense_node<real_t>> : forest {
        roots of all trees (node 2), and so on.
     */
     int global_node = 0;
-    for (int tree = 0; tree < num_trees_; ++tree) {
+    for (int tree = 0; tree < this->num_trees_; ++tree) {
       int tree_node = 0;
       // the counters `level` and `branch` are not used for computing node
       // indices, they are only here to highlight the node ordering within
       // each tree
-      for (int level = 0; level <= depth_; ++level) {
+      for (int level = 0; level <= this->depth_; ++level) {
         for (int branch = 0; branch < 1 << level; ++branch) {
-          h_nodes_[tree_node * num_trees_ + tree] = nodes[global_node];
+          h_nodes_[tree_node * this->num_trees_ + tree] = nodes[global_node];
           ++tree_node;
           ++global_node;
         }
@@ -398,13 +406,13 @@ struct dense_forest<dense_node<real_t>> : forest {
             const node_t* nodes,
             const forest_params_t* params)
   {
-    init_common(h, cat_sets, vector_leaf, params);
-    if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
+    this->init_common(h, cat_sets, vector_leaf, params);
+    if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::BATCH_TREE_REORG;
 
-    int num_nodes = forest_num_nodes(num_trees_, depth_);
+    int num_nodes = forest_num_nodes(this->num_trees_, this->depth_);
     nodes_.resize(num_nodes, h.get_stream());
     h_nodes_.resize(num_nodes);
-    if (algo_ == algo_t::NAIVE) {
+    if (this->algo_ == algo_t::NAIVE) {
       std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
     } else {
       transform_trees(nodes);
@@ -416,8 +424,8 @@ struct dense_forest<dense_node<real_t>> : forest {
                                   h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(max_shm_),
-                                    static_cast<predict_params>(class_ssp_));
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(this->max_shm_),
+                                    static_cast<predict_params>(this->class_ssp_));
     // copy must be finished before freeing the host data
     h.sync_stream();
     h_nodes_.clear();
@@ -426,21 +434,19 @@ struct dense_forest<dense_node<real_t>> : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    storage<node_t> forest(cat_sets_.accessor(),
-                           reinterpret_cast<real_t*>(vector_leaf_.data()),
+    storage<node_t> forest(this->cat_sets_.accessor(),
+                           this->vector_leaf_.data(),
                            nodes_.data(),
-                           num_trees_,
-                           algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
-                           algo_ == algo_t::NAIVE ? 1 : num_trees_);
-    static_assert(std::is_same_v<real_t, float>,
-                  "real_t must be float; to be removed in the following pull requests");
+                           this->num_trees_,
+                           this->algo_ == algo_t::NAIVE ? tree_num_nodes(this->depth_) : 1,
+                           this->algo_ == algo_t::NAIVE ? 1 : this->num_trees_);
     fil::infer(forest, params, stream);
   }
 
   virtual void free(const raft::handle_t& h) override
   {
     nodes_.release();
-    forest::free(h);
+    forest<real_t>::free(h);
   }
 
   rmm::device_uvector<node_t> nodes_;
@@ -448,28 +454,33 @@ struct dense_forest<dense_node<real_t>> : forest {
 };
 
 template <typename node_t>
-struct sparse_forest : forest {
+struct sparse_forest : forest<typename node_t::real_type> {
+  using real_type = typename node_t::real_type;
+
   sparse_forest(const raft::handle_t& h)
-    : forest(h), trees_(0, h.get_stream()), nodes_(0, h.get_stream())
+    : forest<typename node_t::real_type>(h), trees_(0, h.get_stream()), nodes_(0, h.get_stream())
   {
   }
 
   void init(const raft::handle_t& h,
             const categorical_sets& cat_sets,
-            const std::vector<typename node_t::real_t>& vector_leaf,
+            const std::vector<real_type>& vector_leaf,
             const int* trees,
             const node_t* nodes,
             const forest_params_t* params)
   {
-    init_common(h, cat_sets, vector_leaf, params);
-    if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
-    depth_     = 0;  // a placeholder value
-    num_nodes_ = params->num_nodes;
+    this->init_common(h, cat_sets, vector_leaf, params);
+    if (this->algo_ == algo_t::ALGO_AUTO) this->algo_ = algo_t::NAIVE;
+    this->depth_ = 0;  // a placeholder value
+    num_nodes_   = params->num_nodes;
 
     // trees
-    trees_.resize(num_trees_, h.get_stream());
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      trees_.data(), trees, sizeof(int) * num_trees_, cudaMemcpyHostToDevice, h.get_stream()));
+    trees_.resize(this->num_trees_, h.get_stream());
+    RAFT_CUDA_TRY(cudaMemcpyAsync(trees_.data(),
+                                  trees,
+                                  sizeof(int) * this->num_trees_,
+                                  cudaMemcpyHostToDevice,
+                                  h.get_stream()));
 
     // nodes
     nodes_.resize(num_nodes_, h.get_stream());
@@ -477,27 +488,25 @@ struct sparse_forest : forest {
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(max_shm_),
-                                    static_cast<predict_params>(class_ssp_));
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(this->max_shm_),
+                                    static_cast<predict_params>(this->class_ssp_));
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    storage<node_t> forest(cat_sets_.accessor(),
-                           reinterpret_cast<typename node_t::real_t*>(vector_leaf_.data()),
+    storage<node_t> forest(this->cat_sets_.accessor(),
+                           this->vector_leaf_.data(),
                            trees_.data(),
                            nodes_.data(),
-                           num_trees_);
-    static_assert(std::is_same_v<typename node_t::real_t, float>,
-                  "real_t must be float; to be removed in the following pull requests");
+                           this->num_trees_);
     fil::infer(forest, params, stream);
   }
 
   void free(const raft::handle_t& h) override
   {
-    forest::free(h);
     trees_.release();
     nodes_.release();
+    forest<real_type>::free(h);
   }
 
   int num_nodes_ = 0;
@@ -583,11 +592,11 @@ void check_params(const forest_params_t* params, bool dense)
 /** initializes a forest of any type
  * When fil_node_t == dense_node, const int* trees is ignored
  */
-template <typename fil_node_t>
+template <typename fil_node_t, typename real_t>
 void init(const raft::handle_t& h,
-          forest_t* pf,
+          forest_t<real_t>* pf,
           const categorical_sets& cat_sets,
-          const std::vector<float>& vector_leaf,
+          const std::vector<real_t>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
           const forest_params_t* params)
@@ -595,52 +604,80 @@ void init(const raft::handle_t& h,
   check_params(params, node_traits<fil_node_t>::IS_DENSE);
   using forest_type = typename node_traits<fil_node_t>::forest;
   forest_type* f    = new forest_type(h);
-  static_assert(std::is_same_v<typename fil_node_t::real_t, float>,
-                "real_t must be float; to be removed in the following pull requests");
   f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
 
-// explicit instantiations for init_sparse()
-template void init<sparse_node16<float>>(const raft::handle_t& h,
-                                         forest_t* pf,
-                                         const categorical_sets& cat_sets,
-                                         const std::vector<float>& vector_leaf,
-                                         const int* trees,
-                                         const sparse_node16<float>* nodes,
-                                         const forest_params_t* params);
+// explicit instantiations for init()
+template void init<dense_node<float>, float>(const raft::handle_t& h,
+                                             forest_t<float>* pf,
+                                             const categorical_sets& cat_sets,
+                                             const std::vector<float>& vector_leaf,
+                                             const int* trees,
+                                             const dense_node<float>* nodes,
+                                             const forest_params_t* params);
+template void init<dense_node<double>, double>(const raft::handle_t& h,
+                                               forest_t<double>* pf,
+                                               const categorical_sets& cat_sets,
+                                               const std::vector<double>& vector_leaf,
+                                               const int* trees,
+                                               const dense_node<double>* nodes,
+                                               const forest_params_t* params);
+template void init<sparse_node16<float>, float>(const raft::handle_t& h,
+                                                forest_t<float>* pf,
+                                                const categorical_sets& cat_sets,
+                                                const std::vector<float>& vector_leaf,
+                                                const int* trees,
+                                                const sparse_node16<float>* nodes,
+                                                const forest_params_t* params);
+template void init<sparse_node16<double>, double>(const raft::handle_t& h,
+                                                  forest_t<double>* pf,
+                                                  const categorical_sets& cat_sets,
+                                                  const std::vector<double>& vector_leaf,
+                                                  const int* trees,
+                                                  const sparse_node16<double>* nodes,
+                                                  const forest_params_t* params);
+template void init<sparse_node8, float>(const raft::handle_t& h,
+                                        forest_t<float>* pf,
+                                        const categorical_sets& cat_sets,
+                                        const std::vector<float>& vector_leaf,
+                                        const int* trees,
+                                        const sparse_node8* nodes,
+                                        const forest_params_t* params);
 
-template void init<sparse_node8>(const raft::handle_t& h,
-                                 forest_t* pf,
-                                 const categorical_sets& cat_sets,
-                                 const std::vector<float>& vector_leaf,
-                                 const int* trees,
-                                 const sparse_node8* nodes,
-                                 const forest_params_t* params);
-
-template void init<dense_node<float>>(const raft::handle_t& h,
-                                      forest_t* pf,
-                                      const categorical_sets& cat_sets,
-                                      const std::vector<float>& vector_leaf,
-                                      const int* trees,
-                                      const dense_node<float>* nodes,
-                                      const forest_params_t* params);
-
-void free(const raft::handle_t& h, forest_t f)
+template <typename real_t>
+void free(const raft::handle_t& h, forest_t<real_t> f)
 {
   f->free(h);
   delete f;
 }
 
+template void free<float>(const raft::handle_t& h, forest_t<float> f);
+template void free<double>(const raft::handle_t& h, forest_t<double> f);
+
+template <typename real_t>
 void predict(const raft::handle_t& h,
-             forest_t f,
-             float* preds,
-             const float* data,
+             forest_t<real_t> f,
+             real_t* preds,
+             const real_t* data,
              size_t num_rows,
              bool predict_proba)
 {
   f->predict(h, preds, data, num_rows, predict_proba);
 }
+
+template void predict<float>(const raft::handle_t& h,
+                             forest_t<float> f,
+                             float* preds,
+                             const float* data,
+                             size_t num_rows,
+                             bool predict_proba);
+template void predict<double>(const raft::handle_t& h,
+                              forest_t<double> f,
+                              double* preds,
+                              const double* data,
+                              size_t num_rows,
+                              bool predict_proba);
 
 }  // namespace fil
 }  // namespace ML

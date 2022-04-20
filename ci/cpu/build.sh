@@ -32,11 +32,7 @@ if [ "${IS_STABLE_BUILD}" != "true" ] ; then
 fi
 
 # ucx-py version
-export UCX_PY_VERSION='0.25.*'
-
-export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
-export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
-export CMAKE_C_COMPILER_LAUNCHER="sccache"
+export UCX_PY_VERSION='0.26.*'
 
 ################################################################################
 # SETUP - Check environment
