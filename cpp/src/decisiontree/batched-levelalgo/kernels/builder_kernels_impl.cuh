@@ -216,7 +216,7 @@ __global__ void computeSplitKernel(BinT* histograms,
     col = colStart + blockIdx.y;
   } else {
     IdxT colIndex = colStart + blockIdx.y;
-    col           = colids[nid * dataset.N + colIndex];
+    col           = colids[nid * dataset.n_sampled_cols + colIndex];
   }
 
   // getting the n_bins for that feature

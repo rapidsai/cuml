@@ -137,7 +137,7 @@ __global__ void adaptive_sample_kernel(int* colids,
     lhs <<= 32;
     uint64_t rhs = uint64_t(toss) * (N - i);
     if (lhs > rhs) {
-      colids[tid * N + selected_count] = i;
+      colids[tid * M + selected_count] = i;
       selected_count++;
       if (selected_count == M) break;
     }
