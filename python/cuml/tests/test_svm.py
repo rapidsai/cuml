@@ -22,7 +22,7 @@ import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
 from cuml.testing.utils import unit_param, quality_param, stress_param, \
-    compare_svm, compare_probabilistic_svm
+    compare_svm, compare_probabilistic_svm, svm_array_equal
 
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
@@ -33,26 +33,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 import cudf
-
-
-def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
-    diff = np.abs(a - b)
-    if relative_diff:
-        idx = np.nonzero(abs(b) > tol)
-        diff[idx] = diff[idx] / abs(b[idx])
-    equal = np.all(diff <= tol)
-    if not equal and report_summary:
-        idx = np.argsort(diff)
-        print("Largest diffs")
-        a = a.ravel()
-        b = b.ravel()
-        diff = diff.ravel()
-        for i in idx[-5:]:
-            if (diff[i] > tol):
-                print(diff[i], "at", i, "values", a[i], b[i])
-        print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
-              np.mean(b))
-    return equal
 
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
@@ -564,11 +544,11 @@ def test_svm_no_support_vectors():
     model.fit(X, y)
     pred = model.predict(X)
 
-    assert array_equal(pred, y, 0)
+    assert svm_array_equal(pred, y, 0)
 
     assert model.n_support_ == 0
     assert abs(model.intercept_ - 1) <= 1e-6
-    assert array_equal(model.coef_, cp.zeros((1, n_cols)))
+    assert svm_array_equal(model.coef_, cp.zeros((1, n_cols)))
     assert model.dual_coef_.shape == (1, 0)
     assert model.support_.shape == (0,)
     assert model.support_vectors_.shape[0] == 0

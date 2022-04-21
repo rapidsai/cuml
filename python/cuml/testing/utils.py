@@ -443,6 +443,7 @@ def get_shap_values(model,
 
     return explainer, shap_values
 
+
 def generate_inputs_from_categories(categories=None,
                                     n_samples=10,
                                     seed=5060,
@@ -472,6 +473,7 @@ def assert_inverse_equal(ours, ref):
         cp.testing.assert_array_equal(ours, ref)
     else:
         pd.testing.assert_frame_equal(ours.to_pandas(), ref.to_pandas())
+
 
 def from_df_to_numpy(df):
     if isinstance(df, pd.DataFrame):
@@ -585,7 +587,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             # For classification, the class is determined by
             # sign(decision function). We should not expect tight match for
             # the actual value of the function, therfore we set large tolerance
-            assert(array_equal(df1, df2, tol=1e-1, relative_diff=True,
+            assert(svm_array_equal(df1, df2, tol=1e-1, relative_diff=True,
                    report_summary=True))
         else:
             print("Skipping decision function test due to low  accuracy",
@@ -598,6 +600,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     intersection_len = len(support1.intersection(support2))
     average_len = (len(support1) + len(support2)) / 2
     assert intersection_len > average_len / 8
+
 
 def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
                               brier_tol=1e-3):
@@ -613,6 +616,7 @@ def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
         brier2 = brier_score_loss(y_test, prob2[:, 1])
         # Brier score - smaller is better
         assert brier1 - brier2 <= brier_tol
+
 
 def create_synthetic_dataset(generator=skl_make_reg,
                              n_samples=100,
@@ -642,3 +646,23 @@ def create_synthetic_dataset(generator=skl_make_reg,
     y_test = y_test.astype(dtype)
 
     return X_train, X_test, y_train, y_test
+
+
+def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
+    diff = np.abs(a - b)
+    if relative_diff:
+        idx = np.nonzero(abs(b) > tol)
+        diff[idx] = diff[idx] / abs(b[idx])
+    equal = np.all(diff <= tol)
+    if not equal and report_summary:
+        idx = np.argsort(diff)
+        print("Largest diffs")
+        a = a.ravel()
+        b = b.ravel()
+        diff = diff.ravel()
+        for i in idx[-5:]:
+            if (diff[i] > tol):
+                print(diff[i], "at", i, "values", a[i], b[i])
+        print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
+              np.mean(b))
+    return equal
