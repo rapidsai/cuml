@@ -19,7 +19,9 @@ import cupy as cp
 import numpy as np
 import dask.array as da
 from cuml.dask.preprocessing import OneHotEncoder
-from cuml.testing.utils import stress_param, generate_inputs_from_categories, assert_inverse_equal, from_df_to_numpy
+from cuml.testing.utils import \
+    stress_param, \
+    generate_inputs_from_categories, assert_inverse_equal, from_df_to_numpy
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from pandas.testing import assert_frame_equal
 

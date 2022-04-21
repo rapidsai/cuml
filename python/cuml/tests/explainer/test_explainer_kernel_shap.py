@@ -27,7 +27,8 @@ from cuml.common.import_utils import has_scipy
 from cuml.common.import_utils import has_shap
 from cuml.datasets import make_regression
 
-from cuml.testing.utils import create_synthetic_dataset, ClassEnumerator, get_shap_values
+from cuml.testing.utils import create_synthetic_dataset, ClassEnumerator, \
+    get_shap_values
 
 from sklearn.model_selection import train_test_split
 

@@ -28,7 +28,8 @@ import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.metrics import r2_score
-from cuml.testing.utils import get_handle, unit_param, quality_param, stress_param
+from cuml.testing.utils import get_handle, unit_param, quality_param, \
+    stress_param
 import cuml.common.logger as logger
 
 from sklearn.ensemble import RandomForestClassifier as skrfc

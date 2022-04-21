@@ -30,7 +30,6 @@ from sklearn.feature_extraction.text import CountVectorizer
 from cuml.testing.utils import create_synthetic_dataset
 
 
-
 def pytest_configure(config):
     cp.cuda.set_allocator(None)
     # max_gpu_memory: Capacity of the GPU memory in GB
@@ -101,8 +100,6 @@ def failure_logger(request):
         error_msg = error_msg.format(request.node.nodeid,
                                      os.getenv('PYTEST_RANDOM_SEED'))
         print(error_msg)
-
-
 
 
 @pytest.fixture(scope="module")

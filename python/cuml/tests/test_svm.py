@@ -21,7 +21,8 @@ from numba import cuda
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
-from cuml.testing.utils import unit_param, quality_param, stress_param, compare_svm, compare_probabilistic_svm
+from cuml.testing.utils import unit_param, quality_param, stress_param, \
+    compare_svm, compare_probabilistic_svm
 
 from sklearn import svm
 from sklearn.datasets import load_iris, make_blobs
@@ -52,8 +53,6 @@ def array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
         print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
               np.mean(b))
     return equal
-
-
 
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
@@ -231,8 +230,6 @@ def test_svm_predict(params, n_pred):
     n_correct = np.sum(y_test == y_pred)
     accuracy = n_correct * 100 / n_pred
     assert accuracy > 99
-
-
 
 
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore

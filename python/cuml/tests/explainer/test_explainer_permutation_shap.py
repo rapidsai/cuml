@@ -23,7 +23,8 @@ import sklearn.neighbors
 
 from cuml import PermutationExplainer
 
-from cuml.testing.utils import ClassEnumerator, get_shap_values, create_synthetic_dataset
+from cuml.testing.utils import ClassEnumerator, get_shap_values, \
+    create_synthetic_dataset
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()

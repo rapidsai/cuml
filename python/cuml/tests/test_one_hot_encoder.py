@@ -19,10 +19,12 @@ import pandas as pd
 import pytest
 from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
-from cuml.testing.utils import stress_param, from_df_to_numpy, assert_inverse_equal, generate_inputs_from_categories
+from cuml.testing.utils import \
+    stress_param, \
+    from_df_to_numpy, \
+    assert_inverse_equal, \
+    generate_inputs_from_categories
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
-
-
 
 
 def _from_df_to_cupy(df):
@@ -40,8 +42,6 @@ def _convert_drop(drop):
     if drop is None or drop == 'first':
         return drop
     return [ord(x) if isinstance(x, str) else x for x in drop.values()]
-
-
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])

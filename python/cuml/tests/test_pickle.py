@@ -20,7 +20,8 @@ import pytest
 
 from cuml.tsa.arima import ARIMA
 from cuml.testing.utils import array_equal, unit_param, stress_param, \
-    ClassEnumerator, get_classes_from_package, compare_svm
+    ClassEnumerator, get_classes_from_package, compare_svm, \
+    compare_probabilistic_svm
 
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
