@@ -735,6 +735,7 @@ TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafTyp
     path_segments, path_idx, categorical_bitfields, bitfield_segments};
   visit_path_segments_in_model(model, path_extractor);
 
+  // Marshall bit fields to GPU memory
   path_info->categorical_bitfields = thrust::device_vector<CatBitFieldStorageT>(
     categorical_bitfields.cbegin(), categorical_bitfields.cend());
   for (std::size_t path_seg_idx = 0; path_seg_idx < path_segments.size(); ++path_seg_idx) {

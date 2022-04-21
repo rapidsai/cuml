@@ -121,7 +121,7 @@ __all__ = [
     "multiclass",
     "naive_bayes",
     "preprocessing",
-    "experimental.explainer",
+    "explainer",
     # Classes
     "AgglomerativeClustering",
     "ARIMA",
