@@ -18,7 +18,6 @@ from numba import cuda
 import cudf
 import numpy as np
 import cupy as cp
-from cudf.utils.utils import scalar_broadcast_to
 
 
 def get_str_replacement_series(replacement, bool_mask):
@@ -26,7 +25,7 @@ def get_str_replacement_series(replacement, bool_mask):
      Get replacement series with replacement at
      Places marked by bool mask and empty other wise
     """
-    word_ser = cudf.Series(scalar_broadcast_to("", size=len(bool_mask)))
+    word_ser = cudf.Series("").repeat(len(bool_mask))
     word_ser.iloc[bool_mask] = replacement
 
     return word_ser
