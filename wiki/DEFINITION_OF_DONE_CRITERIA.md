@@ -39,7 +39,7 @@ Below is a quick and simple checklist for developers to determine whether an alg
 
 - Python class is as "near drop-in replacement" for Scikit-learn (or relevant industry standard) API as possible. This means parameters have the same names as Scikit-learn, and where differences exist, they are clearly documented in docstrings.
 - It is recommended to open an initial PR with the API design if there are going to be significant differences with reference APIs, or lack of a reference API, to have a discussion about it. 
-- Python class is pickleable and a test has been added to `cuml/test/test_pickle.py`
+- Python class is pickleable and a test has been added to `cuml/tests/test_pickle.py`
 - APIs use `input_to_cuml_array` to accept flexible inputs and check their datatypes and use `cumlArray.to_output()` to return configurable outputs.
 - Any internal parameters or array-based instance variables use `CumlArray`
 
