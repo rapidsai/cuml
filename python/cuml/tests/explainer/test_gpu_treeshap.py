@@ -683,7 +683,8 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(deadline=None, max_examples=20,
-          suppress_health_check=[HealthCheck.too_slow])
+          suppress_health_check=[HealthCheck.too_slow,
+                                 HealthCheck.data_too_large])
 @given(shap_strategy(),
        st.sampled_from(["shapley-interactions", "shapley-taylor"]))
 def test_with_hypothesis(params, interactions_method):
