@@ -25,7 +25,7 @@ def get_str_replacement_series(replacement, bool_mask):
      Get replacement series with replacement at
      Places marked by bool mask and empty other wise
     """
-    word_ser = cudf.Series("").repeat(len(bool_mask))
+    word_ser = cudf.Series(cudf.core.column.full(len(bool_mask), ""))
     word_ser.iloc[bool_mask] = replacement
 
     return word_ser
