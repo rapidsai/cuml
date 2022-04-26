@@ -195,10 +195,14 @@ else
         "$WORKSPACE/build.sh" -v cuml --codecov
     fi
 
-    gpuci_logger "Install the main version of dask and distributed"
+    gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
+
     pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
+    pip install sparse
+
     set +x
 
     gpuci_logger "Python pytest for cuml"
