@@ -89,7 +89,6 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         const float *X,
                         int n_samples,
                         int n_features,
-                        int metric,
                         float *X_new) except +
 
     cdef void transform(handle_t& handle,
@@ -98,7 +97,6 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         const double *X,
                         int n_samples,
                         int n_features,
-                        int metric,
                         double *X_new) except +
 
 
@@ -548,27 +546,26 @@ class KMeans(Base,
         cdef uintptr_t preds_ptr = preds.ptr
 
         # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
-        distance_metric = 1
+        cdef KMeansParams params = self._params
+        params.metric = 1
 
         if self.dtype == np.float32:
             transform(
                 handle_[0],
-                <KMeansParams> self._params,
+                <KMeansParams> params,
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
-                <int> distance_metric,
                 <float*> preds_ptr)
         elif self.dtype == np.float64:
             transform(
                 handle_[0],
-                <KMeansParams> self._params,
+                <KMeansParams> params,
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
-                <int> distance_metric,
                 <double*> preds_ptr)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
