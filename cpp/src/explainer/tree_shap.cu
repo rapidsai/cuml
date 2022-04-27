@@ -101,8 +101,8 @@ class BitField {
 
 using CatBitFieldStorageT = std::uint32_t;
 template <bool is_device>
-using CatBitField         = BitField<CatBitFieldStorageT, is_device>;
-using CatT                = std::uint32_t;
+using CatBitField = BitField<CatBitFieldStorageT, is_device>;
+using CatT        = std::uint32_t;
 
 template <typename ThresholdType>
 struct SplitCondition {
@@ -290,9 +290,8 @@ struct PathSegmentExtractor {
       auto n_bitfields =
         bitfield_segments[path_segment_idx + 1] - bitfield_segments[path_segment_idx];
       categories = CatBitField<false>(raft::span<CatBitFieldStorageT, false>(
-                                        categorical_bitfields.data(),
-                                        categorical_bitfields.size())
-                                 .subspan(bitfield_segments[path_segment_idx], n_bitfields));
+                                        categorical_bitfields.data(), categorical_bitfields.size())
+                                        .subspan(bitfield_segments[path_segment_idx], n_bitfields));
       for (CatT cat : tree.MatchingCategories(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
@@ -731,9 +730,9 @@ TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafTyp
     auto n_bitfields = bitfield_segments[path_seg_idx + 1] - bitfield_segments[path_seg_idx];
     path_segments[path_seg_idx].split_condition.d_categories =
       CatBitField<true>(raft::span<CatBitFieldStorageT, true>(
-                            thrust::raw_pointer_cast(path_info->categorical_bitfields.data()),
-                            path_info->categorical_bitfields.size())
-                    .subspan(bitfield_segments[path_seg_idx], n_bitfields));
+                          thrust::raw_pointer_cast(path_info->categorical_bitfields.data()),
+                          path_info->categorical_bitfields.size())
+                          .subspan(bitfield_segments[path_seg_idx], n_bitfields));
   }
 
   path_info->path_segments       = path_segments;
