@@ -20,6 +20,8 @@
 
 #include <stddef.h>
 
+#include <variant>  // for std::get<>, std::variant<>
+
 #include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
@@ -29,10 +31,8 @@ class handle_t;
 namespace ML {
 namespace fil {
 
-/** @note FIL only supports inference with single precision.
- *  TODO(canonizer): parameterize the functions and structures by the data type
- *  and the threshold/weight type.
- */
+/** @note FIL supports inference with both single and double precision. However,
+    the floating-point type used in the data and model must be the same. */
 
 /** Inference algorithm to use. */
 enum algo_t {
@@ -69,10 +69,19 @@ enum storage_type_t {
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
+template <typename real_t>
 struct forest;
 
 /** forest_t is the predictor handle */
-typedef forest* forest_t;
+template <typename real_t>
+using forest_t = forest<real_t>*;
+
+/** forest32_t and forest64_t are definitions required in Cython */
+using forest32_t = forest<float>*;
+using forest64_t = forest<double>*;
+
+/** forest_variant is used to get a forest represented with either float or double. */
+using forest_variant = std::variant<forest_t<float>, forest_t<double>>;
 
 /** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
 constexpr int MAX_N_ITEMS = 4;
@@ -113,7 +122,7 @@ struct treelite_params_t {
  * @param tl_params additional parameters for the forest
  */
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_variant* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params);
 
@@ -121,24 +130,26 @@ void from_treelite(const raft::handle_t& handle,
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function
  */
-void free(const raft::handle_t& h, forest_t f);
+template <typename real_t>
+void free(const raft::handle_t& h, forest_t<real_t> f);
 
 /** predict predicts on data (with n rows) using forest and writes results into preds;
  *  the number of columns is stored in forest, and both preds and data point to GPU memory
  *  @param h cuML handle used by this function
  *  @param f forest used for predictions
  *  @param preds array in GPU memory to store predictions into
-        size == predict_proba ? (2*num_rows) : num_rows
+ *      size = predict_proba ? (2*num_rows) : num_rows
  *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
  *  @param num_rows number of data rows
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
+template <typename real_t>
 void predict(const raft::handle_t& h,
-             forest_t f,
-             float* preds,
-             const float* data,
+             forest_t<real_t> f,
+             real_t* preds,
+             const real_t* data,
              size_t num_rows,
              bool predict_proba = false);
 
