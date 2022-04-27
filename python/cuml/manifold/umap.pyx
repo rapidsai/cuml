@@ -732,10 +732,6 @@ class UMAP(Base,
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
-        if n_rows <= 1:
-            raise ValueError("There needs to be more than 1 sample to "
-                             "build nearest the neighbors graph")
-
         if n_cols != self.n_dims:
             raise ValueError("n_features of X must match n_features of "
                              "training data")
