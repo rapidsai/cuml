@@ -15,6 +15,7 @@
 
 from cuml.datasets import make_blobs
 import numpy as np
+import cupy as cp
 import umap.distances as dist
 from cuml.manifold.umap import UMAP
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
@@ -23,6 +24,21 @@ from cuml.manifold.simpl_set import fuzzy_simplicial_set \
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 from cuml.manifold.simpl_set import simplicial_set_embedding \
     as cu_simplicial_set_embedding
+
+
+def correctness_dense(a, b, rtol=0.1, threshold=0.8):
+    n_elms = a.size
+    n_correct = (cp.abs(a - b) <= (rtol * cp.abs(b))).sum()
+    correctness = n_correct / n_elms
+    return correctness >= threshold
+
+
+def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.8):
+    n_ref_zeros = (a == 0).sum()
+    n_ref_non_zero_elms = a.size - n_ref_zeros
+    n_correct = (cp.abs(a - b) <= (atol + rtol * cp.abs(b))).sum()
+    correctness = (n_correct - n_ref_zeros) / n_ref_non_zero_elms
+    return correctness >= threshold
 
 
 def test_fuzzy_simplicial_set():
@@ -46,12 +62,13 @@ def test_fuzzy_simplicial_set():
                                            random_state,
                                            metric)
 
-    print('ref_fss_graph:', type(ref_fss_graph), ref_fss_graph.shape,
-          ref_fss_graph.nnz, ref_fss_graph.data, ref_fss_graph.row,
-          ref_fss_graph.col)
-    print('cu_fss_graph:', type(cu_fss_graph), cu_fss_graph.shape,
-          cu_fss_graph.nnz, cu_fss_graph.data, cu_fss_graph.row,
-          cu_fss_graph.col)
+    ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
+    cu_fss_graph = cu_fss_graph.todense()
+    assert correctness_sparse(ref_fss_graph,
+                              cu_fss_graph,
+                              atol=0.1,
+                              rtol=0.2,
+                              threshold=0.8)
 
 
 def test_simplicial_set_embedding():
@@ -64,9 +81,9 @@ def test_simplicial_set_embedding():
     n_components = 3
     initial_alpha = 1.0
     a, b = UMAP.find_ab_params(1.0, 0.1)
-    gamma = 1
+    gamma = 0
     negative_sample_rate = 5
-    n_epochs = 0
+    n_epochs = 500
     init = 'random'
     metric = 'euclidean'
     metric_kwds = {}
@@ -126,7 +143,8 @@ def test_simplicial_set_embedding():
         output_metric=output_metric,
         output_metric_kwds=output_metric_kwds)
 
-    print('ref_embedding:', type(ref_embedding), ref_embedding.shape,
-          ref_embedding)
-    print('cu_embedding:', type(cu_embedding), cu_embedding.shape,
-          cu_embedding)
+    ref_embedding = cp.array(ref_embedding)
+    assert correctness_dense(ref_embedding,
+                             cu_embedding,
+                             rtol=0.1,
+                             threshold=0.8)

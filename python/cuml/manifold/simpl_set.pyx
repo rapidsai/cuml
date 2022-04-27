@@ -323,16 +323,16 @@ def simplicial_set_embedding(
     X_m, n_rows, n_cols, dtype = \
         input_to_cuml_array(data, order='C', check_dtype=np.float32)
 
+    graph = graph.tocoo()
+    graph.sum_duplicates()
+    if not isinstance(graph, cp.sparse.coo_matrix):
+        graph = cp.sparse.coo_matrix(graph)
+
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef COO* fss_graph = new COO(handle_.get_stream())
     fss_graph.allocate(graph.nnz, graph.shape[0], False, handle_.get_stream())
     handle_.sync_stream()
-
-    graph = graph.tocoo()
-    graph.sum_duplicates()
-    if not isinstance(graph, cp.sparse.coo_matrix):
-        graph = cp.sparse.coo_matrix(graph)
 
     nnz_size = graph.nnz * 4  # sizeof(float) == sizeof(int) == 4
     for dst_ptr, src_ptr in \
