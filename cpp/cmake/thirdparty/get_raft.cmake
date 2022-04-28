@@ -30,7 +30,6 @@ function(find_and_configure_raft)
     if(PKG_USE_RAFT_STATIC)
         message(STATUS "CUML: Cloning raft locally to build static libraries.")
         set(CPM_DOWNLOAD_raft ON)
-        set(RAFT_STATIC_LINK_LIBRARIES ON)
     endif()
 
     if(PKG_USE_RAFT_DIST)
