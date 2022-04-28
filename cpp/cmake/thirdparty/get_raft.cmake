@@ -22,7 +22,6 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    set(RAFT_STATIC_LINK_LIBRARIES OFF)
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
         message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
         set(CPM_DOWNLOAD_raft ON)
@@ -31,10 +30,6 @@ function(find_and_configure_raft)
     if(PKG_USE_RAFT_STATIC)
         message(STATUS "CUML: Cloning raft locally to build static libraries.")
         set(CPM_DOWNLOAD_raft ON)
-        set(RAFT_CXX_FLAGS ${RAFT_CXX_FLAGS} -fPIC)
-        set(RAFT_CUDA_FLAGS ${RAFT_CUDA_FLAGS} -fPIC)
-        set(CUML_CXX_FLAGS ${CUML_CXX_FLAGS} -fPIC)
-        set(CUML_CUDA_FLAGS ${CUML_CUDA_FLAGS} -fPIC)
         set(RAFT_STATIC_LINK_LIBRARIES ON)
     endif()
 
@@ -63,7 +58,6 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
-              "RAFT_STATIC_LINK_LIBRARIES ${RAFT_STATIC_LINK_LIBRARIES}"
               "BUILD_TESTS OFF"
               "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
               "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
