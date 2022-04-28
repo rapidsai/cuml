@@ -177,6 +177,14 @@ cdef class TreeliteModel():
         model.set_handle(handle)
         return model
 
+cdef extern from "variant" namespace "std":
+    cdef cppclass variant[T1, T2]:
+        variant()
+        variant(T1)
+        size_t index()
+
+    cdef T& get[T, T1, T2](variant[T1, T2]& v)
+
 cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef enum algo_t:
         ALGO_AUTO,
@@ -190,10 +198,16 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
-    cdef struct forest:
+    cdef cppclass forest[real_t]:
         pass
 
-    ctypedef forest* forest_t
+    ctypedef forest[float]* forest32_t
+    ctypedef forest[double]* forest64_t
+    ctypedef variant[forest32_t, forest64_t] forest_variant
+
+    # TODO(canonizer): use something like
+    # ctypedef forest[real_t]* forest_t[real_t]
+    # once it is supported in Cython
 
     cdef struct treelite_params_t:
         algo_t algo
@@ -215,39 +229,49 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
 
-    cdef void free(handle_t& handle,
-                   forest_t)
+    cdef void free[real_t](handle_t& handle,
+                           forest[real_t]*)
 
-    cdef void predict(handle_t& handle,
-                      forest_t,
-                      float*,
-                      float*,
-                      size_t,
-                      bool) except +
+    cdef void predict[real_t](handle_t& handle,
+                              forest[real_t]*,
+                              real_t*,
+                              real_t*,
+                              size_t,
+                              bool) except +
 
-    cdef forest_t from_treelite(handle_t& handle,
-                                forest_t*,
-                                ModelHandle,
-                                treelite_params_t*) except +
+    cdef void from_treelite(handle_t& handle,
+                            forest_variant*,
+                            ModelHandle,
+                            treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
     cdef object handle
-    cdef forest_t forest_data
+    cdef forest_variant forest_data
     cdef size_t num_class
     cdef bool output_class
     cdef char* shape_str
 
+    cdef forest32_t get_forest32(self):
+        return get[forest32_t, forest32_t, forest64_t](self.forest_data)
+
+    cdef forest64_t get_forest64(self):
+        return get[forest64_t, forest32_t, forest64_t](self.forest_data)
+
     def __cinit__(self,
                   handle=None):
         self.handle = handle
-        self.forest_data = NULL
+        self.forest_data = forest_variant(<forest32_t> NULL)
         self.shape_str = NULL
 
     def get_shape_str(self):
         if self.shape_str:
             return unicode(self.shape_str, 'utf-8')
         return None
+
+    def get_dtype(self):
+        dtype_array = [np.float32, np.float64]
+        return dtype_array[self.forest_data.index()]
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -325,12 +349,13 @@ cdef class ForestInference_impl():
                                       " using a Classification model, please "
                                       " set `output_class=True` while creating"
                                       " the FIL model.")
+        fil_dtype = self.get_dtype()
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
-                                convert_to_dtype=np.float32,
+                                convert_to_dtype=fil_dtype,
                                 safe_dtype_conversion=safe_dtype_conversion,
-                                check_dtype=np.float32)
+                                check_dtype=fil_dtype)
         X_ptr = X_m.ptr
 
         cdef handle_t* handle_ =\
@@ -343,7 +368,7 @@ cdef class ForestInference_impl():
                     shape += (2,)
                 else:
                     shape += (self.num_class,)
-            preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C',
+            preds = CumlArray.empty(shape=shape, dtype=fil_dtype, order='C',
                                     index=X_m.index)
         else:
             if not hasattr(preds, "__cuda_array_interface__"):
@@ -354,12 +379,24 @@ cdef class ForestInference_impl():
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
 
-        predict(handle_[0],
-                self.forest_data,
-                <float*> preds_ptr,
-                <float*> X_ptr,
-                <size_t> n_rows,
-                <bool> predict_proba)
+        if fil_dtype == np.float32:
+            predict(handle_[0],
+                    self.get_forest32(),
+                    <float*> preds_ptr,
+                    <float*> X_ptr,
+                    <size_t> n_rows,
+                    <bool> predict_proba)
+        elif fil_dtype == np.float64:
+            predict(handle_[0],
+                    self.get_forest64(),
+                    <double*> preds_ptr,
+                    <double*> X_ptr,
+                    <size_t> n_rows,
+                    <bool> predict_proba)
+        else:
+            # should not reach here
+            assert False, 'invalid fil_dtype, must be np.float32 or np.float64'
+
         self.handle.sync()
 
         # special case due to predict and predict_proba
@@ -370,7 +407,7 @@ cdef class ForestInference_impl():
         return preds
 
     def load_from_treelite_model_handle(self, **kwargs):
-        self.forest_data = NULL
+        self.forest_data = forest_variant(<forest32_t> NULL)
         return self.load_using_treelite_handle(**kwargs)
 
     def load_from_treelite_model(self, **kwargs):
@@ -411,9 +448,16 @@ cdef class ForestInference_impl():
 
     def __dealloc__(self):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if self.forest_data !=NULL:
-            free(handle_[0], self.forest_data)
+        fil_dtype = self.get_dtype()
+        if fil_dtype == np.float32:
+            if self.get_forest32() != NULL:
+                free[float](handle_[0], self.get_forest32())
+        elif fil_dtype == np.float64:
+            if self.get_forest64() != NULL:
+                free[double](handle_[0], self.get_forest64())
+        else:
+            # should not reach here
+            assert False, 'invalid fil_dtype, must be np.float32 or np.float64'
 
 
 class ForestInference(Base,
@@ -479,20 +523,23 @@ class ForestInference(Base,
 
     .. code-block:: python
 
-        # Assume that the file 'xgb.model' contains a classifier model that was
-        # previously saved by XGBoost's save_model function.
+        >>> # Assume that the file 'xgb.model' contains a classifier model
+        >>> # that was previously saved by XGBoost's save_model function.
 
-        import sklearn, sklearn.datasets, numpy as np
-        from numba import cuda
-        from cuml import ForestInference
+        >>> import sklearn, sklearn.datasets
+        >>> import numpy as np
+        >>> from numba import cuda
+        >>> from cuml import ForestInference
 
-        model_path = 'xgb.model'
-        X_test, y_test = sklearn.datasets.make_classification()
-        X_gpu = cuda.to_device(np.ascontiguousarray(X_test.astype(np.float32)))
-        fm = ForestInference.load(model_path, output_class=True)
-        fil_preds_gpu = fm.predict(X_gpu)
-        accuracy_score = sklearn.metrics.accuracy_score(y_test,
-                       np.asarray(fil_preds_gpu))
+        >>> model_path = 'xgb.model'
+        >>> X_test, y_test = sklearn.datasets.make_classification()
+        >>> X_gpu = cuda.to_device(
+        ...     np.ascontiguousarray(X_test.astype(np.float32)))
+        >>> fm = ForestInference.load(
+        ...     model_path, output_class=True) # doctest: +SKIP
+        >>> fil_preds_gpu = fm.predict(X_gpu) # doctest: +SKIP
+        >>> accuracy_score = sklearn.metrics.accuracy_score(y_test,
+        ...     np.asarray(fil_preds_gpu)) # doctest: +SKIP
 
     Notes
     ------

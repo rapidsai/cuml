@@ -70,9 +70,9 @@ struct FilTestParams {
   // Order Of Magnitude for maximum matching category for categorical nodes
   float max_magnitude_of_matching_cat = 1.0f;
   // output parameters
-  output_t output   = output_t::RAW;
-  float threshold   = 0.0f;
-  float global_bias = 0.0f;
+  output_t output    = output_t::RAW;
+  double threshold   = 0.0f;
+  double global_bias = 0.0f;
   // runtime parameters
   int blocks_per_sm       = 0;
   int threads_per_tree    = 1;
@@ -131,14 +131,19 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
   return os;
 }
 
-__global__ void nan_kernel(float* data, const bool* mask, int len, float nan)
+template <typename real_t>
+__global__ void nan_kernel(real_t* data, const bool* mask, int len, real_t nan)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;
   if (!mask[tid]) data[tid] = nan;
 }
 
-float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
+template <typename real_t>
+real_t sigmoid(real_t x)
+{
+  return real_t(1) / (real_t(1) + exp(-x));
+}
 
 void hard_clipped_bernoulli(
   raft::random::Rng rng, float* d, std::size_t n_vals, float prob_of_zero, cudaStream_t stream)
@@ -154,23 +159,24 @@ void hard_clipped_bernoulli(
     });
 }
 
+template <typename real_t>
 struct replace_some_floating_with_categorical {
   float* fid_num_cats_d;
   int num_cols;
-  __device__ float operator()(float data, int data_idx)
+  __device__ real_t operator()(real_t data, int data_idx)
   {
-    float fid_num_cats = fid_num_cats_d[data_idx % num_cols];
-    if (fid_num_cats == 0.0f) return data;
+    auto fid_num_cats = static_cast<real_t>(fid_num_cats_d[data_idx % num_cols]);
+    if (fid_num_cats == real_t(0)) return data;
     // Transform `data` from (uniform on) [-1.0, 1.0] into [-fid_num_cats-3, fid_num_cats+3].
-    float tmp = data * (fid_num_cats + 3.0f);
+    real_t tmp = data * (fid_num_cats + real_t(3));
     // Also test invalid (negative and above fid_num_cats) categories: samples within
     // [fid_num_cats+2.5, fid_num_cats+3) and opposite will test infinite floats as categorical.
-    if (tmp + fid_num_cats < -2.5f) return -INFINITY;
-    if (tmp - fid_num_cats > +2.5f) return +INFINITY;
+    if (tmp + fid_num_cats < real_t(-2.5f)) return -std::numeric_limits<real_t>::infinity();
+    if (tmp - fid_num_cats > real_t(+2.5f)) return +std::numeric_limits<real_t>::infinity();
     // Samples within [fid_num_cats+2, fid_num_cats+2.5) (and their negative counterparts) will
     // test huge invalid categories.
-    if (tmp + fid_num_cats < -2.0f) tmp -= MAX_FIL_INT_FLOAT;
-    if (tmp - fid_num_cats > +2.0f) tmp += MAX_FIL_INT_FLOAT;
+    if (tmp + fid_num_cats < real_t(-2.0f)) tmp -= real_t(MAX_FIL_INT_FLOAT);
+    if (tmp - fid_num_cats > real_t(+2.0f)) tmp += real_t(MAX_FIL_INT_FLOAT);
     // Samples within [0, fid_num_cats+2) will be valid categories, rounded towards 0 with a cast.
     // Negative categories are always invalid. For correct interpretation, see
     // cpp/src/fil/internal.cuh `int category_matches(node_t node, float category)`
@@ -178,7 +184,8 @@ struct replace_some_floating_with_categorical {
   }
 };
 
-__global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t size)
+template <typename real_t>
+__global__ void floats_to_bit_stream_k(uint8_t* dst, real_t* src, std::size_t size)
 {
   std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
@@ -189,8 +196,9 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   dst[idx] = byte;
 }
 
+template <typename real_t>
 void adjust_threshold_to_treelite(
-  float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
+  real_t* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
@@ -206,12 +214,12 @@ void adjust_threshold_to_treelite(
     case tl::Operator::kLT: break;
     case tl::Operator::kLE:
       // x <= y is equivalent to x < y', where y' is the next representable float
-      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<float>::infinity());
+      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<real_t>::infinity());
       break;
     case tl::Operator::kGT:
       // x > y is equivalent to x >= y', where y' is the next representable float
       // left and right still need to be swapped
-      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<float>::infinity());
+      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<real_t>::infinity());
     case tl::Operator::kGE:
       // swap left and right
       std::swap(*tl_left, *tl_right);
@@ -221,6 +229,7 @@ void adjust_threshold_to_treelite(
   }
 }
 
+template <typename real_t>
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  public:
   BaseFilTest()
@@ -252,9 +261,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     size_t num_nodes = forest_num_nodes();
 
     // helper data
-    /// weights, used as float* or int*
-    rmm::device_uvector<int> weights_d(num_nodes, stream);
-    rmm::device_uvector<float> thresholds_d(num_nodes, stream);
+    rmm::device_uvector<int> weights_int_d(num_nodes, stream);
+    rmm::device_uvector<real_t> weights_real_d(num_nodes, stream);
+    rmm::device_uvector<real_t> thresholds_d(num_nodes, stream);
     rmm::device_uvector<bool> def_lefts_d(num_nodes, stream);
     rmm::device_uvector<bool> is_leafs_d(num_nodes, stream);
     rmm::device_uvector<float> is_categoricals_d(num_nodes, stream);
@@ -266,25 +275,25 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::random::Rng r(ps.seed);
     if (ps.leaf_algo == fil::leaf_algo_t::CATEGORICAL_LEAF) {
       // [0..num_classes)
-      r.uniformInt((int*)weights_d.data(), num_nodes, 0, ps.num_classes, stream);
+      r.uniformInt(weights_int_d.data(), num_nodes, 0, ps.num_classes, stream);
     } else if (ps.leaf_algo == fil::leaf_algo_t::VECTOR_LEAF) {
       std::mt19937 gen(3);
-      std::uniform_real_distribution<> dist(0, 1);
+      std::uniform_real_distribution<real_t> dist(0, 1);
       vector_leaf.resize(num_nodes * ps.num_classes);
       for (size_t i = 0; i < vector_leaf.size(); i++) {
         vector_leaf[i] = dist(gen);
       }
       // Normalise probabilities to 1
       for (size_t i = 0; i < vector_leaf.size(); i += ps.num_classes) {
-        auto sum = std::accumulate(&vector_leaf[i], &vector_leaf[i + ps.num_classes], 0.0f);
+        auto sum = std::accumulate(&vector_leaf[i], &vector_leaf[i + ps.num_classes], real_t(0));
         for (size_t j = i; j < i + ps.num_classes; j++) {
           vector_leaf[j] /= sum;
         }
       }
     } else {
-      r.uniform((float*)weights_d.data(), num_nodes, -1.0f, 1.0f, stream);
+      r.uniform(weights_real_d.data(), num_nodes, real_t(-1), real_t(1), stream);
     }
-    r.uniform(thresholds_d.data(), num_nodes, -1.0f, 1.0f, stream);
+    r.uniform(thresholds_d.data(), num_nodes, real_t(-1), real_t(1), stream);
     r.uniformInt(fids_d.data(), num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d.data(), num_nodes, 0.5f, stream);
     r.bernoulli(is_leafs_d.data(), num_nodes, ps.leaf_prob, stream);
@@ -292,8 +301,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       r, is_categoricals_d.data(), num_nodes, 1.0f - ps.node_categorical_prob, stream);
 
     // copy data to host
-    std::vector<float> thresholds_h(num_nodes), is_categoricals_h(num_nodes);
-    std::vector<int> weights_h(num_nodes), fids_h(num_nodes), node_cat_set(num_nodes);
+    std::vector<real_t> thresholds_h(num_nodes), weights_real_h(num_nodes);
+    std::vector<float> is_categoricals_h(num_nodes);
+    std::vector<int> weights_int_h(num_nodes), fids_h(num_nodes), node_cat_set(num_nodes);
     std::vector<float> fid_num_cats_h(ps.num_cols);
     std::vector<bool> feature_categorical(ps.num_cols);
     // bool vectors are not guaranteed to be stored byte-per-value
@@ -320,7 +330,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         cat_sets_h.fid_num_cats[fid] = 0.0f;
       }
     }
-    raft::update_host(weights_h.data(), (int*)weights_d.data(), num_nodes, stream);
+    raft::update_host(weights_int_h.data(), weights_int_d.data(), num_nodes, stream);
+    raft::update_host(weights_real_h.data(), weights_real_d.data(), num_nodes, stream);
     raft::update_host(thresholds_h.data(), thresholds_d.data(), num_nodes, stream);
     raft::update_host(fids_h.data(), fids_d.data(), num_nodes, stream);
     raft::update_host(def_lefts_h, def_lefts_d.data(), num_nodes, stream);
@@ -346,7 +357,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
       if (!feature_categorical[fid] || is_leafs_h[node_id]) is_categoricals_h[node_id] = 0.0f;
 
-      if (is_categoricals_h[node_id] == 1.0) {
+      if (is_categoricals_h[node_id] == 1.0f) {
         // might allocate a categorical set for an unreachable inner node. That's OK.
         ++cat_sets_h.n_nodes[fid];
         node_cat_set[node_id] = bit_pool_size;
@@ -378,27 +389,27 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // initialize nodes
     nodes.resize(num_nodes);
     for (size_t i = 0; i < num_nodes; ++i) {
-      fil::val_t<float> w;
+      fil::val_t<real_t> w;
       switch (ps.leaf_algo) {
-        case fil::leaf_algo_t::CATEGORICAL_LEAF: w.idx = weights_h[i]; break;
+        case fil::leaf_algo_t::CATEGORICAL_LEAF: w.idx = weights_int_h[i]; break;
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // not relying on fil::val_t<float> internals
           // merely that we copied floats into weights_h earlier
-          std::memcpy(&w.f, &weights_h[i], sizeof w.f);
+          w.f = weights_real_h[i];
           break;
         case fil::leaf_algo_t::VECTOR_LEAF: w.idx = i; break;
         default: ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       // make sure nodes are categorical only when their feature ID is categorical
       bool is_categorical = is_categoricals_h[i] == 1.0f;
-      val_t<float> split;
+      val_t<real_t> split;
       if (is_categorical)
         split.idx = node_cat_set[i];
       else
         split.f = thresholds_h[i];
       nodes[i] =
-        fil::dense_node<float>(w, split, fids_h[i], def_lefts_h[i], is_leafs_h[i], is_categorical);
+        fil::dense_node<real_t>(w, split, fids_h[i], def_lefts_h[i], is_leafs_h[i], is_categorical);
     }
 
     // clean up
@@ -416,17 +427,18 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate random data
     raft::random::Rng r(ps.seed);
-    r.uniform(data_d.data(), num_data, -1.0f, 1.0f, stream);
-    thrust::transform(thrust::cuda::par.on(stream),
-                      data_d.data(),
-                      data_d.data() + num_data,
-                      thrust::counting_iterator(0),
-                      data_d.data(),
-                      replace_some_floating_with_categorical{fid_num_cats_d.data(), ps.num_cols});
+    r.uniform(data_d.data(), num_data, real_t(-1), real_t(1), stream);
+    thrust::transform(
+      thrust::cuda::par.on(stream),
+      data_d.data(),
+      data_d.data() + num_data,
+      thrust::counting_iterator(0),
+      data_d.data(),
+      replace_some_floating_with_categorical<real_t>{fid_num_cats_d.data(), ps.num_cols});
     r.bernoulli(mask_d.data(), num_data, 1 - ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
-      data_d.data(), mask_d.data(), num_data, std::numeric_limits<float>::quiet_NaN());
+      data_d.data(), mask_d.data(), num_data, std::numeric_limits<real_t>::quiet_NaN());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // copy to host
@@ -435,48 +447,48 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     handle.sync_stream();
   }
 
-  void apply_softmax(float* class_scores)
+  void apply_softmax(real_t* class_scores)
   {
-    float max = *std::max_element(class_scores, &class_scores[ps.num_classes]);
+    real_t max = *std::max_element(class_scores, &class_scores[ps.num_classes]);
     for (int i = 0; i < ps.num_classes; ++i)
-      class_scores[i] = expf(class_scores[i] - max);
-    float sum = std::accumulate(class_scores, &class_scores[ps.num_classes], 0.0f);
+      class_scores[i] = exp(class_scores[i] - max);
+    real_t sum = std::accumulate(class_scores, &class_scores[ps.num_classes], real_t(0));
     for (int i = 0; i < ps.num_classes; ++i)
       class_scores[i] /= sum;
   }
 
-  void transform(float f, float& proba, float& output)
+  void transform(real_t f, real_t& proba, real_t& output)
   {
     if ((ps.output & fil::output_t::AVG) != 0) {
       if (ps.leaf_algo == fil::leaf_algo_t::GROVE_PER_CLASS) {
         f /= ps.num_trees / ps.num_classes;
       } else {
-        f *= 1.0f / ps.num_trees;
+        f *= real_t(1) / ps.num_trees;
       }
     }
     f += ps.global_bias;
     if ((ps.output & fil::output_t::SIGMOID) != 0) { f = sigmoid(f); }
     proba = f;
-    if ((ps.output & fil::output_t::CLASS) != 0) { f = f > ps.threshold ? 1.0f : 0.0f; }
+    if ((ps.output & fil::output_t::CLASS) != 0) { f = f > ps.threshold ? real_t(1) : real_t(0); }
     output = f;
   }
 
-  void complement(float* proba) { proba[0] = 1.0f - proba[1]; }
+  void complement(real_t* proba) { proba[0] = real_t(1) - proba[1]; }
 
   void predict_on_cpu()
   {
     auto stream = handle.get_stream();
     // predict on host
-    std::vector<float> want_preds_h(ps.num_preds_outputs());
+    std::vector<real_t> want_preds_h(ps.num_preds_outputs());
     want_proba_h.resize(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
-    std::vector<float> class_scores(ps.num_classes);
+    std::vector<real_t> class_scores(ps.num_classes);
     // we use tree_base::child_index() on CPU
     tree_base base{cat_sets_h.accessor()};
     switch (ps.leaf_algo) {
       case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         for (int i = 0; i < ps.num_rows; ++i) {
-          float pred = 0.0f;
+          real_t pred = 0;
           for (int j = 0; j < ps.num_trees; ++j) {
             pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols], base).f;
           }
@@ -486,7 +498,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         break;
       case fil::leaf_algo_t::GROVE_PER_CLASS:
         for (int row = 0; row < ps.num_rows; ++row) {
-          std::fill(class_scores.begin(), class_scores.end(), 0.0f);
+          std::fill(class_scores.begin(), class_scores.end(), real_t(0));
           for (int tree = 0; tree < ps.num_trees; ++tree) {
             class_scores[tree % ps.num_classes] +=
               infer_one_tree(&nodes[tree * num_nodes], &data_h[row * ps.num_cols], base).f;
@@ -494,7 +506,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           want_preds_h[row] =
             std::max_element(class_scores.begin(), class_scores.end()) - class_scores.begin();
           for (int c = 0; c < ps.num_classes; ++c) {
-            float thresholded_proba;  // not used;
+            real_t thresholded_proba;  // not used;
             transform(class_scores[c], want_proba_h[row * ps.num_classes + c], thresholded_proba);
           }
           if ((ps.output & fil::output_t::SOFTMAX) != 0)
@@ -511,7 +523,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             ++class_votes[class_label];
           }
           for (int c = 0; c < ps.num_classes; ++c) {
-            float thresholded_proba;  // not used; do argmax instead
+            real_t thresholded_proba;  // not used; do argmax instead
             transform(class_votes[c], want_proba_h[r * ps.num_classes + c], thresholded_proba);
           }
           want_preds_h[r] =
@@ -521,16 +533,16 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       }
       case fil::leaf_algo_t::VECTOR_LEAF:
         for (int r = 0; r < ps.num_rows; ++r) {
-          std::vector<float> class_probabilities(ps.num_classes);
+          std::vector<real_t> class_probabilities(ps.num_classes);
           for (int j = 0; j < ps.num_trees; ++j) {
             int vector_index =
               infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols], base).idx;
-            float sum = 0.0;
+            real_t sum = 0;
             for (int k = 0; k < ps.num_classes; k++) {
               class_probabilities[k] += vector_leaf[vector_index * ps.num_classes + k];
               sum += vector_leaf[vector_index * ps.num_classes + k];
             }
-            ASSERT_LE(std::abs(sum - 1.0f), 1e-5);
+            ASSERT_LE(std::abs(sum - real_t(1)), real_t(1e-5));
           }
 
           for (int c = 0; c < ps.num_classes; ++c) {
@@ -553,12 +565,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     handle.sync_stream();
   }
 
-  virtual void init_forest(fil::forest_t* pforest) = 0;
+  virtual void init_forest(fil::forest_t<real_t>* pforest) = 0;
 
   void predict_on_gpu()
   {
-    auto stream          = handle.get_stream();
-    fil::forest_t forest = nullptr;
+    auto stream                  = handle.get_stream();
+    fil::forest_t<real_t> forest = nullptr;
     init_forest(&forest);
 
     // predict
@@ -577,29 +589,31 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     ASSERT_TRUE(raft::devArrMatch(want_proba_d.data(),
                                   proba_d.data(),
                                   ps.num_proba_outputs(),
-                                  raft::CompareApprox<float>(ps.tolerance),
+                                  raft::CompareApprox<real_t>(ps.tolerance),
                                   stream));
     float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY
                         ? ps.tolerance
-                        : std::numeric_limits<float>::epsilon();
+                        : std::numeric_limits<real_t>::epsilon();
     // in multi-class prediction, floats represent the most likely class
     // and would be generated by converting an int to float
     ASSERT_TRUE(raft::devArrMatch(want_preds_d.data(),
                                   preds_d.data(),
                                   ps.num_rows,
-                                  raft::CompareApprox<float>(tolerance),
+                                  raft::CompareApprox<real_t>(tolerance),
                                   stream));
   }
 
-  fil::val_t<float> infer_one_tree(fil::dense_node<float>* root, float* data, const tree_base& tree)
+  fil::val_t<real_t> infer_one_tree(fil::dense_node<real_t>* root,
+                                    real_t* data,
+                                    const tree_base& tree)
   {
     int curr = 0;
-    fil::val_t<float> output{.f = 0.0f};
+    fil::val_t<real_t> output{.f = 0.0f};
     for (;;) {
-      const fil::dense_node<float>& node = root[curr];
-      if (node.is_leaf()) return node.template output<val_t<float>>();
-      float val = data[node.fid()];
-      curr      = tree.child_index<true>(node, curr, val);
+      const fil::dense_node<real_t>& node = root[curr];
+      if (node.is_leaf()) return node.template output<val_t<real_t>>();
+      real_t val = data[node.fid()];
+      curr       = tree.child_index<true>(node, curr, val);
     }
     return output;
   }
@@ -614,37 +628,44 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   cudaStream_t stream = 0;
 
   // predictions
-  rmm::device_uvector<float> preds_d;
-  rmm::device_uvector<float> proba_d;
-  rmm::device_uvector<float> want_preds_d;
-  rmm::device_uvector<float> want_proba_d;
+  rmm::device_uvector<real_t> preds_d;
+  rmm::device_uvector<real_t> proba_d;
+  rmm::device_uvector<real_t> want_preds_d;
+  rmm::device_uvector<real_t> want_proba_d;
 
   // input data
-  rmm::device_uvector<float> data_d;
-  std::vector<float> data_h;
-  std::vector<float> want_proba_h;
+  rmm::device_uvector<real_t> data_d;
+  std::vector<real_t> data_h;
+  std::vector<real_t> want_proba_h;
 
   // forest data
-  std::vector<fil::dense_node<float>> nodes;
-  std::vector<float> vector_leaf;
+  std::vector<fil::dense_node<real_t>> nodes;
+  std::vector<real_t> vector_leaf;
   cat_sets_owner cat_sets_h;
   rmm::device_uvector<int> fids_d           = rmm::device_uvector<int>(0, cudaStream_t());
   rmm::device_uvector<float> fid_num_cats_d = rmm::device_uvector<float>(0, cudaStream_t());
 };
 
 template <typename fil_node_t>
-class BasePredictFilTest : public BaseFilTest {
+class BasePredictFilTest : public BaseFilTest<typename fil_node_t::real_type> {
+  using real_t = typename fil_node_t::real_type;
+
  protected:
-  void dense2sparse_node(const fil::dense_node<float>* dense_root,
+  void dense2sparse_node(const fil::dense_node<real_t>* dense_root,
                          int i_dense,
                          int i_sparse_root,
                          int i_sparse)
   {
-    const fil::dense_node<float>& node = dense_root[i_dense];
+    const fil::dense_node<real_t>& node = dense_root[i_dense];
     if (node.is_leaf()) {
       // leaf sparse node
-      sparse_nodes[i_sparse] = fil_node_t(
-        node.output<val_t<float>>(), {}, node.fid(), node.def_left(), node.is_leaf(), false, 0);
+      sparse_nodes[i_sparse] = fil_node_t(node.template output<fil::val_t<real_t>>(),
+                                          {},
+                                          node.fid(),
+                                          node.def_left(),
+                                          node.is_leaf(),
+                                          false,
+                                          0);
       return;
     }
     // inner sparse node
@@ -663,7 +684,7 @@ class BasePredictFilTest : public BaseFilTest {
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root, left_index + 1);
   }
 
-  void dense2sparse_tree(const fil::dense_node<float>* dense_root)
+  void dense2sparse_tree(const fil::dense_node<real_t>* dense_root)
   {
     int i_sparse_root = sparse_nodes.size();
     sparse_nodes.push_back(fil_node_t());
@@ -673,12 +694,12 @@ class BasePredictFilTest : public BaseFilTest {
 
   void dense2sparse()
   {
-    for (int tree = 0; tree < ps.num_trees; ++tree) {
-      dense2sparse_tree(&nodes[tree * tree_num_nodes()]);
+    for (int tree = 0; tree < this->ps.num_trees; ++tree) {
+      dense2sparse_tree(&this->nodes[tree * this->tree_num_nodes()]);
     }
   }
 
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<real_t>* pforest) override
   {
     constexpr bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
     std::vector<fil_node_t> init_nodes;
@@ -686,31 +707,31 @@ class BasePredictFilTest : public BaseFilTest {
       dense2sparse();
       init_nodes = sparse_nodes;
     } else {
-      init_nodes = nodes;
+      init_nodes = this->nodes;
     }
     ASSERT(init_nodes.size() < std::size_t(INT_MAX), "generated too many nodes");
 
     // init FIL model
     fil::forest_params_t fil_params = {
       .num_nodes        = static_cast<int>(init_nodes.size()),
-      .depth            = ps.depth,
-      .num_trees        = ps.num_trees,
-      .num_cols         = ps.num_cols,
-      .leaf_algo        = ps.leaf_algo,
-      .algo             = ps.algo,
-      .output           = ps.output,
-      .threshold        = ps.threshold,
-      .global_bias      = ps.global_bias,
-      .num_classes      = ps.num_classes,
-      .blocks_per_sm    = ps.blocks_per_sm,
-      .threads_per_tree = ps.threads_per_tree,
-      .n_items          = ps.n_items,
+      .depth            = this->ps.depth,
+      .num_trees        = this->ps.num_trees,
+      .num_cols         = this->ps.num_cols,
+      .leaf_algo        = this->ps.leaf_algo,
+      .algo             = this->ps.algo,
+      .output           = this->ps.output,
+      .threshold        = this->ps.threshold,
+      .global_bias      = this->ps.global_bias,
+      .num_classes      = this->ps.num_classes,
+      .blocks_per_sm    = this->ps.blocks_per_sm,
+      .threads_per_tree = this->ps.threads_per_tree,
+      .n_items          = this->ps.n_items,
     };
 
-    fil::init(handle,
+    fil::init(this->handle,
               pforest,
-              cat_sets_h.accessor(),
-              vector_leaf,
+              this->cat_sets_h.accessor(),
+              this->vector_leaf,
               trees.data(),
               init_nodes.data(),
               &fil_params);
@@ -719,11 +740,14 @@ class BasePredictFilTest : public BaseFilTest {
   std::vector<int> trees;
 };
 
-typedef BasePredictFilTest<fil::dense_node<float>> PredictDenseFilTest;
-typedef BasePredictFilTest<fil::sparse_node16<float>> PredictSparse16FilTest;
-typedef BasePredictFilTest<fil::sparse_node8> PredictSparse8FilTest;
+using PredictDenseFloat32FilTest    = BasePredictFilTest<fil::dense_node<float>>;
+using PredictDenseFloat64FilTest    = BasePredictFilTest<fil::dense_node<double>>;
+using PredictSparse16Float32FilTest = BasePredictFilTest<fil::sparse_node16<float>>;
+using PredictSparse16Float64FilTest = BasePredictFilTest<fil::sparse_node16<double>>;
+using PredictSparse8FilTest         = BasePredictFilTest<fil::sparse_node8>;
 
-class TreeliteFilTest : public BaseFilTest {
+template <typename real_t>
+class TreeliteFilTest : public BaseFilTest<real_t> {
  protected:
   /** adds nodes[node] of tree starting at index root to builder
       at index at *pkey, increments *pkey,
@@ -732,28 +756,29 @@ class TreeliteFilTest : public BaseFilTest {
   {
     int key = (*pkey)++;
     builder->CreateNode(key);
-    const fil::dense_node<float>& dense_node = nodes[node];
+    const fil::dense_node<real_t>& dense_node = this->nodes[node];
     std::vector<std::uint32_t> left_categories;
     if (dense_node.is_leaf()) {
-      switch (ps.leaf_algo) {
+      switch (this->ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
-          builder->SetLeafNode(key, tlf::Value::Create(dense_node.output<float>()));
+          builder->SetLeafNode(key, tlf::Value::Create(dense_node.template output<real_t>()));
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF: {
-          std::vector<tlf::Value> vec(ps.num_classes);
-          for (int i = 0; i < ps.num_classes; ++i) {
-            vec[i] = tlf::Value::Create(i == dense_node.output<int>() ? 1.0f : 0.0f);
+          std::vector<tlf::Value> vec(this->ps.num_classes);
+          for (int i = 0; i < this->ps.num_classes; ++i) {
+            vec[i] =
+              tlf::Value::Create(i == dense_node.template output<int>() ? real_t(1) : real_t(0));
           }
           builder->SetLeafVectorNode(key, vec);
           break;
         }
         case fil::leaf_algo_t::VECTOR_LEAF: {
-          std::vector<tlf::Value> vec(ps.num_classes);
-          for (int i = 0; i < ps.num_classes; ++i) {
-            auto idx = dense_node.output<int>();
-            vec[i]   = tlf::Value::Create(vector_leaf[idx * ps.num_classes + i]);
+          std::vector<tlf::Value> vec(this->ps.num_classes);
+          for (int i = 0; i < this->ps.num_classes; ++i) {
+            auto idx = dense_node.template output<int>();
+            vec[i]   = tlf::Value::Create(this->vector_leaf[idx * this->ps.num_classes + i]);
           }
           builder->SetLeafVectorNode(key, vec);
           break;
@@ -765,14 +790,15 @@ class TreeliteFilTest : public BaseFilTest {
       int left          = root + 2 * (node - root) + 1;
       int right         = root + 2 * (node - root) + 2;
       bool default_left = dense_node.def_left();
-      float threshold   = dense_node.is_categorical() ? NAN : dense_node.thresh();
+      real_t threshold  = dense_node.is_categorical() ? std::numeric_limits<real_t>::quiet_NaN()
+                                                      : dense_node.thresh();
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
         for (int category = 0;
-             category < static_cast<int>(cat_sets_h.fid_num_cats[dense_node.fid()]);
+             category < static_cast<int>(this->cat_sets_h.fid_num_cats[dense_node.fid()]);
              ++category) {
           if (category % BITS_PER_BYTE == 0) {
-            byte = cat_sets_h.bits[dense_node.set() + category / BITS_PER_BYTE];
+            byte = this->cat_sets_h.bits[dense_node.set() + category / BITS_PER_BYTE];
           }
           if ((byte & (1 << (category % BITS_PER_BYTE))) != 0) {
             left_categories.push_back(category);
@@ -793,10 +819,10 @@ class TreeliteFilTest : public BaseFilTest {
         builder->SetCategoricalTestNode(
           key, dense_node.fid(), left_categories, default_left, left_key, right_key);
       } else {
-        adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
+        adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, this->ps.op);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
-                                      ps.op,
+                                      this->ps.op,
                                       tlf::Value::Create(threshold),
                                       default_left,
                                       left_key,
@@ -806,28 +832,27 @@ class TreeliteFilTest : public BaseFilTest {
     return key;
   }
 
-  void init_forest_impl(fil::forest_t* pforest, fil::storage_type_t storage_type)
+  void init_forest_impl(fil::forest_t<real_t>* pforest, fil::storage_type_t storage_type)
   {
-    auto stream             = handle.get_stream();
-    bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
+    auto stream             = this->handle.get_stream();
+    bool random_forest_flag = (this->ps.output & fil::output_t::AVG) != 0;
+    tl::TypeInfo tl_type_info =
+      std::is_same_v<real_t, float> ? tl::TypeInfo::kFloat32 : tl::TypeInfo::kFloat64;
     int treelite_num_classes =
-      ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY ? 1 : ps.num_classes;
-    std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(ps.num_cols,
-                                                                           treelite_num_classes,
-                                                                           random_forest_flag,
-                                                                           tl::TypeInfo::kFloat32,
-                                                                           tl::TypeInfo::kFloat32));
+      this->ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY ? 1 : this->ps.num_classes;
+    std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(
+      this->ps.num_cols, treelite_num_classes, random_forest_flag, tl_type_info, tl_type_info));
 
     // prediction transform
-    if ((ps.output & fil::output_t::SIGMOID) != 0) {
-      if (ps.num_classes > 2)
+    if ((this->ps.output & fil::output_t::SIGMOID) != 0) {
+      if (this->ps.num_classes > 2)
         model_builder->SetModelParam("pred_transform", "multiclass_ova");
       else
         model_builder->SetModelParam("pred_transform", "sigmoid");
-    } else if (ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
+    } else if (this->ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
       model_builder->SetModelParam("pred_transform", "max_index");
-      ps.output = fil::output_t(ps.output | fil::output_t::CLASS);
-    } else if (ps.leaf_algo == GROVE_PER_CLASS) {
+      this->ps.output = fil::output_t(this->ps.output | fil::output_t::CLASS);
+    } else if (this->ps.leaf_algo == GROVE_PER_CLASS) {
       model_builder->SetModelParam("pred_transform", "identity_multiclass");
     } else {
       model_builder->SetModelParam("pred_transform", "identity");
@@ -835,18 +860,17 @@ class TreeliteFilTest : public BaseFilTest {
 
     // global bias
     char* global_bias_str = nullptr;
-    ASSERT(asprintf(&global_bias_str, "%f", double(ps.global_bias)) > 0,
+    ASSERT(asprintf(&global_bias_str, "%f", double(this->ps.global_bias)) > 0,
            "cannot convert global_bias into a string");
     model_builder->SetModelParam("global_bias", global_bias_str);
     ::free(global_bias_str);
 
     // build the trees
-    for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
-      tlf::TreeBuilder* tree_builder =
-        new tlf::TreeBuilder(tl::TypeInfo::kFloat32, tl::TypeInfo::kFloat32);
-      int key_counter = 0;
-      int root        = i_tree * tree_num_nodes();
-      int root_key    = node_to_treelite(tree_builder, &key_counter, root, root);
+    for (int i_tree = 0; i_tree < this->ps.num_trees; ++i_tree) {
+      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder(tl_type_info, tl_type_info);
+      int key_counter                = 0;
+      int root                       = i_tree * this->tree_num_nodes();
+      int root_key                   = node_to_treelite(tree_builder, &key_counter, root, root);
       tree_builder->SetRootNode(root_key);
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
@@ -858,17 +882,19 @@ class TreeliteFilTest : public BaseFilTest {
     // init FIL forest with the model
     char* forest_shape_str = nullptr;
     fil::treelite_params_t params;
-    params.algo              = ps.algo;
-    params.threshold         = ps.threshold;
-    params.output_class      = (ps.output & fil::output_t::CLASS) != 0;
+    params.algo              = this->ps.algo;
+    params.threshold         = this->ps.threshold;
+    params.output_class      = (this->ps.output & fil::output_t::CLASS) != 0;
     params.storage_type      = storage_type;
-    params.blocks_per_sm     = ps.blocks_per_sm;
-    params.threads_per_tree  = ps.threads_per_tree;
-    params.n_items           = ps.n_items;
-    params.pforest_shape_str = ps.print_forest_shape ? &forest_shape_str : nullptr;
-    fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
-    handle.sync_stream(stream);
-    if (ps.print_forest_shape) {
+    params.blocks_per_sm     = this->ps.blocks_per_sm;
+    params.threads_per_tree  = this->ps.threads_per_tree;
+    params.n_items           = this->ps.n_items;
+    params.pforest_shape_str = this->ps.print_forest_shape ? &forest_shape_str : nullptr;
+    fil::forest_variant forest_variant;
+    fil::from_treelite(this->handle, &forest_variant, (ModelHandle)model.get(), &params);
+    *pforest = std::get<fil::forest_t<real_t>>(forest_variant);
+    this->handle.sync_stream(stream);
+    if (this->ps.print_forest_shape) {
       std::string str(forest_shape_str);
       for (const char* substr : {"model size",
                                  " MB",
@@ -886,37 +912,47 @@ class TreeliteFilTest : public BaseFilTest {
   }
 };
 
-class TreeliteDenseFilTest : public TreeliteFilTest {
+template <typename real_t>
+class TreeliteDenseFilTest : public TreeliteFilTest<real_t> {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<real_t>* pforest) override
   {
-    init_forest_impl(pforest, fil::storage_type_t::DENSE);
+    this->init_forest_impl(pforest, fil::storage_type_t::DENSE);
   }
 };
 
-class TreeliteSparse16FilTest : public TreeliteFilTest {
+template <typename real_t>
+class TreeliteSparse16FilTest : public TreeliteFilTest<real_t> {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<real_t>* pforest) override
   {
-    init_forest_impl(pforest, fil::storage_type_t::SPARSE);
+    this->init_forest_impl(pforest, fil::storage_type_t::SPARSE);
   }
 };
 
-class TreeliteSparse8FilTest : public TreeliteFilTest {
+class TreeliteSparse8FilTest : public TreeliteFilTest<float> {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<float>* pforest) override
   {
-    init_forest_impl(pforest, fil::storage_type_t::SPARSE8);
+    this->init_forest_impl(pforest, fil::storage_type_t::SPARSE8);
   }
 };
 
-class TreeliteAutoFilTest : public TreeliteFilTest {
+template <typename real_t>
+class TreeliteAutoFilTest : public TreeliteFilTest<real_t> {
  protected:
-  void init_forest(fil::forest_t* pforest) override
+  void init_forest(fil::forest_t<real_t>* pforest) override
   {
-    init_forest_impl(pforest, fil::storage_type_t::AUTO);
+    this->init_forest_impl(pforest, fil::storage_type_t::AUTO);
   }
 };
+
+using TreeliteDenseFloat32FilTest    = TreeliteDenseFilTest<float>;
+using TreeliteDenseFloat64FilTest    = TreeliteDenseFilTest<double>;
+using TreeliteSparse16Float32FilTest = TreeliteDenseFilTest<float>;
+using TreeliteSparse16Float64FilTest = TreeliteDenseFilTest<double>;
+using TreeliteAutoFloat32FilTest     = TreeliteAutoFilTest<float>;
+using TreeliteAutoFloat64FilTest     = TreeliteAutoFilTest<double>;
 
 // test for failures; currently only supported for sparse8 nodes
 class TreeliteThrowSparse8FilTest : public TreeliteSparse8FilTest {
@@ -1086,9 +1122,15 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   max_magnitude_of_matching_cat = 5),
 };
 
-TEST_P(PredictDenseFilTest, Predict) { compare(); }
+TEST_P(PredictDenseFloat32FilTest, Predict) { compare(); }
+TEST_P(PredictDenseFloat64FilTest, Predict) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, PredictDenseFilTest, testing::ValuesIn(predict_dense_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictDenseFloat32FilTest,
+                        testing::ValuesIn(predict_dense_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictDenseFloat64FilTest,
+                        testing::ValuesIn(predict_dense_inputs));
 
 std::vector<FilTestParams> predict_sparse_inputs = {
   FIL_TEST_PARAMS(),
@@ -1164,10 +1206,15 @@ std::vector<FilTestParams> predict_sparse_inputs = {
                   max_magnitude_of_matching_cat = 5),
 };
 
-TEST_P(PredictSparse16FilTest, Predict) { compare(); }
+TEST_P(PredictSparse16Float32FilTest, Predict) { compare(); }
+TEST_P(PredictSparse16Float64FilTest, Predict) { compare(); }
 
-// Temporarily disabled, see https://github.com/rapidsai/cuml/issues/3205
-INSTANTIATE_TEST_CASE_P(FilTests, PredictSparse16FilTest, testing::ValuesIn(predict_sparse_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictSparse16Float32FilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        PredictSparse16Float64FilTest,
+                        testing::ValuesIn(predict_sparse_inputs));
 
 TEST_P(PredictSparse8FilTest, Predict) { compare(); }
 
@@ -1267,9 +1314,15 @@ std::vector<FilTestParams> import_dense_inputs = {
                   max_magnitude_of_matching_cat = 5),
 };
 
-TEST_P(TreeliteDenseFilTest, Import) { compare(); }
+TEST_P(TreeliteDenseFloat32FilTest, Import) { compare(); }
+TEST_P(TreeliteDenseFloat64FilTest, Import) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, TreeliteDenseFilTest, testing::ValuesIn(import_dense_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        TreeliteDenseFloat32FilTest,
+                        testing::ValuesIn(import_dense_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        TreeliteDenseFloat64FilTest,
+                        testing::ValuesIn(import_dense_inputs));
 
 std::vector<FilTestParams> import_sparse_inputs = {
   FIL_TEST_PARAMS(),
@@ -1320,9 +1373,15 @@ std::vector<FilTestParams> import_sparse_inputs = {
                   max_magnitude_of_matching_cat = 5),
 };
 
-TEST_P(TreeliteSparse16FilTest, Import) { compare(); }
+TEST_P(TreeliteSparse16Float32FilTest, Import) { compare(); }
+TEST_P(TreeliteSparse16Float64FilTest, Import) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, TreeliteSparse16FilTest, testing::ValuesIn(import_sparse_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        TreeliteSparse16Float32FilTest,
+                        testing::ValuesIn(import_sparse_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        TreeliteSparse16Float64FilTest,
+                        testing::ValuesIn(import_sparse_inputs));
 
 TEST_P(TreeliteSparse8FilTest, Import) { compare(); }
 
@@ -1348,9 +1407,15 @@ std::vector<FilTestParams> import_auto_inputs = {
 #endif
 };
 
-TEST_P(TreeliteAutoFilTest, Import) { compare(); }
+TEST_P(TreeliteAutoFloat32FilTest, Import) { compare(); }
+TEST_P(TreeliteAutoFloat64FilTest, Import) { compare(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, TreeliteAutoFilTest, testing::ValuesIn(import_auto_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        TreeliteAutoFloat32FilTest,
+                        testing::ValuesIn(import_auto_inputs));
+INSTANTIATE_TEST_CASE_P(FilTests,
+                        TreeliteAutoFloat64FilTest,
+                        testing::ValuesIn(import_auto_inputs));
 
 // adjust test parameters if the sparse8 format changes
 std::vector<FilTestParams> import_throw_sparse8_inputs = {
