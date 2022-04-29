@@ -100,6 +100,25 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                 float* embeddings)
 
 
+cdef class GraphHolder:
+    cdef unique_ptr[COO] c_graph
+
+    def vals(self):
+        return <uintptr_t>self.c_graph.get().vals()
+
+    def rows(self):
+        return <uintptr_t>self.c_graph.get().rows()
+
+    def cols(self):
+        return <uintptr_t>self.c_graph.get().cols()
+
+    def get_nnz(self):
+        return self.c_graph.get().nnz
+
+    def __dealloc__(self):
+        self.c_graph.reset(NULL)
+
+
 def fuzzy_simplicial_set(X,
                          n_neighbors,
                          random_state=None,
@@ -214,7 +233,8 @@ def fuzzy_simplicial_set(X,
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef unique_ptr[COO] fss_graph = get_graph(
+    fss_graph = GraphHolder()
+    fss_graph.c_graph = get_graph(
         handle_[0],
         <float*><uintptr_t> X_ptr,
         <float*><uintptr_t> NULL,
@@ -224,23 +244,20 @@ def fuzzy_simplicial_set(X,
         <float*><uintptr_t> knn_dists_ptr,
         <UMAPParams*> umap_params)
 
-    cdef int nnz = fss_graph.get().nnz
+    cdef int nnz = fss_graph.get_nnz()
     coo_arrays = []
-    for ptr, dtype in [(<uintptr_t>fss_graph.get().vals(), np.float32),
-                       (<uintptr_t>fss_graph.get().rows(), np.int32),
-                       (<uintptr_t>fss_graph.get().cols(), np.int32)]:
+    for ptr, dtype in [(fss_graph.vals(), np.float32),
+                       (fss_graph.rows(), np.int32),
+                       (fss_graph.cols(), np.int32)]:
         mem = cp.cuda.UnownedMemory(ptr=ptr,
                                     size=nnz * np.dtype(dtype).itemsize,
-                                    owner=None,
+                                    owner=fss_graph,
                                     device_id=-1)
         memptr = cp.cuda.memory.MemoryPointer(mem, 0)
         coo_arrays.append(cp.ndarray(nnz, dtype=dtype, memptr=memptr))
 
     result = cp.sparse.coo_matrix(((coo_arrays[0],
                                     (coo_arrays[1], coo_arrays[2]))))
-
-    # TODO : remove this copy once RAFT sparse objects are redesigned
-    result = result.copy()
 
     return result
 
