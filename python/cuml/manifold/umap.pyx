@@ -30,6 +30,8 @@ import cupyx
 
 import numba.cuda as cuda
 
+from cuml.manifold.umap_utils cimport *
+
 from cuml.common.sparsefuncs import extract_knn_graph
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
@@ -55,53 +57,12 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 
 import rmm
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdint cimport uint64_t
-from libc.stdint cimport int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
-
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
-
-    enum MetricType:
-        EUCLIDEAN = 0,
-        CATEGORICAL = 1
-
-cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
-
-    cdef cppclass GraphBasedDimRedCallback
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
-
-    cdef cppclass UMAPParams:
-        int n_neighbors,
-        int n_components,
-        int n_epochs,
-        float learning_rate,
-        float min_dist,
-        float spread,
-        float set_op_mix_ratio,
-        float local_connectivity,
-        float repulsion_strength,
-        int negative_sample_rate,
-        float transform_queue_size,
-        int verbosity,
-        float a,
-        float b,
-        float initial_alpha,
-        int init,
-        int target_n_neighbors,
-        MetricType target_metric,
-        float target_weight,
-        uint64_t random_state,
-        bool deterministic,
-        int optim_batch_size,
-        GraphBasedDimRedCallback * callback
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":

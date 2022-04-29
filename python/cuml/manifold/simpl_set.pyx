@@ -19,6 +19,8 @@
 import numpy as np
 import cupy as cp
 
+from cuml.manifold.umap_utils cimport *
+
 import cuml.internals
 from cuml.common.base import Base
 from cuml.common.input_utils import input_to_cuml_array
@@ -30,44 +32,7 @@ from raft.common.handle cimport handle_t
 from raft.common.handle import Handle
 
 from libc.stdint cimport uintptr_t
-from libc.stdint cimport uint64_t
-from libc.stdint cimport int64_t
-from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
-
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
-
-    enum MetricType:
-        EUCLIDEAN = 0,
-        CATEGORICAL = 1
-
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
-
-    cdef cppclass UMAPParams:
-        int n_neighbors,
-        int n_components,
-        int n_epochs,
-        float learning_rate,
-        float min_dist,
-        float spread,
-        float set_op_mix_ratio,
-        float local_connectivity,
-        float repulsion_strength,
-        int negative_sample_rate,
-        float transform_queue_size,
-        int verbosity,
-        float a,
-        float b,
-        float initial_alpha,
-        int init,
-        int target_n_neighbors,
-        MetricType target_metric,
-        float target_weight,
-        uint64_t random_state,
-        bool deterministic,
-        int optim_batch_size
 
 
 cdef extern from "raft/sparse/coo.hpp":
