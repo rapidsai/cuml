@@ -137,25 +137,46 @@ void fit(const raft::handle_t& handle,
 }
 
 // get graph
-std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& handle,
-                                                         float* X,  // input matrix
-                                                         float* y,  // labels
-                                                         int n,
-                                                         int d,
-                                                         UMAPParams* params)
+std::unique_ptr<raft::sparse::COO<float, int>> get_graph(
+  const raft::handle_t& handle,
+  float* X,  // input matrix
+  float* y,  // labels
+  int n,
+  int d,
+  knn_indices_dense_t* knn_indices,  // precomputed indices
+  float* knn_dists,                  // precomputed distances
+  UMAPParams* params)
 {
-  manifold_dense_inputs_t<float> inputs(X, y, n, d);
   auto cgraph_coo = std::make_unique<raft::sparse::COO<float>>(handle.get_stream());
-  if (y != nullptr) {
-    UMAPAlgo::
-      _get_graph_supervised<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
-        handle, inputs, params, cgraph_coo.get());
-  } else {
-    UMAPAlgo::_get_graph<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
-      handle, inputs, params, cgraph_coo.get());
-  }
+  if (knn_indices != nullptr && knn_dists != nullptr) {
+    CUML_LOG_DEBUG("Calling UMAP::get_graph() with precomputed KNN");
 
-  return cgraph_coo;
+    manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float> inputs(
+      knn_indices, knn_dists, X, y, n, d, params->n_neighbors);
+    if (y != nullptr) {
+      UMAPAlgo::_get_graph_supervised<knn_indices_dense_t,
+                                      float,
+                                      manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
+                                      TPB_X>(handle, inputs, params, cgraph_coo.get());
+    } else {
+      UMAPAlgo::_get_graph<knn_indices_dense_t,
+                           float,
+                           manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
+                           TPB_X>(handle, inputs, params, cgraph_coo.get());
+    }
+    return cgraph_coo;
+  } else {
+    manifold_dense_inputs_t<float> inputs(X, y, n, d);
+    if (y != nullptr) {
+      UMAPAlgo::
+        _get_graph_supervised<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+          handle, inputs, params, cgraph_coo.get());
+    } else {
+      UMAPAlgo::_get_graph<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+        handle, inputs, params, cgraph_coo.get());
+    }
+    return cgraph_coo;
+  }
 }
 
 // refine

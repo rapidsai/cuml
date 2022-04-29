@@ -187,12 +187,13 @@ class UMAPParametrizableTest : public ::testing::Test {
     if (test_params.refine) {
       std::cout << "using refine";
       if (test_params.supervised) {
-        auto cgraph_coo = ML::UMAP::get_graph(handle, X, y, n_samples, n_features, &umap_params);
+        auto cgraph_coo =
+          ML::UMAP::get_graph(handle, X, y, n_samples, n_features, nullptr, nullptr, &umap_params);
         ML::UMAP::refine(
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       } else {
-        auto cgraph_coo =
-          ML::UMAP::get_graph(handle, X, nullptr, n_samples, n_features, &umap_params);
+        auto cgraph_coo = ML::UMAP::get_graph(
+          handle, X, nullptr, n_samples, n_features, nullptr, nullptr, &umap_params);
         ML::UMAP::refine(
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }

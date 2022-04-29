@@ -87,6 +87,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                               float* y,
                               int n,
                               int d,
+                              int64_t* knn_indices,
+                              float* knn_dists,
                               UMAPParams* params)
 
     void refine(handle_t &handle,
@@ -103,6 +105,8 @@ def fuzzy_simplicial_set(X,
                          random_state=None,
                          metric="euclidean",
                          metric_kwds={},
+                         knn_indices=None,
+                         knn_dists=None,
                          set_op_mix_ratio=1.0,
                          local_connectivity=1.0,
                          verbose=False):
@@ -127,6 +131,16 @@ def fuzzy_simplicial_set(X,
         unused
     metric_kwds: dict (optional, default {})
         unused
+    knn_indices: array of shape (n_samples, n_neighbors) (optional)
+        If the k-nearest neighbors of each point has already been calculated
+        you can pass them in here to save computation time. This should be
+        an array with the indices of the k-nearest neighbors as a row for
+        each data point.
+    knn_dists: array of shape (n_samples, n_neighbors) (optional)
+        If the k-nearest neighbors of each point has already been calculated
+        you can pass them in here to save computation time. This should be
+        an array with the distances of the k-nearest neighbors as a row for
+        each data point.
     set_op_mix_ratio: float (optional, default 1.0)
         Interpolate between (fuzzy) union and intersection as the set operation
         used to combine local fuzzy simplicial sets to obtain a global fuzzy
@@ -168,17 +182,47 @@ def fuzzy_simplicial_set(X,
     umap_params.local_connectivity = <float> local_connectivity
     umap_params.verbosity = <int> verbose
 
-    X_m, n_rows, n_cols, dtype = \
-        input_to_cuml_array(X, order='C', check_dtype=np.float32)
+    X_m, n_rows, n_cols, _ = \
+        input_to_cuml_array(X,
+                            order='C',
+                            check_dtype=np.float32,
+                            convert_to_dtype=np.float32)
+
+    if knn_indices is not None and knn_dists is not None:
+        knn_indices_m, _, _, _ = \
+            input_to_cuml_array(knn_indices,
+                                order='C',
+                                check_dtype=np.int64,
+                                convert_to_dtype=np.int64)
+        knn_dists_m, _, _, _ = \
+            input_to_cuml_array(knn_dists,
+                                order='C',
+                                check_dtype=np.float32,
+                                convert_to_dtype=np.float32)
+        X_ptr = 0
+        knn_indices_ptr = knn_indices_m.ptr
+        knn_dists_ptr = knn_dists_m.ptr
+    else:
+        X_m, _, _, _ = \
+            input_to_cuml_array(X,
+                                order='C',
+                                check_dtype=np.float32,
+                                convert_to_dtype=np.float32)
+        X_ptr = X_m.ptr
+        knn_indices_ptr = 0
+        knn_dists_ptr = 0
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef unique_ptr[COO] fss_graph = get_graph(handle_[0],
-                                               <float*><uintptr_t> X_m.ptr,
-                                               <float*><uintptr_t> NULL,
-                                               <int> X_m.shape[0],
-                                               <int> X_m.shape[1],
-                                               <UMAPParams*> umap_params)
+    cdef unique_ptr[COO] fss_graph = get_graph(
+        handle_[0],
+        <float*><uintptr_t> X_ptr,
+        <float*><uintptr_t> NULL,
+        <int> X.shape[0],
+        <int> X.shape[1],
+        <int64_t*><uintptr_t> knn_indices_ptr,
+        <float*><uintptr_t> knn_dists_ptr,
+        <UMAPParams*> umap_params)
 
     cdef int nnz = fss_graph.get().nnz
     coo_arrays = []
@@ -186,7 +230,7 @@ def fuzzy_simplicial_set(X,
                        (<uintptr_t>fss_graph.get().rows(), np.int32),
                        (<uintptr_t>fss_graph.get().cols(), np.int32)]:
         mem = cp.cuda.UnownedMemory(ptr=ptr,
-                                    size=nnz * 4,
+                                    size=nnz * np.dtype(dtype).itemsize,
                                     owner=None,
                                     device_id=-1)
         memptr = cp.cuda.memory.MemoryPointer(mem, 0)
@@ -194,6 +238,8 @@ def fuzzy_simplicial_set(X,
 
     result = cp.sparse.coo_matrix(((coo_arrays[0],
                                     (coo_arrays[1], coo_arrays[2]))))
+
+    # TODO : remove this copy once RAFT sparse objects are redesigned
     result = result.copy()
 
     return result
@@ -334,22 +380,23 @@ def simplicial_set_embedding(
     fss_graph.allocate(graph.nnz, graph.shape[0], False, handle_.get_stream())
     handle_.sync_stream()
 
-    nnz_size = graph.nnz * 4  # sizeof(float) == sizeof(int) == 4
-    for dst_ptr, src_ptr in \
-        [(<uintptr_t>fss_graph.vals(), graph.data.data.ptr),
-         (<uintptr_t>fss_graph.rows(), graph.row.data.ptr),
-         (<uintptr_t>fss_graph.cols(), graph.col.data.ptr)]:
+    nnz = graph.nnz
+    for dst_ptr, src_ptr, dtype in \
+        [(<uintptr_t>fss_graph.vals(), graph.data.data.ptr, np.float32),
+         (<uintptr_t>fss_graph.rows(), graph.row.data.ptr, np.int32),
+         (<uintptr_t>fss_graph.cols(), graph.col.data.ptr, np.int32)]:
+        itemsize = np.dtype(dtype).itemsize
         dest_buff = cp.cuda.UnownedMemory(ptr=dst_ptr,
-                                          size=nnz_size,
+                                          size=nnz * itemsize,
                                           owner=None,
                                           device_id=-1)
         dest_mptr = cp.cuda.memory.MemoryPointer(dest_buff, 0)
         src_buff = cp.cuda.UnownedMemory(ptr=src_ptr,
-                                         size=nnz_size,
+                                         size=nnz * itemsize,
                                          owner=None,
                                          device_id=-1)
         src_mptr = cp.cuda.memory.MemoryPointer(src_buff, 0)
-        dest_mptr.copy_from_device(src_mptr, nnz_size)
+        dest_mptr.copy_from_device(src_mptr, nnz * itemsize)
 
     embedding = CumlArray.zeros((X_m.shape[0], n_components),
                                 order="C", dtype=np.float32,
