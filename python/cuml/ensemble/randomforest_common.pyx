@@ -307,7 +307,7 @@ class BaseRandomForestModel(Base):
                 math.ceil(self.min_samples_leaf * self.n_rows)
         if type(self.min_samples_split) == float:
             self.min_samples_split = \
-                math.ceil(self.min_samples_split * self.n_rows)
+                max(2, math.ceil(self.min_samples_split * self.n_rows))
         return X_m, y_m, max_feature_val
 
     def _tl_handle_from_bytes(self, treelite_serialized_model):
