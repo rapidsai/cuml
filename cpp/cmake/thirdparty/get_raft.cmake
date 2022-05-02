@@ -62,7 +62,7 @@ function(find_and_configure_raft)
               "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
               "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
-              "NVTX ${NVTX}"
+              "RAFT_NVTX ${NVTX}"
     )
 
     if(raft_ADDED)
@@ -78,8 +78,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        FORK             achirkin
+                        PINNED_TAG       enh-allow-nvtx-after-install
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
