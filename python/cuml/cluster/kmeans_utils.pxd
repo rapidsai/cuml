@@ -16,7 +16,7 @@
 
 import ctypes
 from libcpp cimport bool
-
+from libc.stdint cimport uint64_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams":
@@ -29,7 +29,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         int max_iter,
         double tol,
         int verbosity,
-        int seed,
+        uint64_t seed,
         int metric,
         int n_init,
         double oversampling_factor,

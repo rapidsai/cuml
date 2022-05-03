@@ -69,13 +69,13 @@ void initRandom(const raft::handle_t& handle,
     nCentroidsElementsToReceiveFromRank[rank] = nCentroidsSampledInRank * n_features;
   }
 
-  int nCentroidsSampledInRank = nCentroidsSampledByRank[my_rank];
-  ASSERT(nCentroidsSampledInRank <= n_local_samples,
+  auto nCentroidsSampledInRank = nCentroidsSampledByRank[my_rank];
+  ASSERT((IndexT)nCentroidsSampledInRank <= (IndexT)n_local_samples,
          "# random samples requested from rank-%d is larger than the available "
-         "samples at the rank (requested is %d, available is %d)",
+         "samples at the rank (requested is %lu, available is %lu)",
          my_rank,
-         nCentroidsSampledInRank,
-         n_local_samples);
+         (size_t)nCentroidsSampledInRank,
+         (size_t)n_local_samples);
 
   auto centroidsSampledInRank = raft::make_device_matrix<DataT>(nCentroidsSampledInRank, n_features, stream);
 
@@ -330,7 +330,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
       my_rank,
       potentialCentroids.extent(0));
 
-  if (potentialCentroids.extent(0) > n_clusters) {
+  if ((IndexT)potentialCentroids.extent(0) > (IndexT)n_clusters) {
     // <<< Step-7 >>>: For x in C, set w_x to be the number of pts closest to X
     // temporary buffer to store the sample count per cluster, destructor
     // releases the resource
@@ -371,7 +371,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
       n_iter,
       workspace);
 
-  } else if (potentialCentroids.extent(0) < n_clusters) {
+  } else if ((IndexT)potentialCentroids.extent(0) < (IndexT)n_clusters) {
     // supplement with random
     auto n_random_clusters = n_clusters - potentialCentroids.extent(0);
     LOG(handle,
