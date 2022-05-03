@@ -494,6 +494,7 @@ def test_hashingvectorizer_norm(norm):
         assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
 
 
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4721")
 def test_hashingvectorizer_alternate_sign():
     # if alternate_sign = True
     # we should have some negative and positive values
