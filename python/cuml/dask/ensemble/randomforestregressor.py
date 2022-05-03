@@ -116,7 +116,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
          * If type ``int``, then ``min_samples_split`` represents the minimum
            number.
          * If type ``float``, then ``min_samples_split`` represents a fraction
-           and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum number of
+           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
            samples for each split.
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
