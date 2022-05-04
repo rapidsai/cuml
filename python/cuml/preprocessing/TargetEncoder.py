@@ -233,18 +233,15 @@ class TargetEncoder:
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
+        self.stat_val = eval(f'train[self.y_col].{self.stat}()')
         if self.stat in ['median']:
             return self._fit_transform_for_loop(train, x_cols)
 
         self.mean = train[self.y_col].mean()
-
         if self.stat == 'var':
             y_cols = [self.y_col, self.y_col2]
             train[self.y_col2] = self._make_y_column(y*y)
             self.mean2 = train[self.y_col2].mean()
-            var = self.mean2 - self.mean**2
-            n = train.shape[0]
-            self.var = var * n / (n-1)
         else:
             y_cols = [self.y_col]
 
@@ -283,7 +280,8 @@ class TargetEncoder:
 
     def _fit_transform_for_loop(self, train, x_cols):
         res = []
-        for f in train[self.fold_col].unique():
+        
+        for f in train[self.fold_col].unique().values_host:
             mask = train[self.fold_col] == f
             dg = train.loc[~mask].groupby(x_cols).agg({self.y_col:self.stat})
             dg.columns = [self.out_col]
@@ -403,7 +401,7 @@ class TargetEncoder:
         """
         Impute and sort the result encoding in the same row order as input
         """
-        impute_val = self.var if self.stat == 'var' else self.mean
+        impute_val = self.stat_val
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(impute_val)
         df = df.sort_values(self.id_col)

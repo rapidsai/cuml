@@ -277,3 +277,9 @@ def test_get_params():
     p2 = encoder.get_params()
     for k, v in params.items():
         assert v == p2[k]
+
+def test_targetencoder_median():
+    train = cudf.DataFrame({'category': ['a', 'b', 'b', 'b'],
+                            'label': [1, 0, 1, 1]})
+    encoder = TargetEncoder(stat='median')
+    train_encoded = encoder.fit_transform(train.category, train.label)
