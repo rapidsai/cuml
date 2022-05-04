@@ -552,7 +552,11 @@ def test_nearest_neighbors_rbc(distance_dims, n_neighbors, nrows):
             X[:query_rows, :], n_neighbors=n_neighbors)
 
     assert len(brute_d[brute_d != rbc_d]) == 0
-    assert len(brute_i[brute_i != rbc_i]) == 0
+
+    # All the distances match so allow a couple mismatched indices
+    # through from potential non-determinism in exact matching
+    # distances
+    assert len(brute_i[brute_i != rbc_i]) <= 3
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
