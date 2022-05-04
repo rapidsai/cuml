@@ -233,7 +233,7 @@ class TargetEncoder:
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
-        self.stat_val = eval(f'train[self.y_col].{self.stat}()')
+        self.y_stat_val = eval(f'train[self.y_col].{self.stat}()')
         if self.stat in ['median']:
             return self._fit_transform_for_loop(train, x_cols)
 
@@ -401,9 +401,8 @@ class TargetEncoder:
         """
         Impute and sort the result encoding in the same row order as input
         """
-        impute_val = self.stat_val
         df[self.out_col] = df[self.out_col].nans_to_nulls()
-        df[self.out_col] = df[self.out_col].fillna(impute_val)
+        df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
         if self.output_type == 'numpy':
