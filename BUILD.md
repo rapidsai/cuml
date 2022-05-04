@@ -94,12 +94,12 @@ $ pytest -v
 If only the single GPU algos want to be run, then:
 
 ```bash
-$ pytest --ignore=cuml/test/dask --ignore=cuml/test/test_nccl.py
+$ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
 ```
 
 If you want a list of the available Python tests:
 ```bash
-$ pytest cuML/test --collect-only
+$ pytest cuML/tests --collect-only
 ```
 
 ### Manual Process
@@ -208,13 +208,13 @@ $ pytest -v
 If only the single GPU algos want to be run, then:
 
 ```bash
-$ pytest --ignore=cuml/test/dask --ignore=cuml/test/test_nccl.py
+$ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
 ```
 
 
 If you want a list of the available tests:
 ```bash
-$ pytest cuML/test --collect-only
+$ pytest cuML/tests --collect-only
 ```
 
 5. Finally, install the Python package to your Python path:
