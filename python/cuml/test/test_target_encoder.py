@@ -54,7 +54,7 @@ def test_targetencoder_transform():
 
 @pytest.mark.parametrize('n_samples', [5000, 500000])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
-@pytest.mark.parametrize('stat', ['mean', 'var'])
+@pytest.mark.parametrize('stat', ['mean', 'var', 'median'])
 def test_targetencoder_random(n_samples, dtype, stat):
 
     x = cp.random.randint(0, 1000, n_samples).astype(dtype)
@@ -278,11 +278,18 @@ def test_get_params():
     for k, v in params.items():
         assert v == p2[k]
 
+
 def test_targetencoder_median():
-    train = cudf.DataFrame({'category': ['a', 'a', 'a', 'a', 
+    train = cudf.DataFrame({'category': ['a', 'a', 'a', 'a',
                                          'b', 'b', 'b', 'b'],
                             'label': [1, 22, 15, 17, 70, 9, 99, 56]})
     encoder = TargetEncoder(stat='median')
     train_encoded = encoder.fit_transform(train.category, train.label)
     answer = np.array([17., 15., 17., 15., 56., 70., 56., 70.])
+    assert array_equal(train_encoded, answer)
+
+    encoder = TargetEncoder(stat='median')
+    encoder.fit(train.category, train.label)
+    train_encoded = encoder.transform(train.category)
+
     assert array_equal(train_encoded, answer)

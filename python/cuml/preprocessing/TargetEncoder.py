@@ -279,17 +279,21 @@ class TargetEncoder:
         return self._impute_and_sort(train), train
 
     def _fit_transform_for_loop(self, train, x_cols):
+
+        def _rename_col(df, col):
+            df.columns = [col]
+            return df.reset_index()
+
         res = []
-        
         for f in train[self.fold_col].unique().values_host:
             mask = train[self.fold_col] == f
-            dg = train.loc[~mask].groupby(x_cols).agg({self.y_col:self.stat})
-            dg.columns = [self.out_col]
-            dg = dg.reset_index()
+            dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})
+            dg = _rename_col(dg, self.out_col)
             res.append(train.loc[mask].merge(dg, on=x_cols, how='left'))
-        res = cudf.concat(res,axis=0)
+        res = cudf.concat(res, axis=0)
+        self.encode_all = train.groupby(x_cols).agg({self.y_col: self.stat})
+        self.encode_all = _rename_col(self.encode_all, self.out_col)
         return self._impute_and_sort(res), train
-
 
     def _make_y_column(self, y):
         """
