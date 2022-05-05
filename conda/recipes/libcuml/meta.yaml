@@ -40,6 +40,7 @@ requirements:
     - nccl {{ nccl_version }}
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
+    - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
@@ -71,6 +72,7 @@ outputs:
         - libraft-nn {{ minor_version }}
         - cudf {{ minor_version }}
         - nccl {{ nccl_version }}
+        - ucx >={{ ucx_version }}
         - ucx-py {{ ucx_py_version }}
         - ucx-proc=*=gpu
         - treelite {{ treelite_version }}
