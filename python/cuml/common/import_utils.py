@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -157,6 +157,18 @@ def has_shap(min_version="0.37"):
             return True
         else:
             return (LooseVersion(str(shap.__version__)) >=
+                    LooseVersion(min_version))
+    except ImportError:
+        return False
+
+
+def has_daskglm(min_version=None):
+    try:
+        import dask_glm  # noqa
+        if min_version is None:
+            return True
+        else:
+            return (LooseVersion(str(dask_glm.__version__)) >=
                     LooseVersion(min_version))
     except ImportError:
         return False
