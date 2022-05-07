@@ -127,9 +127,9 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/tests/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    timeout 7200 sh -c "pytest cuml/tests/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
 
     ################################################################################
@@ -195,24 +195,28 @@ else
         "$WORKSPACE/build.sh" -v cuml --codecov
     fi
 
-    gpuci_logger "Install the main version of dask and distributed"
+    gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
+
     pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
+    pip install sparse
+
     set +x
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
     # When installing cuml with project flash, we need to delete all folders except
-    # cuml/test since we are not building cython extensions in place
+    # cuml/tests since we are not building cython extensions in place
     if [ "$PYTHON" == "3.8" ];then
-        find ./cuml -mindepth 1 ! -regex '^./cuml/test\(/.*\)?' -delete
+        find ./cuml -mindepth 1 ! -regex '^./cuml/tests\(/.*\)?' -delete
     fi
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/tests/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    timeout 7200 sh -c "pytest cuml/tests/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
     ################################################################################
     # TEST - Run notebook tests

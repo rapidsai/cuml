@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 import pytest
 
 # Add the import here for any plugins that should be loaded EVERY TIME
-pytest_plugins = ("cuml.test.plugins.quick_run_plugin")
+pytest_plugins = ("cuml.testing.plugins.quick_run_plugin")
 
 
 def pytest_addoption(parser):
