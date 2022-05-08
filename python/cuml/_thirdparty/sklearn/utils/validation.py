@@ -16,12 +16,13 @@
 
 
 import numbers
+import warnings
 import numpy as np
 import cupy as cp
 import cupyx.scipy.sparse as sp
 from inspect import isclass
 
-from ....common.exceptions import NotFittedError
+from ....common.exceptions import DataConversionWarning, NotFittedError
 from ....thirdparty_adapters import check_array
 
 
@@ -385,3 +386,85 @@ def indexable(*iterables):
     result = [_make_indexable(X) for X in iterables]
     check_consistent_length(*result)
     return result
+
+
+def column_or_1d(y, *, warn=False):
+    """Ravel column or 1d numpy array, else raises an error.
+    Parameters
+    ----------
+    y : array-like
+       Input data.
+    warn : bool, default=False
+       To control display of warnings.
+    Returns
+    -------
+    y : ndarray
+       Output data.
+    Raises
+    -------
+    ValueError
+        If `y` is not a 1D array or a 2D array with a single row or column.
+    """
+    y = cp.asarray(y)
+    shape = cp.shape(y)
+    if len(shape) == 1:
+        return cp.ravel(y)
+    if len(shape) == 2 and shape[1] == 1:
+        if warn:
+            warnings.warn(
+                "A column-vector y was passed when a 1d array was"
+                " expected. Please change the shape of y to "
+                "(n_samples, ), for example using ravel().",
+                DataConversionWarning,
+                stacklevel=2,
+            )
+        return cp.ravel(y)
+
+    raise ValueError(
+        "y should be a 1d array, got an array of shape {} instead.".format(shape)
+    )
+
+
+def _assert_all_finite(X, allow_nan=False, msg_dtype=None):
+    """Like assert_all_finite, but only for ndarray."""
+    # validation is also imported in extmath
+    from .extmath import _safe_accumulator_op
+
+    if _get_config()["assume_finite"]:
+        return
+    X = cp.asanyarray(X)
+    # First try an O(n) time, O(1) space solution for the common case that
+    # everything is finite; fall back to O(n) space np.isfinite to prevent
+    # false positives from overflow in sum method. The sum is also calculated
+    # safely to reduce dtype induced overflows.
+    is_float = X.dtype.kind in "fc"
+    if is_float and (cp.isfinite(_safe_accumulator_op(cp.sum, X))):
+        pass
+    elif is_float:
+        msg_err = "Input contains {} or a value too large for {!r}."
+        if (
+            allow_nan
+            and cp.isinf(X).any()
+            or not allow_nan
+            and not cp.isfinite(X).all()
+        ):
+            type_err = "infinity" if allow_nan else "NaN, infinity"
+            raise ValueError(
+                msg_err.format(
+                    type_err, msg_dtype if msg_dtype is not None else X.dtype
+                )
+            )
+    # for object dtype data, we only check for NaNs (GH-13254)
+    elif X.dtype == np.dtype("object") and not allow_nan:
+        if _object_dtype_isnan(X).any():
+            raise ValueError("Input contains NaN")
+
+
+def assert_all_finite(X, *, allow_nan=False):
+    """Throw a ValueError if X contains NaN or infinity.
+    Parameters
+    ----------
+    X : {ndarray, sparse matrix}
+    allow_nan : bool, default=False
+    """
+    _assert_all_finite(X.data if sp.issparse(X) else X, allow_nan)

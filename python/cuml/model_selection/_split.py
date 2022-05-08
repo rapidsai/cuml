@@ -25,6 +25,8 @@ import numpy as np
 from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
 from typing import Union
+from python.cuml._thirdparty.sklearn.utils.multiclass import type_of_target
+from python.cuml._thirdparty.sklearn.utils.validation import column_or_1d
 
 from python.cuml._thirdparty.sklearn.utils.validation import (
     _num_samples,
@@ -1027,4 +1029,4 @@ def _build_repr(self):
             warnings.filters.pop(0)
         params[key] = value
 
-    return "%s(%s)" % (class_name, _pprint(params, offset=len(class_name)))
+    return "%s(%s)" % (class_name, print(params, offset=len(class_name)))

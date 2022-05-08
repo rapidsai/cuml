@@ -16,7 +16,10 @@ import warnings
 
 import cupy as cp
 import cupyx.scipy.sparse as sp
-import numpy as np
+
+
+def _is_integral_float(y):
+    return y.dtype.kind == "f" and cp.all(y.astype(int) == y)
 
 
 def is_multilabel(y):
@@ -31,27 +34,27 @@ def is_multilabel(y):
         Return ``True``, if ``y`` is in a multilabel format, else ```False``.
     Examples
     --------
-    >>> import numpy as np
+    >>> import numpy as cp
     >>> from sklearn.utils.multiclass import is_multilabel
     >>> is_multilabel([0, 1, 0, 1])
     False
     >>> is_multilabel([[1], [0, 2], []])
     False
-    >>> is_multilabel(np.array([[1, 0], [0, 0]]))
+    >>> is_multilabel(cp.array([[1, 0], [0, 0]]))
     True
-    >>> is_multilabel(np.array([[1], [0], [0]]))
+    >>> is_multilabel(cp.array([[1], [0], [0]]))
     False
-    >>> is_multilabel(np.array([[1, 0, 0]]))
+    >>> is_multilabel(cp.array([[1, 0, 0]]))
     True
     """
     if hasattr(y, "__array__") or isinstance(y, Sequence):
         # DeprecationWarning will be replaced by ValueError, see NEP 34
         # https://numpy.org/neps/nep-0034-infer-dtype-is-object.html
         with warnings.catch_warnings():
-            warnings.simplefilter("error", np.VisibleDeprecationWarning)
+            warnings.simplefilter("error", cp.VisibleDeprecationWarning)
             try:
                 y = cp.asarray(y)
-            except np.VisibleDeprecationWarning:
+            except cp.VisibleDeprecationWarning:
                 # dtype=object should be provided explicitly for ragged arrays,
                 # see NEP 34
                 y = cp.array(y, dtype=object)
@@ -60,18 +63,18 @@ def is_multilabel(y):
         return False
 
     if sp.issparse(y):
-        if isinstance(y, (sp.dok_matrix, lil_matrix)):
+        if isinstance(y, (sp.dok_matrix, sp.lil_matrix)):
             y = y.tocsr()
         return (
             len(y.data) == 0
-            or np.unique(y.data).size == 1
+            or cp.unique(y.data).size == 1
             and (
                 y.dtype.kind in "biu"
-                or _is_integral_float(np.unique(y.data))  # bool, int, uint
+                or _is_integral_float(cp.unique(y.data))  # bool, int, uint
             )
         )
     else:
-        labels = np.unique(y)
+        labels = cp.unique(y)
 
         return len(labels) < 3 and (
             y.dtype.kind in "biu" or _is_integral_float(labels)  # bool, int, uint
@@ -113,7 +116,7 @@ def type_of_target(y):
     Examples
     --------
     >>> from sklearn.utils.multiclass import type_of_target
-    >>> import numpy as np
+    >>> import numpy as cp
     >>> type_of_target([0.1, 0.6])
     'continuous'
     >>> type_of_target([1, -1, -1, 1])
@@ -128,13 +131,13 @@ def type_of_target(y):
     'multiclass'
     >>> type_of_target(['a', 'b', 'c'])
     'multiclass'
-    >>> type_of_target(np.array([[1, 2], [3, 1]]))
+    >>> type_of_target(cp.array([[1, 2], [3, 1]]))
     'multiclass-multioutput'
     >>> type_of_target([[1, 2]])
     'multilabel-indicator'
-    >>> type_of_target(np.array([[1.5, 2.0], [3.0, 1.6]]))
+    >>> type_of_target(cp.array([[1.5, 2.0], [3.0, 1.6]]))
     'continuous-multioutput'
-    >>> type_of_target(np.array([[0, 1], [1, 1]]))
+    >>> type_of_target(cp.array([[0, 1], [1, 1]]))
     'multilabel-indicator'
     """
     valid = (
@@ -156,13 +159,13 @@ def type_of_target(y):
     # DeprecationWarning will be replaced by ValueError, see NEP 34
     # https://numpy.org/neps/nep-0034-infer-dtype-is-object.html
     with warnings.catch_warnings():
-        warnings.simplefilter("error", np.VisibleDeprecationWarning)
+        warnings.simplefilter("error", cp.VisibleDeprecationWarning)
         try:
-            y = np.asarray(y)
-        except np.VisibleDeprecationWarning:
+            y = cp.asarray(y)
+        except cp.VisibleDeprecationWarning:
             # dtype=object should be provided explicitly for ragged arrays,
             # see NEP 34
-            y = np.asarray(y, dtype=object)
+            y = cp.asarray(y, dtype=object)
 
     # The old sequence of sequences format
     try:
@@ -194,12 +197,12 @@ def type_of_target(y):
         suffix = ""  # [1, 2, 3] or [[1], [2], [3]]
 
     # check float and contains non-integer float values
-    if y.dtype.kind == "f" and np.any(y != y.astype(int)):
+    if y.dtype.kind == "f" and cp.any(y != y.astype(int)):
         # [.1, .2, 3] or [[.1, .2, 3]] or [[1., .2]] and not [1., 2., 3.]
         _assert_all_finite(y)
         return "continuous" + suffix
 
-    if (len(np.unique(y)) > 2) or (y.ndim >= 2 and len(y[0]) > 1):
+    if (len(cp.unique(y)) > 2) or (y.ndim >= 2 and len(y[0]) > 1):
         return "multiclass" + suffix  # [1, 2, 3] or [[1., 2., 3]] or [[1, 2]]
     else:
         return "binary"  # [1, 2] or [["a"], ["b"]]
