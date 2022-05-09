@@ -45,7 +45,7 @@ __all__ = [
     'RobustScaler',
     'SimpleImputer',
     'StandardScaler',
-    'TargetEncoder'
+    'TargetEncoder',
     # Functions
     'add_dummy_feature',
     'binarize',
@@ -55,8 +55,7 @@ __all__ = [
     'normalize',
     'robust_scale',
     'scale',
-    'label_binarize',
     'train_test_split',
     # Modules
-    'text',
+    'text'
 ]
