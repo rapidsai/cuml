@@ -2,7 +2,7 @@ Intro and key concepts for cuML
 =================================
 
 cuML accelerates machine learning on GPUs. The library follows a
-couple of key principals, and understanding these will help you take
+couple of key principles, and understanding these will help you take
 full advantage cuML.
 
 

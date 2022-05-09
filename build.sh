@@ -268,7 +268,11 @@ fi
 # If `./build.sh cuml` is called, don't build C/C++ components
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     cd ${LIBCUML_BUILD_DIR}
-    cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
+    if [ -n "${INSTALL_TARGET}" ]; then
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
+    else
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
+    fi
 fi
 
 if hasArg cppdocs; then

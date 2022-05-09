@@ -216,20 +216,39 @@ class BaseRandomForestModel(Base):
                 self.treelite_serialized_model)
 
         else:
+            if self.dtype not in [np.float32, np.float64]:
+                raise ValueError("Unknown dtype.")
+
             if self.RF_type == CLASSIFICATION:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, int]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                    )
+                if self.dtype==np.float32:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[float, int]*>
+                        <uintptr_t> self.rf_forest,
+                        <int> self.n_cols
+                        )
+                elif self.dtype==np.float64:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[double, int]*>
+                        <uintptr_t> self.rf_forest64,
+                        <int> self.n_cols
+                        )
             else:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, float]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                    )
+                if self.dtype==np.float32:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[float, float]*>
+                        <uintptr_t> self.rf_forest,
+                        <int> self.n_cols
+                        )
+                elif self.dtype==np.float64:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[double, double]*>
+                        <uintptr_t> self.rf_forest64,
+                        <int> self.n_cols
+                        )
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
