@@ -23,7 +23,7 @@ import cupy as cp
 import cudf
 from hypothesis import given, settings, assume, HealthCheck, strategies as st
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap
+from cuml.common.import_utils import has_lightgbm, has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -31,8 +31,16 @@ from cuml.ensemble import RandomForestClassifier as curfc
 import cuml
 from cuml.testing.utils import as_type
 
-if has_xgboost():
-    import xgboost as xgb
+
+# See issue #4729
+# Xgboost disabled due to CI failures
+xgb = None
+
+
+def has_xgboost():
+    return False
+
+
 if has_lightgbm():
     import lightgbm as lgb
 if has_shap():
