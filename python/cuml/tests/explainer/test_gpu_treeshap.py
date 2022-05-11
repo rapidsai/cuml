@@ -22,8 +22,8 @@ import pandas as pd
 import cupy as cp
 import cudf
 from hypothesis import given, settings, assume, HealthCheck, strategies as st
-from cuml.experimental.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_xgboost, has_lightgbm, has_shap
+from cuml.explainer.tree_shap import TreeExplainer
+from cuml.common.import_utils import has_lightgbm, has_shap
 from cuml.common.import_utils import has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -31,8 +31,16 @@ from cuml.ensemble import RandomForestClassifier as curfc
 import cuml
 from cuml.testing.utils import as_type
 
-if has_xgboost():
-    import xgboost as xgb
+
+# See issue #4729
+# Xgboost disabled due to CI failures
+xgb = None
+
+
+def has_xgboost():
+    return False
+
+
 if has_lightgbm():
     import lightgbm as lgb
 if has_shap():
@@ -512,6 +520,8 @@ def test_lightgbm_classifier_with_categorical(n_classes):
 
 def learn_model(
         draw, X, y, task, learner, n_estimators, n_targets):
+    # for lgbm or xgb return the booster or sklearn object?
+    use_sklearn_estimator = draw(st.booleans())
     if learner == 'xgb':
         assume(has_xgboost())
         if task == 'regression':
@@ -533,7 +543,10 @@ def learn_model(
                 n_estimators=n_estimators, tree_method='gpu_hist',
                 objective=objective, enable_categorical=True, verbosity=0).fit(
                 X, y)
-        return model.get_booster(), model.predict(X, output_margin=True)
+        pred = model.predict(X, output_margin=True)
+        if not use_sklearn_estimator:
+            model = model.get_booster()
+        return model, pred
     elif learner == 'rf':
         predict_model = 'GPU 'if y.dtype == np.float32 else 'CPU'
         if task == 'regression':
@@ -568,7 +581,10 @@ def learn_model(
         elif task == 'classification':
             model = lgb.LGBMClassifier(
                 n_estimators=n_estimators).fit(X, y)
-        return model.booster_, model.predict(X, raw_score=True)
+        pred = model.predict(X, raw_score=True)
+        if not use_sklearn_estimator:
+            model = model.booster_
+        return model, pred
 
 
 @st.composite
@@ -608,11 +624,6 @@ def shap_strategy(draw):
         # https://github.com/dmlc/treelite/issues/375
         assume(n_targets == 1)
 
-    # 64 bit thresholds can fail
-    # https://github.com/rapidsai/cuml/issues/4670
-    if learner in ['rf', 'skl_rf']:
-        assume(dtype == np.float32)
-
     # treelite considers a binary classification model to have
     # n_classes=1, which produces an unexpected output shape
     # in the shap values
@@ -643,7 +654,8 @@ def shap_strategy(draw):
     model, preds = learn_model(
         draw, X, y, task, learner, n_estimators, n_targets)
 
-    return X, y, model, preds
+    # convert any DataFrame categorical columns to numeric
+    return X.astype(dtype), y.astype(dtype), model, preds
 
 
 def check_efficiency(expected_value, pred, shap_values):
@@ -661,16 +673,86 @@ def check_efficiency(expected_value, pred, shap_values):
                 1e-3, 1e-3)
 
 
+def check_efficiency_interactions(expected_value, pred, shap_values):
+    # shap values add up to prediction
+    if len(shap_values.shape) <= 3:
+        assert np.allclose(np.sum(shap_values, axis=(-2, -1)) +
+                           expected_value, pred, 1e-3, 1e-3)
+    else:
+        n_targets = shap_values.shape[0]
+        for i in range(n_targets):
+            assert np.allclose(
+                np.sum(shap_values[i],
+                       axis=(-2, -1)) + expected_value[i],
+                pred[:, i],
+                1e-3, 1e-3)
+
+
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(deadline=None, max_examples=20,
-          suppress_health_check=[HealthCheck.too_slow])
-@given(shap_strategy())
-def test_with_hypothesis(params):
+          suppress_health_check=[HealthCheck.too_slow,
+                                 HealthCheck.data_too_large])
+@given(shap_strategy(),
+       st.sampled_from(["shapley-interactions", "shapley-taylor"]))
+def test_with_hypothesis(params, interactions_method):
     X, y, model, preds = params
     explainer = TreeExplainer(model=model)
-    out = explainer.shap_values(X)
-    check_efficiency(explainer.expected_value, preds, out)
+    shap_values = explainer.shap_values(X)
+    shap_interactions = explainer.shap_interaction_values(
+        X, method=interactions_method)
+    check_efficiency(explainer.expected_value, preds, shap_values)
+    check_efficiency_interactions(
+        explainer.expected_value, preds, shap_interactions)
+
+    # Interventional
+    explainer = TreeExplainer(model=model, data=X.sample(
+        n=15, replace=True, random_state=0))
+    interventional_shap_values = explainer.shap_values(X)
+    check_efficiency(explainer.expected_value, preds,
+                     interventional_shap_values)
+
+
+def test_wrong_inputs():
+    X = np.array([[0.0, 2.0], [1.0, 0.5]])
+    y = np.array([0, 1])
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+
+    # background/X different dtype
+    with pytest.raises(ValueError, match="Expected background data"
+                       " to have the same dtype"):
+        explainer = TreeExplainer(model=model, data=X.astype(np.float32))
+        explainer.shap_values(X)
+
+    # background/X different number columns
+    with pytest.raises(RuntimeError):
+        explainer = TreeExplainer(model=model, data=X[:, 0:1])
+        explainer.shap_values(X)
+
+    with pytest.raises(ValueError, match="Interventional algorithm not"
+                       " supported for interactions. Please"
+                       " specify data as None in constructor."):
+        explainer = TreeExplainer(model=model, data=X.astype(np.float32))
+        explainer.shap_interaction_values(X)
+
+    with pytest.raises(ValueError, match="Unknown interactions method."):
+        explainer = TreeExplainer(model=model)
+        explainer.shap_interaction_values(X, method='asdasd')
+
+
+def test_different_algorithms_different_output():
+    # ensure different algorithms are actually being called
+    rng = np.random.RandomState(3)
+    X = rng.normal(size=(100, 10))
+    y = rng.normal(size=100)
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+    interventional_explainer = TreeExplainer(model=model, data=X)
+    explainer = TreeExplainer(model=model)
+    assert not np.all(explainer.shap_values(
+        X) == interventional_explainer.shap_values(X))
+    assert not np.all(
+        explainer.shap_interaction_values(X, method="shapley-interactions") ==
+        explainer.shap_interaction_values(X, method="shapley-taylor"))
 
 
 @settings(deadline=None)
