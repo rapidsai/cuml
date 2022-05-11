@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,4 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.experimental.explainer.tree_shap import TreeExplainer
+from cuml.common.import_utils import has_daskglm
+import warnings
+
+if has_daskglm():
+    from cuml.dask.extended.linear_model.logistic_regression import \
+        LogisticRegression
+else:
+    warnings.warn(
+        "Dask-glm not found. Multi-GPU logistic regression is disabed.")
