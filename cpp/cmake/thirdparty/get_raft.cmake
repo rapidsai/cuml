@@ -78,8 +78,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             achirkin
-                        PINNED_TAG       enh-allow-nvtx-after-install
+                        FORK             rapidsai
+                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
