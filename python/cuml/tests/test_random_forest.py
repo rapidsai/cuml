@@ -1302,3 +1302,17 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
     np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
+
+
+@pytest.mark.parametrize("estimator, make_data", [
+    (curfc, make_classification),
+    (curfr, make_regression),
+])
+def test_rf_min_samples_split_with_small_float(estimator, make_data):
+    # Check that min_samples leaf is works with a small float
+    # Non-regression test for gh-4613
+    X, y = make_data(random_state=0)
+    clf = estimator(min_samples_split=0.0001, random_state=0, n_estimators=2)
+
+    # Does not error
+    clf.fit(X, y)
