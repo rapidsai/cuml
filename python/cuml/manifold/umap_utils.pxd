@@ -16,9 +16,12 @@
 
 # distutils: language = c++
 
-from libc.stdint cimport uint64_t
-from libc.stdint cimport int64_t
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from libcpp.memory cimport unique_ptr
+
+from libc.stdint cimport uint64_t, uintptr_t, int64_t
 from libcpp cimport bool
+from libcpp.memory cimport shared_ptr
 
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
@@ -57,3 +60,30 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         bool deterministic,
         int optim_batch_size,
         GraphBasedDimRedCallback * callback
+
+cdef extern from "raft/sparse/coo.hpp":
+    cdef cppclass COO "raft::sparse::COO<float, int>":
+        COO(cuda_stream_view stream)
+        void allocate(int nnz, int size, bool init, cuda_stream_view stream)
+        int nnz
+        float* vals()
+        int* rows()
+        int* cols()
+
+cdef class GraphHolder:
+    cdef unique_ptr[COO] c_graph
+
+    @staticmethod
+    cdef GraphHolder new_graph(cuda_stream_view stream)
+
+    @staticmethod
+    cdef GraphHolder from_ptr(unique_ptr[COO]& ptr)
+
+    @staticmethod
+    cdef GraphHolder from_coo_array(graph, handle, coo_array)
+
+    cdef COO* get(GraphHolder self)
+    cdef uintptr_t vals(GraphHolder self)
+    cdef uintptr_t rows(GraphHolder self)
+    cdef uintptr_t cols(GraphHolder self)
+    cdef uint64_t get_nnz(GraphHolder self)

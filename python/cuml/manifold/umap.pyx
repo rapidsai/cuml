@@ -31,6 +31,7 @@ import cupyx
 import numba.cuda as cuda
 
 from cuml.manifold.umap_utils cimport *
+from cuml.manifold.umap_utils import GraphHolder
 
 from cuml.common.sparsefuncs import extract_knn_graph
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
@@ -58,7 +59,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 import rmm
 
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport free
 
 from libcpp.memory cimport shared_ptr
 
@@ -75,7 +76,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
              int64_t * knn_indices,
              float * knn_dists,
              UMAPParams * params,
-             float * embeddings) except +
+             float * embeddings,
+             COO * graph) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -86,7 +88,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                     int n,
                     int d,
                     UMAPParams *params,
-                    float *embeddings) except +
+                    float *embeddings,
+                    COO * graph) except +
 
     void transform(handle_t & handle,
                    float * X,
@@ -546,6 +549,7 @@ class UMAP(Base,
                                                       else None))
             y_raw = y_m.ptr
 
+        fss_graph = GraphHolder.new_graph(handle_.get_stream())
         if self.sparse_fit:
             fit_sparse(handle_[0],
                        <int*><uintptr_t> self.X_m.indptr.ptr,
@@ -556,7 +560,8 @@ class UMAP(Base,
                        <int> self.n_rows,
                        <int> self.n_dims,
                        <UMAPParams*> umap_params,
-                       <float*> embed_raw)
+                       <float*> embed_raw,
+                       <COO*> fss_graph.get())
 
         else:
             fit(handle_[0],
@@ -567,7 +572,10 @@ class UMAP(Base,
                 <int64_t*> knn_indices_raw,
                 <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
-                <float*>embed_raw)
+                <float*>embed_raw,
+                <COO*> fss_graph.get())
+
+        self.graph_ = fss_graph.get_cupy_coo()
 
         self.handle.sync()
 

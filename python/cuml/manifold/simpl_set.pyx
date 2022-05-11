@@ -20,6 +20,7 @@ import numpy as np
 import cupy as cp
 
 from cuml.manifold.umap_utils cimport *
+from cuml.manifold.umap_utils import GraphHolder
 
 import cuml.internals
 from cuml.common.base import Base
@@ -27,22 +28,12 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.manifold.umap import UMAP
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
 from raft.common.handle cimport handle_t
 from raft.common.handle import Handle
 
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport free
 from libcpp.memory cimport unique_ptr
-
-
-cdef extern from "raft/sparse/coo.hpp":
-    cdef cppclass COO "raft::sparse::COO<float, int>":
-        COO(cuda_stream_view stream)
-        void allocate(int nnz, int size, bool init, cuda_stream_view stream)
-        int nnz
-        float* vals()
-        int* rows()
-        int* cols()
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
@@ -63,25 +54,6 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                 COO* cgraph_coo,
                 UMAPParams* params,
                 float* embeddings)
-
-
-cdef class GraphHolder:
-    cdef unique_ptr[COO] c_graph
-
-    def vals(self):
-        return <uintptr_t>self.c_graph.get().vals()
-
-    def rows(self):
-        return <uintptr_t>self.c_graph.get().rows()
-
-    def cols(self):
-        return <uintptr_t>self.c_graph.get().cols()
-
-    def get_nnz(self):
-        return self.c_graph.get().nnz
-
-    def __dealloc__(self):
-        self.c_graph.reset(NULL)
 
 
 def fuzzy_simplicial_set(X,
@@ -198,8 +170,7 @@ def fuzzy_simplicial_set(X,
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    fss_graph = GraphHolder()
-    fss_graph.c_graph = get_graph(
+    cdef unique_ptr[COO] fss_graph_ptr = get_graph(
         handle_[0],
         <float*><uintptr_t> X_ptr,
         <float*><uintptr_t> NULL,
@@ -208,26 +179,13 @@ def fuzzy_simplicial_set(X,
         <int64_t*><uintptr_t> knn_indices_ptr,
         <float*><uintptr_t> knn_dists_ptr,
         <UMAPParams*> umap_params)
+    fss_graph = GraphHolder.from_ptr(fss_graph_ptr)
 
-    cdef int nnz = fss_graph.get_nnz()
-    coo_arrays = []
-    for ptr, dtype in [(fss_graph.vals(), np.float32),
-                       (fss_graph.rows(), np.int32),
-                       (fss_graph.cols(), np.int32)]:
-        mem = cp.cuda.UnownedMemory(ptr=ptr,
-                                    size=nnz * np.dtype(dtype).itemsize,
-                                    owner=fss_graph,
-                                    device_id=-1)
-        memptr = cp.cuda.memory.MemoryPointer(mem, 0)
-        coo_arrays.append(cp.ndarray(nnz, dtype=dtype, memptr=memptr))
+    free(umap_params)
 
-    result = cp.sparse.coo_matrix(((coo_arrays[0],
-                                    (coo_arrays[1], coo_arrays[2]))))
-
-    return result
+    return fss_graph.get_cupy_coo()
 
 
-@cuml.internals.api_return_generic()
 def simplicial_set_embedding(
     data,
     graph,
@@ -358,27 +316,9 @@ def simplicial_set_embedding(
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef COO* fss_graph = new COO(handle_.get_stream())
-    fss_graph.allocate(graph.nnz, graph.shape[0], False, handle_.get_stream())
-    handle_.sync_stream()
-
-    nnz = graph.nnz
-    for dst_ptr, src_ptr, dtype in \
-        [(<uintptr_t>fss_graph.vals(), graph.data.data.ptr, np.float32),
-         (<uintptr_t>fss_graph.rows(), graph.row.data.ptr, np.int32),
-         (<uintptr_t>fss_graph.cols(), graph.col.data.ptr, np.int32)]:
-        itemsize = np.dtype(dtype).itemsize
-        dest_buff = cp.cuda.UnownedMemory(ptr=dst_ptr,
-                                          size=nnz * itemsize,
-                                          owner=None,
-                                          device_id=-1)
-        dest_mptr = cp.cuda.memory.MemoryPointer(dest_buff, 0)
-        src_buff = cp.cuda.UnownedMemory(ptr=src_ptr,
-                                         size=nnz * itemsize,
-                                         owner=None,
-                                         device_id=-1)
-        src_mptr = cp.cuda.memory.MemoryPointer(src_buff, 0)
-        dest_mptr.copy_from_device(src_mptr, nnz * itemsize)
+    cdef GraphHolder fss_graph = GraphHolder.from_coo_array(GraphHolder(),
+                                                            handle,
+                                                            graph)
 
     embedding = CumlArray.zeros((X_m.shape[0], n_components),
                                 order="C", dtype=np.float32,
@@ -388,9 +328,10 @@ def simplicial_set_embedding(
            <float*><uintptr_t> X_m.ptr,
            <int> X_m.shape[0],
            <int> X_m.shape[1],
-           <COO*> fss_graph,
+           <COO*> fss_graph.get(),
            <UMAPParams*> umap_params,
            <float*><uintptr_t> embedding.ptr)
 
-    cuml.internals.set_api_output_type("cupy")
+    free(umap_params)
+
     return embedding

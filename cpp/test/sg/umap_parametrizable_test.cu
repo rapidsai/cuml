@@ -169,9 +169,19 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     handle.sync_stream(stream);
 
+    auto graph = raft::sparse::COO<float, int>(stream);
+
     if (test_params.supervised) {
-      ML::UMAP::fit(
-        handle, X, y, n_samples, n_features, knn_indices, knn_dists, &umap_params, model_embedding);
+      ML::UMAP::fit(handle,
+                    X,
+                    y,
+                    n_samples,
+                    n_features,
+                    knn_indices,
+                    knn_dists,
+                    &umap_params,
+                    model_embedding,
+                    &graph);
     } else {
       ML::UMAP::fit(handle,
                     X,
@@ -181,7 +191,8 @@ class UMAPParametrizableTest : public ::testing::Test {
                     knn_indices,
                     knn_dists,
                     &umap_params,
-                    model_embedding);
+                    model_embedding,
+                    &graph);
     }
 
     if (test_params.refine) {
