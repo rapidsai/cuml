@@ -19,6 +19,7 @@ dependencies:
 - pyraft=22.06.*
 - dask-cudf=22.06.*
 - dask-cuda=22.06.*
+- ucx>=1.12.1
 - ucx-py=0.26.*
 - ucx-proc=*=gpu
 - dask-ml
@@ -37,6 +38,8 @@ dependencies:
     - sphinx_markdown_tables
     - git+https://github.com/dask/dask.git@main
     - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask-glm.git@main
+    - sparse
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/
