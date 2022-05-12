@@ -135,13 +135,6 @@ __global__ void leafKernel(ObjectiveT objective,
   }
 }
 
-/* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
-template <typename OutT, typename InT>
-__device__ OutT* alignPointer(InT dataset)
-{
-  return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(dataset), sizeof(OutT)));
-}
-
 /**
  * @brief For every threadblock, converts the smem pdf-histogram to
  *        cdf-histogram inplace using inclusive block-sum-scan and returns

@@ -394,19 +394,58 @@ struct Builder {
 
     // Call feature sampling kernel
     if (dataset.n_sampled_cols != dataset.N) {
-      // dim3 grid;
-      // grid.x = work_items.size();
-      // grid.y = dataset.n_sampled_cols;
-      // grid.z = 1;
-      // select_kernel<<<grid, 128, 0, builder_stream>>>(
-      //   colids, d_work_items, treeid, seed, dataset.N);
-      dim3 grid;
-      grid.x = (work_items.size() + 127) / 128;
-      grid.y = 1;
-      grid.z = 1;
-      adaptive_sample_kernel<<<grid, 128, 0, builder_stream>>>(
-        colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
+      std::string const key = {"SAMPLING"};
+      const char* sampling_type = std::getenv(key.c_str());
+      if(std::strcmp(sampling_type, "sk") == 0)
+      {
+        // printf("sampling strategy: select_kernel\n");
+        dim3 grid;
+        grid.x = work_items.size();
+        grid.y = dataset.n_sampled_cols;
+        grid.z = 1;
+        select_kernel<<<grid, 128, 0, builder_stream>>>(
+          colids, d_work_items, treeid, seed, dataset.N);
+      }
+      else if(std::strcmp(sampling_type, "eswrk") == 0)
+      {
+        // printf("sampling strategy: adaptive_sampling_kernel\n");
+        dim3 grid;
+        grid.x = work_items.size();
+        grid.y = 1;
+        grid.z = 1;
+        int factor = std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (dataset.n_sampled_cols * raft::myLog(1 - 1.f/double(dataset.N))));
+        // compile-time params needed for the blockwide collective operations in the kernel
+        constexpr int max_samples_per_thread = 5;
+        constexpr int block_threads = 128;
+        // check if user-defined params are within the boundaries defined by compile-time params
+        ASSERT(max_samples_per_thread * block_threads > factor * dataset.n_sampled_cols,
+               "problem size not suitable for this kernel (too many samples to collect from large columns). Max limit to excess samples: %d, required excess samples: %d", max_samples_per_thread * block_threads, factor * dataset.n_sampled_cols);
+        excess_sample_with_replacement_kernel<IdxT, max_samples_per_thread, block_threads><<<grid, block_threads, 0, builder_stream>>>(
+          colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, factor);
+      }
+      else if(std::strcmp(sampling_type, "ask") == 0)
+      {
+        // printf("sampling strategy: adaptive_sampling_kernel\n");
+        dim3 grid;
+        grid.x = (work_items.size() + 127) / 128;
+        grid.y = 1;
+        grid.z = 1;
+        adaptive_sample_kernel<<<grid, 128, 0, builder_stream>>>(
+          colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
+      }
+      else if(std::strcmp(sampling_type, "alsk") == 0)
+      {
+        // printf("sampling strategy: algo-L_sample_kernel\n");
+        dim3 grid;
+        grid.x = (work_items.size() + 127) / 128;
+        grid.y = 1;
+        grid.z = 1;
+        algo_L_sample_kernel<<<grid, 128, 0, builder_stream>>>(
+          colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
+      }
       RAFT_CUDA_TRY(cudaPeekAtLastError());
+      // raft::print_device_vector("colids:", colids, std::size_t(work_items.size() * dataset.n_sampled_cols), std::cout);
+      RAFT_CUDA_TRY(cudaGetLastError());
     }
 
     // iterate through a batch of columns (to reduce the memory pressure) and

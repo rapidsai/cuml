@@ -22,6 +22,9 @@
 
 #include <raft/random/rng.hpp>
 
+#include <cub/cub.cuh>
+#include <cub/block/block_adjacent_difference.cuh>
+
 namespace ML {
 namespace DT {
 
@@ -61,6 +64,14 @@ HDI bool SplitNotValid(const SplitT& split,
   return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
          (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
 }
+
+/* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
+template <typename OutT, typename InT>
+DI OutT* alignPointer(InT dataset)
+{
+  return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(dataset), sizeof(OutT)));
+}
+
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void nodeSplitKernel(const IdxT max_depth,
@@ -182,6 +193,267 @@ __global__ void select_kernel(
 //   jcong = 69069 * jcong + 1234567;
 //   return ((MWC ^ jcong) + jsr);
 // }
+
+// template <typename GenType, typename OutType, typename LenType>
+// DI void custom_next(GenType& gen,
+//                     OutType* val,
+//                     raft::random::UniformDistParams<OutType> params,
+//                     LenType idx    = 0,
+//                     LenType stride = 0)
+// {
+//   OutType res;
+//   gen.next(res);
+//   *val = (res * (params.end - params.start)) + params.start;
+// }
+
+// template <typename GenType, typename OutType, typename LenType>
+// DI void custom_next(GenType& gen,
+//                     OutType* val,
+//                     raft::random::UniformIntDistParams<OutType, uint64_t> params,
+//                     LenType idx    = 0,
+//                     LenType stride = 0)
+// {
+//   uint64_t x = 0;
+//   gen.next(x);
+//   uint64_t s = params.diff;
+//   uint64_t m_lo, m_hi;
+//   // m = x * s;
+//   asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
+//   asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
+//   if (m_lo < s) {
+//     uint64_t t = (-s) % s;  // (2^64 - s) mod s
+//     while (m_lo < t) {
+//       gen.next(x);
+//       asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
+//       asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
+//     }
+//   }
+//   *val = OutType(m_hi) + params.start;
+// }
+// template <typename IdxT>
+// __global__ void excess_sample_with_replacement_kernel(int* colids,
+//                                        const NodeWorkItem* work_items,
+//                                        size_t work_items_size,
+//                                        IdxT treeid,
+//                                        uint64_t seed,
+//                                        size_t n /* total cols to sample from*/,
+//                                        size_t k /* cols to sample */)
+// {
+//   int tid = threadIdx.x + blockIdx.x * blockDim.x;
+//   if (blockIdx.x >= work_items_size) return;
+//   const uint32_t nodeid = work_items[blockIdx.x].idx;
+//   uint64_t subsequence = (uint64_t(treeid) << 32) | uint64_t(nodeid);
+//   raft::random::PCGenerator gen(seed, subsequence, uint64_t(threadIdx.x));
+//   raft::random::UniformIntDistParams<IdxT, uint64_t> uniform_int_dist_params;
+//   uniform_int_dist_params.start = 0;
+//   uniform_int_dist_params.end = k;
+//   uniform_int_dist_params.diff = uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
+//   float fp_uniform_val;
+//   IdxT int_uniform_val;
+//   // fp_uniform_val will have a random value between 0 and 1
+//   gen.next(fp_uniform_val);
+//   double W = raft::myExp(raft::myLog(fp_uniform_val)/k);
+
+//   size_t col(0);
+//   // initially fill the reservoir array in increasing order of cols till k
+//   while(1) {
+//     colids[tid * k + col] = col;
+//     if(col == k-1) break;
+//     else ++col;
+//   }
+//   // randomly sample from a geometric distribution
+//   while(col < n) {
+//     // fp_uniform_val will have a random value between 0 and 1
+//     gen.next(fp_uniform_val);
+//     col += static_cast<int>(raft::myLog(fp_uniform_val)/raft::myLog(1-W)) + 1;
+//     if(col < n) {
+//       // int_uniform_val will now have a random value between 0...k
+//       raft::random::custom_next(gen, &int_uniform_val, uniform_int_dist_params, IdxT(0), IdxT(0));
+//       // bad memory coalescing here...
+//       assert(int_uniform_val < k);
+//       colids[tid * k + int_uniform_val] = col;
+//       // fp_uniform_val will have a random value between 0 and 1
+//       gen.next(fp_uniform_val);
+//       W *= raft::myExp(raft::myLog(fp_uniform_val)/k);
+//     }
+//   }
+// }
+template <typename IdxT>
+struct CustomDifference
+{
+  __device__ IdxT operator()(const IdxT &lhs, const IdxT &rhs)
+  {
+    if(lhs == rhs) return 0;
+    else return 1;
+    // return lhs - rhs;
+  }
+};
+
+template <typename IdxT, int MAX_SAMPLES_PER_THREAD=5, int BLOCK_THREADS=128>
+__global__ void excess_sample_with_replacement_kernel(IdxT* colids,
+                                       const NodeWorkItem* work_items,
+                                       size_t work_items_size,
+                                       IdxT treeid,
+                                       uint64_t seed,
+                                       size_t n /* total cols to sample from*/,
+                                       size_t k /* cols to sample */,
+                                       int factor=2)
+{
+
+  if (blockIdx.x >= work_items_size) return;
+
+  const uint32_t nodeid = work_items[blockIdx.x].idx;
+
+  uint64_t subsequence(fnv1a32_basis);
+  subsequence = fnv1a32(subsequence, uint32_t(threadIdx.x));
+  subsequence = fnv1a32(subsequence, uint32_t(treeid));
+  subsequence = fnv1a32(subsequence, uint32_t(nodeid));
+  subsequence = fnv1a32(subsequence, uint32_t(seed >> 32));
+  subsequence = fnv1a32(subsequence, uint32_t(seed));
+
+  raft::random::PCGenerator gen(seed, subsequence, uint64_t(0));
+  raft::random::UniformIntDistParams<IdxT, uint64_t> uniform_int_dist_params;
+
+  uniform_int_dist_params.start = 0;
+  uniform_int_dist_params.end = n;
+  uniform_int_dist_params.diff = uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
+
+  IdxT n_uniques;
+  IdxT n_excess_samples = factor * k;
+
+  do {
+      IdxT items[MAX_SAMPLES_PER_THREAD];
+      // blocked arrangement
+      for(int cta_sample_idx = MAX_SAMPLES_PER_THREAD * threadIdx.x, thread_local_sample_idx=0; thread_local_sample_idx < MAX_SAMPLES_PER_THREAD; ++cta_sample_idx, ++thread_local_sample_idx) {
+          if(cta_sample_idx < n_excess_samples) // generate only 'n_excess_samples' random samples
+            raft::random::custom_next(gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
+          else // rest will be sorted to the end
+            items[thread_local_sample_idx] = n-1;
+      }
+
+      // Specialize BlockRadixSort type for our thread block
+      typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
+      // BlockAdjacentDifference
+      typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
+      // BlockScan
+      typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
+
+      // Shared memory
+      __shared__ union TempStorage
+      {
+          typename BlockRadixSortT::TempStorage   sort;
+          typename BlockAdjacentDifferenceT::TempStorage diff;
+          typename BlockScanT::TempStorage scan;
+      } temp_storage;
+
+      // collectively sort items
+      BlockRadixSortT(temp_storage.sort).Sort(items);
+
+      __syncthreads();
+
+      // if(threadIdx.x == 0 and blockIdx.x == 0) {
+      //   printf("\nsorted items in thread0 of block0:\n");
+      //   for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
+      //     printf("%d,", items[i]);
+      //   }
+      // }
+
+      // compute the mask
+      IdxT mask[MAX_SAMPLES_PER_THREAD];
+      // compute the adjacent differences according to the functor
+      BlockAdjacentDifferenceT(temp_storage.diff).FlagHeads(mask, items, mask, CustomDifference<IdxT>());
+
+      __syncthreads();
+
+      // if(threadIdx.x == 0 and blockIdx.x == 0) {
+      //   printf("\nmask generated by thread0 of block0:\n");
+      //   for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
+      //     printf("%d,", mask[i]);
+      //   }
+      // }
+
+      IdxT col_indices[MAX_SAMPLES_PER_THREAD];
+      // do a scan on the mask to get the indices for gathering
+      BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
+
+      // __syncthreads();
+
+      // if(threadIdx.x == 0 and blockIdx.x == 0) {
+      //   printf("\nscanned col_indices generated by thread0 of block0:\n");
+      //   for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
+      //     printf("%d,", col_indices[i]);
+      //   }
+      // }
+
+      if(n_uniques < k)
+      {
+        continue;
+      }
+
+      // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
+      IdxT col_offset = k * blockIdx.x;
+      for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
+        if(mask[i] and col_indices[i] < k) {
+          colids[col_offset + col_indices[i]] = items[i];
+        }
+      }
+
+      // __syncthreads();
+
+  } while(false);
+
+}
+
+// algo L of the reservoir sampling algorithm
+// wiki : https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
+template <typename IdxT>
+__global__ void algo_L_sample_kernel(int* colids,
+                                       const NodeWorkItem* work_items,
+                                       size_t work_items_size,
+                                       IdxT treeid,
+                                       uint64_t seed,
+                                       size_t n /* total cols to sample from*/,
+                                       size_t k /* cols to sample */)
+{
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= work_items_size) return;
+  const uint32_t nodeid = work_items[tid].idx;
+  uint64_t subsequence = (uint64_t(treeid) << 32) | uint64_t(nodeid);
+  raft::random::PCGenerator gen(seed, subsequence, uint64_t(0));
+  raft::random::UniformIntDistParams<IdxT, uint64_t> uniform_int_dist_params;
+  uniform_int_dist_params.start = 0;
+  uniform_int_dist_params.end = k;
+  uniform_int_dist_params.diff = uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
+  float fp_uniform_val;
+  IdxT int_uniform_val;
+  // fp_uniform_val will have a random value between 0 and 1
+  gen.next(fp_uniform_val);
+  double W = raft::myExp(raft::myLog(fp_uniform_val)/k);
+
+  size_t col(0);
+  // initially fill the reservoir array in increasing order of cols till k
+  while(1) {
+    colids[tid * k + col] = col;
+    if(col == k-1) break;
+    else ++col;
+  }
+  // randomly sample from a geometric distribution
+  while(col < n) {
+    // fp_uniform_val will have a random value between 0 and 1
+    gen.next(fp_uniform_val);
+    col += static_cast<int>(raft::myLog(fp_uniform_val)/raft::myLog(1-W)) + 1;
+    if(col < n) {
+      // int_uniform_val will now have a random value between 0...k
+      raft::random::custom_next(gen, &int_uniform_val, uniform_int_dist_params, IdxT(0), IdxT(0));
+      // bad memory coalescing here...
+      // assert(int_uniform_val < k);
+      colids[tid * k + int_uniform_val] = col;
+      // fp_uniform_val will have a random value between 0 and 1
+      gen.next(fp_uniform_val);
+      W *= raft::myExp(raft::myLog(fp_uniform_val)/k);
+    }
+  }
+}
 
 template <typename IdxT>
 __global__ void adaptive_sample_kernel(int* colids,
