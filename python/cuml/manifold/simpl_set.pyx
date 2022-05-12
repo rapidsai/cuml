@@ -20,13 +20,12 @@ import numpy as np
 import cupy as cp
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 import cuml.internals
 from cuml.common.base import Base
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.array import CumlArray
-from cuml.manifold.umap import UMAP
 
 from raft.common.handle cimport handle_t
 from raft.common.handle import Handle
@@ -272,7 +271,7 @@ def simplicial_set_embedding(
     if a is None or b is None:
         spread = 1.0
         min_dist = 0.1
-        a, b = UMAP.find_ab_params(spread, min_dist)
+        a, b = find_ab_params(spread, min_dist)
 
     deterministic = random_state is not None
     if not isinstance(random_state, int):

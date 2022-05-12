@@ -22,10 +22,10 @@ from cuml.manifold.umap import UMAP
 from cuml.neighbors import NearestNeighbors
 
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
-from cuml.manifold.simpl_set import fuzzy_simplicial_set \
+from cuml.manifold.umap import fuzzy_simplicial_set \
     as cu_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
-from cuml.manifold.simpl_set import simplicial_set_embedding \
+from cuml.manifold.umap import simplicial_set_embedding \
     as cu_simplicial_set_embedding
 
 

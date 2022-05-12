@@ -31,7 +31,7 @@ import cupyx
 import numba.cuda as cuda
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 from cuml.common.sparsefuncs import extract_knn_graph
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
@@ -50,6 +50,8 @@ from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
+
+from cuml.manifold.simpl_set import fuzzy_simplicial_set, simplicial_set_embedding
 
 if has_scipy(True):
     import scipy.sparse
@@ -435,27 +437,7 @@ class UMAP(Base,
 
     @staticmethod
     def find_ab_params(spread, min_dist):
-        """ Function taken from UMAP-learn : https://github.com/lmcinnes/umap
-        Fit a, b params for the differentiable curve used in lower
-        dimensional fuzzy simplicial complex construction. We want the
-        smooth curve (from a pre-defined family with simple gradient) that
-        best matches an offset exponential decay.
-        """
-
-        def curve(x, a, b):
-            return 1.0 / (1.0 + a * x ** (2 * b))
-
-        if has_scipy():
-            from scipy.optimize import curve_fit
-        else:
-            raise RuntimeError('Scipy is needed to run find_ab_params')
-
-        xv = np.linspace(0, spread * 3, 300)
-        yv = np.zeros(xv.shape)
-        yv[xv < min_dist] = 1.0
-        yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
-        params, covar = curve_fit(curve, xv, yv)
-        return params[0], params[1]
+        return find_ab_params(spread, min_dist)
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
