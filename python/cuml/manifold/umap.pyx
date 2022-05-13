@@ -51,7 +51,8 @@ from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
-from cuml.manifold.simpl_set import fuzzy_simplicial_set, simplicial_set_embedding
+from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
+    simplicial_set_embedding
 
 if has_scipy(True):
     import scipy.sparse
