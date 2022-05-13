@@ -201,8 +201,8 @@ class RandomForestClassifier(BaseRandomForestModel,
          * If type ``int``, then min_samples_split represents the minimum
            number.
          * If type ``float``, then ``min_samples_split`` represents a fraction
-           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
-           samples for each split.
+           and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
+           number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
