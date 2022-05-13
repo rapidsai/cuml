@@ -179,7 +179,7 @@ class NearestNeighbors(Base,
         - ``'rbc'``: for the random ball algorithm, which partitions
           the data space and uses the triangle inequality to lower the
           number of potential distances. Currently, this algorithm
-          supports 2d Euclidean and Haversine.
+          supports Haversine (2d) and Euclidean in 2d and 3d.
         - ``'brute'``: for brute-force, slow but produces exact results
         - ``'ivfflat'``: for inverted file, divide the dataset in partitions
           and perform search on relevant partitions only
@@ -710,8 +710,9 @@ class NearestNeighbors(Base,
             n_neighbors > math.sqrt(self.X_m.shape[0])
 
         if fallback_to_brute:
-            warnings.warn("sqrt(%s) < n_neighbors (%s). "
-                          "falling back to brute force search" %
+            warnings.warn("algorithm='rbc' requires sqrt(%s) be "
+                          "> n_neighbors (%s). falling back to "
+                          "brute force search" %
                           (self.X_m.shape[0], n_neighbors))
 
         if self.working_algorithm_ == 'brute' or fallback_to_brute:
