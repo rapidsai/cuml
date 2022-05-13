@@ -51,7 +51,6 @@ gpuci_logger "Build Doxygen docs"
 gpuci_logger "Build Sphinx docs"
 cd "$PROJECT_WORKSPACE/docs"
 make html
-RETVAL=$?
 
 #Commit to Website
 cd "$DOCS_WORKSPACE"
@@ -66,5 +65,3 @@ done
 
 mv "$PROJECT_WORKSPACE/cpp/build/html/"* "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
 mv "$PROJECT_WORKSPACE/docs/build/html/"* "$DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION"
-
-exit $RETVAL
