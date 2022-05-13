@@ -24,10 +24,9 @@
 
 #include <metrics/scores.cuh>
 #include <raft/random/permute.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>
