@@ -216,20 +216,39 @@ class BaseRandomForestModel(Base):
                 self.treelite_serialized_model)
 
         else:
+            if self.dtype not in [np.float32, np.float64]:
+                raise ValueError("Unknown dtype.")
+
             if self.RF_type == CLASSIFICATION:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, int]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                    )
+                if self.dtype==np.float32:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[float, int]*>
+                        <uintptr_t> self.rf_forest,
+                        <int> self.n_cols
+                        )
+                elif self.dtype==np.float64:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[double, int]*>
+                        <uintptr_t> self.rf_forest64,
+                        <int> self.n_cols
+                        )
             else:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, float]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                    )
+                if self.dtype==np.float32:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[float, float]*>
+                        <uintptr_t> self.rf_forest,
+                        <int> self.n_cols
+                        )
+                elif self.dtype==np.float64:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[double, double]*>
+                        <uintptr_t> self.rf_forest64,
+                        <int> self.n_cols
+                        )
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
@@ -288,7 +307,7 @@ class BaseRandomForestModel(Base):
                 math.ceil(self.min_samples_leaf * self.n_rows)
         if type(self.min_samples_split) == float:
             self.min_samples_split = \
-                math.ceil(self.min_samples_split * self.n_rows)
+                max(2, math.ceil(self.min_samples_split * self.n_rows))
         return X_m, y_m, max_feature_val
 
     def _tl_handle_from_bytes(self, treelite_serialized_model):

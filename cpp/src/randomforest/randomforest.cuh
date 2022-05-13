@@ -23,12 +23,11 @@
 #include <decisiontree/treelite_util.h>
 
 #include <raft/random/permute.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.hpp>
 #include <raft/stats/regression_metrics.hpp>
 
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>

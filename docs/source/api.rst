@@ -604,5 +604,5 @@ Linear Models
 
 Model Explainability
 --------------------
-.. autoclass:: cuml.experimental.explainer.TreeExplainer
+.. autoclass:: cuml.explainer.TreeExplainer
    :members:
