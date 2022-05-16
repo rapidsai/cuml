@@ -58,7 +58,6 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float target_weight,
         uint64_t random_state,
         bool deterministic,
-        int optim_batch_size,
         GraphBasedDimRedCallback * callback
 
 cdef extern from "raft/sparse/coo.hpp":

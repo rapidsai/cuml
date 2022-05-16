@@ -28,10 +28,6 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
-# TODO: Move installs to docs-build-env meta package
-conda install -c anaconda beautifulsoup4 jq
-pip install sphinx-markdown-tables
-
 
 gpuci_logger "Check versions"
 python --version
@@ -51,7 +47,6 @@ gpuci_logger "Build Doxygen docs"
 gpuci_logger "Build Sphinx docs"
 cd "$PROJECT_WORKSPACE/docs"
 make html
-RETVAL=$?
 
 #Commit to Website
 cd "$DOCS_WORKSPACE"
@@ -66,5 +61,3 @@ done
 
 mv "$PROJECT_WORKSPACE/cpp/build/html/"* "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
 mv "$PROJECT_WORKSPACE/docs/build/html/"* "$DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION"
-
-exit $RETVAL

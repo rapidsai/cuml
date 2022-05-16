@@ -271,7 +271,7 @@ def test_nonmonotonic_labels(n_classes, n_rows, n_cols,
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_multioutput(input_type, output_type):
 
-    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+    X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
@@ -300,7 +300,7 @@ def test_predict_multioutput(input_type, output_type):
 @pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
 def test_predict_proba_multioutput(input_type, output_type):
 
-    X = np.array([[0, 0, 1], [1, 0, 1]]).astype(np.float32)
+    X = np.array([[0, 0, 1, 0], [1, 0, 1, 0]]).astype(np.float32)
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
