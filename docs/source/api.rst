@@ -83,24 +83,45 @@ Feature and Label Encoding (Single-GPU)
     :members:
 
 Feature Scaling and Normalization (Single-GPU)
--------------
-.. automodule:: cuml.preprocessing
-   :members: MaxAbsScaler, MinMaxScaler, Normalizer, RobustScaler,
-             StandardScaler, maxabs_scale, minmax_scale, normalize,
-             robust_scale, scale
+----------------------------------------------
+.. autoclass:: cuml.preprocessing.MaxAbsScaler
+    :members:
+.. autoclass:: cuml.preprocessing.MinMaxScaler
+    :members:
+.. autoclass:: cuml.preprocessing.Normalizer
+    :members:
+.. autoclass:: cuml.preprocessing.RobustScaler
+    :members:
+.. autoclass:: cuml.preprocessing.StandardScaler
+    :members:
+.. autofunction:: cuml.preprocessing.maxabs_scale
+.. autofunction:: cuml.preprocessing.minmax_scale
+.. autofunction:: cuml.preprocessing.normalize
+.. autofunction:: cuml.preprocessing.robust_scale
+.. autofunction:: cuml.preprocessing.scale
 
 Other preprocessing methods (Single-GPU)
--------------
-.. automodule:: cuml.preprocessing
-   :members: Binarizer, FunctionTransformer, KBinsDiscretizer,
-             MissingIndicator, PolynomialFeatures, SimpleImputer,
-             add_dummy_feature, binarize
+----------------------------------------
+.. autoclass:: cuml.preprocessing.Binarizer
+    :members:
+.. autoclass:: cuml.preprocessing.FunctionTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.KBinsDiscretizer
+    :members:
+.. autoclass:: cuml.preprocessing.MissingIndicator
+    :members:
+.. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.SimpleImputer
+    :members:
+.. autofunction:: cuml.preprocessing.add_dummy_feature
+.. autofunction:: cuml.preprocessing.binarize
 
 .. automodule:: cuml.compose
    :members: ColumnTransformer, make_column_transformer, make_column_selector
 
 Text Preprocessing (Single-GPU)
----------------------------------------
+-------------------------------
  .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
