@@ -93,7 +93,7 @@ class KBinsDiscretizer(TransformerMixin,
       np.concatenate([-np.inf, bin_edges_[i][1:-1], np.inf])
 
     You can combine ``KBinsDiscretizer`` with
-    :class:`sklearn.compose.ColumnTransformer` if you only want to preprocess
+    :class:`cuml.compose.ColumnTransformer` if you only want to preprocess
     part of the features.
 
     ``KBinsDiscretizer`` might produce constant features (e.g., when
@@ -104,12 +104,12 @@ class KBinsDiscretizer(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import KBinsDiscretizer
-    >>> import numpy as np
+    >>> import cupy as cp
     >>> X = [[-2, 1, -4,   -1],
     ...      [-1, 2, -3, -0.5],
     ...      [ 0, 3, -2,  0.5],
     ...      [ 1, 4, -1,    2]]
-    >>> X = np.array(X)
+    >>> X = cp.array(X)
     >>> est = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='uniform')
     >>> est.fit(X)
     KBinsDiscretizer(...)
