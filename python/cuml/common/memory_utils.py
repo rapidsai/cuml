@@ -27,6 +27,7 @@ import numpy as np
 import rmm
 from cuml.common.import_utils import check_min_cupy_version
 from numba import cuda as nbcuda
+from cuml.common.logger import debug
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -60,7 +61,7 @@ class ArrayInfo:
             out_strides = _order_to_strides(out_order, out_shape, out_type)
         else:
             out_strides = interface['strides']
-            out_order = _strides_to_order(out_strides, out_type)
+            out_order = _strides_to_order(out_strides, out_shape, out_type)
 
         return ArrayInfo(shape=out_shape,
                          order=out_order,
@@ -202,6 +203,7 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
         result = \
             _rmm_cupy6_array_like(temp_res,
                                   order=_strides_to_order(temp_res.strides,
+                                                          temp_res.shape,
                                                           temp_res.dtype))
         cp.copyto(result, temp_res)
 
@@ -222,39 +224,52 @@ def _rmm_cupy6_array_like(ary, order):
     return arr
 
 
-def _strides_to_order(strides, dtype):
-    # cuda array interface specification
-    if strides is None:
-        return 'C'
-    if strides[0] == dtype.itemsize or len(strides) == 1:
+def _strides_to_order(strides, shape, dtype):
+    itemsize = cp.dtype(dtype).itemsize
+    shape = list(shape)
+    strides = list(strides)
+
+    if strides[0] == itemsize and \
+        all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
+                range(len(strides) - 1))):
         return 'F'
-    elif strides[1] == dtype.itemsize:
+
+    shape = shape[::-1]
+    strides = strides[::-1]
+
+    if strides[0] == itemsize and \
+        all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
+                range(len(strides) - 1))):
         return 'C'
     else:
-        raise ValueError("Invalid strides value for dtype")
+        debug('Uncontiguous array, will perform a copy')
+        return None
 
 
 def _order_to_strides(order, shape, dtype):
     itemsize = cp.dtype(dtype).itemsize
-    if isinstance(shape, int):
+    if isinstance(shape, int) or len(shape) == 1:
         return (itemsize, )
 
     elif len(shape) == 0:
         return None
 
-    elif len(shape) == 1:
-        return (itemsize, )
+    strides = [itemsize]
+
+    if order == 'F':
+        for dim_size in shape[:-1]:
+            strides.append(dim_size * strides[-1])
 
     elif order == 'C':
-        dim_minor = shape[1] * itemsize
-        return (dim_minor, itemsize)
-
-    elif order == 'F':
-        dim_minor = shape[0] * itemsize
-        return (itemsize, dim_minor)
+        shape = shape[::-1]
+        for dim_size in shape[:-1]:
+            strides.append(dim_size * strides[-1])
+        strides = strides[::-1]
 
     else:
         raise ValueError('Order must be "F" or "C". ')
+
+    return tuple(strides)
 
 
 def _get_size_from_shape(shape, dtype):
@@ -287,10 +302,6 @@ def _check_array_contiguity(ary):
     ary: __cuda_array_interface__ or __array_interface__ compliant array.
     """
 
-    if hasattr(ary, 'ndim'):
-        if ary.ndim == 1:
-            return True
-
     # Use contiguity flags if present
     if hasattr(ary, 'flags'):
         if ary.flags['C_CONTIGUOUS'] or ary.flags['F_CONTIGUOUS']:
@@ -316,21 +327,9 @@ def _check_array_contiguity(ary):
         shape = ary_interface['shape']
         strides = ary_interface['strides']
         dtype = cp.dtype(ary_interface['typestr'])
-        order = _strides_to_order(strides, dtype)
-        itemsize = cp.dtype(dtype).itemsize
+        order = _strides_to_order(strides, shape, dtype)
 
-        # We check if the strides jump on the non contiguous dimension
-        # does not correspond to the array dimension size, which indicates
-        # this is a view to a non contiguous array.
-        if order == 'F':
-            if (shape[0] * itemsize) != strides[1]:
-                return False
-
-        elif order == 'C':
-            if (shape[1] * itemsize) != strides[0]:
-                return False
-
-        return True
+        return order in ['C', 'F']
 
 
 def set_global_output_type(output_type):

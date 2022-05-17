@@ -154,9 +154,6 @@ class CumlArray(Buffer):
             flattened_data = data
 
         self._index = index
-        super().__init__(data=flattened_data,
-                         owner=owner,
-                         size=size)
 
         # Post processing of meta data
         if detailed_construction:
@@ -183,7 +180,20 @@ class CumlArray(Buffer):
                                                  self.dtype)
             else:
                 self.strides = ary_interface['strides']
-                self.order = _strides_to_order(self.strides, self.dtype)
+                order = _strides_to_order(self.strides, self.shape, self.dtype)
+                if order in ['C', 'F']:
+                    self.order = order
+                else:
+                    cupy_data = cp.array(data, copy=True, order='C')
+                    flattened_data = cupy_data.data.ptr
+                    self.order = 'C'
+                    self.strides = cupy_data.strides
+                    size = cupy_data.nbytes
+                    owner = cupy_data if cupy_data.flags.owndata else data
+
+        super().__init__(data=flattened_data,
+                         owner=owner,
+                         size=size)
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed

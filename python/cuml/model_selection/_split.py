@@ -51,6 +51,7 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
     elif hasattr(X, "__cuda_array_interface__"):
         X = cp.asarray(X)
         x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
+                                    X.__cuda_array_interface__['shape'],
                                     cp.dtype(X.dtype))
 
     # labels and stratify will be only cp arrays
@@ -69,6 +70,7 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
 
     labels_order = _strides_to_order(
                         labels.__cuda_array_interface__['strides'],
+                        labels.__cuda_array_interface__['shape'],
                         cp.dtype(labels.dtype))
 
     # Converting to cupy array removes the need to add an if-else block
@@ -434,10 +436,12 @@ def train_test_split(X,
     # If not stratified, perform train_test_split splicing
     if hasattr(X, "__cuda_array_interface__"):
         x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
+                                    X.__cuda_array_interface__['shape'],
                                     cp.dtype(X.dtype))
 
     if hasattr(y, "__cuda_array_interface__"):
         y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
+                                    y.__cuda_array_interface__['shape'],
                                     cp.dtype(y.dtype))
 
     if hasattr(X, "__cuda_array_interface__") or \
