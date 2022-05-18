@@ -298,8 +298,7 @@ class BaseRandomForestModel(Base):
                     check_rows=self.n_rows, check_cols=1)
 
         if self.dtype == np.float64:
-            warnings.warn("To use pickling or GPU-based prediction first "
-                          "train using float32 data to fit the estimator")
+            warnings.warn("To use pickling first train using float32 data to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_samples_leaf) == float:
@@ -348,18 +347,7 @@ class BaseRandomForestModel(Base):
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
-
-        if dtype == np.float64 and not convert_dtype:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
-            return self._predict_model_on_cpu(X, convert_dtype=convert_dtype)
         treelite_handle = self._obtain_treelite_handle()
-
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,

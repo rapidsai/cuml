@@ -254,7 +254,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
 @pytest.mark.parametrize(
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
     use_handle = True
@@ -310,7 +310,7 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
 @pytest.mark.parametrize(
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "max_features,n_bins",
     [
@@ -379,7 +379,7 @@ def test_rf_regression(
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
 
     X, y = small_clf
@@ -455,30 +455,13 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
         assert cu_acc >= (sk_acc - 0.07)
 
     # predict using cuML's GPU based prediction
-    if datatype[0] == np.float32 and convert_dtype:
-        fil_preds = cuml_model.predict(
-            X_test, predict_model="GPU", convert_dtype=convert_dtype
-        )
-        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+    fil_preds = cuml_model.predict(
+        X_test, predict_model="GPU", convert_dtype=convert_dtype
+    )
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
 
-        fil_acc = accuracy_score(y_test, fil_preds)
-        assert fil_acc >= (cu_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
-    # if GPU predict cannot be used, display warning and use CPU predict
-    elif datatype[1] == np.float64:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            fil_preds = cuml_model.predict(
-                X_test, predict_model="GPU",
-                convert_dtype=convert_dtype
-            )
-            assert("GPU based predict only accepts "
-                   "np.float32 data. The model was "
-                   "trained on np.float64 data hence "
-                   "cannot use GPU-based prediction! "
-                   "\nDefaulting to CPU-based Prediction. "
-                   "\nTo predict on float-64 data, set "
-                   "parameter predict_model = 'CPU'"
-                   in str(w[-1].message))
+    fil_acc = accuracy_score(y_test, fil_preds)
+    assert fil_acc >= (cu_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
 
 
 @pytest.mark.parametrize(
@@ -513,30 +496,12 @@ def test_rf_regression_float64(large_reg, datatype):
         assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
-    if datatype[0] == np.float32:
-        fil_preds = cuml_model.predict(
-            X_test, predict_model="GPU", convert_dtype=True
-        )
-        fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-        fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
-        assert fil_r2 >= (cu_r2 - 0.02)
-
-    #  because datatype[0] != np.float32 or datatype[0] != datatype[1]
-    # display warning when GPU-predict cannot be used and revert to CPU-predict
-    elif datatype[1] == np.float64:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            fil_preds = cuml_model.predict(
-                X_test, predict_model="GPU"
-                )
-            assert("GPU based predict only accepts "
-                   "np.float32 data. The model was "
-                   "trained on np.float64 data hence "
-                   "cannot use GPU-based prediction! "
-                   "\nDefaulting to CPU-based Prediction. "
-                   "\nTo predict on float-64 data, set "
-                   "parameter predict_model = 'CPU'"
-                   in str(w[-1].message))
+    fil_preds = cuml_model.predict(
+        X_test, predict_model="GPU", convert_dtype=True
+    )
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
+    assert fil_r2 >= (cu_r2 - 0.02)
 
 
 def check_predict_proba(test_proba, baseline_proba, y_test, rel_err):
@@ -624,13 +589,13 @@ def rf_classification(
         check_predict_proba(cu_proba_gpu, sk_proba, y_test, 0.1)
 
 
-@pytest.mark.parametrize("datatype", [(np.float32, np.float32)])
+@pytest.mark.parametrize("datatype", [(np.float32, np.float64)])
 @pytest.mark.parametrize("array_type", ["dataframe", "numpy"])
 def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
     rf_classification(datatype, array_type, 1.0, 1.0, mclass_clf)
 
 
-@pytest.mark.parametrize("datatype", [(np.float32, np.float32)])
+@pytest.mark.parametrize("datatype", [(np.float32, np.float64)])
 @pytest.mark.parametrize("max_samples", [unit_param(1.0), stress_param(0.95)])
 @pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
 def test_rf_classification_proba(
@@ -639,7 +604,7 @@ def test_rf_classification_proba(
     rf_classification(datatype, "numpy", max_features, max_samples, small_clf)
 
 
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "fil_sparse_format", ["not_supported", True, "auto", False]
 )
@@ -727,7 +692,7 @@ def test_rf_classification_sparse(
             assert fil_acc >= (sk_acc - 0.07)
 
 
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "fil_sparse_format", ["not_supported", True, "auto", False]
 )
@@ -817,12 +782,12 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
 
 @pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
 @pytest.mark.memleak
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("fil_sparse_format", [True, False, "auto"])
 @pytest.mark.parametrize(
     "n_iter", [unit_param(5), quality_param(30), stress_param(80)]
 )
-def test_rf_memory_leakage(small_clf, fil_sparse_format, n_iter):
-    datatype = np.float32
+def test_rf_memory_leakage(small_clf, datatype, fil_sparse_format, n_iter):
     use_handle = True
 
     X, y = small_clf
