@@ -297,7 +297,7 @@ __global__ void excess_sample_with_replacement_kernel(IdxT* colids,
                                        uint64_t seed,
                                        size_t n /* total cols to sample from*/,
                                        size_t k /* cols to sample */,
-                                       int factor=2)
+                                       int n_parallel_samples)
 {
 
   if (blockIdx.x >= work_items_size) return;
@@ -319,13 +319,12 @@ __global__ void excess_sample_with_replacement_kernel(IdxT* colids,
   uniform_int_dist_params.diff = uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
 
   IdxT n_uniques;
-  IdxT n_excess_samples = factor * k;
 
   do {
       IdxT items[MAX_SAMPLES_PER_THREAD];
       // blocked arrangement
       for(int cta_sample_idx = MAX_SAMPLES_PER_THREAD * threadIdx.x, thread_local_sample_idx=0; thread_local_sample_idx < MAX_SAMPLES_PER_THREAD; ++cta_sample_idx, ++thread_local_sample_idx) {
-          if(cta_sample_idx < n_excess_samples) // generate only 'n_excess_samples' random samples
+          if(cta_sample_idx < n_parallel_samples) // generate only 'n_parallel_samples' random samples
             raft::random::custom_next(gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
           else // rest will be sorted to the end
             items[thread_local_sample_idx] = n-1;
