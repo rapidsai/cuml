@@ -201,9 +201,13 @@ else
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python/cuml/tests
 
+    gpuci_logger "START pytest"
     pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=dask --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    gpuci_logger "END pytest"
 
+    gpuci_logger "START dask"
     timeout 7200 sh -c "pytest dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    gpuci_logger "END dask"
 
     ################################################################################
     # TEST - Run notebook tests
