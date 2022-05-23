@@ -93,7 +93,7 @@ class KBinsDiscretizer(TransformerMixin,
       np.concatenate([-np.inf, bin_edges_[i][1:-1], np.inf])
 
     You can combine ``KBinsDiscretizer`` with
-    :class:`sklearn.compose.ColumnTransformer` if you only want to preprocess
+    :class:`cuml.compose.ColumnTransformer` if you only want to preprocess
     part of the features.
 
     ``KBinsDiscretizer`` might produce constant features (e.g., when
