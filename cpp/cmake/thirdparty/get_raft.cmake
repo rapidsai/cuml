@@ -62,7 +62,7 @@ function(find_and_configure_raft)
               "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
               "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
-              "NVTX ${NVTX}"
+              "RAFT_NVTX ${NVTX}"
     )
 
     if(raft_ADDED)
