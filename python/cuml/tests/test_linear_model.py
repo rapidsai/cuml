@@ -278,7 +278,6 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
                            with_sign=True)
 
 
-
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
@@ -310,8 +309,8 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
 
     # Initialization of cuML's linear regression model
     curidge = cuRidge(fit_intercept=fit_intercept,
-                    normalize=normalize,
-                    solver=algorithm)
+                      normalize=normalize,
+                      solver=algorithm)
 
     # fit and predict cuml linear regression model
     curidge.fit(X_train, y_train, sample_weight=wt)
@@ -319,7 +318,7 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
 
     # sklearn linear regression model initialization, fit and predict
     skridge = skRidge(fit_intercept=fit_intercept,
-                    normalize=normalize)
+                      normalize=normalize)
     skridge.fit(X_train, y_train, sample_weight=wt)
 
     skridge_predict = skridge.predict(X_test)
