@@ -22,8 +22,7 @@ build:
   script_env:
     - VERSION_SUFFIX
   ignore_run_exports_from:
-    - nvcc_linux-64 # [linux64]
-    - nvcc_linux-aarch64 # [aarch64]
+    - {{ compiler('cuda') }}
 
 requirements:
   build:
@@ -31,8 +30,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
-    - sysroot_linux-64 {{ sysroot_version }}  # [linux64]
-    - sysroot_linux-aarch64 {{ sysroot_version }}  # [aarch64]
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python x.x
     - setuptools
