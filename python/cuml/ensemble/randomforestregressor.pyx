@@ -544,9 +544,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         ----------
         X : {}
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+            'GPU' to predict using the GPU, 'CPU' otherwise.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -582,16 +580,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
-        elif self.dtype == np.float64:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
         else:
             preds = self._predict_model_on_gpu(
                 X=X,
