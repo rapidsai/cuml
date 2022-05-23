@@ -297,7 +297,8 @@ void _fit_supervised(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
   ML::Logger::get().setLevel(params->verbosity);
 
-  UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, TPB_X>(handle, inputs, params, graph);
+  UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, TPB_X>(
+    handle, inputs, params, graph);
 
   /**
    * Initialize embeddings
