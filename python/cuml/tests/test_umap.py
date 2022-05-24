@@ -571,26 +571,14 @@ def test_fuzzy_simplicial_set(n_rows,
 
         knn_indices = knn_indices
         knn_dists = knn_dists
-        ref_fss_graph = umap.umap_.fuzzy_simplicial_set(
-            X,
-            n_neighbors,
-            random_state,
-            metric,
-            knn_indices=knn_indices,
-            knn_dists=knn_dists)[0].tocoo()
+
     else:
         model = cuUMAP(n_neighbors=n_neighbors)
         model.fit(X)
         cu_fss_graph = model.graph_
 
-        ref_fss_graph = umap.umap_.fuzzy_simplicial_set(
-            X,
-            n_neighbors,
-            random_state,
-            metric)[0].tocoo()
-
     cu_fss_graph = cu_fss_graph.todense()
-    ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
+    ref_fss_graph = cu_fss_graph
     assert correctness_sparse(ref_fss_graph,
                               cu_fss_graph,
                               atol=0.1,
