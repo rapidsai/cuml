@@ -24,6 +24,7 @@ import copy
 
 import cupyx
 import scipy.sparse
+import cupy as cp
 
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.testing.utils import array_equal, unit_param, \
@@ -530,3 +531,56 @@ def test_umap_knn_parameters(n_neighbors):
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)
     test_equality(embedding6, embedding7)
+
+
+def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
+    n_ref_zeros = (a == 0).sum()
+    n_ref_non_zero_elms = a.size - n_ref_zeros
+    n_correct = (cp.abs(a - b) <= (atol + rtol * cp.abs(b))).sum()
+    correctness = (n_correct - n_ref_zeros) / n_ref_non_zero_elms
+    return correctness >= threshold
+
+
+@pytest.mark.parametrize('n_rows', [800, 5000])
+@pytest.mark.parametrize('n_features', [8, 32])
+@pytest.mark.parametrize('n_neighbors', [8, 16])
+@pytest.mark.parametrize('precomputed_nearest_neighbors', [False, True])
+def test_fuzzy_simplicial_set(n_rows,
+                              n_features,
+                              n_neighbors,
+                              precomputed_nearest_neighbors):
+    n_clusters = 30
+    random_state = 42
+    metric = 'euclidean'
+
+    X, _ = make_blobs(n_samples=n_rows, centers=n_clusters,
+                      n_features=n_features, random_state=random_state)
+
+    if precomputed_nearest_neighbors:
+        nn = NearestNeighbors(n_neighbors=n_neighbors,
+                              metric=metric)
+        nn.fit(X)
+        knn_dists, knn_indices = nn.kneighbors(X,
+                                               n_neighbors,
+                                               return_distance=True)
+        knn_graph = nn.kneighbors_graph(X, mode="distance")
+        model = cuUMAP(n_neighbors=n_neighbors)
+        model.fit(X,
+                  knn_graph=knn_graph)
+        cu_fss_graph = model.graph_
+
+        knn_indices = knn_indices
+        knn_dists = knn_dists
+
+    else:
+        model = cuUMAP(n_neighbors=n_neighbors)
+        model.fit(X)
+        cu_fss_graph = model.graph_
+
+    cu_fss_graph = cu_fss_graph.todense()
+    ref_fss_graph = cu_fss_graph
+    assert correctness_sparse(ref_fss_graph,
+                              cu_fss_graph,
+                              atol=0.1,
+                              rtol=0.2,
+                              threshold=0.95)
