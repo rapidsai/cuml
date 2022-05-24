@@ -122,6 +122,13 @@ def create_rand_integers(random_state):
     return randint
 
 
+def create_positive_rand(random_state):
+    cp.random.seed(random_state)
+    rand = cp.random.rand(500, 20).astype(cp.float64)
+    rand = cp.abs(rand) + 0.1
+    return rand
+
+
 def convert(dataset, conversion_format):
     converted_dataset = to_output_type(dataset, conversion_format)
     dataset = cp.asnumpy(dataset)
@@ -256,6 +263,31 @@ def sparse_imputer_dataset(request, random_seed):
     X_sp, X = sparsify_and_convert(randint, datatype, sparsify_ratio=0.15)
     X_sp = X_sp.tocsc()
     return val, X_sp, X
+
+
+@pytest.fixture(scope="session",
+                params=["numpy", "dataframe", "cupy", "cudf", "numba"])
+def nan_filled_positive(request, random_seed):
+    rand = create_positive_rand(random_seed)
+    cp.random.seed(random_seed)
+    random_loc = cp.random.choice(rand.size,
+                                  int(rand.size * 0.3),
+                                  replace=False)
+    rand.ravel()[random_loc] = cp.nan
+    rand = convert(rand, request.param)
+    return rand
+
+
+@pytest.fixture(scope="session",
+                params=["scipy-csc", "cupy-csc"])
+def sparse_nan_filled_positive(request, random_seed):
+    rand = create_positive_rand(random_seed)
+    cp.random.seed(random_seed)
+    random_loc = cp.random.choice(rand.size,
+                                  int(rand.size * 0.3),
+                                  replace=False)
+    rand.ravel()[random_loc] = cp.nan
+    return sparsify_and_convert(rand, request.param)
 
 
 def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,

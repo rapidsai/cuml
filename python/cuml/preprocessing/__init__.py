@@ -22,11 +22,12 @@ from cuml.preprocessing import text
 
 from cuml._thirdparty.sklearn.preprocessing import Binarizer, \
     FunctionTransformer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, \
-    MissingIndicator, Normalizer, PolynomialFeatures, RobustScaler, \
-    SimpleImputer, StandardScaler
+    MissingIndicator, Normalizer, PolynomialFeatures, PowerTransformer, \
+    QuantileTransformer, RobustScaler, SimpleImputer, StandardScaler
 
 from cuml._thirdparty.sklearn.preprocessing import add_dummy_feature, \
-    binarize, maxabs_scale, minmax_scale, normalize, robust_scale, scale
+    binarize, maxabs_scale, minmax_scale, normalize, power_transform, \
+    quantile_transform, robust_scale, scale
 
 
 __all__ = [
@@ -42,6 +43,8 @@ __all__ = [
     'Normalizer',
     'OneHotEncoder',
     'PolynomialFeatures',
+    'PowerTransformer',
+    'QuantileTransformer',
     'RobustScaler',
     'SimpleImputer',
     'StandardScaler',
@@ -53,6 +56,8 @@ __all__ = [
     'maxabs_scale',
     'minmax_scale',
     'normalize',
+    'power_transform',
+    'quantile_transform',
     'robust_scale',
     'scale',
     'train_test_split',

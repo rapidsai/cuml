@@ -16,7 +16,11 @@ from ._data import scale
 from ._data import robust_scale
 from ._data import maxabs_scale
 from ._data import minmax_scale
+from ._data import power_transform
+from ._data import quantile_transform
 from ._data import PolynomialFeatures
+from ._data import PowerTransformer
+from ._data import QuantileTransformer
 
 from ._imputation import SimpleImputer
 from ._imputation import MissingIndicator
@@ -57,8 +61,8 @@ __all__ = [
     'maxabs_scale',
     'minmax_scale',
     'label_binarize',
-    'quantile_transform',
     'power_transform',
+    'quantile_transform',
     'make_column_selector',
     'make_column_transformer'
 ]

@@ -22,6 +22,7 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import numpy as cpu_np
 import cupy as np
+from cupyx import scipy
 from cupyx.scipy import sparse
 from scipy import stats
 from scipy import optimize
@@ -2272,7 +2273,7 @@ class QuantileTransformer(TransformerMixin,
                           " sparse matrix. This parameter has no effect.")
 
         n_samples, n_features = X.shape
-        references = self.references_ * 100
+        references = np.asnumpy(self.references_ * 100)
 
         self.quantiles_ = []
         for col in X.T:
@@ -2280,14 +2281,14 @@ class QuantileTransformer(TransformerMixin,
                 subsample_idx = random_state.choice(n_samples,
                                                     size=self.subsample,
                                                     replace=False)
-                col = col.take(subsample_idx, mode='clip')
-            self.quantiles_.append(np.nanpercentile(col, references))
-        self.quantiles_ = np.transpose(self.quantiles_)
+                col = col.take(subsample_idx)
+            self.quantiles_.append(cpu_np.nanpercentile(np.asnumpy(col), references))
+        self.quantiles_ = cpu_np.transpose(self.quantiles_)
         # Due to floating-point precision error in `np.nanpercentile`,
         # make sure that quantiles are monotonically increasing.
         # Upstream issue in numpy:
         # https://github.com/numpy/numpy/issues/14685
-        self.quantiles_ = np.maximum.accumulate(self.quantiles_)
+        self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
     def _sparse_fit(self, X, random_state):
         """Compute percentiles for sparse matrices.
@@ -2329,15 +2330,15 @@ class QuantileTransformer(TransformerMixin,
                 self.quantiles_.append([0] * len(references))
             else:
                 self.quantiles_.append(
-                        np.nanpercentile(column_data, references))
-        self.quantiles_ = np.transpose(self.quantiles_)
+                        cpu_np.nanpercentile(np.asnumpy(column_data),np.asnumpy( references)))
+        self.quantiles_ = cpu_np.transpose(np.asnumpy(self.quantiles_))
         # due to floating-point precision error in `np.nanpercentile`,
         # make sure the quantiles are monotonically increasing
         # Upstream issue in numpy:
         # https://github.com/numpy/numpy/issues/14685
-        self.quantiles_ = np.maximum.accumulate(self.quantiles_)
+        self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> 'QuantileTransformer':
         """Compute the quantiles used for transforming.
 
         Parameters
@@ -2406,21 +2407,19 @@ class QuantileTransformer(TransformerMixin,
             lower_bound_y = quantiles[0]
             upper_bound_y = quantiles[-1]
             # for inverse transform, match a uniform distribution
-            with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
-                if output_distribution == 'normal':
-                    X_col = stats.norm.cdf(X_col)
-                # else output distribution is already a uniform distribution
+            if output_distribution == 'normal':
+                X_col =  np.array(stats.norm.cdf(X_col.get()))
+            # else output distribution is already a uniform distribution
 
         # find index for lower and higher bounds
-        with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
-            if output_distribution == 'normal':
-                lower_bounds_idx = (X_col - BOUNDS_THRESHOLD <
-                                    lower_bound_x)
-                upper_bounds_idx = (X_col + BOUNDS_THRESHOLD >
-                                    upper_bound_x)
-            if output_distribution == 'uniform':
-                lower_bounds_idx = (X_col == lower_bound_x)
-                upper_bounds_idx = (X_col == upper_bound_x)
+        if output_distribution == 'normal':
+            lower_bounds_idx = (X_col - BOUNDS_THRESHOLD <
+                                lower_bound_x)
+            upper_bounds_idx = (X_col + BOUNDS_THRESHOLD >
+                                upper_bound_x)
+        if output_distribution == 'uniform':
+            lower_bounds_idx = (X_col == lower_bound_x)
+            upper_bounds_idx = (X_col == upper_bound_x)
 
         isfinite_mask = ~np.isnan(X_col)
         X_col_finite = X_col[isfinite_mask]
@@ -2444,20 +2443,19 @@ class QuantileTransformer(TransformerMixin,
         X_col[lower_bounds_idx] = lower_bound_y
         # for forward transform, match the output distribution
         if not inverse:
-            with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
-                if output_distribution == 'normal':
-                    X_col = stats.norm.ppf(X_col)
-                    # find the value to clip the data to avoid mapping to
-                    # infinity. Clip such that the inverse transform will be
-                    # consistent
-                    clip_min = stats.norm.ppf(BOUNDS_THRESHOLD - np.spacing(1))
-                    clip_max = stats.norm.ppf(1 - (BOUNDS_THRESHOLD -
-                                                   np.spacing(1)))
-                    X_col = np.clip(X_col, clip_min, clip_max)
-                # else output distribution is uniform and the ppf is the
-                # identity function so we let X_col unchanged
+            if output_distribution == 'normal':
+                X_col = stats.norm.ppf(X_col.get())
+                # find the value to clip the data to avoid mapping to
+                # infinity. Clip such that the inverse transform will be
+                # consistent
+                clip_min = stats.norm.ppf(BOUNDS_THRESHOLD - cpu_np.spacing(1))
+                clip_max = stats.norm.ppf(1 - (BOUNDS_THRESHOLD -
+                                                cpu_np.spacing(1)))
+                X_col = np.clip(X_col, clip_min, clip_max)
+            # else output distribution is uniform and the ppf is the
+            # identity function so we let X_col unchanged
 
-        return X_col
+        return np.asarray(X_col)
 
     def _check_inputs(self, X, in_fit, accept_sparse_negative=False,
                       copy=False):
@@ -2477,11 +2475,10 @@ class QuantileTransformer(TransformerMixin,
                                 force_all_finite='allow-nan')
         # we only accept positive sparse matrix when ignore_implicit_zeros is
         # false and that we call fit or transform.
-        with np.errstate(invalid='ignore'):  # hide NaN comparison warnings
-            if (not accept_sparse_negative and not self.ignore_implicit_zeros
-                    and (sparse.issparse(X) and np.any(X.data < 0))):
-                raise ValueError('QuantileTransformer only accepts'
-                                 ' non-negative sparse matrices.')
+        if (not accept_sparse_negative and not self.ignore_implicit_zeros
+                and (sparse.issparse(X) and np.any(X.data < 0))):
+            raise ValueError('QuantileTransformer only accepts'
+                                ' non-negative sparse matrices.')
 
         # check the output distribution
         if self.output_distribution not in ('normal', 'uniform'):
@@ -2534,7 +2531,7 @@ class QuantileTransformer(TransformerMixin,
 
         return X
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Feature-wise transformation of the data.
 
         Parameters
@@ -2555,7 +2552,7 @@ class QuantileTransformer(TransformerMixin,
 
         return self._transform(X, inverse=False)
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X) -> SparseCumlArray:
         """Back-projection to the original space.
 
         Parameters
@@ -2786,7 +2783,7 @@ class PowerTransformer(TransformerMixin,
         self.standardize = standardize
         self.copy = copy
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
 
         The optimal lambda parameter for minimizing skewness is estimated on
@@ -2806,7 +2803,7 @@ class PowerTransformer(TransformerMixin,
         self._fit(X, y=y, force_transform=False)
         return self
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None) -> CumlArray:
         return self._fit(X, y, force_transform=True)
 
     def _fit(self, X, y=None, force_transform=False):
@@ -2819,27 +2816,31 @@ class PowerTransformer(TransformerMixin,
         optim_function = {'box-cox': self._box_cox_optimize,
                           'yeo-johnson': self._yeo_johnson_optimize
                           }[self.method]
-        with np.errstate(invalid='ignore'):  # hide NaN warnings
-            self.lambdas_ = np.array([optim_function(col) for col in X.T])
+        self.lambdas_ = np.array([optim_function(col) for col in X.T])
 
         if self.standardize or force_transform:
             transform_function = {'box-cox': boxcox,
                                   'yeo-johnson': self._yeo_johnson_transform
                                   }[self.method]
             for i, lmbda in enumerate(self.lambdas_):
-                with np.errstate(invalid='ignore'):  # hide NaN warnings
+                if self.method == 'box-cox':
+                    x = X[:, i].get()
+                    lmbda = lmbda.get()
+                    X[:, i] = np.array(transform_function(x, lmbda))
+                else:
                     X[:, i] = transform_function(X[:, i], lmbda)
 
         if self.standardize:
-            self._scaler = StandardScaler(copy=False)
+            self._scaler = StandardScaler(copy=False, output_type=self.output_type)
             if force_transform:
-                X = self._scaler.fit_transform(X)
+                with using_output_type('cupy'):
+                    X = self._scaler.fit_transform(X)
             else:
                 self._scaler.fit(X)
 
         return X
 
-    def transform(self, X):
+    def transform(self, X) -> CumlArray:
         """Apply the power transform to each feature using the fitted lambdas.
 
         Parameters
@@ -2860,15 +2861,20 @@ class PowerTransformer(TransformerMixin,
                               'yeo-johnson': self._yeo_johnson_transform
                               }[self.method]
         for i, lmbda in enumerate(self.lambdas_):
-            with np.errstate(invalid='ignore'):  # hide NaN warnings
+            if self.method == 'box-cox':
+                x = X[:, i].get()
+                lmbda = lmbda.get()
+                X[:, i] = np.array(transform_function(x, lmbda))
+            else:
                 X[:, i] = transform_function(X[:, i], lmbda)
 
         if self.standardize:
-            X = self._scaler.transform(X)
+            with using_output_type('cupy'):
+                X = self._scaler.transform(X)
 
         return X
 
-    def inverse_transform(self, X):
+    def inverse_transform(self, X) -> CumlArray:
         """Apply the inverse power transformation using the fitted lambdas.
 
         The inverse of the Box-Cox transformation is given by::
@@ -2903,14 +2909,14 @@ class PowerTransformer(TransformerMixin,
         X = self._check_input(X, in_fit=False, check_shape=True)
 
         if self.standardize:
-            X = self._scaler.inverse_transform(X)
+            with using_output_type('cupy'):
+                X = self._scaler.inverse_transform(X)
 
         inv_fun = {'box-cox': self._box_cox_inverse_tranform,
                    'yeo-johnson': self._yeo_johnson_inverse_transform
                    }[self.method]
         for i, lmbda in enumerate(self.lambdas_):
-            with np.errstate(invalid='ignore'):  # hide NaN warnings
-                X[:, i] = inv_fun(X[:, i], lmbda)
+            X[:, i] = inv_fun(X[:, i], lmbda)
 
         return X
 
@@ -2929,17 +2935,17 @@ class PowerTransformer(TransformerMixin,
         """Return inverse-transformed input x following Yeo-Johnson inverse
         transform with parameter lambda.
         """
-        x_inv = np.zeros_like(x)
+        x_inv = np.zeros(x.shape, dtype=x.dtype)
         pos = x >= 0
 
         # when x >= 0
-        if abs(lmbda) < np.spacing(1.):
+        if abs(lmbda) < cpu_np.spacing(1.):
             x_inv[pos] = np.exp(x[pos]) - 1
         else:  # lmbda != 0
             x_inv[pos] = np.power(x[pos] * lmbda + 1, 1 / lmbda) - 1
 
         # when x < 0
-        if abs(lmbda - 2) > np.spacing(1.):
+        if abs(lmbda - 2) > cpu_np.spacing(1.):
             x_inv[~pos] = 1 - np.power(-(2 - lmbda) * x[~pos] + 1,
                                        1 / (2 - lmbda))
         else:  # lmbda == 2
@@ -2951,18 +2957,17 @@ class PowerTransformer(TransformerMixin,
         """Return transformed input x following Yeo-Johnson transform with
         parameter lambda.
         """
-
         out = np.zeros_like(x)
         pos = x >= 0  # binary mask
 
         # when x >= 0
-        if abs(lmbda) < np.spacing(1.):
+        if abs(lmbda) < cpu_np.spacing(1.):
             out[pos] = np.log1p(x[pos])
         else:  # lmbda != 0
             out[pos] = (np.power(x[pos] + 1, lmbda) - 1) / lmbda
 
         # when x < 0
-        if abs(lmbda - 2) > np.spacing(1.):
+        if abs(lmbda - 2) > cpu_np.spacing(1.):
             out[~pos] = -(np.power(-x[~pos] + 1, 2 - lmbda) - 1) / (2 - lmbda)
         else:  # lmbda == 2
             out[~pos] = -np.log1p(-x[~pos])
@@ -2977,7 +2982,10 @@ class PowerTransformer(TransformerMixin,
         """
         # the computation of lambda is influenced by NaNs so we need to
         # get rid of them
-        _, lmbda = stats.boxcox(x[~np.isnan(x)], lmbda=None)
+
+        #_, lmbda = cupyx.scipy.stats.boxcox(x[~np.isnan(x)])
+        x = x[~np.isnan(x)].get()
+        _, lmbda = stats.boxcox(x, lmbda=None)
 
         return lmbda
 
@@ -3026,13 +3034,9 @@ class PowerTransformer(TransformerMixin,
         X = self._validate_data(X, ensure_2d=True, dtype=FLOAT_DTYPES,
                                 copy=self.copy, force_all_finite='allow-nan')
 
-        with np.warnings.catch_warnings():
-            np.warnings.filterwarnings(
-                'ignore', r'All-NaN (slice|axis) encountered')
-            if (check_positive and self.method == 'box-cox' and
-                    np.nanmin(X) <= 0):
-                raise ValueError("The Box-Cox transformation can only be "
-                                 "applied to strictly positive data")
+        if (check_positive and self.method == 'box-cox' and np.nanmin(X) <= 0):
+            raise ValueError("The Box-Cox transformation can only be "
+                                "applied to strictly positive data")
 
         if check_shape and not X.shape[1] == len(self.lambdas_):
             raise ValueError("Input data has a different number of features "

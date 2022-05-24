@@ -157,11 +157,11 @@ def check_random_state(seed):
         If seed is already a RandomState instance, return it.
         Otherwise raise ValueError.
     """
-    if seed is None or seed is np.random:
-        return np.random.mtrand._rand
+    if seed is None or seed is cp.random:
+        return cp.random.RandomState(None)
     if isinstance(seed, numbers.Integral):
-        return np.random.RandomState(seed)
-    if isinstance(seed, np.random.RandomState):
+        return cp.random.RandomState(seed)
+    if isinstance(seed, cp.random.RandomState):
         return seed
     raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
                      ' instance' % seed)
