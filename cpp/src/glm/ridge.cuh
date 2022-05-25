@@ -146,6 +146,8 @@ void ridgeEig(const raft::handle_t& handle,
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
+ * weights) This vector is modified during the computation
  */
 template <typename math_t>
 void ridgeFit(const raft::handle_t& handle,
