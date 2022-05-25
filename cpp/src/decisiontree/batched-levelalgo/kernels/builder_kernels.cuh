@@ -220,63 +220,78 @@ __global__ void excess_sample_with_replacement_kernel(IdxT* colids,
   uniform_int_dist_params.end = n;
   uniform_int_dist_params.diff = uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
 
-  IdxT n_uniques;
+  IdxT n_uniques = 0;
+  IdxT items[MAX_SAMPLES_PER_THREAD];
+  IdxT col_indices[MAX_SAMPLES_PER_THREAD];
+  IdxT mask[MAX_SAMPLES_PER_THREAD];
+  // populate this
+  for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) mask[i] = 0;
 
   do {
-      IdxT items[MAX_SAMPLES_PER_THREAD];
-      // blocked arrangement
-      for(int cta_sample_idx = MAX_SAMPLES_PER_THREAD * threadIdx.x, thread_local_sample_idx=0; thread_local_sample_idx < MAX_SAMPLES_PER_THREAD; ++cta_sample_idx, ++thread_local_sample_idx) {
-          if(cta_sample_idx < n_parallel_samples) // generate only 'n_parallel_samples' random samples
-            raft::random::custom_next(gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
-          else // rest will be sorted to the end
-            items[thread_local_sample_idx] = n-1;
-      }
+    // blocked arrangement
+    for(int cta_sample_idx = MAX_SAMPLES_PER_THREAD * threadIdx.x, thread_local_sample_idx=0; thread_local_sample_idx < MAX_SAMPLES_PER_THREAD; ++cta_sample_idx, ++thread_local_sample_idx) {
+        // mask of the previous iteration, if exists, is re-used here
+        // so previously generated unique random numbers are used.
+        // newly generated random numbers may or may not duplicate the previously generated ones
+        // but this ensures some forward progress in order to generate atleast 'k' unique random samples.
+        if(mask[thread_local_sample_idx] == 0 and cta_sample_idx < n_parallel_samples)
+          raft::random::custom_next(gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
+        else if(mask[thread_local_sample_idx] == 0)// indices that exceed `n_parallel_samples` will not generate
+          items[thread_local_sample_idx] = n-1;
+        else continue; // this case is for samples whose mask == 1 (saving previous iteraion's random number generated)
+    }
 
-      // Specialize BlockRadixSort type for our thread block
-      typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
-      // BlockAdjacentDifference
-      typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
-      // BlockScan
-      typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
+    // Specialize BlockRadixSort type for our thread block
+    typedef cub::BlockRadixSort<IdxT, BLOCK_THREADS, MAX_SAMPLES_PER_THREAD> BlockRadixSortT;
+    // BlockAdjacentDifference
+    typedef cub::BlockAdjacentDifference<IdxT, BLOCK_THREADS> BlockAdjacentDifferenceT;
+    // BlockScan
+    typedef cub::BlockScan<IdxT, BLOCK_THREADS> BlockScanT;
 
-      // Shared memory
-      __shared__ union TempStorage
-      {
-          typename BlockRadixSortT::TempStorage   sort;
-          typename BlockAdjacentDifferenceT::TempStorage diff;
-          typename BlockScanT::TempStorage scan;
-      } temp_storage;
+    // Shared memory
+    __shared__ union TempStorage
+    {
+        typename BlockRadixSortT::TempStorage   sort;
+        typename BlockAdjacentDifferenceT::TempStorage diff;
+        typename BlockScanT::TempStorage scan;
+    } temp_storage;
 
-      // collectively sort items
-      BlockRadixSortT(temp_storage.sort).Sort(items);
+    // collectively sort items
+    BlockRadixSortT(temp_storage.sort).Sort(items);
 
-      __syncthreads();
+    __syncthreads();
 
-      // compute the mask
-      IdxT mask[MAX_SAMPLES_PER_THREAD];
-      // compute the adjacent differences according to the functor
-      BlockAdjacentDifferenceT(temp_storage.diff).FlagHeads(mask, items, mask, CustomDifference<IdxT>());
+    // compute the mask
+    // compute the adjacent differences according to the functor
+    BlockAdjacentDifferenceT(temp_storage.diff).FlagHeads(mask, items, mask, CustomDifference<IdxT>());
 
-      __syncthreads();
+    __syncthreads();
 
-      IdxT col_indices[MAX_SAMPLES_PER_THREAD];
-      // do a scan on the mask to get the indices for gathering
-      BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
+    // do a scan on the mask to get the indices for gathering
+    BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
 
-      if(n_uniques < k)
-      {
-        continue;
-      }
+    // __syncthreads();
+    // if(n_uniques < k)
+    // {
+    //   printf("not enough n_uniques (%d)! n=%d, k=%d, s=%d, work_item=%d\n", n_uniques, int(n), int(k), n_parallel_samples, blockIdx.x);
+    //   // printf("items:\n");
+    //   // for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
+    //   //   printf("%d, ", items[i]);
+    //   // }
+    //   // printf("\n");
+    // }
 
-      // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
-      IdxT col_offset = k * blockIdx.x;
-      for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
-        if(mask[i] and col_indices[i] < k) {
-          colids[col_offset + col_indices[i]] = items[i];
-        }
-      }
+  } while(n_uniques < k);
 
-  } while(false);
+  // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
+  IdxT col_offset = k * blockIdx.x;
+  for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
+    if(mask[i] and col_indices[i] < k) {
+      // printf("[n:%d,k:%d] colids[%d + %d] = items[%d] = %d\n", int(n), int(k), col_offset, col_indices[i], i, items[i]);
+      colids[col_offset + col_indices[i]] = items[i];
+    }
+  }
+
 
 }
 
