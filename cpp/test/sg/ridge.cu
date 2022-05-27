@@ -53,10 +53,13 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
       pred3(params.n_row_2, stream),
       pred3_ref(params.n_row_2, stream),
       coef_sc(1, stream),
-      coef_sc_ref(1, stream)
+      coef_sc_ref(1, stream),
+      coef_sw(1, stream),
+      coef_sw_ref(1, stream)
   {
     basicTest();
     basicTest2();
+    testSampleWeight();
   }
 
  protected:
@@ -238,6 +241,49 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              params.algo);
   }
 
+  void testSampleWeight()
+  {
+    int len = params.n_row * params.n_col;
+
+    rmm::device_uvector<T> data_sw(len, stream);
+    rmm::device_uvector<T> labels_sw(len, stream);
+    rmm::device_uvector<T> sample_weight(len, stream);
+
+    std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0};
+    data_h.resize(len);
+    raft::update_device(data_sw.data(), data_h.data(), len, stream);
+
+    std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0, -1.0, 2.0};
+    labels_h.resize(len);
+    raft::update_device(labels_sw.data(), labels_h.data(), len, stream);
+
+    std::vector<T> coef_sw_ref_h = {0.26052};
+    coef_sw_ref_h.resize(1);
+    raft::update_device(coef_sw_ref.data(), coef_sw_ref_h.data(), 1, stream);
+
+    std::vector<T> sample_weight_h = {0.2, 0.3, 0.09, 0.15, 0.11, 0.15};
+    sample_weight_h.resize(len);
+    raft::update_device(sample_weight.data(), sample_weight_h.data(), len, stream);
+
+    T intercept_sw = T(0);
+    T alpha_sw     = T(1.0);
+
+    ridgeFit(handle,
+             data_sw.data(),
+             len,
+             1,
+             labels_sw.data(),
+             &alpha_sw,
+             1,
+             coef_sw.data(),
+             &intercept_sw,
+             true,
+             false,
+             stream,
+             params.algo,
+             sample_weight.data());
+  }
+
  protected:
   raft::handle_t handle;
   cudaStream_t stream = 0;
@@ -247,6 +293,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
   rmm::device_uvector<T> coef2, coef2_ref, pred2, pred2_ref;
   rmm::device_uvector<T> coef3, coef3_ref, pred3, pred3_ref;
   rmm::device_uvector<T> coef_sc, coef_sc_ref;
+  rmm::device_uvector<T> coef_sw, coef_sw_ref;
   T intercept, intercept2, intercept3;
 };
 
@@ -279,6 +326,9 @@ TEST_P(RidgeTestF, Fit)
 
   ASSERT_TRUE(raft::devArrMatch(
     coef_sc_ref.data(), coef_sc.data(), 1, raft::CompareApproxAbs<float>(params.tol)));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_sw_ref.data(), coef_sw.data(), 1, raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef RidgeTest<double> RidgeTestD;
@@ -304,6 +354,9 @@ TEST_P(RidgeTestD, Fit)
 
   ASSERT_TRUE(raft::devArrMatch(
     coef_sc_ref.data(), coef_sc.data(), 1, raft::CompareApproxAbs<double>(params.tol)));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    coef_sw_ref.data(), coef_sw.data(), 1, raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(RidgeTests, RidgeTestF, ::testing::ValuesIn(inputsf2));
