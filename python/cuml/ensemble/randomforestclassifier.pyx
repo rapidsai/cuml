@@ -450,12 +450,12 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            if isinstance(self.random_state, int):
-                seed_val = <uintptr_t>self.random_state
-            elif isinstance(self.random_state, np.random.RandomState):
+            if isinstance(self.random_state, np.random.RandomState):
                 seed_val = <uintptr_t>self.random_state.get_state()[1][0]
             elif isinstance(self.random_state, cp.random.RandomState):
                 seed_val = <uintptr_t>self.random_state._rk_seed
+            else:
+                seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
@@ -471,8 +471,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                                   <CRITERION> self.split_criterion,
                                   <int> self.n_streams,
                                   <int> self.max_batch_size)
-        
-        print(rf_params.seed)
 
         if self.dtype == np.float32:
             fit(handle_[0],
