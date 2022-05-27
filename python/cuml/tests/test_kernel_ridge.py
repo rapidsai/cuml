@@ -210,7 +210,7 @@ def estimator_array_strategy(draw):
 
     alpha = draw(
         arrays(dtype=dtype, shape=(n_targets),
-               elements=st.floats(0, 5, width=32))
+               elements=st.floats(0.0010000000474974513, 5, width=32))
     )
 
     sample_weight = draw(
