@@ -17,6 +17,7 @@ import pytest
 
 import warnings
 import cudf
+import cupy as cp
 import numpy as np
 import random
 import json
@@ -380,7 +381,8 @@ def test_rf_regression(
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_rf_classification_seed(small_clf, datatype):
+@pytest.mark.parametrize("rs_class", [int, np.random.RandomState, cp.random.RandomState])
+def test_rf_classification_seed(small_clf, datatype, rs_class):
 
     X, y = small_clf
     X = X.astype(datatype)
@@ -391,6 +393,7 @@ def test_rf_classification_seed(small_clf, datatype):
 
     for i in range(8):
         seed = random.randint(100, 1e5)
+        seed = rs_class(seed)
         # Initialize, fit and predict using cuML's
         # random forest classification model
         cu_class = curfc(random_state=seed, n_streams=1)
