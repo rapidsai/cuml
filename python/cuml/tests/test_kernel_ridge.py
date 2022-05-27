@@ -178,6 +178,13 @@ def array_strategy(draw):
 def test_pairwise_kernels(kernel_arg, XY):
     X, Y = XY
     kernel, args = kernel_arg
+
+    if kernel == 'cosine':
+        # this kernel is very unstable for both sklearn/cuml
+        assume(as_type('numpy', X).min() > 0.1)
+        if Y is not None:
+            assume(as_type('numpy', Y).min() > 0.1)
+
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
     K_sklearn = skl_pairwise_kernels(
