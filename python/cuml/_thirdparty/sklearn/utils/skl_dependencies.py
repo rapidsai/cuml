@@ -9,6 +9,7 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
+from cuml.common.array_sparse import SparseCumlArray
 from ....common.base import Base
 from ..utils.validation import check_X_y
 from ....thirdparty_adapters import check_array
@@ -131,7 +132,7 @@ class BaseEstimator(Base):
 class TransformerMixin:
     """Mixin class for all transformers in scikit-learn."""
 
-    def fit_transform(self, X, y=None, **fit_params):
+    def fit_transform(self, X, y=None, **fit_params) -> SparseCumlArray:
         """
         Fit to data, then transform it.
 

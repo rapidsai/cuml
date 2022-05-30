@@ -2093,7 +2093,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
-    def fit(self, K, y=None):
+    def fit(self, K, y=None) -> 'KernelCenterer':
         """Fit KernelCenterer
 
         Parameters
@@ -2118,7 +2118,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         self.K_fit_all_ = self.K_fit_rows_.sum() / n_samples
         return self
 
-    def transform(self, K, copy=True):
+    def transform(self, K, copy=True) -> CumlArray:
         """Center kernel matrix.
 
         Parameters
@@ -2314,8 +2314,8 @@ class QuantileTransformer(TransformerMixin,
                                            dtype=X.dtype)
                 else:
                     column_data = np.zeros(shape=self.subsample, dtype=X.dtype)
-                column_data[:column_subsample] = random_state.choice(
-                    column_nnz_data, size=column_subsample, replace=False)
+                column_data[:column_subsample] = np.array(random_state.choice(
+                    column_nnz_data.get(), size=column_subsample, replace=False))
             else:
                 if self.ignore_implicit_zeros:
                     column_data = np.zeros(shape=len(column_nnz_data),
