@@ -21,9 +21,10 @@ from cuml.preprocessing.TargetEncoder import TargetEncoder
 from cuml.preprocessing import text
 
 from cuml._thirdparty.sklearn.preprocessing import Binarizer, \
-    FunctionTransformer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler, \
-    MissingIndicator, Normalizer, PolynomialFeatures, PowerTransformer, \
-    QuantileTransformer, RobustScaler, SimpleImputer, StandardScaler
+    FunctionTransformer, KBinsDiscretizer, KernelCenterer, MaxAbsScaler, \
+    MinMaxScaler, MissingIndicator, Normalizer, PolynomialFeatures, \
+    PowerTransformer, QuantileTransformer, RobustScaler, SimpleImputer, \
+    StandardScaler
 
 from cuml._thirdparty.sklearn.preprocessing import add_dummy_feature, \
     binarize, maxabs_scale, minmax_scale, normalize, power_transform, \
@@ -35,6 +36,7 @@ __all__ = [
     'Binarizer',
     'FunctionTransformer',
     'KBinsDiscretizer',
+    'KernelCenterer',
     'LabelBinarizer',
     'LabelEncoder',
     'MaxAbsScaler',

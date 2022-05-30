@@ -22,7 +22,6 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import numpy as cpu_np
 import cupy as np
-from cupyx import scipy
 from cupyx.scipy import sparse
 from scipy import stats
 from scipy import optimize
@@ -2058,7 +2057,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
     function mapping x to a Hilbert space. KernelCenterer centers (i.e.,
     normalize to have zero mean) the data without explicitly computing phi(x).
     It is equivalent to centering phi(x) with
-    sklearn.preprocessing.StandardScaler(with_std=False).
+    cuml.preprocessing.StandardScaler(with_std=False).
 
     Attributes
     ----------
@@ -2070,7 +2069,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
 
     Examples
     --------
-    >>> from sklearn.preprocessing import KernelCenterer
+    >>> from cuml.preprocessing import KernelCenterer
     >>> from sklearn.metrics.pairwise import pairwise_kernels
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
@@ -2221,10 +2220,10 @@ class QuantileTransformer(TransformerMixin,
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.preprocessing import QuantileTransformer
-    >>> rng = np.random.RandomState(0)
-    >>> X = np.sort(rng.normal(loc=0.5, scale=0.25, size=(25, 1)), axis=0)
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import QuantileTransformer
+    >>> rng = cp.random.RandomState(0)
+    >>> X = cp.sort(rng.normal(loc=0.5, scale=0.25, size=(25, 1)), axis=0)
     >>> qt = QuantileTransformer(n_quantiles=10, random_state=0)
     >>> qt.fit_transform(X)
     array([...])
@@ -2243,11 +2242,10 @@ class QuantileTransformer(TransformerMixin,
     -----
     NaNs are treated as missing values: disregarded in fit, and maintained in
     transform.
-
-    For a comparison of the different scalers, transformers, and normalizers,
-    see :ref:`examples/preprocessing/plot_all_scaling.py
-    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
     """
+
+    quantiles_ = CumlArrayDescriptor()
+    references_ = CumlArrayDescriptor()
 
     @_deprecate_pos_args(version="21.06")
     def __init__(self, *, n_quantiles=1000, output_distribution='uniform',
@@ -2259,6 +2257,16 @@ class QuantileTransformer(TransformerMixin,
         self.subsample = subsample
         self.random_state = random_state
         self.copy = copy
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_quantiles",
+            "output_distribution",
+            "ignore_implicit_zeros",
+            "subsample",
+            "random_state",
+            "copy"
+        ]
 
     def _dense_fit(self, X, random_state):
         """Compute percentiles for dense matrices.
@@ -2282,7 +2290,9 @@ class QuantileTransformer(TransformerMixin,
                                                     size=self.subsample,
                                                     replace=False)
                 col = col.take(subsample_idx)
-            self.quantiles_.append(cpu_np.nanpercentile(np.asnumpy(col), references))
+            self.quantiles_.append(
+                cpu_np.nanpercentile(np.asnumpy(col), references)
+            )
         self.quantiles_ = cpu_np.transpose(self.quantiles_)
         # Due to floating-point precision error in `np.nanpercentile`,
         # make sure that quantiles are monotonically increasing.
@@ -2314,8 +2324,10 @@ class QuantileTransformer(TransformerMixin,
                                            dtype=X.dtype)
                 else:
                     column_data = np.zeros(shape=self.subsample, dtype=X.dtype)
-                column_data[:column_subsample] = np.array(random_state.choice(
-                    column_nnz_data.get(), size=column_subsample, replace=False))
+                column_data[:column_subsample] = np.array(
+                    random_state.choice(column_nnz_data.get(),
+                                        size=column_subsample,
+                                        replace=False))
             else:
                 if self.ignore_implicit_zeros:
                     column_data = np.zeros(shape=len(column_nnz_data),
@@ -2330,7 +2342,8 @@ class QuantileTransformer(TransformerMixin,
                 self.quantiles_.append([0] * len(references))
             else:
                 self.quantiles_.append(
-                        cpu_np.nanpercentile(np.asnumpy(column_data),np.asnumpy( references)))
+                    cpu_np.nanpercentile(np.asnumpy(column_data),
+                                         np.asnumpy(references)))
         self.quantiles_ = cpu_np.transpose(np.asnumpy(self.quantiles_))
         # due to floating-point precision error in `np.nanpercentile`,
         # make sure the quantiles are monotonically increasing
@@ -2408,7 +2421,7 @@ class QuantileTransformer(TransformerMixin,
             upper_bound_y = quantiles[-1]
             # for inverse transform, match a uniform distribution
             if output_distribution == 'normal':
-                X_col =  np.array(stats.norm.cdf(X_col.get()))
+                X_col = np.array(stats.norm.cdf(X_col.get()))
             # else output distribution is already a uniform distribution
 
         # find index for lower and higher bounds
@@ -2450,7 +2463,7 @@ class QuantileTransformer(TransformerMixin,
                 # consistent
                 clip_min = stats.norm.ppf(BOUNDS_THRESHOLD - cpu_np.spacing(1))
                 clip_max = stats.norm.ppf(1 - (BOUNDS_THRESHOLD -
-                                                cpu_np.spacing(1)))
+                                          cpu_np.spacing(1)))
                 X_col = np.clip(X_col, clip_min, clip_max)
             # else output distribution is uniform and the ppf is the
             # identity function so we let X_col unchanged
@@ -2478,7 +2491,7 @@ class QuantileTransformer(TransformerMixin,
         if (not accept_sparse_negative and not self.ignore_implicit_zeros
                 and (sparse.issparse(X) and np.any(X.data < 0))):
             raise ValueError('QuantileTransformer only accepts'
-                                ' non-negative sparse matrices.')
+                             ' non-negative sparse matrices.')
 
         # check the output distribution
         if self.output_distribution not in ('normal', 'uniform'):
@@ -2642,9 +2655,6 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
         input is already a numpy array). If True, a copy of `X` is transformed,
         leaving the original `X` unchanged
 
-        ..versionchnanged:: 0.23
-            The default value of `copy` changed from False to True in 0.23.
-
     Returns
     -------
     Xt : ndarray or sparse matrix, shape (n_samples, n_features)
@@ -2652,10 +2662,10 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.preprocessing import quantile_transform
-    >>> rng = np.random.RandomState(0)
-    >>> X = np.sort(rng.normal(loc=0.5, scale=0.25, size=(25, 1)), axis=0)
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import quantile_transform
+    >>> rng = cp.random.RandomState(0)
+    >>> X = cp.sort(rng.normal(loc=0.5, scale=0.25, size=(25, 1)), axis=0)
     >>> quantile_transform(X, n_quantiles=10, random_state=0, copy=True)
     array([...])
 
@@ -2675,10 +2685,6 @@ def quantile_transform(X, *, axis=0, n_quantiles=1000,
     -----
     NaNs are treated as missing values: disregarded in fit, and maintained in
     transform.
-
-    For a comparison of the different scalers, transformers, and normalizers,
-    see :ref:`examples/preprocessing/plot_all_scaling.py
-    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
     """
     n = QuantileTransformer(n_quantiles=n_quantiles,
                             output_distribution=output_distribution,
@@ -2737,10 +2743,10 @@ class PowerTransformer(TransformerMixin,
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.preprocessing import PowerTransformer
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import PowerTransformer
     >>> pt = PowerTransformer()
-    >>> data = [[1, 2], [3, 2], [4, 5]]
+    >>> data = cp.array([[1, 2], [3, 2], [4, 5]])
     >>> print(pt.fit(data))
     PowerTransformer()
     >>> print(pt.lambdas_)
@@ -2762,10 +2768,6 @@ class PowerTransformer(TransformerMixin,
     NaNs are treated as missing values: disregarded in ``fit``, and maintained
     in ``transform``.
 
-    For a comparison of the different scalers, transformers, and normalizers,
-    see :ref:`examples/preprocessing/plot_all_scaling.py
-    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
-
     References
     ----------
 
@@ -2782,6 +2784,13 @@ class PowerTransformer(TransformerMixin,
         self.method = method
         self.standardize = standardize
         self.copy = copy
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "method",
+            "standardize",
+            "copy"
+        ]
 
     def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
@@ -2831,7 +2840,8 @@ class PowerTransformer(TransformerMixin,
                     X[:, i] = transform_function(X[:, i], lmbda)
 
         if self.standardize:
-            self._scaler = StandardScaler(copy=False, output_type=self.output_type)
+            self._scaler = StandardScaler(copy=False,
+                                          output_type=self.output_type)
             if force_transform:
                 with using_output_type('cupy'):
                     X = self._scaler.fit_transform(X)
@@ -2983,7 +2993,6 @@ class PowerTransformer(TransformerMixin,
         # the computation of lambda is influenced by NaNs so we need to
         # get rid of them
 
-        #_, lmbda = cupyx.scipy.stats.boxcox(x[~np.isnan(x)])
         x = x[~np.isnan(x)].get()
         _, lmbda = stats.boxcox(x, lmbda=None)
 
@@ -3036,7 +3045,7 @@ class PowerTransformer(TransformerMixin,
 
         if (check_positive and self.method == 'box-cox' and np.nanmin(X) <= 0):
             raise ValueError("The Box-Cox transformation can only be "
-                                "applied to strictly positive data")
+                             "applied to strictly positive data")
 
         if check_shape and not X.shape[1] == len(self.lambdas_):
             raise ValueError("Input data has a different number of features "
@@ -3081,10 +3090,6 @@ def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
         - 'yeo-johnson' [1]_, works with positive and negative values
         - 'box-cox' [2]_, only works with strictly positive values
 
-        .. versionchanged:: 0.23
-            The default value of the `method` parameter changed from
-            'box-cox' to 'yeo-johnson' in 0.23.
-
     standardize : boolean, default=True
         Set to True to apply zero-mean, unit-variance normalization to the
         transformed output.
@@ -3099,9 +3104,9 @@ def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.preprocessing import power_transform
-    >>> data = [[1, 2], [3, 2], [4, 5]]
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import power_transform
+    >>> data = cp.array([[1, 2], [3, 2], [4, 5]])
     >>> print(power_transform(data, method='box-cox'))
     [[-1.332... -0.707...]
      [ 0.256... -0.707...]
@@ -3120,10 +3125,6 @@ def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
     -----
     NaNs are treated as missing values: disregarded in ``fit``, and maintained
     in ``transform``.
-
-    For a comparison of the different scalers, transformers, and normalizers,
-    see :ref:`examples/preprocessing/plot_all_scaling.py
-    <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
 
     References
     ----------

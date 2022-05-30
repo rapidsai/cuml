@@ -16,50 +16,56 @@
 import pytest
 
 from cuml.preprocessing import \
-    StandardScaler as cuStandardScaler, \
-    MinMaxScaler as cuMinMaxScaler, \
-    MaxAbsScaler as cuMaxAbsScaler, \
-    Normalizer as cuNormalizer, \
     Binarizer as cuBinarizer, \
-    PolynomialFeatures as cuPolynomialFeatures, \
-    SimpleImputer as cuSimpleImputer, \
-    RobustScaler as cuRobustScaler, \
-    KBinsDiscretizer as cuKBinsDiscretizer, \
-    MissingIndicator as cuMissingIndicator, \
     FunctionTransformer as cuFunctionTransformer, \
+    KBinsDiscretizer as cuKBinsDiscretizer, \
+    KernelCenterer as cuKernelCenterer, \
+    MaxAbsScaler as cuMaxAbsScaler, \
+    MinMaxScaler as cuMinMaxScaler, \
+    MissingIndicator as cuMissingIndicator, \
+    Normalizer as cuNormalizer, \
+    PolynomialFeatures as cuPolynomialFeatures, \
+    PowerTransformer as cuPowerTransformer, \
     QuantileTransformer as cuQuantileTransformer, \
-    PowerTransformer as cuPowerTransformer
-from cuml.preprocessing import scale as cu_scale, \
-                    minmax_scale as cu_minmax_scale, \
-                    maxabs_scale as cu_maxabs_scale, \
-                    normalize as cu_normalize, \
-                    add_dummy_feature as cu_add_dummy_feature, \
-                    binarize as cu_binarize, \
-                    robust_scale as cu_robust_scale, \
-                    power_transform as cu_power_transform, \
-                    quantile_transform as cu_quantile_transform
-from sklearn.preprocessing import StandardScaler as skStandardScaler, \
-                                  MinMaxScaler as skMinMaxScaler, \
-                                  MaxAbsScaler as skMaxAbsScaler, \
-                                  Normalizer as skNormalizer, \
-                                  Binarizer as skBinarizer, \
-                                  PolynomialFeatures as skPolynomialFeatures, \
-                                  RobustScaler as skRobustScaler, \
-                                  KBinsDiscretizer as skKBinsDiscretizer, \
-                                  FunctionTransformer as skFunctionTransformer, \
-                                  QuantileTransformer as skQuantileTransformer, \
-                                  PowerTransformer as skPowerTransformer
-from sklearn.preprocessing import scale as sk_scale, \
-                                  minmax_scale as sk_minmax_scale, \
-                                  maxabs_scale as sk_maxabs_scale, \
-                                  normalize as sk_normalize, \
-                                  add_dummy_feature as sk_add_dummy_feature, \
-                                  binarize as sk_binarize, \
-                                  robust_scale as sk_robust_scale, \
-                                  power_transform as sk_power_transform, \
-                                  quantile_transform as sk_quantile_transform
-from sklearn.impute import SimpleImputer as skSimpleImputer, \
-                           MissingIndicator as skMissingIndicator
+    RobustScaler as cuRobustScaler, \
+    SimpleImputer as cuSimpleImputer, \
+    StandardScaler as cuStandardScaler
+from cuml.preprocessing import \
+    add_dummy_feature as cu_add_dummy_feature, \
+    binarize as cu_binarize, \
+    maxabs_scale as cu_maxabs_scale, \
+    minmax_scale as cu_minmax_scale, \
+    normalize as cu_normalize, \
+    power_transform as cu_power_transform, \
+    quantile_transform as cu_quantile_transform, \
+    robust_scale as cu_robust_scale, \
+    scale as cu_scale
+from sklearn.preprocessing import \
+    Binarizer as skBinarizer, \
+    FunctionTransformer as skFunctionTransformer, \
+    KBinsDiscretizer as skKBinsDiscretizer, \
+    KernelCenterer as skKernelCenterer, \
+    MaxAbsScaler as skMaxAbsScaler, \
+    MinMaxScaler as skMinMaxScaler, \
+    Normalizer as skNormalizer, \
+    PolynomialFeatures as skPolynomialFeatures, \
+    PowerTransformer as skPowerTransformer, \
+    QuantileTransformer as skQuantileTransformer, \
+    RobustScaler as skRobustScaler, \
+    StandardScaler as skStandardScaler
+from sklearn.preprocessing import \
+    add_dummy_feature as sk_add_dummy_feature, \
+    binarize as sk_binarize, \
+    maxabs_scale as sk_maxabs_scale, \
+    minmax_scale as sk_minmax_scale, \
+    normalize as sk_normalize, \
+    power_transform as sk_power_transform, \
+    quantile_transform as sk_quantile_transform, \
+    robust_scale as sk_robust_scale, \
+    scale as sk_scale
+from sklearn.impute import \
+    MissingIndicator as skMissingIndicator, \
+    SimpleImputer as skSimpleImputer
 
 from cuml.testing.test_preproc_utils import \
     clf_dataset, int_dataset, blobs_dataset, \
@@ -71,6 +77,7 @@ from cuml.testing.test_preproc_utils import \
     sparse_imputer_dataset, \
     sparse_dataset_with_coo  # noqa: F401
 from cuml.testing.test_preproc_utils import assert_allclose
+from sklearn.metrics.pairwise import pairwise_kernels
 
 import numpy as np
 import cupy as cp
@@ -799,15 +806,17 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
 @pytest.mark.parametrize("output_distribution", ['uniform', 'normal'])
 @pytest.mark.parametrize("ignore_implicit_zeros", [False, True])
 @pytest.mark.parametrize("subsample", [100])
-def test_quantile_transformer(failure_logger, nan_filled_positive, n_quantiles,  # noqa: F811
-                              output_distribution, ignore_implicit_zeros,
-                              subsample):
+def test_quantile_transformer(failure_logger,
+                              nan_filled_positive,  # noqa: F811
+                              n_quantiles, output_distribution,
+                              ignore_implicit_zeros, subsample):
     X_np, X = nan_filled_positive
 
-    transformer = cuQuantileTransformer(n_quantiles=n_quantiles,
-        output_distribution=output_distribution,
-        ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample, random_state=42, copy=True)
+    transformer = \
+        cuQuantileTransformer(n_quantiles=n_quantiles,
+                              output_distribution=output_distribution,
+                              ignore_implicit_zeros=ignore_implicit_zeros,
+                              subsample=subsample, random_state=42, copy=True)
     t_X = transformer.fit_transform(X)
     assert type(t_X) == type(X)
     r_X = transformer.inverse_transform(t_X)
@@ -816,10 +825,11 @@ def test_quantile_transformer(failure_logger, nan_filled_positive, n_quantiles, 
     quantiles_ = transformer.quantiles_
     references_ = transformer.references_
 
-    transformer = skQuantileTransformer(n_quantiles=n_quantiles,
-        output_distribution=output_distribution,
-        ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample, random_state=42, copy=True)
+    transformer = \
+        skQuantileTransformer(n_quantiles=n_quantiles,
+                              output_distribution=output_distribution,
+                              ignore_implicit_zeros=ignore_implicit_zeros,
+                              subsample=subsample, random_state=42, copy=True)
     sk_t_X = transformer.fit_transform(X_np)
     sk_r_X = transformer.inverse_transform(sk_t_X)
 
@@ -845,10 +855,11 @@ def test_quantile_transformer_sparse(failure_logger,
     X_np = X_np.tocsc()
     X = X.tocsr().tocsc()
 
-    transformer = cuQuantileTransformer(n_quantiles=n_quantiles,
-        output_distribution=output_distribution,
-        ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample, random_state=42, copy=True)
+    transformer = \
+        cuQuantileTransformer(n_quantiles=n_quantiles,
+                              output_distribution=output_distribution,
+                              ignore_implicit_zeros=ignore_implicit_zeros,
+                              subsample=subsample, random_state=42, copy=True)
     t_X = transformer.fit_transform(X)
     t_X = t_X.tocsc()
     r_X = transformer.inverse_transform(t_X)
@@ -861,10 +872,11 @@ def test_quantile_transformer_sparse(failure_logger,
     quantiles_ = transformer.quantiles_
     references_ = transformer.references_
 
-    transformer = skQuantileTransformer(n_quantiles=n_quantiles,
-        output_distribution=output_distribution,
-        ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample, random_state=42, copy=True)
+    transformer = \
+        skQuantileTransformer(n_quantiles=n_quantiles,
+                              output_distribution=output_distribution,
+                              ignore_implicit_zeros=ignore_implicit_zeros,
+                              subsample=subsample, random_state=42, copy=True)
     sk_t_X = transformer.fit_transform(X_np)
     sk_r_X = transformer.inverse_transform(sk_t_X)
 
@@ -883,31 +895,33 @@ def test_quantile_transformer_sparse(failure_logger,
 @pytest.mark.parametrize("output_distribution", ['uniform', 'normal'])
 @pytest.mark.parametrize("ignore_implicit_zeros", [False, True])
 @pytest.mark.parametrize("subsample", [100])
-def test_quantile_transform(failure_logger, nan_filled_positive, axis,  # noqa: F811
-                            n_quantiles, output_distribution,
+def test_quantile_transform(failure_logger, nan_filled_positive,  # noqa: F811
+                            axis, n_quantiles, output_distribution,
                             ignore_implicit_zeros, subsample):
     X_np, X = nan_filled_positive
 
     t_X = cu_quantile_transform(X, axis=axis,
-        n_quantiles=n_quantiles,
-        output_distribution=output_distribution,
-        ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample, random_state=42, copy=True)
+                                n_quantiles=n_quantiles,
+                                output_distribution=output_distribution,
+                                ignore_implicit_zeros=ignore_implicit_zeros,
+                                subsample=subsample,
+                                random_state=42, copy=True)
     assert type(t_X) == type(X)
 
     sk_t_X = sk_quantile_transform(X_np, axis=axis,
-        n_quantiles=n_quantiles,
-        output_distribution=output_distribution,
-        ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample, random_state=42, copy=True)
+                                   n_quantiles=n_quantiles,
+                                   output_distribution=output_distribution,
+                                   ignore_implicit_zeros=ignore_implicit_zeros,
+                                   subsample=subsample,
+                                   random_state=42, copy=True)
 
     assert_allclose(t_X, sk_t_X)
 
 
 @pytest.mark.parametrize("method", ['yeo-johnson', 'box-cox'])
 @pytest.mark.parametrize("standardize", [False, True])
-def test_power_transformer(failure_logger, nan_filled_positive, method,  # noqa: F811
-                           standardize):
+def test_power_transformer(failure_logger, nan_filled_positive,  # noqa: F811
+                           method, standardize):
     X_np, X = nan_filled_positive
 
     transformer = cuPowerTransformer(method=method,
@@ -915,7 +929,6 @@ def test_power_transformer(failure_logger, nan_filled_positive, method,  # noqa:
                                      copy=True)
     ft_X = transformer.fit_transform(X)
     assert type(ft_X) == type(X)
-    transformer.fit(X)
     t_X = transformer.transform(X)
     assert type(t_X) == type(X)
     r_X = transformer.inverse_transform(t_X)
@@ -934,8 +947,8 @@ def test_power_transformer(failure_logger, nan_filled_positive, method,  # noqa:
 
 @pytest.mark.parametrize("method", ['yeo-johnson', 'box-cox'])
 @pytest.mark.parametrize("standardize", [False, True])
-def test_power_transform(failure_logger, nan_filled_positive, method,  # noqa: F811
-                         standardize):
+def test_power_transform(failure_logger, nan_filled_positive,  # noqa: F811
+                         method, standardize):
     X_np, X = nan_filled_positive
 
     t_X = cu_power_transform(X, method=method, standardize=standardize)
@@ -946,13 +959,34 @@ def test_power_transform(failure_logger, nan_filled_positive, method,  # noqa: F
     assert_allclose(t_X, sk_t_X)
 
 
+def test_kernel_centerer():
+    X = np.array([[1., -2.,  2.],
+                  [-2.,  1.,  3.],
+                  [4.,  1., -2.]])
+    K = pairwise_kernels(X, metric='linear')
+
+    model = cuKernelCenterer()
+    model.fit(K)
+    t_X = model.transform(K, copy=True)
+    assert type(t_X) == type(X)
+
+    model = skKernelCenterer()
+    sk_t_X = model.fit_transform(K)
+
+    assert_allclose(sk_t_X, t_X)
+
+
 def test__repr__():
-    assert cuStandardScaler().__repr__() == 'StandardScaler()'
-    assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
-    assert cuMaxAbsScaler().__repr__() == 'MaxAbsScaler()'
-    assert cuNormalizer().__repr__() == 'Normalizer()'
     assert cuBinarizer().__repr__() == 'Binarizer()'
-    assert cuPolynomialFeatures().__repr__() == 'PolynomialFeatures()'
-    assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
-    assert cuRobustScaler().__repr__() == 'RobustScaler()'
+    assert cuFunctionTransformer().__repr__() == 'FunctionTransformer()'
     assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'
+    assert cuKernelCenterer().__repr__() == 'KernelCenterer()'
+    assert cuMaxAbsScaler().__repr__() == 'MaxAbsScaler()'
+    assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
+    assert cuMissingIndicator().__repr__() == 'MissingIndicator()'
+    assert cuNormalizer().__repr__() == 'Normalizer()'
+    assert cuPolynomialFeatures().__repr__() == 'PolynomialFeatures()'
+    assert cuQuantileTransformer().__repr__() == 'QuantileTransformer()'
+    assert cuRobustScaler().__repr__() == 'RobustScaler()'
+    assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
+    assert cuStandardScaler().__repr__() == 'StandardScaler()'
