@@ -35,6 +35,9 @@ unset GIT_DESCRIBE_TAG
 # ucx-py version
 export UCX_PY_VERSION='0.26.*'
 
+# configure numba threading library
+export NUMBA_THREADING_LAYER=workqueue
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
