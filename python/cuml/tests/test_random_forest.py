@@ -381,7 +381,8 @@ def test_rf_regression(
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("rs_class", [int, np.random.RandomState, cp.random.RandomState])
+@pytest.mark.parametrize("rs_class",
+                         [int, np.random.RandomState, cp.random.RandomState])
 def test_rf_classification_seed(small_clf, datatype, rs_class):
 
     X, y = small_clf
@@ -425,6 +426,45 @@ def test_rf_classification_seed(small_clf, datatype, rs_class):
         assert (fil_preds_orig == fil_preds_rerun).all()
         assert (cu_preds_orig == cu_preds_rerun).all()
 
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("rs_class",
+                         [int, np.random.RandomState, cp.random.RandomState])
+def test_rf_regression_seed(special_reg, datatype, rs_class):
+
+    X, y = special_reg
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
+
+    for i in range(8):
+        seed = random.randint(100, 1e5)
+        seed = rs_class(seed)
+        # Initialize, fit and predict using cuML's
+        # random forest classification model
+        cu_reg = curfr(random_state=seed, n_streams=1)
+        cu_reg.fit(X_train, y_train)
+
+        # predict using FIL
+        fil_preds_orig = cu_reg.predict(X_test, predict_model="GPU")
+        cu_preds_orig = cu_reg.predict(X_test, predict_model="CPU")
+
+        cu_r2_orig = r2_score(y_test, cu_preds_orig, convert_dtype=datatype)
+        fil_r2_orig = r2_score(y_test, fil_preds_orig, convert_dtype=datatype)
+
+        cu_reg2 = curfr(random_state=seed, n_streams=1)
+        cu_reg2.fit(X_train, y_train)
+
+        # predict using FIL
+        fil_preds_rerun = cu_reg2.predict(X_test, predict_model="GPU")
+        cu_preds_rerun = cu_reg2.predict(X_test, predict_model="CPU")
+
+        cu_r2_rerun = r2_score(y_test, cu_preds_rerun, convert_dtype=datatype)
+        fil_r2_rerun = r2_score(y_test, fil_preds_rerun, convert_dtype=datatype)
+        
+        assert abs(fil_r2_orig - fil_r2_rerun) <= 0.02
+        assert abs(cu_r2_orig - cu_r2_rerun) <= 0.02
 
 @pytest.mark.parametrize(
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]

@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import cupy as cp
 import numpy as np
 import nvtx
 import rmm
@@ -438,7 +439,12 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.random_state
+            if isinstance(self.random_state, np.random.RandomState):
+                seed_val = <uintptr_t>self.random_state.get_state()[1][0]
+            elif isinstance(self.random_state, cp.random.RandomState):
+                seed_val = <uintptr_t>self.random_state._rk_seed
+            else:
+                seed_val = <uintptr_t>self.random_state
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,

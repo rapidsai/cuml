@@ -16,6 +16,8 @@
 #
 
 # distutils: language = c++
+
+import cupy as cp
 import numpy as np
 import nvtx
 import rmm
@@ -51,8 +53,6 @@ from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
-
-import cupy as cp
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
