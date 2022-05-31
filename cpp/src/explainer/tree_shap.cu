@@ -25,6 +25,7 @@
 #include <memory>
 #include <numeric>
 #include <raft/error.hpp>
+#include <raft/span.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
 #include <treelite/tree.h>
@@ -38,65 +39,19 @@ namespace tl = treelite;
  * for internal use by GPUTreeSHAP. */
 namespace {
 
-// A poor man's Span class.
-// TODO(hcho3): Remove this class once RAFT implements a span abstraction.
-template <typename T>
-class Span {
- private:
-  T* ptr_{nullptr};
-  std::size_t size_{0};
-
- public:
-  Span() = default;
-  __host__ __device__ Span(T* ptr, std::size_t size) : ptr_(ptr), size_(size) {}
-  __host__ explicit Span(std::vector<T>& vec) : ptr_(vec.data()), size_(vec.size()) {}
-  __host__ explicit Span(thrust::device_vector<T>& vec)
-    : ptr_(thrust::raw_pointer_cast(vec.data())), size_(vec.size())
-  {
-  }
-  __host__ __device__ Span(const Span& other) : ptr_(other.ptr_), size_(other.size_) {}
-  __host__ __device__ Span(Span&& other) : ptr_(other.ptr_), size_(other.size_)
-  {
-    other.ptr_  = nullptr;
-    other.size_ = 0;
-  }
-  __host__ __device__ ~Span() {}
-  __host__ __device__ Span& operator=(const Span& other)
-  {
-    ptr_  = other.ptr_;
-    size_ = other.size_;
-    return *this;
-  }
-  __host__ __device__ Span& operator=(Span&& other)
-  {
-    ptr_        = other.ptr_;
-    size_       = other.size_;
-    other.ptr_  = nullptr;
-    other.size_ = 0;
-    return *this;
-  }
-  __host__ __device__ std::size_t Size() const { return size_; }
-  __host__ __device__ T* Data() const { return ptr_; }
-  __host__ __device__ T& operator[](std::size_t offset) const { return *(ptr_ + offset); }
-  __host__ __device__ Span<T> Subspan(std::size_t offset, std::size_t count)
-  {
-    return Span{ptr_ + offset, count};
-  }
-};
-
 // A poor man's bit field, to be used to account for categorical splits in SHAP computation
 // Inspired by xgboost::BitFieldContainer
-template <typename T>
+template <typename T, bool is_device>
 class BitField {
  private:
   static std::size_t constexpr kValueSize = sizeof(T) * 8;
   static std::size_t constexpr kOne       = 1;  // force correct data type
 
-  Span<T> bits_;
+  raft::span<T, is_device> bits_;
 
  public:
   BitField() = default;
-  __host__ __device__ explicit BitField(Span<T> bits) : bits_(bits) {}
+  __host__ __device__ explicit BitField(raft::span<T, is_device> bits) : bits_(bits) {}
   __host__ __device__ BitField(const BitField& other) : bits_(other.bits_) {}
   BitField& operator=(const BitField& other) = default;
   BitField& operator=(BitField&& other) = default;
@@ -112,18 +67,18 @@ class BitField {
   }
   __host__ __device__ void Intersect(const BitField other)
   {
-    if (bits_.Data() == other.bits_.Data()) { return; }
-    std::size_t size = min(bits_.Size(), other.bits_.Size());
+    if (bits_.data() == other.bits_.data()) { return; }
+    std::size_t size = min(bits_.size(), other.bits_.size());
     for (std::size_t i = 0; i < size; ++i) {
       bits_[i] &= other.bits_[i];
     }
-    if (bits_.Size() > size) {
-      for (std::size_t i = size; i < bits_.Size(); ++i) {
+    if (bits_.size() > size) {
+      for (std::size_t i = size; i < bits_.size(); ++i) {
         bits_[i] = 0;
       }
     }
   }
-  __host__ __device__ std::size_t Size() const { return kValueSize * bits_.Size(); }
+  __host__ __device__ std::size_t Size() const { return kValueSize * bits_.size(); }
   __host__ static std::size_t ComputeStorageSize(std::size_t n_cat)
   {
     return n_cat / kValueSize + (n_cat % kValueSize != 0);
@@ -131,8 +86,8 @@ class BitField {
   __host__ std::string ToString(bool reverse = false) const
   {
     std::ostringstream oss;
-    oss << "Bits storage size: " << bits_.Size() << ", elements: ";
-    for (auto i = 0; i < bits_.Size(); ++i) {
+    oss << "Bits storage size: " << bits_.size() << ", elements: ";
+    for (auto i = 0; i < bits_.size(); ++i) {
       std::bitset<kValueSize> bset(bits_[i]);
       std::string s = bset.to_string();
       if (reverse) { std::reverse(s.begin(), s.end()); }
@@ -145,8 +100,9 @@ class BitField {
 };
 
 using CatBitFieldStorageT = std::uint32_t;
-using CatBitField         = BitField<CatBitFieldStorageT>;
-using CatT                = std::uint32_t;
+template <bool is_device>
+using CatBitField = BitField<CatBitFieldStorageT, is_device>;
+using CatT        = std::uint32_t;
 
 template <typename ThresholdType>
 struct SplitCondition {
@@ -155,12 +111,13 @@ struct SplitCondition {
                  ThresholdType feature_upper_bound,
                  bool is_missing_branch,
                  tl::Operator comparison_op,
-                 CatBitField categories)
+                 CatBitField<false> categories)
     : feature_lower_bound(feature_lower_bound),
       feature_upper_bound(feature_upper_bound),
       is_missing_branch(is_missing_branch),
       comparison_op(comparison_op),
-      categories(categories)
+      categories(categories),
+      d_categories()
   {
     if (feature_lower_bound > feature_upper_bound) {
       RAFT_FAIL("Lower bound cannot exceed upper bound");
@@ -178,18 +135,32 @@ struct SplitCondition {
   // Comparison operator used in the test. For now only < (kLT) and <= (kLE)
   // are supported.
   tl::Operator comparison_op;
-  CatBitField categories;
+  // List of matching categories for this path
+  CatBitField<false> categories;
+  CatBitField<true> d_categories;
 
   // Does this instance flow down this path?
   __host__ __device__ bool EvaluateSplit(ThresholdType x) const
   {
+#ifdef __CUDA_ARCH__
+    constexpr bool is_device = true;
+#else  // __CUDA_ARCH__
+    constexpr bool is_device = false;
+#endif
     static_assert(std::is_floating_point<ThresholdType>::value, "x must be a floating point type");
     auto max_representable_int =
       static_cast<ThresholdType>(uint64_t(1) << std::numeric_limits<ThresholdType>::digits);
     if (isnan(x)) { return is_missing_branch; }
-    if (categories.Size() != 0) {
-      if (x < 0 || std::fabs(x) > max_representable_int) { return false; }
-      return categories.Check(static_cast<std::size_t>(x));
+    if constexpr (is_device) {
+      if (d_categories.Size() != 0) {
+        if (x < 0 || std::fabs(x) > max_representable_int) { return false; }
+        return d_categories.Check(static_cast<std::size_t>(x));
+      }
+    } else {
+      if (categories.Size() != 0) {
+        if (x < 0 || std::fabs(x) > max_representable_int) { return false; }
+        return categories.Check(static_cast<std::size_t>(x));
+      }
     }
     if (comparison_op == tl::Operator::kLE) {
       return x > feature_lower_bound && x <= feature_upper_bound;
@@ -200,14 +171,30 @@ struct SplitCondition {
   // Combine two split conditions on the same feature
   __host__ __device__ void Merge(const SplitCondition& other)
   {  // Combine duplicate features
-    if (categories.Size() != 0 || other.categories.Size() != 0) {
-      categories.Intersect(other.categories);
+#ifdef __CUDA_ARCH__
+    constexpr bool is_device = true;
+#else  // __CUDA_ARCH__
+    constexpr bool is_device = false;
+#endif
+    bool has_category = false;
+    if constexpr (is_device) {
+      has_category = (d_categories.Size() != 0 || other.d_categories.Size() != 0);
+    } else {
+      has_category = (categories.Size() != 0 || other.categories.Size() != 0);
+    }
+    if (has_category) {
+      if constexpr (is_device) {
+        d_categories.Intersect(other.d_categories);
+      } else {
+        categories.Intersect(other.categories);
+      }
     } else {
       feature_lower_bound = max(feature_lower_bound, other.feature_lower_bound);
       feature_upper_bound = min(feature_upper_bound, other.feature_upper_bound);
     }
     is_missing_branch = is_missing_branch && other.is_missing_branch;
   }
+
   static_assert(std::is_same<ThresholdType, float>::value ||
                   std::is_same<ThresholdType, double>::value,
                 "ThresholdType must be a float or double");
@@ -294,7 +281,7 @@ struct PathSegmentExtractor {
     auto split_type        = tree.SplitType(parent_idx);
     ThresholdType lower_bound, upper_bound;
     tl::Operator comparison_op;
-    CatBitField categories;
+    CatBitField<false> categories;
     if (split_type == tl::SplitFeatureType::kCategorical) {
       /* Create bit fields to store the list of categories associated with this path.
          The bit fields will be used to quickly decide whether a feature value should
@@ -302,8 +289,9 @@ struct PathSegmentExtractor {
          The test in the test node is of form: x \in { list of category values } */
       auto n_bitfields =
         bitfield_segments[path_segment_idx + 1] - bitfield_segments[path_segment_idx];
-      categories = CatBitField(Span<CatBitFieldStorageT>(categorical_bitfields)
-                                 .Subspan(bitfield_segments[path_segment_idx], n_bitfields));
+      categories = CatBitField<false>(raft::span<CatBitFieldStorageT, false>(
+                                        categorical_bitfields.data(), categorical_bitfields.size())
+                                        .subspan(bitfield_segments[path_segment_idx], n_bitfields));
       for (CatT cat : tree.MatchingCategories(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
@@ -326,7 +314,7 @@ struct PathSegmentExtractor {
         // Assume: split is either numerical or categorical
         RAFT_FAIL("Unexpected split type: %d", static_cast<int>(split_type));
       }
-      categories    = CatBitField{};
+      categories    = CatBitField<false>{};
       lower_bound   = is_left_path ? -inf : tree.Threshold(parent_idx);
       upper_bound   = is_left_path ? tree.Threshold(parent_idx) : inf;
       comparison_op = tree.ComparisonOp(parent_idx);
@@ -718,7 +706,7 @@ TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafTyp
                  n_bitfields.begin(),
                  [&](std::int64_t fid) -> std::size_t {
                    if (fid == -1) { return 0; }
-                   return CatBitField::ComputeStorageSize(cat_counter.n_categories[fid]);
+                   return CatBitField<false>::ComputeStorageSize(cat_counter.n_categories[fid]);
                  });
 
   std::vector<std::size_t> bitfield_segments(n_path_segments + 1, 0);
@@ -740,9 +728,11 @@ TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafTyp
     categorical_bitfields.cbegin(), categorical_bitfields.cend());
   for (std::size_t path_seg_idx = 0; path_seg_idx < path_segments.size(); ++path_seg_idx) {
     auto n_bitfields = bitfield_segments[path_seg_idx + 1] - bitfield_segments[path_seg_idx];
-    path_segments[path_seg_idx].split_condition.categories =
-      CatBitField(Span<CatBitFieldStorageT>(path_info->categorical_bitfields)
-                    .Subspan(bitfield_segments[path_seg_idx], n_bitfields));
+    path_segments[path_seg_idx].split_condition.d_categories =
+      CatBitField<true>(raft::span<CatBitFieldStorageT, true>(
+                          thrust::raw_pointer_cast(path_info->categorical_bitfields.data()),
+                          path_info->categorical_bitfields.size())
+                          .subspan(bitfield_segments[path_seg_idx], n_bitfields));
   }
 
   path_info->path_segments       = path_segments;

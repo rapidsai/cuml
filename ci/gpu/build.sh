@@ -121,8 +121,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -182,17 +182,20 @@ else
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
     done
 
+    # TODO: Move boa install to gpuci/rapidsai
+    gpuci_mamba_retry install boa
+
     gpuci_logger "Building and installing cuml"
     export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
     export VERSION_SUFFIX=""
-    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
     gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} -c ${CONDA_BLD_DIR} cuml
 
     gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
 
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
     pip install sparse
 
