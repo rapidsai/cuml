@@ -171,8 +171,7 @@ void cdFit(const raft::handle_t& handle,
                         mu_labels.data(),
                         norm2_input.data(),
                         fit_intercept,
-                        normalize,
-                        stream);
+                        normalize);
   }
 
   std::vector<int> ri(n_cols);
@@ -267,8 +266,7 @@ void cdFit(const raft::handle_t& handle,
                          mu_labels.data(),
                          norm2_input.data(),
                          fit_intercept,
-                         normalize,
-                         stream);
+                         normalize);
 
   } else {
     *intercept = math_t(0);
