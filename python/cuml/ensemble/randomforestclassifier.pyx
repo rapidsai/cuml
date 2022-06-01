@@ -456,7 +456,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             # np.uintp
             else:
                 if isinstance(self.random_state, np.random.RandomState) or \
-                    isinstance(self.random_state, cp.random.RandomState):
+                   isinstance(self.random_state, cp.random.RandomState):
                     rs = self.random_state
                 else:
                     print("rs:", self.random_state)
