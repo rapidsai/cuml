@@ -215,7 +215,7 @@ class RandomForestRegressor(BaseRandomForestModel,
          * for mean square error' : ``'mse'``
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
-    random_state : int (default = None)
+    random_state : int, RandomState instance or None, optional (default=None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
     handle : cuml.Handle
@@ -437,14 +437,23 @@ class RandomForestRegressor(BaseRandomForestModel,
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
         if self.random_state is None:
-            seed_val = <uintptr_t>NULL
+            seed_val = <uint64_t>NULL
         else:
-            if isinstance(self.random_state, np.random.RandomState):
-                seed_val = <uintptr_t>self.random_state.get_state()[1][0]
-            elif isinstance(self.random_state, cp.random.RandomState):
-                seed_val = <uintptr_t>self.random_state._rk_seed
+            if isinstance(self.random_state, np.uint64):
+                seed_val = <uint64_t>self.random_state
+            # Otherwise create a RandomState instance to generate a new
+            # np.uintp
             else:
-                seed_val = <uintptr_t>self.random_state
+                if isinstance(self.random_state, np.random.RandomState) or \
+                    isinstance(self.random_state, cp.random.RandomState):
+                    rs = self.random_state
+                else:
+                    print("rs:", self.random_state)
+                    rs = np.random.RandomState(self.random_state)
+
+                seed_val = <uintptr_t>rs.randint(low=0,
+                                                 high=np.iinfo(np.uint64).max,
+                                                 dtype=np.uint64)
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,

@@ -382,7 +382,7 @@ def test_rf_regression(
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("rs_class",
-                         [int, np.random.RandomState, cp.random.RandomState])
+                         [int, np.uintp, np.random.RandomState, cp.random.RandomState])
 def test_rf_classification_seed(small_clf, datatype, rs_class):
 
     X, y = small_clf
@@ -394,31 +394,28 @@ def test_rf_classification_seed(small_clf, datatype, rs_class):
 
     for i in range(8):
         seed = random.randint(100, 1e5)
-        seed = rs_class(seed)
+        cu_class_seed = rs_class(seed)
+        cu_class2_seed = rs_class(seed)
         # Initialize, fit and predict using cuML's
         # random forest classification model
-        cu_class = curfc(random_state=seed, n_streams=1)
+        cu_class = curfc(random_state=cu_class_seed, n_streams=1)
         cu_class.fit(X_train, y_train)
 
         # predict using FIL
         fil_preds_orig = cu_class.predict(X_test, predict_model="GPU")
         cu_preds_orig = cu_class.predict(X_test, predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
-        fil_preds_orig = np.reshape(fil_preds_orig, np.shape(cu_preds_orig))
-
         fil_acc_orig = accuracy_score(y_test, fil_preds_orig)
 
         # Initialize, fit and predict using cuML's
         # random forest classification model
-        cu_class2 = curfc(random_state=seed, n_streams=1)
+        cu_class2 = curfc(random_state=cu_class2_seed, n_streams=1)
         cu_class2.fit(X_train, y_train)
 
         # predict using FIL
         fil_preds_rerun = cu_class2.predict(X_test, predict_model="GPU")
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
-        fil_preds_rerun = np.reshape(fil_preds_rerun, np.shape(cu_preds_rerun))
-
         fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
 
         assert fil_acc_orig == fil_acc_rerun
@@ -463,8 +460,8 @@ def test_rf_regression_seed(special_reg, datatype, rs_class):
         cu_r2_rerun = r2_score(y_test, cu_preds_rerun, convert_dtype=datatype)
         fil_r2_rerun = r2_score(y_test, fil_preds_rerun, convert_dtype=datatype)
         
-        assert abs(fil_r2_orig - fil_r2_rerun) <= 0.02
-        assert abs(cu_r2_orig - cu_r2_rerun) <= 0.02
+        assert abs(fil_r2_orig - fil_r2_rerun) <= 0.07
+        assert abs(cu_r2_orig - cu_r2_rerun) <= 0.07
 
 @pytest.mark.parametrize(
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
