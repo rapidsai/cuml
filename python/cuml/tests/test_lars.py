@@ -15,6 +15,7 @@
 import cupy as cp
 import numpy as np
 import pytest
+import sys
 
 from cuml.experimental.linear_model import Lars as cuLars
 from cuml.testing.utils import (
@@ -27,7 +28,9 @@ from cuml.testing.utils import (
 from sklearn.datasets import load_boston
 from sklearn.linear_model import Lars as skLars
 
-from . test_linear_model import make_regression_dataset
+# As tests directory is not a module, we need to add it to the path
+sys.path.insert(0, '.')
+from test_linear_model import make_regression_dataset  # noqa: E402
 
 
 def normalize_data(X, y):

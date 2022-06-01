@@ -19,6 +19,7 @@ dependencies:
 - pyraft=22.06.*
 - dask-cudf=22.06.*
 - dask-cuda=22.06.*
+- ucx>=1.12.1
 - ucx-py=0.26.*
 - ucx-proc=*=gpu
 - dask-ml
@@ -27,7 +28,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
-- treelite=2.3.0
+- treelite=2.4.0
 - statsmodels
 - seaborn
 - hdbscan
@@ -35,8 +36,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask.git@2022.05.2
+    - git+https://github.com/dask/distributed.git@2022.05.2
     - git+https://github.com/dask/dask-glm.git@main
     - sparse
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,4 +14,14 @@
 # limitations under the License.
 #
 
-from cuml.experimental.explainer.tree_shap import TreeExplainer
+from cuml._thirdparty.sklearn.preprocessing import ColumnTransformer, \
+    make_column_transformer, make_column_selector
+
+
+__all__ = [
+    # Classes
+    'ColumnTransformer',
+    # Functions
+    'make_column_transformer',
+    'make_column_selector'
+]
