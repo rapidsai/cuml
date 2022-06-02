@@ -23,7 +23,6 @@
 #include <raft/random/rng.hpp>
 
 #include <cub/cub.cuh>
-#include <cub/block/block_adjacent_difference.cuh>
 
 namespace ML {
 namespace DT {
@@ -191,6 +190,13 @@ struct CustomDifference
   }
 };
 
+/**
+ * @brief Generates 'k' unique samples of features from 'n' feature sample-space.
+ *        Does this for each work-item (node), feeding a unique seed for each (treeid, nodeid (=blockIdx.x), threadIdx.x).
+ *        Method used is a random, parallel, sampling with replacement of excess of 'k' samples (hence the name)
+ *        and then eliminating the dupicates by ordering them.
+ *        The excess number of samples (=`n_parallel_samples`) is calculated such that after ordering there is atleast 'k' uniques.
+ */
 template <typename IdxT, int MAX_SAMPLES_PER_THREAD, int BLOCK_THREADS=128>
 __global__ void excess_sample_with_replacement_kernel(IdxT* colids,
                                        const NodeWorkItem* work_items,
@@ -284,7 +290,11 @@ __global__ void excess_sample_with_replacement_kernel(IdxT* colids,
 }
 
 // algo L of the reservoir sampling algorithm
-// wiki : https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
+/**
+ * @brief Generates 'k' unique samples of features from 'n' feature sample-space using the algo-L algorithm
+ *        of reservoir sampling.
+ *        wiki : https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
+ */
 template <typename IdxT>
 __global__ void algo_L_sample_kernel(int* colids,
                                        const NodeWorkItem* work_items,
