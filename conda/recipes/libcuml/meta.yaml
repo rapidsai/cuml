@@ -17,9 +17,6 @@ source:
 
 build:
   script_env:
-    - CC
-    - CXX
-    - CUDAHOSTCXX
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
@@ -36,10 +33,15 @@ build:
 requirements:
   build:
     - cmake {{ cmake_version }}
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - nccl {{ nccl_version }}
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
+    - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
@@ -60,6 +62,8 @@ outputs:
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}
@@ -71,6 +75,7 @@ outputs:
         - libraft-nn {{ minor_version }}
         - cudf {{ minor_version }}
         - nccl {{ nccl_version }}
+        - ucx >={{ ucx_version }}
         - ucx-py {{ ucx_py_version }}
         - ucx-proc=*=gpu
         - treelite {{ treelite_version }}
@@ -87,6 +92,8 @@ outputs:
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}

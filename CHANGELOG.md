@@ -2,7 +2,7 @@
 
 Please see https://github.com/rapidsai/cuml/releases/tag/v22.06.00a for the latest changes to this development branch.
 
-# cuML 22.04.00 (Date TBD)
+# cuML 22.04.00 (6 Apr 2022)
 
 ## 🚨 Breaking Changes
 

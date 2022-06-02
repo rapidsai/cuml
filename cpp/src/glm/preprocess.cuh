@@ -62,9 +62,9 @@ void preProcessData(const raft::handle_t& handle,
                     math_t* norm2_input,
                     bool fit_intercept,
                     bool normalize,
-                    cudaStream_t stream,
                     math_t* sample_weight = nullptr)
 {
+  cudaStream_t stream = handle.get_stream();
   raft::common::nvtx::range fun_scope("ML::GLM::preProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
@@ -131,9 +131,9 @@ void postProcessData(const raft::handle_t& handle,
                      math_t* mu_labels,
                      math_t* norm2_input,
                      bool fit_intercept,
-                     bool normalize,
-                     cudaStream_t stream)
+                     bool normalize)
 {
+  cudaStream_t stream = handle.get_stream();
   raft::common::nvtx::range fun_scope("ML::GLM::postProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");

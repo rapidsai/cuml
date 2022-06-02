@@ -201,8 +201,8 @@ class RandomForestClassifier(BaseRandomForestModel,
          * If type ``int``, then min_samples_split represents the minimum
            number.
          * If type ``float``, then ``min_samples_split`` represents a fraction
-           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
-           samples for each split.
+           and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
+           number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
@@ -562,10 +562,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         X : {}
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for classification problems.
+            'GPU' to predict using the GPU, 'CPU' otherwise.
         algo : string (default = ``'auto'``)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -605,16 +602,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
-        elif self.dtype == np.float64:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
         else:
             preds = \
                 self._predict_model_on_gpu(X=X, output_class=True,
@@ -633,8 +620,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                       fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
-        implementation of predict. Therefore, data with 'dtype = np.float32'
-        should be used with this function.
+        implementation of predict.
 
         Parameters
         ----------
@@ -671,14 +657,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         y : {}
         """
-        if self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,
