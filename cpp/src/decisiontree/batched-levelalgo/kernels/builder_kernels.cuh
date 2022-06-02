@@ -165,7 +165,7 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
     else if (i_hash == pivot_hash && i < k)
       cnt++;
   }
-  __syncthreads();
+  __syncehreads();
   if (cnt > 0) atomicAdd(&blksum, cnt);
   __syncthreads();
   return blksum;
@@ -270,24 +270,12 @@ __global__ void excess_sample_with_replacement_kernel(IdxT* colids,
     // do a scan on the mask to get the indices for gathering
     BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
 
-    // __syncthreads();
-    // if(n_uniques < k)
-    // {
-    //   printf("not enough n_uniques (%d)! n=%d, k=%d, s=%d, work_item=%d\n", n_uniques, int(n), int(k), n_parallel_samples, blockIdx.x);
-    //   // printf("items:\n");
-    //   // for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
-    //   //   printf("%d, ", items[i]);
-    //   // }
-    //   // printf("\n");
-    // }
-
   } while(n_uniques < k);
 
   // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]
   IdxT col_offset = k * blockIdx.x;
   for(int i = 0; i < MAX_SAMPLES_PER_THREAD; ++i) {
     if(mask[i] and col_indices[i] < k) {
-      // printf("[n:%d,k:%d] colids[%d + %d] = items[%d] = %d\n", int(n), int(k), col_offset, col_indices[i], i, items[i]);
       colids[col_offset + col_indices[i]] = items[i];
     }
   }

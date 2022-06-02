@@ -458,14 +458,22 @@ struct Builder {
         // IdxT n_parallel_samples = dataset.n_sampled_cols * std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (dataset.n_sampled_cols * raft::myLog(1 - 1.f/double(dataset.N))));
         IdxT n_parallel_samples = std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (raft::myLog(1 - 1.f/double(dataset.N))));
         // check if user-defined params are within the boundaries defined by compile-time params
+        // check if `n_parallel_samples` is too small (?)
+        // if only thread0 is doing all the work etc.
         if(max_samples_per_thread * block_threads > n_parallel_samples) {
-          // CUML_LOG_DEBUG("using sorting-based feature-sampling to sample %d from %d for %d nodes, by oversampling to %d\n", dataset.n_sampled_cols, dataset.N, work_items.size(), n_parallel_samples);
           // the problem size is suitable for the work-item-parallel, sorting-based feature-sampling implementation that offers better performance.
           dim3 grid;
           grid.x = work_items.size();
           grid.y = 1;
           grid.z = 1;
-          excess_sample_with_replacement_kernel<IdxT, max_samples_per_thread, block_threads><<<grid, block_threads, 0, builder_stream>>>(
+
+          if(n_parallel_samples <= block_threads)
+            // each thread randomly samples only 1 sample
+            excess_sample_with_replacement_kernel<IdxT, 1, block_threads><<<grid, block_threads, 0, builder_stream>>>(
+            colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, n_parallel_samples);
+          else
+            // each thread does more work and samples `max_samples_per_thread` samples
+            excess_sample_with_replacement_kernel<IdxT, max_samples_per_thread, block_threads><<<grid, block_threads, 0, builder_stream>>>(
             colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, n_parallel_samples);
         }
         else {
@@ -480,7 +488,6 @@ struct Builder {
         }
       }
       RAFT_CUDA_TRY(cudaPeekAtLastError());
-      // raft::print_device_vector("colids:", colids, std::size_t(work_items.size() * dataset.n_sampled_cols), std::cout);
       RAFT_CUDA_TRY(cudaGetLastError());
     }
 
