@@ -394,40 +394,44 @@ struct Builder {
 
     // do feature-sampling
     if (dataset.n_sampled_cols != dataset.N) {
-      char* sampling_type = std::getenv("SAMPLING");
       constexpr int block_threads = 128;
-      constexpr int max_samples_per_thread = 72;
-      if(std::strcmp(sampling_type, "eswrk") == 0)
-      {
+      constexpr int max_samples_per_thread = 72; // register spillage if more than this limit
+      // decide if the problem size is suitable for the sorting-based sampling.
+      //
+      // our required shared memory is a function of number of samples we'll need to sample (in parallel, with replacement)
+      // in excess to get 'k' uniques out of 'n' features.
+      // estimated static shared memory required by cub's block-wide collectives:
+      // max_samples_per_thread * block_threads * sizeof(IdxT)
+      //
+      // The maximum items to sample ( the constant `max_samples_per_thread` to be set at compile-time)
+      // is calibrated so that:
+      // 1. There is no register spills and accesses to global memory
+      // 2. The required static shared memory (ie, `max_samples_per_thread * block_threads * sizeof(IdxT)`
+      // does not exceed 46KB.
+      //
+      // number of samples we'll need to sample (in parallel, with replacement), to expect 'k' unique samples
+      // from 'n' is given by the following equation:
+      // log(1 - k/n)/log(1 - 1/n)
+      // ref: https://stats.stackexchange.com/questions/296005/the-expected-number-of-unique-elements-drawn-with-replacement
+      IdxT n_parallel_samples = std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (raft::myLog(1 - 1.f/double(dataset.N))));
+      // check if user-defined params are within the boundaries defined by compile-time params
+      if(max_samples_per_thread * block_threads > n_parallel_samples) {
+        // the problem size is suitable for the work-item-parallel-sorting-based-feature-sampling implementation that offers better performance.
         dim3 grid;
         grid.x = work_items.size();
         grid.y = 1;
         grid.z = 1;
-        IdxT n_parallel_samples = std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (raft::myLog(1 - 1.f/double(dataset.N))));
-        auto available_smem = handle.get_device_properties().sharedMemPerBlock;
-        // compile-time params needed for the blockwide collective operations in the kernel
-        constexpr int estimated_smem = max_samples_per_thread * block_threads * sizeof(IdxT);
-        CUML_LOG_DEBUG("available_smem: %d, estimated_smem: %d \n", available_smem, estimated_smem);
-        ASSERT(available_smem > estimated_smem,
-               "Too much smem required. available smem: %d, required smem: %d\n", available_smem, estimated_smem);
-        // check if user-defined params are within the boundaries defined by compile-time params
-        ASSERT(max_samples_per_thread * block_threads > n_parallel_samples,
-               "problem size not suitable for this kernel (too many samples to collect from large columns). Max limit to excess samples: %d, required excess samples: %d", max_samples_per_thread * block_threads, n_parallel_samples);
-        excess_sample_with_replacement_kernel<IdxT, max_samples_per_thread, block_threads><<<grid, block_threads, 0, builder_stream>>>(
+
+        if(n_parallel_samples <= block_threads)
+          // each thread randomly samples only 1 sample
+          excess_sample_with_replacement_kernel<IdxT, 1, block_threads><<<grid, block_threads, 0, builder_stream>>>(
+          colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, n_parallel_samples);
+        else
+          // each thread does more work and samples `max_samples_per_thread` samples
+          excess_sample_with_replacement_kernel<IdxT, max_samples_per_thread, block_threads><<<grid, block_threads, 0, builder_stream>>>(
           colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, n_parallel_samples);
       }
-      else if(std::strcmp(sampling_type, "ask") == 0)
-      {
-        // printf("sampling strategy: adaptive_sampling_kernel\n");
-        dim3 grid;
-        grid.x = (work_items.size() + 127) / 128;
-        grid.y = 1;
-        grid.z = 1;
-        adaptive_sample_kernel<<<grid, 128, 0, builder_stream>>>(
-          colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
-      }
-      else if(std::strcmp(sampling_type, "alsk") == 0){
-        // CUML_LOG_DEBUG("using algo-L of reservoir sampling for feature-sampling\n");
+      else {
         // using algo-L (reservoir sampling) strategy to sample 'dataset.n_sampled_cols' unique features
         // from 'dataset.N' total features
         dim3 grid;
@@ -436,56 +440,6 @@ struct Builder {
         grid.z = 1;
         algo_L_sample_kernel<<<grid, block_threads, 0, builder_stream>>>(
           colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
-      }
-      else if(std::strcmp(sampling_type, "hybrid") == 0) {
-        // decide if the problem size is suitable for the sorting-based sampling.
-        //
-        // our required shared memory is a function of number of samples we'll need to sample (in parallel, with replacement)
-        // in excess to get 'k' uniques out of 'n' features.
-        // estimated static shared memory required by cub's block-wide collectives:
-        // max_samples_per_thread * block_threads * sizeof(IdxT)
-        //
-        // The maximum items to sample ( the constant `max_samples_per_thread` to be set at compile-time)
-        // is calibrated so that:
-        // 1. There is no register spills and accesses to global memory
-        // 2. The required static shared memory (ie, `max_samples_per_thread * block_threads * sizeof(IdxT)`
-        // does not exceed 46KB.
-        //
-        // number of samples we'll need to sample (in parallel, with replacement), to expect 'k' unique samples
-        // from 'n' is given by the following equation:
-        // log(1 - k/n)/log(1 - 1/n)
-        // ref: https://stats.stackexchange.com/questions/296005/the-expected-number-of-unique-elements-drawn-with-replacement
-        // IdxT n_parallel_samples = dataset.n_sampled_cols * std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (dataset.n_sampled_cols * raft::myLog(1 - 1.f/double(dataset.N))));
-        IdxT n_parallel_samples = std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols)/double(dataset.N)) / (raft::myLog(1 - 1.f/double(dataset.N))));
-        // check if user-defined params are within the boundaries defined by compile-time params
-        // check if `n_parallel_samples` is too small (?)
-        // if only thread0 is doing all the work etc.
-        if(max_samples_per_thread * block_threads > n_parallel_samples) {
-          // the problem size is suitable for the work-item-parallel, sorting-based feature-sampling implementation that offers better performance.
-          dim3 grid;
-          grid.x = work_items.size();
-          grid.y = 1;
-          grid.z = 1;
-
-          if(n_parallel_samples <= block_threads)
-            // each thread randomly samples only 1 sample
-            excess_sample_with_replacement_kernel<IdxT, 1, block_threads><<<grid, block_threads, 0, builder_stream>>>(
-            colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, n_parallel_samples);
-          else
-            // each thread does more work and samples `max_samples_per_thread` samples
-            excess_sample_with_replacement_kernel<IdxT, max_samples_per_thread, block_threads><<<grid, block_threads, 0, builder_stream>>>(
-            colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols, n_parallel_samples);
-        }
-        else {
-          // using algo-L (reservoir sampling) strategy to sample 'dataset.n_sampled_cols' unique features
-          // from 'dataset.N' total features
-          dim3 grid;
-          grid.x = (work_items.size() + 127) / 128;
-          grid.y = 1;
-          grid.z = 1;
-          algo_L_sample_kernel<<<grid, block_threads, 0, builder_stream>>>(
-            colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
-        }
       }
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       RAFT_CUDA_TRY(cudaGetLastError());

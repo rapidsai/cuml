@@ -479,7 +479,6 @@ std::vector<int> n_rows                  = {10, 100, 1452};
 std::vector<int> n_cols                  = {1, 5, 152, 1014};
 std::vector<int> n_trees                 = {1, 5, 17};
 std::vector<float> max_features          = {0.1f, 0.5f, 1.0f};
-// std::vector<float> max_features          = {0.1f, 1.0f};
 std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
 std::vector<int> max_depth               = {1, 10, 30};
 std::vector<int> max_leaves              = {-1, 16, 50};

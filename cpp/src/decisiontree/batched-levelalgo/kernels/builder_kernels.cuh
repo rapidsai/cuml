@@ -165,7 +165,7 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
     else if (i_hash == pivot_hash && i < k)
       cnt++;
   }
-  __syncehreads();
+  __syncthreads();
   if (cnt > 0) atomicAdd(&blksum, cnt);
   __syncthreads();
   return blksum;
@@ -324,9 +324,7 @@ __global__ void algo_L_sample_kernel(int* colids,
     if(col < n) {
       // int_uniform_val will now have a random value between 0...k
       raft::random::custom_next(gen, &int_uniform_val, uniform_int_dist_params, IdxT(0), IdxT(0));
-      // bad memory coalescing here...
-      // assert(int_uniform_val < k);
-      colids[tid * k + int_uniform_val] = col;
+      colids[tid * k + int_uniform_val] = col; // the bad memory coalescing here is hidden
       // fp_uniform_val will have a random value between 0 and 1
       gen.next(fp_uniform_val);
       W *= raft::myExp(raft::myLog(fp_uniform_val)/k);
