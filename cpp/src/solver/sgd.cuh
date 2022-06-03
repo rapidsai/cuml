@@ -136,8 +136,7 @@ void sgdFit(const raft::handle_t& handle,
                         mu_labels.data(),
                         norm2_input.data(),
                         fit_intercept,
-                        false,
-                        stream);
+                        false);
   }
 
   rmm::device_uvector<math_t> grads(n_cols, stream);
@@ -307,8 +306,7 @@ void sgdFit(const raft::handle_t& handle,
                          mu_labels.data(),
                          norm2_input.data(),
                          fit_intercept,
-                         false,
-                         stream);
+                         false);
   } else {
     *intercept = math_t(0);
   }
