@@ -444,16 +444,24 @@ class RandomForestRegressor(BaseRandomForestModel,
             # Otherwise create a RandomState instance to generate a new
             # np.uintp
             else:
-                if isinstance(self.random_state, np.random.RandomState) or \
-                   isinstance(self.random_state, cp.random.RandomState):
-                    rs = self.random_state
+                rs = self.random_state
+                if isinstance(rs, np.random.RandomState) or \
+                   isinstance(rs, cp.random.RandomState):
+                    seed_val = <uint64_t>rs.randint(
+                        low=0,
+                        high=np.iinfo(np.uint64).max,
+                        dtype=np.uint64)
+                elif isinstance(self.random_state, np.random.Generator):
+                    seed_val = <uint64_t>rs.integers(
+                        low=0,
+                        high=np.iinfo(np.uint64).max,
+                        dtype=np.uint64)
                 else:
-                    print("rs:", self.random_state)
-                    rs = np.random.RandomState(self.random_state)
-
-                seed_val = <uintptr_t>rs.randint(low=0,
-                                                 high=np.iinfo(np.uint64).max,
-                                                 dtype=np.uint64)
+                    seed_val = <uint64_t>np.random.default_rng(rs).integers(
+                        low=0,
+                        high=np.iinfo(np.uint64).max,
+                        dtype=np.uint64)
+                
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
