@@ -278,6 +278,54 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
                            with_sign=True)
 
 
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("algorithm", ["eig", "svd"])
+@pytest.mark.parametrize(
+    "fit_intercept, normalize, distribution", [
+        (True, True, "lognormal"),
+        (True, True, "exponential"),
+        (True, False, "uniform"),
+        (True, False, "exponential"),
+        (False, True, "lognormal"),
+        (False, False, "uniform"),
+    ]
+)
+def test_weighted_ridge(datatype, algorithm, fit_intercept,
+                        normalize, distribution):
+    nrows, ncols, n_info = 1000, 20, 10
+    max_weight = 10
+    noise = 20
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info, noise=noise
+    )
+
+    # set weight per sample to be from 1 to max_weight
+    if distribution == "uniform":
+        wt = np.random.randint(1, high=max_weight, size=len(X_train))
+    elif distribution == "exponential":
+        wt = np.random.exponential(size=len(X_train))
+    else:
+        wt = np.random.lognormal(size=len(X_train))
+
+    # Initialization of cuML's linear regression model
+    curidge = cuRidge(fit_intercept=fit_intercept,
+                      normalize=normalize,
+                      solver=algorithm)
+
+    # fit and predict cuml linear regression model
+    curidge.fit(X_train, y_train, sample_weight=wt)
+    curidge_predict = curidge.predict(X_test)
+
+    # sklearn linear regression model initialization, fit and predict
+    skridge = skRidge(fit_intercept=fit_intercept,
+                      normalize=normalize)
+    skridge.fit(X_train, y_train, sample_weight=wt)
+
+    skridge_predict = skridge.predict(X_test)
+
+    assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+
+
 @pytest.mark.parametrize(
     "num_classes, dtype, penalty, l1_ratio, fit_intercept, C, tol", [
         # L-BFGS Solver
