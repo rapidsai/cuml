@@ -111,8 +111,8 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
 
     y_pred = y_pred.squeeze() if len(y_pred.shape) > 1 else y_pred
     y_pred, _, _, _ = \
-        input_to_cuml_array(y_pred, check_dtype=allowed_d_types, 
-                                    check_rows=n_rows, check_cols=n_cols)
+        input_to_cuml_array(y_pred, check_dtype=allowed_d_types,
+                            check_rows=n_rows, check_cols=n_cols)
 
     if sample_weight is not None:
         sample_weight, _, _, _ = \
