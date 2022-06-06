@@ -16,7 +16,7 @@ cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 export UCX_PY_VERSION='0.27.*'
-conda install "ucx-py=${UCX_PY_VERSION}" "ucx-proc=*=gpu"
+mamba install "ucx-py=${UCX_PY_VERSION}" "ucx-proc=*=gpu"
 
 # Run flake8 and get results/return code
 FLAKE=`flake8 --config=python/setup.cfg`
