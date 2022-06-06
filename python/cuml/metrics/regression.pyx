@@ -104,19 +104,19 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
     Helper function to avoid code duplication for regression metrics.
     Converts inputs to CumlArray and check multioutput parameter validity.
     """
+    allowed_d_types = [np.float32, np.float64, np.int32, np.int64]
     y_true = y_true.squeeze() if len(y_true.shape) > 1 else y_true
     y_true, n_rows, n_cols, ytype = \
-        input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
-                                                 np.int32, np.int64])
+        input_to_cuml_array(y_true, check_dtype=allowed_d_types)
 
     y_pred = y_pred.squeeze() if len(y_pred.shape) > 1 else y_pred
     y_pred, _, _, _ = \
-        input_to_cuml_array(y_pred, check_dtype=ytype, check_rows=n_rows,
-                            check_cols=n_cols)
+        input_to_cuml_array(y_pred, check_dtype=allowed_d_types, 
+                                    check_rows=n_rows, check_cols=n_cols)
 
     if sample_weight is not None:
         sample_weight, _, _, _ = \
-            input_to_cuml_array(sample_weight, check_dtype=ytype,
+            input_to_cuml_array(sample_weight, check_dtype=allowed_d_types,
                                 check_rows=n_rows, check_cols=n_cols)
 
     raw_multioutput = False
@@ -134,7 +134,7 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
             multioutput = None
     elif multioutput is not None:
         multioutput, _, _, _ = \
-            input_to_cuml_array(multioutput, check_dtype=ytype)
+            input_to_cuml_array(multioutput, check_dtype=allowed_d_types)
         if n_cols == 1:
             raise ValueError("Custom weights are useful only in "
                              "multi-output cases.")
