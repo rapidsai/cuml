@@ -36,8 +36,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@2022.05.2
-    - git+https://github.com/dask/distributed.git@2022.05.2
+    - git+https://github.com/dask/dask.git@main
+    - git+https://github.com/dask/distributed.git@main
     - git+https://github.com/dask/dask-glm@main
     - sparse
 
