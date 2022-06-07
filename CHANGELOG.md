@@ -1,3 +1,56 @@
+# cuML 22.06.00 (7 Jun 2022)
+
+## 🐛 Bug Fixes
+
+- Fix sg benchmark build. ([#4766](https://github.com/rapidsai/cuml/pull/4766)) [@trivialfis](https://github.com/trivialfis)
+- Resolve KRR hypothesis test failure ([#4761](https://github.com/rapidsai/cuml/pull/4761)) [@RAMitchell](https://github.com/RAMitchell)
+- Fix `KBinsDiscretizer` `bin_edges_` ([#4735](https://github.com/rapidsai/cuml/pull/4735)) [@viclafargue](https://github.com/viclafargue)
+- FIX Accept small floats in RandomForest ([#4717](https://github.com/rapidsai/cuml/pull/4717)) [@thomasjpfan](https://github.com/thomasjpfan)
+- Remove import of `scalar_broadcast_to` from stemmer ([#4706](https://github.com/rapidsai/cuml/pull/4706)) [@viclafargue](https://github.com/viclafargue)
+- Replace 22.04.x with 22.06.x in yaml files ([#4692](https://github.com/rapidsai/cuml/pull/4692)) [@daxiongshu](https://github.com/daxiongshu)
+- Replace cudf.logical_not with ~ ([#4669](https://github.com/rapidsai/cuml/pull/4669)) [@canonizer](https://github.com/canonizer)
+
+## 📖 Documentation
+
+- Fix docs builds ([#4733](https://github.com/rapidsai/cuml/pull/4733)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Change &quot;principals&quot; to &quot;principles&quot; ([#4695](https://github.com/rapidsai/cuml/pull/4695)) [@cakiki](https://github.com/cakiki)
+- Update pydoc and promote `ColumnTransformer` out of experimental ([#4509](https://github.com/rapidsai/cuml/pull/4509)) [@viclafargue](https://github.com/viclafargue)
+
+## 🚀 New Features
+
+- float64 support in FIL functions ([#4655](https://github.com/rapidsai/cuml/pull/4655)) [@canonizer](https://github.com/canonizer)
+- float64 support in FIL core ([#4646](https://github.com/rapidsai/cuml/pull/4646)) [@canonizer](https://github.com/canonizer)
+- Allow &quot;LabelEncoder&quot; to accept cupy and numpy arrays as input. ([#4620](https://github.com/rapidsai/cuml/pull/4620)) [@daxiongshu](https://github.com/daxiongshu)
+- MNMG Logistic Regression (dask-glm wrapper) ([#3512](https://github.com/rapidsai/cuml/pull/3512)) [@daxiongshu](https://github.com/daxiongshu)
+
+## 🛠️ Improvements
+
+- Pin `dask` &amp; `distributed` for release ([#4758](https://github.com/rapidsai/cuml/pull/4758)) [@galipremsagar](https://github.com/galipremsagar)
+- Simplicial set functions ([#4756](https://github.com/rapidsai/cuml/pull/4756)) [@viclafargue](https://github.com/viclafargue)
+- Upgrade Treelite to 2.4.0 ([#4752](https://github.com/rapidsai/cuml/pull/4752)) [@hcho3](https://github.com/hcho3)
+- Simplify recipes ([#4749](https://github.com/rapidsai/cuml/pull/4749)) [@Ethyling](https://github.com/Ethyling)
+- Inference for float64 random forests using FIL ([#4739](https://github.com/rapidsai/cuml/pull/4739)) [@canonizer](https://github.com/canonizer)
+- MNT Removes unused optim_batch_size from UMAP&#39;s docstring ([#4732](https://github.com/rapidsai/cuml/pull/4732)) [@thomasjpfan](https://github.com/thomasjpfan)
+- Require UCX 1.12.1+ ([#4720](https://github.com/rapidsai/cuml/pull/4720)) [@jakirkham](https://github.com/jakirkham)
+- Allow enabling raft NVTX markers when raft is installed ([#4718](https://github.com/rapidsai/cuml/pull/4718)) [@achirkin](https://github.com/achirkin)
+- Fix identifier collision ([#4716](https://github.com/rapidsai/cuml/pull/4716)) [@viclafargue](https://github.com/viclafargue)
+- Use raft::span in TreeExplainer ([#4714](https://github.com/rapidsai/cuml/pull/4714)) [@hcho3](https://github.com/hcho3)
+- Expose simplicial set functions ([#4711](https://github.com/rapidsai/cuml/pull/4711)) [@viclafargue](https://github.com/viclafargue)
+- Refactor `tests` in `cuml` ([#4703](https://github.com/rapidsai/cuml/pull/4703)) [@galipremsagar](https://github.com/galipremsagar)
+- Use conda to build python packages during GPU tests ([#4702](https://github.com/rapidsai/cuml/pull/4702)) [@Ethyling](https://github.com/Ethyling)
+- Update pinning to allow newer CMake versions. ([#4698](https://github.com/rapidsai/cuml/pull/4698)) [@vyasr](https://github.com/vyasr)
+- TreeExplainer extensions ([#4697](https://github.com/rapidsai/cuml/pull/4697)) [@RAMitchell](https://github.com/RAMitchell)
+- Add sample_weight for Ridge ([#4696](https://github.com/rapidsai/cuml/pull/4696)) [@lowener](https://github.com/lowener)
+- Unpin `dask` &amp; `distributed` for development ([#4693](https://github.com/rapidsai/cuml/pull/4693)) [@galipremsagar](https://github.com/galipremsagar)
+- float64 support in treelite-&gt;FIL import and Python layer ([#4690](https://github.com/rapidsai/cuml/pull/4690)) [@canonizer](https://github.com/canonizer)
+- Enable building static libs ([#4673](https://github.com/rapidsai/cuml/pull/4673)) [@trxcllnt](https://github.com/trxcllnt)
+- Treeshap hypothesis tests ([#4671](https://github.com/rapidsai/cuml/pull/4671)) [@RAMitchell](https://github.com/RAMitchell)
+- float64 support in multi-sum and child_index() ([#4648](https://github.com/rapidsai/cuml/pull/4648)) [@canonizer](https://github.com/canonizer)
+- Add libcuml-tests package ([#4635](https://github.com/rapidsai/cuml/pull/4635)) [@Ethyling](https://github.com/Ethyling)
+- Random ball cover algorithm for 3D data ([#4582](https://github.com/rapidsai/cuml/pull/4582)) [@cjnolet](https://github.com/cjnolet)
+- Use conda compilers ([#4577](https://github.com/rapidsai/cuml/pull/4577)) [@Ethyling](https://github.com/Ethyling)
+- Build packages using mambabuild ([#4542](https://github.com/rapidsai/cuml/pull/4542)) [@Ethyling](https://github.com/Ethyling)
+
 # cuML 22.04.00 (6 Apr 2022)
 
 ## 🚨 Breaking Changes

@@ -30,13 +30,13 @@ cd $WORKSPACE
 # Parse git describe
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
+unset GIT_DESCRIBE_TAG
 
 # ucx-py version
-export UCX_PY_VERSION='0.25.*'
+export UCX_PY_VERSION='0.26.*'
 
-export CMAKE_CUDA_COMPILER_LAUNCHER="sccache"
-export CMAKE_CXX_COMPILER_LAUNCHER="sccache"
-export CMAKE_C_COMPILER_LAUNCHER="sccache"
+# configure numba threading library
+export NUMBA_THREADING_LAYER=workqueue
 
 ################################################################################
 # SETUP - Check environment
@@ -90,11 +90,6 @@ conda info
 conda config --show-sources
 conda list --show-channel-urls
 
-gpuci_logger "Adding ${CONDA_PREFIX}/lib to LD_LIBRARY_PATH"
-
-export LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
-
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Building doxygen C++ docs"
     $WORKSPACE/build.sh cppdocs -v
@@ -105,8 +100,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Build from source"
     $WORKSPACE/build.sh clean libcuml cuml prims bench -v --codecov
-
-    gpuci_logger "Resetting LD_LIBRARY_PATH"
 
     cd $WORKSPACE
 
@@ -131,16 +124,16 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/tests/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    timeout 7200 sh -c "pytest cuml/tests/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
 
     ################################################################################
@@ -172,10 +165,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
         python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
     fi
 else
-    #Project Flash
-    export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build"
-    export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
-
     if hasArg --skip-tests; then
         gpuci_logger "Skipping Tests"
         exit 0
@@ -184,64 +173,43 @@ else
     gpuci_logger "Check GPU usage"
     nvidia-smi
 
-    gpuci_logger "Update binaries"
-    cd $LIBCUML_BUILD_DIR
-    chrpath -d libcuml.so
-    chrpath -d libcuml++.so
-    patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
+    gpuci_logger "Installing libcuml and libcuml-tests"
+    gpuci_mamba_retry install -y -c ${CONDA_ARTIFACT_PATH} libcuml libcuml-tests
 
-    gpuci_logger "Running libcuml binaries"
+    gpuci_logger "Running libcuml test binaries"
     GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
-    for gt in $(find ./test -name "*_TEST" | grep -v "PRIMS_" || true); do
+    for gt in "$CONDA_PREFIX/bin/gtests/libcuml/"*; do
         test_name=$(basename $gt)
-        echo "Patching gtest $test_name"
-        chrpath -d ${gt}
-        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
         echo "Running gtest $test_name"
         ${gt} ${GTEST_ARGS}
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
     done
 
+    # TODO: Move boa install to gpuci/rapidsai
+    gpuci_mamba_retry install boa
 
-    CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "libcuml*.tar.bz2"`
-    CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
-    CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
-    gpuci_logger "Installing $CONDA_FILE"
-    gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    gpuci_logger "Building and installing cuml"
+    export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
+    export VERSION_SUFFIX=""
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
+    gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} -c ${CONDA_BLD_DIR} cuml
 
-    # FIXME: Project FLASH only builds for python version 3.8 which is the one used in
-    # the CUDA 11.0 job, need to change all versions to project flash
-    if [ "$CUDA_REL" == "11.0" ];then
-        gpuci_logger "Using Project FLASH to install cuml python"
-        CONDA_FILE=`find ${CONDA_ARTIFACT_PATH} -name "cuml*.tar.bz2"`
-        CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
-        CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
-        echo "Installing $CONDA_FILE"
-        gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
-
-    else
-        gpuci_logger "Building cuml python in gpu job"
-        "$WORKSPACE/build.sh" -v cuml --codecov
-    fi
-
-    gpuci_logger "Install the main version of dask and distributed"
+    gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.03.0" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.03.0" --upgrade --no-deps
+
+    pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
+    pip install sparse
+
     set +x
 
     gpuci_logger "Python pytest for cuml"
-    cd $WORKSPACE/python
+    cd $WORKSPACE/python/cuml/tests
 
-    # When installing cuml with project flash, we need to delete all folders except
-    # cuml/test since we are not building cython extensions in place
-    if [ "$PYTHON" == "3.8" ];then
-        find ./cuml -mindepth 1 ! -regex '^./cuml/test\(/.*\)?' -delete
-    fi
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=dask --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/test/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
-
-    timeout 7200 sh -c "pytest cuml/test/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    timeout 7200 sh -c "pytest dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
     ################################################################################
     # TEST - Run notebook tests
@@ -260,13 +228,9 @@ else
     ################################################################################
 
     gpuci_logger "Run ml-prims test"
-    cd $LIBCUML_BUILD_DIR
     GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
-    for gt in $(find ./test -name "*_TEST" | grep -v "SG_\|MG_" || true); do
+    for gt in "$CONDA_PREFIX/bin/gtests/libcuml_prims/"*; do
         test_name=$(basename $gt)
-        echo "Patching gtest $test_name"
-        chrpath -d ${gt}
-        patchelf --replace-needed `patchelf --print-needed ${gt} | grep faiss` libfaiss.so ${gt}
         echo "Running gtest $test_name"
         ${gt} ${GTEST_ARGS}
         echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"

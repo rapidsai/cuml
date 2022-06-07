@@ -3,24 +3,20 @@
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
-{% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set cuda_version = '.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
+
 package:
-  name: libcuml
-  version: {{ version }}
+  name: libcuml-split
 
 source:
   git_url: ../../..
 
 build:
-  number: {{ GIT_DESCRIBE_NUMBER }}
-  string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
-    - CC
-    - CXX
-    - CUDAHOSTCXX
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
@@ -36,11 +32,16 @@ build:
 
 requirements:
   build:
-    - cmake>=3.20.1,<3.23
+    - cmake {{ cmake_version }}
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - nccl>=2.9.9
+    - nccl {{ nccl_version }}
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
+    - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
@@ -48,28 +49,60 @@ requirements:
     - libraft-distance {{ minor_version }}
     - libraft-nn {{ minor_version }}
     - lapack
-    - treelite=2.3.0
+    - treelite {{ treelite_version }}
     - faiss-proc=*=cuda
-    - gtest=1.10.0
+    - gtest {{ gtest_version }}
     - gmock
-    - libfaiss 1.7.0 *_cuda
-  run:
-    - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
-    - libraft-distance {{ minor_version }}
-    - libraft-nn {{ minor_version }}
-    - cudf {{ minor_version }}
-    - nccl>=2.9.9
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - treelite=2.3.0
-    - faiss-proc=*=cuda
-    - libfaiss 1.7.0 *_cuda
-    - libcusolver>=11.2.1
+    - libfaiss {{ libfaiss_version }} *_cuda
 
-about:
-  home: http://rapids.ai/
-  license: Apache-2.0
-  # license_file: LICENSE
-  summary: libcuml library
+outputs:
+  - name: libcuml
+    version: {{ version }}
+    script: install_libcuml.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      run:
+        - cudatoolkit {{ cuda_spec }}
+        - libcumlprims {{ minor_version }}
+        - libraft-headers {{ minor_version }}
+        - libraft-distance {{ minor_version }}
+        - libraft-nn {{ minor_version }}
+        - cudf {{ minor_version }}
+        - nccl {{ nccl_version }}
+        - ucx >={{ ucx_version }}
+        - ucx-py {{ ucx_py_version }}
+        - ucx-proc=*=gpu
+        - treelite {{ treelite_version }}
+        - faiss-proc=*=cuda
+        - libfaiss {{ libfaiss_version }} *_cuda
+        - libcusolver {{ libcusolver_version }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libcuml library
+  - name: libcuml-tests
+    version: {{ version }}
+    script: install_libcuml_tests.sh
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+      run:
+        - cudatoolkit {{ cuda_spec }}
+        - {{ pin_subpackage('libcuml', exact=True) }}
+        - gtest {{ gtest_version }}
+        - gmock {{ gtest_version }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libcuml test & benchmark executables

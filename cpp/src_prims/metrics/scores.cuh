@@ -30,8 +30,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
-#define N_THREADS 512
-
 namespace MLCommon {
 namespace Score {
 
