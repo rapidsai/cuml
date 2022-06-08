@@ -396,7 +396,7 @@ struct Builder {
     if (dataset.n_sampled_cols != dataset.N) {
       constexpr int block_threads          = 128;
       constexpr int max_samples_per_thread = 72;  // register spillage if more than this limit
-      // decide if the problem size is suitable for the sorting-based sampling.
+      // decide if the problem size is suitable for the excess-sampling strategy.
       //
       // our required shared memory is a function of number of samples we'll need to sample (in
       // parallel, with replacement) in excess to get 'k' uniques out of 'n' features. estimated
@@ -417,7 +417,7 @@ struct Builder {
                   (raft::myLog(1 - 1.f / double(dataset.N))));
       // check if user-defined params are within the boundaries defined by compile-time params
       if (max_samples_per_thread * block_threads > n_parallel_samples) {
-        // the problem size is suitable for the work-item-parallel-sorting-based-feature-sampling
+        // the problem size is suitable for the excess-sampling-based strategy.
         // implementation that offers better performance.
         dim3 grid;
         grid.x = work_items.size();
@@ -456,7 +456,6 @@ struct Builder {
         algo_L_sample_kernel<<<grid, block_threads, 0, builder_stream>>>(
           colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
       }
-      RAFT_CUDA_TRY(cudaPeekAtLastError());
       RAFT_CUDA_TRY(cudaGetLastError());
     }
 
