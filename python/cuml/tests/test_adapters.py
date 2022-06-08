@@ -108,7 +108,11 @@ def test_check_array():
     check_array(arr, ensure_2d=False)
     with pytest.raises(ValueError):
         check_array(arr, ensure_2d=True)
-
+    
+    # ensure_2d
+    arr = cp.array([[1, 2, 3], [4, 5, 6]], dtype=cp.float32)
+    check_array(arr, ensure_2d = True)
+    
     # ensure_min_samples
     arr = cp.array([[1, 2]], dtype=cp.float32)
     check_array(arr, ensure_min_samples=1)
