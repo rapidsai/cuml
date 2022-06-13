@@ -461,7 +461,6 @@ class RandomForestRegressor(BaseRandomForestModel,
                         low=0,
                         high=np.iinfo(np.uint64).max,
                         dtype=np.uint64)
-                
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
