@@ -82,9 +82,46 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
+Feature Scaling and Normalization (Single-GPU)
+----------------------------------------------
+.. autoclass:: cuml.preprocessing.MaxAbsScaler
+    :members:
+.. autoclass:: cuml.preprocessing.MinMaxScaler
+    :members:
+.. autoclass:: cuml.preprocessing.Normalizer
+    :members:
+.. autoclass:: cuml.preprocessing.RobustScaler
+    :members:
+.. autoclass:: cuml.preprocessing.StandardScaler
+    :members:
+.. autofunction:: cuml.preprocessing.maxabs_scale
+.. autofunction:: cuml.preprocessing.minmax_scale
+.. autofunction:: cuml.preprocessing.normalize
+.. autofunction:: cuml.preprocessing.robust_scale
+.. autofunction:: cuml.preprocessing.scale
+
+Other preprocessing methods (Single-GPU)
+----------------------------------------
+.. autoclass:: cuml.preprocessing.Binarizer
+    :members:
+.. autoclass:: cuml.preprocessing.FunctionTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.KBinsDiscretizer
+    :members:
+.. autoclass:: cuml.preprocessing.MissingIndicator
+    :members:
+.. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.SimpleImputer
+    :members:
+.. autofunction:: cuml.preprocessing.add_dummy_feature
+.. autofunction:: cuml.preprocessing.binarize
+
+.. automodule:: cuml.compose
+   :members: ColumnTransformer, make_column_transformer, make_column_selector
 
 Text Preprocessing (Single-GPU)
----------------------------------------
+-------------------------------
  .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
@@ -588,14 +625,6 @@ Experimental
 .. note:: Due to the nature of this module, it is not imported by default by
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
-
-Preprocessing
--------------
-.. automodule:: cuml.experimental.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
-      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
-      add_dummy_feature, binarize, minmax_scale, normalize,
-      PolynomialFeatures, robust_scale, scale
 
 Linear Models
 -------------
