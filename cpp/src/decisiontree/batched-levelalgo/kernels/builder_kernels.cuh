@@ -227,6 +227,8 @@ __global__ void excess_sample_with_replacement_kernel(
     // do a scan on the mask to get the indices for gathering
     BlockScanT(temp_storage.scan).ExclusiveSum(mask, col_indices, n_uniques);
 
+    __syncthreads();
+
   } while (n_uniques < k);
 
   // write the items[] of only the ones with mask[]=1 to col[offset + col_idx[]]

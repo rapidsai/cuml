@@ -382,7 +382,7 @@ struct Builder {
 
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
   {
-    raft::common::nvtx::range fun_scope("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
+    raft::common::nvtx::range fun_scope("Builder::doSplit @builder.cuh [batched-levelalgo]");
     // start fresh on the number of *new* nodes created in this batch
     RAFT_CUDA_TRY(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), builder_stream));
     initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
@@ -394,14 +394,15 @@ struct Builder {
 
     // do feature-sampling
     if (dataset.n_sampled_cols != dataset.N) {
+      raft::common::nvtx::range fun_scope("feature-sampling");
       constexpr int block_threads          = 128;
       constexpr int max_samples_per_thread = 72;  // register spillage if more than this limit
       // decide if the problem size is suitable for the excess-sampling strategy.
       //
       // our required shared memory is a function of number of samples we'll need to sample (in
       // parallel, with replacement) in excess to get 'k' uniques out of 'n' features. estimated
-      // static shared memory required by cub's block-wide collectives: max_samples_per_thread *
-      // block_threads * sizeof(IdxT)
+      // static shared memory required by cub's block-wide collectives:
+      // max_samples_per_thread * block_threads * sizeof(IdxT)
       //
       // The maximum items to sample ( the constant `max_samples_per_thread` to be set at
       // compile-time) is calibrated so that:
@@ -415,10 +416,13 @@ struct Builder {
       IdxT n_parallel_samples =
         std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols) / double(dataset.N)) /
                   (raft::myLog(1 - 1.f / double(dataset.N))));
-      // check if user-defined params are within the boundaries defined by compile-time params
-      if (max_samples_per_thread * block_threads > n_parallel_samples) {
-        // the problem size is suitable for the excess-sampling-based strategy.
-        // implementation that offers better performance.
+      // maximum sampling work possible by all threads in a block :
+      // `max_samples_per_thread * block_thread`
+      // dynamically calculated sampling work to be done per block:
+      // `n_parallel_samples`
+      // former must be greater or equal to than latter for excess-sampling-based strategy
+      if (max_samples_per_thread * block_threads >= n_parallel_samples) {
+        raft::common::nvtx::range fun_scope("excess-sampling-based approach");
         dim3 grid;
         grid.x = work_items.size();
         grid.y = 1;
@@ -446,7 +450,9 @@ struct Builder {
                                                          dataset.N,
                                                          dataset.n_sampled_cols,
                                                          n_parallel_samples);
+        raft::common::nvtx::pop_range();
       } else {
+        raft::common::nvtx::range fun_scope("reservoir-sampling-based approach");
         // using algo-L (reservoir sampling) strategy to sample 'dataset.n_sampled_cols' unique
         // features from 'dataset.N' total features
         dim3 grid;
@@ -455,15 +461,17 @@ struct Builder {
         grid.z = 1;
         algo_L_sample_kernel<<<grid, block_threads, 0, builder_stream>>>(
           colids, d_work_items, work_items.size(), treeid, seed, dataset.N, dataset.n_sampled_cols);
+        raft::common::nvtx::pop_range();
       }
-      RAFT_CUDA_TRY(cudaGetLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+      raft::common::nvtx::pop_range();
     }
 
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
       computeSplit(c, n_blocks_dimx, n_large_nodes);
-      RAFT_CUDA_TRY(cudaGetLastError());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
 
     // create child nodes (or make the current ones leaf)
@@ -478,7 +486,7 @@ struct Builder {
                                                                       dataset,
                                                                       d_work_items,
                                                                       splits);
-    RAFT_CUDA_TRY(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
     handle.sync_stream(builder_stream);
