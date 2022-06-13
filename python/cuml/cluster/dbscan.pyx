@@ -147,7 +147,7 @@ class DBSCAN(Base,
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    metric: {'euclidean', 'precomputed'}, default = 'euclidean'
+    metric: {'euclidean', 'precomputed', 'cosine'}, default = 'euclidean'
         The metric to use when calculating distances between points.
         If metric is 'precomputed', X is assumed to be a distance matrix
         and must be square.
@@ -267,6 +267,7 @@ class DBSCAN(Base,
             "L2": DistanceType.L2SqrtUnexpanded,
             "euclidean": DistanceType.L2SqrtUnexpanded,
             "precomputed": DistanceType.Precomputed,
+            "cosine": DistanceType.CosineExpanded
         }
         if self.metric in metric_parsing:
             metric = metric_parsing[self.metric.lower()]

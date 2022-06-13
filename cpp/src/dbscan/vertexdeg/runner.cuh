@@ -17,6 +17,7 @@
 #pragma once
 
 #include "algo.cuh"
+#include "cosine.cuh"
 #include "naive.cuh"
 #include "pack.h"
 #include "precomputed.cuh"
@@ -46,6 +47,9 @@ void run(const raft::handle_t& handle,
       break;
     case 2:
       Precomputed::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream);
+      break;
+    case 3:
+      Cosine::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream);
       break;
     default: ASSERT(false, "Incorrect algo passed! '%d'", algo);
   }
