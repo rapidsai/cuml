@@ -2,9 +2,9 @@
 {
   "packages" : {
     "Thrust" : {
-      "version" : "1.17.0.0-rc2",
+      "version" : "1.17.0",
       "git_url" : "https://github.com/NVIDIA/thrust.git",
-      "git_tag" : "1.17.0-rc2"
+      "git_tag" : "1.17.0"
     }
   }
 }
