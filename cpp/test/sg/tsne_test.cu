@@ -17,6 +17,7 @@
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/linalg/map.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
@@ -108,6 +109,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     auto stream = handle.get_stream();
     TSNEResults results;
 
+    auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
     // Setup parameters
     model_params.algorithm     = algo;
     model_params.dim           = 2;
@@ -132,11 +134,11 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
       input_dists.resize(n * model_params.n_neighbors, stream);
       k_graph.knn_indices = input_indices.data();
       k_graph.knn_dists   = input_dists.data();
-      TSNE::get_distances(handle, input, k_graph, stream);
+      TSNE::get_distances(handle, input, k_graph, stream, DEFAULT_DISTANCE_METRIC);
     }
     handle.sync_stream(stream);
     TSNE_runner<manifold_dense_inputs_t<float>, knn_indices_dense_t, float> runner(
-      handle, input, k_graph, model_params);
+      handle, input, k_graph, model_params, DEFAULT_DISTANCE_METRIC);
     results.kl_div = runner.run();
 
     // Compute embedding's pairwise distances

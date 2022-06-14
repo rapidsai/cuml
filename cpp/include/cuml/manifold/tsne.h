@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <raft/distance/distance_type.hpp>
 
 namespace raft {
 class handle_t;
@@ -118,6 +119,7 @@ struct TSNEParams {
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
+ * @param[in]  metric              Distance metric
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
@@ -134,6 +136,7 @@ void TSNE_fit(const raft::handle_t& handle,
               int64_t* knn_indices,
               float* knn_dists,
               TSNEParams& params,
+              raft::distance::DistanceType metric,
               float* kl_div = nullptr);
 
 /**
@@ -152,6 +155,7 @@ void TSNE_fit(const raft::handle_t& handle,
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
+ * @param[in]  metric              Distance metric
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
@@ -171,6 +175,7 @@ void TSNE_fit_sparse(const raft::handle_t& handle,
                      int* knn_indices,
                      float* knn_dists,
                      TSNEParams& params,
+                     raft::distance::DistanceType metric,
                      float* kl_div = nullptr);
 
 }  // namespace ML

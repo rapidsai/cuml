@@ -39,6 +39,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_graph
+from cuml.metrics.distance_type cimport DistanceType
 import rmm
 
 from libcpp cimport bool
@@ -93,6 +94,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int64_t* knn_indices,
         float* knn_dists,
         TSNEParams &params,
+        DistanceType metric,
         float* kl_div) except +
 
     cdef void TSNE_fit_sparse(
@@ -107,6 +109,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int* knn_indices,
         float* knn_dists,
         TSNEParams &params,
+        DistanceType metric,
         float* kl_div) except +
 
 
@@ -302,11 +305,6 @@ class TSNE(Base,
         if n_iter <= 100:
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
-        if metric.lower() != 'euclidean':
-            # TODO https://github.com/rapidsai/cuml/issues/1653
-            warnings.warn("TSNE does not support {} (only Euclidean).".format(
-                          metric))
-            metric = 'euclidean'
         if init.lower() != 'random':
             # TODO https://github.com/rapidsai/cuml/issues/3458
             warnings.warn("TSNE does not support {} but only random "
@@ -497,6 +495,36 @@ class TSNE(Base,
             self._build_tsne_params(algo)
 
         cdef float kl_divergence = 0
+
+        # metric
+        metric_parsing = {
+            "l2": DistanceType.L2SqrtUnexpanded,
+            "euclidean": DistanceType.L2SqrtUnexpanded,
+            "sqeuclidean": DistanceType.L2Expanded,
+            "cityblock": DistanceType.L1,
+            "l1": DistanceType.L1,
+            "manhattan": DistanceType.L1,
+            "taxicab": DistanceType.L1,
+            "braycurtis": DistanceType.BrayCurtis,
+            "canberra": DistanceType.Canberra,
+            "minkowski": DistanceType.LpUnexpanded,
+            "lp": DistanceType.LpUnexpanded,
+            "chebyshev": DistanceType.Linf,
+            "linf": DistanceType.Linf,
+            "jensenshannon": DistanceType.JensenShannon,
+            "cosine": DistanceType.CosineExpanded,
+            "correlation": DistanceType.CorrelationExpanded,
+            "inner_product": DistanceType.InnerProduct,
+            "jaccard": DistanceType.JaccardExpanded,
+            "hellinger": DistanceType.HellingerExpanded,
+            "haversine": DistanceType.Haversine
+        }
+        if self.metric.lower() in metric_parsing:
+            metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
+
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
                             <int*><uintptr_t>
@@ -512,6 +540,7 @@ class TSNE(Base,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
                             <TSNEParams&> deref(params),
+                            <DistanceType> metric,
                             &kl_divergence)
         else:
             TSNE_fit(handle_[0],
@@ -522,6 +551,7 @@ class TSNE(Base,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
                      <TSNEParams&> deref(params),
+                     <DistanceType> metric,
                      &kl_divergence)
 
         self.handle.sync()

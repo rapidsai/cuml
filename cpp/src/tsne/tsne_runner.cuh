@@ -21,6 +21,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "barnes_hut_tsne.cuh"
@@ -35,13 +36,15 @@ class TSNE_runner {
   TSNE_runner(const raft::handle_t& handle_,
               tsne_input& input_,
               knn_graph<value_idx, value_t>& k_graph_,
-              TSNEParams& params_)
+              TSNEParams& params_,
+              raft::distance::DistanceType metric_)
     : handle(handle_),
       input(input_),
       k_graph(k_graph_),
       params(params_),
-      COO_Matrix(handle_.get_stream())
-  {
+      COO_Matrix(handle_.get_stream()),
+      metric(metric_)
+  { 
     this->n = input.n;
     this->p = input.d;
     this->Y = input.y;
@@ -117,7 +120,7 @@ class TSNE_runner {
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
 
-      TSNE::get_distances(handle, input, k_graph, stream);
+      TSNE::get_distances(handle, input, k_graph, stream, metric);
     }
 
     if (params.square_distances) {
@@ -187,6 +190,7 @@ class TSNE_runner {
   tsne_input& input;
   knn_graph<value_idx, value_t>& k_graph;
   TSNEParams& params;
+  raft::distance::DistanceType metric;
 
   value_idx n, p;
   value_t* Y;
