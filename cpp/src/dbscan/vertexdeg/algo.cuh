@@ -50,7 +50,7 @@ void launcher(const raft::handle_t& handle,
   index_t k = data.D;
   value_t eps2;
 
-  if (metric == raft::distance::DistanceType::Precomputed) {
+  if (metric == raft::distance::DistanceType::CosineExpanded) {
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
     raft::linalg::rowNorm(rowNorms.data(),
