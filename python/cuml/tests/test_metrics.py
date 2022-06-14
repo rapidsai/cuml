@@ -502,6 +502,31 @@ def test_regression_metrics_random(n_samples, dtype, function):
     cp.testing.assert_array_almost_equal(res, ref, decimal=2)
 
 
+@pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
+@pytest.mark.parametrize('y_dtype',
+                         [np.int32, np.int64, np.float32, np.float64])
+@pytest.mark.parametrize('pred_dtype',
+                         [np.int32, np.int64, np.float32, np.float64])
+@pytest.mark.parametrize('function', ['mse', 'mae', 'msle'])
+def test_regression_metrics_random_with_mixed_dtypes(n_samples, y_dtype,
+                                                     pred_dtype, function):
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(y_dtype))
+
+    y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(pred_dtype))
+
+    cuml_reg, sklearn_reg = {
+        'mse': (mean_squared_error, sklearn_mse),
+        'mae': (mean_absolute_error, sklearn_mae),
+        'msle': (mean_squared_log_error, sklearn_msle)
+    }[function]
+
+    res = cuml_reg(y_true, y_pred, multioutput='raw_values')
+    ref = sklearn_reg(y_true, y_pred, multioutput='raw_values')
+    cp.testing.assert_array_almost_equal(res, ref, decimal=2)
+
+
 @pytest.mark.parametrize('function', ['mse', 'mse_not_squared', 'mae', 'msle'])
 def test_regression_metrics_at_limits(function):
     y_true = np.array([0.], dtype=float)
