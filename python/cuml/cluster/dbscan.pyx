@@ -266,8 +266,8 @@ class DBSCAN(Base,
         metric_parsing = {
             "L2": DistanceType.L2SqrtUnexpanded,
             "euclidean": DistanceType.L2SqrtUnexpanded,
-            "precomputed": DistanceType.Precomputed,
-            "cosine": DistanceType.CosineExpanded
+            "cosine": DistanceType.CosineExpanded,
+            "precomputed": DistanceType.Precomputed
         }
         if self.metric in metric_parsing:
             metric = metric_parsing[self.metric.lower()]
