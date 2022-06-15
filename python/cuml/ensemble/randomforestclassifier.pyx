@@ -447,29 +447,26 @@ class RandomForestClassifier(BaseRandomForestModel,
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <uintptr_t> rf_forest64
 
-        if self.random_state is None:
+        rs = self.random_state
+        if rs is None:
             seed_val = <uintptr_t>NULL
+        elif isinstance(rs, np.uintp):
+            seed_val = <uintptr_t>rs
+        elif isinstance(rs, (np.random.RandomState, cp.random.RandomState)):
+            seed_val = <uintptr_t>rs.randint(
+                low=0,
+                high=np.iinfo(np.uintp).max,
+                dtype=np.uintp)
+        elif isinstance(rs, np.random.Generator):
+            seed_val = <uintptr_t>rs.integers(
+                low=0,
+                high=np.iinfo(np.uintp).max,
+                dtype=np.uintp)
         else:
-            if isinstance(self.random_state, np.uintp):
-                seed_val = <uintptr_t>self.random_state
-            else:
-                rs = self.random_state
-                if isinstance(rs, np.random.RandomState) or \
-                   isinstance(rs, cp.random.RandomState):
-                    seed_val = <uintptr_t>rs.randint(
-                        low=0,
-                        high=np.iinfo(np.uintp).max,
-                        dtype=np.uintp)
-                elif isinstance(rs, np.random.Generator):
-                    seed_val = <uintptr_t>rs.integers(
-                        low=0,
-                        high=np.iinfo(np.uintp).max,
-                        dtype=np.uintp)
-                else:
-                    seed_val = <uintptr_t>np.random.default_rng(rs).integers(
-                        low=0,
-                        high=np.iinfo(np.uintp).max,
-                        dtype=np.uintp)
+            seed_val = <uintptr_t>np.random.default_rng(rs).integers(
+                low=0,
+                high=np.iinfo(np.uintp).max,
+                dtype=np.uintp)
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
