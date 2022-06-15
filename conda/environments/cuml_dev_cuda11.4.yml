@@ -13,10 +13,10 @@ dependencies:
 - cudf=22.08.*
 - rmm=22.08.*
 - libcumlprims=22.08.*
-- libraft-headers=22.06.*
-- libraft-distance=22.06.*
-- libraft-nn=22.06.*
-- pyraft=22.06.*
+- libraft-headers=22.08.*
+- libraft-distance=22.08.*
+- libraft-nn=22.08.*
+- pyraft=22.08.*
 - dask-cudf=22.08.*
 - dask-cuda=22.08.*
 - ucx>=1.12.1
