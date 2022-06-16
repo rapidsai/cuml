@@ -69,7 +69,8 @@ void launcher(const raft::handle_t& handle,
                                       inputsB.n,
                                       out.knn_indices,
                                       out.knn_dists,
-                                      n_neighbors);
+                                      n_neighbors,
+                                      params->metric);
 }
 
 // Instantiation for dense inputs, int indices
@@ -112,7 +113,7 @@ void launcher(const raft::handle_t& handle,
                                            handle,
                                            ML::Sparse::DEFAULT_BATCH_SIZE,
                                            ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           raft::distance::DistanceType::L2Expanded);
+                                           params->metric);
 }
 
 template <>

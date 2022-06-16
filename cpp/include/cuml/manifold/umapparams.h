@@ -18,6 +18,7 @@
 
 #include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/distance/distance_type.hpp>
 
 namespace ML {
 
@@ -158,6 +159,8 @@ class UMAPParams {
   bool deterministic = true;
 
   Internals::GraphBasedDimRedCallback* callback = nullptr;
+
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 };
 
 }  // namespace ML

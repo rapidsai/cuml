@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <cuml/manifold/umapparams.h>
 
 namespace raft {
 class handle_t;
