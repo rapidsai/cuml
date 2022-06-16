@@ -157,10 +157,10 @@ class UMAPParams {
       higher memory usage but produce stable numeric output.
    */
   bool deterministic = true;
+  
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 
   Internals::GraphBasedDimRedCallback* callback = nullptr;
-
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 };
 
 }  // namespace ML
