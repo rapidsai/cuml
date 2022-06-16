@@ -153,7 +153,7 @@ class DBSCAN(Base,
         and must be square.
         The input will be modified temporarily when cosine distance is used
         and the restored input matrix might not match completely
-        due to numerical rounding. 
+        due to numerical rounding.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
