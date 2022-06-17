@@ -285,9 +285,16 @@ class BaseRandomForestModel(Base):
             self.num_classes = len(self.classes_)
             for i in range(self.num_classes):
                 if i not in self.classes_:
-                    raise ValueError("The labels need "
-                                     "to be consecutive values from "
-                                     "0 to the number of unique label values")
+                    self.classes_unorder = cp.unique(y_m).tolist()
+                    self.num_classes = len(self.classes_unorder)
+                    table = {val: i for i, val in enumerate((self.classes_unorder))}
+                    y_m, _, _, _ = input_to_cuml_array(
+                        cp.asarray([table[v] for v in (y_m).to_output('cupy').tolist()]),
+                        check_dtype=np.int32,
+                        convert_to_dtype=(np.int32 if convert_dtype
+                                      else None),
+                    check_rows=self.n_rows, check_cols=1)
+                    break
 
         else:
             y_m, _, _, y_dtype = \

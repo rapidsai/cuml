@@ -311,6 +311,66 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
+@pytest.mark.parametrize("b", [0, 5, -5, 10])
+@pytest.mark.parametrize("a", [1, 2, 3])
+def test_rf_classification_unorder(small_clf, datatype, max_samples, max_features, a, b):
+    use_handle = True
+
+    X, y = small_clf
+    X = X.astype(datatype)
+    y = y.astype(np.int32)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
+    # Create a handle for the cuml model
+    handle, stream = get_handle(use_handle, n_streams=1)
+
+    # Initialize, fit and predict using cuML's
+    # random forest classification model
+    cuml_model = curfc(
+        max_features=max_features,
+        max_samples=max_samples,
+        n_bins=16,
+        split_criterion=0,
+        min_samples_leaf=2,
+        random_state=123,
+        n_streams=1,
+        n_estimators=40,
+        handle=handle,
+        max_leaves=-1,
+        max_depth=16,
+    )
+    #affine transformation
+    y_train = a*y_train+b 
+    cuml_model.fit(X_train, y_train)
+
+    fil_preds = cuml_model.predict(
+        X_test, predict_model="GPU", threshold=0.5, algo="auto"
+    )
+    cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+    fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+    cuml_acc = accuracy_score(y_test, cu_preds)
+    fil_acc = accuracy_score(y_test, fil_preds)
+    if X.shape[0] < 500000:
+        sk_model = skrfc(
+            n_estimators=40,
+            max_depth=16,
+            min_samples_split=2,
+            max_features=max_features,
+            random_state=10,
+        )
+        sk_model.fit(X_train, y_train)
+        sk_preds = sk_model.predict(X_test)
+        sk_acc = accuracy_score(y_test, sk_preds)
+        assert fil_acc >= (sk_acc - 0.07)
+    assert fil_acc >= (cuml_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
+
+
+@pytest.mark.parametrize(
+    "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
+)
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "max_features,n_bins",
     [
