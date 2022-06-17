@@ -80,6 +80,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int verbosity,
         bool initialize_embeddings,
         bool square_distances,
+        DistanceType metric,
         TSNE_ALGORITHM algorithm
 
 
@@ -94,7 +95,6 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int64_t* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        DistanceType metric,
         float* kl_div) except +
 
     cdef void TSNE_fit_sparse(
@@ -109,7 +109,6 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int* knn_indices,
         float* knn_dists,
         TSNEParams &params,
-        DistanceType metric,
         float* kl_div) except +
 
 
@@ -424,6 +423,7 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
+        
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -496,35 +496,6 @@ class TSNE(Base,
 
         cdef float kl_divergence = 0
 
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtUnexpanded,
-            "euclidean": DistanceType.L2SqrtUnexpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "taxicab": DistanceType.L1,
-            "braycurtis": DistanceType.BrayCurtis,
-            "canberra": DistanceType.Canberra,
-            "minkowski": DistanceType.LpUnexpanded,
-            "lp": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "linf": DistanceType.Linf,
-            "jensenshannon": DistanceType.JensenShannon,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded,
-            "inner_product": DistanceType.InnerProduct,
-            "jaccard": DistanceType.JaccardExpanded,
-            "hellinger": DistanceType.HellingerExpanded,
-            "haversine": DistanceType.Haversine
-        }
-        if self.metric.lower() in metric_parsing:
-            metric = metric_parsing[self.metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
-
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
                             <int*><uintptr_t>
@@ -540,7 +511,6 @@ class TSNE(Base,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
                             <TSNEParams&> deref(params),
-                            <DistanceType> metric,
                             &kl_divergence)
         else:
             TSNE_fit(handle_[0],
@@ -551,7 +521,6 @@ class TSNE(Base,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
                      <TSNEParams&> deref(params),
-                     <DistanceType> metric,
                      &kl_divergence)
 
         self.handle.sync()
@@ -613,6 +582,29 @@ class TSNE(Base,
         params.initialize_embeddings = <bool> True
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
+
+        # metric
+        metric_parsing = {
+            "l2": DistanceType.L2SqrtUnexpanded,
+            "euclidean": DistanceType.L2SqrtUnexpanded,
+            "sqeuclidean": DistanceType.L2Expanded,
+            "cityblock": DistanceType.L1,
+            "l1": DistanceType.L1,
+            "manhattan": DistanceType.L1,
+            "taxicab": DistanceType.L1,
+            "minkowski": DistanceType.LpUnexpanded,
+            "chebyshev": DistanceType.Linf,
+            "linf": DistanceType.Linf,
+            "cosine": DistanceType.CosineExpanded,
+            "correlation": DistanceType.CorrelationExpanded,
+        }
+
+        if self.metric.lower() in metric_parsing:
+            params.metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
+
         return <size_t> params
 
     @property

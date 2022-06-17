@@ -138,7 +138,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     }
     handle.sync_stream(stream);
     TSNE_runner<manifold_dense_inputs_t<float>, knn_indices_dense_t, float> runner(
-      handle, input, k_graph, model_params, DEFAULT_DISTANCE_METRIC);
+      handle, input, k_graph, model_params);
     results.kl_div = runner.run();
 
     // Compute embedding's pairwise distances
