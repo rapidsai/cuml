@@ -7,6 +7,11 @@ source rapids-env-update
 # Check environment
 source ci/check_environment.sh
 
+# Use Ninja to build, setup Conda Build Dir
+export CMAKE_GENERATOR="Ninja"
+# ucx-py version
+export UCX_PY_VERSION='0.27.*'
+
 ################################################################################
 # BUILD - Conda package builds (LIBCUGRAPH)
 ################################################################################
