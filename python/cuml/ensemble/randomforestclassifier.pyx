@@ -46,7 +46,7 @@ from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
-from cuml.prims.label.classlabels import make_monotonic, check_labels, invert_labels
+from cuml.prims.label.classlabels import check_labels, invert_labels
 
 from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
@@ -498,7 +498,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                             % (str(self.dtype)))
         # make sure that the `fit` is complete before the following delete
         # call happens
-        self.handle.sync()   
+        self.handle.sync()
         del X_m
         del y_m
         return self
