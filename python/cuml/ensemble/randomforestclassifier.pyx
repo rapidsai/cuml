@@ -46,6 +46,7 @@ from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
+from cuml.prims.label.classlabels import make_monotonic, check_labels, invert_labels
 
 from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
@@ -431,6 +432,8 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
+        # Track the labels to see if update is necessary
+        self.update_labels = not check_labels(y_m, self.classes_)  
         cdef uintptr_t X_ptr, y_ptr
 
         X_ptr = X_m.ptr
@@ -495,7 +498,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                             % (str(self.dtype)))
         # make sure that the `fit` is complete before the following delete
         # call happens
-        self.handle.sync()
+        self.handle.sync()   
         del X_m
         del y_m
         return self
@@ -611,6 +614,9 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        preds = preds.to_output().astype(self.classes_.dtype)
+        if self.update_labels:
+            preds = invert_labels(preds, self.classes_)
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],

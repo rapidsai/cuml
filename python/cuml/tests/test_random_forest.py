@@ -320,6 +320,8 @@ def test_rf_classification_unorder(small_clf, datatype, max_samples, max_feature
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
+    #affine transformation
+    y = a*y+b
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
@@ -341,8 +343,6 @@ def test_rf_classification_unorder(small_clf, datatype, max_samples, max_feature
         max_leaves=-1,
         max_depth=16,
     )
-    #affine transformation
-    y_train = a*y_train+b 
     cuml_model.fit(X_train, y_train)
 
     fil_preds = cuml_model.predict(
