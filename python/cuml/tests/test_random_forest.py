@@ -314,13 +314,14 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
 @pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
 @pytest.mark.parametrize("b", [0, 5, -5, 10])
 @pytest.mark.parametrize("a", [1, 2, 3])
-def test_rf_classification_unorder(small_clf, datatype, max_samples, max_features, a, b):
+def test_rf_classification_unorder(
+                small_clf, datatype, max_samples, max_features, a, b):
     use_handle = True
 
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
-    #affine transformation
+    # affine transformation
     y = a*y+b
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
