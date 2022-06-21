@@ -7,19 +7,20 @@ channels:
 dependencies:
 - cudatoolkit=11.2
 - cuda-python >=11.5,<12.0
-- rapids-build-env=22.06.*
-- rapids-notebook-env=22.06.*
-- rapids-doc-env=22.06.*
-- cudf=22.06.*
-- rmm=22.06.*
-- libcumlprims=22.06.*
+- rapids-build-env=22.08.*
+- rapids-notebook-env=22.08.*
+- rapids-doc-env=22.08.*
+- cudf=22.08.*
+- rmm=22.08.*
+- libcumlprims=22.08.*
 - libraft-headers=22.06.*
 - libraft-distance=22.06.*
 - libraft-nn=22.06.*
 - pyraft=22.06.*
-- dask-cudf=22.06.*
-- dask-cuda=22.06.*
-- ucx-py=0.26.*
+- dask-cudf=22.08.*
+- dask-cuda=22.08.*
+- ucx>=1.12.1
+- ucx-py=0.27.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
@@ -27,7 +28,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
-- treelite=2.3.0
+- treelite=2.4.0
 - statsmodels
 - seaborn
 - hdbscan
@@ -35,8 +36,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask.git@2022.05.2
+    - git+https://github.com/dask/distributed.git@2022.05.2
     - git+https://github.com/dask/dask-glm@main
     - sparse
 

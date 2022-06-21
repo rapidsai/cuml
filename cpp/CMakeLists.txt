@@ -15,7 +15,7 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.06/RAPIDS.cmake
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 22.06.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.08.00 LANGUAGES CXX CUDA)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -48,6 +48,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
@@ -205,6 +206,11 @@ endif()
 
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
+  # Workaround until https://github.com/rapidsai/rapids-cmake/issues/176 is resolved
+  if(NOT BUILD_SHARED_LIBS)
+    rapids_export_package(BUILD GPUTreeShap cuml-exports)
+    rapids_export_package(INSTALL GPUTreeShap cuml-exports)
+  endif()
 endif()
 
 if(NOT SINGLEGPU)
@@ -242,7 +248,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
   # common components
-  add_library(${CUML_CPP_TARGET} SHARED
+  add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
 
   if(all_algo OR arima_algo)
@@ -480,6 +486,7 @@ if(BUILD_CUML_CPP_LIBRARY)
                CXX_STANDARD_REQUIRED               ON
                CUDA_STANDARD                       17
                CUDA_STANDARD_REQUIRED              ON
+               POSITION_INDEPENDENT_CODE           ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
@@ -537,7 +544,7 @@ endif()
 # - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
-  add_library(${CUML_C_TARGET} SHARED
+  add_library(${CUML_C_TARGET}
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp

@@ -25,10 +25,12 @@
 #include <memory>
 #include <numeric>
 #include <raft/error.hpp>
+#include <raft/span.hpp>
+#include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
 #include <treelite/tree.h>
 #include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace tl = treelite;
@@ -37,65 +39,19 @@ namespace tl = treelite;
  * for internal use by GPUTreeSHAP. */
 namespace {
 
-// A poor man's Span class.
-// TODO(hcho3): Remove this class once RAFT implements a span abstraction.
-template <typename T>
-class Span {
- private:
-  T* ptr_{nullptr};
-  std::size_t size_{0};
-
- public:
-  Span() = default;
-  __host__ __device__ Span(T* ptr, std::size_t size) : ptr_(ptr), size_(size) {}
-  __host__ explicit Span(std::vector<T>& vec) : ptr_(vec.data()), size_(vec.size()) {}
-  __host__ explicit Span(thrust::device_vector<T>& vec)
-    : ptr_(thrust::raw_pointer_cast(vec.data())), size_(vec.size())
-  {
-  }
-  __host__ __device__ Span(const Span& other) : ptr_(other.ptr_), size_(other.size_) {}
-  __host__ __device__ Span(Span&& other) : ptr_(other.ptr_), size_(other.size_)
-  {
-    other.ptr_  = nullptr;
-    other.size_ = 0;
-  }
-  __host__ __device__ ~Span() {}
-  __host__ __device__ Span& operator=(const Span& other)
-  {
-    ptr_  = other.ptr_;
-    size_ = other.size_;
-    return *this;
-  }
-  __host__ __device__ Span& operator=(Span&& other)
-  {
-    ptr_        = other.ptr_;
-    size_       = other.size_;
-    other.ptr_  = nullptr;
-    other.size_ = 0;
-    return *this;
-  }
-  __host__ __device__ std::size_t Size() const { return size_; }
-  __host__ __device__ T* Data() const { return ptr_; }
-  __host__ __device__ T& operator[](std::size_t offset) const { return *(ptr_ + offset); }
-  __host__ __device__ Span<T> Subspan(std::size_t offset, std::size_t count)
-  {
-    return Span{ptr_ + offset, count};
-  }
-};
-
 // A poor man's bit field, to be used to account for categorical splits in SHAP computation
 // Inspired by xgboost::BitFieldContainer
-template <typename T>
+template <typename T, bool is_device>
 class BitField {
  private:
   static std::size_t constexpr kValueSize = sizeof(T) * 8;
   static std::size_t constexpr kOne       = 1;  // force correct data type
 
-  Span<T> bits_;
+  raft::span<T, is_device> bits_;
 
  public:
   BitField() = default;
-  __host__ __device__ explicit BitField(Span<T> bits) : bits_(bits) {}
+  __host__ __device__ explicit BitField(raft::span<T, is_device> bits) : bits_(bits) {}
   __host__ __device__ BitField(const BitField& other) : bits_(other.bits_) {}
   BitField& operator=(const BitField& other) = default;
   BitField& operator=(BitField&& other) = default;
@@ -111,18 +67,18 @@ class BitField {
   }
   __host__ __device__ void Intersect(const BitField other)
   {
-    if (bits_.Data() == other.bits_.Data()) { return; }
-    std::size_t size = min(bits_.Size(), other.bits_.Size());
+    if (bits_.data() == other.bits_.data()) { return; }
+    std::size_t size = min(bits_.size(), other.bits_.size());
     for (std::size_t i = 0; i < size; ++i) {
       bits_[i] &= other.bits_[i];
     }
-    if (bits_.Size() > size) {
-      for (std::size_t i = size; i < bits_.Size(); ++i) {
+    if (bits_.size() > size) {
+      for (std::size_t i = size; i < bits_.size(); ++i) {
         bits_[i] = 0;
       }
     }
   }
-  __host__ __device__ std::size_t Size() const { return kValueSize * bits_.Size(); }
+  __host__ __device__ std::size_t Size() const { return kValueSize * bits_.size(); }
   __host__ static std::size_t ComputeStorageSize(std::size_t n_cat)
   {
     return n_cat / kValueSize + (n_cat % kValueSize != 0);
@@ -130,8 +86,8 @@ class BitField {
   __host__ std::string ToString(bool reverse = false) const
   {
     std::ostringstream oss;
-    oss << "Bits storage size: " << bits_.Size() << ", elements: ";
-    for (auto i = 0; i < bits_.Size(); ++i) {
+    oss << "Bits storage size: " << bits_.size() << ", elements: ";
+    for (auto i = 0; i < bits_.size(); ++i) {
       std::bitset<kValueSize> bset(bits_[i]);
       std::string s = bset.to_string();
       if (reverse) { std::reverse(s.begin(), s.end()); }
@@ -144,8 +100,9 @@ class BitField {
 };
 
 using CatBitFieldStorageT = std::uint32_t;
-using CatBitField         = BitField<CatBitFieldStorageT>;
-using CatT                = std::uint32_t;
+template <bool is_device>
+using CatBitField = BitField<CatBitFieldStorageT, is_device>;
+using CatT        = std::uint32_t;
 
 template <typename ThresholdType>
 struct SplitCondition {
@@ -154,12 +111,13 @@ struct SplitCondition {
                  ThresholdType feature_upper_bound,
                  bool is_missing_branch,
                  tl::Operator comparison_op,
-                 CatBitField categories)
+                 CatBitField<false> categories)
     : feature_lower_bound(feature_lower_bound),
       feature_upper_bound(feature_upper_bound),
       is_missing_branch(is_missing_branch),
       comparison_op(comparison_op),
-      categories(categories)
+      categories(categories),
+      d_categories()
   {
     if (feature_lower_bound > feature_upper_bound) {
       RAFT_FAIL("Lower bound cannot exceed upper bound");
@@ -177,18 +135,32 @@ struct SplitCondition {
   // Comparison operator used in the test. For now only < (kLT) and <= (kLE)
   // are supported.
   tl::Operator comparison_op;
-  CatBitField categories;
+  // List of matching categories for this path
+  CatBitField<false> categories;
+  CatBitField<true> d_categories;
 
   // Does this instance flow down this path?
   __host__ __device__ bool EvaluateSplit(ThresholdType x) const
   {
+#ifdef __CUDA_ARCH__
+    constexpr bool is_device = true;
+#else  // __CUDA_ARCH__
+    constexpr bool is_device = false;
+#endif
     static_assert(std::is_floating_point<ThresholdType>::value, "x must be a floating point type");
     auto max_representable_int =
       static_cast<ThresholdType>(uint64_t(1) << std::numeric_limits<ThresholdType>::digits);
     if (isnan(x)) { return is_missing_branch; }
-    if (categories.Size() != 0) {
-      if (x < 0 || std::fabs(x) > max_representable_int) { return false; }
-      return categories.Check(static_cast<std::size_t>(x));
+    if constexpr (is_device) {
+      if (d_categories.Size() != 0) {
+        if (x < 0 || std::fabs(x) > max_representable_int) { return false; }
+        return d_categories.Check(static_cast<std::size_t>(x));
+      }
+    } else {
+      if (categories.Size() != 0) {
+        if (x < 0 || std::fabs(x) > max_representable_int) { return false; }
+        return categories.Check(static_cast<std::size_t>(x));
+      }
     }
     if (comparison_op == tl::Operator::kLE) {
       return x > feature_lower_bound && x <= feature_upper_bound;
@@ -199,14 +171,30 @@ struct SplitCondition {
   // Combine two split conditions on the same feature
   __host__ __device__ void Merge(const SplitCondition& other)
   {  // Combine duplicate features
-    if (categories.Size() != 0 || other.categories.Size() != 0) {
-      categories.Intersect(other.categories);
+#ifdef __CUDA_ARCH__
+    constexpr bool is_device = true;
+#else  // __CUDA_ARCH__
+    constexpr bool is_device = false;
+#endif
+    bool has_category = false;
+    if constexpr (is_device) {
+      has_category = (d_categories.Size() != 0 || other.d_categories.Size() != 0);
+    } else {
+      has_category = (categories.Size() != 0 || other.categories.Size() != 0);
+    }
+    if (has_category) {
+      if constexpr (is_device) {
+        d_categories.Intersect(other.d_categories);
+      } else {
+        categories.Intersect(other.categories);
+      }
     } else {
       feature_lower_bound = max(feature_lower_bound, other.feature_lower_bound);
       feature_upper_bound = min(feature_upper_bound, other.feature_upper_bound);
     }
     is_missing_branch = is_missing_branch && other.is_missing_branch;
   }
+
   static_assert(std::is_same<ThresholdType, float>::value ||
                   std::is_same<ThresholdType, double>::value,
                 "ThresholdType must be a float or double");
@@ -252,7 +240,7 @@ struct PathSegmentExtractor {
   using PathElementT = gpu_treeshap::PathElement<SplitCondition<ThresholdType>>;
   std::vector<PathElementT>& path_segments;
   std::size_t& path_idx;
-  std::vector<CatBitFieldStorageT>& cat_bitfields;
+  std::vector<CatBitFieldStorageT>& categorical_bitfields;
   const std::vector<std::size_t>& bitfield_segments;
   std::size_t path_segment_idx;
 
@@ -260,11 +248,11 @@ struct PathSegmentExtractor {
 
   PathSegmentExtractor(std::vector<PathElementT>& path_segments,
                        std::size_t& path_idx,
-                       std::vector<CatBitFieldStorageT>& cat_bitfields,
+                       std::vector<CatBitFieldStorageT>& categorical_bitfields,
                        const std::vector<std::size_t>& bitfield_segments)
     : path_segments(path_segments),
       path_idx(path_idx),
-      cat_bitfields(cat_bitfields),
+      categorical_bitfields(categorical_bitfields),
       bitfield_segments(bitfield_segments),
       path_segment_idx(0)
   {
@@ -293,7 +281,7 @@ struct PathSegmentExtractor {
     auto split_type        = tree.SplitType(parent_idx);
     ThresholdType lower_bound, upper_bound;
     tl::Operator comparison_op;
-    CatBitField categories;
+    CatBitField<false> categories;
     if (split_type == tl::SplitFeatureType::kCategorical) {
       /* Create bit fields to store the list of categories associated with this path.
          The bit fields will be used to quickly decide whether a feature value should
@@ -301,8 +289,9 @@ struct PathSegmentExtractor {
          The test in the test node is of form: x \in { list of category values } */
       auto n_bitfields =
         bitfield_segments[path_segment_idx + 1] - bitfield_segments[path_segment_idx];
-      categories = CatBitField(Span<CatBitFieldStorageT>(cat_bitfields)
-                                 .Subspan(bitfield_segments[path_segment_idx], n_bitfields));
+      categories = CatBitField<false>(raft::span<CatBitFieldStorageT, false>(
+                                        categorical_bitfields.data(), categorical_bitfields.size())
+                                        .subspan(bitfield_segments[path_segment_idx], n_bitfields));
       for (CatT cat : tree.MatchingCategories(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
@@ -314,7 +303,7 @@ struct PathSegmentExtractor {
         for (std::size_t i = bitfield_segments[path_segment_idx];
              i < bitfield_segments[path_segment_idx + 1];
              ++i) {
-          cat_bitfields[i] = ~cat_bitfields[i];
+          categorical_bitfields[i] = ~categorical_bitfields[i];
         }
       }
       lower_bound   = -inf;
@@ -325,7 +314,7 @@ struct PathSegmentExtractor {
         // Assume: split is either numerical or categorical
         RAFT_FAIL("Unexpected split type: %d", static_cast<int>(split_type));
       }
-      categories    = CatBitField{};
+      categories    = CatBitField<false>{};
       lower_bound   = is_left_path ? -inf : tree.Threshold(parent_idx);
       upper_bound   = is_left_path ? tree.Threshold(parent_idx) : inf;
       comparison_op = tree.ComparisonOp(parent_idx);
@@ -355,50 +344,44 @@ struct PathSegmentExtractor {
   void new_path_handler() { ++path_idx; }
 };
 
+};  // namespace
+namespace ML {
+namespace Explainer {
 template <typename ThresholdType>
-class TreePathInfoImpl : public ML::Explainer::TreePathInfo {
+class TreePathInfo {
  public:
-  ThresholdTypeEnum threshold_type;
   int num_tree;
   float global_bias;
+  std::size_t num_groups = 1;
   tl::TaskType task_type;
   tl::TaskParam task_param;
   bool average_tree_output;
-  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
-  std::vector<CatBitFieldStorageT> categorical_bitfields;
-  std::vector<std::size_t> bitfield_segments;
+  thrust::device_vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
+  thrust::device_vector<CatBitFieldStorageT> categorical_bitfields;
   // bitfield_segments[I]: cumulative total count of all bit fields for path segments
   //                       0, 1, ..., I-1
 
   static_assert(std::is_same<ThresholdType, float>::value ||
                   std::is_same<ThresholdType, double>::value,
                 "ThresholdType must be a float or double");
-
-  TreePathInfoImpl()
-  {
-    if constexpr (std::is_same<ThresholdType, double>::value) {
-      threshold_type = ThresholdTypeEnum::kDouble;
-    } else {
-      threshold_type = ThresholdTypeEnum::kFloat;
-    }
-  }
-  virtual ~TreePathInfoImpl() = default;
-
-  ThresholdTypeEnum GetThresholdType() const override { return threshold_type; }
 };
+}  // namespace Explainer
+}  // namespace ML
 
+namespace {
+template <typename DataT>
 class DenseDatasetWrapper {
-  const float* data;
+  const DataT* data;
   std::size_t num_rows;
   std::size_t num_cols;
 
  public:
   DenseDatasetWrapper() = default;
-  DenseDatasetWrapper(const float* data, int num_rows, int num_cols)
+  DenseDatasetWrapper(const DataT* data, int num_rows, int num_cols)
     : data(data), num_rows(num_rows), num_cols(num_cols)
   {
   }
-  __device__ float GetElement(std::size_t row_idx, std::size_t col_idx) const
+  __device__ DataT GetElement(std::size_t row_idx, std::size_t col_idx) const
   {
     return data[row_idx * num_cols + col_idx];
   }
@@ -406,59 +389,146 @@ class DenseDatasetWrapper {
   __host__ __device__ std::size_t NumCols() const { return num_cols; }
 };
 
-template <typename ThresholdType>
-void gpu_treeshap_impl(TreePathInfoImpl<ThresholdType>* path_info,
-                       const float* data,
-                       std::size_t n_rows,
-                       std::size_t n_cols,
-                       float* out_preds)
+template <typename ThresholdT, typename DataT>
+void post_process(ML::Explainer::TreePathInfo<ThresholdT>* path_info,
+                  std::size_t n_rows,
+                  std::size_t n_cols,
+                  DataT* out_preds,
+                  std::size_t pred_size,
+                  bool interactions)
 {
-  // Marshall bit fields to GPU memory
-  auto& categorical_bitfields = path_info->categorical_bitfields;
-  auto& path_segments         = path_info->path_segments;
-  auto& bitfield_segments     = path_info->bitfield_segments;
-  thrust::device_vector<CatBitFieldStorageT> d_cat_bitfields(categorical_bitfields.cbegin(),
-                                                             categorical_bitfields.cend());
-  for (std::size_t path_seg_idx = 0; path_seg_idx < path_segments.size(); ++path_seg_idx) {
-    auto n_bitfields = bitfield_segments[path_seg_idx + 1] - bitfield_segments[path_seg_idx];
-    path_segments[path_seg_idx].split_condition.categories =
-      CatBitField(Span<CatBitFieldStorageT>(d_cat_bitfields)
-                    .Subspan(bitfield_segments[path_seg_idx], n_bitfields));
-  }
-
-  DenseDatasetWrapper X(data, n_rows, n_cols);
-
-  std::size_t num_groups = 1;
-  if (path_info->task_param.num_class > 1) {
-    num_groups = static_cast<std::size_t>(path_info->task_param.num_class);
-  }
-  std::size_t pred_size = n_rows * num_groups * (n_cols + 1);
-
-  thrust::device_ptr<float> out_preds_ptr = thrust::device_pointer_cast(out_preds);
-  gpu_treeshap::GPUTreeShap(X,
-                            path_segments.begin(),
-                            path_segments.end(),
-                            num_groups,
-                            out_preds_ptr,
-                            out_preds_ptr + pred_size);
-
-  // Post-processing
   auto count_iter  = thrust::make_counting_iterator(0);
   auto num_tree    = path_info->num_tree;
   auto global_bias = path_info->global_bias;
+  auto num_groups  = path_info->num_groups;
   if (path_info->average_tree_output) {
     thrust::for_each(
       thrust::device, count_iter, count_iter + pred_size, [=] __device__(std::size_t idx) {
         out_preds[idx] /= num_tree;
       });
   }
-  thrust::for_each(
-    thrust::device,
-    count_iter,
-    count_iter + (n_rows * num_groups),
-    [=] __device__(std::size_t idx) { out_preds[(idx + 1) * (n_cols + 1) - 1] += global_bias; });
+  // Set the global bias
+  if (interactions) {
+    thrust::for_each(thrust::device,
+                     count_iter,
+                     count_iter + (n_rows * num_groups),
+                     [=] __device__(std::size_t idx) {
+                       size_t group   = idx % num_groups;
+                       size_t row_idx = idx / num_groups;
+                       out_preds[gpu_treeshap::IndexPhiInteractions(
+                         row_idx, num_groups, group, n_cols, n_cols, n_cols)] += global_bias;
+                     });
+  } else {
+    thrust::for_each(
+      thrust::device,
+      count_iter,
+      count_iter + (n_rows * num_groups),
+      [=] __device__(std::size_t idx) { out_preds[(idx + 1) * (n_cols + 1) - 1] += global_bias; });
+  }
 }
 
+template <typename ThresholdT, typename DataT>
+void gpu_treeshap_impl(ML::Explainer::TreePathInfo<ThresholdT>* path_info,
+                       const DataT* data,
+                       std::size_t n_rows,
+                       std::size_t n_cols,
+                       DataT* out_preds,
+                       std::size_t out_preds_size)
+{
+  DenseDatasetWrapper<DataT> X(data, n_rows, n_cols);
+
+  std::size_t pred_size = n_rows * path_info->num_groups * (n_cols + 1);
+  ASSERT(pred_size <= out_preds_size, "Predictions array is too small.");
+
+  gpu_treeshap::GPUTreeShap(X,
+                            path_info->path_segments.begin(),
+                            path_info->path_segments.end(),
+                            path_info->num_groups,
+                            thrust::device_pointer_cast(out_preds),
+                            thrust::device_pointer_cast(out_preds) + pred_size);
+
+  // Post-processing
+  post_process(path_info, n_rows, n_cols, out_preds, pred_size, false);
+}
+
+template <typename ThresholdT, typename DataT>
+void gpu_treeshap_interventional_impl(ML::Explainer::TreePathInfo<ThresholdT>* path_info,
+                                      const DataT* data,
+                                      std::size_t n_rows,
+                                      std::size_t n_cols,
+                                      const DataT* background_data,
+                                      std::size_t background_n_rows,
+                                      std::size_t background_n_cols,
+                                      DataT* out_preds,
+                                      std::size_t out_preds_size)
+{
+  DenseDatasetWrapper<DataT> X(data, n_rows, n_cols);
+  DenseDatasetWrapper<DataT> R(background_data, background_n_rows, background_n_cols);
+  ASSERT(n_cols == background_n_cols,
+         "Dataset and background dataset have different number of columns.");
+
+  std::size_t pred_size = n_rows * path_info->num_groups * (n_cols + 1);
+  ASSERT(pred_size <= out_preds_size, "Predictions array is too small.");
+
+  gpu_treeshap::GPUTreeShapInterventional(X,
+                                          R,
+                                          path_info->path_segments.begin(),
+                                          path_info->path_segments.end(),
+                                          path_info->num_groups,
+                                          thrust::device_pointer_cast(out_preds),
+                                          thrust::device_pointer_cast(out_preds) + pred_size);
+
+  // Post-processing
+  post_process(path_info, n_rows, n_cols, out_preds, pred_size, false);
+}
+
+template <typename ThresholdT, typename DataT>
+void gpu_treeshap_interactions_impl(ML::Explainer::TreePathInfo<ThresholdT>* path_info,
+                                    const DataT* data,
+                                    std::size_t n_rows,
+                                    std::size_t n_cols,
+                                    DataT* out_preds,
+                                    std::size_t out_preds_size)
+{
+  DenseDatasetWrapper<DataT> X(data, n_rows, n_cols);
+
+  std::size_t pred_size = n_rows * path_info->num_groups * (n_cols + 1) * (n_cols + 1);
+  ASSERT(pred_size <= out_preds_size, "Predictions array is too small.");
+
+  gpu_treeshap::GPUTreeShapInteractions(X,
+                                        path_info->path_segments.begin(),
+                                        path_info->path_segments.end(),
+                                        path_info->num_groups,
+                                        thrust::device_pointer_cast(out_preds),
+                                        thrust::device_pointer_cast(out_preds) + pred_size);
+
+  // Post-processing
+  post_process(path_info, n_rows, n_cols, out_preds, pred_size, true);
+}
+
+template <typename ThresholdT, typename DataT>
+void gpu_treeshap_taylor_interactions_impl(ML::Explainer::TreePathInfo<ThresholdT>* path_info,
+                                           const DataT* data,
+                                           std::size_t n_rows,
+                                           std::size_t n_cols,
+                                           DataT* out_preds,
+                                           std::size_t out_preds_size)
+{
+  DenseDatasetWrapper<DataT> X(data, n_rows, n_cols);
+
+  std::size_t pred_size = n_rows * path_info->num_groups * (n_cols + 1) * (n_cols + 1);
+  ASSERT(pred_size <= out_preds_size, "Predictions array is too small.");
+
+  gpu_treeshap::GPUTreeShapTaylorInteractions(X,
+                                              path_info->path_segments.begin(),
+                                              path_info->path_segments.end(),
+                                              path_info->num_groups,
+                                              thrust::device_pointer_cast(out_preds),
+                                              thrust::device_pointer_cast(out_preds) + pred_size);
+
+  // Post-processing
+  post_process(path_info, n_rows, n_cols, out_preds, pred_size, true);
+}
 }  // anonymous namespace
 
 namespace ML {
@@ -611,76 +681,8 @@ std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_t
   return path_segments;
 }
 
-// Extract the path segments from a single tree. Each path segment will have path_idx field, which
-// uniquely identifies the path to which the segment belongs. The path_idx_offset parameter sets
-// the path_idx field of the first path segment.
 template <typename ThresholdType, typename LeafType>
-std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>>
-extract_path_segments_from_tree(const std::vector<tl::Tree<ThresholdType, LeafType>>& tree_list,
-                                std::size_t tree_idx,
-                                bool use_vector_leaf,
-                                int num_groups,
-                                std::size_t path_idx_offset)
-{
-  if (num_groups < 1) { RAFT_FAIL("num_groups must be at least 1"); }
-
-  const tl::Tree<ThresholdType, LeafType>& tree = tree_list[tree_idx];
-
-  // Compute parent ID of each node
-  std::vector<int> parent_id(tree.num_nodes, -1);
-  for (int i = 0; i < tree.num_nodes; i++) {
-    if (!tree.IsLeaf(i)) {
-      parent_id[tree.LeftChild(i)]  = i;
-      parent_id[tree.RightChild(i)] = i;
-    }
-  }
-
-  std::size_t path_idx = path_idx_offset;
-  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
-
-  for (int nid = 0; nid < tree.num_nodes; nid++) {
-    if (tree.IsLeaf(nid)) {  // For each leaf node...
-      // Extract path segments by traversing the path from the leaf node to the root node
-      auto path_to_leaf = traverse_towards_leaf_node(tree, nid, parent_id);
-      // If use_vector_leaf=True:
-      // * Duplicate the path segments N times, where N = num_groups
-      // * Insert the duplicated path segments into path_segments
-      // If use_vector_leaf=False:
-      // * Insert the path segments into path_segments
-      auto path_insertor = [&path_to_leaf, &path_segments](
-                             auto leaf_value, auto path_idx, int group_id) {
-        for (auto& e : path_to_leaf) {
-          e.path_idx = path_idx;
-          e.v        = static_cast<float>(leaf_value);
-          e.group    = group_id;
-        }
-        path_segments.insert(path_segments.end(), path_to_leaf.cbegin(), path_to_leaf.cend());
-      };
-      if (use_vector_leaf) {
-        auto leaf_vector = tree.LeafVector(nid);
-        if (leaf_vector.size() != static_cast<std::size_t>(num_groups)) {
-          RAFT_FAIL("Expected leaf vector of length %d but got %d instead",
-                    num_groups,
-                    static_cast<int>(leaf_vector.size()));
-        }
-        for (int group_id = 0; group_id < num_groups; ++group_id) {
-          path_insertor(leaf_vector[group_id], path_idx, group_id);
-          path_idx++;
-        }
-      } else {
-        auto leaf_value = tree.LeafValue(nid);
-        int group_id    = static_cast<int>(tree_idx) % num_groups;
-        path_insertor(leaf_value, path_idx, group_id);
-        path_idx++;
-      }
-    }
-  }
-  return path_segments;
-}
-
-template <typename ThresholdType, typename LeafType>
-std::unique_ptr<TreePathInfo> extract_path_info_impl(
-  const tl::ModelImpl<ThresholdType, LeafType>& model)
+TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafType>& model)
 {
   if (!std::is_same<ThresholdType, LeafType>::value) {
     RAFT_FAIL("ThresholdType and LeafType must be identical");
@@ -689,8 +691,7 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
     RAFT_FAIL("ThresholdType must be either float32 or float64");
   }
 
-  std::unique_ptr<TreePathInfo> path_info_ptr = std::make_unique<TreePathInfoImpl<ThresholdType>>();
-  auto* path_info = dynamic_cast<TreePathInfoImpl<ThresholdType>*>(path_info_ptr.get());
+  auto path_info = std::make_shared<TreePathInfo<ThresholdType>>();
 
   /* 1. Scan the model for categorical splits and pre-allocate bit fields. */
   CategoricalSplitCounter<ThresholdType, LeafType> cat_counter{model.num_feature};
@@ -705,36 +706,49 @@ std::unique_ptr<TreePathInfo> extract_path_info_impl(
                  n_bitfields.begin(),
                  [&](std::int64_t fid) -> std::size_t {
                    if (fid == -1) { return 0; }
-                   return CatBitField::ComputeStorageSize(cat_counter.n_categories[fid]);
+                   return CatBitField<false>::ComputeStorageSize(cat_counter.n_categories[fid]);
                  });
 
-  path_info->bitfield_segments = std::vector<std::size_t>(n_path_segments + 1, 0);
-  std::inclusive_scan(
-    n_bitfields.cbegin(), n_bitfields.cend(), path_info->bitfield_segments.begin() + 1);
+  std::vector<std::size_t> bitfield_segments(n_path_segments + 1, 0);
+  std::inclusive_scan(n_bitfields.cbegin(), n_bitfields.cend(), bitfield_segments.begin() + 1);
 
-  path_info->categorical_bitfields =
-    std::vector<CatBitFieldStorageT>(path_info->bitfield_segments.back(), 0);
+  std::vector<CatBitFieldStorageT> categorical_bitfields(bitfield_segments.back(), 0);
 
   /* 2. Scan the model again, to extract path segments. */
   // Each path segment will have path_idx field, which uniquely identifies the path to which the
   // segment belongs.
   std::size_t path_idx = 0;
-  PathSegmentExtractor<ThresholdType, LeafType> path_extractor{path_info->path_segments,
-                                                               path_idx,
-                                                               path_info->categorical_bitfields,
-                                                               path_info->bitfield_segments};
+  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
+  PathSegmentExtractor<ThresholdType, LeafType> path_extractor{
+    path_segments, path_idx, categorical_bitfields, bitfield_segments};
   visit_path_segments_in_model(model, path_extractor);
 
+  // Marshall bit fields to GPU memory
+  path_info->categorical_bitfields = thrust::device_vector<CatBitFieldStorageT>(
+    categorical_bitfields.cbegin(), categorical_bitfields.cend());
+  for (std::size_t path_seg_idx = 0; path_seg_idx < path_segments.size(); ++path_seg_idx) {
+    auto n_bitfields = bitfield_segments[path_seg_idx + 1] - bitfield_segments[path_seg_idx];
+    path_segments[path_seg_idx].split_condition.d_categories =
+      CatBitField<true>(raft::span<CatBitFieldStorageT, true>(
+                          thrust::raw_pointer_cast(path_info->categorical_bitfields.data()),
+                          path_info->categorical_bitfields.size())
+                          .subspan(bitfield_segments[path_seg_idx], n_bitfields));
+  }
+
+  path_info->path_segments       = path_segments;
   path_info->global_bias         = model.param.global_bias;
   path_info->task_type           = model.task_type;
   path_info->task_param          = model.task_param;
   path_info->average_tree_output = model.average_tree_output;
   path_info->num_tree            = static_cast<int>(model.trees.size());
+  if (path_info->task_param.num_class > 1) {
+    path_info->num_groups = static_cast<std::size_t>(path_info->task_param.num_class);
+  }
 
-  return path_info_ptr;
+  return path_info;
 }
 
-std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model)
+TreePathHandle extract_path_info(ModelHandle model)
 {
   const tl::Model& model_ref = *static_cast<tl::Model*>(model);
 
@@ -744,24 +758,111 @@ std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model)
   });
 }
 
-void gpu_treeshap(TreePathInfo* path_info,
-                  const float* data,
-                  std::size_t n_rows,
-                  std::size_t n_cols,
-                  float* out_preds)
+template <typename VariantT, typename... Targs>
+bool variants_hold_same_type(VariantT& first, Targs... args)
 {
-  switch (path_info->GetThresholdType()) {
-    case TreePathInfo::ThresholdTypeEnum::kDouble: {
-      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<double>*>(path_info);
-      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
-    } break;
-    case TreePathInfo::ThresholdTypeEnum::kFloat:
-    default: {
-      auto* path_info_casted = dynamic_cast<TreePathInfoImpl<float>*>(path_info);
-      gpu_treeshap_impl(path_info_casted, data, n_rows, n_cols, out_preds);
-    } break;
-  }
+  bool is_same = true;
+  std::visit(
+    [&](auto v) {
+      for (const auto& x : {args...}) {
+        is_same = is_same && std::holds_alternative<decltype(v)>(x);
+      }
+    },
+    first);
+  return is_same;
 }
 
+void gpu_treeshap(TreePathHandle path_info,
+                  const FloatPointer data,
+                  std::size_t n_rows,
+                  std::size_t n_cols,
+                  FloatPointer out_preds,
+                  std::size_t out_preds_size)
+{
+  ASSERT(variants_hold_same_type(data, out_preds),
+         "Expected variant inputs to have the same data type.");
+  std::visit(
+    [&](auto& tree_info, auto data_) {
+      gpu_treeshap_impl(tree_info.get(),
+                        data_,
+                        n_rows,
+                        n_cols,
+                        std::get<decltype(data_)>(out_preds),
+                        out_preds_size);
+    },
+    path_info,
+    data);
+}
+
+void gpu_treeshap_interventional(TreePathHandle path_info,
+                                 const FloatPointer data,
+                                 std::size_t n_rows,
+                                 std::size_t n_cols,
+                                 const FloatPointer background_data,
+                                 std::size_t background_n_rows,
+                                 std::size_t background_n_cols,
+                                 FloatPointer out_preds,
+                                 std::size_t out_preds_size)
+{
+  ASSERT(variants_hold_same_type(data, background_data, out_preds),
+         "Expected variant inputs to have the same data type.");
+  std::visit(
+    [&](auto& tree_info, auto data_) {
+      gpu_treeshap_interventional_impl(tree_info.get(),
+                                       data_,
+                                       n_rows,
+                                       n_cols,
+                                       std::get<decltype(data_)>(background_data),
+                                       background_n_rows,
+                                       background_n_cols,
+                                       std::get<decltype(data_)>(out_preds),
+                                       out_preds_size);
+    },
+    path_info,
+    data);
+}
+void gpu_treeshap_interactions(TreePathHandle path_info,
+                               const FloatPointer data,
+                               std::size_t n_rows,
+                               std::size_t n_cols,
+                               FloatPointer out_preds,
+                               std::size_t out_preds_size)
+{
+  ASSERT(variants_hold_same_type(data, out_preds),
+         "Expected variant inputs to have the same data type.");
+  std::visit(
+    [&](auto& tree_info, auto data_) {
+      gpu_treeshap_interactions_impl(tree_info.get(),
+                                     data_,
+                                     n_rows,
+                                     n_cols,
+                                     std::get<decltype(data_)>(out_preds),
+                                     out_preds_size);
+    },
+    path_info,
+    data);
+}
+
+void gpu_treeshap_taylor_interactions(TreePathHandle path_info,
+                                      const FloatPointer data,
+                                      std::size_t n_rows,
+                                      std::size_t n_cols,
+                                      FloatPointer out_preds,
+                                      std::size_t out_preds_size)
+{
+  ASSERT(variants_hold_same_type(data, out_preds),
+         "Expected variant inputs to have the same data type.");
+  std::visit(
+    [&](auto& tree_info, auto data_) {
+      gpu_treeshap_taylor_interactions_impl(tree_info.get(),
+                                            data_,
+                                            n_rows,
+                                            n_cols,
+                                            std::get<decltype(data_)>(out_preds),
+                                            out_preds_size);
+    },
+    path_info,
+    data);
+}
 }  // namespace Explainer
 }  // namespace ML
