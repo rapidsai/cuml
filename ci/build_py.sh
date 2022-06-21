@@ -7,6 +7,9 @@ source rapids-env-update
 # Check environment
 source ci/check_environment.sh
 
+# ucx-py version
+export UCX_PY_VERSION='0.27.*'
+
 ################################################################################
 # BUILD - Conda package builds (CUGRAPH)
 ################################################################################
