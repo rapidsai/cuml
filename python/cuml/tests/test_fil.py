@@ -23,7 +23,7 @@ from cuml import ForestInference
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
 from cuml.common.import_utils import has_xgboost
-from cuml.common.import_utils import has_lightgbm
+# from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \
@@ -541,7 +541,8 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.parametrize('n_categorical', [0, 5])
 @pytest.mark.skip(reason="Causing CI to hang.")
-# @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
+# @pytest.mark.skipif(has_lightgbm() is False,
+#                     reason="need to install lightgbm")
 def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
 
