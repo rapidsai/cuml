@@ -236,18 +236,30 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
         'usePrecomputedTables': usePrecomputedTables
     }
 
+    print("Making blobs")
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
+    print("Creating cuKNN")
     knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params)
+
+    print("Calling fit")
     knn_cu.fit(X)
+
+    print("Calling kneighbors")
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
+
+    print("Deleting knn_cu")
     del knn_cu
+
+    print("Calling gc.collect()")
     gc.collect()
 
+    print("Calling predict")
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
+    print("Asserting arrays equal")
     assert array_equal(labels, y)
 
 
