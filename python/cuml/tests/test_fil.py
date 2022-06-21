@@ -540,7 +540,8 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.parametrize('n_categorical', [0, 5])
-@pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
+@pytest.mark.skip(reason="Causing CI to hang.")
+# @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
 
