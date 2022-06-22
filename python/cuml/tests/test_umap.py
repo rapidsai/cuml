@@ -586,21 +586,27 @@ def test_fuzzy_simplicial_set(n_rows,
                               threshold=0.95)
 
 
-@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'l1', 'manhattan', 'minkowski',
-                         'chebyshev', 'cosine', 'correlation', 'jaccard', 'hamming', 'canberra'])
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'l1',
+                                    'manhattan', 'minkowski', 'chebyshev',
+                                    'cosine', 'correlation', 'jaccard',
+                                    'hamming', 'canberra'])
 def test_umap_distance_metrics_fit_transform_trust(metric):
     data, labels = make_blobs(n_samples=1000, n_features=64,
-                                  centers=5, random_state=42)
-    
+                              centers=5, random_state=42)
+
     if metric == 'jaccard':
         data = data >= 0
 
-    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01, metric=metric, init='random')
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, metric=metric, init='random')
+    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                           metric=metric, init='random')
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
+                        metric=metric, init='random')
     umap_embedding = umap_model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
 
-    umap_trust = trustworthiness(data, umap_embedding, n_neighbors=10, metric=metric)
-    cuml_trust = trustworthiness(data, cuml_embedding, n_neighbors=10, metric=metric)
+    umap_trust = trustworthiness(data, umap_embedding,
+                                 n_neighbors=10, metric=metric)
+    cuml_trust = trustworthiness(data, cuml_embedding,
+                                 n_neighbors=10, metric=metric)
 
     assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
