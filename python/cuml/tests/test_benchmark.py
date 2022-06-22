@@ -32,6 +32,7 @@ from cuml.benchmark.bench_helper_funcs import fit, fit_predict
 
 pytestmark = pytest.mark.skip
 
+
 @pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
 def test_data_generators(dataset):
     data = datagen.gen_data(dataset, "numpy", n_samples=100, n_features=10)

@@ -38,6 +38,7 @@ if has_xgboost():
 
 pytestmark = pytest.mark.skip
 
+
 def simulate_data(m, n, k=2, n_informative='auto', random_state=None,
                   classification=True, bias=0.0):
     if n_informative == 'auto':
