@@ -99,7 +99,6 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     ################################################################################
 
     gpuci_logger "Build from source"
-    export OMP_NUM_THREADS=1
     $WORKSPACE/build.sh clean libcuml cuml prims bench -v --codecov
 
     cd $WORKSPACE
