@@ -42,7 +42,7 @@ class TSNE_runner {
       k_graph(k_graph_),
       params(params_),
       COO_Matrix(handle_.get_stream())
-  { 
+  {
     this->n = input.n;
     this->p = input.d;
     this->Y = input.y;

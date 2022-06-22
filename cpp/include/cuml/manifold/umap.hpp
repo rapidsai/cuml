@@ -20,8 +20,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <cuml/manifold/umapparams.h>
+#include <memory>
 
 namespace raft {
 class handle_t;

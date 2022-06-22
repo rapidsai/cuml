@@ -157,7 +157,7 @@ class UMAPParams {
       higher memory usage but produce stable numeric output.
    */
   bool deterministic = true;
-  
+
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 
   float p = 2.0;

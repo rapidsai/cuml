@@ -102,10 +102,10 @@ struct TSNEParams {
   // behavior of Scikit-learn's T-SNE.
   bool square_distances = true;
 
-  //Distance metric to use.
+  // Distance metric to use.
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 
-  //Value of p for Minkowski distance
+  // Value of p for Minkowski distance
   float p = 2.0;
 
   // Which implementation algorithm to use.

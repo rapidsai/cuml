@@ -16,8 +16,8 @@
 
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/linalg/map.hpp>
 #include <raft/distance/distance_type.hpp>
+#include <raft/linalg/map.hpp>
 
 #include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
@@ -110,7 +110,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     TSNEResults results;
 
     auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
-    float p = 2.0;
+    float p                      = 2.0;
     // Setup parameters
     model_params.algorithm     = algo;
     model_params.dim           = 2;
