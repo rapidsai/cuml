@@ -30,6 +30,7 @@ import time
 
 from cuml.benchmark.bench_helper_funcs import fit, fit_predict
 
+pytestmark = pytest.mark.skip
 
 @pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
 def test_data_generators(dataset):

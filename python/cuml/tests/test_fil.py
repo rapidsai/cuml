@@ -36,6 +36,7 @@ from sklearn.model_selection import train_test_split
 if has_xgboost():
     import xgboost as xgb
 
+pytestmark = pytest.mark.skip
 
 def simulate_data(m, n, k=2, n_informative='auto', random_state=None,
                   classification=True, bias=0.0):
