@@ -80,6 +80,8 @@ fi
 # FIXME: Remove
 gpuci_mamba_retry install -c conda-forge boa
 
+export OMP_NUM_THREADS=2
+
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
