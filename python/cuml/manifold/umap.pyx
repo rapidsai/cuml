@@ -152,8 +152,13 @@ class UMAP(Base,
         provide easy visualization, but can reasonably be set to any
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
-        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
-        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'canberra', 'minkowski',
+        'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger', 'hamming',
+        'jaccard', 'canberra']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary. At this time care must
+        be taken and dictionary elements must be ordered appropriately;
+        this will hopefully be fixed in the future.
     n_epochs: int (optional, default None)
         The number of training epochs to be used in optimizing the
         low dimensional embedding. Larger values result in more accurate
@@ -304,6 +309,7 @@ class UMAP(Base,
                  n_neighbors=15,
                  n_components=2,
                  metric="euclidean",
+                 metric_kwds=None,
                  n_epochs=None,
                  learning_rate=1.0,
                  min_dist=0.1,
@@ -335,6 +341,7 @@ class UMAP(Base,
         self.n_neighbors = n_neighbors
         self.n_components = n_components
         self.metric = metric
+        self.metric_kwds = metric_kwds
         self.n_epochs = n_epochs if n_epochs else 0
 
         if init == "spectral" or init == "random":
@@ -426,35 +433,37 @@ class UMAP(Base,
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
 
-         # metric
+        # metric
         metric_parsing = {
             "l2": DistanceType.L2SqrtUnexpanded,
             "euclidean": DistanceType.L2SqrtUnexpanded,
-            "sqeuclidean": DistanceType.L2Expanded,
+            "sqeuclidean": DistanceType.L2Unexpanded,
             "cityblock": DistanceType.L1,
             "l1": DistanceType.L1,
             "manhattan": DistanceType.L1,
             "taxicab": DistanceType.L1,
-            "braycurtis": DistanceType.BrayCurtis,
-            "canberra": DistanceType.Canberra,
             "minkowski": DistanceType.LpUnexpanded,
-            "lp": DistanceType.LpUnexpanded,
             "chebyshev": DistanceType.Linf,
             "linf": DistanceType.Linf,
-            "jensenshannon": DistanceType.JensenShannon,
             "cosine": DistanceType.CosineExpanded,
             "correlation": DistanceType.CorrelationExpanded,
-            "inner_product": DistanceType.InnerProduct,
-            "jaccard": DistanceType.JaccardExpanded,
             "hellinger": DistanceType.HellingerExpanded,
-            "haversine": DistanceType.Haversine
+            "hamming": DistanceType.HammingUnexpanded,
+            "jaccard": DistanceType.JaccardExpanded,
+            "canberra": DistanceType.Canberra
         }
+
         if cls.metric.lower() in metric_parsing:
             umap_params.metric = metric_parsing[cls.metric.lower()]
         else:
             raise ValueError("Invalid value for metric: {}"
                              .format(cls.metric))
-                             
+
+        if cls.metric_kwds is None:
+            umap_params.p = <float> 2.0
+        else:
+            umap_params.p = <float>cls.metric_kwds.get('p')
+
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
             callback_ptr = cls.callback.get_native_callback()

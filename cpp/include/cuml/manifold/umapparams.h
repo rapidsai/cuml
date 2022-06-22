@@ -160,6 +160,8 @@ class UMAPParams {
   
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 
+  float p = 2.0;
+
   Internals::GraphBasedDimRedCallback* callback = nullptr;
 };
 

@@ -81,6 +81,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         bool initialize_embeddings,
         bool square_distances,
         DistanceType metric,
+        float p,
         TSNE_ALGORITHM algorithm
 
 
@@ -261,6 +262,7 @@ class TSNE(Base,
                  n_iter_without_progress=300,
                  min_grad_norm=1e-07,
                  metric='euclidean',
+                 metric_params=None,
                  init='random',
                  verbose=False,
                  random_state=None,
@@ -350,6 +352,7 @@ class TSNE(Base,
         self.n_iter_without_progress = n_iter_without_progress
         self.min_grad_norm = min_grad_norm
         self.metric = metric
+        self.metric_params = metric_params
         self.init = init
         self.random_state = random_state
         self.method = method
@@ -597,6 +600,7 @@ class TSNE(Base,
             "linf": DistanceType.Linf,
             "cosine": DistanceType.CosineExpanded,
             "correlation": DistanceType.CorrelationExpanded,
+            "hellinger": DistanceType.HellingerExpanded
         }
 
         if self.metric.lower() in metric_parsing:
@@ -604,6 +608,11 @@ class TSNE(Base,
         else:
             raise ValueError("Invalid value for metric: {}"
                              .format(self.metric))
+        
+        if self.metric_params is None:
+            params.p = <float> 2.0
+        else:
+            params.p = <float>self.metric_params.get('p')
 
         return <size_t> params
 

@@ -105,6 +105,9 @@ struct TSNEParams {
   //Distance metric to use.
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
 
+  //Value of p for Minkowski distance
+  float p = 2.0;
+
   // Which implementation algorithm to use.
   TSNE_ALGORITHM algorithm = TSNE_ALGORITHM::FFT;
 };

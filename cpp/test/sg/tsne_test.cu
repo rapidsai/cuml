@@ -110,6 +110,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     TSNEResults results;
 
     auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
+    float p = 2.0;
     // Setup parameters
     model_params.algorithm     = algo;
     model_params.dim           = 2;
@@ -134,7 +135,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
       input_dists.resize(n * model_params.n_neighbors, stream);
       k_graph.knn_indices = input_indices.data();
       k_graph.knn_dists   = input_dists.data();
-      TSNE::get_distances(handle, input, k_graph, stream, DEFAULT_DISTANCE_METRIC);
+      TSNE::get_distances(handle, input, k_graph, stream, DEFAULT_DISTANCE_METRIC, p);
     }
     handle.sync_stream(stream);
     TSNE_runner<manifold_dense_inputs_t<float>, knn_indices_dense_t, float> runner(
