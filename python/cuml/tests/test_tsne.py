@@ -19,12 +19,13 @@ import scipy
 import cupyx
 
 from cuml.manifold import TSNE
-from cuml.testing.utils import stress_param
+from cuml.testing.utils import array_equal, stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness
 from sklearn import datasets
+from sklearn.manifold import TSNE as skTSNE
 
 pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
                                         "experimental::")
@@ -273,9 +274,11 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
-@pytest.mark.parametrize('method', ['barnes_hut'])
-@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'cityblock', 'l1',
-                         'manhattan', 'minkowski', 'chebyshev', "cosine", "correlation"])
+@pytest.mark.parametrize('method', ['exact', 'barnes_hut'])
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'cityblock', 
+                                    'l1', 'manhattan', 'minkowski', 'chebyshev',
+                                    'cosine', 'correlation', 'jaccard',
+                                    'hamming', 'canberra'])
 def test_tsne_distance_metrics(dataset, method, metric):
     """
     This tests how TSNE handles a lot of input data across time.
@@ -291,21 +294,31 @@ def test_tsne_distance_metrics(dataset, method, metric):
     tsne = TSNE(n_components=2,
                 random_state=1,
                 n_neighbors=DEFAULT_N_NEIGHBORS,
-                learning_rate_method='none',
                 method=method,
+                learning_rate_method='none',
                 min_grad_norm=1e-12,
                 perplexity=DEFAULT_PERPLEXITY,
                 metric=metric)
     
+    sk_tsne = skTSNE(n_components=2,
+                    random_state=1,
+                    min_grad_norm=1e-12,
+                    method=method,
+                    perplexity=DEFAULT_PERPLEXITY,
+                    metric=metric)
+
     """Compares TSNE embedding trustworthiness, NAN and verbosity"""
-    Y = tsne.fit_transform(X)
-    nans = np.sum(np.isnan(Y))
-    trust = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS, metric=metric)
+    cuml_embedding = tsne.fit_transform(X)
+    sk_embedding = sk_tsne.fit_transform(X)
+    nans = np.sum(np.isnan(cuml_embedding))
+    cuml_trust = trustworthiness(X, cuml_embedding,
+                                 n_neighbors=DEFAULT_N_NEIGHBORS, metric=metric)
+    sk_trust = trustworthiness(X, sk_embedding,
+                               n_neighbors=DEFAULT_N_NEIGHBORS, metric=metric)
 
-    print("Trust=%s" % trust)
-    assert trust > 0.85
+    assert cuml_trust > 0.85
     assert nans == 0
-
+    assert array_equal(sk_trust, cuml_trust, 0.05, with_sign=True)
 
 @pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
