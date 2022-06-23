@@ -26,3 +26,5 @@ from cuml.metrics.cluster.silhouette_score import \
     cython_silhouette_score as silhouette_score
 from cuml.metrics.cluster.silhouette_score import \
     cython_silhouette_samples as silhouette_samples
+from cuml.metrics.cluster.v_measure import \
+   cython_v_measure as v_measure_score
