@@ -426,7 +426,7 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
-        
+
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -594,13 +594,13 @@ class TSNE(Base,
             "cityblock": DistanceType.L1,
             "l1": DistanceType.L1,
             "manhattan": DistanceType.L1,
-            "taxicab": DistanceType.L1,
             "minkowski": DistanceType.LpUnexpanded,
             "chebyshev": DistanceType.Linf,
-            "linf": DistanceType.Linf,
             "cosine": DistanceType.CosineExpanded,
             "correlation": DistanceType.CorrelationExpanded,
-            "hellinger": DistanceType.HellingerExpanded
+            "jaccard": DistanceType.JaccardExpanded,
+            "canberra": DistanceType.Canberra,
+            "hamming": DistanceType.HammingUnexpanded
         }
 
         if self.metric.lower() in metric_parsing:
@@ -608,7 +608,7 @@ class TSNE(Base,
         else:
             raise ValueError("Invalid value for metric: {}"
                              .format(self.metric))
-        
+
         if self.metric_params is None:
             params.p = <float> 2.0
         else:
