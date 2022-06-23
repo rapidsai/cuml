@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 ########################
 # cuML Version Updater #
 ########################
@@ -44,6 +44,10 @@ for FILE in conda/environments/*.yml; do
    sed_runner "s/dask-cuda=${CURRENT_SHORT_TAG}/dask-cuda=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/dask-cudf=${CURRENT_SHORT_TAG}/dask-cudf=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/libcumlprims=${CURRENT_SHORT_TAG}/libcumlprims=${NEXT_SHORT_TAG}/g" ${FILE};
+   sed_runner "s/libraft-headers=${CURRENT_SHORT_TAG}/libraft-headers=${NEXT_SHORT_TAG}/g" ${FILE};
+   sed_runner "s/libraft-distance=${CURRENT_SHORT_TAG}/libraft-distance=${NEXT_SHORT_TAG}/g" ${FILE};
+   sed_runner "s/libraft-nn=${CURRENT_SHORT_TAG}/libraft-nn=${NEXT_SHORT_TAG}/g" ${FILE};
+   sed_runner "s/pyraft=${CURRENT_SHORT_TAG}/pyraft=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-build-env=${CURRENT_SHORT_TAG}/rapids-build-env=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-notebook-env=${CURRENT_SHORT_TAG}/rapids-notebook-env=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-doc-env=${CURRENT_SHORT_TAG}/rapids-doc-env=${NEXT_SHORT_TAG}/g" ${FILE};
