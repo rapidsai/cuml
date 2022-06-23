@@ -436,7 +436,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         cdef RandomForestMetaData[double, double] *rf_forest64 = \
             new RandomForestMetaData[double, double]()
         self.rf_forest64 = <uintptr_t> rf_forest64
-        
+
         rs = self.random_state
         if rs is None:
             seed_val = <uint64_t>NULL
