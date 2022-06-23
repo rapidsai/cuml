@@ -241,13 +241,14 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
 
     knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params)
     knn_cu.fit(X)
+
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
+
     del knn_cu
     gc.collect()
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
-
     assert array_equal(labels, y)
 
 
