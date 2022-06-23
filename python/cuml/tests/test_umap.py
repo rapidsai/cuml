@@ -594,3 +594,34 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
                                  n_neighbors=10, metric=metric)
 
     assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
+
+
+@pytest.mark.parametrize('metric', ['euclidean', 'l1', 'manhattan',
+                                    'minkowski', 'chebyshev',
+                                    'cosine', 'correlation', 'jaccard',
+                                    'hamming', 'canberra'])
+def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
+
+    data_selection = np.random.RandomState(42).choice(
+                       [True, False], 1000, replace=True, p=[0.75, 0.25])
+
+    if metric == 'jaccard':
+        data = data >= 0
+
+    new_data = scipy.sparse.csr_matrix(data[~data_selection])
+
+    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                           metric=metric, init='random')
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
+                        metric=metric, init='random')
+    umap_embedding = umap_model.fit_transform(new_data)
+    cuml_embedding = cuml_model.fit_transform(new_data)
+
+    umap_trust = trustworthiness(data[~data_selection], umap_embedding,
+                                 n_neighbors=10, metric=metric)
+    cuml_trust = trustworthiness(data[~data_selection], cuml_embedding,
+                                 n_neighbors=10, metric=metric)
+
+    assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)

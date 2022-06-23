@@ -152,9 +152,9 @@ class UMAP(Base,
         provide easy visualization, but can reasonably be set to any
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
-        'taxicab', 'manhattan', 'euclidean', 'l2', 'canberra', 'minkowski',
-        'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger', 'hamming',
-        'jaccard', 'canberra']
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary. At this time care must
         be taken and dictionary elements must be ordered appropriately;

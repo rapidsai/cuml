@@ -154,9 +154,10 @@ class TSNE(Base,
         Used in the 'exact' and 'fft' algorithms. Consider reducing if
         the embeddings are unsatisfactory. It's recommended to use a
         smaller value for smaller datasets.
-    metric : str 'euclidean' only (default 'euclidean')
-        Currently only supports euclidean distance. Will support cosine in
-        a future release.
+    metric : str (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'minkowski',
+        'chebyshev', 'cosine', 'correlation']
     init : str 'random' (default 'random')
         Currently supports random intialization.
     verbose : int or boolean, default=False
@@ -597,10 +598,7 @@ class TSNE(Base,
             "minkowski": DistanceType.LpUnexpanded,
             "chebyshev": DistanceType.Linf,
             "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded,
-            "jaccard": DistanceType.JaccardExpanded,
-            "canberra": DistanceType.Canberra,
-            "hamming": DistanceType.HammingUnexpanded
+            "correlation": DistanceType.CorrelationExpanded
         }
 
         if self.metric.lower() in metric_parsing:

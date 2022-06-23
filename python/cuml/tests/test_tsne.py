@@ -273,84 +273,82 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     validate_embedding(digits, Y, 0.85)
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
-@pytest.mark.parametrize('method', ['exact', 'barnes_hut'])
-@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'cityblock', 
-                                    'l1', 'manhattan', 'minkowski', 'chebyshev',
-                                    'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
-def test_tsne_distance_metrics(dataset, method, metric):
-    """
-    This tests how TSNE handles a lot of input data across time.
-    (1) Numpy arrays are passed in
-    (2) Params are changed in the TSNE class
-    (3) The class gets re-used across time
-    (4) Trustworthiness is checked
-    (5) Tests NAN in TSNE output for learning rate explosions
-    (6) Tests verbosity
-    """
-    X = dataset.data
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean',
+                                    'cityblock', 'l1', 'manhattan',
+                                    'minkowski', 'chebyshev',
+                                    'cosine', 'correlation'])
+def test_tsne_distance_metrics(metric):
+
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
 
     tsne = TSNE(n_components=2,
                 random_state=1,
                 n_neighbors=DEFAULT_N_NEIGHBORS,
-                method=method,
+                method='exact',
                 learning_rate_method='none',
                 min_grad_norm=1e-12,
                 perplexity=DEFAULT_PERPLEXITY,
                 metric=metric)
-    
-    sk_tsne = skTSNE(n_components=2,
-                    random_state=1,
-                    min_grad_norm=1e-12,
-                    method=method,
-                    perplexity=DEFAULT_PERPLEXITY,
-                    metric=metric)
 
-    """Compares TSNE embedding trustworthiness, NAN and verbosity"""
-    cuml_embedding = tsne.fit_transform(X)
-    sk_embedding = sk_tsne.fit_transform(X)
+    sk_tsne = skTSNE(n_components=2,
+                     random_state=1,
+                     min_grad_norm=1e-12,
+                     method='exact',
+                     perplexity=DEFAULT_PERPLEXITY,
+                     metric=metric)
+
+    cuml_embedding = tsne.fit_transform(data)
+    sk_embedding = sk_tsne.fit_transform(data)
     nans = np.sum(np.isnan(cuml_embedding))
-    cuml_trust = trustworthiness(X, cuml_embedding,
-                                 n_neighbors=DEFAULT_N_NEIGHBORS, metric=metric)
-    sk_trust = trustworthiness(X, sk_embedding,
-                               n_neighbors=DEFAULT_N_NEIGHBORS, metric=metric)
+    cuml_trust = trustworthiness(data, cuml_embedding, metric=metric)
+    sk_trust = trustworthiness(data, sk_embedding, metric=metric)
 
     assert cuml_trust > 0.85
     assert nans == 0
     assert array_equal(sk_trust, cuml_trust, 0.05, with_sign=True)
 
-@pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-@pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
-@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'cityblock', 'l1',
-                         'manhattan', 'minkowski', 'chebyshev', "cosine", "correlation"])
-def test_tsne_fit_transform_on_digits_sparse_distance_metrics(input_type, method, metric):
 
-    digits = test_datasets['digits'].data
+@pytest.mark.parametrize('method', ['fft', 'barnes_hut', 'exact'])
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'cityblock',
+                                    'l1', 'manhattan', 'cosine'])
+def test_tsne_distance_metrics_on_sparse_input(method, metric):
 
-    if input_type == 'cupy':
-        sp_prefix = cupyx.scipy.sparse
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
+    data_sparse = scipy.sparse.csr_matrix(data)
+
+    cuml_tsne = TSNE(n_components=2,
+                     random_state=1,
+                     n_neighbors=DEFAULT_N_NEIGHBORS,
+                     method=method,
+                     learning_rate_method='none',
+                     min_grad_norm=1e-12,
+                     perplexity=DEFAULT_PERPLEXITY,
+                     metric=metric)
+
+    if method == 'fft':
+        sk_tsne = skTSNE(n_components=2,
+                         random_state=1,
+                         min_grad_norm=1e-12,
+                         method='barnes_hut',
+                         perplexity=DEFAULT_PERPLEXITY,
+                         metric=metric)
+
     else:
-        sp_prefix = scipy.sparse
+        sk_tsne = skTSNE(n_components=2,
+                         random_state=1,
+                         min_grad_norm=1e-12,
+                         method=method,
+                         perplexity=DEFAULT_PERPLEXITY,
+                         metric=metric)
 
-    fitter = TSNE(n_components=2,
-                  random_state=1,
-                  method=method,
-                  min_grad_norm=1e-12,
-                  n_neighbors=DEFAULT_N_NEIGHBORS,
-                  learning_rate_method="none",
-                  perplexity=DEFAULT_PERPLEXITY,
-                  metric=metric)
+    cuml_embedding = cuml_tsne.fit_transform(data_sparse)
+    nans = np.sum(np.isnan(cuml_embedding))
+    sk_embedding = sk_tsne.fit_transform(data_sparse)
+    cu_trust = trustworthiness(data, cuml_embedding, metric=metric)
+    sk_trust = trustworthiness(data, sk_embedding, metric=metric)
 
-    new_data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits)).astype('float32')
-
-    embedding = fitter.fit_transform(new_data, convert_dtype=True)
-
-    if input_type == 'cupy':
-        embedding = embedding.get()
-
-    trust = trustworthiness(digits, embedding,
-                            n_neighbors=DEFAULT_N_NEIGHBORS, metric=metric)
-    assert trust >= 0.85
-    
+    assert cu_trust > 0.85
+    assert nans == 0
+    assert array_equal(sk_trust, cu_trust, 0.05, with_sign=True)
