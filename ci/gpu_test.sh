@@ -108,7 +108,7 @@ PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 gpuci_mamba_retry install \
   -c "${CPP_CHANNEL}" \
   -c "${PYTHON_CHANNEL}" \
-  libcuml libcuml-tests cuml
+  libcuml libcuml-tests
 
 gpuci_logger "Running libcuml test binaries"
 GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
@@ -118,6 +118,13 @@ for gt in "$CONDA_PREFIX/bin/gtests/libcuml/"*; do
     ${gt} ${GTEST_ARGS}
     echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
 done
+
+gpuci_logger "Installing cuml"
+gpuci_mamba_retry install \
+  -c "${CPP_CHANNEL}" \
+  -c "${PYTHON_CHANNEL}" \
+  cuml
+
 
 gpuci_logger "Install the main version of dask, distributed, and dask-glm"
 set -x
