@@ -232,4 +232,4 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     curl -s https://codecov.io/bash | bash -s -- -F dask -f ${REPORT_DIR}/cuml-dask-coverage.xml -n "$CODECOV_NAME,dask" ${EXTRA_CODECOV_ARGS}
 fi
 
-return ${EXITCODE}
+exit ${EXITCODE}
