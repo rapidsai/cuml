@@ -20,6 +20,7 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 gpuci_mamba_retry mambabuild \
   -c "${CPP_CHANNEL}" \
+  --python=${PY_VER} \
   --croot /tmp/conda-bld-workspace \
   --output-folder /tmp/conda-bld-output \
   conda/recipes/cuml
