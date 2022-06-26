@@ -143,7 +143,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         >>> cuml_predict = cuml_model.predict(X)
 
         >>> print("Predicted labels : ", cuml_predict)
-        Predicted labels :  [0. 1. 0. 1. 0. 1. 0. 1. 0. 1.]
+        Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
 
     Parameters
     -----------
