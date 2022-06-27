@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
       params.max_iter   = 300;
       params.tol        = 0.05;
     }
-    params.metric = 1;
+    params.metric = raft::distance::DistanceType::L2SqrtExpanded;
     params.init   = ML::kmeans::KMeansParams::InitMethod::Random;
 
     // Inputs copied from kmeans_test.cu
