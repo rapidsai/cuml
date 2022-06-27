@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,18 @@
 import ctypes
 from libcpp cimport bool
 from libc.stdint cimport uint64_t
+from cuml.metrics.distance_type cimport DistanceType
+
+cdef extern from "raft/random/rng_state.hpp" namespace \
+        "raft::random":
+    enum GeneratorType:
+        GenPhilox, GenPC
+
+    cdef struct RngState:
+        RngState(uint64_t seed) except +
+        uint64_t seed,
+        uint64_t base_subsequence,
+        GeneratorType type
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams":
@@ -29,8 +41,8 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         int max_iter,
         double tol,
         int verbosity,
-        uint64_t seed,
-        int metric,
+        RngState rng_state,
+        DistanceType metric,
         int n_init,
         double oversampling_factor,
         int batch_samples,
