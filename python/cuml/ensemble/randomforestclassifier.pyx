@@ -143,7 +143,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         >>> cuml_predict = cuml_model.predict(X)
 
         >>> print("Predicted labels : ", cuml_predict)
-        Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
+        Predicted labels :  [0. 1. 0. 1. 0. 1. 0. 1. 0. 1.]
 
     Parameters
     -----------
@@ -614,8 +614,8 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
-        preds = preds.to_output().astype(self.classes_.dtype)
         if self.update_labels:
+            preds = preds.to_output().astype(self.classes_.dtype)
             preds = invert_labels(preds, self.classes_)
         return preds
 
