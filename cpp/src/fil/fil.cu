@@ -581,7 +581,7 @@ void check_params(const forest_params_t* params, bool dense)
   ASSERT(params->blocks_per_sm >= 0, "blocks_per_sm must be nonnegative");
   ASSERT(params->n_items >= 0, "n_items must be non-negative");
   ASSERT(params->threads_per_tree > 0, "threads_per_tree must be positive");
-  ASSERT(params->threads_per_tree & (params->threads_per_tree - 1) == 0,
+  ASSERT((params->threads_per_tree & (params->threads_per_tree - 1)) == 0,
          "threads_per_tree must be a power of 2");
   ASSERT(params->threads_per_tree <= FIL_TPB,
          "threads_per_tree must not "
