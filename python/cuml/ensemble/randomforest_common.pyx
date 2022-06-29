@@ -36,7 +36,7 @@ from cuml.ensemble.randomforest_shared import treelite_serialize, \
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.prims.label.classlabels import make_monotonic
+from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 
 class BaseRandomForestModel(Base):
@@ -284,10 +284,10 @@ class BaseRandomForestModel(Base):
                                 " `int32`")
             self.classes_ = cp.unique(y_m)
             self.num_classes = len(self.classes_)
-            for i in range(self.num_classes):
-                if i not in self.classes_:
-                    y_m, _ = make_monotonic(y_m)
-                    break
+            self.use_monotonic = not check_labels(y_m, 
+                            cp.arange(self.num_classes, dtype=np.int32))
+            if self.use_monotonic:
+                y_m, _ = make_monotonic(y_m)
 
         else:
             y_m, _, _, y_dtype = \

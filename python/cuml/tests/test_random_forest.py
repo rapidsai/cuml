@@ -311,11 +311,8 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
-@pytest.mark.parametrize("b", [0, 5, -5, 10])
-@pytest.mark.parametrize("a", [1, 2, 3])
 def test_rf_classification_unorder(
-                small_clf, datatype, max_samples, max_features, a, b):
+                small_clf, datatype, max_samples, max_features=1, a=2, b=5):
     use_handle = True
 
     X, y = small_clf
