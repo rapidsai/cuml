@@ -1,4 +1,5 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+#
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -247,7 +248,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         if array.shape[0] < ensure_min_samples:
             raise ValueError("Not enough samples")
 
-    if ensure_min_features > 0 and hasshape and array.ndim == 2:
+    if ensure_min_features > 0 and hasshape and len(array.shape) == 2:
         n_features = array.shape[1]
         if n_features < ensure_min_features:
             raise ValueError("Found array with %d feature(s) (shape=%s) while"
