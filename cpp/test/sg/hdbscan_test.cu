@@ -300,6 +300,23 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    params.cluster_selection_epsilon);
 
     handle.sync_stream(handle.get_stream());
+    
+    rmm::device_uvector<int> exemplar_indices(params.n_row, handle.get_stream());
+
+    int n_exemplars = ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T, 256>(
+      handle,
+      condensed_tree,
+      labels.data(),
+      n_selected_clusters,
+      exemplar_indices.data()
+    );
+
+    handle.sync_stream(handle.get_stream());
+
+    CUML_LOG_DEBUG("%d, %d\n", n_selected_clusters, n_exemplars);
+    for(int i = 0; i < n_exemplars; i++){
+      CUML_LOG_DEBUG("%d\n", exemplar_indices.element(i, handle.get_stream()));
+    }
 
     ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
                                   params.probabilities.data(),
