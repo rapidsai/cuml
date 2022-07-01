@@ -175,7 +175,7 @@ def test_sklearn_search():
 def test_accuracy(nrows, ncols, n_info, datatype):
 
     use_handle = True
-    train_rows = np.int32(nrows*0.8)
+    train_rows = np.int32(nrows * 0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
                                random_state=123, n_classes=5)
@@ -249,7 +249,7 @@ def test_rand_index_score(name, nrows):
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
     cuml_score = cu_silhouette_score(X, labels, metric=metric,
-                                     chunksize=int(X.shape[0]/chunk_divider))
+                                     chunksize=int(X.shape[0] / chunk_divider))
     sk_score = sk_silhouette_score(X, labels, metric=metric)
     assert_almost_equal(cuml_score, sk_score, decimal=2)
 
@@ -901,6 +901,71 @@ def prep_dense_array(array, metric, col_major=0):
         return np.asfortranarray(array) if col_major else array
 
 
+@pytest.mark.parametrize("metric", ["nan_euclidean"])
+@pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
+                                         (500, 400), unit_param((1000, 100))])
+def test_nan_euclidean_distances(metric: str, matrix_size):
+    # Test the pairwise_distance helper function.
+    rng = np.random.RandomState(0)
+
+    # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
+    compare_precision = 6
+
+    # Compare to sklearn, single input
+    X = prep_dense_array(rng.random_sample(matrix_size),
+                         metric=metric, )
+    S = pairwise_distances(cp.asarray(X), metric=metric)
+    S2 = ref_dense_pairwise_dist(X, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, double input with same dimensions
+    Y = X
+    S = pairwise_distances(cp.asarray(X), cp.asarray(Y), metric=metric)
+    S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare single and double inputs to eachother
+    S = pairwise_distances(cp.asarray(X), metric=metric)
+    S2 = pairwise_distances(cp.asarray(X), cp.asarray(Y), metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, with Y dim != X dim
+    Y = prep_dense_array(rng.random_sample((2, matrix_size[1])),
+                         metric=metric)
+    S = pairwise_distances(cp.asarray(X), cp.asarray(Y), metric=metric)
+    S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Change precision of one parameter
+    Y = np.asfarray(Y, dtype=np.float32)
+    S = pairwise_distances(cp.asarray(X), cp.asarray(Y), metric=metric)
+    S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 5 decimals, (2 places less than the ~7 max)
+    compare_precision = 2
+
+    # Change precision of both parameters to float
+    X = np.asfarray(X, dtype=np.float32)
+    Y = np.asfarray(Y, dtype=np.float32)
+    S = pairwise_distances(cp.asarray(X), cp.asarray(Y), metric=metric)
+    S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Test sending an int type with convert_dtype=True
+    Y = prep_dense_array(rng.randint(10, size=Y.shape), metric=metric)
+    S = pairwise_distances(cp.asarray(X), cp.asarray(Y),
+                           metric=metric, convert_dtype=True)
+    S2 = ref_dense_pairwise_dist(X, Y, metric=metric, convert_dtype=True)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Test that uppercase on the metric name throws an error.
+    with pytest.raises(ValueError):
+        pairwise_distances(cp.asarray(X), cp.asarray(Y),
+                           metric=metric.capitalize()
+                           )
+
+
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
                                          (500, 400)])
@@ -1074,7 +1139,7 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean"])
+@pytest.mark.parametrize("metric", ["haversine"])
 def test_pairwise_distances_unsuppored_metrics(metric):
     rng = np.random.RandomState(3)
 
@@ -1395,7 +1460,7 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
 @pytest.mark.parametrize("input_type", ["cudf", "cupy"])
 @pytest.mark.parametrize("n_classes", [2, 5])
 def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
-    train_rows = np.int32(nrows*0.8)
+    train_rows = np.int32(nrows * 0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
                                random_state=123, n_classes=n_classes)

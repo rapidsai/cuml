@@ -34,6 +34,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.thirdparty_adapters import _get_mask
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const double *x,
@@ -117,9 +118,6 @@ def _determine_metric(metric_str, is_sparse=False):
     if metric_str == 'haversine':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
-    elif metric_str == 'nan_euclidean':
-        raise ValueError(" The metric: '{}', is not supported at this time."
-                         .format(metric_str))
 
     if not(is_sparse) and (metric_str not in PAIRWISE_DISTANCE_METRICS):
         if metric_str in PAIRWISE_DISTANCE_SPARSE_METRICS:
@@ -134,6 +132,104 @@ def _determine_metric(metric_str, is_sparse=False):
         return PAIRWISE_DISTANCE_SPARSE_METRICS[metric_str]
     else:
         return PAIRWISE_DISTANCE_METRICS[metric_str]
+
+
+def nan_euclidean_distances(
+    X, Y=None, *, squared=False, missing_values=cp.nan
+):
+    """Calculate the euclidean distances in the presence of missing values.
+
+    Compute the euclidean distance between each pair of samples in X and Y,
+    where Y=X is assumed if Y=None. When calculating the distance between a
+    pair of samples, this formulation ignores feature coordinates with a
+    missing value in either sample and scales up the weight of the remaining
+    coordinates:
+
+        dist(x,y) = sqrt(weight * sq. distance from present coordinates)
+        where,
+        weight = Total # of coordinates / # of present coordinates
+
+    For example, the distance between ``[3, na, na, 6]`` and ``[1, na, 4, 5]``
+    is:
+
+        .. math::
+            \\sqrt{\\frac{4}{2}((3-1)^2 + (6-5)^2)}
+
+    If all the coordinates are missing or if there are no common present
+    coordinates then NaN is returned for that pair.
+
+    Read more in the :ref:`User Guide <metrics>`.
+
+    Parameters
+    ----------
+    X : array-like of shape (n_samples_X, n_features)
+        An array where each row is a sample and each column is a feature.
+
+    Y : array-like of shape (n_samples_Y, n_features), default=None
+        An array where each row is a sample and each column is a feature.
+        If `None`, method uses `Y=X`.
+
+    squared : bool, default=False
+        Return squared Euclidean distances.
+
+    missing_values : np.nan or int, default=np.nan
+        Representation of missing value.
+
+    Returns
+    -------
+    distances : ndarray of shape (n_samples_X, n_samples_Y)
+        Returns the distances between the row vectors of `X`
+        and the row vectors of `Y`.
+    """
+
+    if is_sparse(X):
+        X = X.toarray()
+    if is_sparse(Y):
+        Y = Y.toarray()
+
+    if Y is None:
+        Y = X
+
+    # Get missing mask for X
+    missing_X = _get_mask(X, missing_values)
+
+    # Get missing mask for Y
+    missing_Y = missing_X if Y is X else _get_mask(Y, missing_values)
+
+    # set missing values to zero
+    X[missing_X] = 0
+    Y[missing_Y] = 0
+
+    # Adjust distances for sqaured
+    distances = cp.array(pairwise_distances(X, Y, metric="sqeuclidean"))
+
+    # Adjust distances for missing values
+    XX = X * X
+    YY = Y * Y
+    distances -= cp.dot(XX, missing_Y.T)
+    distances -= cp.dot(missing_X, YY.T)
+
+    cp.clip(distances, 0, None, out=distances)
+
+    if X is Y:
+        # Ensure that distances between vectors and themselves are set to 0.0.
+        # This may not be the case due to floating point rounding errors.
+        cp.fill_diagonal(distances, 0.0)
+
+    present_X = 1 - missing_X
+    present_Y = present_X if Y is X else ~missing_Y
+    present_count = cp.dot(present_X, present_Y.T)
+    distances[present_count == 0] = cp.nan
+
+    # avoid divide by zero
+    cp.maximum(1, present_count, out=present_count)
+    distances /= present_count
+    distances *= X.shape[1]
+
+    if not squared:
+        cp.sqrt(distances, out=distances)
+
+    return distances
 
 
 @cuml.internals.api_return_array(get_output_type=True)
@@ -224,6 +320,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+
+    if metric in ['nan_euclidean']:
+        return nan_euclidean_distances(X, Y, **kwds)
 
     if metric in ['russellrao'] and not np.all(X.data == 1.):
         warnings.warn("X was converted to boolean for metric {}"
