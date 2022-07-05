@@ -227,7 +227,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
   comm.allreduce(clusterCost.data(), clusterCost.data(), 1, raft::comms::op_t::SUM, stream);
 
   DataT psi = 0;
-  psi       = *clusterCost.data();
+  raft::copy(&psi, clusterCost.data(), 1, stream);
 
   // <<< End of Step-2 >>>
 
@@ -269,7 +269,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
       clusterCost.view(),
       [] __device__(const DataT& a, const DataT& b) { return a + b; });
     comm.allreduce(clusterCost.data(), clusterCost.data(), 1, raft::comms::op_t::SUM, stream);
-    psi = *clusterCost.data();
+    raft::copy(&psi, clusterCost.data(), 1, stream);
     ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");
@@ -466,8 +466,7 @@ void fit(const raft::handle_t& handle,
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
-
-  raft::distance::DistanceType metric = static_cast<raft::distance::DistanceType>(params.metric);
+  auto metric         = params.metric;
 
   // stores (key, value) pair corresponding to each sample where
   //   - key is the index of nearest cluster
@@ -694,8 +693,8 @@ void fit(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
-  ASSERT(params.oversampling_factor > 0,
-         "oversampling factor must be > 0 (requested %d)",
+  ASSERT(params.oversampling_factor >= 0,
+         "oversampling factor must be >= 0 (requested %d)",
          (int)params.oversampling_factor);
   ASSERT(is_device_or_managed_type(X), "input data must be device accessible");
 
