@@ -20,18 +20,29 @@ namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Membership {
- 
+
 template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void rearrange_kernel(value_idx* leaf_idx,
-                                 value_t* lambdas,
-                                 value_t* rearranged_lambdas,
-                                 value_idx n_leaves)
+__global__ void min_dist_to_exemplar_kernel(value_t* dist,
+                                            value_idx m,
+                                            value_idx n_selected_clusters,
+                                            value_idx* exemplar_label_offsets,
+                                            value_t* min_dist)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (idx >= n_leaves) return;
+  if (idx >= m * n_selected_clusters) return;
+  
+  auto row = idx / n_selected_clusters;
+  auto col = idx % n_selected_clusters;
+  auto start = exemplar_label_offsets[col];
+  auto end = exemplar_label_offsets[col + 1];
 
-  rearranged_lambdas[idx] = lambdas[leaf_idx[idx]];
+  for(value_idx i = start; i < end; i++){
+    if dist[idx + i] < min_dist[idx]{
+      min_dist[idx] = dist[idx + i];
+    }
+  }
+
   return;
 }
 

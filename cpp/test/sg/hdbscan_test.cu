@@ -302,13 +302,33 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
     handle.sync_stream(handle.get_stream());
     
     rmm::device_uvector<int> exemplar_indices(params.n_row, handle.get_stream());
+    rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, handle.get_stream());
 
-    int n_exemplars = ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T, 256>(
+    int n_exemplars = ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T>(
       handle,
       condensed_tree,
       labels.data(),
       n_selected_clusters,
-      exemplar_indices.data()
+      exemplar_indices.data(),
+      exemplar_label_offsets.data()
+    );
+
+    ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T>(
+      handle,
+      condensed_tree,
+      labels.data(),
+      n_selected_clusters,
+      exemplar_indices.data(),
+      exemplar_label_offsets.data()
+    );
+
+    ML::HDBSCAN::detail::Membership::dist_membership_vector<IdxT, T, 256>(
+      handle,
+      data.data(),
+      params.n_row,
+      params.n_col,
+      exemplar_indices.data(),
+      exemplar_label_offsets.data()
     );
 
     handle.sync_stream(handle.get_stream());

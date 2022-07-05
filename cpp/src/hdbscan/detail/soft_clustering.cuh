@@ -55,8 +55,8 @@ value_idx get_exemplars(const raft::handle_t& handle,
                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                         const value_idx* labels,
                         value_idx n_selected_clusters,
-                        value_idx* exemplar_idx)
-                        // value_idx* exemplar_offsets)
+                        value_idx* exemplar_idx,
+                        value_idx* exemplar_label_offsets)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -183,46 +183,135 @@ value_idx get_exemplars(const raft::handle_t& handle,
                                               exemplar_idx,
                                               [] __device__(auto idx) { return idx >= 0; });
  
-  auto n_exemplar_indices = exemplar_idx_end_ptr - exemplar_idx;
+  auto n_exemplars = exemplar_idx_end_ptr - exemplar_idx;
 
-  // rmm::device_uvector<value_idx>exemplar_labels(n_exemplar_indices, stream);
+  rmm::device_uvector<value_idx>exemplar_labels(n_exemplars, stream);
 
-  // thrust::transform(
-  //   exec_policy,
-  //   exemplar_idx,
-  //   exemplar_idx + n_exemplar_indices,
-  //   exemplar_labels.data(),
-  //   [labels] __device__(auto idx) { return labels[idx]; });
+  thrust::transform(
+    exec_policy,
+    exemplar_idx,
+    exemplar_idx + n_exemplars,
+    exemplar_labels.data(),
+    [labels] __device__(auto idx) { return labels[idx]; });
 
-  // rmm::device_uvector<value_idx> exemplar_label_offsets(n_exemplar_indices + 1, stream);
-  // thrust::unique_by_key_copy(exec_policy,
-  //                            exemplar_labels.data(),
-  //                            exemplar_labels.data() + n_exemplar_indices,
-  //                            thrust::make_counting_iterator(0),
-  //                            thrust::make_discard_iterator(),
-  //                            exemplar_label_offsets.begin());
-  // exemplar_label_offsets.set_element(n_exemplar_indices, n_exemplar_indices, stream);
-  return n_exemplar_indices;
+  thrust::unique_by_key_copy(exec_policy,
+                             exemplar_labels.data(),
+                             exemplar_labels.data() + n_exemplars,
+                             thrust::make_counting_iterator(0),
+                             thrust::make_discard_iterator(),
+                             exemplar_label_offsets.begin());
+  exemplar_label_offsets.set_element(n_exemplars, n_exemplars, stream);
+  for(int i = 0; i < n_exemplars + 1; i++){
+    CUML_LOG_DEBUG("%d", exemplar_label_offsets.element(i, stream));
+  }
+  return n_exemplars;
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
 value_idx dist_membership_vector(const raft::handle_t& handle,
-                                 Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                                  const value_t* X,
-                                 value_idx* exemplar_idx)
-{
-  raft::matrix::copyRows<value_t, value_idx, size_t>(
-    X,
-    index.m,
-    index.n,
-  index.get_R(),
-  R_1nn_cols2.data(),
-  index.n_landmarks,
-  handle.get_stream(),
-  true);
+                                 size_t m,
+                                 size_t n,
+                                 size_t n_exemplars,
+                                 size_t n_selected_clusters,
+                                 value_idx* exemplar_idx,
+                                 value_idx* exemplar_label_offsets,
+                                 bool softmax)
+{ 
+  auto stream = handle.get_stream();
+ 
+  rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
+
+  raft::matrix::copyRows<value_t, value_idx, size_t>(X,
+                                                     n_exemplars,
+                                                     n,
+                                                     exemplars_dense.data(),
+                                                     exemplar_idx,
+                                                     n_exemplars,
+                                                     stream,
+                                                     true);
   
+  rmm::device_uvector<value_t> dist(m * n_exemplars, stream);
   raft::distance::distance<metric, value_idx, value_idx, value_idx, int>(
-    x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+    X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+
+  rmm::device_uvector<value_t> min_dist(m * n_selected_clusters, stream);
+  thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), FLT_MAX);
+  
+  auto reduction_op =
+    [dist = dist.data(),
+     n_selected_clusters,
+     exemplar_label_offsets,
+     min_dist = min_dist.data()]
+     __device__(auto idx) {
+      auto col = idx % n_selected_clusters;
+      auto row = idx / n_selected_clusters;
+      auto start = exemplar_label_offsets[col];
+      auto end = exemplar_label_offsets[col + 1];
+    
+      for(value_idx i = start; i < end; i++){
+        if dist[row * n_exemplars + i] < min_dist[row * n_selected_clusters + col]{
+          min_dist[row * n_selected_clusters + col] = dist[row * n_exemplars + i];
+        }
+      }
+       return;
+     };
+  
+  thrust::for_each(
+    exec_policy,
+    counting,
+    counting + m * n_selected_clusters,
+    reduction_op
+    )
+  
+  rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
+  thrust::fill(exec_policy, dist_membership_vec.begin(), dist_membership_vec.end(), 0.0f);
+  
+  thrust::transform(
+    exec_policy,
+    min_dist.data(),
+    min_dist.data() + m * n_selected_clusters,
+    dist_membership_vec.data(),
+    [=] __device__(value_t val){
+      return value_t(1.0/val);
+    }
+  )
+
+  thrust::
+  
+  if (softmax){
+    auto softmax_op =
+    [min_dist = min_dist.data(),
+     n_selected_clusters,
+     exemplar_label_offsets,
+     min_dist = min_dist.data()]
+     __device__(auto idx) {
+      auto col = idx % n_selected_clusters;
+      auto row = idx / n_selected_clusters;
+      auto start = exemplar_label_offsets[col];
+      auto end = exemplar_label_offsets[col + 1];
+    
+      for(value_idx i = start; i < end; i++){
+        if dist[row * n_exemplars + i] < min_dist[row * n_selected_clusters + col]{
+          min_dist[row * n_selected_clusters + col] = dist[row * n_exemplars + i];
+        }
+      }
+       return;
+     };
+  
+  thrust::for_each(
+    exec_policy,
+    counting,
+    counting + m * n_selected_clusters,
+    reduction_op
+    )
+  }
+    for i in range(vector.shape[0]):
+        result[i] = 1.0 / vector[i]
+    result = np.exp(result - np.nanmax(result))
+    sum = np.sum(result)
+  
+  
 };  // namespace Membership
 };  // namespace detail
 };  // namespace HDBSCAN
