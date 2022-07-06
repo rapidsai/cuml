@@ -24,8 +24,8 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
-#include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
+#include <hdbscan/detail/soft_clustering.cuh>
 
 #include <metrics/adjusted_rand_index.cuh>
 
