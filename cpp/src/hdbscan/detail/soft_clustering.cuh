@@ -29,9 +29,10 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance_type.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
@@ -112,10 +113,6 @@ value_idx get_exemplars(const raft::handle_t& handle,
 
   rmm::device_uvector<value_t> deaths(n_groups, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
-
-  // size_t nblocks = raft::ceildiv(n_leaves, tpb);
-  // rearrange_kernel<<<nblocks, tpb, 0, stream>>>(
-  //   leaf_idx.data(), lambdas, rearranged_lambdas.data(), n_leaves);
 
   Utils::cub_segmented_reduce(
     rearranged_lambdas.data(),
@@ -214,11 +211,15 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
                                  size_t n,
                                  size_t n_exemplars,
                                  size_t n_selected_clusters,
+                                 bool softmax,
                                  value_idx* exemplar_idx,
                                  value_idx* exemplar_label_offsets,
-                                 bool softmax)
+                                 value_t* dist_membership_vec,
+                                 raft::distance::DistanceType metric
+                                 )
 { 
   auto stream = handle.get_stream();
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
  
   rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
 
@@ -232,11 +233,11 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
                                                      true);
   
   rmm::device_uvector<value_t> dist(m * n_exemplars, stream);
-  raft::distance::distance<metric, value_idx, value_idx, value_idx, int>(
+  raft::distance::distance<metric, value_t, value_t, value_t, int>(
     X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
 
   rmm::device_uvector<value_t> min_dist(m * n_selected_clusters, stream);
-  thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), FLT_MAX);
+  thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), DBL_MAX);
   
   auto reduction_op =
     [dist = dist.data(),
@@ -262,56 +263,43 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
     counting,
     counting + m * n_selected_clusters,
     reduction_op
-    )
-  
-  rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
-  thrust::fill(exec_policy, dist_membership_vec.begin(), dist_membership_vec.end(), 0.0f);
-  
-  thrust::transform(
-    exec_policy,
-    min_dist.data(),
-    min_dist.data() + m * n_selected_clusters,
-    dist_membership_vec.data(),
-    [=] __device__(value_t val){
-      return value_t(1.0/val);
-    }
-  )
-
-  thrust::
+    );
   
   if (softmax){
-    auto softmax_op =
-    [min_dist = min_dist.data(),
-     n_selected_clusters,
-     exemplar_label_offsets,
-     min_dist = min_dist.data()]
-     __device__(auto idx) {
-      auto col = idx % n_selected_clusters;
-      auto row = idx / n_selected_clusters;
-      auto start = exemplar_label_offsets[col];
-      auto end = exemplar_label_offsets[col + 1];
-    
-      for(value_idx i = start; i < end; i++){
-        if dist[row * n_exemplars + i] < min_dist[row * n_selected_clusters + col]{
-          min_dist[row * n_selected_clusters + col] = dist[row * n_exemplars + i];
-        }
-      }
-       return;
-     };
-  
-  thrust::for_each(
-    exec_policy,
-    counting,
-    counting + m * n_selected_clusters,
-    reduction_op
-    )
+    // TODO: implement softmax
   }
-    for i in range(vector.shape[0]):
-        result[i] = 1.0 / vector[i]
-    result = np.exp(result - np.nanmax(result))
-    sum = np.sum(result)
-  
-  
+
+  else{
+    thrust::transform(
+      exec_policy,
+      min_dist.data(),
+      min_dist.data() + m * n_selected_clusters,
+      dist_membership_vec,
+      [=] __device__(value_t val){
+        if(val != 0){
+          return value_t(1.0/val);
+        }
+        return value_t(DBL_MAX/n_selected_clusters);
+      }
+    );
+  }
+
+  rmm::device_uvector<value_t> dist_membership_vec_sums(m, stream);
+  thrust::fill(exec_policy, dist_membership_vec_sums.begin(), dist_membership_vec_sums.end(), 1.0);
+
+  // TODO: Compute distance membership vector sums correctly
+
+  raft::linalg::matrixVectorOp(
+    dist_membership_vec,
+    dist_membership_vec,
+    dist_membership_vec_sums.data(),
+    n_selected_clusters,
+    m,
+    true,
+    true,
+    [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
+    stream
+  );
 };  // namespace Membership
 };  // namespace detail
 };  // namespace HDBSCAN

@@ -24,6 +24,7 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
 
 #include <metrics/adjusted_rand_index.cuh>
@@ -287,7 +288,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
 
-    ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+    int n_selected_clusters = ML::HDBSCAN::detail::Extract::extract_clusters(handle,
                                                    condensed_tree,
                                                    params.n_row,
                                                    labels.data(),
@@ -313,22 +314,21 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
       exemplar_label_offsets.data()
     );
 
-    ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T>(
-      handle,
-      condensed_tree,
-      labels.data(),
-      n_selected_clusters,
-      exemplar_indices.data(),
-      exemplar_label_offsets.data()
-    );
+    rmm::device_uvector<int> dist_membership_vec(params.n_row * params.n_selected_clusters, handle.get_stream());
+    rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, handle.get_stream());
 
     ML::HDBSCAN::detail::Membership::dist_membership_vector<IdxT, T, 256>(
       handle,
       data.data(),
       params.n_row,
       params.n_col,
+      n_exemplars,
+      n_selected_clusters,
+      false,
       exemplar_indices.data(),
-      exemplar_label_offsets.data()
+      exemplar_label_offsets.data(),
+      dist_membership_vec.data(),
+      raft::distance::DistanceType::L2SqrtExpanded
     );
 
     handle.sync_stream(handle.get_stream());
