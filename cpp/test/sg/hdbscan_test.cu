@@ -332,10 +332,10 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     handle.sync_stream(handle.get_stream());
 
-    CUML_LOG_DEBUG("%d, %d\n", n_selected_clusters, n_exemplars);
-    for(int i = 0; i < n_exemplars; i++){
-      CUML_LOG_DEBUG("%d\n", exemplar_indices.element(i, handle.get_stream()));
-    }
+    // CUML_LOG_DEBUG("%d, %d\n", n_selected_clusters, n_exemplars);
+    // for(int i = 0; i < n_exemplars; i++){
+    //   CUML_LOG_DEBUG("%d\n", exemplar_indices.element(i, handle.get_stream()));
+    // }
 
     ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
                                   params.probabilities.data(),

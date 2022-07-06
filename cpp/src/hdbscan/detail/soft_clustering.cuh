@@ -29,6 +29,7 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/distance/distance_type.hpp>
 
 #include <algorithm>
@@ -37,6 +38,7 @@
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/discard_iterator.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
