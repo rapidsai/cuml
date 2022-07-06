@@ -315,9 +315,8 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
     );
 
     rmm::device_uvector<int> dist_membership_vec(params.n_row * params.n_selected_clusters, handle.get_stream());
-    rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, handle.get_stream());
 
-    ML::HDBSCAN::detail::Membership::dist_membership_vector<IdxT, T, 256>(
+    ML::HDBSCAN::detail::Membership::dist_membership_vector<IdxT, T>(
       handle,
       data.data(),
       params.n_row,

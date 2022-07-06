@@ -51,7 +51,7 @@ namespace HDBSCAN {
 namespace detail {
 namespace Membership {
 
-template <typename value_idx, typename value_t, int tpb = 256>
+template <typename value_idx, typename value_t>
 value_idx get_exemplars(const raft::handle_t& handle,
                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                         const value_idx* labels,
@@ -196,15 +196,19 @@ value_idx get_exemplars(const raft::handle_t& handle,
                              exemplar_labels.data() + n_exemplars,
                              thrust::make_counting_iterator(0),
                              thrust::make_discard_iterator(),
-                             exemplar_label_offsets.begin());
-  exemplar_label_offsets.set_element(n_exemplars, n_exemplars, stream);
-  for(int i = 0; i < n_exemplars + 1; i++){
-    CUML_LOG_DEBUG("%d", exemplar_label_offsets.element(i, stream));
-  }
+                             exemplar_label_offsets);
+  thrust::fill(exec_policy,
+               exemplar_label_offsets + n_exemplars,
+               exemplar_label_offsets + n_exemplars + 1,
+               n_exemplars);
+
+  // for(int i = 0; i < n_exemplars + 1; i++){
+  //   CUML_LOG_DEBUG("%d", exemplar_label_offsets.element(i, stream));
+  // }
   return n_exemplars;
 }
 
-template <typename value_idx, typename value_t, int tpb = 256>
+template <typename value_idx, typename value_t>
 value_idx dist_membership_vector(const raft::handle_t& handle,
                                  const value_t* X,
                                  size_t m,
