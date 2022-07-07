@@ -288,7 +288,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
 
-    ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+    int n_selected_clusters = ML::HDBSCAN::detail::Extract::extract_clusters(handle,
                                                    condensed_tree,
                                                    params.n_row,
                                                    labels.data(),
@@ -300,17 +300,18 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    0,
                                                    params.cluster_selection_epsilon);
 
-    // rmm::device_uvector<int> exemplar_indices(params.n_row, handle.get_stream());
-    // rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, handle.get_stream());
+    rmm::device_uvector<int> exemplar_indices(params.n_row, handle.get_stream());
+    rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, handle.get_stream());
                                                
-    // int n_exemplars = ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T>(
-    //   handle,
-    //   condensed_tree,
-    //   labels.data(),
-    //   20,
-    //   exemplar_indices.data(),
-    //   exemplar_label_offsets.data()
-    // );
+    int n_exemplars = ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T>(
+      handle,
+      condensed_tree,
+      labels.data(),
+      label_map.data(),
+      n_selected_clusters,
+      exemplar_indices.data(),
+      exemplar_label_offsets.data()
+    );
 
     // rmm::device_uvector<int> dist_membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
 

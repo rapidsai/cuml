@@ -32,6 +32,7 @@
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/norm.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -59,6 +60,7 @@ template <typename value_idx, typename value_t>
 value_idx get_exemplars(const raft::handle_t& handle,
                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                         const value_idx* labels,
+                        const value_idx* label_map,
                         value_idx n_clusters,
                         value_idx* exemplar_idx,
                         value_idx* exemplar_label_offsets)
@@ -67,6 +69,7 @@ value_idx get_exemplars(const raft::handle_t& handle,
   auto exec_policy = handle.get_thrust_policy();
 
   auto lambdas    = condensed_tree.get_lambdas();
+  auto n_total_clusters = condensed_tree.get_n_clusters();
   auto n_leaves   = condensed_tree.get_n_leaves();
 
   rmm::device_uvector<value_idx> sorted_labels(n_leaves, stream);
@@ -87,16 +90,8 @@ value_idx get_exemplars(const raft::handle_t& handle,
 
   auto n_groups = offsets_end_ptr.first - sorted_labels_unique.data();
   
-  value_idx outlier_offset = 0;
-  if(sorted_labels_unique.element(0, stream) < 0){
-    outlier_offset = sorted_labels_unique.element(1, stream);
-    sorted_label_offsets.set_element(n_groups--, n_leaves, stream);
-  }
-  else{
-    sorted_label_offsets.set_element(n_groups, n_leaves, stream);
-  }
-  
-  CUML_LOG_DEBUG("n_clusters: %d\n", n_groups);
+  value_idx outlier_offset = n_groups - n_clusters;
+  sorted_label_offsets.set_element(n_groups, n_leaves, stream);
 
   auto counting = thrust::make_counting_iterator<value_idx>(0);
 
@@ -115,43 +110,22 @@ value_idx get_exemplars(const raft::handle_t& handle,
     counting + n_leaves,
     rearrange_op);
 
-  rmm::device_uvector<value_t> deaths(n_groups, stream);
+  rmm::device_uvector<value_t> deaths(n_clusters, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
   Utils::cub_segmented_reduce(
     rearranged_lambdas.data(),
     deaths.data(),
-    n_groups,
-    sorted_label_offsets.data() + (outlier_offset > 0),
+    n_clusters,
+    sorted_label_offsets.data() + outlier_offset,
     stream,
     cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>);
-  
-  rmm::device_uvector<value_idx> label_map(n_leaves, stream);
-  thrust::fill(exec_policy, label_map.begin(), label_map.end(), -1);
-  auto label_map_op =
-    [label_map = label_map.data()] __device__(auto t) {
-       label_map[thrust::get<0>(t)] = thrust::get<1>(t);
-       return;
-       };
-  thrust::for_each(
-    exec_policy,
-    thrust::make_zip_iterator(thrust::make_tuple(sorted_labels_unique.begin() + (outlier_offset > 0), counting)),
-    thrust::make_zip_iterator(thrust::make_tuple(sorted_labels_unique.end(), counting + n_groups)),
-    label_map_op
-  );
 
-  // for(int i = 0; i < n_groups; i++){
-  //     CUML_LOG_DEBUG("%d", sorted_label_offsets.element(i + (outlier_offset > 0), stream));
-  // }
-  
-  // for(int i = 0; i < n_leaves; i++){
-  //     CUML_LOG_DEBUG("%d", label_map.element(i, stream));
-  //   }
   rmm::device_uvector<value_idx> is_exemplar(n_leaves, stream);
   auto exemplar_op =
     [is_exemplar = is_exemplar.data(),
      rearranged_lambdas = rearranged_lambdas.data(),
-     label_map = label_map.data(),
+     label_map = label_map,
      deaths = deaths.data(),
      sorted_labels = sorted_labels.data(),
      leaf_idx = leaf_idx.data()]
@@ -160,25 +134,13 @@ value_idx get_exemplars(const raft::handle_t& handle,
         deaths[label_map[sorted_labels[idx]]] ? leaf_idx[idx] : -1);
        return;
      };
-  
-  // CUML_LOG_DEBUG("%d %d", outlier_offset, n_groups);
-  // // for(int i = 0; i < n_groups; i++){
-  // //   CUML_LOG_DEBUG("%d %f", sorted_labels_unique.element(i + (outlier_offset > 0), stream), deaths.element(i, stream));
-  // // }
-  for(int i = 0; i < n_leaves; i++){
-    if(sorted_labels.element(i, stream) >= 0 && deaths.element(label_map.element(sorted_labels.element(i, stream), stream), stream) == rearranged_lambdas.element(i, stream)){
-      CUML_LOG_DEBUG("%d %d %d\n", i, leaf_idx.element(i, stream), sorted_labels.element(i, stream));
-    }
-  }
-  thrust::for_each(exec_policy,
+
+     thrust::for_each(exec_policy,
                    counting,
                    counting + n_leaves,
                    exemplar_op);
-  
-  // for(int i = 0; i < n_leaves; i++){
-  //   if(is_exemplar.element(i, stream) >= 0)CUML_LOG_DEBUG("%f %f", deaths.element(label_map.element(sorted_labels.element(i, stream), stream), stream), rearranged_lambdas.element(i, stream));
-  // }
-  auto exemplar_idx_end_ptr = thrust::copy_if(exec_policy,
+ 
+                 auto exemplar_idx_end_ptr = thrust::copy_if(exec_policy,
                                               is_exemplar.data(),
                                               is_exemplar.data() + n_leaves,
                                               exemplar_idx,
@@ -195,20 +157,8 @@ value_idx get_exemplars(const raft::handle_t& handle,
     exemplar_labels.data(),
     [labels] __device__(auto idx) { return labels[idx]; });
 
-  thrust::unique_by_key_copy(exec_policy,
-                             exemplar_labels.data(),
-                             exemplar_labels.data() + n_exemplars,
-                             thrust::make_counting_iterator(0),
-                             thrust::make_discard_iterator(),
-                             exemplar_label_offsets);
-  thrust::fill(exec_policy,
-               exemplar_label_offsets + n_exemplars,
-               exemplar_label_offsets + n_exemplars + 1,
-               n_exemplars);
+  raft::sparse::convert::sorted_coo_to_csr(exemplar_labels.data(), n_exemplars, exemplar_label_offsets, n_clusters + 1, stream);
 
-  // for(int i = 0; i < n_exemplars + 1; i++){
-  //   CUML_LOG_DEBUG("%d", exemplar_label_offsets.element(i, stream));
-  // }
   return n_exemplars;
 }
 
@@ -218,14 +168,13 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
                                  size_t m,
                                  size_t n,
                                  size_t n_exemplars,
-                                 size_t n_selected_clusters,
+                                 size_t n_clusters,
                                  bool softmax,
                                  value_idx* exemplar_idx,
                                  value_idx* exemplar_label_offsets,
                                  value_t* dist_membership_vec,
-                                 raft::distance::DistanceType metric
-                                 )
-{ 
+                                 raft::distance::DistanceType metric)
+{
   auto stream = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
@@ -246,24 +195,24 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
   raft::distance::distance<metric, value_t, value_t, value_t, int>(
     X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
 
-  rmm::device_uvector<value_t> min_dist(m * n_selected_clusters, stream);
-  thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), DBL_MAX);
+  rmm::device_uvector<value_t> min_dist(m * n_clusters, stream);
+  thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), std::numeric_limits<value_t>::max());
   
   auto reduction_op =
     [dist = dist.data(),
-     n_selected_clusters,
+     n_clusters,
      n_exemplars,
      exemplar_label_offsets,
      min_dist = min_dist.data()]
      __device__(auto idx) {
-      auto col = idx % n_selected_clusters;
-      auto row = idx / n_selected_clusters;
+      auto col = idx % n_clusters;
+      auto row = idx / n_clusters;
       auto start = exemplar_label_offsets[col];
       auto end = exemplar_label_offsets[col + 1];
     
       for(value_idx i = start; i < end; i++){
-        if (dist[row * n_exemplars + i] < min_dist[row * n_selected_clusters + col]){
-          min_dist[row * n_selected_clusters + col] = dist[row * n_exemplars + i];
+        if (dist[row * n_exemplars + i] < min_dist[row * n_clusters + col]){
+          min_dist[row * n_clusters + col] = dist[row * n_exemplars + i];
         }
       }
        return;
@@ -272,7 +221,7 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
   thrust::for_each(
     exec_policy,
     counting,
-    counting + m * n_selected_clusters,
+    counting + m * n_clusters,
     reduction_op
     );
   
@@ -280,13 +229,13 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
     thrust::transform(
       exec_policy,
       min_dist.data(),
-      min_dist.data() + m * n_selected_clusters,
+      min_dist.data() + m * n_clusters,
       dist_membership_vec,
       [=] __device__(value_t val){
         if(val != 0){
-          return exp(value_t(1.0/val));
+          return exp(value_t(1.0/val - std::numeric_limits<value_t>::max()));
         }
-        return std::numeric_limits<value_t>::max();
+        return 1.0;
       }
     );
   }
@@ -295,13 +244,13 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
     thrust::transform(
       exec_policy,
       min_dist.data(),
-      min_dist.data() + m * n_selected_clusters,
+      min_dist.data() + m * n_clusters,
       dist_membership_vec,
       [=] __device__(value_t val){
         if(val != 0){
           return value_t(1.0/val);
         }
-        return value_t(std::numeric_limits<value_t>::max()/n_selected_clusters);
+        return value_t(std::numeric_limits<value_t>::max()/n_clusters);
       }
     );
   }
@@ -309,13 +258,21 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
   rmm::device_uvector<value_t> dist_membership_vec_sums(m, stream);
   thrust::fill(exec_policy, dist_membership_vec_sums.begin(), dist_membership_vec_sums.end(), 1.0);
 
-  // TODO: Compute distance membership vector sums correctly
+  raft::linalg::rowNorm(
+    dist_membership_vec_sums.data(),
+    dist_membership_vec,
+    n_clusters,
+    m,
+    raft::linalg::L1Norm,
+    true,
+    stream
+  );
 
   raft::linalg::matrixVectorOp(
     dist_membership_vec,
     dist_membership_vec,
     dist_membership_vec_sums.data(),
-    n_selected_clusters,
+    n_clusters,
     m,
     true,
     true,
