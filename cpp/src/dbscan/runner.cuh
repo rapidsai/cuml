@@ -34,6 +34,11 @@
 
 #include <label/classlabels.cuh>
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/iterator/counting_iterator.h>
+
 #include <cstddef>
 
 namespace ML {
