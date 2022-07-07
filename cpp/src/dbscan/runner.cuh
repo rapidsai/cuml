@@ -119,7 +119,8 @@ std::size_t run(const raft::handle_t& handle,
                 int algo_ccl,
                 void* workspace,
                 std::size_t batch_size,
-                cudaStream_t stream)
+                cudaStream_t stream,
+                raft::distance::DistanceType metric)
 {
   const std::size_t align = 256;
   Index_ n_batches        = raft::ceildiv((std::size_t)n_owned_rows, batch_size);
@@ -196,7 +197,7 @@ std::size_t run(const raft::handle_t& handle,
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
     VertexDeg::run<Type_f, Index_>(
-      handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream);
+      handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream, metric);
     raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing core point mask");
@@ -224,7 +225,7 @@ std::size_t run(const raft::handle_t& handle,
       CUML_LOG_DEBUG("--> Computing vertex degrees");
       raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
       VertexDeg::run<Type_f, Index_>(
-        handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream);
+        handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream, metric);
       raft::common::nvtx::pop_range();
     }
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
