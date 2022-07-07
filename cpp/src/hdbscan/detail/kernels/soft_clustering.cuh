@@ -38,7 +38,7 @@ __global__ void min_dist_to_exemplar_kernel(value_t* dist,
   auto end = exemplar_label_offsets[col + 1];
 
   for(value_idx i = start; i < end; i++){
-    if dist[idx + i] < min_dist[idx]{
+    if (dist[idx + i] < min_dist[idx]){
       min_dist[idx] = dist[idx + i];
     }
   }

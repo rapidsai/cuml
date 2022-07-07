@@ -29,11 +29,13 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
@@ -57,7 +59,7 @@ template <typename value_idx, typename value_t>
 value_idx get_exemplars(const raft::handle_t& handle,
                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                         const value_idx* labels,
-                        value_idx n_selected_clusters,
+                        value_idx n_clusters,
                         value_idx* exemplar_idx,
                         value_idx* exemplar_label_offsets)
 {
@@ -74,8 +76,8 @@ value_idx get_exemplars(const raft::handle_t& handle,
   thrust::sequence(exec_policy, leaf_idx.begin(), leaf_idx.end(), 1);
   thrust::sort_by_key(exec_policy, sorted_labels.begin(), sorted_labels.end(), leaf_idx.data());
 
-  rmm::device_uvector<value_idx> sorted_labels_unique(n_selected_clusters + 1, stream);
-  rmm::device_uvector<value_idx> sorted_label_offsets(n_selected_clusters + 2, stream);
+  rmm::device_uvector<value_idx> sorted_labels_unique(n_clusters + 1, stream);
+  rmm::device_uvector<value_idx> sorted_label_offsets(n_clusters + 2, stream);
   auto offsets_end_ptr = thrust::unique_by_key_copy(exec_policy,
                                                     sorted_labels.data(),
                                                     sorted_labels.data() + n_leaves,
@@ -94,7 +96,7 @@ value_idx get_exemplars(const raft::handle_t& handle,
     sorted_label_offsets.set_element(n_groups, n_leaves, stream);
   }
   
-  CUML_LOG_DEBUG("n_selected_clusters: %d\n", n_groups);
+  CUML_LOG_DEBUG("n_clusters: %d\n", n_groups);
 
   auto counting = thrust::make_counting_iterator<value_idx>(0);
 
@@ -225,6 +227,8 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
                                  )
 { 
   auto stream = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
   auto counting = thrust::make_counting_iterator<value_idx>(0);
  
   rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
@@ -248,6 +252,7 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
   auto reduction_op =
     [dist = dist.data(),
      n_selected_clusters,
+     n_exemplars,
      exemplar_label_offsets,
      min_dist = min_dist.data()]
      __device__(auto idx) {
@@ -257,7 +262,7 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
       auto end = exemplar_label_offsets[col + 1];
     
       for(value_idx i = start; i < end; i++){
-        if dist[row * n_exemplars + i] < min_dist[row * n_selected_clusters + col]{
+        if (dist[row * n_exemplars + i] < min_dist[row * n_selected_clusters + col]){
           min_dist[row * n_selected_clusters + col] = dist[row * n_exemplars + i];
         }
       }
@@ -272,7 +277,18 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
     );
   
   if (softmax){
-    // TODO: implement softmax
+    thrust::transform(
+      exec_policy,
+      min_dist.data(),
+      min_dist.data() + m * n_selected_clusters,
+      dist_membership_vec,
+      [=] __device__(value_t val){
+        if(val != 0){
+          return exp(value_t(1.0/val));
+        }
+        return std::numeric_limits<value_t>::max();
+      }
+    );
   }
 
   else{
@@ -285,7 +301,7 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
         if(val != 0){
           return value_t(1.0/val);
         }
-        return value_t(DBL_MAX/n_selected_clusters);
+        return value_t(std::numeric_limits<value_t>::max()/n_selected_clusters);
       }
     );
   }
@@ -306,6 +322,8 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
     stream
   );
+};
+
 };  // namespace Membership
 };  // namespace detail
 };  // namespace HDBSCAN

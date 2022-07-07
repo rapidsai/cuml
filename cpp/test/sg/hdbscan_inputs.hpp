@@ -66,6 +66,17 @@ struct ClusterSelectionInputs {
   std::vector<IdxT> labels;
 };
 
+template <typename T, typename IdxT>
+struct SoftClusteringInputs {
+  IdxT n_row;
+  IdxT n_col;
+  int k, min_pts, min_cluster_size;
+
+  std::vector<T> data;
+
+  std::vector<T> expected_probabilities;
+};
+
 const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
