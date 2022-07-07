@@ -156,9 +156,7 @@ class UMAP(Base,
         'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
         'hamming', 'jaccard']
         Metrics that take arguments (such as minkowski) can have arguments
-        passed via the metric_kwds dictionary. At this time care must
-        be taken and dictionary elements must be ordered appropriately;
-        this will hopefully be fixed in the future.
+        passed via the metric_kwds dictionary.
     n_epochs: int (optional, default None)
         The number of training epochs to be used in optimizing the
         low dimensional embedding. Larger values result in more accurate
