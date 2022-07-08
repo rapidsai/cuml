@@ -41,6 +41,7 @@ void run(const raft::handle_t& handle,
 {
   Pack<Type_f, Index_> data = {vd, adj, x, eps, N, D};
   switch (algo) {
+    // TODO: deprecate naive runner. cf #3414
     case 0: Naive::launcher<Type_f, Index_>(data, start_vertex_id, batch_size, stream); break;
     case 1:
       Algo::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream, metric);
