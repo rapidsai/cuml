@@ -299,7 +299,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     // potentialCentroids
     // RAFT_CUDA_TRY(cudaMemsetAsync(nPtsSampledByRank, 0, n_rank * sizeof(int), stream));
     std::fill(nPtsSampledByRank, nPtsSampledByRank + n_rank, 0);
-    nPtsSampledByRank[my_rank] = inRankCp.size();
+    nPtsSampledByRank[my_rank] = inRankCp.size() / n_features;
     comm.allgather(&(nPtsSampledByRank[my_rank]), nPtsSampledByRank, 1, stream);
     ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
