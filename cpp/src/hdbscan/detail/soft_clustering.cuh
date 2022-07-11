@@ -281,6 +281,52 @@ value_idx dist_membership_vector(const raft::handle_t& handle,
   );
 };
 
+template <typename value_idx, typename value_t, int tpb = 256>
+value_idx outlier_membership_vector(const raft::handle_t& handle,
+                                    Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                                    size_t m,
+                                    size_t n_exemplars,
+                                    size_t n_clusters,
+                                    bool softmax,
+                                    value_idx* exemplar_idx,
+                                    value_idx* exemplar_label_offsets,
+                                    value_t* dist_membership_vec,
+                                    raft::distance::DistanceType metric)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  auto parents    = condensed_tree.get_parents();
+  auto children   = condensed_tree.get_children();
+  auto lambdas    = condensed_tree.get_lambdas();
+  auto n_edges    = condensed_tree.get_n_edges();
+  auto n_clusters = condensed_tree.get_n_clusters();
+  auto n_leaves   = condensed_tree.get_n_leaves();
+
+  rmm::device_uvector<value_idx> index_into_children(n_edges, stream);
+  auto index_op =
+    [index_into_children = index_into_children.data()] __device__(auto t) {
+       index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+       return;
+       };
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+  thrust::for_each(
+    exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
+    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
+    index_op
+  );
+  
+  value_idx n_blocks = m * n_clusters / tpb;
+  merge_height_kernel<<<n_blocks, tpb>>>(
+    outlier_membership_vec,
+    index_into_children.data(),
+    parents,
+    m,
+    n_clusters,
+    selected_clusters
+  )
+}
 };  // namespace Membership
 };  // namespace detail
 };  // namespace HDBSCAN

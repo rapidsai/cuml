@@ -46,6 +46,49 @@ __global__ void min_dist_to_exemplar_kernel(value_t* dist,
   return;
 }
 
+template <typename value_idx, typename value_t, int tpb = 256>
+__global__ void merge_height_kernel(value_t* outlier_membership_vec,
+                                    value_idx* index_into_children,
+                                    value_idx* inv_label_map,
+                                    value_idx* parents,
+                                    value_idx m,
+                                    value_idx n_selected_clusters,
+                                    value_idx* selected_clusters
+                                    )
+{ 
+  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx >= m * n_selected_clusters) return;
+
+  row = idx / n_selected_clusters;
+  col = idx % n_selected_clusters;
+  right_cluster = selected_clusters[col];
+  left_cluster = parents[index_into_children[row]];
+  bool took_right_parent = false;
+  bool took_left_parent = false;
+
+  while (left_cluster != right_cluster){
+    if (left_cluster > right_cluster){
+      took_left_parent = true;
+      last_cluster = left_cluster;
+      left_cluster = parents[index_into_children[left_cluster]];
+    }
+    else {
+      took_right_parent = true;
+      last_cluster = right_cluster;
+      right_cluster = parents[index_into_children[right_cluster]];
+    }
+  }
+
+  if (took_left_parent && took_right_parent){
+    outlier_membership_vec[idx] = lambdas[last_cluster];
+  }
+
+  else{
+    outlier_membership_vec[idx] = lambdas[row];
+  }
+}
+
+
 };  // namespace Membership
 };  // namespace detail
 };  // namespace HDBSCAN

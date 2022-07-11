@@ -70,9 +70,19 @@ template <typename T, typename IdxT>
 struct SoftClusteringInputs {
   IdxT n_row;
   IdxT n_col;
-  int k, min_pts, min_cluster_size;
+  int min_samples;
+  int min_cluster_size;
 
   std::vector<T> data;
+
+  std::vector<IdxT> condensed_parents;
+  std::vector<IdxT> condensed_children;
+  std::vector<T> condensed_lambdas;
+  std::vector<IdxT> condensed_sizes;
+
+  Common::CLUSTER_SELECTION_METHOD cluster_selection_method;
+  bool allow_single_cluster;
+  T cluster_selection_epsilon;
 
   std::vector<T> expected_probabilities;
 };
@@ -2267,5 +2277,33 @@ const std::vector<ClusterSelectionInputs<float, int>> cluster_selection_inputs =
     -1, -1, -1, -1, 11, 13, -1, 15, 13, -1, -1, -1, -1, -1, 13, -1, 1,  16, 11, -1, -1, 18, 13, -1,
     -1, -1, -1, -1, 3,  -1, 3,  3,  -1, -1, -1, -1, -1, -1, -1, -1, 15, 1,  -1, -1, -1}}};
 
+const std::vector<SoftClusteringInputs<float, int>> soft_clustering_inputs = {
+  {MLCommon::Datasets::Digits::n_samples,
+   MLCommon::Datasets::Digits::n_features,
+   5,
+   10,
+   MLCommon::Datasets::Digits::digits,
+   Digits::parents,
+   Digits::children,
+   Digits::lambdas,
+   Digits::sizes,
+   Common::CLUSTER_SELECTION_METHOD::EOM,
+   false,
+   50.0,
+   {1.,      1.,      0.92582, 0.92582, 1.,      0.63246, 0.7746,  1.,      0.67937, 1.,
+    0.73855, 0.8165,  1.,      0.4899,  0.42008, 0.38255, 0.61237, 1.,      0.4714,  0.7746,
+    0.67937, 0.86603, 0.45486, 0.63246, 0.54772, 0.8165,  0.92582, 1.,      1.,      1.,
+    1.,      0.70711, 0.53452, 0.51075, 1.,      0.73855, 0.67937, 0.8165,  0.8165,  1.,
+    1.,      0.30861, 0.7746,  0.57735, 0.51075, 0.92582, 0.73855, 1.,      0.86603, 1.,
+    0.8165,  1.,      0.83205, 0.97333, 1.,      1.,      0.92582, 0.53882, 1.,      0.78784,
+    0.58835, 1.,      0.72761, 0.97333, 0.78784, 1.,      1.,      1.,      0.6,     1.,
+    0.90453, 1.,      0.97333, 0.92582, 1.,      1.,      1.,      1.,      1.,      0.90453,
+    1.,      0.97333, 1.,      1.,      0.83205, 0.83205, 1.,      0.68825, 1.,      1.,
+    1.,      1.,      1.,      0.58835, 1.,      1.,      1.,      1.,      0.51832, 1.,
+    0.69749, 1.,      0.84853, 1.,      1.,      0.69749, 0.48038, 0.762,   0.67937, 0.52623,
+    0.90453, 1.,      1.,      0.7746,  0.66259, 1.,      1.,      0.41603, 0.43994, 0.647,
+    1.,      0.86603, 0.60609, 1.,      1.,      0.65465, 1.,      1.,      1.,      0.6,
+    0.78784, 0.41404, 0.90453, 0.92582, 0.60609, 0.60609, 0.84853, 0.92582, 0.97333, 1.,
+    1.,      0.8165,  1.,      1.,      0.97333, 1.,      0.88465, 1.,      0.67937, 1.}}};
 };  // namespace HDBSCAN
 };  // namespace ML
