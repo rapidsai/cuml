@@ -22,6 +22,9 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/fill.h>
+#include <thrust/transform.h>
+
 namespace ML {
 
 namespace kmeans {

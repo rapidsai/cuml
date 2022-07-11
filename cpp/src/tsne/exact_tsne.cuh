@@ -20,6 +20,10 @@
 #include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+
 namespace ML {
 namespace TSNE {
 

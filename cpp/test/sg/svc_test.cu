@@ -38,9 +38,12 @@
 #include <svm/workingset.cuh>
 #include <test_utils.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/reduce.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 #include <type_traits>
 #include <vector>
 
