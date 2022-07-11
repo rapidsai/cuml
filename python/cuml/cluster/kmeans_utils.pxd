@@ -16,7 +16,7 @@
 
 import ctypes
 from libcpp cimport bool
-from libc.stdint cimport uint64_t
+
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.common.rng_state cimport RngState
 

@@ -17,6 +17,7 @@
 #include "benchmark.cuh"
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/distance/distance_type.hpp>
 #include <raft/random/rng_state.hpp>
 #include <utility>
 
@@ -84,8 +85,11 @@ std::vector<Params> getInputs()
   p.blobs.center_box_min                   = -10.0;
   p.blobs.center_box_max                   = 10.0;
   p.blobs.seed                             = 12345ULL;
+  p.kmeans.init                            = ML::kmeans::KMeansParams::InitMethod(0);
   p.kmeans.max_iter                        = 300;
   p.kmeans.tol                             = 1e-4;
+  p.kmeans.verbosity                       = RAFT_LEVEL_INFO;
+  p.kmeans.metric                          = raft::distance::DistanceType::L2Expanded;
   p.kmeans.rng_state                       = raft::random::RngState(p.blobs.seed);
   p.kmeans.inertia_check                   = true;
   std::vector<std::pair<int, int>> rowcols = {
