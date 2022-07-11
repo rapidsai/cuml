@@ -26,6 +26,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 
 namespace ML {

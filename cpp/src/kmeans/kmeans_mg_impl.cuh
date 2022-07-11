@@ -25,6 +25,11 @@
 #include <rmm/device_uvector.hpp>
 
 #include <ml_cuda_utils.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+#include <thrust/reduce.h>
+#include <thrust/scan.h>
+#include <thrust/transform.h>
 
 namespace ML {
 

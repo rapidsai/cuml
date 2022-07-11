@@ -16,6 +16,9 @@
  */
 #include "../quantiles.cuh"
 
+#include <thrust/execution_policy.h>
+#include <thrust/unique.h>
+
 namespace ML {
 namespace DT {
 
