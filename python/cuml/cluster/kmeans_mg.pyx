@@ -124,7 +124,8 @@ class KMeansMG(KMeans):
         cdef float inertiaf = 0
         cdef double inertiad = 0
 
-        cdef KMeansParams* params = <KMeansParams*><size_t>self._get_kmeans_params()
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
         cdef int n_iter = 0
 
         if self.dtype == np.float32:

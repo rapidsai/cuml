@@ -245,7 +245,8 @@ class KMeans(Base,
     cluster_centers_ = CumlArrayDescriptor()
 
     def _get_kmeans_params(self):
-        cdef KMeansParams* params = <KMeansParams*>calloc(1, sizeof(KMeansParams))
+        cdef KMeansParams* params = \
+            <KMeansParams*>calloc(1, sizeof(KMeansParams))
         params.n_clusters = <int>self.n_clusters
         params.init = self._params_init
         params.max_iter = <int>self.max_iter
@@ -303,7 +304,6 @@ class KMeans(Base,
                 input_to_cuml_array(init, order='C',
                                     check_dtype=[np.float32, np.float64])
 
-
     @generate_docstring()
     def fit(self, X, sample_weight=None) -> "KMeans":
         """
@@ -349,7 +349,8 @@ class KMeans(Base,
         cdef float inertiaf = 0
         cdef double inertiad = 0
 
-        cdef KMeansParams* params = <KMeansParams*><size_t>self._get_kmeans_params()
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
         cdef int n_iter = 0
 
         if self.dtype == np.float32:
@@ -465,7 +466,8 @@ class KMeans(Base,
         # Sum of squared distances of samples to their closest cluster center.
         cdef float inertiaf = 0
         cdef double inertiad = 0
-        cdef KMeansParams* params = <KMeansParams*><size_t>self._get_kmeans_params()
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
 
         if self.dtype == np.float32:
             predict(
@@ -553,7 +555,8 @@ class KMeans(Base,
         cdef uintptr_t preds_ptr = preds.ptr
 
         # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
-        cdef KMeansParams* params = <KMeansParams*><size_t>self._get_kmeans_params()
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
         params.metric = DistanceType.L2SqrtExpanded
 
         if self.dtype == np.float32:
