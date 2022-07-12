@@ -698,8 +698,8 @@ void fit(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
-  ASSERT(params.oversampling_factor >= 0,
-         "oversampling factor must be >= 0 (requested %d)",
+  ASSERT(params.oversampling_factor > 0,
+         "oversampling factor must be > 0 (requested %d)",
          (int)params.oversampling_factor);
   ASSERT(is_device_or_managed_type(X), "input data must be device accessible");
 
