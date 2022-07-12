@@ -24,6 +24,8 @@
 #include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/transform.h>
+
 #include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
 #include "fft_tsne.cuh"

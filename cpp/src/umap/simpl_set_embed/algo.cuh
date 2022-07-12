@@ -24,11 +24,6 @@
 
 #include <curand.h>
 #include <math.h>
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/system/cuda/execution_policy.h>
 
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
@@ -42,8 +37,16 @@
 #include <string>
 
 #include <raft/sparse/op/filter.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
-#pragma once
+#include <thrust/reduce.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
