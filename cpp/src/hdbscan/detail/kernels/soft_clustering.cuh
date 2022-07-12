@@ -47,7 +47,8 @@ __global__ void min_dist_to_exemplar_kernel(value_t* dist,
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void merge_height_kernel(value_t* outlier_membership_vec,
+__global__ void merge_height_kernel(value_t* heights,
+                                    value_t* lambdas,
                                     value_idx* index_into_children,
                                     value_idx* inv_label_map,
                                     value_idx* parents,
@@ -59,12 +60,13 @@ __global__ void merge_height_kernel(value_t* outlier_membership_vec,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx >= m * n_selected_clusters) return;
 
-  row = idx / n_selected_clusters;
-  col = idx % n_selected_clusters;
-  right_cluster = selected_clusters[col];
-  left_cluster = parents[index_into_children[row]];
+  auto row = idx / n_selected_clusters;
+  auto col = idx % n_selected_clusters;
+  value_idx right_cluster = selected_clusters[col];
+  value_idx left_cluster = parents[index_into_children[row]];
   bool took_right_parent = false;
   bool took_left_parent = false;
+  value_idx last_cluster;
 
   while (left_cluster != right_cluster){
     if (left_cluster > right_cluster){
@@ -80,11 +82,11 @@ __global__ void merge_height_kernel(value_t* outlier_membership_vec,
   }
 
   if (took_left_parent && took_right_parent){
-    outlier_membership_vec[idx] = lambdas[last_cluster];
+    heights[idx] = lambdas[last_cluster];
   }
 
   else{
-    outlier_membership_vec[idx] = lambdas[row];
+    heights[idx] = lambdas[row];
   }
 }
 
