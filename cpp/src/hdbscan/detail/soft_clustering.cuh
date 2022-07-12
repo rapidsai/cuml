@@ -305,14 +305,12 @@ value_idx all_points_dist_membership_vector(const raft::handle_t& handle,
 };
 
 template <typename value_idx, typename value_t, int tpb = 256>
-value_idx all_points_outlier_membership_vector(const raft::handle_t& handle,
-                                               Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                                               const value_idx* label_map,
-                                               size_t m,
-                                               size_t n_selected_clusters,
-                                               value_t* merge_heights,
-                                               value_t* outlier_membership_vec,
-                                               bool softmax = false)
+value_idx get_merge_heights(const raft::handle_t& handle,
+                            Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                            value_idx* selected_clusters,
+                            size_t m,
+                            size_t n_selected_clusters,
+                            value_t* merge_heights)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -325,15 +323,6 @@ value_idx all_points_outlier_membership_vector(const raft::handle_t& handle,
   auto n_leaves   = condensed_tree.get_n_leaves();
 
   auto counting = thrust::make_counting_iterator<value_idx>(0);
-
-  rmm:device_uvector<value_idx> selected_clusters(n_selected_clusters, stream);
-  thrust::copy_if(
-    exec_policy,
-    counting + n_leaves,
-    counting + n_leaves + n_clusters,
-    selected_clusters.data(),
-    [] __device__(auto idx) { return label_map[idx - n_leaves] >= 0; }
-  );
 
   rmm::device_uvector<value_idx> index_into_children(n_edges, stream);
   auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
@@ -348,14 +337,33 @@ value_idx all_points_outlier_membership_vector(const raft::handle_t& handle,
   );
 
   int n_blocks = (m * n_selected_clusters) / tpb;
-  merge_height_kernel<<<n_blocks, tpb>>>(
-    merge_heights,
-    index_into_children.data(),
-    parents,
-    m,
-    n_selected_clusters,
-    selected_clusters.data()
-  )
+  merge_height_kernel<<<n_blocks, tpb>>>(merge_heights,
+                                         index_into_children.data(),
+                                         parents,
+                                         m,
+                                         n_selected_clusters,
+                                         selected_clusters)
+}
+
+template <typename value_idx, typename value_t, int tpb = 256>
+value_idx all_points_outlier_membership_vector(
+  const raft::handle_t& handle,
+  Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+  value_idx* selected_clusters,
+  size_t m,
+  size_t n_selected_clusters,
+  value_t* merge_heights
+)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  auto parents    = condensed_tree.get_parents();
+  auto children   = condensed_tree.get_children();
+  auto lambdas    = condensed_tree.get_lambdas();
+  auto n_edges    = condensed_tree.get_n_edges();
+  auto n_clusters = condensed_tree.get_n_clusters();
+  auto n_leaves   = condensed_tree.get_n_leaves();
 
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
@@ -487,9 +495,7 @@ void all_points_membership_vector(
                                        n_selected_clusters,
                                        merge_heights.data(),
                                        outlier_membership_vec.data(),
-                                       softmax = false)
-
-  )
+                                       softmax = false);
 }
 
 };  // namespace Membership
