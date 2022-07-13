@@ -36,7 +36,7 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
 
     Parameters
     ----------
-    doc: cudf.Series or pd.Series
+    doc: cudf.Series[str] or pd.Series[str]
         The string to preprocess
     lower: bool
         Whether to use str.lower to lowercase all of the text
