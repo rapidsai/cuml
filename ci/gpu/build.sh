@@ -33,7 +33,7 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
 
 # ucx-py version
-export UCX_PY_VERSION='0.26.*'
+export UCX_PY_VERSION='0.27.*'
 
 # configure numba threading library
 export NUMBA_THREADING_LAYER=workqueue
@@ -66,7 +66,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.5.2dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.6.0dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "shap>=0.37,<=0.39"
@@ -124,8 +124,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -197,8 +197,8 @@ else
     gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
 
-    pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
     pip install sparse
 

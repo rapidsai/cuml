@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
