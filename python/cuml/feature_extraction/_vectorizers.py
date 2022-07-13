@@ -25,6 +25,7 @@ import cudf
 from cuml.common.type_utils import CUPY_SPARSE_DTYPES
 from cudf.utils.dtypes import min_signed_type
 import cuml.common.logger as logger
+import pandas as pd
 
 
 def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
@@ -35,7 +36,7 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
 
     Parameters
     ----------
-    doc: cudf.Series[str]
+    doc: cudf.Series or pd.Series
         The string to preprocess
     lower: bool
         Whether to use str.lower to lowercase all of the text
@@ -49,6 +50,8 @@ def _preprocess(doc, lower=False, remove_non_alphanumeric=False, delimiter=" ",
     doc: cudf.Series[str]
         preprocessed string
     """
+    if isinstance(doc, pd.Series):
+        doc = Series(doc)
     if lower:
         doc = doc.str.lower()
     if remove_non_alphanumeric:
@@ -513,7 +516,7 @@ class CountVectorizer(_VectorizerMixin):
         Parameters
         ----------
 
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
             A Series of string documents
 
         Returns
@@ -533,7 +536,7 @@ class CountVectorizer(_VectorizerMixin):
 
         Parameters
         ----------
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
            A Series of string documents
 
         Returns
@@ -591,7 +594,7 @@ class CountVectorizer(_VectorizerMixin):
 
         Parameters
         ----------
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
            A Series of string documents
 
         Returns
@@ -825,14 +828,9 @@ class HashingVectorizer(_VectorizerMixin):
 
         Parameters
         ----------
-        X : cudf.Series
+        X : cudf.Series or pd.Series
              A Series of string documents
         """
-        if not (
-            isinstance(X, cudf.Series)
-            and isinstance(X._column, cudf.core.column.StringColumn)
-        ):
-            raise ValueError(f"cudf.Series([str]) expected ,got {type(X)}")
         self._warn_for_unused_params()
         self._validate_params()
         return self
@@ -896,7 +894,7 @@ class HashingVectorizer(_VectorizerMixin):
 
         Parameters
         ----------
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
             A Series of string documents
 
         Returns
