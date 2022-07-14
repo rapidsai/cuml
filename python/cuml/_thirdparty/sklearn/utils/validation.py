@@ -16,22 +16,36 @@
 
 
 import numbers
+import warnings
 import numpy as np
 import cupy as cp
 import cupyx.scipy.sparse as sp
 from inspect import isclass
 
-from ....common.exceptions import NotFittedError
+from ....common.exceptions import DataConversionWarning, NotFittedError
 from ....thirdparty_adapters import check_array
 
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
 
-def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
-              dtype="numeric", order=None, copy=False, force_all_finite=True,
-              ensure_2d=True, allow_nd=False, multi_output=False,
-              ensure_min_samples=1, ensure_min_features=1, y_numeric=False):
+def check_X_y(
+    X,
+    y,
+    accept_sparse=False,
+    *,
+    accept_large_sparse=True,
+    dtype="numeric",
+    order=None,
+    copy=False,
+    force_all_finite=True,
+    ensure_2d=True,
+    allow_nd=False,
+    multi_output=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    y_numeric=False
+):
     """Input validation for standard estimators.
 
     Checks X and y for consistent length, enforces X to be 2D and y 1D. By
@@ -122,26 +136,39 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
     if y is None:
         raise ValueError("y cannot be None")
 
-    X = check_array(X, accept_sparse=accept_sparse,
-                    accept_large_sparse=accept_large_sparse,
-                    dtype=dtype, order=order, copy=copy,
-                    force_all_finite=force_all_finite,
-                    ensure_2d=ensure_2d, allow_nd=allow_nd,
-                    ensure_min_samples=ensure_min_samples,
-                    ensure_min_features=ensure_min_features)
+    X = check_array(
+        X,
+        accept_sparse=accept_sparse,
+        accept_large_sparse=accept_large_sparse,
+        dtype=dtype,
+        order=order,
+        copy=copy,
+        force_all_finite=force_all_finite,
+        ensure_2d=ensure_2d,
+        allow_nd=allow_nd,
+        ensure_min_samples=ensure_min_samples,
+        ensure_min_features=ensure_min_features,
+    )
 
-    y = check_array(y, accept_sparse='csr', force_all_finite=True,
-                    ensure_2d=False, dtype='numeric' if y_numeric else None)
+    y = check_array(
+        y,
+        accept_sparse="csr",
+        force_all_finite=True,
+        ensure_2d=False,
+        dtype="numeric" if y_numeric else None,
+    )
 
     if not multi_output and y.ndim > 1:
         if y.shape[1] > 1:
             raise ValueError(
                 "y should be a 1d array, "
-                "got an array of shape {} instead.".format(y.shape))
+                "got an array of shape {} instead.".format(y.shape)
+            )
 
     if X.shape[0] != y.shape[0]:
-        raise ValueError("Found input variables with inconsistent numbers of"
-                         " samples")
+        raise ValueError(
+            "Found input variables with inconsistent numbers of" " samples"
+        )
 
     return X, y
 
@@ -163,8 +190,9 @@ def check_random_state(seed):
         return np.random.RandomState(seed)
     if isinstance(seed, np.random.RandomState):
         return seed
-    raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
-                     ' instance' % seed)
+    raise ValueError(
+        "%r cannot be used to seed a numpy.random.RandomState" " instance" % seed
+    )
 
 
 def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
@@ -215,10 +243,12 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
     if isclass(estimator):
         raise TypeError("{} is a class, not an instance.".format(estimator))
     if msg is None:
-        msg = ("This %(name)s instance is not fitted yet. Call 'fit' with "
-               "appropriate arguments before using this estimator.")
+        msg = (
+            "This %(name)s instance is not fitted yet. Call 'fit' with "
+            "appropriate arguments before using this estimator."
+        )
 
-    if not hasattr(estimator, 'fit'):
+    if not hasattr(estimator, "fit"):
         raise TypeError("%s is not an estimator instance." % (estimator))
 
     if attributes is not None:
@@ -226,11 +256,12 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
             attributes = [attributes]
         attrs = all_or_any([hasattr(estimator, attr) for attr in attributes])
     else:
-        attrs = [v for v in vars(estimator)
-                 if v.endswith("_") and not v.startswith("__")]
+        attrs = [
+            v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")
+        ]
 
     if not attrs:
-        raise NotFittedError(msg % {'name': type(estimator).__name__})
+        raise NotFittedError(msg % {"name": type(estimator).__name__})
 
 
 def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
@@ -260,10 +291,180 @@ def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
         y = y.tocsr()
         x.sum_duplicates()
         y.sum_duplicates()
-        return (cp.array_equal(x.indices, y.indices) and
-                cp.array_equal(x.indptr, y.indptr) and
-                cp.allclose(x.data, y.data, rtol=rtol, atol=atol))
+        return (
+            cp.array_equal(x.indices, y.indices)
+            and cp.array_equal(x.indptr, y.indptr)
+            and cp.allclose(x.data, y.data, rtol=rtol, atol=atol)
+        )
     elif not sp.issparse(x) and not sp.issparse(y):
         return cp.allclose(x, y, rtol=rtol, atol=atol)
-    raise ValueError("Can only compare two sparse matrices, not a sparse "
-                     "matrix and an array")
+    raise ValueError(
+        "Can only compare two sparse matrices, not a sparse " "matrix and an array"
+    )
+
+
+def _make_indexable(iterable):
+    """Ensure iterable supports indexing or convert to an indexable variant.
+    Convert sparse matrices to csr and other non-indexable iterable to arrays.
+    Let `None` and indexable objects (e.g. pandas dataframes) pass unchanged.
+    Parameters
+    ----------
+    iterable : {list, dataframe, ndarray, sparse matrix} or None
+        Object to be converted to an indexable iterable.
+    """
+    if sp.issparse(iterable):
+        return iterable.tocsr()
+    elif hasattr(iterable, "__getitem__") or hasattr(iterable, "iloc"):
+        return iterable
+    elif iterable is None:
+        return iterable
+    return cp.array(iterable)
+
+
+def _num_samples(x):
+    """Return number of samples in array-like x."""
+    message = "Expected sequence or array-like, got %s" % type(x)
+    if hasattr(x, "fit") and callable(x.fit):
+        # Don't get num_samples from an ensembles length!
+        raise TypeError(message)
+
+    if not hasattr(x, "__len__") and not hasattr(x, "shape"):
+        if hasattr(x, "__array__"):
+            x = cp.asarray(x)
+        else:
+            raise TypeError(message)
+
+    if hasattr(x, "shape") and x.shape is not None:
+        if len(x.shape) == 0:
+            raise TypeError(
+                "Singleton array %r cannot be considered a valid collection." % x
+            )
+        # Check that shape is returning an integer or default to len
+        # Dask dataframes may not return numeric shape[0] value
+        if isinstance(x.shape[0], numbers.Integral):
+            return x.shape[0]
+
+    try:
+        return len(x)
+    except TypeError as type_error:
+        raise TypeError(message) from type_error
+
+
+def check_consistent_length(*arrays):
+    """Check that all arrays have consistent first dimensions.
+    Checks whether all objects in arrays have the same shape or length.
+    Parameters
+    ----------
+    *arrays : list or tuple of input objects.
+        Objects that will be checked for consistent length.
+    """
+
+    lengths = [_num_samples(X) for X in arrays if X is not None]
+    uniques = cp.unique(lengths)
+    if len(uniques) > 1:
+        raise ValueError(
+            "Found input variables with inconsistent numbers of samples: %r"
+            % [int(l) for l in lengths]
+        )
+
+
+def indexable(*iterables):
+    """Make arrays indexable for cross-validation.
+    Checks consistent length, passes through None, and ensures that everything
+    can be indexed by converting sparse matrices to csr and converting
+    non-interable objects to arrays.
+    Parameters
+    ----------
+    *iterables : {lists, dataframes, ndarrays, sparse matrices}
+        List of objects to ensure sliceability.
+    Returns
+    -------
+    result : list of {ndarray, sparse matrix, dataframe} or None
+        Returns a list containing indexable arrays (i.e. NumPy array,
+        sparse matrix, or dataframe) or `None`.
+    """
+    result = [_make_indexable(X) for X in iterables]
+    check_consistent_length(*result)
+    return result
+
+
+def column_or_1d(y, *, warn=False):
+    """Ravel column or 1d numpy array, else raises an error.
+    Parameters
+    ----------
+    y : array-like
+       Input data.
+    warn : bool, default=False
+       To control display of warnings.
+    Returns
+    -------
+    y : ndarray
+       Output data.
+    Raises
+    -------
+    ValueError
+        If `y` is not a 1D array or a 2D array with a single row or column.
+    """
+    y = cp.asarray(y)
+    shape = cp.shape(y)
+    if len(shape) == 1:
+        return cp.ravel(y)
+    if len(shape) == 2 and shape[1] == 1:
+        if warn:
+            warnings.warn(
+                "A column-vector y was passed when a 1d array was"
+                " expected. Please change the shape of y to "
+                "(n_samples, ), for example using ravel().",
+                DataConversionWarning,
+                stacklevel=2,
+            )
+        return cp.ravel(y)
+
+    raise ValueError(
+        "y should be a 1d array, got an array of shape {} instead.".format(shape)
+    )
+
+
+def _assert_all_finite(X, allow_nan=False, msg_dtype=None):
+    """Like assert_all_finite, but only for ndarray."""
+    # validation is also imported in extmath
+    from .extmath import _safe_accumulator_op
+
+    if _get_config()["assume_finite"]:
+        return
+    X = cp.asanyarray(X)
+    # First try an O(n) time, O(1) space solution for the common case that
+    # everything is finite; fall back to O(n) space np.isfinite to prevent
+    # false positives from overflow in sum method. The sum is also calculated
+    # safely to reduce dtype induced overflows.
+    is_float = X.dtype.kind in "fc"
+    if is_float and (cp.isfinite(_safe_accumulator_op(cp.sum, X))):
+        pass
+    elif is_float:
+        msg_err = "Input contains {} or a value too large for {!r}."
+        if (
+            allow_nan
+            and cp.isinf(X).any()
+            or not allow_nan
+            and not cp.isfinite(X).all()
+        ):
+            type_err = "infinity" if allow_nan else "NaN, infinity"
+            raise ValueError(
+                msg_err.format(
+                    type_err, msg_dtype if msg_dtype is not None else X.dtype
+                )
+            )
+    # for object dtype data, we only check for NaNs (GH-13254)
+    elif X.dtype == np.dtype("object") and not allow_nan:
+        if _object_dtype_isnan(X).any():
+            raise ValueError("Input contains NaN")
+
+
+def assert_all_finite(X, *, allow_nan=False):
+    """Throw a ValueError if X contains NaN or infinity.
+    Parameters
+    ----------
+    X : {ndarray, sparse matrix}
+    allow_nan : bool, default=False
+    """
+    _assert_all_finite(X.data if sp.issparse(X) else X, allow_nan)
