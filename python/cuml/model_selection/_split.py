@@ -537,7 +537,7 @@ class BaseCrossValidator(metaclass=ABCMeta):
             The testing set indices for that split.
         """
         X, y, groups = indexable(X, y, groups)
-        indices = np.arange(_num_samples(X))
+        indices = cp.arange(_num_samples(X))
         for test_index in self._iter_test_masks(X, y, groups):
             train_index = indices[cp.logical_not(test_index)]
             test_index = indices[test_index]
@@ -674,10 +674,10 @@ class KFold(_BaseKFold):
         See :term:`Glossary <random_state>`.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import KFold
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([1, 2, 3, 4])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import KFold
+    >>> X = cp.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = cp.array([1, 2, 3, 4])
     >>> kf = KFold(n_splits=2)
     >>> kf.get_n_splits(X)
     2
@@ -740,11 +740,11 @@ class GroupKFold(_BaseKFold):
             ``n_splits`` default value changed from 3 to 5.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import GroupKFold
-    >>> X = np.array([[1, 2], [3, 4], [5, 6], [7, 8]])
-    >>> y = np.array([1, 2, 3, 4])
-    >>> groups = np.array([0, 0, 2, 2])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import GroupKFold
+    >>> X = cp.array([[1, 2], [3, 4], [5, 6], [7, 8]])
+    >>> y = cp.array([1, 2, 3, 4])
+    >>> groups = cp.array([0, 0, 2, 2])
     >>> group_kfold = GroupKFold(n_splits=2)
     >>> group_kfold.get_n_splits(X, y, groups)
     2
@@ -778,7 +778,7 @@ class GroupKFold(_BaseKFold):
             raise ValueError("The 'groups' parameter should not be None.")
         groups = check_array(groups, ensure_2d=False, dtype=None)
 
-        unique_groups, groups = np.unique(groups, return_inverse=True)
+        unique_groups, groups = cp.unique(groups, return_inverse=True)
         n_groups = len(unique_groups)
 
         if self.n_splits > n_groups:
@@ -857,10 +857,10 @@ class StratifiedKFold(_BaseKFold):
         See :term:`Glossary <random_state>`.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import StratifiedKFold
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([0, 0, 1, 1])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import StratifiedKFold
+    >>> X = cp.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = cp.array([0, 0, 1, 1])
     >>> skf = StratifiedKFold(n_splits=2)
     >>> skf.get_n_splits(X, y)
     2
@@ -896,7 +896,7 @@ class StratifiedKFold(_BaseKFold):
 
     def _make_test_folds(self, X, y=None):
         rng = check_random_state(self.random_state)
-        y = np.asarray(y)
+        y = cp.asarray(y)
         type_of_target_y = type_of_target(y)
         allowed_target_types = ("binary", "multiclass")
         if type_of_target_y not in allowed_target_types:
@@ -908,17 +908,17 @@ class StratifiedKFold(_BaseKFold):
 
         y = column_or_1d(y)
 
-        _, y_idx, y_inv = np.unique(y, return_index=True, return_inverse=True)
+        _, y_idx, y_inv = cp.unique(y, return_index=True, return_inverse=True)
         # y_inv encodes y according to lexicographic order. We invert y_idx to
         # map the classes so that they are encoded by order of appearance:
         # 0 represents the first label appearing in y, 1 the second, etc.
-        _, class_perm = np.unique(y_idx, return_inverse=True)
+        _, class_perm = cp.unique(y_idx, return_inverse=True)
         y_encoded = class_perm[y_inv]
 
         n_classes = len(y_idx)
-        y_counts = np.bincount(y_encoded)
-        min_groups = np.min(y_counts)
-        if np.all(self.n_splits > y_counts):
+        y_counts = cp.bincount(y_encoded)
+        min_groups = cp.min(y_counts)
+        if cp.all(self.n_splits > y_counts):
             raise ValueError(
                 "n_splits=%d cannot be greater than the"
                 " number of members in each class." % (self.n_splits)
@@ -934,10 +934,10 @@ class StratifiedKFold(_BaseKFold):
         # Determine the optimal number of samples from each class in each fold,
         # using round robin over the sorted y. (This can be done direct from
         # counts, but that code is unreadable.)
-        y_order = np.sort(y_encoded)
-        allocation = np.asarray(
+        y_order = cp.sort(y_encoded)
+        allocation = cp.asarray(
             [
-                np.bincount(y_order[i :: self.n_splits], minlength=n_classes)
+                cp.bincount(y_order[i :: self.n_splits], minlength=n_classes)
                 for i in range(self.n_splits)
             ]
         )
@@ -945,12 +945,12 @@ class StratifiedKFold(_BaseKFold):
         # To maintain the data order dependencies as best as possible within
         # the stratification constraint, we assign samples from each class in
         # blocks (and then mess that up when shuffle=True).
-        test_folds = np.empty(len(y), dtype="i")
+        test_folds = cp.empty(len(y), dtype="i")
         for k in range(n_classes):
             # since the kth column of allocation stores the number of samples
             # of class k in each test set, this generates blocks of fold
             # indices corresponding to the allocation for class k.
-            folds_for_class = np.arange(self.n_splits).repeat(allocation[:, k])
+            folds_for_class = cp.arange(self.n_splits).repeat(allocation[:, k])
             if self.shuffle:
                 rng.shuffle(folds_for_class)
             test_folds[y_encoded == k] = folds_for_class
@@ -969,7 +969,7 @@ class StratifiedKFold(_BaseKFold):
             Training data, where `n_samples` is the number of samples
             and `n_features` is the number of features.
             Note that providing ``y`` is sufficient to generate the splits and
-            hence ``np.zeros(n_samples)`` may be used as a placeholder for
+            hence ``cp.zeros(n_samples)`` may be used as a placeholder for
             ``X`` instead of actual training data.
         y : array-like of shape (n_samples,)
             The target variable for supervised learning problems.
