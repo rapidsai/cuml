@@ -229,6 +229,9 @@ Metrics (clustering and manifold learning)
   .. automodule:: cuml.metrics.cluster.mutual_info_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.v_measure_score
+    :members:
+
 Benchmarking
 -------------
 
