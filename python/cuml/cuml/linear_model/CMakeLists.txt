@@ -17,7 +17,7 @@
 set(cython_sources
     base.pyx
     base_mg.pyx
-    elastc_net.pyx
+    elastic_net.pyx
     linear_regression.pyx
     linear_regression_mg.pyx
     logistic_regression.pyx
@@ -31,7 +31,7 @@ set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
+  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX linear_
 )
 
 # TODO: Finding NumPy currently requires finding Development due to a bug in CMake. This bug was
@@ -39,16 +39,16 @@ rapids_cython_create_modules(
 # CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
-    base
-    base_mg
-    elastc_net
-    linear_regression
-    linear_regression_mg
-    logistic_regression
-    mbsgd_classifier
-    mbsgd_regressor
-    ridge
-    ridge_mg
+    linear_base
+    linear_base_mg
+    linear_elastc_net
+    linear_linear_regression
+    linear_linear_regression_mg
+    linear_logistic_regression
+    linear_mbsgd_classifier
+    linear_mbsgd_regressor
+    linear_ridge
+    linear_ridge_mg
     )
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")

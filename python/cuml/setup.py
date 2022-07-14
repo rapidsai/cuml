@@ -14,22 +14,23 @@
 # limitations under the License.
 #
 
-import glob
+# import glob
 import os
 import shutil
 import sys
-import sysconfig
-import warnings
-from pprint import pprint
+# import sysconfig
+# import warnings
+# from pprint import pprint
 from pathlib import Path
 
+# from setuptools import find_packages
+# from setuptools import setup
 from setuptools import find_packages
-from setuptools import setup
-from setuptools.extension import Extension
-from distutils.sysconfig import get_python_lib
-from distutils.command.build import build as _build
+# from setuptools.extension import Extension
+# from distutils.sysconfig import get_python_lib
+# from distutils.command.build import build as _build
 
-import numpy
+# import numpy
 
 from setuputils import clean_folder
 from setuputils import get_environment_option
@@ -38,6 +39,7 @@ from setuputils import get_cuda_version_from_header
 
 import versioneer
 # from cython_build_ext import cython_build_ext
+from skbuild import setup
 from skbuild.command.build_ext import build_ext
 
 # FIXME: List correct deps
@@ -259,9 +261,10 @@ if not libcuml_path:
 
 
 # Specify the custom build class
-cmdclass = dict()
-cmdclass.update(versioneer.get_cmdclass())
+# cmdclass = dict()
+# cmdclass.update(versioneer.get_cmdclass())
 # cmdclass["build"] = cuml_build
+cmdclass = versioneer.get_cmdclass()
 cmdclass["build_ext"] = build_ext
 
 ##############################################################################
@@ -277,7 +280,8 @@ setup(name='cuml',
           "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
-      setup_requires=['cython'],
+      setup_requires=['Cython>=0.29,<0.30'],
+      packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,

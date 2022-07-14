@@ -21,7 +21,6 @@ set(cython_sources
     logger.pyx
     opg_data_utils_mg.pyx
     pointer_utils.pyx
-    sparse_utils.pyx
 )
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
