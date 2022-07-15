@@ -21,7 +21,9 @@ set(cython_sources
     randomforestregressor.pyx
 )
 
-set(linked_libraries cuml::${CUML_CPP_TARGET})
+set(linked_libraries 
+    cuml::${CUML_CPP_TARGET}
+    ${TREELITE_LIBS})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"

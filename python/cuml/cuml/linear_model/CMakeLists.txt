@@ -41,7 +41,7 @@ find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
     linear_base
     linear_base_mg
-    linear_elastc_net
+    linear_elastic_net
     linear_linear_regression
     linear_linear_regression_mg
     linear_logistic_regression

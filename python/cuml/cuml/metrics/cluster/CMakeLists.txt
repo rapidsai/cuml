@@ -15,7 +15,13 @@
 
 # todo: disable _mg for singlegpu
 set(cython_sources
-    internals.pyx
+    adjusted_rand_index.pyx
+    completeness_score.pyx
+    entropy.pyx
+    homogeneity_score.pyx
+    mutual_info_score.pyx
+    silhouette_score.pyx
+    utils.pyx
 )
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
@@ -30,7 +36,13 @@ rapids_cython_create_modules(
 # CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
-    internals
+    adjusted_rand_index
+    completeness_score
+    entropy
+    homogeneity_score
+    mutual_info_score
+    silhouette_score
+    utils
     )
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
@@ -40,4 +52,3 @@ foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
 endforeach()
 
-target_include_directories(internals PRIVATE "")

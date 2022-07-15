@@ -14,11 +14,14 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(cuml_version 22.08.00)
-
 file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(rapids-cmake)
+include(rapids-cpm)
+include(rapids-find)
+
+set(cuml_version 22.08.00)
 
 project(
   cuml-python
@@ -36,13 +39,66 @@ option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulti
 
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 
+set(CUML_CPP_TARGET "cuml++")
 
 ################################################################################
 # - Process User Options  ------------------------------------------------------
+rapids_cpm_init()
+include(../../cpp/cmake/thirdparty/get_treelite.cmake)
 
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
-  find_package(cuml ${cuml_version} REQUIRED)
+	include(rapids-cuda)
+	rapids_cuda_init_architectures(CUML)
+  enable_language(CUDA)
+
+  # FIXME: check of this is necessary
+  # Since cugraph only enables CUDA optionally, we need to manually include the file that
+  # rapids_cuda_init_architectures relies on `project` including.
+
+  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
+set(RAFT_VERSION "22.08")
+set(RAFT_FORK "rapidsai")
+set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
+
+function(find_and_configure_raft)
+  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARIES)
+  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+                            "${multiValueArgs}" ${ARGN} )
+
+  #-----------------------------------------------------
+  # Invoke CPM find_package()
+  #-----------------------------------------------------
+
+  string(APPEND RAFT_COMPONENTS "distance")
+  string(APPEND RAFT_COMPONENTS " nn")
+
+  rapids_cpm_find(raft ${PKG_VERSION}
+          GLOBAL_TARGETS      raft::raft
+          BUILD_EXPORT_SET    projname-exports
+          INSTALL_EXPORT_SET  projname-exports
+          CPM_ARGS
+          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
+          GIT_TAG        ${PKG_PINNED_TAG}
+          SOURCE_SUBDIR  cpp
+	  FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
+          OPTIONS
+          "BUILD_TESTS OFF"
+          "BUILD_BENCH OFF"
+          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
+  )
+
+endfunction()
+
+# Change pinned tag here to test a commit in CI
+# To use a different RAFT locally, set the CMake variable
+# CPM_raft_SOURCE=/path/to/local/raft
+find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
+        FORK             ${RAFT_FORK}
+        PINNED_TAG       ${RAFT_PINNED_TAG}
+        COMPILE_LIBRARIES      NO
+)  
+find_package(cuml ${cuml_version} REQUIRED)
 else()
   set(cuml_FOUND OFF)
 endif()
@@ -90,6 +146,7 @@ add_subdirectory(cuml/kernel_ridge)
 add_subdirectory(cuml/linear_model)
 add_subdirectory(cuml/manifold)
 add_subdirectory(cuml/metrics)
+add_subdirectory(cuml/metrics/cluster)
 add_subdirectory(cuml/neighbors)
 add_subdirectory(cuml/random_projection)
 add_subdirectory(cuml/solvers)
@@ -97,3 +154,4 @@ add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
+

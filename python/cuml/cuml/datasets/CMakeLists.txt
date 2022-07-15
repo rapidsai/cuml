@@ -15,6 +15,7 @@
 
 # todo: disable _mg for singlegpu
 set(cython_sources
+    arima.pyx
     regression.pyx
 )
 
@@ -22,7 +23,7 @@ set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
+  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX datasets_
 )
 
 # TODO: Finding NumPy currently requires finding Development due to a bug in CMake. This bug was
@@ -30,7 +31,8 @@ rapids_cython_create_modules(
 # CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
-    regression
+    datasets_arima
+    datasets_regression
     )
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
