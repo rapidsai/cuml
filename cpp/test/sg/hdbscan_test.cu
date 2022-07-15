@@ -288,7 +288,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
 
-    int n_selected_clusters = ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+    ML::HDBSCAN::detail::Extract::extract_clusters(handle,
                                                    condensed_tree,
                                                    params.n_row,
                                                    labels.data(),
@@ -300,41 +300,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    0,
                                                    params.cluster_selection_epsilon);
 
-    rmm::device_uvector<int> exemplar_indices(params.n_row, handle.get_stream());
-    rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, handle.get_stream());
-                                               
-    int n_exemplars = ML::HDBSCAN::detail::Membership::get_exemplars<IdxT, T>(
-      handle,
-      condensed_tree,
-      labels.data(),
-      label_map.data(),
-      n_selected_clusters,
-      exemplar_indices.data(),
-      exemplar_label_offsets.data()
-    );
-
-    // rmm::device_uvector<int> dist_membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
-
-    // ML::HDBSCAN::detail::Membership::dist_membership_vector<IdxT, T>(
-    //   handle,
-    //   data.data(),
-    //   params.n_row,
-    //   params.n_col,
-    //   n_exemplars,
-    //   n_selected_clusters,
-    //   false,
-    //   exemplar_indices.data(),
-    //   exemplar_label_offsets.data(),
-    //   dist_membership_vec.data(),
-    //   raft::distance::DistanceType::L2SqrtExpanded
-    // );
-
     handle.sync_stream(handle.get_stream());
-
-    // CUML_LOG_DEBUG("%d, %d\n", n_selected_clusters, n_exemplars);
-    // for(int i = 0; i < n_exemplars; i++){
-    //   CUML_LOG_DEBUG("%d\n", exemplar_indices.element(i, handle.get_stream()));
-    // }
 
     ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
                                   params.probabilities.data(),
@@ -364,6 +330,117 @@ TEST_P(ClusterSelectionTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 INSTANTIATE_TEST_CASE_P(ClusterSelectionTest,
                         ClusterSelectionTestF_Int,
                         ::testing::ValuesIn(cluster_selection_inputs));
+
+template <typename T, typename IdxT>
+class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>> {
+ protected:
+  void basicTest()
+  {
+    raft::handle_t handle;
+
+    params = ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>>::GetParam();
+
+    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+
+    rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
+                                                handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_children(params.condensed_children.size(),
+                                                 handle.get_stream());
+    rmm::device_uvector<T> condensed_lambdas(params.condensed_lambdas.size(), handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(), handle.get_stream());
+
+    raft::copy(condensed_parents.data(),
+               params.condensed_parents.data(),
+               condensed_parents.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_children.data(),
+               params.condensed_children.data(),
+               condensed_children.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_lambdas.data(),
+               params.condensed_lambdas.data(),
+               condensed_lambdas.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_sizes.data(),
+               params.condensed_sizes.data(),
+               condensed_sizes.size(),
+               handle.get_stream());
+    
+    rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
+    raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
+
+    ML::HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle,
+                                                                    params.n_row,
+                                                                    params.condensed_parents.size(),
+                                                                    condensed_parents.data(),
+                                                                    condensed_children.data(),
+                                                                    condensed_lambdas.data(),
+                                                                    condensed_sizes.data());
+
+    rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
+
+    // intermediate outputs
+    rmm::device_uvector<T> stabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
+
+    int n_selected_clusters = ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+                                                                             condensed_tree,
+                                                                             params.n_row,
+                                                                             labels.data(),
+                                                                             stabilities.data(),
+                                                                             probabilities.data(),
+                                                                             label_map.data(),
+                                                                             params.cluster_selection_method,
+                                                                             params.allow_single_cluster,
+                                                                             0,
+                                                                             params.cluster_selection_epsilon);
+
+    handle.sync_stream(handle.get_stream());
+    rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
+
+    ML::HDBSCAN::detail::Membership::all_points_membership_vector<IdxT, T>(handle,
+                                 condensed_tree,
+                                 labels.data(),
+                                 label_map.data(),
+                                 n_selected_clusters,
+                                 membership_vec.data(),
+                                 data.data(),
+                                 params.n_row,
+                                 params.n_col,
+                                 raft::distance::DistanceType::L2SqrtExpanded);
+
+    // ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
+    //                               params.probabilities.data(),
+    //                               params.n_row,
+    //                               raft::CompareApprox<float>(1e-4),
+    //                               handle.get_stream()));
+
+    // rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
+    // raft::update_device(labels_ref.data(), params.labels.data(), params.n_row, handle.get_stream());
+    // score = MLCommon::Metrics::compute_adjusted_rand_index(
+    //   labels.data(), labels_ref.data(), params.n_row, handle.get_stream());
+    handle.sync_stream(handle.get_stream());
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {}
+
+ protected:
+  SoftClusteringInputs<T, IdxT> params;
+  // T score;
+};
+
+typedef SoftClusteringTest<float, int> SoftClusteringTestF_Int;
+TEST_P(SoftClusteringTestF_Int, Result) { EXPECT_TRUE(true); }
+
+INSTANTIATE_TEST_CASE_P(SoftClusteringTest,
+                        SoftClusteringTestF_Int,
+                        ::testing::ValuesIn(soft_clustering_inputs));
 
 }  // namespace HDBSCAN
 }  // end namespace ML

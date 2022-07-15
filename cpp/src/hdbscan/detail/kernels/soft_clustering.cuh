@@ -50,18 +50,17 @@ template <typename value_idx, typename value_t, int tpb = 256>
 __global__ void merge_height_kernel(value_t* heights,
                                     value_t* lambdas,
                                     value_idx* index_into_children,
-                                    value_idx* inv_label_map,
                                     value_idx* parents,
                                     value_idx m,
                                     value_idx n_selected_clusters,
-                                    value_idx* selected_clusters
-                                    )
+                                    value_idx* selected_clusters)
 { 
-  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  auto idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx >= m * n_selected_clusters) return;
-
+  // printf("%d\n", idx);
   auto row = idx / n_selected_clusters;
   auto col = idx % n_selected_clusters;
+  // printf("%d %d\n", row, col);
   value_idx right_cluster = selected_clusters[col];
   value_idx left_cluster = parents[index_into_children[row]];
   bool took_right_parent = false;
@@ -82,11 +81,11 @@ __global__ void merge_height_kernel(value_t* heights,
   }
 
   if (took_left_parent && took_right_parent){
-    heights[idx] = lambdas[last_cluster];
+    heights[idx] = lambdas[index_into_children[last_cluster]];
   }
 
   else{
-    heights[idx] = lambdas[row];
+    heights[idx] = lambdas[index_into_children[row]];
   }
 }
 

@@ -26,6 +26,8 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.hpp>
+#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/norm.hpp>
 
 #include <algorithm>
 
@@ -181,6 +183,34 @@ void parent_csr(const raft::handle_t& handle,
     thrust_policy, sorted_parents, sorted_parents + n_edges, sorted_parents, index_op);
 
   raft::sparse::convert::sorted_coo_to_csr(sorted_parents, n_edges, indptr, n_clusters + 1, stream);
+}
+
+template <typename value_idx, typename value_t>
+void normalize(value_t* data,
+               value_idx n,
+               value_idx m,
+               cudaStream_t stream)
+{
+  rmm::device_uvector<value_t> sums(m, stream);
+  // thrust::fill(exec_policy, sums.begin(), sums.end(), 1.0);
+
+  raft::linalg::rowNorm(sums.data(),
+                        data,
+                        n,
+                        m,
+                        raft::linalg::L1Norm,
+                        true,
+                        stream);
+
+  raft::linalg::matrixVectorOp(data,
+                               data,
+                               sums.data(),
+                               n,
+                               m,
+                               true,
+                               false,
+                               [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
+                               stream);
 }
 
 };  // namespace Utils
