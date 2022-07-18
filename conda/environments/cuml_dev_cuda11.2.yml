@@ -6,7 +6,7 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=11.2
-- cuda-python >=11.5,<12.0
+- cuda-python >=11.5,<11.7.1
 - rapids-build-env=22.08.*
 - rapids-notebook-env=22.08.*
 - rapids-doc-env=22.08.*
