@@ -302,7 +302,7 @@ def _masked_column_median(arr, masked_value):
         # have a median of nan
         nan_cols = cp.any(cp.isnan(arr), axis=0)
         arr_sorted[mask] = cp.nan
-        arr_sorted = cp.ndarray.sort(arr_sorted)
+        arr_sorted.sort()
     else:
         nan_cols = cp.full(arr.shape[1], False)
         arr_sorted = cp.sort(arr_sorted, axis=0)
