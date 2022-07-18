@@ -26,6 +26,7 @@ from cuml.preprocessing import \
     RobustScaler as cuRobustScaler, \
     KBinsDiscretizer as cuKBinsDiscretizer, \
     MissingIndicator as cuMissingIndicator
+from cuml._thirdparty.sklearn.preprocessing._imputation import KNNImputer as cuKNNImputer
 from cuml.preprocessing import \
     FunctionTransformer as cuFunctionTransformer
 from cuml.preprocessing import scale as cu_scale, \
@@ -52,7 +53,8 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   binarize as sk_binarize, \
                                   robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer, \
-                           MissingIndicator as skMissingIndicator
+                           MissingIndicator as skMissingIndicator, \
+                            KNNImputer as skKNNImputer
 
 from cuml.testing.test_preproc_utils import \
     clf_dataset, int_dataset, blobs_dataset, \
@@ -791,6 +793,28 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.parametrize("missing_values", [0, 1, np.nan])
+@pytest.mark.parametrize("n_neighbors", [2])
+@pytest.mark.parametrize("weights", ['uniform', 'distance'])
+def test_knn_imputer(failure_logger, int_dataset, missing_values, weights, n_neighbors):  # noqa: F811
+    zero_filled, one_filled, nan_filled = int_dataset
+    if missing_values == 0:
+        X_np, X = zero_filled
+    elif missing_values == 1:
+        X_np, X = one_filled
+    else:
+        X_np, X = nan_filled
+
+    knn = cuKNNImputer(missing_values=missing_values, n_neighbors= n_neighbors, weights= weights)
+    knn.fit(X)
+    t_X = knn.transform(X)
+
+    knn = skKNNImputer(missing_values=missing_values, n_neighbors = n_neighbors, weights=weights)
+    knn.fit(X_np)
+    sk_t_X = knn.transform(X_np)
+
+    assert_allclose(t_X, sk_t_X)
+
 def test__repr__():
     assert cuStandardScaler().__repr__() == 'StandardScaler()'
     assert cuMinMaxScaler().__repr__() == 'MinMaxScaler()'
@@ -801,3 +825,4 @@ def test__repr__():
     assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
     assert cuRobustScaler().__repr__() == 'RobustScaler()'
     assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'
+    assert cuKNNImputer.__repr__() == 'KNNImputer()'
