@@ -589,8 +589,8 @@ class TSNE(Base,
 
         # metric
         metric_parsing = {
-            "l2": DistanceType.L2SqrtUnexpanded,
-            "euclidean": DistanceType.L2SqrtUnexpanded,
+            "l2": DistanceType.L2SqrtExpanded,
+            "euclidean": DistanceType.L2SqrtExpanded,
             "sqeuclidean": DistanceType.L2Expanded,
             "cityblock": DistanceType.L1,
             "l1": DistanceType.L1,
