@@ -24,6 +24,8 @@ from raft.common.handle cimport handle_t
 from raft.common.handle import Handle
 import cupy as cp
 import numpy as np
+import pandas as pd
+import cudf
 import scipy
 import cupyx
 import cuml.internals
@@ -79,7 +81,8 @@ PAIRWISE_DISTANCE_METRICS = {
     "jensenshannon": DistanceType.JensenShannon,
     "hamming": DistanceType.HammingUnexpanded,
     "kldivergence": DistanceType.KLDivergence,
-    "russellrao": DistanceType.RusselRaoExpanded
+    "russellrao": DistanceType.RusselRaoExpanded,
+    "nan_euclidean": DistanceType.L2Expanded
 }
 
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
@@ -162,12 +165,13 @@ def nan_euclidean_distances(
 
     Parameters
     ----------
-    X : array-like of shape (n_samples_X, n_features)
-        An array where each row is a sample and each column is a feature.
+    X : Dense matrix of shape (n_samples_X, n_features)
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray, 
+        cuda array interface compliant array like CuPy.
 
-    Y : array-like of shape (n_samples_Y, n_features), default=None
-        An array where each row is a sample and each column is a feature.
-        If `None`, method uses `Y=X`.
+    Y : Dense matrix of shape (n_samples_Y, n_features), default=None
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray, 
+        cuda array interface compliant array like CuPy.
 
     squared : bool, default=False
         Return squared Euclidean distances.
@@ -182,49 +186,68 @@ def nan_euclidean_distances(
         and the row vectors of `Y`.
     """
 
-    if is_sparse(X):
-        X = X.toarray()
-    if is_sparse(Y):
-        Y = Y.toarray()
+    if isinstance(X, cudf.DataFrame) or isinstance(X, pd.DataFrame):
+        if (X.isnull().any()).any():
+            X.fillna(0, inplace=True)
 
+    if isinstance(Y, cudf.DataFrame) or isinstance(Y, pd.DataFrame):
+        if (Y.isnull().any()).any():
+            Y.fillna(0, inplace=True)
+
+    
+    X_m, n_samples_x, n_features_x, dtype_x = \
+        input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
+    
     if Y is None:
-        Y = X
+        Y = X_m
+
+    Y_m, n_samples_y, n_features_y, dtype_y = \
+        input_to_cuml_array(Y, order=X_m.order, convert_to_dtype=dtype_x, check_dtype=[dtype_x])
+    
+    X_m = cp.asarray(X_m)
+    Y_m = cp.asarray(Y_m)
 
     # Get missing mask for X
-    missing_X = _get_mask(X, missing_values)
+    missing_X = _get_mask(X_m, missing_values)
 
     # Get missing mask for Y
-    missing_Y = missing_X if Y is X else _get_mask(Y, missing_values)
+    missing_Y = missing_X if Y is X else _get_mask(Y_m, missing_values)
 
     # set missing values to zero
-    X[missing_X] = 0
-    Y[missing_Y] = 0
+    X_m[missing_X] = 0
+    Y_m[missing_Y] = 0
 
     # Adjust distances for sqaured
-    distances = cp.array(pairwise_distances(X, Y, metric="sqeuclidean"))
+    if X_m.shape == Y_m.shape:
+        if (X_m == Y_m).all():
+            distances = cp.array(pairwise_distances(X_m, metric="sqeuclidean"))
+        else:
+            distances = cp.array(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+    else:
+        distances = cp.array(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
 
     # Adjust distances for missing values
-    XX = X * X
-    YY = Y * Y
+    XX = X_m * X_m
+    YY = Y_m * Y_m
     distances -= cp.dot(XX, missing_Y.T)
     distances -= cp.dot(missing_X, YY.T)
 
     cp.clip(distances, 0, None, out=distances)
 
-    if X is Y:
+    if X_m is Y_m:
         # Ensure that distances between vectors and themselves are set to 0.0.
         # This may not be the case due to floating point rounding errors.
         cp.fill_diagonal(distances, 0.0)
 
     present_X = 1 - missing_X
-    present_Y = present_X if Y is X else ~missing_Y
+    present_Y = present_X if Y_m is X_m else ~missing_Y
     present_count = cp.dot(present_X, present_Y.T)
     distances[present_count == 0] = cp.nan
 
     # avoid divide by zero
     cp.maximum(1, present_count, out=present_count)
     distances /= present_count
-    distances *= X.shape[1]
+    distances *= X_m.shape[1]
 
     if not squared:
         cp.sqrt(distances, out=distances)
