@@ -1,0 +1,57 @@
+## python raft symlink
+python/cuml/raft
+
+## common
+__pycache__
+*.pyc
+*~
+\#*
+.#*
+*.o
+*.so
+*.dylib
+.cache
+.coverage*
+.vscode
+*.swp
+*.pytest_cache
+htmlcov
+build/
+build_prims/
+cmake-build*
+cuml.egg-info/
+dist/
+python/cuml/**/*.cpp
+python/_external_repositories
+python/record.txt
+log
+.ipynb_checkpoints
+.DS_Store
+dask-worker-space/
+tmp/
+.hypothesis
+
+## files pickled in notebook when ran during python docstring generation
+docs/source/*.model
+
+## eclipse
+.project
+.cproject
+.settings
+.ptp-sync-folder
+
+## Pycharm
+.idea
+
+## ccls
+.ccls-cache
+.ccls
+
+## profiling
+*.qdrep
+*.qdrep.cache
+*.qdstrm
+*.nvprof
+
+## doxygen build check inside ci/checks/style.sh
+doxygen_check/

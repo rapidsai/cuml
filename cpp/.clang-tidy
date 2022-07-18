@@ -1,0 +1,145 @@
+---
+Checks:          'clang-diagnostic-*,clang-analyzer-*,-modernize-*,-clang-diagnostic-#pragma-messages,-readability-identifier-naming,-clang-diagnostic-switch'
+WarningsAsErrors: '*'
+HeaderFilterRegex: ''
+AnalyzeTemporaryDtors: false
+FormatStyle:     none
+CheckOptions:    
+  - key:             cert-dcl16-c.NewSuffixes
+    value:           'L;LL;LU;LLU'
+  - key:             cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           '1'
+  - key:             modernize-loop-convert.MaxCopySize
+    value:           '16'
+  - key:             modernize-loop-convert.MinConfidence
+    value:           reasonable
+  - key:             modernize-loop-convert.NamingStyle
+    value:           CamelCase
+  - key:             modernize-pass-by-value.IncludeStyle
+    value:           llvm
+  - key:             modernize-pass-by-value.ValuesOnly
+    value:           '0'
+  - key:             modernize-replace-auto-ptr.IncludeStyle
+    value:           llvm
+  - key:             modernize-replace-random-shuffle.IncludeStyle
+    value:           llvm
+  - key:             modernize-use-auto.MinTypeNameLength
+    value:           '5'
+  - key:             modernize-use-auto.RemoveStars
+    value:           '0'
+  - key:             modernize-use-default-member-init.IgnoreMacros
+    value:           '1'
+  - key:             modernize-use-default-member-init.UseAssignment
+    value:           '0'
+  - key:             modernize-use-emplace.ContainersWithPushBack
+    value:           '::std::vector;::std::list;::std::deque'
+  - key:             modernize-use-emplace.SmartPointers
+    value:           '::std::shared_ptr;::std::unique_ptr;::std::auto_ptr;::std::weak_ptr'
+  - key:             modernize-use-emplace.TupleMakeFunctions
+    value:           '::std::make_pair;::std::make_tuple'
+  - key:             modernize-use-emplace.TupleTypes
+    value:           '::std::pair;::std::tuple'
+  - key:             modernize-use-equals-default.IgnoreMacros
+    value:           '1'
+  - key:             modernize-use-equals-delete.IgnoreMacros
+    value:           '1'
+  - key:             modernize-use-nodiscard.ReplacementString
+    value:           '[[nodiscard]]'
+  - key:             modernize-use-noexcept.ReplacementString
+    value:           ''
+  - key:             modernize-use-noexcept.UseNoexceptFalse
+    value:           '1'
+  - key:             modernize-use-nullptr.NullMacros
+    value:           'NULL'
+  - key:             modernize-use-transparent-functors.SafeMode
+    value:           '0'
+  - key:             modernize-use-using.IgnoreMacros
+    value:           '1'
+  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ClassPrefix
+    value:           ''
+  - key:             readability-identifier-naming.ClassSuffix
+    value:           ''
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariablePrefix
+    value:           k
+  - key:             readability-identifier-naming.ConstexprVariableSuffix
+    value:           ''
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumConstantPrefix
+    value:           k
+  - key:             readability-identifier-naming.EnumConstantSuffix
+    value:           ''
+  - key:             readability-identifier-naming.EnumPrefix
+    value:           ''
+  - key:             readability-identifier-naming.EnumSuffix
+    value:           ''
+  - key:             readability-identifier-naming.FunctionCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.FunctionPrefix
+    value:           ''
+  - key:             readability-identifier-naming.FunctionSuffix
+    value:           ''
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantPrefix
+    value:           k
+  - key:             readability-identifier-naming.GlobalConstantSuffix
+    value:           ''
+  - key:             readability-identifier-naming.IgnoreFailedSplit
+    value:           '0'
+  - key:             readability-identifier-naming.MemberCase
+    value:           lower_case
+  - key:             readability-identifier-naming.MemberPrefix
+    value:           ''
+  - key:             readability-identifier-naming.MemberSuffix
+    value:           ''
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           lower_case
+  - key:             readability-identifier-naming.NamespacePrefix
+    value:           ''
+  - key:             readability-identifier-naming.NamespaceSuffix
+    value:           ''
+  - key:             readability-identifier-naming.PrivateMemberPrefix
+    value:           ''
+  - key:             readability-identifier-naming.PrivateMemberSuffix
+    value:           _
+  - key:             readability-identifier-naming.ProtectedMemberPrefix
+    value:           ''
+  - key:             readability-identifier-naming.ProtectedMemberSuffix
+    value:           _
+  - key:             readability-identifier-naming.StaticConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.StaticConstantPrefix
+    value:           k
+  - key:             readability-identifier-naming.StaticConstantSuffix
+    value:           ''
+  - key:             readability-identifier-naming.StructCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.StructPrefix
+    value:           ''
+  - key:             readability-identifier-naming.StructSuffix
+    value:           ''
+  - key:             readability-identifier-naming.TypeAliasCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.TypeAliasPrefix
+    value:           ''
+  - key:             readability-identifier-naming.TypeAliasSuffix
+    value:           ''
+  - key:             readability-identifier-naming.TypeTemplateParameterCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.TypeTemplateParameterPrefix
+    value:           ''
+  - key:             readability-identifier-naming.TypeTemplateParameterSuffix
+    value:           ''
+  - key:             readability-identifier-naming.TypedefCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.TypedefPrefix
+    value:           ''
+  - key:             readability-identifier-naming.TypedefSuffix
+    value:           ''
+...
+
