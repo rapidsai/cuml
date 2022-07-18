@@ -907,7 +907,7 @@ def prep_dense_array(array, metric, col_major=0):
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
                                          (500, 400)])
 @pytest.mark.parametrize("is_col_major", [True, False])
-def test_pairwise_distances_erer(metric: str, matrix_size, is_col_major):
+def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     # Test the pairwise_distance helper function.
     rng = np.random.RandomState(0)
 
