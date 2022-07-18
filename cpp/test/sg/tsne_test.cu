@@ -111,7 +111,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     TSNEResults results;
 
     auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
-    float minkowski_p = 2.0;
+    float minkowski_p            = 2.0;
 
     // Setup parameters
     model_params.algorithm     = algo;
