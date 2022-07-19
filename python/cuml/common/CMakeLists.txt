@@ -45,4 +45,4 @@ foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
 endforeach()
 
-target_include_directories(pointer_utils PRIVATE "../../../../cpp/src/")
+target_include_directories(pointer_utils PRIVATE "../../../cpp/src/")

@@ -44,7 +44,7 @@ set(CUML_CPP_TARGET "cuml++")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 rapids_cpm_init()
-include(../../cpp/cmake/thirdparty/get_treelite.cmake)
+include(../cpp/cmake/thirdparty/get_treelite.cmake)
 
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
