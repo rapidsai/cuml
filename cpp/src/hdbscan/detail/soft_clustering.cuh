@@ -35,6 +35,8 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/linalg/norm.hpp>
+#include <raft/linalg/transpose.hpp>
+#include <raft/matrix/math.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -376,7 +378,7 @@ void all_points_outlier_membership_vector(
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
-  auto lambdas    = condensed_tree.get_lambdas();
+  value_t* lambdas    = condensed_tree.get_lambdas();
   auto n_edges    = condensed_tree.get_n_edges();
   auto n_clusters = condensed_tree.get_n_clusters();
   auto n_leaves   = condensed_tree.get_n_leaves();
@@ -418,6 +420,7 @@ void all_points_outlier_membership_vector(
 
   int n_blocks = raft::ceildiv(m * n_selected_clusters, tpb);
   CUML_LOG_DEBUG("n_blocks %d", n_blocks);
+  CUML_LOG_DEBUG("tpb %d", tpb);
   merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
                                                     lambdas,
                                                     index_into_children.data(),
@@ -425,8 +428,6 @@ void all_points_outlier_membership_vector(
                                                     m,
                                                     n_selected_clusters,
                                                     selected_clusters);
-
-  handle.sync_stream(stream);
 
   rmm::device_uvector<value_t> leaf_max_lambdas(n_leaves, stream);
 
@@ -445,13 +446,22 @@ void all_points_outlier_membership_vector(
     outlier_membership_vec,
     merge_heights,
     leaf_max_lambdas.data(),
-    m,
     n_selected_clusters,
+    m,
     true,
     false,
-    [] __device__(value_t mat_in, value_t vec_in) { return exp(-mat_in / (vec_in + 1e-8)); }, //+ 1e-8 to avoid zero lambda
+    [] __device__(value_t mat_in, value_t vec_in) { return exp(-(vec_in + 1e-8) / mat_in); }, //+ 1e-8 to avoid zero lambda
     stream);
-
+    
+    handle.sync_stream(stream);
+    cudaDeviceSynchronize();
+    
+    // raft::print_device_vector("leaf_max_lambdas", leaf_max_lambdas.data() + 14, 10, std::cout);
+    // for(int i = 0; i < 10; i++){
+    //   raft::print_device_vector("merge_heights", merge_heights + i * n_selected_clusters, n_selected_clusters, std::cout);
+    //   raft::print_device_vector("outlier_membership_vec", outlier_membership_vec + i * n_selected_clusters, n_selected_clusters, std::cout);
+    // }
+    
   if (softmax){
     thrust::transform(
       exec_policy,
@@ -465,39 +475,81 @@ void all_points_outlier_membership_vector(
   }
 
   Utils::normalize(outlier_membership_vec, n_selected_clusters, m, stream);
+  // handle.sync_stream(stream);
+  //   cudaDeviceSynchronize();
+  // for(int i = 0; i < 10; i++){
+  //     raft::print_device_vector("outlier_membership_vec", outlier_membership_vec + i * n_selected_clusters, n_selected_clusters, std::cout);
+  //   }
 }
 
-// template <typename value_idx, typename value_t>
-// void all_points_prob_in_some_cluster(const raft::handle_t& handle,
-//                                      Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-//                                      value_idx* selected_clusters,
-//                                      value_t* lambdas,
-//                                      size_t m,
-//                                      size_t n_selected_clusters,
-//                                      value_t* merge_heights)
-// {
-//   auto stream      = handle.get_stream();
-//   auto exec_policy = handle.get_thrust_policy();
+template <typename value_idx, typename value_t, int tpb = 256>
+void all_points_prob_in_some_cluster(const raft::handle_t& handle,
+                                     Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                                     value_t* deaths,
+                                     value_idx* selected_clusters,
+                                     int m,
+                                     int n_selected_clusters,
+                                     value_t* merge_heights,
+                                     value_t* prob_in_some_cluster)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
 
-//   rmm::device_uvector<value_idx> height_argmax(m, stream);
-//   rmm::device_uvector<value_idx> point_offsets(m + 1, stream);
-//   thrust::sequence(exec_policy, point_offsets.data(), point_offsets.data() + m + 1, n_selected_clusters);
-//   Utils::cub_segmented_reduce(
-//     merge_heights,
-//     height_argmax.data(),
-//     n_selected_clusters,
-//     point_offsets.data(),
-//     stream,
-//     cub::DeviceSegmentedReduce::ArgMax<const value_t*, value_t*, const value_idx*, const value_idx*>
-//   );
+  value_t* lambdas = condensed_tree.get_lambdas();
+  auto n_leaves = condensed_tree.get_n_leaves();
+  auto n_edges = condensed_tree.get_n_edges();
+  auto children = condensed_tree.get_children();
+  rmm::device_uvector<value_t> height_argmax(m, stream);
+  raft::matrix::argmax(merge_heights, n_selected_clusters, m, height_argmax.data(), stream);
 
-//   auto prob_in_some_cluster_op =
-//     [height_argmax = height_argmax.data(),
-//      lambdas] __device__(auto idx) {
-//        prob_in_some_cluster[idx] = merge_heights[height_argmax[idx]] / max_lambdas[selected_clusters[height_argmax[idx]] + n_leaves];
-//        return;
-//      };
-// }
+  // handle.sync_stream(stream);
+  // cudaDeviceSynchronize();
+  // raft::print_device_vector("heights_vertical", tmp_merge_heights.data(), n_selected_clusters, std::cout);  
+  // for(int i = 0; i < n_selected_clusters; i++){
+  //   raft::print_device_vector("heights_vertical", tmp_merge_heights.data() + m * i, 1, std::cout);  
+  // }
+  // for(int i = 0; i < 15; i++){
+  //   raft::print_device_vector("heights", merge_heights + n_selected_clusters * i, n_selected_clusters, std::cout);  
+  // }
+  // raft::print_device_vector("height_argmax", height_argmax.data(), 15, std::cout);
+
+  rmm::device_uvector<value_idx> index_into_children(n_edges, stream);
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+
+  auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
+    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+    return;
+  };
+  thrust::for_each(
+    exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
+    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
+    index_op
+  );
+  
+  int n_blocks = raft::ceildiv((int)m, tpb);
+  prob_in_some_cluster_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
+                              height_argmax.data(),
+                              deaths,
+                              index_into_children.data(),
+                              selected_clusters,
+                              lambdas,
+                              prob_in_some_cluster,
+                              n_selected_clusters,
+                              n_leaves,
+                            m);
+
+  handle.sync_stream(stream);
+  cudaDeviceSynchronize();
+  // for(int i = 0; i < 15; i++){
+  //     raft::print_device_vector("heights", merge_heights + n_selected_clusters * i, n_selected_clusters, std::cout);
+  //     raft::print_device_vector("heights", merge_heights + i * n_selected_clusters + (int)height_argmax.element(i, stream), 1, std::cout);
+  //   }
+  // raft::print_device_vector("prob_in_some_cluster", prob_in_some_cluster, 10, std::cout);
+    // raft::print_device_vector("height_argmax", height_argmax.data(), 15, std::cout);
+    
+
+}
 
 template <typename value_idx, typename value_t>
 void all_points_membership_vector(const raft::handle_t& handle,
@@ -514,7 +566,31 @@ void all_points_membership_vector(const raft::handle_t& handle,
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
+  auto parents    = condensed_tree.get_parents();
+  auto children   = condensed_tree.get_children();
+  value_t* lambdas    = condensed_tree.get_lambdas();
+  auto n_edges    = condensed_tree.get_n_edges();
+  auto n_clusters = condensed_tree.get_n_clusters();
   auto n_leaves   = condensed_tree.get_n_leaves();
+  
+  rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
+  raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
+
+  rmm::device_uvector<value_idx> sorted_parents_offsets(n_clusters + 1, stream);
+  Utils::parent_csr(handle, condensed_tree, sorted_parents.data(), sorted_parents_offsets.data());
+
+  // this is to find maximum lambdas of all children under a parent
+  rmm::device_uvector<value_t> deaths(n_clusters, stream);
+  thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
+
+  Utils::cub_segmented_reduce(
+    lambdas,
+    deaths.data(),
+    n_clusters,
+    sorted_parents_offsets.data(),
+    stream,
+    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>);
+
 
   rmm::device_uvector<value_idx> exemplar_idx(n_leaves, stream);
   rmm::device_uvector<value_idx> exemplar_label_offsets(n_selected_clusters + 1, stream);
@@ -604,23 +680,41 @@ void all_points_membership_vector(const raft::handle_t& handle,
                                        membership_vec,
                                        false);
   // raft::print_device_vector("merge_heights", merge_heights.data(), 2*n_selected_clusters, std::cout);
-  // thrust::transform(dist_membership_vec.begin(),
-  //                   dist_membership_vec.end(),
-  //                   membership_vec.begin(),
-  //                   membership_vec.begin(),
-  //                   thrust::multiplies<value_t>());
+  rmm::device_uvector<value_t> prob_in_some_cluster(m, stream);
+  all_points_prob_in_some_cluster(handle,
+                                  condensed_tree,
+                                  deaths.data(),
+                                  selected_clusters.data(),
+                                  m,
+                                  n_selected_clusters,
+                                  merge_heights.data(),
+                                  prob_in_some_cluster.data());
+  thrust::transform(exec_policy, dist_membership_vec.begin(),
+    dist_membership_vec.end(),
+    membership_vec,
+    membership_vec,
+    thrust::multiplies<value_t>());
+  
+    raft::print_device_vector("membership_vec_1", membership_vec + 15, 30, std::cout);
+    Utils::normalize(membership_vec, n_selected_clusters, m, stream);
+  
+  raft::print_device_vector("membership_vec_2", membership_vec + 15, 30, std::cout);
+  raft::linalg::matrixVectorOp(
+    membership_vec,
+    membership_vec,
+    prob_in_some_cluster.data(),
+    n_selected_clusters,
+    m,
+    true,
+    false,
+    [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
+    stream);
 
-  // Utils::normalize(membership_vec, n_selected_clusters, m, stream);
-  // raft::linalg::matrixVectorOp(
-  //   membership_vec,
-  //   membership_vec,
-  //   prob_in_some_cluster,
-  //   m,
-  //   n_selected_clusters,
-  //   true,
-  //   true,
-  //   [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
-  //   stream);
+    handle.sync_stream(stream);
+    cudaDeviceSynchronize();
+    raft::print_device_vector("prob_in_some_cluster", prob_in_some_cluster.data(), 3, std::cout);
+    raft::print_device_vector("membership_vec_3", membership_vec + 15, 15, std::cout);
+    raft::print_device_vector("membership_vec_4", membership_vec + 30, 15, std::cout);
 }
 
 };  // namespace Membership

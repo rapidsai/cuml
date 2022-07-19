@@ -55,12 +55,10 @@ __global__ void merge_height_kernel(value_t* heights,
                                     value_idx n_selected_clusters,
                                     value_idx* selected_clusters)
 { 
-  auto idx = blockDim.x * blockIdx.x + threadIdx.x;
-  if (idx >= m * n_selected_clusters) return;
-  // printf("%d\n", idx);
-  auto row = idx / n_selected_clusters;
-  auto col = idx % n_selected_clusters;
-  // printf("%d %d\n", row, col);
+  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < m * n_selected_clusters) {
+    value_idx row = idx / n_selected_clusters;
+    value_idx col = idx % n_selected_clusters;
   value_idx right_cluster = selected_clusters[col];
   value_idx left_cluster = parents[index_into_children[row]];
   bool took_right_parent = false;
@@ -87,8 +85,29 @@ __global__ void merge_height_kernel(value_t* heights,
   else{
     heights[idx] = lambdas[index_into_children[row]];
   }
+  // heights[idx] = 2.0;
+    }
 }
 
+template <typename value_idx, typename value_t>
+__global__ void prob_in_some_cluster_kernel(value_t* heights,
+                                     value_t* height_argmax,
+                                     value_t* deaths,
+                                     value_idx* index_into_children,
+                                     value_idx* selected_clusters,
+                                     value_t* lambdas,
+                                     value_t* prob_in_some_cluster,
+                                     int n_selected_clusters,
+                                     value_idx n_leaves,
+                                     int m)
+{
+  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < m) {
+  value_t max_lambda = max(lambdas[index_into_children[idx]], deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
+  prob_in_some_cluster[idx] = heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
+  return;
+  }
+}
 
 };  // namespace Membership
 };  // namespace detail
