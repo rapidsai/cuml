@@ -21,11 +21,11 @@ include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-find)
 
-set(cuml_version 22.08.00)
+set(CUML_VERSION 22.08.00)
 
 project(
   cuml-python
-  VERSION ${cuml_version}
+  VERSION ${CUML_VERSION}
   LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
@@ -43,11 +43,11 @@ set(CUML_CPP_TARGET "cuml++")
 
 ################################################################################
 # - Process User Options  ------------------------------------------------------
-rapids_cpm_init()
-include(../cpp/cmake/thirdparty/get_treelite.cmake)
+
 
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
+  rapids_cpm_init()
 	include(rapids-cuda)
 	rapids_cuda_init_architectures(CUML)
   enable_language(CUDA)
@@ -57,48 +57,23 @@ if(FIND_CUML_CPP)
   # rapids_cuda_init_architectures relies on `project` including.
 
   include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-set(RAFT_VERSION "22.08")
-set(RAFT_FORK "rapidsai")
-set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
+  include(../cpp/cmake/thirdparty/get_treelite.cmake)
+    rapids_cpm_init()
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(CUML)
+  enable_language(CUDA)
 
-function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARIES)
-  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                            "${multiValueArgs}" ${ARGN} )
+  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
+  include(../cpp/cmake/thirdparty/get_treelite.cmake)
 
-  #-----------------------------------------------------
-  # Invoke CPM find_package()
-  #-----------------------------------------------------
+  set(CUML_VERSION_MAJOR "22")
+  set(CUML_VERSION_MINOR "08")
+  set(CUML_USE_RAFT_NN ON)
+  set(CUML_USE_RAFT_DIST ON)
 
-  string(APPEND RAFT_COMPONENTS "distance")
-  string(APPEND RAFT_COMPONENTS " nn")
+  include(../cpp/cmake/thirdparty/get_raft.cmake)
 
-  rapids_cpm_find(raft ${PKG_VERSION}
-          GLOBAL_TARGETS      raft::raft
-          BUILD_EXPORT_SET    projname-exports
-          INSTALL_EXPORT_SET  projname-exports
-          CPM_ARGS
-          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
-          GIT_TAG        ${PKG_PINNED_TAG}
-          SOURCE_SUBDIR  cpp
-	  FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
-          OPTIONS
-          "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
-          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
-  )
-
-endfunction()
-
-# Change pinned tag here to test a commit in CI
-# To use a different RAFT locally, set the CMake variable
-# CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             ${RAFT_FORK}
-        PINNED_TAG       ${RAFT_PINNED_TAG}
-        COMPILE_LIBRARIES      NO
-)  
-find_package(cuml ${cuml_version} REQUIRED)
+  find_package(cuml ${CUML_VERSION} REQUIRED)
 else()
   set(cuml_FOUND OFF)
 endif()
