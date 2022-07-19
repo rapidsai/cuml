@@ -107,6 +107,34 @@ double silhouette_score(const raft::handle_t& handle,
                         double* silScores,
                         raft::distance::DistanceType metric);
 
+/**
+ * Calculates the "Davies Bouldin Score"
+ * 
+ * The Davies Bouldin Score is defined as the average similarity measure of each 
+ * cluster with its most similar cluster, where similarity is the ratio of within-cluster
+ * distances to between-cluster distances. Within-cluster distances of 2 clusters i and j
+ * is defined as S_i + S_j where S_i is computed as the average distance between
+ * each point and the centroid of the cluster also know as cluster diameter.
+ * The between-cluster distance is distance between cluster centroids. 
+ * The minimum score is zero, with lower values indicating better clustering.
+ *
+ * @param handle: raft::handle_t
+ * @param y: Array of data samples with dimensions (nRows x nCols)
+ * @param nRows: number of data samples
+ * @param nCols: number of features
+ * @param labels: Array containing labels for every data sample (1 x nRows)
+ * @param nLabels: number of unique Labels
+ * @param metric: the numerical value that maps to the type of distance metric to be used 
+ * in the calculations
+ */ 
+double davies_bouldin_score(const raft::handle_t& handle,
+                            double* y,
+                            int nRows,
+                            int nCols,
+                            int* labels,
+                            int nLabels,
+                            raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtUnexpanded);
+
 namespace Batched {
 /**
  * Calculates Batched "Silhouette Score" by tiling the pairwise distance matrix to remove use of

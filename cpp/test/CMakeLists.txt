@@ -267,6 +267,8 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME SILHOUETTE_SCORE_TEST PATH prims/silhouette_score.cu)
   ConfigureTest(PREFIX PRIMS NAME TRUSTWORTHINESS_TEST PATH prims/trustworthiness.cu)
   ConfigureTest(PREFIX PRIMS NAME V_MEASURE_TEST PATH prims/v_measure.cu)
+  ConfigureTest(PREFIX PRIMS NAME TEMP PATH prims/temp.cu)
+  ConfigureTest(PREFIX PRIMS NAME LEARNING PATH prims/learning.cu)
 
 endif()
 
