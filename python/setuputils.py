@@ -18,10 +18,7 @@ import glob
 import os
 import re
 import shutil
-import subprocess
 import sys
-
-from pathlib import Path
 
 
 def get_environment_option(name):
