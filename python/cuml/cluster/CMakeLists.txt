@@ -17,11 +17,16 @@
 set(cython_sources
     agglomerative.pyx
     dbscan.pyx
-    dbscan_mg.pyx
     hdbscan.pyx
     kmeans.pyx
-    kmeans_mg.pyx
 )
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       dbscan_mg.pyx
+       kmeans_mg.pyx
+  )
+endif()
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
@@ -37,10 +42,14 @@ find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
     agglomerative
     dbscan
-    dbscan_mg
     hdbscan
-    kmeans
-    kmeans_mg)
+    kmeans)
+if(NOT SINGLEGPU)
+  list(APPEND targets_using_numpy
+       dbscan_mg
+       kmeans_mg
+  )
+endif()
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()

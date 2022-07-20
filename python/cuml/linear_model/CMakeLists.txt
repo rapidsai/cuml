@@ -13,19 +13,23 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
 set(cython_sources
     base.pyx
-    base_mg.pyx
     elastic_net.pyx
     linear_regression.pyx
-    linear_regression_mg.pyx
     logistic_regression.pyx
     mbsgd_classifier.pyx
     mbsgd_regressor.pyx
     ridge.pyx
-    ridge_mg.pyx
 )
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       base_mg.pys
+       linear_regression_mg.pyx
+       ridge_mg.pyx
+  )
+endif()
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
@@ -40,16 +44,20 @@ rapids_cython_create_modules(
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
     linear_base
-    linear_base_mg
     linear_elastic_net
     linear_linear_regression
-    linear_linear_regression_mg
     linear_logistic_regression
     linear_mbsgd_classifier
     linear_mbsgd_regressor
     linear_ridge
-    linear_ridge_mg
     )
+if(NOT SINGLEGPU)
+  list(APPEND targets_using_numpy
+       linear_base_mg
+       linear_linear_regression_mg
+       linear_ridge_mg
+  )
+endif()
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()

@@ -17,12 +17,18 @@
 set(cython_sources
     ann.pyx
     kneighbors_classifier.pyx
-    kneighbors_classifier_mg.pyx
     kneighbors_regressor.pyx
-    kneighbors_regressor_mg.pyx
     nearest_neighbors.pyx
-    nearest_neighbors_mg.pyx
 )
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       kneighbors_classifier_mg.pyx
+       kneighbors_regressor_mg.pyx
+       nearest_neighbors_mg.pyx
+  )
+endif()
+
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
@@ -38,12 +44,17 @@ find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
     ann
     kneighbors_classifier
-    kneighbors_classifier_mg
     kneighbors_regressor
-    kneighbors_regressor_mg
     nearest_neighbors
-    nearest_neighbors_mg
     )
+if(NOT SINGLEGPU)
+  list(APPEND targets_using_numpy
+       kneighbors_classifier_mg
+       kneighbors_regressor_mg
+       nearest_neighbors_mg
+  )
+endif()
+
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()

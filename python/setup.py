@@ -83,6 +83,8 @@ if clean_artifacts:
 
         clean_folder(setup_file_path + '/cuml')
         shutil.rmtree(setup_file_path + '/build')
+        shutil.rmtree(setup_file_path + '/_skbuild')
+        shutil.rmtree(setup_file_path + '/dist')
 
     except IOError:
         pass

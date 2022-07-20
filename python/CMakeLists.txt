@@ -36,8 +36,10 @@ project(
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
+option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
+message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_CPP_TARGET "cuml++")
 

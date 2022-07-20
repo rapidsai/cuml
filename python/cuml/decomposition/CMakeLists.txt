@@ -15,12 +15,17 @@
 
 # todo: disable _mg for singlegpu
 set(cython_sources
-    base_mg.pyx
     pca.pyx
-    pca_mg.pyx
     tsvd.pyx
-    tsvd_mg.pyx
 )
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       base_mg.pyx
+       pca_mg.pyx
+       tsvd_mg.pyx
+  )
+endif()
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
@@ -35,10 +40,14 @@ rapids_cython_create_modules(
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
     pca
-    pca_mg
     tsvd
-    tsvd_mg
     )
+if(NOT SINGLEGPU)
+  list(APPEND targets_using_numpy
+       pca_mg
+       tsvd_mg
+  )
+endif()
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()
