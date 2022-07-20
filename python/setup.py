@@ -30,12 +30,7 @@ import versioneer
 from skbuild import setup
 from skbuild.command.build_ext import build_ext
 
-# FIXME: List correct deps
-install_requires = [
-    "cuda-python>=11.5,<11.7.1",
-    "numba>=0.53.1",
-    "numpy",
-]
+install_requires = ['numba', 'cython']
 
 ##############################################################################
 # - Print of build options used by setup.py  --------------------------------
@@ -59,10 +54,6 @@ if not cuda_home:
 cuda_include_dir = os.path.join(cuda_home, "include")
 cuda_lib_dir = os.path.join(cuda_home, "lib64")
 
-install_requires.append(
-    "cupy-cuda" + get_cuda_version_from_header(cuda_include_dir)
-)
-
 ##############################################################################
 # - Clean target -------------------------------------------------------------
 
@@ -82,9 +73,9 @@ if clean_artifacts:
         shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
 
         clean_folder(setup_file_path + '/cuml')
-        shutil.rmtree(setup_file_path + '/build')
-        shutil.rmtree(setup_file_path + '/_skbuild')
-        shutil.rmtree(setup_file_path + '/dist')
+        shutil.rmtree(setup_file_path + '/build', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/_skbuild', ignore_errors=True)
+        shutil.rmtree(setup_file_path + '/dist', ignore_errors=True)
 
     except IOError:
         pass
