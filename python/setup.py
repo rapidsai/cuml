@@ -24,7 +24,6 @@ from setuptools import find_packages
 from setuputils import clean_folder
 from setuputils import get_environment_option
 from setuputils import get_cli_option
-from setuputils import get_cuda_version_from_header
 
 import versioneer
 from skbuild import setup
