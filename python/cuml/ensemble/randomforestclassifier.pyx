@@ -447,26 +447,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <uintptr_t> rf_forest64
 
-        rs = self.random_state
-        if rs is None:
-            seed_val = <uintptr_t>NULL
-        elif isinstance(rs, np.uintp):
-            seed_val = <uintptr_t>rs
-        elif isinstance(rs, (np.random.RandomState, cp.random.RandomState)):
-            seed_val = <uintptr_t>rs.randint(
-                low=0,
-                high=np.iinfo(np.uintp).max,
-                dtype=np.uintp)
-        elif isinstance(rs, np.random.Generator):
-            seed_val = <uintptr_t>rs.integers(
-                low=0,
-                high=np.iinfo(np.uintp).max,
-                dtype=np.uintp)
-        else:
-            seed_val = <uintptr_t>np.random.default_rng(rs).integers(
-                low=0,
-                high=np.iinfo(np.uintp).max,
-                dtype=np.uintp)
+        seed_val = self._obtain_seed()
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
@@ -838,3 +819,27 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def _obtain_seed(self):
+        "Converts random_state to allow numpy and cupy RandomState objects"
+        rs = self.random_state
+        if rs is None:
+            seed_val = <uint64_t>NULL
+        elif isinstance(rs, np.uint64):
+            seed_val = <uint64_t>rs
+        elif isinstance(rs, (np.random.RandomState, cp.random.RandomState)):
+            seed_val = <uint64_t>rs.randint(
+                low=0,
+                high=np.iinfo(np.uint64).max,
+                dtype=np.uintp)
+        elif isinstance(rs, np.random.Generator):
+            seed_val = <uint64_t>rs.integers(
+                low=0,
+                high=np.iinfo(np.uint64).max,
+                dtype=np.uint64)
+        else:
+            seed_val = <uintptr_t>np.random.default_rng(rs).integers(
+                low=0,
+                high=np.iinfo(np.uint64).max,
+                dtype=np.uint64)
+        return seed_val

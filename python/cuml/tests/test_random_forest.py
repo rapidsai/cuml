@@ -382,7 +382,7 @@ def test_rf_regression(
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("rs_class",
-                         [int, np.uintp, np.random.RandomState,
+                         [int, np.uint64, np.random.RandomState,
                           cp.random.RandomState, np.random.default_rng])
 def test_rf_classification_seed(small_clf, datatype, rs_class):
 
