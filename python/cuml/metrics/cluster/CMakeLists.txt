@@ -22,6 +22,7 @@ set(cython_sources
     mutual_info_score.pyx
     silhouette_score.pyx
     utils.pyx
+    v_measure.pyx
 )
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
@@ -43,6 +44,7 @@ set(targets_using_numpy
     mutual_info_score
     silhouette_score
     utils
+    v_measure
     )
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
