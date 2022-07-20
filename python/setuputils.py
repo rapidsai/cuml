@@ -67,3 +67,23 @@ def clean_folder(path):
         cython_exts.extend(glob.glob(folder + '/*.cpython*'))
         for file in cython_exts:
             os.remove(file)
+
+
+def get_cuda_version_from_header(cuda_include_dir, delimeter=""):
+
+    cuda_version = None
+
+    with open(os.path.join(cuda_include_dir, "cuda.h"), encoding="utf-8") as f:
+        for line in f.readlines():
+            if re.search(r"#define CUDA_VERSION ", line) is not None:
+                cuda_version = line
+                break
+
+    if cuda_version is None:
+        raise TypeError("CUDA_VERSION not found in cuda.h")
+    cuda_version = int(cuda_version.split()[2])
+    return "%d%s%d" % (
+        cuda_version // 1000,
+        delimeter,
+        (cuda_version % 1000) // 10,
+    )
