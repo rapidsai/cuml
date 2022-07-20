@@ -261,7 +261,11 @@ def delete_hdbscan_output(obj):
         del output
         del obj.hdbscan_output_
 
-
+def all_points_membership_vector(clusterer):
+    cdef  *condensed_tree =\
+        new CondensedHierarchy[int, float](
+            handle_[0], <size_t>n_leaves)
+    
 class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     """

@@ -61,58 +61,73 @@ namespace HDBSCAN {
 namespace detail {
 namespace Membership {
 
-template <typename value_idx, typename value_t>
-value_idx preprocess(const raft::handle_t& handle,
-                     Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                     const value_idx* labels,
-                     int n_selected_clusters,
-                     value_idx* clusters,
-                     value_t* rearranged_lambdas,
-                     value_idx* leaf_idx,
-                     value_idx* sorted_labels,
-                     value_idx* sorted_label_offsets)
-{
-  auto stream      = handle.get_stream();
-  auto exec_policy = handle.get_thrust_policy();
-
-  auto lambdas    = condensed_tree.get_lambdas();
-  auto n_leaves   = condensed_tree.get_n_leaves();
-
-  raft::copy_async(sorted_labels, labels, n_leaves, stream);
-
-  thrust::sequence(exec_policy, leaf_idx, leaf_idx + n_leaves, 1);
-  thrust::sort_by_key(exec_policy, sorted_labels, sorted_labels + n_leaves, leaf_idx);
-
-  auto counting = thrust::make_counting_iterator<int>(0);
-
-  auto offsets_end_ptr = thrust::unique_by_key_copy(exec_policy,
-                                                    sorted_labels,
-                                                    sorted_labels + n_leaves,
-                                                    counting,
-                                                    clusters,
-                                                    sorted_label_offsets);
-
-  auto n_groups = offsets_end_ptr.first - clusters;
+  template <typename value_idx, typename value_t>
+  class PredictionData {
+   public:
+    /**
+     * Constructs a condensed hierarchy object by moving
+     * rmm::device_uvector. Used to construct cluster trees
+     * @param handle_
+     * @param n_leaves_
+     * @param n_edges_
+     * @param n_clusters_
+     * @param parents_
+     * @param children_
+     * @param lambdas_
+     * @param sizes_
+     */
+    PredictionData(const raft::handle_t& handle_,
+                   int n_edges_,
+                   int n_clusters_,
+                   Common::CondensedHierarchy<value_idx, value_t>& condensed_tree);
+    /**
+     * To maintain a high level of parallelism, the output from
+     * Condense::build_condensed_hierarchy() is sparse (the cluster
+     * nodes inside any collapsed subtrees will be 0).
+     *
+     * This function converts the sparse form to a dense form and renumbers
+     * the cluster nodes into a topological sort order. The renumbering
+     * reverses the values in the parent array since root has the largest value
+     * in the single-linkage tree. Then, it makes the combined parent and
+     * children arrays monotonic. Finally all of the arrays of the dendrogram
+     * are sorted by parent->children->sizes (e.g. topological). The root node
+     * will always have an id of 0 and the largest cluster size.
+     *
+     * Ths single-linkage tree dendrogram is a binary tree and parents/children
+     * can be found with simple indexing arithmetic but the condensed tree no
+     * longer has this property and so the tree now relies on either
+     * special indexing or the topological ordering for efficient traversal.
+     */
+    void condense(value_idx* full_parents,
+                  value_idx* full_children,
+                  value_t* full_lambdas,
+                  value_idx* full_sizes,
+                  value_idx size = -1);
   
-  value_idx outlier_offset = n_groups - n_selected_clusters;
-  thrust::fill(exec_policy, sorted_label_offsets + n_groups, sorted_label_offsets + n_groups + 1, n_leaves);
+    value_idx get_cluster_tree_edges();
+  
+    value_idx* get_parents() { return parents.data(); }
+    value_idx* get_children() { return children.data(); }
+    value_t* get_lambdas() { return lambdas.data(); }
+    value_idx* get_sizes() { return sizes.data(); }
+    value_idx get_n_edges() { return n_edges; }
+    int get_n_clusters() { return n_clusters; }
+    value_idx get_n_leaves() const { return n_leaves; }
 
-  auto rearrange_op =
-    [rearranged_lambdas,
-     lambdas,
-     leaf_idx] __device__(auto idx) {
-       rearranged_lambdas[idx] = lambdas[leaf_idx[idx]];
-       return;
-     };
-
-  thrust::for_each(
-    exec_policy,
-    counting,
-    counting + n_leaves,
-    rearrange_op);
-
-  return outlier_offset;
-}
+   private:
+    const raft::handle_t& handle;
+  
+    rmm::device_uvector<value_idx> exemplar_idx;
+    rmm::device_uvector<value_idx> exemplar_label_offsets;
+    int n_selected_clusters;
+    rmm::device_uvector<value_t> lambdas;
+    rmm::device_uvector<value_idx> sizes;
+  
+    size_t n_edges;
+    size_t n_leaves;
+    int n_clusters;
+    value_idx root_cluster;
+  };
 
 template <typename value_idx, typename value_t>
 value_idx get_exemplars(const raft::handle_t& handle,
@@ -120,8 +135,7 @@ value_idx get_exemplars(const raft::handle_t& handle,
                         const value_idx* labels,
                         const value_idx* label_map,
                         value_idx n_selected_clusters,
-                        value_idx* exemplar_idx,
-                        value_idx* exemplar_label_offsets)
+                        value_idx* exemplar_idx)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -316,50 +330,8 @@ void all_points_dist_membership_vector(const raft::handle_t& handle,
     );
   }
 
-
-
   Utils::normalize(dist_membership_vec, n_selected_clusters, m, stream);
 };
-
-// template <typename value_idx, typename value_t, int tpb = 256>
-// void get_merge_heights(const raft::handle_t& handle,
-//                             Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-//                             value_idx* selected_clusters,
-//                             int m,
-//                             int n_selected_clusters,
-//                             value_t* merge_heights)
-// {
-//   auto stream      = handle.get_stream();
-//   auto exec_policy = handle.get_thrust_policy();
-
-//   auto parents    = condensed_tree.get_parents();
-//   auto children   = condensed_tree.get_children();
-//   auto lambdas    = condensed_tree.get_lambdas();
-//   auto n_edges    = condensed_tree.get_n_edges();
-
-//   auto counting = thrust::make_counting_iterator<value_idx>(0);
-
-//   rmm::device_uvector<value_idx> index_into_children(n_edges, stream);
-//   auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
-//     index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
-//     return;
-//   };
-//   thrust::for_each(
-//     exec_policy,
-//     thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
-//     thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
-//     index_op
-//   );
-
-//   int n_blocks = raft::ceildiv(m * n_selected_clusters, tpb);
-//   merge_height_kernel<<<n_blocks, tpb>>>(merge_heights,
-//                                          lambdas,
-//                                          index_into_children.data(),
-//                                          parents,
-//                                          m,
-//                                          n_selected_clusters,
-//                                          selected_clusters);
-// }
 
 template <typename value_idx, typename value_t, int tpb = 256>
 void all_points_outlier_membership_vector(
@@ -562,7 +534,7 @@ void all_points_membership_vector(const raft::handle_t& handle,
                                   value_idx m,
                                   value_idx n,
                                   raft::distance::DistanceType metric)
-{ 
+{
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 

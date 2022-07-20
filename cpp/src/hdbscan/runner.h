@@ -260,6 +260,10 @@ void _fit_hdbscan(const raft::handle_t& handle,
                       if (label != -1) return label_map_ptr[label];
                       return -1;
                     });
+  
+  if (prediction_data) {
+    generate_prediction_data();
+  }
 }
 
 };  // end namespace HDBSCAN
