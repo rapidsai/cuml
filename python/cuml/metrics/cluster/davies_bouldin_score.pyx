@@ -110,11 +110,12 @@ def cython_davies_bouldin_score(
     else:
         mono_labels = labels
 
+    print(type(<uintptr_t>mono_labels.ptr))
     return davies_bouldin_score(handle_[0],
                                 <double*> <uintptr_t> data.ptr,
                                 <int> n_rows,
                                 <int> n_cols,
-                                <int*> <intptr_t> mono_labels.ptr,
+                                <int*> <uintptr_t> mono_labels.ptr,
                                 <int> n_labels,
                                 <DistanceType> metric)
 

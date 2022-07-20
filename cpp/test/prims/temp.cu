@@ -23,13 +23,13 @@ TEST(daviesBouldinScore, functionalityCheck2Classes)
   raft::update_device(d_labels.data(), &h_labels[0], nRows, stream);
 
   float dbscore = davies_bouldin_score(handle,
-                                          d_Xin.data(),
-                                          nRows,
-                                          nCols,
-                                          d_labels.data(),
-                                          nLabels,
-                                          stream,
-                                          raft::distance::DistanceType::L2Unexpanded);
+                                       d_Xin.data(),
+                                       nRows,
+                                       nCols,
+                                       d_labels.data(),
+                                       nLabels,
+                                       stream,
+                                       raft::distance::DistanceType::L2Unexpanded);
 
   float sklearn_dbscore = 0.46666;
   ASSERT_NEAR(dbscore, sklearn_dbscore, 0.0001);
@@ -53,13 +53,13 @@ TEST(daviesBouldinScore, functionalityCheck3classes)
   raft::update_device(d_labels.data(), h_labels, nRows, stream);
 
   float dbscore = davies_bouldin_score(handle,
-                                          d_Xin.data(),
-                                          nRows,
-                                          nCols,
-                                          d_labels.data(),
-                                          nLabels,
-                                          stream,
-                                          raft::distance::DistanceType::L2Unexpanded);
+                                       d_Xin.data(),
+                                       nRows,
+                                       nCols,
+                                       d_labels.data(),
+                                       nLabels,
+                                       stream,
+                                       raft::distance::DistanceType::L2Unexpanded);
 
   float sklearn_dbscore = 0.5;
   ASSERT_NEAR(dbscore, sklearn_dbscore, 0.0001);
@@ -84,13 +84,13 @@ TEST(daviesBouldinScore, functionality1pointincluster)
   raft::update_device(d_labels.data(), h_labels, nRows, stream);
 
   float dbscore = davies_bouldin_score(handle,
-                                          d_Xin.data(),
-                                          nRows,
-                                          nCols,
-                                          d_labels.data(),
-                                          nLabels,
-                                          stream,
-                                          raft::distance::DistanceType::L2Unexpanded);
+                                       d_Xin.data(),
+                                       nRows,
+                                       nCols,
+                                       d_labels.data(),
+                                       nLabels,
+                                       stream,
+                                       raft::distance::DistanceType::L2Unexpanded);
 
   float sklearn_dbscore = 0.44444;
   ASSERT_NEAR(dbscore, sklearn_dbscore, 0.0001);
@@ -115,13 +115,13 @@ TEST(daviesBouldinScore, functionality3cols)
   raft::update_device(d_labels.data(), h_labels, nRows, stream);
 
   float dbscore = davies_bouldin_score(handle,
-                                          d_Xin.data(),
-                                          nRows,
-                                          nCols,
-                                          d_labels.data(),
-                                          nLabels,
-                                          stream,
-                                          raft::distance::DistanceType::L2Unexpanded);
+                                       d_Xin.data(),
+                                       nRows,
+                                       nCols,
+                                       d_labels.data(),
+                                       nLabels,
+                                       stream,
+                                       raft::distance::DistanceType::L2Unexpanded);
 
   float sklearn_dbscore = 0.838667;
   ASSERT_NEAR(dbscore, sklearn_dbscore, 0.0001);
@@ -130,62 +130,3 @@ TEST(daviesBouldinScore, functionality3cols)
 
 };
 };
-
-/*
-  // float test()
-  // {
-  //   auto handle = raft::handle_t{};
-  //   int nRows = 5;
-  //   int nCols = 2;
-  //   int nLabels = 2;
-  //   int h_labels[nRows] = {0,0,0,1,1};
-  //   float h_Xin[nRows][nCols] = {{1,1}, {1,2}, {1,3}, {1,4}, {1,5}};
-
-  //   // Expected output using sklearn - 0.46666666666666
-    
-  //   // Example 2
-  //   // int nRows = 6;
-  //   // int nCols = 2;
-  //   // int nLabels = 2;
-  //   // int h_labels[nRows] = {0,0,0,1,1,1};
-  //   // float h_Xin[nRows][nCols] = {{1,1}, {1,2}, {1,3}, {1,4}, {1,5}, {1,6}};
-  //   // Expected output using sklearn - 0.4444444444444444
-
-  //   // Example 3
-  //   // int nRows = 6;
-  //   // int nCols = 2;
-  //   // int nLabels = 3;
-  //   // int h_labels[nRows] = {0,0,1,1,2,2};
-  //   // float h_Xin[nRows][nCols] = {{1,1}, {1,2}, {1,3}, {1,4}, {1,5}, {1,6}};
-  //   // Expected output using sklearn - 0.5
-
-  //   // Example 4
-  //   // int nRows = 5;
-  //   // int nCols = 2;
-  //   // int nLabels = 3;
-  //   // int h_labels[nRows] = {0,0,1,1,2};
-  //   // float h_Xin[nRows][nCols] = {{1,1}, {1,2}, {1,3}, {1,4}, {1,5}};
-  //   // Expected output using sklearn - 0.4444444444444444
-
-  //   // Example 5
-  //   // int nRows = 5;
-  //   // int nCols = 3;
-  //   // int nLabels = 3;
-  //   // int h_labels[nRows] = {0,0,1,1,2};
-  //   // float h_Xin[nRows][nCols] = {{1,1,1}, {1,2,2}, {1,3,3}, {1,4,1}, {1,5,2}};
-  //   // Expected output using sklearn - 0.8386675407210821
-
-
-  //   float dbscore = davies_bouldin_score(handle,
-  //                                           &h_Xin[0][0],
-  //                                           nRows,
-  //                                           nCols,
-  //                                           &h_labels[0],
-  //                                           nLabels,
-  //                                           handle.get_stream(),
-  //                                           raft::distance::DistanceType::L2Unexpanded
-  //   );
-
-  //   return dbscore;
-  // }
-*/

@@ -16,23 +16,12 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cub/cub.cuh>
-#include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <iostream>
-#include <math.h>
-#include <numeric>
+// #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/reduce.hpp>
-#include <raft/linalg/reduce_cols_by_key.cuh>
-#include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_scalar.hpp>
@@ -66,8 +55,7 @@ void countLabels(LabelT* labels,
   LabelT upper_level        = nUniqueLabels;
   size_t temp_storage_bytes = 0;
 
-  rmm::device_uvector<int> countArray(nUniqueLabels, stream); // where are we using this?
-  // Are we expecting an error while using HistogramEven??
+  rmm::device_uvector<int> countArray(nUniqueLabels, stream); 
   RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
                                                     temp_storage_bytes,
                                                     labels,
@@ -105,7 +93,6 @@ void countLabels(LabelT* labels,
  * @param metric: the numerical value that maps to the type of distance metric to be used in the
  * calculations
  */
-
 template <typename DataT, typename LabelT>
 DataT davies_bouldin_score(
   const raft::handle_t& handle,
@@ -127,26 +114,27 @@ DataT davies_bouldin_score(
   rmm::device_uvector<LabelT> d_labels(nRows, stream);
   raft::update_device(d_labels.data(), labels, nRows, stream);
 
+  // cluster centroids 
   rmm::device_uvector<DataT> d_centroids(nLabels * nCols, stream);
   DataT h_sArray[nLabels];
 
   for (int l = 0; l< nLabels; l++){
     LabelT sampleIndex = l;
     LabelT class_size = binCountArray.element(sampleIndex, stream);
+
+    // Elements of a cluster and corresponding labels 
     rmm::device_uvector<DataT> X_cluster(class_size * nCols, stream);
     rmm::device_uvector<LabelT> class_labels(class_size, stream);
 
     for (int i = 0, j = 0; i < nRows && j < class_size; ++i){
       if (d_labels.element(i,stream) == sampleIndex){
         class_labels.set_element(j, i, stream);
-        // std::cout << "The indices of class" << sampleIndex << " are: " << class_labels.element(j,stream) << std::endl;
         j++;
       }
     }
 
     // Copy data points for the identified indices to X_cluster
     raft::matrix::copyRows(X_in, class_size, nCols, X_cluster.data(), class_labels.data(), class_size, stream, true);
- 
     rmm::device_uvector<DataT> centroid(1 * nCols, stream);
     raft::stats::mean(centroid.data(), X_cluster.data(), nCols, class_size, false, true, stream);
 
@@ -155,21 +143,24 @@ DataT davies_bouldin_score(
       d_centroids.set_element(l*nCols+c, centroid.element(c, stream), stream);
     }
 
+    // Within cluster distances
     rmm::device_uvector<DataT> clusterdistanceMatrix(class_size * 1, stream);
     ML::Metrics::pairwise_distance(
         handle, X_cluster.data(), centroid.data(), clusterdistanceMatrix.data(), class_size, 1, nCols, raft::distance::DistanceType::L2SqrtUnexpanded);
 
+    // Mean within cluster distance
     rmm::device_uvector<DataT> Si(1 , stream);
     raft::stats::mean(Si.data(), clusterdistanceMatrix.data(), 1, class_size, false, false, stream);
-    
     h_sArray[l] = Si.element(0,stream);
 
   }
 
+  // Between cluster distances
   rmm::device_uvector<DataT> betweenclusterdistanceMatrix(nLabels * nLabels, stream);
   ML::Metrics::pairwise_distance(
       handle, d_centroids.data(), d_centroids.data(), betweenclusterdistanceMatrix.data(), nLabels, nLabels, nCols, raft::distance::DistanceType::L2SqrtUnexpanded);
 
+  // Davies Bouldin Score computation
   DataT dbmatrix[nLabels][nLabels];
   DataT rowmax[nLabels] = {0};
   for(int i=0; i<nLabels; ++i){
@@ -180,7 +171,7 @@ DataT davies_bouldin_score(
         else
           dbmatrix[i][j] = (h_sArray[i] + h_sArray[j])/betweenclusterdistanceMatrix.element(i * nLabels + j, stream);
         
-        // track the column max
+        // track the row max
         if(rowmax[i] < dbmatrix[i][j])
           rowmax[i] = dbmatrix[i][j];
       }
