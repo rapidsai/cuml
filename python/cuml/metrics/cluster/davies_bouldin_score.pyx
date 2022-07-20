@@ -17,7 +17,7 @@
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, intptr_t
 
 from cuml.common import input_to_cuml_array
 from cuml.metrics.pairwise_distances import _determine_metric
@@ -36,12 +36,19 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
             int n_labels,
             DistanceType metric) except +
 
-def _davies_bouldin_measures(
+def cython_davies_bouldin_score(
         X, 
         labels, 
         metric='L2SqrtUnexpanded',
         handle=None):
-    """Function wrapped by davies_bouldin_score to compute Davies Bouldin Scores.
+
+    """Compute the Davies-Bouldin score.
+
+    The score is defined as the average similarity measure of each cluster with
+    its most similar cluster, where similarity is the ratio of within-cluster
+    distances to between-cluster distances. Thus, clusters which are farther
+    apart and less dispersed will result in a better score.
+    The minimum score is zero, with lower values indicating better clustering.
 
     Parameters
     ----------
@@ -60,65 +67,6 @@ def _davies_bouldin_measures(
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    """
-    handle = Handle() if handle is None else handle
-    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-    data, n_rows, n_cols, dtype = input_to_cuml_array(
-        X,
-        order='C',
-        check_dtype=np.float64,
-    )
-
-    labels, _, _, _ = input_to_cuml_array(
-        labels,
-        order='C',
-        convert_to_dtype=np.int32
-    )
-
-    n_labels = cp.unique(
-        labels.to_output(output_type='cupy', output_dtype='int')
-    ).shape[0]
-
-    if not check_labels(labels, cp.arange(n_labels, dtype=np.int32)):
-        mono_labels, _ = make_monotonic(labels, copy=True)
-        mono_labels, _, _, _ = input_to_cuml_array(
-            mono_labels,
-            order='C',
-            convert_to_dtype=np.int32
-        )
-    else:
-        mono_labels = labels
-
-    return davies_bouldin_score(handle_[0],
-                                <double*> <uintptr_t> data.ptr,
-                                <int> n_rows,
-                                <int> n_cols,
-                                <int*> <uintptr_t> mono_labels.ptr,
-                                <int> n_labels,
-                                <DistanceType> metric)
-
-
-def cython_davies_bouldin_score(
-        X,
-        labels,
-        metric='euclidean',
-        handle=None):
-    """Compute the Davies-Bouldin score.
-
-    The score is defined as the average similarity measure of each cluster with
-    its most similar cluster, where similarity is the ratio of within-cluster
-    distances to between-cluster distances. Thus, clusters which are farther
-    apart and less dispersed will result in a better score.
-    The minimum score is zero, with lower values indicating better clustering.
-
-    Parameters
-    ----------
-    X : array-like, shape = (n_samples, n_features)
-        A list of ``n_features``-dimensional data points. Each row corresponds
-        to a single data point.
-    labels : array-like, shape = (n_samples,)
-        Assigned/Predicted labels for each sample.
 
     Returns
     -------
@@ -133,5 +81,43 @@ def cython_davies_bouldin_score(
        IEEE Transactions on Pattern Analysis and Machine Intelligence.
        PAMI-1 (2): 224-227
     """
-    
-    return _davies_bouldin_measures(X, labels)
+    handle = Handle() if handle is None else handle
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+
+    data, n_rows, n_cols, dtype = input_to_cuml_array(
+        X,
+        order='C',
+        check_dtype=np.float64,
+    )
+
+    labels, _, _, _ = input_to_cuml_array(
+        labels,
+        order='C',
+        convert_to_dtype=np.int64
+    )
+
+    n_labels = cp.unique(
+        labels.to_output(output_type='cupy', output_dtype='int')
+    ).shape[0]
+
+    if not check_labels(labels, cp.arange(n_labels, dtype=np.int64)):
+        mono_labels, _ = make_monotonic(labels, copy=True)
+        mono_labels, _, _, _ = input_to_cuml_array(
+            mono_labels,
+            order='C',
+            convert_to_dtype=np.int32
+        )
+    else:
+        mono_labels = labels
+
+    return davies_bouldin_score(handle_[0],
+                                <double*> <uintptr_t> data.ptr,
+                                <int> n_rows,
+                                <int> n_cols,
+                                <int*> <intptr_t> mono_labels.ptr,
+                                <int> n_labels,
+                                <DistanceType> metric)
+
+    # return 0 works fine with out an error.
+    # changes the davies_bouldin_score to return 0 even then it does not work
+    # Issue with passing data to davies_bouldin_score
