@@ -15,13 +15,20 @@
 
 # todo: disable _mg for singlegpu
 set(cython_sources
-    base.pyx
-    cuda.pyx
-    handle.pyx
-    logger.pyx
-    opg_data_utils_mg.pyx
-    pointer_utils.pyx
+    ann.pyx
+    kneighbors_classifier.pyx
+    kneighbors_regressor.pyx
+    nearest_neighbors.pyx
 )
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       kneighbors_classifier_mg.pyx
+       kneighbors_regressor_mg.pyx
+       nearest_neighbors_mg.pyx
+  )
+endif()
+
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
@@ -35,8 +42,19 @@ rapids_cython_create_modules(
 # CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
-    opg_data_utils_mg
+    ann
+    kneighbors_classifier
+    kneighbors_regressor
+    nearest_neighbors
     )
+if(NOT SINGLEGPU)
+  list(APPEND targets_using_numpy
+       kneighbors_classifier_mg
+       kneighbors_regressor_mg
+       nearest_neighbors_mg
+  )
+endif()
+
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()
@@ -44,5 +62,3 @@ endforeach()
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
 endforeach()
-
-target_include_directories(pointer_utils PRIVATE "../../../../cpp/src/")

@@ -13,22 +13,29 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
 set(cython_sources
-    ann.pyx
-    kneighbors_classifier.pyx
-    kneighbors_classifier_mg.pyx
-    kneighbors_regressor.pyx
-    kneighbors_regressor_mg.pyx
-    nearest_neighbors.pyx
-    nearest_neighbors_mg.pyx
+    base.pyx
+    elastic_net.pyx
+    linear_regression.pyx
+    logistic_regression.pyx
+    mbsgd_classifier.pyx
+    mbsgd_regressor.pyx
+    ridge.pyx
 )
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       base_mg.pyx
+       linear_regression_mg.pyx
+       ridge_mg.pyx
+  )
+endif()
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
+  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX linear_
 )
 
 # TODO: Finding NumPy currently requires finding Development due to a bug in CMake. This bug was
@@ -36,14 +43,21 @@ rapids_cython_create_modules(
 # CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
-    ann
-    kneighbors_classifier
-    kneighbors_classifier_mg
-    kneighbors_regressor
-    kneighbors_regressor_mg
-    nearest_neighbors
-    nearest_neighbors_mg
+    linear_base
+    linear_elastic_net
+    linear_linear_regression
+    linear_logistic_regression
+    linear_mbsgd_classifier
+    linear_mbsgd_regressor
+    linear_ridge
     )
+if(NOT SINGLEGPU)
+  list(APPEND targets_using_numpy
+       linear_base_mg
+       linear_linear_regression_mg
+       linear_ridge_mg
+  )
+endif()
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()

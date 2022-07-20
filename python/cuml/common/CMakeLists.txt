@@ -15,11 +15,12 @@
 
 # todo: disable _mg for singlegpu
 set(cython_sources
-    base_mg.pyx
-    pca.pyx
-    pca_mg.pyx
-    tsvd.pyx
-    tsvd_mg.pyx
+    base.pyx
+    cuda.pyx
+    handle.pyx
+    logger.pyx
+    opg_data_utils_mg.pyx
+    pointer_utils.pyx
 )
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
@@ -34,10 +35,7 @@ rapids_cython_create_modules(
 # CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
 find_package(Python REQUIRED COMPONENTS Development NumPy)
 set(targets_using_numpy
-    pca
-    pca_mg
-    tsvd
-    tsvd_mg
+    opg_data_utils_mg
     )
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
@@ -46,3 +44,5 @@ endforeach()
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
 endforeach()
+
+target_include_directories(pointer_utils PRIVATE "../../../cpp/src/")
