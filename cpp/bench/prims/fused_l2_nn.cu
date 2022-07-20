@@ -16,12 +16,12 @@
 
 #include <common/ml_benchmark.hpp>
 #include <limits>
-#include <raft/cudart_utils.h>
-#include <raft/distance/fused_l2_nn.hpp>
-#include <raft/handle.hpp>
-#include <raft/linalg/norm.hpp>
-#include <raft/random/rng.hpp>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/norm.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/spatial/knn/specializations.cuh>
 
 namespace MLCommon {
 namespace Bench {

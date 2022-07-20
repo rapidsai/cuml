@@ -39,7 +39,7 @@
 #include <faiss/gpu/utils/MatrixMult.cuh>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <rmm/device_uvector.hpp>

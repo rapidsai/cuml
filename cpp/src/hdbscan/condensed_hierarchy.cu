@@ -19,13 +19,13 @@
 #include <cub/cub.cuh>
 
 #include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

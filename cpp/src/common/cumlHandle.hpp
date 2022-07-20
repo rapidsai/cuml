@@ -18,7 +18,7 @@
 
 #include <cuml/cuml_api.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 

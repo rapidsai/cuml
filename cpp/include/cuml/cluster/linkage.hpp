@@ -19,7 +19,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/sparse/hierarchy/common.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft {
 class handle_t;

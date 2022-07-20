@@ -16,8 +16,8 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/interruptible.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/interruptible.hpp>
 
 namespace ML {
 

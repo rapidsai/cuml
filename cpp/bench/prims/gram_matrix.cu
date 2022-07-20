@@ -21,7 +21,7 @@
 #include <memory>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <sstream>
 #include <string>
 #include <vector>

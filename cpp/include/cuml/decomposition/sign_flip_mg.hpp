@@ -18,7 +18,7 @@
 
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace PCA {

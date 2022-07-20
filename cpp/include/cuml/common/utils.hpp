@@ -18,11 +18,11 @@
 
 #include <cuda_runtime.h>
 #include <execinfo.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <cstdio>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <string>

@@ -20,11 +20,11 @@
 #include <fstream>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/random/make_regression.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/transpose.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/make_regression.cuh>
 #include <sstream>
 #include <string>
 #include <vector>

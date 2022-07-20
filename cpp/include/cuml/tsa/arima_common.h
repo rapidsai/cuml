@@ -20,7 +20,7 @@
 
 #include <algorithm>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>

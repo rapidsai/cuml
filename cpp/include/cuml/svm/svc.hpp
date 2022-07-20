@@ -20,7 +20,7 @@
 #include "svm_parameter.h"
 #include <cuml/common/logger.hpp>
 #include <cuml/matrix/kernelparams.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 // namespace raft {
 // class handle_t;

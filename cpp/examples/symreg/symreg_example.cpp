@@ -28,7 +28,7 @@
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

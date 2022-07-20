@@ -21,7 +21,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <sstream>
 #include <string>
 #include <vector>

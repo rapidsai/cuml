@@ -18,9 +18,9 @@
 
 #include <cuda_runtime.h>
 #include <math.h>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/spatial/knn/epsilon_neighborhood.hpp>
+#include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "pack.h"

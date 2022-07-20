@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <vector>
 
 #include <cumlprims/opg/matrix/data.hpp>

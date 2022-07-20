@@ -15,7 +15,7 @@
  */
 
 #include <cuml/datasets/make_blobs.hpp>
-#include <raft/random/make_blobs.hpp>
+#include <raft/random/make_blobs.cuh>
 
 namespace ML {
 namespace Datasets {

@@ -20,15 +20,15 @@
 
 #include "base.hpp"
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/add.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/ternary_op.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/norm.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

@@ -15,7 +15,7 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
 
 namespace MLCommon {
 namespace Bench {

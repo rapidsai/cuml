@@ -27,7 +27,7 @@
 
 #include <cuml/linear_model/qn.h>
 
-#include <raft/matrix/math.hpp>
+#include <raft/matrix/math.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

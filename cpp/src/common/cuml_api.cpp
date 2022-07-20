@@ -19,7 +19,7 @@
 #include <cuml/common/utils.hpp>
 #include <cuml/cuml_api.h>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <cstddef>
 #include <functional>

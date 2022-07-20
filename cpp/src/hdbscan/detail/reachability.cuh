@@ -19,20 +19,20 @@
 #include "reachability_faiss.cuh"
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/hierarchy/detail/connectivities.cuh>
-#include <raft/sparse/linalg/symmetrize.hpp>
-#include <raft/sparse/selection/knn_graph.hpp>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/selection/knn_graph.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <cuml/neighbors/knn.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>

@@ -18,7 +18,7 @@
 
 #include <raft/distance/distance_type.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <rmm/device_uvector.hpp>
 

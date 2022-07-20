@@ -17,7 +17,7 @@
 #pragma once
 
 #include <memory>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "kernels/builder_kernels.cuh"
@@ -28,7 +28,7 @@
 #include <raft/cuda_utils.cuh>
 
 #include <deque>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <utility>
 
 namespace ML {

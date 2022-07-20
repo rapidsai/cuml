@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <vector>

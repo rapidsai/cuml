@@ -32,11 +32,11 @@
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>

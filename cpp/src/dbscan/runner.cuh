@@ -24,13 +24,13 @@
 #include "vertexdeg/runner.cuh"
 #include <common/nvtx.hpp>
 #include <label/classlabels.cuh>
-#include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/nvtx.hpp>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/sparse/csr.hpp>
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 #include <label/classlabels.cuh>
 
