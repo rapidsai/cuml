@@ -796,7 +796,7 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
 @pytest.mark.parametrize("missing_values", [0, 1, np.nan])
 @pytest.mark.parametrize("n_neighbors", [2])
 @pytest.mark.parametrize("weights", ['uniform', 'distance'])
-def test_knn_imputer(failure_logger, int_dataset, missing_values, weights, n_neighbors):  # noqa: F811
+def test_knn_imputer(failure_logger, int_dataset, missing_values, weights, n_neighbors):
     zero_filled, one_filled, nan_filled = int_dataset
     if missing_values == 0:
         X_np, X = zero_filled

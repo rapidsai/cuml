@@ -1,3 +1,15 @@
+# Original authors from Sckit-Learn:
+#          Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
+#          Sergey Feldman <sergeyfeldman@gmail.com>
+# License: BSD 3 clause
+
+
+# This code originates from the Scikit-Learn library,
+# it was since modified to allow GPU acceleration.
+# This code is under BSD 3 clause license.
+# Authors mentioned above do not endorse or promote this production.
+
+
 import cupy as cp
 import numpy as np
 
@@ -13,12 +25,15 @@ def _check_weights(weights):
 
 def _get_weights(dist, weights):
     """Get the weights from an array of distances and a parameter ``weights``.
+
     Parameters
     ----------
     dist : ndarray
         The input distances.
+
     weights : {'uniform', 'distance' or a callable}
         The kind of weighting used.
+        
     Returns
     -------
     weights_arr : array of the same shape as ``dist``

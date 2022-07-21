@@ -31,7 +31,7 @@ import cupyx
 import cuml.internals
 from cuml.common.base import _determine_stateless_output_type
 from cuml.common import (input_to_cuml_array, CumlArray, logger)
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.input_utils import (sparse_scipy_to_cp, input_to_cupy_array)
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
@@ -204,8 +204,8 @@ def nan_euclidean_distances(
     Y_m, n_samples_y, n_features_y, dtype_y = \
         input_to_cuml_array(Y, order=X_m.order, convert_to_dtype=dtype_x, check_dtype=[dtype_x])
     
-    X_m = cp.asarray(X_m)
-    Y_m = cp.asarray(Y_m)
+    X_m = input_to_cupy_array(X_m)
+    Y_m = input_to_cupy_array(Y_m)
 
     # Get missing mask for X
     missing_X = _get_mask(X_m, missing_values)
@@ -220,11 +220,11 @@ def nan_euclidean_distances(
     # Adjust distances for sqaured
     if X_m.shape == Y_m.shape:
         if (X_m == Y_m).all():
-            distances = cp.array(pairwise_distances(X_m, metric="sqeuclidean"))
+            distances = cp.asarray(pairwise_distances(X_m, metric="sqeuclidean"))
         else:
-            distances = cp.array(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+            distances = cp.asarray(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
     else:
-        distances = cp.array(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+        distances = cp.asarray(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
 
     # Adjust distances for missing values
     XX = X_m * X_m

@@ -988,7 +988,6 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
     # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
     compare_precision = 10
 
-    print(X.shape, Y.shape, metric)
     # Compare to sklearn, fp64
     S = pairwise_distances(X, Y, metric=metric)
 
