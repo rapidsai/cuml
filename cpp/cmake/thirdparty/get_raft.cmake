@@ -18,7 +18,7 @@ set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN NVTX)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
@@ -47,6 +47,10 @@ function(find_and_configure_raft)
 
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
+    if(PKG_NVTX)
+      set(RAFT_NVTX ON)
+    endif()
+
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    cuml-exports
@@ -62,7 +66,7 @@ function(find_and_configure_raft)
               "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
               "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
-              "RAFT_NVTX ${NVTX}"
+              "RAFT_NVTX ${PKG_NVTX}"
     )
 
     if(raft_ADDED)
@@ -89,4 +93,5 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
                         USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
+                        NVTX             ${NVTX}
                         )
