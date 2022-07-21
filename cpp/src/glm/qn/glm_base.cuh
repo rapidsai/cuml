@@ -24,6 +24,11 @@
 #include <raft/linalg/map_then_reduce.hpp>
 #include <raft/linalg/matrix_vector_op.hpp>
 #include <raft/stats/mean.hpp>
+
+#include <thrust/execution_policy.h>
+#include <thrust/functional.h>
+#include <thrust/reduce.h>
+
 #include <vector>
 
 namespace ML {
