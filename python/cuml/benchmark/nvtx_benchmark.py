@@ -29,7 +29,6 @@ class Profiler:
 
     @staticmethod
     def _execute(command):
-        print(' '.join(command))
         res = run(command, shell=False, capture_output=True,
                   env=dict(os.environ, NVTX_BENCHMARK='TRUE'))
         if res.returncode != 0:
