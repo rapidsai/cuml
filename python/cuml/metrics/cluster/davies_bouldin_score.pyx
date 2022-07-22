@@ -17,7 +17,7 @@
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t, intptr_t
+from libc.stdint cimport uintptr_t, int32_t
 
 from cuml.common import input_to_cuml_array
 from cuml.metrics.pairwise_distances import _determine_metric
@@ -93,14 +93,14 @@ def cython_davies_bouldin_score(
     labels, _, _, _ = input_to_cuml_array(
         labels,
         order='C',
-        convert_to_dtype=np.int64
+        convert_to_dtype=np.int32
     )
 
     n_labels = cp.unique(
         labels.to_output(output_type='cupy', output_dtype='int')
     ).shape[0]
 
-    if not check_labels(labels, cp.arange(n_labels, dtype=np.int64)):
+    if not check_labels(labels, cp.arange(n_labels, dtype=np.int32)):
         mono_labels, _ = make_monotonic(labels, copy=True)
         mono_labels, _, _, _ = input_to_cuml_array(
             mono_labels,
@@ -111,14 +111,18 @@ def cython_davies_bouldin_score(
         mono_labels = labels
 
     print(type(<uintptr_t>mono_labels.ptr))
+
+    cdef uintptr_t labels_ptr = mono_labels.ptr
     return davies_bouldin_score(handle_[0],
                                 <double*> <uintptr_t> data.ptr,
-                                <int> n_rows,
-                                <int> n_cols,
-                                <int*> <uintptr_t> mono_labels.ptr,
-                                <int> n_labels,
+                                <int> 6,
+                                <int> 2,
+                                <int*> labels_ptr,
+                                <int> 2,
                                 <DistanceType> metric)
 
+    # Error log
     # return 0 works fine with out an error.
-    # changes the davies_bouldin_score to return 0 even then it does not work
-    # Issue with passing data to davies_bouldin_score
+    # changed the davies_bouldin_score to return 0 even then it does not work
+    # So, the issue is the function call, while passing data to davies_bouldin_score
+    # I checked the input types with print statement, they allign with the expected but not sure why I am seeing a TypeError.

@@ -160,9 +160,12 @@ DataT davies_bouldin_score(
   ML::Metrics::pairwise_distance(
       handle, d_centroids.data(), d_centroids.data(), betweenclusterdistanceMatrix.data(), nLabels, nLabels, nCols, raft::distance::DistanceType::L2SqrtUnexpanded);
 
+  handle.sync_stream(stream);
+
   // Davies Bouldin Score computation
   DataT dbmatrix[nLabels][nLabels];
   DataT rowmax[nLabels] = {0};
+  DataT dbscore =0;
   for(int i=0; i<nLabels; ++i){
       for(int j=0; j<nLabels; ++j){
         // compute dbmatrix
@@ -175,12 +178,8 @@ DataT davies_bouldin_score(
         if(rowmax[i] < dbmatrix[i][j])
           rowmax[i] = dbmatrix[i][j];
       }
+      dbscore += rowmax[i]/nLabels;
     }
-  
-  // mean of dbmatrix is the Davies Bouldin Score
-  DataT dbscore =0;
-  for (int e =0; e<nLabels; e++)
-    dbscore += rowmax[e]/nLabels;
 
   return dbscore;
 }
