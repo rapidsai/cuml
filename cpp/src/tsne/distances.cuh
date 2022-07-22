@@ -34,6 +34,9 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <thrust/functional.h>
+#include <thrust/transform_reduce.h>
+
 namespace ML {
 namespace TSNE {
 
