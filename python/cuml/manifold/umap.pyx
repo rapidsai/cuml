@@ -811,4 +811,6 @@ class UMAP(Base,
             "hash_input",
             "random_state",
             "callback",
+            "metric",
+            "metric_kwds"
         ]
