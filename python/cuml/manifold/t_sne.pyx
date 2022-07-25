@@ -193,11 +193,13 @@ class TSNE(Base,
         During the late phases, less forcefully apply gradients.
     square_distances : boolean, default=True
         Whether TSNE should square the distance values.
-        Internally, this will be used to compute a kNN graph using 'euclidean'
+        Internally, this will be used to compute a kNN graph using the provided
         metric and then squaring it when True. If a `knn_graph` is passed
         to `fit` or `fit_transform` methods, all the distances will be
         squared when True. For example, if a `knn_graph` was obtained using
         'sqeuclidean' metric, the distances will still be squared when True.
+        Note: This argument should likely be set to False for distance metrics
+        other than 'euclidean' and 'l2'.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
