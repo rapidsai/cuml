@@ -32,15 +32,6 @@ namespace Dbscan {
 namespace VertexDeg {
 namespace Precomputed {
 
-template <typename value_t, typename index_t>
-__global__ void dist_to_adj_kernel(
-  const value_t* X, bool* adj, index_t N, index_t start_vertex_id, index_t batch_size, value_t eps)
-{
-  for (index_t i = threadIdx.x; i < batch_size; i += blockDim.x) {
-    adj[batch_size * blockIdx.x + i] = X[N * blockIdx.x + start_vertex_id + i] <= eps;
-  }
-}
-
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
