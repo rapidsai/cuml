@@ -306,6 +306,44 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 
 template class CondensedHierarchy<int, float>;
 
+template <typename value_idx, typename value_t>
+class PredictionData {
+ public:
+  PredictionData(const raft::handle_t& handle_,
+                 raft::distance::DistanceType metric_)
+    :
+    handle(handle_),
+    exemplar_idx(0, handle.get_stream()),
+    exemplar_label_offsets(0, handle.get_stream()),
+    n_selected_clusters(0),
+    selected_clusters(0, handle.get_stream()),
+    deaths(0, handle.get_stream()),
+    metric(metric_),
+    n_exemplars(0),
+    n_rows(0),
+    n_cols(0)
+  {
+  }
+
+  value_idx n_rows;
+  value_idx n_cols;
+  raft::distance::DistanceType metric;
+  rmm::device_uvector<value_idx> exemplar_idx;
+  rmm::device_uvector<value_idx> exemplar_label_offsets;
+  value_idx n_exemplars;
+  value_idx n_selected_clusters;
+  rmm::device_uvector<value_idx> selected_clusters;
+  rmm::device_uvector<value_idx> deaths;
+    // Using getters here, making the members private and forcing
+  // consistent state with the constructor. This should make
+  // it much easier to use / debug.
+  value_t* get_exemplar_idx() { return exemplar_idx.data(); }
+  value_t* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
+  value_idx* get_selected_clusters() { return selected_clusters.data(); }
+  value_idx* get_deaths() { return deaths.data(); }
+};
+
+
 };  // namespace Common
 };  // namespace HDBSCAN
 

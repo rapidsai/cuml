@@ -188,7 +188,9 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
-                  Common::hdbscan_output<value_idx, value_t>& out)
+                  Common::hdbscan_output<value_idx, value_t>& out,
+                  Common::PredictionData<value_idx, value_t>& pred_data,
+                  bool prediction_data)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -251,6 +253,18 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * starting at 0 even in the presence of noise (-1)
    */
 
+<<<<<<< Updated upstream
+=======
+  if (prediction_data) {
+    detail::Membership::build_prediction_data(handle,
+                                              out.get_condensed_tree(),
+                                              out.get_labels(),
+                                              label_map.data(),
+                                              n_selected_clusters,
+                                              pred_data);
+  }
+
+>>>>>>> Stashed changes
   value_idx* label_map_ptr = label_map.data();
   thrust::transform(exec_policy,
                     out.get_labels(),

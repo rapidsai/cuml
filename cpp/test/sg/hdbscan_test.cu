@@ -403,15 +403,15 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
 
     ML::HDBSCAN::detail::Membership::all_points_membership_vector<IdxT, T>(handle,
-                                 condensed_tree,
-                                 labels.data(),
-                                 label_map.data(),
-                                 n_selected_clusters,
-                                 membership_vec.data(),
-                                 data.data(),
-                                 params.n_row,
-                                 params.n_col,
-                                 raft::distance::DistanceType::L2SqrtExpanded);
+                                                                           condensed_tree,
+                                                                           labels.data(),
+                                                                           label_map.data(),
+                                                                           n_selected_clusters,
+                                                                           membership_vec.data(),
+                                                                           data.data(),
+                                                                           params.n_row,
+                                                                           params.n_col,
+                                                                           raft::distance::DistanceType::L2SqrtExpanded);
 
     // ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
     //                               params.probabilities.data(),

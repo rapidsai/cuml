@@ -81,6 +81,15 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method
+    
+    cdef cppclass PredictionData[value_idx, value_t]:
+        PredictionData(
+            const handle_t &handle, DistanceType metric)
+
+        value_idx *get_exemplar_idx()
+        value_idx *get_exemplar_label_offsets()
+        value_t *get_selected_clusters()
+        value_idx *get_deaths()
 
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
