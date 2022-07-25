@@ -188,9 +188,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
-                  Common::hdbscan_output<value_idx, value_t>& out,
-                  Common::PredictionData<value_idx, value_t>& pred_data,
-                  bool prediction_data)
+                  Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -217,7 +215,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
   rmm::device_uvector<value_t> tree_stabilities(out.get_condensed_tree().get_n_clusters(),
                                                 handle.get_stream());
 
-  rmm::device_uvector<value_idx> label_map(m, stream);
+  // rmm::device_uvector<value_idx> label_map(m, stream);
 
   std::vector<value_idx> label_set;
   value_idx n_selected_clusters =
@@ -227,7 +225,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       out.get_labels(),
                                       tree_stabilities.data(),
                                       out.get_probabilities(),
-                                      label_map.data(),
+                                      out.get_label_map(),
                                       params.cluster_selection_method,
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
@@ -246,22 +244,22 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                           max_lambda,
                                           m,
                                           out.get_stabilities(),
-                                          label_map.data());
+                                          out.get_label_map());
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
 
-  value_idx* label_map_ptr = label_map.data();
-  thrust::transform(exec_policy,
-                    out.get_labels(),
-                    out.get_labels() + m,
-                    out.get_labels(),
-                    [=] __device__(value_idx label) {
-                      if (label != -1) return label_map_ptr[label];
-                      return -1;
-                    });
+  // value_idx* label_map_ptr = label_map.data();
+  // thrust::transform(exec_policy,
+  //                   out.get_labels(),
+  //                   out.get_labels() + m,
+  //                   out.get_labels(),
+  //                   [=] __device__(value_idx label) {
+  //                     if (label != -1) return label_map_ptr[label];
+  //                     return -1;
+  //                   });
 }
 
 };  // end namespace HDBSCAN

@@ -73,6 +73,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     rmm::device_uvector<IdxT> out_sizes(params.n_row * 2, handle.get_stream());
 
     rmm::device_uvector<IdxT> out_labels(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> out_label_map(params.n_row, handle.get_stream());
 
     rmm::device_uvector<IdxT> mst_src(params.n_row - 1, handle.get_stream());
     rmm::device_uvector<IdxT> mst_dst(params.n_row - 1, handle.get_stream());
@@ -85,6 +86,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     HDBSCAN::Common::hdbscan_output<IdxT, T> out(handle,
                                                  params.n_row,
                                                  out_labels.data(),
+                                                 out_label_map.data(),
                                                  out_probabilities.data(),
                                                  out_children.data(),
                                                  out_sizes.data(),

@@ -179,6 +179,7 @@ class robust_single_linkage_output {
   robust_single_linkage_output(const raft::handle_t& handle_,
                                int n_leaves_,
                                value_idx* labels_,
+                               value_idx* label_map_,
                                value_idx* children_,
                                value_idx* sizes_,
                                value_t* deltas_,
@@ -189,6 +190,7 @@ class robust_single_linkage_output {
       n_leaves(n_leaves_),
       n_clusters(-1),
       labels(labels_),
+      label_map(label_map_),
       children(children_),
       sizes(sizes_),
       deltas(deltas_),
@@ -201,6 +203,7 @@ class robust_single_linkage_output {
   int get_n_leaves() const { return n_leaves; }
   int get_n_clusters() const { return n_clusters; }
   value_idx* get_labels() { return labels; }
+  value_idx* get_label_map() { return label_map; }
   value_idx* get_children() { return children; }
   value_idx* get_sizes() { return sizes; }
   value_t* get_deltas() { return deltas; }
@@ -223,6 +226,7 @@ class robust_single_linkage_output {
   int n_clusters;
 
   value_idx* labels;  // size n_leaves
+  value_idx* label_map; // size n_clusters
 
   // Dendrogram
   value_idx* children;  // size n_leaves * 2

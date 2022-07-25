@@ -270,10 +270,10 @@ def delete_hdbscan_output(obj):
         del output
         del obj.hdbscan_output_
 
-def all_points_membership_vector(clusterer):
-    cdef  *condensed_tree =\
-        new CondensedHierarchy[int, float](
-            handle_[0], <size_t>n_leaves)
+#def all_points_membership_vector(clusterer):
+#     cdef  *condensed_tree =\
+#         new CondensedHierarchy[int, float](
+#             handle_[0], <size_t>n_leaves)
     
 class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
@@ -595,6 +595,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_leaves_ = n_rows
 
         self.labels_ = CumlArray.empty(n_rows, dtype="int32", index=X_m.index)
+        self.label_map_ = CumlArray.empty(n_rows, dtype="int32")
         self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
         self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
         self.sizes_ = CumlArray.empty(n_rows, dtype="int32")
@@ -604,6 +605,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
 
         cdef uintptr_t labels_ptr = self.labels_.ptr
+        cdef uintptr_t label_map_ptr = self.label_map_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
         cdef uintptr_t sizes_ptr = self.sizes_.ptr
         cdef uintptr_t lambdas_ptr = self.lambdas_.ptr
@@ -619,6 +621,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         cdef hdbscan_output *linkage_output = new hdbscan_output(
             handle_[0], n_rows,
             <int*>labels_ptr,
+            <int*>label_map_ptr,
             <float*>probabilities_ptr,
             <int*>children_ptr,
             <int*>sizes_ptr,
