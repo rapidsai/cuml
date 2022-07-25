@@ -49,32 +49,6 @@ set(CUML_CPP_TARGET "cuml++")
 
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
-  rapids_cpm_init()
-	include(rapids-cuda)
-	rapids_cuda_init_architectures(CUML)
-  enable_language(CUDA)
-
-  # FIXME: check of this is necessary
-  # Since cugraph only enables CUDA optionally, we need to manually include the file that
-  # rapids_cuda_init_architectures relies on `project` including.
-
-  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-  include(../cpp/cmake/thirdparty/get_treelite.cmake)
-    rapids_cpm_init()
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(CUML)
-  enable_language(CUDA)
-
-  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-  include(../cpp/cmake/thirdparty/get_treelite.cmake)
-
-  set(CUML_VERSION_MAJOR "22")
-  set(CUML_VERSION_MINOR "08")
-  set(CUML_USE_RAFT_NN ON)
-  set(CUML_USE_RAFT_DIST ON)
-
-  include(../cpp/cmake/thirdparty/get_raft.cmake)
-
   find_package(cuml ${CUML_VERSION} REQUIRED)
 else()
   set(cuml_FOUND OFF)
@@ -92,8 +66,12 @@ if(NOT cuml_FOUND)
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
 
-  set(BUILD_TESTS OFF)
-  set(BUILD_BENCHMARKS OFF)
+  set(BUILD_CUML_TESTS OFF)
+  set(BUILD_PRIMS_TESTS OFF)
+  set(BUILD_CUML_C_LIBRARY OFF)
+  set(BUILD_CUML_EXAMPLES OFF)
+  set(BUILD_CUML_BENCH OFF)
+  set(BUILD_CUML_PRIMS_BENCH OFF)
   message(STATUS "installing packages")
   add_subdirectory(../../cpp cuml-cpp)
 
