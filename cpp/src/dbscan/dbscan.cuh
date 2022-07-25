@@ -180,7 +180,8 @@ void dbscanFitImpl(const raft::handle_t& handle,
                                                      algo_ccl,
                                                      NULL,
                                                      batch_size,
-                                                     stream);
+                                                     stream,
+                                                     metric);
 
   CUML_LOG_DEBUG("Workspace size: %lf MB", (double)workspaceSize * 1e-6);
 
@@ -200,7 +201,8 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               algo_ccl,
                               workspace.data(),
                               batch_size,
-                              stream);
+                              stream,
+                              metric);
 }
 
 }  // namespace Dbscan

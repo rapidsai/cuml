@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,3 +28,5 @@ from cuml.metrics.cluster.silhouette_score import \
     cython_silhouette_samples as silhouette_samples
 from cuml.metrics.cluster.davies_bouldin_score import \
     cython_davies_bouldin_score as davies_bouldin_score
+from cuml.metrics.cluster.v_measure import \
+   cython_v_measure as v_measure_score

@@ -323,6 +323,7 @@ double completeness_score(const raft::handle_t& handle,
  * @param n: Number of elements in y and y_hat
  * @param lower_class_range: the lowest value in the range of classes
  * @param upper_class_range: the highest value in the range of classes
+ * @param beta: Ratio of weight attributed to homogeneity vs completeness
  * @return: The v-measure
  */
 double v_measure(const raft::handle_t& handle,
@@ -330,7 +331,8 @@ double v_measure(const raft::handle_t& handle,
                  const int* y_hat,
                  const int n,
                  const int lower_class_range,
-                 const int upper_class_range);
+                 const int upper_class_range,
+                 double beta);
 
 /**
  * Calculates the "accuracy" between two input numpy arrays/ cudf series
