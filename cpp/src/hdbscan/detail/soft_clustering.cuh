@@ -166,7 +166,7 @@ value_idx get_exemplars(const raft::handle_t& handle,
    
     auto n_exemplars = exemplar_idx_end_ptr - exemplar_idx;
     return n_exemplars;
-  }
+}
 
 void process_exemplars(const raft::handle_t& handle,
                        value_idx* labels,

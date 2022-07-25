@@ -253,18 +253,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * starting at 0 even in the presence of noise (-1)
    */
 
-<<<<<<< Updated upstream
-=======
-  if (prediction_data) {
-    detail::Membership::build_prediction_data(handle,
-                                              out.get_condensed_tree(),
-                                              out.get_labels(),
-                                              label_map.data(),
-                                              n_selected_clusters,
-                                              pred_data);
-  }
-
->>>>>>> Stashed changes
   value_idx* label_map_ptr = label_map.data();
   thrust::transform(exec_policy,
                     out.get_labels(),
@@ -274,10 +262,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
                       if (label != -1) return label_map_ptr[label];
                       return -1;
                     });
-  
-  if (prediction_data) {
-    generate_prediction_data();
-  }
 }
 
 };  // end namespace HDBSCAN
