@@ -179,7 +179,6 @@ class robust_single_linkage_output {
   robust_single_linkage_output(const raft::handle_t& handle_,
                                int n_leaves_,
                                value_idx* labels_,
-                               value_idx* label_map_,
                                value_idx* children_,
                                value_idx* sizes_,
                                value_t* deltas_,
@@ -190,7 +189,6 @@ class robust_single_linkage_output {
       n_leaves(n_leaves_),
       n_clusters(-1),
       labels(labels_),
-      label_map(label_map_),
       children(children_),
       sizes(sizes_),
       deltas(deltas_),
@@ -203,7 +201,6 @@ class robust_single_linkage_output {
   int get_n_leaves() const { return n_leaves; }
   int get_n_clusters() const { return n_clusters; }
   value_idx* get_labels() { return labels; }
-  value_idx* get_label_map() { return label_map; }
   value_idx* get_children() { return children; }
   value_idx* get_sizes() { return sizes; }
   value_t* get_deltas() { return deltas; }
@@ -226,7 +223,6 @@ class robust_single_linkage_output {
   int n_clusters;
 
   value_idx* labels;  // size n_leaves
-  value_idx* label_map; // size n_clusters
 
   // Dendrogram
   value_idx* children;  // size n_leaves * 2
@@ -310,42 +306,57 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 
 template class CondensedHierarchy<int, float>;
 
-// template <typename value_idx, typename value_t>
-// class PredictionData {
-//  public:
-//   PredictionData(const raft::handle_t& handle_,
-//                  raft::distance::DistanceType metric_)
-//     :
-//     handle(handle_),
-//     exemplar_idx(0, handle.get_stream()),
-//     exemplar_label_offsets(0, handle.get_stream()),
-//     n_selected_clusters(0),
-//     selected_clusters(0, handle.get_stream()),
-//     deaths(0, handle.get_stream()),
-//     metric(metric_),
-//     n_exemplars(0),
-//     n_rows(0),
-//     n_cols(0)
-//   {
-//   }
+template <typename value_idx, typename value_t>
+class PredictionData {
+ public:
+  PredictionData(const raft::handle_t& handle_, value_idx m,  value_idx n)
+    :
+    handle(handle_),
+    exemplar_idx(0, handle.get_stream()),
+    exemplar_label_offsets(0, handle.get_stream()),
+    n_selected_clusters(0),
+    selected_clusters(0, handle.get_stream()),
+    deaths(0, handle.get_stream()),
+    n_exemplars(0),
+    n_rows(m),
+    n_cols(n)
+  {
+  }
+  value_idx n_rows;
+  value_idx n_cols;
+  
+  value_idx get_n_exemplars() { return n_exemplars; }
+  value_t* get_exemplar_idx() { return exemplar_idx.data(); }
+  value_t* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
+  value_idx* get_selected_clusters() { return selected_clusters.data(); }
+  value_idx* get_deaths() { return deaths.data(); }
 
-//   value_idx n_rows;
-//   value_idx n_cols;
-//   raft::distance::DistanceType metric;
-//   rmm::device_uvector<value_idx> exemplar_idx;
-//   rmm::device_uvector<value_idx> exemplar_label_offsets;
-//   value_idx n_exemplars;
-//   value_idx n_selected_clusters;
-//   rmm::device_uvector<value_idx> selected_clusters;
-//   rmm::device_uvector<value_idx> deaths;
-//     // Using getters here, making the members private and forcing
-//   // consistent state with the constructor. This should make
-//   // it much easier to use / debug.
-//   value_t* get_exemplar_idx() { return exemplar_idx.data(); }
-//   value_t* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
-//   value_idx* get_selected_clusters() { return selected_clusters.data(); }
-//   value_idx* get_deaths() { return deaths.data(); }
-// };
+  void cache(const raft::handle_t& handle,
+    value_idx n_exemplars_,
+             value_idx n_clusters,
+             value_idx n_selected_clusters_,
+             value_t* deaths_,
+             value_idx* exemplar_idx_,
+             value_idx* exemplar_label_offsets_,
+             value_idx* selected_clusters_)
+  {
+    raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
+    raft::copy(exemplar_label_offsets.begin(), exemplar_label_offsets_, n_selected_clusters_ + 1, handle.get_stream());
+    raft::copy(deaths.begin(), deaths_, n_clusters, handle.get_stream());
+    raft::copy(selected_clusters.begin(), selected_clusters_, n_selected_clusters_, handle.get_stream());
+    this-> n_exemplars = n_exemplars_;
+    this-> n_selected_clusters = n_selected_clusters_;
+  }
+
+ private:
+  const raft::handle_t& handle;
+  rmm::device_uvector<value_idx> exemplar_idx;
+  rmm::device_uvector<value_idx> exemplar_label_offsets;
+  value_idx n_exemplars;
+  value_idx n_selected_clusters;
+  rmm::device_uvector<value_idx> selected_clusters;
+  rmm::device_uvector<value_t> deaths;
+};
 
 
 };  // namespace Common
@@ -378,7 +389,9 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out);
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             bool prediction_data,
+             HDBSCAN::Common::PredictionData<int, float>& pred_data);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,

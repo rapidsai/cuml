@@ -30,6 +30,7 @@
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
+#include "detail/soft_clustering.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
 namespace ML {
@@ -188,7 +189,9 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
-                  Common::hdbscan_output<value_idx, value_t>& out)
+                  Common::hdbscan_output<value_idx, value_t>& out,
+                  bool prediction_data,
+                  Common::PredictionData<value_idx, value_t>& pred_data)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -215,7 +218,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
   rmm::device_uvector<value_t> tree_stabilities(out.get_condensed_tree().get_n_clusters(),
                                                 handle.get_stream());
 
-  // rmm::device_uvector<value_idx> label_map(m, stream);
+  rmm::device_uvector<value_idx> label_map(m, stream);
 
   std::vector<value_idx> label_set;
   value_idx n_selected_clusters =
@@ -225,7 +228,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       out.get_labels(),
                                       tree_stabilities.data(),
                                       out.get_probabilities(),
-                                      out.get_label_map(),
+                                      label_map.data(),
                                       params.cluster_selection_method,
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
@@ -244,22 +247,31 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                           max_lambda,
                                           m,
                                           out.get_stabilities(),
-                                          out.get_label_map());
+                                          label_map.data());
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
+  
+  if (prediction_data) {
+    detail::Membership::build_prediction_data(handle,
+                                              out.get_condensed_tree(),
+                                              out.get_labels(),
+                                              label_map.data(),
+                                              n_selected_clusters,
+                                              pred_data);
+  }
 
-  // value_idx* label_map_ptr = label_map.data();
-  // thrust::transform(exec_policy,
-  //                   out.get_labels(),
-  //                   out.get_labels() + m,
-  //                   out.get_labels(),
-  //                   [=] __device__(value_idx label) {
-  //                     if (label != -1) return label_map_ptr[label];
-  //                     return -1;
-  //                   });
+  value_idx* label_map_ptr = label_map.data();
+  thrust::transform(exec_policy,
+                    out.get_labels(),
+                    out.get_labels() + m,
+                    out.get_labels(),
+                    [=] __device__(value_idx label) {
+                      if (label != -1) return label_map_ptr[label];
+                      return -1;
+                    });
 }
 
 };  // end namespace HDBSCAN

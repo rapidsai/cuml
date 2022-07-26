@@ -82,15 +82,10 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method
     
-    cdef cppclass PredictionData[value_idx, value_t]:
-        PredictionData(
-            const handle_t &handle, DistanceType metric)
-
-        value_idx *get_exemplar_idx()
-        value_idx *get_exemplar_label_offsets()
-        value_t *get_selected_clusters()
-        value_idx *get_deaths()
-
+    cdef cppclass PredictionData[int, float]:
+        PredictionData(const handle_t &handle,
+                       int m,
+                       int n)
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
@@ -99,7 +94,9 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  size_t m, size_t n,
                  DistanceType metric,
                  HDBSCANParams & params,
-                 hdbscan_output & output)
+                 hdbscan_output & output,
+                 bool prediction_data,
+                 PredictionData[int, float] &pred_data)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -448,7 +445,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  handle=None,
                  verbose=False,
                  connectivity='knn',
-                 output_type=None):
+                 output_type=None,
+                 prediction_data=False):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -477,6 +475,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
 
         self.fit_called_ = False
+        self.prediction_data = prediction_data
 
         self.n_clusters_ = None
         self.n_leaves_ = None
@@ -595,7 +594,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_leaves_ = n_rows
 
         self.labels_ = CumlArray.empty(n_rows, dtype="int32", index=X_m.index)
-        self.label_map_ = CumlArray.empty(n_rows, dtype="int32")
         self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
         self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
         self.sizes_ = CumlArray.empty(n_rows, dtype="int32")
@@ -605,7 +603,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
 
         cdef uintptr_t labels_ptr = self.labels_.ptr
-        cdef uintptr_t label_map_ptr = self.label_map_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
         cdef uintptr_t sizes_ptr = self.sizes_.ptr
         cdef uintptr_t lambdas_ptr = self.lambdas_.ptr
@@ -621,7 +618,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         cdef hdbscan_output *linkage_output = new hdbscan_output(
             handle_[0], n_rows,
             <int*>labels_ptr,
-            <int*>label_map_ptr,
             <float*>probabilities_ptr,
             <int*>children_ptr,
             <int*>sizes_ptr,
@@ -653,6 +649,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             metric = _metrics_mapping[self.metric]
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
+        
+        cdef PredictionData *pred_data = new PredictionData[int, float](
+            handle_[0], n_rows, n_cols)
+        self._prediction_data = pred_data
 
         if self.connectivity == 'knn':
             hdbscan(handle_[0],
@@ -661,7 +661,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                     <int> n_cols,
                     <DistanceType> metric,
                     params,
-                    deref(linkage_output))
+                    deref(linkage_output),
+                    <bool> self.prediction_data,
+                    deref(pred_data))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
