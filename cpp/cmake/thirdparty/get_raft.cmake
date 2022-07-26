@@ -79,7 +79,7 @@ endfunction()
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             achirkin
-                        PINNED_TAG       196b83fed03fbc99bfcb218b1645a05f4f049236
+                        PINNED_TAG       e6a815bdaa10a520da94088dbeb4b4d4b6da4e07
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
