@@ -340,12 +340,16 @@ class PredictionData {
              value_idx* exemplar_label_offsets_,
              value_idx* selected_clusters_)
   {
+    this-> n_exemplars = n_exemplars_;
+    this-> n_selected_clusters = n_selected_clusters_;
+    exemplar_idx.resize(n_exemplars, handle.get_stream());
+    exemplar_label_offsets.resize(n_selected_clusters, handle.get_stream());
+    deaths.resize(n_clusters, handle.get_stream());
+    selected_clusters.resize(n_selected_clusters, handle.get_stream());
     raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
     raft::copy(exemplar_label_offsets.begin(), exemplar_label_offsets_, n_selected_clusters_ + 1, handle.get_stream());
     raft::copy(deaths.begin(), deaths_, n_clusters, handle.get_stream());
     raft::copy(selected_clusters.begin(), selected_clusters_, n_selected_clusters_, handle.get_stream());
-    this-> n_exemplars = n_exemplars_;
-    this-> n_selected_clusters = n_selected_clusters_;
   }
 
  private:

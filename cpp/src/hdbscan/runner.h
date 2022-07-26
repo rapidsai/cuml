@@ -255,6 +255,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
    */
   
   if (prediction_data) {
+    CUML_LOG_DEBUG("hello from gpu");
     detail::Membership::build_prediction_data(handle,
                                               out.get_condensed_tree(),
                                               out.get_labels(),

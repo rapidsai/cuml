@@ -650,9 +650,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
         
-        cdef PredictionData *pred_data = new PredictionData[int, float](
-            handle_[0], n_rows, n_cols)
-        self._prediction_data = pred_data
+        cdef PredictionData[int, float] *pred_data = new PredictionData[int, float](
+            handle_[0], <int> n_rows, <int> n_cols)
+        self._prediction_data = <size_t>pred_data
 
         if self.connectivity == 'knn':
             hdbscan(handle_[0],
