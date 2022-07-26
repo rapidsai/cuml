@@ -79,4 +79,19 @@ void _extract_clusters(const raft::handle_t& handle,
                                              cluster_selection_epsilon);
 }
 
+void _all_points_membership_vectors(const raft::handle_t& handle,
+                                    HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                                    HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                                    float* membership_vec,
+                                    const float* X,
+                                    raft::distance::DistanceType metric)
+{
+  HDBSCAN::detail::Membership::all_points_membership_vectors(handle,
+                                                             condensed_tree,
+                                                             prediction_data,
+                                                             membership_vec,
+                                                             X,
+                                                             metric);
+}
+
 };  // end namespace ML

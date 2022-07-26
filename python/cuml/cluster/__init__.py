@@ -19,3 +19,4 @@ from cuml.cluster.kmeans import KMeans
 from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.hdbscan import condense_hierarchy
+from cuml.cluster.hdbscan import all_points_membership_vectors

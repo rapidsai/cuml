@@ -379,7 +379,7 @@ void all_points_outlier_membership_vector(
       outlier_membership_vec + m * n_selected_clusters,
       outlier_membership_vec,
       [=] __device__(value_t val){
-          return exp(value_t(val - std::numeric_limits<value_t>::max()));
+          return exp(val);
       }
     );
   }
@@ -462,12 +462,12 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
 }
 
 template <typename value_idx, typename value_t>
-void all_points_membership_vector(const raft::handle_t& handle,
-                                  Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                                  Common::PredictionData<value_idx, value_t>& prediction_data,
-                                  value_t* membership_vec,
-                                  const value_t* X,
-                                  raft::distance::DistanceType metric)
+void all_points_membership_vectors(const raft::handle_t& handle,
+                                   Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                                   Common::PredictionData<value_idx, value_t>& prediction_data,
+                                   value_t* membership_vec,
+                                   const value_t* X,
+                                   raft::distance::DistanceType metric)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -557,10 +557,10 @@ void all_points_membership_vector(const raft::handle_t& handle,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
     stream);
 
-  //   handle.sync_stream(stream);
-  //   cudaDeviceSynchronize();
-  //   raft::print_device_vector("prob_in_some_cluster", prob_in_some_cluster.data(), 3, std::cout);
-  //   raft::print_device_vector("membership_vec_3", membership_vec + 15, 15, std::cout);
+    handle.sync_stream(stream);
+    cudaDeviceSynchronize();
+    // raft::print_device_vector("prob_in_some_cluster", prob_in_some_cluster.data(), 3, std::cout);
+    raft::print_device_vector("membership_vec_3", membership_vec + 30, 30, std::cout);
   //   raft::print_device_vector("membership_vec_4", membership_vec + 30, 15, std::cout);
 }
 

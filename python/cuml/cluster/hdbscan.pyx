@@ -114,6 +114,13 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            CLUSTER_SELECTION_METHOD cluster_selection_method,
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
+    
+    void _all_points_membership_vectors(const handle_t &handle,
+                                        CondensedHierarchy[int, float] &condensed_tree,
+                                        PredictionData[int, float] &pred_data,
+                                        float* membership_vec,
+                                        float* X,
+                                        DistanceType metric);
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -757,3 +764,35 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "alpha",
             "gen_min_span_tree",
         ]
+
+def all_points_membership_vectors(clusterer, X, convert_dtype=True):
+    if not clusterer.fit_called_:
+        raise ValueError("The clusterer is not fit on data. "
+                          "Please call clusterer.fit first")
+        
+    X_m, n_rows, n_cols, _ = \
+        input_to_cuml_array(X, order='C',
+                            check_dtype=[np.float32],
+                            convert_to_dtype=(np.float32
+                                              if convert_dtype
+                                              else None))
+
+    cdef uintptr_t input_ptr = X_m.ptr
+
+    membership_vec = CumlArray.empty((n_rows, clusterer.n_clusters_), dtype="float32")
+    cdef uintptr_t membership_vec_ptr = membership_vec.ptr
+
+    cdef hdbscan_output *hdbscan_output_ = \
+            <hdbscan_output*><size_t>clusterer.hdbscan_output_
+
+    cdef PredictionData *pred_data_ = \
+            <PredictionData*><size_t>clusterer._prediction_data
+
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+    _all_points_membership_vectors(handle_[0],
+                                   hdbscan_output_.get_condensed_tree(),
+                                   deref(pred_data_),
+                                   <float*> membership_vec_ptr,
+                                   <float*> input_ptr,
+                                   _metrics_mapping[clusterer.metric])
+    return membership_vec

@@ -326,10 +326,11 @@ class PredictionData {
   value_idx n_cols;
   
   value_idx get_n_exemplars() { return n_exemplars; }
-  value_t* get_exemplar_idx() { return exemplar_idx.data(); }
-  value_t* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
+  value_idx get_n_selected_clusters() { return n_selected_clusters; }
+  value_idx* get_exemplar_idx() { return exemplar_idx.data(); }
+  value_idx* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
   value_idx* get_selected_clusters() { return selected_clusters.data(); }
-  value_idx* get_deaths() { return deaths.data(); }
+  value_t* get_deaths() { return deaths.data(); }
 
   void cache(const raft::handle_t& handle,
     value_idx n_exemplars_,
@@ -343,7 +344,7 @@ class PredictionData {
     this-> n_exemplars = n_exemplars_;
     this-> n_selected_clusters = n_selected_clusters_;
     exemplar_idx.resize(n_exemplars, handle.get_stream());
-    exemplar_label_offsets.resize(n_selected_clusters, handle.get_stream());
+    exemplar_label_offsets.resize(n_selected_clusters + 1, handle.get_stream());
     deaths.resize(n_clusters, handle.get_stream());
     selected_clusters.resize(n_selected_clusters, handle.get_stream());
     raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
@@ -418,4 +419,11 @@ void _extract_clusters(const raft::handle_t& handle,
                        bool allow_single_cluster,
                        int max_cluster_size,
                        float cluster_selection_epsilon);
+
+void _all_points_membership_vectors(const raft::handle_t& handle,
+                                    HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                                    HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                                    float* membership_vec,
+                                    const float* X,
+                                    raft::distance::DistanceType metric);
 }  // END namespace ML
