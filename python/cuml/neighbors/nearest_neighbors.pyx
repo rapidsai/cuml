@@ -895,7 +895,7 @@ class NearestNeighbors(Base,
 
         return sparse_csr
 
-    def __del__(self):
+    def __dealloc__(self):
         cdef knnIndex* knn_index = <knnIndex*>0
         cdef BallCoverIndex* rbc_index = <BallCoverIndex*>0
 
