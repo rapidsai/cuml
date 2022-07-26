@@ -795,4 +795,4 @@ def all_points_membership_vectors(clusterer, X, convert_dtype=True):
                                    <float*> membership_vec_ptr,
                                    <float*> input_ptr,
                                    _metrics_mapping[clusterer.metric])
-    return membership_vec
+    return membership_vec.to_output(output_dtype="float32")
