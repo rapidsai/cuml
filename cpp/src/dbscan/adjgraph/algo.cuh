@@ -20,7 +20,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
-#include "../common.cuh"
 #include "pack.h"
 
 #include <raft/cuda_utils.cuh>
