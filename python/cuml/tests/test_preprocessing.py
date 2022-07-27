@@ -26,35 +26,36 @@ from cuml.preprocessing import \
     RobustScaler as cuRobustScaler, \
     KBinsDiscretizer as cuKBinsDiscretizer, \
     MissingIndicator as cuMissingIndicator
-from cuml._thirdparty.sklearn.preprocessing._imputation import KNNImputer as cuKNNImputer
+from cuml._thirdparty.sklearn.preprocessing._imputation import \
+    KNNImputer as cuKNNImputer
 from cuml.preprocessing import \
     FunctionTransformer as cuFunctionTransformer
 from cuml.preprocessing import scale as cu_scale, \
-                    minmax_scale as cu_minmax_scale, \
-                    maxabs_scale as cu_maxabs_scale, \
-                    normalize as cu_normalize, \
-                    add_dummy_feature as cu_add_dummy_feature, \
-                    binarize as cu_binarize, \
-                    robust_scale as cu_robust_scale
+    minmax_scale as cu_minmax_scale, \
+    maxabs_scale as cu_maxabs_scale, \
+    normalize as cu_normalize, \
+    add_dummy_feature as cu_add_dummy_feature, \
+    binarize as cu_binarize, \
+    robust_scale as cu_robust_scale
 from sklearn.preprocessing import StandardScaler as skStandardScaler, \
-                                  MinMaxScaler as skMinMaxScaler, \
-                                  MaxAbsScaler as skMaxAbsScaler, \
-                                  Normalizer as skNormalizer, \
-                                  Binarizer as skBinarizer, \
-                                  PolynomialFeatures as skPolynomialFeatures, \
-                                  RobustScaler as skRobustScaler, \
-                                  KBinsDiscretizer as skKBinsDiscretizer, \
-                                  FunctionTransformer as skFunctionTransformer
+    MinMaxScaler as skMinMaxScaler, \
+    MaxAbsScaler as skMaxAbsScaler, \
+    Normalizer as skNormalizer, \
+    Binarizer as skBinarizer, \
+    PolynomialFeatures as skPolynomialFeatures, \
+    RobustScaler as skRobustScaler, \
+    KBinsDiscretizer as skKBinsDiscretizer, \
+    FunctionTransformer as skFunctionTransformer
 from sklearn.preprocessing import scale as sk_scale, \
-                                  minmax_scale as sk_minmax_scale, \
-                                  maxabs_scale as sk_maxabs_scale, \
-                                  normalize as sk_normalize, \
-                                  add_dummy_feature as sk_add_dummy_feature, \
-                                  binarize as sk_binarize, \
-                                  robust_scale as sk_robust_scale
+    minmax_scale as sk_minmax_scale, \
+    maxabs_scale as sk_maxabs_scale, \
+    normalize as sk_normalize, \
+    add_dummy_feature as sk_add_dummy_feature, \
+    binarize as sk_binarize, \
+    robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer, \
-                           MissingIndicator as skMissingIndicator, \
-                            KNNImputer as skKNNImputer
+    MissingIndicator as skMissingIndicator, \
+    KNNImputer as skKNNImputer
 
 from cuml.testing.test_preproc_utils import \
     clf_dataset, int_dataset, blobs_dataset, \
@@ -80,8 +81,8 @@ def test_minmax_scaler(failure_logger, clf_dataset,  # noqa: F811
     t_X = scaler.fit_transform(X)
     scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert isinstance(t_X, type(X))
+    assert isinstance(r_X, type(t_X))
 
     scaler = skMinMaxScaler(feature_range=feature_range, copy=True)
     sk_t_X = scaler.fit_transform(X_np)
@@ -98,7 +99,7 @@ def test_minmax_scale(failure_logger, clf_dataset,  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_minmax_scale(X, feature_range=feature_range, axis=axis)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     sk_t_X = sk_minmax_scale(X_np, feature_range=feature_range, axis=axis)
 
@@ -117,8 +118,8 @@ def test_standard_scaler(failure_logger, clf_dataset,  # noqa: F811
     t_X = scaler.fit_transform(X)
     scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert isinstance(t_X, type(X))
+    assert isinstance(r_X, type(t_X))
 
     scaler = skStandardScaler(with_mean=with_mean,
                               with_std=with_std,
@@ -172,7 +173,7 @@ def test_scale(failure_logger, clf_dataset, axis,  # noqa: F811
 
     t_X = cu_scale(X, axis=axis, with_mean=with_mean,
                    with_std=with_std, copy=True)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     sk_t_X = sk_scale(X_np, axis=axis, with_mean=with_mean,
                       with_std=with_std, copy=True)
@@ -202,7 +203,7 @@ def test_maxabs_scale(failure_logger, clf_dataset, axis):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_maxabs_scale(X, axis=axis)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     sk_t_X = sk_maxabs_scale(X_np, axis=axis)
 
@@ -216,8 +217,8 @@ def test_maxabs_scaler(failure_logger, clf_dataset):  # noqa: F811
     t_X = scaler.fit_transform(X)
     scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert isinstance(t_X, type(X))
+    assert isinstance(r_X, type(t_X))
 
     scaler = skMaxAbsScaler(copy=True)
     sk_t_X = scaler.fit_transform(X_np)
@@ -260,7 +261,7 @@ def test_normalizer(failure_logger, clf_dataset, norm):  # noqa: F811
 
     normalizer = cuNormalizer(norm=norm, copy=True)
     t_X = normalizer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     normalizer = skNormalizer(norm=norm, copy=True)
     sk_t_X = normalizer.fit_transform(X_np)
@@ -308,7 +309,7 @@ def test_normalize(failure_logger, clf_dataset, axis, norm,  # noqa: F811
         sk_t_X = sk_normalize(X_np, axis=axis, norm=norm,
                               return_norm=return_norm)
 
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
     assert_allclose(t_X, sk_t_X)
 
 
@@ -351,7 +352,7 @@ def test_imputer(failure_logger, random_seed, int_dataset,  # noqa: F811
                               strategy=strategy, fill_value=fill_value,
                               add_indicator=add_indicator)
     t_X = imputer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     imputer = skSimpleImputer(copy=True, missing_values=missing_values,
                               strategy=strategy, fill_value=fill_value,
@@ -399,7 +400,7 @@ def test_poly_features(failure_logger, clf_dataset, degree,  # noqa: F811
                                         interaction_only=interaction_only,
                                         include_bias=include_bias)
     t_X = polyfeatures.fit_transform(X)
-    assert type(X) == type(t_X)
+    assert isinstance(X, type(t_X))
     cu_feature_names = polyfeatures.get_feature_names()
 
     if isinstance(t_X, np.ndarray):
@@ -448,7 +449,7 @@ def test_add_dummy_feature(failure_logger, clf_dataset, value):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_add_dummy_feature(X, value=value)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     sk_t_X = sk_add_dummy_feature(X_np, value=value)
     assert_allclose(t_X, sk_t_X)
@@ -476,7 +477,7 @@ def test_binarize(failure_logger, clf_dataset, threshold):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_binarize(X, threshold=threshold, copy=True)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     sk_t_X = sk_binarize(X_np, threshold=threshold, copy=True)
 
@@ -506,7 +507,7 @@ def test_binarizer(failure_logger, clf_dataset, threshold):  # noqa: F811
 
     binarizer = cuBinarizer(threshold=threshold, copy=True)
     t_X = binarizer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     binarizer = skBinarizer(threshold=threshold, copy=True)
     sk_t_X = binarizer.fit_transform(X_np)
@@ -546,8 +547,8 @@ def test_robust_scaler(failure_logger, clf_dataset,  # noqa: F811
                             copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert isinstance(t_X, type(X))
+    assert isinstance(r_X, type(t_X))
 
     scaler = skRobustScaler(with_centering=with_centering,
                             with_scaling=with_scaling,
@@ -610,7 +611,7 @@ def test_robust_scale(failure_logger, clf_dataset,  # noqa: F811
                           with_scaling=with_scaling,
                           quantile_range=quantile_range,
                           copy=True)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     sk_t_X = sk_robust_scale(X_np, axis=axis,
                              with_centering=with_centering,
@@ -679,8 +680,8 @@ def test_kbinsdiscretizer(failure_logger, blobs_dataset, n_bins,  # noqa: F811
     r_X = transformer.inverse_transform(t_X)
 
     if encode != 'onehot':
-        assert type(t_X) == type(X)
-        assert type(r_X) == type(t_X)
+        assert isinstance(t_X, type(X))
+        assert isinstance(r_X, type(t_X))
 
     transformer = skKBinsDiscretizer(n_bins=n_bins,
                                      encode=encode,
@@ -710,10 +711,10 @@ def test_missing_indicator(failure_logger, int_dataset,  # noqa: F811
     indicator = cuMissingIndicator(missing_values=missing_values,
                                    features=features)
     ft_X = indicator.fit_transform(X)
-    assert type(ft_X) == type(X)
+    assert isinstance(ft_X, type(X))
     indicator.fit(X)
     t_X = indicator.transform(X)
-    assert type(t_X) == type(X)
+    assert isinstance(t_X, type(X))
 
     indicator = skMissingIndicator(missing_values=missing_values,
                                    features=features)
@@ -759,8 +760,8 @@ def test_function_transformer(clf_dataset):  # noqa: F811
                                         check_inverse=False)
     t_X = transformer.fit_transform(X)
     r_X = transformer.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert isinstance(t_X, type(X))
+    assert isinstance(r_X, type(t_X))
 
     transformer = skFunctionTransformer(func=np.exp,
                                         inverse_func=np.log,
@@ -796,7 +797,12 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
 @pytest.mark.parametrize("missing_values", [0, 1, np.nan])
 @pytest.mark.parametrize("n_neighbors", [2])
 @pytest.mark.parametrize("weights", ['uniform', 'distance'])
-def test_knn_imputer(failure_logger, int_dataset, missing_values, weights, n_neighbors):
+def test_knn_imputer(
+        failure_logger,
+        int_dataset,  # noqa: F811
+        missing_values,
+        weights,
+        n_neighbors):
     zero_filled, one_filled, nan_filled = int_dataset
     if missing_values == 0:
         X_np, X = zero_filled
@@ -805,15 +811,22 @@ def test_knn_imputer(failure_logger, int_dataset, missing_values, weights, n_nei
     else:
         X_np, X = nan_filled
 
-    knn = cuKNNImputer(missing_values=missing_values, n_neighbors= n_neighbors, weights= weights)
+    knn = cuKNNImputer(
+        missing_values=missing_values,
+        n_neighbors=n_neighbors,
+        weights=weights)
     knn.fit(X)
     t_X = knn.transform(X)
 
-    knn = skKNNImputer(missing_values=missing_values, n_neighbors = n_neighbors, weights=weights)
+    knn = skKNNImputer(
+        missing_values=missing_values,
+        n_neighbors=n_neighbors,
+        weights=weights)
     knn.fit(X_np)
     sk_t_X = knn.transform(X_np)
 
     assert_allclose(t_X, sk_t_X)
+
 
 def test__repr__():
     assert cuStandardScaler().__repr__() == 'StandardScaler()'

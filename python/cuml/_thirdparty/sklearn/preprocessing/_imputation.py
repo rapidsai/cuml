@@ -24,16 +24,17 @@ from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
-                               StringInputTagMixin
+    StringInputTagMixin
 from ..utils.validation import (check_is_fitted, FLOAT_DTYPES)
-from ..utils.validation import FLOAT_DTYPES
 from ....common.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import _deprecate_pos_args
-from cuml._thirdparty.sklearn.neighbors._base import (_check_weights, _get_weights)
+from cuml._thirdparty.sklearn.neighbors._base import (
+    _check_weights, _get_weights)
 from cuml.metrics.pairwise_distances import pairwise_distances
 
 _NAN_METRICS = ["nan_euclidean"]
+
 
 def is_scalar_nan(x):
     return bool(isinstance(x, numbers.Real) and cp.isnan(x))
@@ -139,7 +140,7 @@ class _BaseImputer(TransformerMixin):
                 "Data from the missing indicator are not provided. Call "
                 "_fit_indicator and _transform_indicator in the imputer "
                 "implementation."
-                )
+            )
 
         return hstack((X_imputed, X_indicator))
 
@@ -307,7 +308,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         self : SimpleImputer
         """
 
-        if type(X) is list:
+        if isinstance(X, list):
             X = cp.asarray(X)
 
         X = self._validate_input(X, in_fit=True)
@@ -759,7 +760,7 @@ class KNNImputer(_BaseImputer, BaseEstimator):
 
     Read more in the :ref:`User Guide <knnimpute>`.
 
-    
+
     Parameters
     ----------
     missing_values : int, float, str, cp.nan or None, default=cp.nan
@@ -834,8 +835,10 @@ class KNNImputer(_BaseImputer, BaseEstimator):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml._thirdparty.sklearn.preprocessing._imputation import KNNImputer
-    >>> X = [[1, 2, cp.nan], [3, 4, 3], [cp.nan, 6, 5], [8, 8, 7]]
+    >>> from cuml._thirdparty.sklearn.preprocessing._imputation
+    import KNNImputer
+    >>> X = [[1, 2, cp.nan], [3, 4, 3],
+            [cp.nan, 6, 5], [8, 8, 7]]
     >>> imputer = KNNImputer(n_neighbors=2)
     >>> imputer.fit_transform(X)
     array([[1. , 2. , 4. ],
@@ -854,13 +857,19 @@ class KNNImputer(_BaseImputer, BaseEstimator):
         copy=True,
         add_indicator=False,
     ):
-        super().__init__(missing_values=missing_values, add_indicator=add_indicator)
+        super().__init__(
+            missing_values=missing_values, add_indicator=add_indicator)
         self.n_neighbors = n_neighbors
         self.weights = weights
         self.metric = metric
         self.copy = copy
 
-    def _calc_impute(self, dist_pot_donors, n_neighbors, fit_X_col, mask_fit_X_col):
+    def _calc_impute(
+            self,
+            dist_pot_donors,
+            n_neighbors,
+            fit_X_col,
+            mask_fit_X_col):
         """Helper function to impute a single column.
         Parameters
         ----------
@@ -925,7 +934,8 @@ class KNNImputer(_BaseImputer, BaseEstimator):
         else:
             force_all_finite = "allow-nan"
             if self.metric not in _NAN_METRICS and not callable(self.metric):
-                raise ValueError("The selected metric does not support NaN values")
+                raise ValueError(
+                    "The selected metric does not support NaN values")
         if self.n_neighbors <= 0:
             raise ValueError(
                 "Expected n_neighbors > 0. Got {}".format(self.n_neighbors)
@@ -943,7 +953,7 @@ class KNNImputer(_BaseImputer, BaseEstimator):
         self._fit_X = X
         self._mask_fit_X = _get_mask(self._fit_X, self.missing_values)
         self._valid_mask = ~cp.all(self._mask_fit_X, axis=0)
-        
+
         super()._fit_indicator(self._mask_fit_X)
 
         return self
@@ -995,15 +1005,23 @@ class KNNImputer(_BaseImputer, BaseEstimator):
         dist_idx_map = cp.zeros(X.shape[0], dtype=int)
         dist_idx_map[row_missing_idx] = cp.arange(row_missing_idx.shape[0])
 
-        if cp.isnan(self.missing_values) and self.metric not in _NAN_METRICS and not callable(self.metric):
-                raise ValueError("The selected metric does not support NaN values")
+        if cp.isnan(self.missing_values
+                    ) and self.metric not in _NAN_METRICS and not callable(
+                self.metric):
+            raise ValueError("The selected metric does not support NaN values")
 
         if not callable(self.metric):
-            dist = cp.array(pairwise_distances(X, metric = self.metric, missing_values = self.missing_values))
+            dist = cp.array(
+                pairwise_distances(
+                    X,
+                    metric=self.metric,
+                    missing_values=self.missing_values))
         else:
-            raise ValueError(" The callable metric: '{}', is not supported at this time."
-                            .format(self.metric))
-        dist = dist[row_missing_idx][:,]
+            raise ValueError(
+                " The callable metric: '{}', is not supported at this time."
+                .format(
+                    self.metric))
+        dist = dist[row_missing_idx][:, ]
 
         for col in range(X.shape[1]):
             if not valid_mask[col]:
@@ -1054,5 +1072,5 @@ class KNNImputer(_BaseImputer, BaseEstimator):
             )
 
             X[receivers_idx, col] = value
-            
+
         return super()._concatenate_indicator(X[:, valid_mask], X_indicator)

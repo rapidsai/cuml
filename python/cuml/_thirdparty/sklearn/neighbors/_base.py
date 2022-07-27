@@ -13,6 +13,7 @@
 import cupy as cp
 import numpy as np
 
+
 def _check_weights(weights):
     """Check to make sure weights are valid"""
     if weights not in (None, "uniform", "distance") and not callable(weights):
@@ -22,6 +23,7 @@ def _check_weights(weights):
         )
 
     return weights
+
 
 def _get_weights(dist, weights):
     """Get the weights from an array of distances and a parameter ``weights``.
@@ -33,7 +35,7 @@ def _get_weights(dist, weights):
 
     weights : {'uniform', 'distance' or a callable}
         The kind of weighting used.
-        
+
     Returns
     -------
     weights_arr : array of the same shape as ``dist``
