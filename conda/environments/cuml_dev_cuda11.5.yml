@@ -10,7 +10,6 @@ dependencies:
 - rapids-build-env=22.08.*
 - rapids-notebook-env=22.08.*
 - rapids-doc-env=22.08.*
-- cmake_setuptools>=0.1.3
 - scikit-build>=0.13.1
 - cudf=22.08.*
 - rmm=22.08.*

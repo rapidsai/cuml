@@ -11,22 +11,7 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 # =============================================================================
-
-
-# todo: disable _mg for singlegpu
-set(cython_sources
-    arima.pyx
-    regression.pyx
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
+     ${CMAKE_BINARY_DIR}/RAPIDS.cmake
 )
-
-set(linked_libraries cuml::${CUML_CPP_TARGET})
-rapids_cython_create_modules(
-  CXX
-  SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
-  MODULE_PREFIX datasets_
-)
-
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
-endforeach()
+include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)

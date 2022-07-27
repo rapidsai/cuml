@@ -14,9 +14,8 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
-    ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(../fetch_rapids.cmake)
+
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-find)
@@ -92,11 +91,8 @@ if(NOT cuml_FOUND)
   set(BUILD_CUML_BENCH OFF)
   set(BUILD_CUML_PRIMS_BENCH OFF)
   message(STATUS "installing packages")
-  add_subdirectory(../../cpp cuml-cpp)
+  add_subdirectory(../cpp cuml-cpp)
 
-  # Since there are multiple subpackages of cudf._lib that require access to libcudf, we place the
-  # library in the _lib/cpp directory as a single source of truth and modify the other rpaths
-  # appropriately.
   install(TARGETS cuml DESTINATION cuml/library)
 endif()
 
@@ -107,9 +103,6 @@ endif()
 
 include(rapids-cython)
 rapids_cython_init()
-
-# FIXME: Update build directory
-# add_subdirectory(cuml)
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)

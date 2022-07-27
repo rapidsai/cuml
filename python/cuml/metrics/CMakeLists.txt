@@ -27,24 +27,9 @@ set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX metrics_
+  LINKED_LIBRARIES "${linked_libraries}"
+  MODULE_PREFIX metrics_
 )
-
-# TODO: Finding NumPy currently requires finding Development due to a bug in CMake. This bug was
-# fixed in https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7410 and will be available in
-# CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
-find_package(Python REQUIRED COMPONENTS Development NumPy)
-set(targets_using_numpy
-    metrics_accuracy
-    metrics_hinge_loss
-    metrics_kl_divergence
-    metrics_pairwise_distances
-    metrics_regression
-    metrics_trustworthiness
-    )
-foreach(target IN LISTS targets_using_numpy)
-  target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
-endforeach()
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
