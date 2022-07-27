@@ -81,6 +81,6 @@ def get_cuda_version_from_header(cuda_include_dir, delimiter=""):
     cuda_version = int(cuda_version.split()[2])
     return "%d%s%d" % (
         cuda_version // 1000,
-        delimeter,
+        delimiter,
         (cuda_version % 1000) // 10,
     )
