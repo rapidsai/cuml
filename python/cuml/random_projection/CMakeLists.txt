@@ -13,7 +13,7 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
+
 set(cython_sources
     random_projection.pyx
 )
