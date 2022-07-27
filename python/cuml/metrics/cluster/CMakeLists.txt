@@ -13,7 +13,7 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
+
 set(cython_sources
     adjusted_rand_index.pyx
     completeness_score.pyx
