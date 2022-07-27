@@ -45,11 +45,11 @@ function(find_and_configure_raft)
         set(RAFT_COMPILE_LIBRARIES OFF)
     endif()
 
-    message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
+    # We need to set this each time so that on subsequent calls to cmake
+    # the raft-config.cmake re-evaluates the RAFT_NVTX value
+    set(RAFT_NVTX ${PKG_NVTX})
 
-    if(PKG_NVTX)
-      set(RAFT_NVTX ON)
-    endif()
+    message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
@@ -66,7 +66,6 @@ function(find_and_configure_raft)
               "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
               "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
-              "RAFT_NVTX ${PKG_NVTX}"
     )
 
     if(raft_ADDED)
