@@ -13,17 +13,25 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
 set(cython_sources
     base.pyx
     cuda.pyx
     handle.pyx
     logger.pyx
-    opg_data_utils_mg.pyx
     pointer_utils.pyx
 )
 
 set(linked_libraries cuml::${CUML_CPP_TARGET})
+
+if(NOT SINGLEGPU)
+  list(APPEND cython_sources
+       opg_data_utils_mg.pyx
+  )
+
+  list(APPEND linked_libraries
+       cumlprims_mg::cumlprims_mg)
+endif()
+
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"

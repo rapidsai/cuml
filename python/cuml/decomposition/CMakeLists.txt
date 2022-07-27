@@ -13,11 +13,12 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
 set(cython_sources
     pca.pyx
     tsvd.pyx
 )
+
+set(linked_libraries cuml::${CUML_CPP_TARGET})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
@@ -25,9 +26,11 @@ if(NOT SINGLEGPU)
        pca_mg.pyx
        tsvd_mg.pyx
   )
+
+  list(APPEND linked_libraries
+       cumlprims_mg::cumlprims_mg)
 endif()
 
-set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"

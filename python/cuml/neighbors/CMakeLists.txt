@@ -13,7 +13,6 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
 set(cython_sources
     ann.pyx
     kneighbors_classifier.pyx
@@ -21,16 +20,21 @@ set(cython_sources
     nearest_neighbors.pyx
 )
 
+set(linked_libraries
+    cuml::${CUML_CPP_TARGET}
+    )
+
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        kneighbors_classifier_mg.pyx
        kneighbors_regressor_mg.pyx
        nearest_neighbors_mg.pyx
   )
+
+  list(APPEND linked_libraries
+       cumlprims_mg::cumlprims_mg)
 endif()
 
-
-set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"

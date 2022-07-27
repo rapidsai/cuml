@@ -49,7 +49,26 @@ set(CUML_CPP_TARGET "cuml++")
 
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
+  if(FIND_CUML_CPP)
+  rapids_cpm_init()
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(cuml-python)
+  enable_language(CUDA)
+
+  set(CUML_VERSION_MAJOR "22")
+  set(CUML_VERSION_MINOR "08")
+  set(CUML_USE_RAFT_NN ON)
+  set(CUML_USE_RAFT_DIST ON)
+
+  # We need to call get_raft due to cuML asing for raft::nn and
+  # raft::distance targets
+  include(../cpp/cmake/thirdparty/get_raft.cmake)
+
+  # We need to call get_treelite explicitly because we need the correct
+  # ${TREELITE_LIBS} definition for RF
+  include(../cpp/cmake/thirdparty/get_treelite.cmake)
   find_package(cuml ${CUML_VERSION} REQUIRED)
+
 else()
   set(cuml_FOUND OFF)
 endif()
@@ -79,6 +98,10 @@ if(NOT cuml_FOUND)
   # library in the _lib/cpp directory as a single source of truth and modify the other rpaths
   # appropriately.
   install(TARGETS cuml DESTINATION cuml/library)
+endif()
+
+if(NOT SINGLEGPU)
+  include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
 endif()
 
 
