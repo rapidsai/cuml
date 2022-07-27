@@ -31,4 +31,4 @@ foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
 endforeach()
 
 # We need to include for callbacks_implements.h in the internals folder
-target_include_directories(internals PRIVATE "")
+target_include_directories(internals_internals PRIVATE "")

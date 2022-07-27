@@ -45,4 +45,4 @@ endforeach()
 
 # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality
 # moved to another file, pointer_utils.pyx needs it
-target_include_directories(pointer_utils PRIVATE "../../../cpp/src/")
+target_include_directories(common_pointer_utils PRIVATE "../../../cpp/src/")
