@@ -205,7 +205,7 @@ else
     set +x
 
     gpuci_logger "Python pytest for cuml"
-    cd $WORKSPACE/python
+    cd $WORKSPACE/python/cuml/tests
 
     pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=dask --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
