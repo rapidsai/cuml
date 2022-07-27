@@ -779,7 +779,7 @@ def all_points_membership_vectors(clusterer, X, convert_dtype=True):
 
     cdef uintptr_t input_ptr = X_m.ptr
 
-    membership_vec = CumlArray.empty((n_rows, clusterer.n_clusters_), dtype="float32")
+    membership_vec = CumlArray.empty((n_rows * clusterer.n_clusters_,), dtype="float32")
     cdef uintptr_t membership_vec_ptr = membership_vec.ptr
 
     cdef hdbscan_output *hdbscan_output_ = \
@@ -795,4 +795,8 @@ def all_points_membership_vectors(clusterer, X, convert_dtype=True):
                                    <float*> membership_vec_ptr,
                                    <float*> input_ptr,
                                    _metrics_mapping[clusterer.metric])
-    return membership_vec.to_output(output_dtype="float32")
+    
+    clusterer.handle.sync()
+    return membership_vec.to_output(output_type="numpy", output_dtype="float32").reshape((n_rows, clusterer.n_clusters_))
+    #return _cuml_array_from_ptr(membership_vec_ptr, n_rows * clusterer.n_clusters_ * sizeof(float),
+    #    (n_rows, clusterer.n_clusters_), "float32", None)
