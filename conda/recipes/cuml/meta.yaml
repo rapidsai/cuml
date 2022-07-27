@@ -34,7 +34,6 @@ requirements:
   host:
     - python x.x
     - setuptools
-    - cmake {{ cmake_version }}
     - scikit-build>=0.13.1
     - cython>=0.29,<0.30
     - treelite=2.4.0

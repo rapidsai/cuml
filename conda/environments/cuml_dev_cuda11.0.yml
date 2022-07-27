@@ -10,6 +10,7 @@ dependencies:
 - rapids-build-env=22.08.*
 - rapids-notebook-env=22.08.*
 - rapids-doc-env=22.08.*
+- scikit-build>=0.13.1
 - cudf=22.08.*
 - rmm=22.08.*
 - libcumlprims=22.08.*

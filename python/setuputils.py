@@ -66,7 +66,7 @@ def clean_folder(path):
             os.remove(file)
 
 
-def get_cuda_version_from_header(cuda_include_dir, delimeter=""):
+def get_cuda_version_from_header(cuda_include_dir, delimiter=""):
 
     cuda_version = None
 

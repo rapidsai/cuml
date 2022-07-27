@@ -13,7 +13,6 @@
 # =============================================================================
 
 
-# todo: disable _mg for singlegpu
 set(cython_sources
     ann.pyx
     kneighbors_classifier.pyx
@@ -21,39 +20,27 @@ set(cython_sources
     nearest_neighbors.pyx
 )
 
+set(linked_libraries
+    cuml::${CUML_CPP_TARGET}
+    )
+
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        kneighbors_classifier_mg.pyx
        kneighbors_regressor_mg.pyx
        nearest_neighbors_mg.pyx
   )
+
+  list(APPEND linked_libraries
+       cumlprims_mg::cumlprims_mg)
 endif()
 
-
-set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}"
+  MODULE_PREFIX neighbors_
 )
-
-# TODO: Finding NumPy currently requires finding Development due to a bug in CMake. This bug was
-# fixed in https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7410 and will be available in
-# CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
-find_package(Python REQUIRED COMPONENTS Development NumPy)
-set(targets_using_numpy
-    ann
-    kneighbors_classifier
-    kneighbors_regressor
-    nearest_neighbors
-    )
-if(NOT SINGLEGPU)
-  list(APPEND targets_using_numpy
-       kneighbors_classifier_mg
-       kneighbors_regressor_mg
-       nearest_neighbors_mg
-  )
-endif()
 
 foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")

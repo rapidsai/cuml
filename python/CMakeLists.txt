@@ -14,9 +14,8 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
-    ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(../fetch_rapids.cmake)
+
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-find)
@@ -50,32 +49,24 @@ set(CUML_CPP_TARGET "cuml++")
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
   rapids_cpm_init()
-	include(rapids-cuda)
-	rapids_cuda_init_architectures(CUML)
-  enable_language(CUDA)
-
-  # FIXME: check of this is necessary
-  # Since cugraph only enables CUDA optionally, we need to manually include the file that
-  # rapids_cuda_init_architectures relies on `project` including.
-
-  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-  include(../cpp/cmake/thirdparty/get_treelite.cmake)
-    rapids_cpm_init()
   include(rapids-cuda)
-  rapids_cuda_init_architectures(CUML)
+  rapids_cuda_init_architectures(cuml-python)
   enable_language(CUDA)
-
-  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-  include(../cpp/cmake/thirdparty/get_treelite.cmake)
 
   set(CUML_VERSION_MAJOR "22")
   set(CUML_VERSION_MINOR "08")
   set(CUML_USE_RAFT_NN ON)
   set(CUML_USE_RAFT_DIST ON)
 
+  # We need to call get_raft due to cuML asing for raft::nn and
+  # raft::distance targets
   include(../cpp/cmake/thirdparty/get_raft.cmake)
 
+  # We need to call get_treelite explicitly because we need the correct
+  # ${TREELITE_LIBS} definition for RF
+  include(../cpp/cmake/thirdparty/get_treelite.cmake)
   find_package(cuml ${CUML_VERSION} REQUIRED)
+
 else()
   set(cuml_FOUND OFF)
 endif()
@@ -92,23 +83,25 @@ if(NOT cuml_FOUND)
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
 
-  set(BUILD_TESTS OFF)
-  set(BUILD_BENCHMARKS OFF)
+  set(BUILD_CUML_TESTS OFF)
+  set(BUILD_PRIMS_TESTS OFF)
+  set(BUILD_CUML_C_LIBRARY OFF)
+  set(BUILD_CUML_EXAMPLES OFF)
+  set(BUILD_CUML_BENCH OFF)
+  set(BUILD_CUML_PRIMS_BENCH OFF)
   message(STATUS "installing packages")
-  add_subdirectory(../../cpp cuml-cpp)
+  add_subdirectory(../cpp cuml-cpp)
 
-  # Since there are multiple subpackages of cudf._lib that require access to libcudf, we place the
-  # library in the _lib/cpp directory as a single source of truth and modify the other rpaths
-  # appropriately.
   install(TARGETS cuml DESTINATION cuml/library)
+endif()
+
+if(NOT SINGLEGPU)
+  include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
 endif()
 
 
 include(rapids-cython)
 rapids_cython_init()
-
-# FIXME: Update build directory
-# add_subdirectory(cuml)
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)

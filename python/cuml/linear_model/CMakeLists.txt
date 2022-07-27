@@ -23,44 +23,25 @@ set(cython_sources
     ridge.pyx
 )
 
+set(linked_libraries cuml::${CUML_CPP_TARGET})
+
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        base_mg.pyx
        linear_regression_mg.pyx
        ridge_mg.pyx
   )
+
+  list(APPEND linked_libraries
+       cumlprims_mg::cumlprims_mg)
 endif()
 
-set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}" MODULE_PREFIX linear_
+  LINKED_LIBRARIES "${linked_libraries}"
+  MODULE_PREFIX linear_model_
 )
-
-# TODO: Finding NumPy currently requires finding Development due to a bug in CMake. This bug was
-# fixed in https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7410 and will be available in
-# CMake 3.24, so we can remove the Development component once we upgrade to CMake 3.24.
-find_package(Python REQUIRED COMPONENTS Development NumPy)
-set(targets_using_numpy
-    linear_base
-    linear_elastic_net
-    linear_linear_regression
-    linear_logistic_regression
-    linear_mbsgd_classifier
-    linear_mbsgd_regressor
-    linear_ridge
-    )
-if(NOT SINGLEGPU)
-  list(APPEND targets_using_numpy
-       linear_base_mg
-       linear_linear_regression_mg
-       linear_ridge_mg
-  )
-endif()
-foreach(target IN LISTS targets_using_numpy)
-  target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
-endforeach()
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
