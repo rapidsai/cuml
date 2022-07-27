@@ -92,7 +92,7 @@ if(NOT cuml_FOUND)
   message(STATUS "installing packages")
   add_subdirectory(../cpp cuml-cpp)
 
-  install(TARGETS cuml DESTINATION cuml/library)
+  install(TARGETS ${CUML_CPP_TARGET} DESTINATION cuml/library)
 endif()
 
 if(NOT SINGLEGPU)
