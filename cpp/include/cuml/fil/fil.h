@@ -69,6 +69,18 @@ enum storage_type_t {
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
+/** precision_t defines the precision of the FIL model imported from a treelite model */
+enum precision_t {
+  /** use the native precision of the treelite model, i.e. float64 if it has weights or
+      thresholds of type float64, otherwise float32 */
+  PRECISION_NATIVE,
+  /** always create a float32 FIL model; this may lead to loss of precision if the
+      treelite model contains float64 parameters */
+  PRECISION_FLOAT32,
+  /** always create a float64 FIL model */
+  PRECISION_FLOAT64
+};
+
 template <typename real_t>
 struct forest;
 
@@ -113,6 +125,8 @@ struct treelite_params_t {
   // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
   // contains forest shape
   char** pforest_shape_str;
+  // precision in which to load the treelite model
+  precision_t precision;
 };
 
 /** from_treelite uses a treelite model to initialize the forest

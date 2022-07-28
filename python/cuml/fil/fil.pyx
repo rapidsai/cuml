@@ -198,6 +198,11 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
+    cdef enum precision_t:
+        PRECISION_NATIVE,
+        PRECISION_FLOAT32,
+        PRECISION_FLOAT64
+
     cdef cppclass forest[real_t]:
         pass
 
@@ -228,6 +233,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         int n_items
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
+        precision_t precision
 
     cdef void free[real_t](handle_t& handle,
                            forest[real_t]*)
@@ -427,6 +433,7 @@ cdef class ForestInference_impl():
         treelite_params.blocks_per_sm = kwargs['blocks_per_sm']
         treelite_params.n_items = kwargs['n_items']
         treelite_params.threads_per_tree = kwargs['threads_per_tree']
+        treelite_params.precision = precision_t.PRECISION_NATIVE
         if kwargs['compute_shape_str']:
             if self.shape_str:
                 free(self.shape_str)
