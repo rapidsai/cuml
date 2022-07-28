@@ -188,25 +188,26 @@ void parent_csr(const raft::handle_t& handle,
 template <typename value_idx, typename value_t>
 void normalize(value_t* data,
                value_idx n,
-               value_idx m,
+               size_t m,
                cudaStream_t stream)
 {
   rmm::device_uvector<value_t> sums(m, stream);
-  // thrust::fill(exec_policy, sums.begin(), sums.end(), 1.0);
 
-  raft::linalg::rowNorm(sums.data(),
+  // Compute row sums
+  raft::linalg::rowNorm<value_t, size_t>(sums.data(),
                         data,
-                        n,
+                        (size_t)n,
                         m,
                         raft::linalg::L1Norm,
                         true,
                         stream);
-
+  
+  // Divide vector by row sums (modify in place)
   raft::linalg::matrixVectorOp(data,
-                               data,
+                               const_cast<value_t*>(data),
                                sums.data(),
                                n,
-                               m,
+                               (value_idx)m,
                                true,
                                false,
                                [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },

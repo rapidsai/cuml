@@ -449,7 +449,32 @@ def test_hdbscan_plots():
     assert cuml_agg.minimum_spanning_tree_ is None
 
 
-def test_all_points_membership_vectors():
+@pytest.mark.parametrize('nrows', [500, 1000, 10000])
+@pytest.mark.parametrize('ncols', [10, 20, 25])
+@pytest.mark.parametrize('nclusters', [2, 5, 10, 15, 20])
+@pytest.mark.parametrize('min_samples', [25, 60])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('min_cluster_size', [30, 50])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_all_points_membership_vectors(nrows,
+                                       ncols,
+                                       nclusters,
+                                       connectivity,
+                                       cluster_selection_epsilon,
+                                       cluster_selection_method,
+                                       min_cluster_size,
+                                       allow_single_cluster,
+                                       max_cluster_size,
+                                       min_samples):
+    X, y = make_blobs(n_samples=nrows,
+                      n_features=ncols,
+                      centers=nclusters,
+                      cluster_std=0.7,
+                      shuffle=True,
+                      random_state=42)
 
     cuml_agg = HDBSCAN(verbose=logger.level_info,
                        allow_single_cluster=allow_single_cluster,
@@ -458,15 +483,20 @@ def test_all_points_membership_vectors():
                        min_cluster_size=min_cluster_size,
                        cluster_selection_epsilon=cluster_selection_epsilon,
                        cluster_selection_method=cluster_selection_method)
-
-    cuml_agg = HDBSCAN(gen_min_span_tree=True)
     cuml_agg.fit(X)
 
-    assert cuml_agg.condensed_tree_ is not None
-    assert cuml_agg.minimum_spanning_tree_ is not None
-    assert cuml_agg.single_linkage_tree_ is not None
+    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
+                             approx_min_span_tree=False,
+                             gen_min_span_tree=True,
+                             min_samples=min_samples,
+                             min_cluster_size=min_cluster_size,
+                             cluster_selection_epsilon=cluster_selection_epsilon,
+                             cluster_selection_method=cluster_selection_method,
+                             algorithm="generic")
 
-    cuml_agg = HDBSCAN(gen_min_span_tree=False)
+    sk_agg.fit(cp.asnumpy(X))
+
+    cu_membership_vectors = 
     cuml_agg.fit(X)
 
     assert cuml_agg.minimum_spanning_tree_ is None

@@ -51,12 +51,12 @@ __global__ void merge_height_kernel(value_t* heights,
                                     value_t* lambdas,
                                     value_idx* index_into_children,
                                     value_idx* parents,
-                                    value_idx m,
+                                    size_t m,
                                     value_idx n_selected_clusters,
                                     value_idx* selected_clusters)
 { 
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
-  if (idx < m * n_selected_clusters) {
+  if (idx < value_idx(m * n_selected_clusters)) {
     value_idx row = idx / n_selected_clusters;
     value_idx col = idx % n_selected_clusters;
   value_idx right_cluster = selected_clusters[col];
@@ -85,7 +85,6 @@ __global__ void merge_height_kernel(value_t* heights,
   else{
     heights[idx] = lambdas[index_into_children[row]];
   }
-  // heights[idx] = 2.0;
     }
 }
 
@@ -97,12 +96,12 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
                                      value_idx* selected_clusters,
                                      value_t* lambdas,
                                      value_t* prob_in_some_cluster,
-                                     int n_selected_clusters,
+                                     value_idx n_selected_clusters,
                                      value_idx n_leaves,
-                                     int m)
+                                     size_t m)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
-  if (idx < m) {
+  if (idx < (value_idx)m) {
   value_t max_lambda = max(lambdas[index_into_children[idx]], deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
   prob_in_some_cluster[idx] = heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
   return;
