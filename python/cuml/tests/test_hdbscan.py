@@ -447,3 +447,26 @@ def test_hdbscan_plots():
     cuml_agg.fit(X)
 
     assert cuml_agg.minimum_spanning_tree_ is None
+
+
+def test_all_points_membership_vectors():
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=allow_single_cluster,
+                       min_samples=min_samples,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method)
+
+    cuml_agg = HDBSCAN(gen_min_span_tree=True)
+    cuml_agg.fit(X)
+
+    assert cuml_agg.condensed_tree_ is not None
+    assert cuml_agg.minimum_spanning_tree_ is not None
+    assert cuml_agg.single_linkage_tree_ is not None
+
+    cuml_agg = HDBSCAN(gen_min_span_tree=False)
+    cuml_agg.fit(X)
+
+    assert cuml_agg.minimum_spanning_tree_ is None

@@ -22,10 +22,6 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-
 #include <cstddef>
 
 namespace ML {
@@ -343,35 +339,7 @@ class PredictionData {
              value_t* deaths_,
              value_idx* exemplar_idx_,
              value_idx* exemplar_label_offsets_,
-             value_idx* selected_clusters_)
-  {
-    handle.sync_stream(handle.get_stream());
-    cudaDeviceSynchronize();
-    CUML_LOG_INFO("Hello from cache");
-    this-> n_exemplars = n_exemplars_;
-    this-> n_selected_clusters = n_selected_clusters_;
-    exemplar_idx.resize(n_exemplars, handle.get_stream());
-    exemplar_label_offsets.resize(n_selected_clusters + 1, handle.get_stream());
-    deaths.resize(n_clusters, handle.get_stream());
-    selected_clusters.resize(n_selected_clusters, handle.get_stream());
-    handle.sync_stream(handle.get_stream());
-    cudaDeviceSynchronize();
-    CUML_LOG_INFO("n_exemplars %d", n_exemplars);
-    CUML_LOG_INFO("n_exemplars_ %d", n_exemplars_);
-    CUML_LOG_INFO("n_selected_clusters %d", n_selected_clusters);
-    CUML_LOG_INFO("resize successful");
-    raft::print_device_vector("exemplars_2", exemplar_idx_, n_exemplars, std::cout);
-    raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
-    handle.sync_stream(handle.get_stream());
-    cudaDeviceSynchronize();
-    printf("Exemplar idx copied successfully");
-    raft::copy(exemplar_label_offsets.begin(), exemplar_label_offsets_, n_selected_clusters_ + 1, handle.get_stream());
-    handle.sync_stream(handle.get_stream());
-    cudaDeviceSynchronize();
-    printf("Exemplar idx and offsets copied successfully");
-    raft::copy(deaths.begin(), deaths_, n_clusters, handle.get_stream());
-    raft::copy(selected_clusters.begin(), selected_clusters_, n_selected_clusters_, handle.get_stream());
-  }
+             value_idx* selected_clusters_);
 
  private:
   const raft::handle_t& handle;
