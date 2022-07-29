@@ -166,11 +166,11 @@ def nan_euclidean_distances(
     Parameters
     ----------
     X : Dense matrix of shape (n_samples_X, n_features)
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray, 
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
         cuda array interface compliant array like CuPy.
 
     Y : Dense matrix of shape (n_samples_Y, n_features), default=None
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray, 
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
         cuda array interface compliant array like CuPy.
 
     squared : bool, default=False
@@ -193,16 +193,18 @@ def nan_euclidean_distances(
     if isinstance(Y, cudf.DataFrame) or isinstance(Y, pd.DataFrame):
         if (Y.isnull().any()).any():
             Y.fillna(0, inplace=True)
-    
+
     X_m, n_samples_x, n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
-    
+   
     if Y is None:
         Y = X_m
 
     Y_m, n_samples_y, n_features_y, dtype_y = \
-        input_to_cuml_array(Y, order=X_m.order, convert_to_dtype=dtype_x, check_dtype=[dtype_x])
-    
+        input_to_cuml_array(
+            Y, order=X_m.order, convert_to_dtype=dtype_x, 
+            check_dtype=[dtype_x])
+
     X_m = cp.asarray(X_m)
     Y_m = cp.asarray(Y_m)
 
@@ -219,11 +221,14 @@ def nan_euclidean_distances(
     # Adjust distances for sqaured
     if X_m.shape == Y_m.shape:
         if (X_m == Y_m).all():
-            distances = cp.asarray(pairwise_distances(X_m, metric="sqeuclidean"))
+            distances = cp.asarray(pairwise_distances(
+                X_m, metric="sqeuclidean"))
         else:
-            distances = cp.asarray(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+            distances = cp.asarray(pairwise_distances(
+                X_m, Y_m, metric="sqeuclidean"))
     else:
-        distances = cp.asarray(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+        distances = cp.asarray(pairwise_distances(
+            X_m, Y_m, metric="sqeuclidean"))
 
     # Adjust distances for missing values
     XX = X_m * X_m
