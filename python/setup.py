@@ -94,7 +94,6 @@ if not libcuml_path:
     libcuml_path = '../cpp/build/'
 
 cmdclass = versioneer.get_cmdclass()
-cmdclass["build_ext"] = build_ext
 
 ##############################################################################
 # - Python package generation ------------------------------------------------
@@ -112,6 +111,9 @@ setup(name='cuml',
       url="https://github.com/rapidsai/cudf",
       setup_requires=['Cython>=0.29,<0.30'],
       packages=find_packages(include=['cuml', 'cuml.*']),
+      package_data={
+          key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
+      },
       install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,

@@ -58,7 +58,7 @@ if(FIND_CUML_CPP)
   set(CUML_USE_RAFT_NN ON)
   set(CUML_USE_RAFT_DIST ON)
 
-  # We need to call get_raft due to cuML asing for raft::nn and
+  # We need to call get_raft due to cuML asking for raft::nn and
   # raft::distance targets
   include(../cpp/cmake/thirdparty/get_raft.cmake)
 
@@ -95,10 +95,15 @@ if(NOT cuml_FOUND)
   install(TARGETS cuml DESTINATION cuml/library)
 endif()
 
+set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+
 if(NOT SINGLEGPU)
   include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
+  set(cuml_mg_libraries
+    cuml::${CUML_CPP_TARGET}
+    cumlprims_mg::cumlprims_mg
+  )
 endif()
-
 
 include(rapids-cython)
 rapids_cython_init()
