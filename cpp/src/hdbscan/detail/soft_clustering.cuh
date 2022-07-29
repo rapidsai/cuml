@@ -307,11 +307,11 @@ void all_points_outlier_membership_vector(
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
   value_t* lambdas    = condensed_tree.get_lambdas();
-  auto n_edges    = condensed_tree.get_n_edges();
+  value_idx n_edges    = condensed_tree.get_n_edges();
   auto n_clusters = condensed_tree.get_n_clusters();
   auto n_leaves   = condensed_tree.get_n_leaves();
 
-  auto counting = thrust::make_counting_iterator<size_t>(0);
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
 
   rmm::device_uvector<value_idx> index_into_children(n_edges, stream);
   auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
@@ -325,52 +325,53 @@ void all_points_outlier_membership_vector(
     index_op
   );
 
-  int n_blocks = raft::ceildiv(int(m * n_selected_clusters), tpb);
-  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                                    lambdas,
-                                                    index_into_children.data(),
-                                                    parents,
-                                                    m,
-                                                    n_selected_clusters,
-                                                    selected_clusters);
+  // int n_blocks = raft::ceildiv(int(m * n_selected_clusters), tpb);
+  // merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
+  //                                                   lambdas,
+  //                                                   index_into_children.data(),
+  //                                                   parents,
+  //                                                   m,
+  //                                                   n_selected_clusters,
+  //                                                   selected_clusters);
 
-  rmm::device_uvector<value_t> leaf_max_lambdas(n_leaves, stream);
+  // rmm::device_uvector<value_t> leaf_max_lambdas(n_leaves, stream);
 
-  thrust::for_each(
-    exec_policy,
-    counting,
-    counting + n_leaves,
-    [deaths,
-    parents,
-    index_into_children = index_into_children.data(),
-    leaf_max_lambdas = leaf_max_lambdas.data(),
-    n_leaves] __device__(auto idx) { 
-      leaf_max_lambdas[idx] = deaths[parents[index_into_children[idx]] - n_leaves];});
+  // thrust::for_each(
+  //   exec_policy,
+  //   counting,
+  //   counting + n_leaves,
+  //   [deaths,
+  //   parents,
+  //   index_into_children = index_into_children.data(),
+  //   leaf_max_lambdas = leaf_max_lambdas.data(),
+  //   n_leaves] __device__(auto idx) { 
+  //     leaf_max_lambdas[idx] = deaths[parents[index_into_children[idx]] - n_leaves];});
 
-  raft::linalg::matrixVectorOp(
-    outlier_membership_vec,
-    merge_heights,
-    leaf_max_lambdas.data(),
-    n_selected_clusters,
-    (value_idx)m,
-    true,
-    false,
-    [] __device__(value_t mat_in, value_t vec_in) { return exp(-(vec_in + 1e-8) / mat_in); }, //+ 1e-8 to avoid zero lambda
-    stream);
+  // raft::linalg::matrixVectorOp(
+  //   outlier_membership_vec,
+  //   merge_heights,
+  //   leaf_max_lambdas.data(),
+  //   n_selected_clusters,
+  //   (value_idx)m,
+  //   true,
+  //   false,
+  //   [] __device__(value_t mat_in, value_t vec_in) { return exp(-(vec_in + 1e-8) / mat_in); }, //+ 1e-8 to avoid zero lambda
+  //   stream);
     
-  if (softmax){
-    thrust::transform(
-      exec_policy,
-      outlier_membership_vec,
-      outlier_membership_vec + m * n_selected_clusters,
-      outlier_membership_vec,
-      [=] __device__(value_t val){
-          return exp(val);
-      }
-    );
-  }
+  // if (softmax){
+  //   thrust::transform(
+  //     exec_policy,
+  //     outlier_membership_vec,
+  //     outlier_membership_vec + m * n_selected_clusters,
+  //     outlier_membership_vec,
+  //     [=] __device__(value_t val){
+  //         return exp(val);
+  //     }
+  //   );
+  // }
 
-  Utils::normalize(outlier_membership_vec, n_selected_clusters, m, stream);
+  // Utils::normalize(outlier_membership_vec, n_selected_clusters, m, stream);
+
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
@@ -390,7 +391,9 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
   auto n_leaves = condensed_tree.get_n_leaves();
   auto n_edges = condensed_tree.get_n_edges();
   auto children = condensed_tree.get_children();
+
   rmm::device_uvector<value_t> height_argmax(m, stream);
+
   raft::matrix::argmax(merge_heights, n_selected_clusters, m, height_argmax.data(), stream);
 
   rmm::device_uvector<value_idx> index_into_children(n_edges, stream);
@@ -428,6 +431,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                    const value_t* X,
                                    raft::distance::DistanceType metric)
 {
+  CUML_LOG_INFO("Obtaining all points membership vectors");
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
@@ -446,16 +450,17 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   value_idx n_exemplars = prediction_data.get_n_exemplars();
 
   rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
-  all_points_dist_membership_vector(handle,
-                                    X,
-                                    m,
-                                    n,
-                                    n_exemplars,
-                                    n_selected_clusters,
-                                    prediction_data.get_exemplar_idx(),
-                                    prediction_data.get_exemplar_label_offsets(),
-                                    dist_membership_vec.data(),
-                                    metric);
+
+  // all_points_dist_membership_vector(handle,
+  //                                   X,
+  //                                   m,
+  //                                   n,
+  //                                   n_exemplars,
+  //                                   n_selected_clusters,
+  //                                   prediction_data.get_exemplar_idx(),
+  //                                   prediction_data.get_exemplar_label_offsets(),
+  //                                   dist_membership_vec.data(),
+  //                                   metric);
 
   rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
@@ -469,36 +474,38 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                        membership_vec,
                                        true);
 
-  rmm::device_uvector<value_t> prob_in_some_cluster(m, stream);
-  all_points_prob_in_some_cluster(handle,
-                                  condensed_tree,
-                                  deaths,
-                                  selected_clusters,
-                                  m,
-                                  n_selected_clusters,
-                                  merge_heights.data(),
-                                  prob_in_some_cluster.data());
 
-  thrust::transform(exec_policy, dist_membership_vec.begin(),
-    dist_membership_vec.end(),
-    membership_vec,
-    membership_vec,
-    thrust::multiplies<value_t>());
+  // rmm::device_uvector<value_t> prob_in_some_cluster(m, stream);
+  // all_points_prob_in_some_cluster(handle,
+  //                                 condensed_tree,
+  //                                 deaths,
+  //                                 selected_clusters,
+  //                                 m,
+  //                                 n_selected_clusters,
+  //                                 merge_heights.data(),
+  //                                 prob_in_some_cluster.data());
   
-  // Normalize to obtain probabilities conditioned on points belonging to some cluster
-  Utils::normalize(membership_vec, n_selected_clusters, m, stream);
+
+  // thrust::transform(exec_policy, dist_membership_vec.begin(),
+  //   dist_membership_vec.end(),
+  //   membership_vec,
+  //   membership_vec,
+  //   thrust::multiplies<value_t>());
   
-  // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
-  raft::linalg::matrixVectorOp(
-    membership_vec,
-    membership_vec,
-    prob_in_some_cluster.data(),
-    n_selected_clusters,
-    (value_idx)m,
-    true,
-    false,
-    [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
-    stream);
+  // // Normalize to obtain probabilities conditioned on points belonging to some cluster
+  // Utils::normalize(membership_vec, n_selected_clusters, m, stream);
+  
+  // // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
+  // raft::linalg::matrixVectorOp(
+  //   membership_vec,
+  //   membership_vec,
+  //   prob_in_some_cluster.data(),
+  //   n_selected_clusters,
+  //   (value_idx)m,
+  //   true,
+  //   false,
+  //   [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
+  //   stream);
 }
 
 };  // namespace Membership

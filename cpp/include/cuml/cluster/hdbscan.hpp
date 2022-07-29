@@ -322,8 +322,8 @@ class PredictionData {
     n_cols(n)
   {
   }
-  value_idx n_rows;
-  value_idx n_cols;
+  size_t n_rows;
+  size_t n_cols;
   
   value_idx get_n_exemplars() { return n_exemplars; }
   value_idx get_n_selected_clusters() { return n_selected_clusters; }

@@ -590,6 +590,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
                                                   else None))
+        
+        if self.prediction_data:
+            self.X_m = X_m
+            self.n_rows = n_rows
 
         cdef uintptr_t input_ptr = X_m.ptr
 
@@ -765,21 +769,18 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "gen_min_span_tree",
         ]
 
-def all_points_membership_vectors(clusterer, X, convert_dtype=True):
+def all_points_membership_vectors(clusterer):
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
-                          "Please call clusterer.fit first")
+                         "Please call clusterer.fit first")
         
-    X_m, n_rows, n_cols, _ = \
-        input_to_cuml_array(X, order='C',
-                            check_dtype=[np.float32],
-                            convert_to_dtype=(np.float32
-                                              if convert_dtype
-                                              else None))
+    if not clusterer.prediction_data:
+        raise ValueError("PredictionData not generated. "
+                          "Please call clusterer.fit again with prediction_data=True")
 
-    cdef uintptr_t input_ptr = X_m.ptr
+    cdef uintptr_t input_ptr = clusterer.X_m.ptr
 
-    membership_vec = CumlArray.empty((n_rows * clusterer.n_clusters_,), dtype="float32")
+    membership_vec = CumlArray.empty((clusterer.n_rows * clusterer.n_clusters_,), dtype="float32")
     cdef uintptr_t membership_vec_ptr = membership_vec.ptr
 
     cdef hdbscan_output *hdbscan_output_ = \
@@ -797,6 +798,4 @@ def all_points_membership_vectors(clusterer, X, convert_dtype=True):
                                    _metrics_mapping[clusterer.metric])
     
     clusterer.handle.sync()
-    return membership_vec.to_output(output_type="numpy", output_dtype="float32").reshape((n_rows, clusterer.n_clusters_))
-    #return _cuml_array_from_ptr(membership_vec_ptr, n_rows * clusterer.n_clusters_ * sizeof(float),
-    #    (n_rows, clusterer.n_clusters_), "float32", None)
+    return membership_vec.to_output(output_type="numpy", output_dtype="float32").reshape((clusterer.n_rows, clusterer.n_clusters_))
