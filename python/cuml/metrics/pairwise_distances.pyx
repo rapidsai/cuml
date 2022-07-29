@@ -31,7 +31,7 @@ import cupyx
 import cuml.internals
 from cuml.common.base import _determine_stateless_output_type
 from cuml.common import (input_to_cuml_array, CumlArray, logger)
-from cuml.common.input_utils import (sparse_scipy_to_cp, input_to_cupy_array)
+from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
@@ -166,11 +166,11 @@ def nan_euclidean_distances(
     Parameters
     ----------
     X : Dense matrix of shape (n_samples_X, n_features)
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray, 
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
         cuda array interface compliant array like CuPy.
 
     Y : Dense matrix of shape (n_samples_Y, n_features), default=None
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray, 
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
         cuda array interface compliant array like CuPy.
 
     squared : bool, default=False
@@ -194,18 +194,19 @@ def nan_euclidean_distances(
         if (Y.isnull().any()).any():
             Y.fillna(0, inplace=True)
 
-    
     X_m, n_samples_x, n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
-    
+
     if Y is None:
         Y = X_m
 
     Y_m, n_samples_y, n_features_y, dtype_y = \
-        input_to_cuml_array(Y, order=X_m.order, convert_to_dtype=dtype_x, check_dtype=[dtype_x])
-    
-    X_m = input_to_cupy_array(X_m)
-    Y_m = input_to_cupy_array(Y_m)
+        input_to_cuml_array(
+            Y, order=X_m.order, convert_to_dtype=dtype_x,
+            check_dtype=[dtype_x])
+
+    X_m = cp.asarray(X_m)
+    Y_m = cp.asarray(Y_m)
 
     # Get missing mask for X
     missing_X = _get_mask(X_m, missing_values)
@@ -220,11 +221,14 @@ def nan_euclidean_distances(
     # Adjust distances for sqaured
     if X_m.shape == Y_m.shape:
         if (X_m == Y_m).all():
-            distances = cp.asarray(pairwise_distances(X_m, metric="sqeuclidean"))
+            distances = cp.asarray(pairwise_distances(
+                X_m, metric="sqeuclidean"))
         else:
-            distances = cp.asarray(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+            distances = cp.asarray(pairwise_distances(
+                X_m, Y_m, metric="sqeuclidean"))
     else:
-        distances = cp.asarray(pairwise_distances(X_m, Y_m, metric="sqeuclidean"))
+        distances = cp.asarray(pairwise_distances(
+            X_m, Y_m, metric="sqeuclidean"))
 
     # Adjust distances for missing values
     XX = X_m * X_m
