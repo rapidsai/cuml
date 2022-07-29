@@ -53,6 +53,8 @@ if(FIND_CUML_CPP)
   rapids_cuda_init_architectures(cuml-python)
   enable_language(CUDA)
 
+  # variables used by get_raft.cmake, we can get rid of them when this is solved:
+  # https://github.com/rapidsai/rapids-cmake/issues/228
   set(CUML_VERSION_MAJOR "22")
   set(CUML_VERSION_MINOR "08")
   set(CUML_USE_RAFT_NN ON)
