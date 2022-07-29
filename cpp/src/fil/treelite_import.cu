@@ -676,26 +676,27 @@ void from_treelite(const raft::handle_t& handle,
   precision_t precision = tl_params->precision;
   // choose the precision based on model if required
   if (precision == PRECISION_NATIVE) {
-    precision = std::is_same_v<decltype(threshold_t(0) + leaf_t(0)), float> ?
-      PRECISION_FLOAT32 : PRECISION_FLOAT64;
+    precision = std::is_same_v<decltype(threshold_t(0) + leaf_t(0)), float> ? PRECISION_FLOAT32
+                                                                            : PRECISION_FLOAT64;
   }
 
   switch (precision) {
-  case PRECISION_FLOAT32: {
-    *pforest_variant         = (forest_t<float>)nullptr;
-    forest_t<float>* pforest = &std::get<forest_t<float>>(*pforest_variant);
-    from_treelite(handle, pforest, model, tl_params);
-    break;
-  }
-  case PRECISION_FLOAT64: {
-    *pforest_variant          = (forest_t<double>)nullptr;
-    forest_t<double>* pforest = &std::get<forest_t<double>>(*pforest_variant);
-    from_treelite(handle, pforest, model, tl_params);
-    break;
-  }
-  default:
-    ASSERT(false, "bad value of tl_params->precision, must be one of "
-           "PRECISION_{NATIVE,FLOAT32,FLOAT64}");
+    case PRECISION_FLOAT32: {
+      *pforest_variant         = (forest_t<float>)nullptr;
+      forest_t<float>* pforest = &std::get<forest_t<float>>(*pforest_variant);
+      from_treelite(handle, pforest, model, tl_params);
+      break;
+    }
+    case PRECISION_FLOAT64: {
+      *pforest_variant          = (forest_t<double>)nullptr;
+      forest_t<double>* pforest = &std::get<forest_t<double>>(*pforest_variant);
+      from_treelite(handle, pforest, model, tl_params);
+      break;
+    }
+    default:
+      ASSERT(false,
+             "bad value of tl_params->precision, must be one of "
+             "PRECISION_{NATIVE,FLOAT32,FLOAT64}");
   }
 }
 

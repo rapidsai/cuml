@@ -230,7 +230,8 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                           (5, RandomForestClassifier, 10, 'float32'),
                           (5, RandomForestClassifier, 10, 'float64')])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
-                                n_classes, storage_type, precision, model_class):
+                                n_classes, storage_type, precision,
+                                model_class):
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)

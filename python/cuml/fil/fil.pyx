@@ -316,7 +316,7 @@ cdef class ForestInference_impl():
         precision_dict = {'native': precision_t.PRECISION_NATIVE,
                           'float32': precision_t.PRECISION_FLOAT32,
                           'float64': precision_t.PRECISION_FLOAT64}
-        if precision not in precision_dict.keys():
+        if precision not in precision_dict:
             raise ValueError(
                 "The value entered for precision is not "
                 "supported. Please refer to the documentation at"
@@ -616,8 +616,8 @@ class ForestInference(Base,
         the treelite model.
         - ``'native'``: load in float64 if the treelite model contains float64
           weights or thresholds, otherwise load in float32
-        - ``'float32'``: always load in float32, may lead to loss of precision if
-          the treelite model contains float64 weights or thresholds
+        - ``'float32'``: always load in float32, may lead to loss of precision
+          if the treelite model contains float64 weights or thresholds
         - ``'float64'``: always load in float64
     """)
         return func
@@ -801,10 +801,11 @@ class ForestInference(Base,
         precision : string (default='native')
             precision of weights and thresholds of the FIL model loaded from
             the treelite model.
-            - ``'native'``: load in float64 if the treelite model contains float64
-              weights or thresholds, otherwise load in float32
-            - ``'float32'``: always load in float32, may lead to loss of precision if
-              the treelite model contains float64 weights or thresholds
+            - ``'native'``: load in float64 if the treelite model contains
+              float64 weights or thresholds, otherwise load in float32
+            - ``'float32'``: always load in float32, may lead to loss of
+              precision if the treelite model contains float64 weights or
+              thresholds
             - ``'float64'``: always load in float64
 
         Returns
@@ -892,10 +893,11 @@ class ForestInference(Base,
         precision : string (default='native')
             precision of weights and thresholds of the FIL model loaded from
             the treelite model.
-            - ``'native'``: load in float64 if the treelite model contains float64
-              weights or thresholds, otherwise load in float32
-            - ``'float32'``: always load in float32, may lead to loss of precision if
-              the treelite model contains float64 weights or thresholds
+            - ``'native'``: load in float64 if the treelite model contains
+              float64 weights or thresholds, otherwise load in float32
+            - ``'float32'``: always load in float32, may lead to loss of
+              precision if the treelite model contains float64 weights or
+              thresholds
             - ``'float64'``: always load in float64
 
         model_type : string (default="xgboost")
