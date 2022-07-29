@@ -161,8 +161,6 @@ def nan_euclidean_distances(
     If all the coordinates are missing or if there are no common present
     coordinates then NaN is returned for that pair.
 
-    Read more in the :ref:`User Guide <metrics>`.
-
     Parameters
     ----------
     X : Dense matrix of shape (n_samples_X, n_features)
