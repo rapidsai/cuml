@@ -25,7 +25,7 @@ from ... import datagen
 
 
 @pytest.fixture(**fixture_generation_helper({
-                    'n_samples': [1000, 10000],
+                    'n_samples': [10000],
                     'n_features': [5, 500]
                 }))
 def regression(request):

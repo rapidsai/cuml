@@ -256,4 +256,4 @@ def test_score(nrows, ncols, nclusters, n_parts,
     local_model = cumlModel.get_combined_model()
     expected_score = local_model.score(X_train.compute())
 
-    assert abs(actual_score - expected_score) < 1e-3
+    assert abs(actual_score - expected_score) < 5e-3
