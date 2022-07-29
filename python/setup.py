@@ -27,7 +27,6 @@ from setuputils import get_cli_option
 
 import versioneer
 from skbuild import setup
-from skbuild.command.build_ext import build_ext
 
 install_requires = ['numba', 'cython']
 
