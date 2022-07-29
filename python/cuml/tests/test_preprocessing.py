@@ -795,7 +795,7 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
 
 
 @pytest.mark.parametrize("missing_values", [0, 1, np.nan])
-@pytest.mark.parametrize("n_neighbors", [2])
+@pytest.mark.parametrize("n_neighbors", [2, 3])
 @pytest.mark.parametrize("weights", ['uniform', 'distance'])
 def test_knn_imputer(
         failure_logger,
@@ -838,4 +838,4 @@ def test__repr__():
     assert cuSimpleImputer().__repr__() == 'SimpleImputer()'
     assert cuRobustScaler().__repr__() == 'RobustScaler()'
     assert cuKBinsDiscretizer().__repr__() == 'KBinsDiscretizer()'
-    assert cuKNNImputer.__repr__() == 'KNNImputer()'
+    assert cuKNNImputer().__repr__() == 'KNNImputer()'
