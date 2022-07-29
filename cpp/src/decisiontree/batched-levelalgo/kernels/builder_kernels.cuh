@@ -219,6 +219,7 @@ __global__ void excess_sample_with_replacement_kernel(
 
     // compute the mask
     // compute the adjacent differences according to the functor
+    // TODO: Replace deprecated 'FlagHeads' with 'SubtractLeft' when it is available
     BlockAdjacentDifferenceT(temp_storage.diff)
       .FlagHeads(mask, items, mask, CustomDifference<IdxT>());
 
@@ -240,7 +241,9 @@ __global__ void excess_sample_with_replacement_kernel(
 
 // algo L of the reservoir sampling algorithm
 /**
- * @brief Generates 'k' unique samples of features from 'n' feature sample-space using the algo-L
+ * @brief For each work item select 'k' features without replacement from 'n' features using algo-L.
+ * Each thread works on single work item from 'work_items' array. The size of 'work_items' array is
+ * 'work_items_size'.
  * algorithm of reservoir sampling. wiki :
  * https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
  */
