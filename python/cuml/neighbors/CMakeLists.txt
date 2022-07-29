@@ -20,25 +20,18 @@ set(cython_sources
     nearest_neighbors.pyx
 )
 
-set(linked_libraries
-    cuml::${CUML_CPP_TARGET}
-    )
-
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        kneighbors_classifier_mg.pyx
        kneighbors_regressor_mg.pyx
        nearest_neighbors_mg.pyx
   )
-
-  list(APPEND linked_libraries
-       cumlprims_mg::cumlprims_mg)
 endif()
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
+  LINKED_LIBRARIES $<IF:$<BOOL:${SINGLE_GPU}>,${cuml_sg_libraries},${cuml_mg_libraries}>
   MODULE_PREFIX neighbors_
 )
 
@@ -47,5 +40,5 @@ foreach(target IN LISTS targets_using_numpy)
 endforeach()
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
+  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
 endforeach()

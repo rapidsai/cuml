@@ -12,7 +12,6 @@
 # the License.
 # =============================================================================
 
-
 set(cython_sources
     base.pyx
     cuda.pyx
@@ -21,28 +20,24 @@ set(cython_sources
     pointer_utils.pyx
 )
 
-set(linked_libraries cuml::${CUML_CPP_TARGET})
-
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        opg_data_utils_mg.pyx
   )
-
-  list(APPEND linked_libraries
-       cumlprims_mg::cumlprims_mg)
 endif()
 
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
+  LINKED_LIBRARIES $<IF:$<BOOL:${SINGLE_GPU}>,${cuml_sg_libraries},${cuml_mg_libraries}>
   MODULE_PREFIX common_
 )
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
+  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
 endforeach()
 
 # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality
 # moved to another file, pointer_utils.pyx needs it
+# https://github.com/rapidsai/cuml/issues/4841
 target_include_directories(common_pointer_utils PRIVATE "../../../cpp/src/")

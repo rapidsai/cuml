@@ -53,12 +53,14 @@ if(FIND_CUML_CPP)
   rapids_cuda_init_architectures(cuml-python)
   enable_language(CUDA)
 
+  # variables used by get_raft.cmake, we can get rid of them when this is solved:
+  # https://github.com/rapidsai/rapids-cmake/issues/228
   set(CUML_VERSION_MAJOR "22")
   set(CUML_VERSION_MINOR "08")
   set(CUML_USE_RAFT_NN ON)
   set(CUML_USE_RAFT_DIST ON)
 
-  # We need to call get_raft due to cuML asing for raft::nn and
+  # We need to call get_raft due to cuML asking for raft::nn and
   # raft::distance targets
   include(../cpp/cmake/thirdparty/get_raft.cmake)
 
@@ -95,10 +97,15 @@ if(NOT cuml_FOUND)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION cuml/library)
 endif()
 
+set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+
 if(NOT SINGLEGPU)
   include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
+  set(cuml_mg_libraries
+    cuml::${CUML_CPP_TARGET}
+    cumlprims_mg::cumlprims_mg
+  )
 endif()
-
 
 include(rapids-cython)
 rapids_cython_init()

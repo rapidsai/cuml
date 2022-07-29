@@ -18,17 +18,16 @@ set(cython_sources
     internals.pyx
 )
 
-set(linked_libraries cuml::${CUML_CPP_TARGET})
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}"
+  LINKED_LIBRARIES "${cuml_sg_libraries}"
   MODULE_PREFIX internals_
 )
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/cpp")
+  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
 endforeach()
 
 # We need to include for callbacks_implements.h in the internals folder
-target_include_directories(internals_internals PRIVATE "")
+target_include_directories(internals_internals PRIVATE ${CMAKE_CURRENT_LIST_DIR})
