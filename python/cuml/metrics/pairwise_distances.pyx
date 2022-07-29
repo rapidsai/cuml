@@ -196,13 +196,13 @@ def nan_euclidean_distances(
 
     X_m, n_samples_x, n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
-   
+
     if Y is None:
         Y = X_m
 
     Y_m, n_samples_y, n_features_y, dtype_y = \
         input_to_cuml_array(
-            Y, order=X_m.order, convert_to_dtype=dtype_x, 
+            Y, order=X_m.order, convert_to_dtype=dtype_x,
             check_dtype=[dtype_x])
 
     X_m = cp.asarray(X_m)
