@@ -77,7 +77,7 @@ from cuml.testing.test_preproc_utils import \
     sparse_imputer_dataset, \
     sparse_dataset_with_coo  # noqa: F401
 from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.metrics.pairwise import pairwise_kernels
+from cuml.metrics import pairwise_kernels
 
 import numpy as np
 import cupy as cp

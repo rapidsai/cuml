@@ -2070,7 +2070,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
     Examples
     --------
     >>> from cuml.preprocessing import KernelCenterer
-    >>> from sklearn.metrics.pairwise import pairwise_kernels
+    >>> from cuml.metrics import pairwise_kernels
     >>> X = [[ 1., -2.,  2.],
     ...      [ -2.,  1.,  3.],
     ...      [ 4.,  1., -2.]]
