@@ -390,6 +390,23 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('precision', ['native', 'float32', 'float64'])
+def test_precision_xgboost(precision, small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              model_type=model_type,
+                              output_class=True,
+                              threshold=0.50,
+                              precision=precision)
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.asarray(fm.predict(X))
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('storage_type',
                          [False, True, 'auto', 'dense', 'sparse', 'sparse8'])
 def test_output_storage_type(storage_type, small_classifier_and_preds):
