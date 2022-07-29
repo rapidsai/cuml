@@ -22,7 +22,7 @@ import json
 
 class Profiler:
     def __init__(self, tmp_path='/tmp/nsys_report'):
-        self.qdrep_file = tmp_path + '/report.qdrep'
+        self.nsys_file = tmp_path + '/report.nsys-rep'
         self.json_file = tmp_path + '/report.json'
         self._execute(['rm', '-rf', tmp_path])
         self._execute(['mkdir', '-p', tmp_path])
@@ -39,8 +39,8 @@ class Profiler:
                            'profile',
                            '--trace=nvtx',
                            '--force-overwrite=true',
-                           '--output={qdrep_file}'.format(
-                               qdrep_file=self.qdrep_file)]
+                           '--output={nsys_file}'.format(
+                               nsys_file=self.nsys_file)]
         profile_command.extend(command.split(' '))
         self._execute(profile_command)
 
@@ -52,7 +52,7 @@ class Profiler:
                           '--force-overwrite=true',
                           '--output={json_file}'.format(
                               json_file=self.json_file),
-                          self.qdrep_file]
+                          self.nsys_file]
         self._execute(export_command)
 
     def _parse_json(self):
