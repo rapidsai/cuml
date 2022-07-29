@@ -43,7 +43,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - cuda-python >=11.5,<12.0
+    - cuda-python >=11.5,<11.7.1
   run:
     - python x.x
     - cudf {{ minor_version }}
@@ -51,16 +51,16 @@ requirements:
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - pyraft {{ minor_version }}
-    - cupy>=7.8.0,<11.0.0a0
+    - cupy>=7.8.0,<12.0.0a0
     - treelite=2.4.0
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask==2022.05.2
-    - distributed==2022.05.2
+    - dask>=2022.05.2
+    - distributed>=2022.05.2
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - cuda-python >=11.5,<12.0
+    - cuda-python >=11.5,<11.7.1
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]

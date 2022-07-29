@@ -147,10 +147,13 @@ class DBSCAN(Base,
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    metric: {'euclidean', 'precomputed'}, default = 'euclidean'
+    metric: {'euclidean', 'cosine', 'precomputed'}, default = 'euclidean'
         The metric to use when calculating distances between points.
         If metric is 'precomputed', X is assumed to be a distance matrix
         and must be square.
+        The input will be modified temporarily when cosine distance is used
+        and the restored input matrix might not match completely
+        due to numerical rounding.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -266,7 +269,8 @@ class DBSCAN(Base,
         metric_parsing = {
             "L2": DistanceType.L2SqrtUnexpanded,
             "euclidean": DistanceType.L2SqrtUnexpanded,
-            "precomputed": DistanceType.Precomputed,
+            "cosine": DistanceType.CosineExpanded,
+            "precomputed": DistanceType.Precomputed
         }
         if self.metric in metric_parsing:
             metric = metric_parsing[self.metric.lower()]
