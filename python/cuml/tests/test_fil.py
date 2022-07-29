@@ -212,21 +212,25 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                          [(2, False), (2, True), (10, False), (10, True),
                           (20, True)])
 # When n_classes=25, fit a single estimator only to reduce test time
-@pytest.mark.parametrize('n_classes,model_class,n_estimators',
-                         [(2, GradientBoostingClassifier, 1),
-                          (2, GradientBoostingClassifier, 10),
-                          (2, RandomForestClassifier, 1),
-                          (5, RandomForestClassifier, 1),
-                          (2, RandomForestClassifier, 10),
-                          (5, RandomForestClassifier, 10),
-                          (2, ExtraTreesClassifier, 1),
-                          (2, ExtraTreesClassifier, 10),
-                          (5, GradientBoostingClassifier, 1),
-                          (5, GradientBoostingClassifier, 10),
-                          (25, GradientBoostingClassifier, 1),
-                          (25, RandomForestClassifier, 1)])
+@pytest.mark.parametrize('n_classes,model_class,n_estimators,precision',
+                         [(2, GradientBoostingClassifier, 1, 'native'),
+                          (2, GradientBoostingClassifier, 10, 'native'),
+                          (2, RandomForestClassifier, 1, 'native'),
+                          (5, RandomForestClassifier, 1, 'native'),
+                          (2, RandomForestClassifier, 10, 'native'),
+                          (5, RandomForestClassifier, 10, 'native'),
+                          (2, ExtraTreesClassifier, 1, 'native'),
+                          (2, ExtraTreesClassifier, 10, 'native'),
+                          (5, GradientBoostingClassifier, 1, 'native'),
+                          (5, GradientBoostingClassifier, 10, 'native'),
+                          (25, GradientBoostingClassifier, 1, 'native'),
+                          (25, RandomForestClassifier, 1, 'native'),
+                          (2, RandomForestClassifier, 10, 'float32'),
+                          (2, RandomForestClassifier, 10, 'float64'),
+                          (5, RandomForestClassifier, 10, 'float32'),
+                          (5, RandomForestClassifier, 10, 'float64')])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
-                                n_classes, storage_type, model_class):
+                                n_classes, storage_type, precision, model_class):
     # settings
     classification = True  # change this to false to use regression
     random_state = np.random.RandomState(43210)
@@ -266,7 +270,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                            algo=algo,
                                            output_class=True,
                                            threshold=0.50,
-                                           storage_type=storage_type)
+                                           storage_type=storage_type,
+                                           precision=precision)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
     fil_acc = accuracy_score(y_validation, fil_preds)
