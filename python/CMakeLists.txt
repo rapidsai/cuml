@@ -54,8 +54,8 @@ if(FIND_CUML_CPP)
 
   # variables used by get_raft.cmake, we can get rid of them when this is solved:
   # https://github.com/rapidsai/rapids-cmake/issues/228
-  set(CUML_VERSION_MAJOR "22")
-  set(CUML_VERSION_MINOR "08")
+  set(CUML_VERSION_MAJOR "${cuml-python_VERSION_MAJOR}")
+  set(CUML_VERSION_MINOR "${cuml-python_VERSION_MINOR}")
   set(CUML_USE_RAFT_NN ON)
   set(CUML_USE_RAFT_DIST ON)
 
