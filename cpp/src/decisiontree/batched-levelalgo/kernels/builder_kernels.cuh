@@ -242,8 +242,18 @@ __global__ void excess_sample_with_replacement_kernel(
 // algo L of the reservoir sampling algorithm
 /**
  * @brief For each work item select 'k' features without replacement from 'n' features using algo-L.
- * Each thread works on single work item from 'work_items' array. The size of 'work_items' array is
- * 'work_items_size'.
+
+* On exit each row of the colids array will contain k random integers from the [0..n-1] range.
+*
+* Each thread works on single row. The parameters work_items_size, treeid and seed are 
+* used to initialize a unique random seed for each work item.
+*   
+* @param colids the generated random indices, size [work_items_size, k] row major layout
+* @param work_items
+* @param treeid
+* @param seed 
+* @param n total cos to sample from
+* @param k number of cols to sample
  * algorithm of reservoir sampling. wiki :
  * https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
  */
