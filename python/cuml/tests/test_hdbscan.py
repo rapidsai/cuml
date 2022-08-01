@@ -449,13 +449,12 @@ def test_hdbscan_plots():
     assert cuml_agg.minimum_spanning_tree_ is None
 
 
-@pytest.mark.parametrize('nrows', [500])
-@pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [10])
-@pytest.mark.parametrize('min_samples', [60])
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('ncols', [10, 25])
+@pytest.mark.parametrize('nclusters', [10, 15])
 @pytest.mark.parametrize('allow_single_cluster', [False])
-@pytest.mark.parametrize('min_cluster_size', [30])
-@pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
+@pytest.mark.parametrize('min_cluster_size', [30, 60])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 0.5])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
 def test_all_points_membership_vectors(nrows,
@@ -465,8 +464,7 @@ def test_all_points_membership_vectors(nrows,
                                        cluster_selection_method,
                                        min_cluster_size,
                                        allow_single_cluster,
-                                       max_cluster_size,
-                                       min_samples):
+                                       max_cluster_size):
     X, y = make_blobs(n_samples=nrows,
                       n_features=ncols,
                       centers=nclusters,
@@ -476,7 +474,6 @@ def test_all_points_membership_vectors(nrows,
 
     cuml_agg = HDBSCAN(verbose=logger.level_info,
                        allow_single_cluster=allow_single_cluster,
-                       min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
                        cluster_selection_epsilon=cluster_selection_epsilon,
@@ -484,20 +481,25 @@ def test_all_points_membership_vectors(nrows,
                        prediction_data=True)
     cuml_agg.fit(X)
 
-    # sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
-    #                          approx_min_span_tree=False,
-    #                          gen_min_span_tree=True,
-    #                          min_samples=min_samples,
-    #                          min_cluster_size=min_cluster_size,
-    #                          cluster_selection_epsilon=cluster_selection_epsilon,
-    #                          cluster_selection_method=cluster_selection_method,
-    #                          algorithm="generic",
-    #                          prediction_data=True)
+    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
+                             approx_min_span_tree=False,
+                             gen_min_span_tree=True,
+                             min_cluster_size=min_cluster_size,
+                             cluster_selection_epsilon=cluster_selection_epsilon,
+                             cluster_selection_method=cluster_selection_method,
+                             algorithm="generic",
+                             prediction_data=True)
 
-    #sk_agg.fit(cp.asnumpy(X))
+    sk_agg.fit(cp.asnumpy(X))
 
-    cu_membership_vectors_sorted = all_points_membership_vectors(cuml_agg).sort(axis=1)
-    # sk_membership_vectors_sorted = hdbscan.all_points_membership_vectors(sk_agg).sort(axis=1)
-
-    # assert array_equal(cu_membership_vectors_sorted, sk_membership_vectors_sorted, unit_tol=0.005)
-    assert True
+    cu_membership_vectors = all_points_membership_vectors(cuml_agg)
+    cu_membership_vectors.sort(axis=1)
+    sk_membership_vectors = hdbscan.all_points_membership_vectors(sk_agg)
+    sk_membership_vectors.sort(axis=1)
+    for i in range(cu_membership_vectors.shape[0]):
+        for j in range(cu_membership_vectors.shape[1]):
+            if abs(cu_membership_vectors[i][j] - sk_membership_vectors[i][j]) > 0.005:
+                print(i, j)
+                print(cu_membership_vectors[i][j])
+                print(sk_membership_vectors[i][j])
+    assert array_equal(cu_membership_vectors, sk_membership_vectors, unit_tol=0.01)

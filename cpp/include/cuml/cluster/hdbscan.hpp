@@ -333,7 +333,7 @@ class PredictionData {
   value_t* get_deaths() { return deaths.data(); }
 
   void cache(const raft::handle_t& handle,
-    value_idx n_exemplars_,
+             value_idx n_exemplars_,
              value_idx n_clusters,
              value_idx n_selected_clusters_,
              value_t* deaths_,
@@ -351,6 +351,7 @@ class PredictionData {
   rmm::device_uvector<value_t> deaths;
 };
 
+template class PredictionData<int, float>;
 
 };  // namespace Common
 };  // namespace HDBSCAN
