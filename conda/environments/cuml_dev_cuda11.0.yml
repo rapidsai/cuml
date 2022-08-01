@@ -19,7 +19,7 @@ dependencies:
 - pyraft=22.10.*
 - dask-cudf=22.10.*
 - dask-cuda=22.10.*
-- ucx>=1.12.1
+- ucx>=1.13.0
 - ucx-py=0.28.*
 - ucx-proc=*=gpu
 - dask-ml
