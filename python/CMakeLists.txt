@@ -16,10 +16,6 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-include(rapids-cmake)
-include(rapids-cpm)
-include(rapids-find)
-
 set(CUML_VERSION 22.08.00)
 
 project(
@@ -37,6 +33,8 @@ project(
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
+# todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
+# https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
@@ -48,6 +46,7 @@ set(CUML_CPP_TARGET "cuml++")
 
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
+  include(rapids-cpm)
   rapids_cpm_init()
   include(rapids-cuda)
   rapids_cuda_init_architectures(cuml-python)
@@ -62,6 +61,7 @@ if(FIND_CUML_CPP)
 
   # We need to call get_raft due to cuML asking for raft::nn and
   # raft::distance targets
+  # see issue https://github.com/rapidsai/cuml/issues/4843
   include(../cpp/cmake/thirdparty/get_raft.cmake)
 
   # We need to call get_treelite explicitly because we need the correct
