@@ -245,13 +245,13 @@ __global__ void excess_sample_with_replacement_kernel(
 
 * On exit each row of the colids array will contain k random integers from the [0..n-1] range.
 *
-* Each thread works on single row. The parameters work_items_size, treeid and seed are 
+* Each thread works on single row. The parameters work_items_size, treeid and seed are
 * used to initialize a unique random seed for each work item.
-*   
+*
 * @param colids the generated random indices, size [work_items_size, k] row major layout
 * @param work_items
 * @param treeid
-* @param seed 
+* @param seed
 * @param n total cos to sample from
 * @param k number of cols to sample
  * algorithm of reservoir sampling. wiki :
