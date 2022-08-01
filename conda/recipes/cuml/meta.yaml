@@ -51,7 +51,7 @@ requirements:
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - pyraft {{ minor_version }}
-    - cupy>=7.8.0,<12.0.0a0
+    - cupy>=7.8.0,<11.0.0a0
     - treelite=2.4.0
     - nccl>=2.9.9
     - ucx-py {{ ucx_py_version }}
