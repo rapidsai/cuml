@@ -111,7 +111,7 @@ void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::hand
   this-> n_exemplars = n_exemplars_;
   this-> n_selected_clusters = n_selected_clusters_;
   exemplar_idx.resize(n_exemplars, handle.get_stream());
-  exemplar_label_offsets.resize(n_selected_clusters + 1, handle.get_stream());
+  exemplar_label_offsets.resize(n_selected_clusters_ + 1, handle.get_stream());
   deaths.resize(n_clusters, handle.get_stream());
   selected_clusters.resize(n_selected_clusters, handle.get_stream());
   raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());

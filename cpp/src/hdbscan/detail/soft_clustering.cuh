@@ -70,8 +70,6 @@ void build_prediction_data(const raft::handle_t& handle,
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
-
-  CUML_LOG_INFO("Building prediction data");
   
   auto counting = thrust::make_counting_iterator<int>(0);
   
@@ -220,8 +218,22 @@ void all_points_dist_membership_vector(const raft::handle_t& handle,
   
   // compute the distances using raft API
   rmm::device_uvector<value_t> dist(m * n_exemplars, stream);
-  raft::distance::distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
-    X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+
+  switch (metric) {
+    case raft::distance::DistanceType::L2SqrtExpanded:
+      raft::distance::distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
+        X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+      break;
+    case raft::distance::DistanceType::L1:
+      raft::distance::distance<raft::distance::DistanceType::L1, value_t, value_t, value_t, int>(
+        X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+      break;
+    case raft::distance::DistanceType::CosineExpanded:
+      raft::distance::distance<raft::distance::DistanceType::CosineExpanded, value_t, value_t, value_t, int>(
+        X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+      break;
+    default: ASSERT(false, "Incorrect metric passed!");
+  }
   
   // compute the minimum distances to exemplars of each cluster
   rmm::device_uvector<value_t> min_dist(m * n_selected_clusters, stream);
@@ -433,7 +445,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                    const value_t* X,
                                    raft::distance::DistanceType metric)
 {
-  CUML_LOG_INFO("Obtaining all points membership vectors");
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 

@@ -131,6 +131,19 @@ def assert_condensed_trees(sk_agg, min_cluster_size):
     assert lev > 1
 
 
+def assert_all_points_membership_vectors(cu_vecs, sk_vecs):
+    i = 0
+    while i < sk_vecs.shape[0]:
+        total_nz = 0
+        for j in range(sk_vecs.shape[1]):
+            if sk_vecs[i][j] < 1e-3 or cu_vecs[i][j] < 1e-3:
+                break
+            total_nz += 1
+        if total_nz == sk_vecs.shape[1]:
+            assert np.allclose(cu_vecs[i], sk_vecs[i], atol=0.1, rtol=0.1)
+        i += 1
+
+
 @pytest.mark.parametrize('nrows', [500])
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
@@ -452,11 +465,11 @@ def test_hdbscan_plots():
 @pytest.mark.parametrize('nrows', [1000, 10000])
 @pytest.mark.parametrize('ncols', [10, 25])
 @pytest.mark.parametrize('nclusters', [10, 15])
-@pytest.mark.parametrize('allow_single_cluster', [False])
+@pytest.mark.parametrize('allow_single_cluster', [False, True])
 @pytest.mark.parametrize('min_cluster_size', [30, 60])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 0.5])
 @pytest.mark.parametrize('max_cluster_size', [0])
-@pytest.mark.parametrize('cluster_selection_method', ['eom'])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 def test_all_points_membership_vectors(nrows,
                                        ncols,
                                        nclusters,
@@ -496,4 +509,4 @@ def test_all_points_membership_vectors(nrows,
     cu_membership_vectors.sort(axis=1)
     sk_membership_vectors = hdbscan.all_points_membership_vectors(sk_agg).astype("float32")
     sk_membership_vectors.sort(axis=1)
-    assert array_equal(cu_membership_vectors, sk_membership_vectors, unit_tol=0.05)
+    assert_all_points_membership_vectors(cu_membership_vectors, sk_membership_vectors)
