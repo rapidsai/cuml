@@ -191,8 +191,8 @@ else
     gpuci_logger "Building and installing cuml"
     export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
     export VERSION_SUFFIX=""
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
-    gpuci_mamba_retry install -c ${CONDA_ARTIFACT_PATH} -c ${CONDA_BLD_DIR} cuml
+    gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
+    gpuci_mamba_retry install cuml -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}"
 
     gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
