@@ -81,7 +81,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method
-    
+
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
                        int m,
@@ -114,13 +114,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            CLUSTER_SELECTION_METHOD cluster_selection_method,
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
-    
-    void _all_points_membership_vectors(const handle_t &handle,
-                                        CondensedHierarchy[int, float] &condensed_tree,
-                                        PredictionData[int, float] &pred_data,
-                                        float* membership_vec,
-                                        float* X,
-                                        DistanceType metric);
+
+    void _all_points_membership_vectors(
+        const handle_t &handle,
+        CondensedHierarchy[int, float] &condensed_tree,
+        PredictionData[int, float] &pred_data,
+        float* membership_vec,
+        float* X,
+        DistanceType metric)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -274,11 +275,7 @@ def delete_hdbscan_output(obj):
         del output
         del obj.hdbscan_output_
 
-#def all_points_membership_vector(clusterer):
-#     cdef  *condensed_tree =\
-#         new CondensedHierarchy[int, float](
-#             handle_[0], <size_t>n_leaves)
-    
+
 class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     """
@@ -590,7 +587,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
                                                   else None))
-        
+
         if self.prediction_data:
             self.X_m = X_m
             self.n_rows = n_rows
@@ -660,8 +657,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             metric = _metrics_mapping[self.metric]
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
-        
-        cdef PredictionData[int, float] *pred_data = new PredictionData[int, float](
+
+        cdef PredictionData[int, float] *pred_data =
+        new PredictionData[int, float](
             handle_[0], <int> n_rows, <int> n_cols)
         self._prediction_data = <size_t>pred_data
 
@@ -769,25 +767,30 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "gen_min_span_tree",
         ]
 
+
 def all_points_membership_vectors(clusterer):
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
                          "Please call clusterer.fit first")
-        
+
     if not clusterer.prediction_data:
         raise ValueError("PredictionData not generated. "
-                          "Please call clusterer.fit again with prediction_data=True")
+                         "Please call clusterer.fit again with "
+                         "prediction_data=True")
 
     cdef uintptr_t input_ptr = clusterer.X_m.ptr
 
-    membership_vec = CumlArray.empty((clusterer.n_rows * clusterer.n_clusters_,), dtype="float32")
+    membership_vec = CumlArray.empty(
+        (clusterer.n_rows * clusterer.n_clusters_,),
+        dtype="float32")
+
     cdef uintptr_t membership_vec_ptr = membership_vec.ptr
 
     cdef hdbscan_output *hdbscan_output_ = \
-            <hdbscan_output*><size_t>clusterer.hdbscan_output_
+        <hdbscan_output*><size_t>clusterer.hdbscan_output_
 
     cdef PredictionData *pred_data_ = \
-            <PredictionData*><size_t>clusterer._prediction_data
+        <PredictionData*><size_t>clusterer._prediction_data
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
     _all_points_membership_vectors(handle_[0],
@@ -796,6 +799,9 @@ def all_points_membership_vectors(clusterer):
                                    <float*> membership_vec_ptr,
                                    <float*> input_ptr,
                                    _metrics_mapping[clusterer.metric])
-    
+
     clusterer.handle.sync()
-    return membership_vec.to_output(output_type="numpy", output_dtype="float32").reshape((clusterer.n_rows, clusterer.n_clusters_))
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32").reshape((clusterer.n_rows,
+                                         clusterer.n_clusters_))

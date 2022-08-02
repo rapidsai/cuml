@@ -21,11 +21,11 @@
 #include <raft/cudart_utils.h>
 #include <vector>
 
+#include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
 #include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
-#include <cuml/cluster/hdbscan.hpp>
 
 #include <metrics/adjusted_rand_index.cuh>
 
@@ -97,10 +97,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     hdbscan_params.min_cluster_size = params.min_cluster_size;
     hdbscan_params.min_samples      = params.min_pts;
 
-    HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle,
-                                                       params.n_row,
-                                                       params.n_col);
-
+    HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle, params.n_row, params.n_col);
 
     hdbscan(handle,
             data.data(),
@@ -375,7 +372,7 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
                params.condensed_sizes.data(),
                condensed_sizes.size(),
                handle.get_stream());
-    
+
     rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
 
@@ -394,37 +391,33 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
 
-    int n_selected_clusters = ML::HDBSCAN::detail::Extract::extract_clusters(handle,
-                                                                             condensed_tree,
-                                                                             params.n_row,
-                                                                             labels.data(),
-                                                                             stabilities.data(),
-                                                                             probabilities.data(),
-                                                                             label_map.data(),
-                                                                             params.cluster_selection_method,
-                                                                             params.allow_single_cluster,
-                                                                             0,
-                                                                             params.cluster_selection_epsilon);
+    int n_selected_clusters =
+      ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+                                                     condensed_tree,
+                                                     params.n_row,
+                                                     labels.data(),
+                                                     stabilities.data(),
+                                                     probabilities.data(),
+                                                     label_map.data(),
+                                                     params.cluster_selection_method,
+                                                     params.allow_single_cluster,
+                                                     0,
+                                                     params.cluster_selection_epsilon);
 
     rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
 
-    ML::HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle,
-                                                           params.n_row,
-                                                           params.n_col);
+    ML::HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle, params.n_row, params.n_col);
 
-    ML::HDBSCAN::detail::Membership::build_prediction_data(handle,
-                                                           condensed_tree,
-                                                           labels.data(),
-                                                           label_map.data(),
-                                                           n_selected_clusters,
-                                                           pred_data);
+    ML::HDBSCAN::detail::Membership::build_prediction_data(
+      handle, condensed_tree, labels.data(), label_map.data(), n_selected_clusters, pred_data);
 
-    ML::HDBSCAN::detail::Membership::all_points_membership_vectors(handle,
-                                                                   condensed_tree,
-                                                                   pred_data,
-                                                                   membership_vec.data(),
-                                                                   data.data(),
-                                                                   raft::distance::DistanceType::L2SqrtExpanded);
+    ML::HDBSCAN::detail::Membership::all_points_membership_vectors(
+      handle,
+      condensed_tree,
+      pred_data,
+      membership_vec.data(),
+      data.data(),
+      raft::distance::DistanceType::L2SqrtExpanded);
 
     ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
                                   params.expected_probabilities.data(),

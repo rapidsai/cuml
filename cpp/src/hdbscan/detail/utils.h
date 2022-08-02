@@ -186,32 +186,25 @@ void parent_csr(const raft::handle_t& handle,
 }
 
 template <typename value_idx, typename value_t>
-void normalize(value_t* data,
-               value_idx n,
-               size_t m,
-               cudaStream_t stream)
+void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
 {
   rmm::device_uvector<value_t> sums(m, stream);
 
   // Compute row sums
-  raft::linalg::rowNorm<value_t, size_t>(sums.data(),
-                        data,
-                        (size_t)n,
-                        m,
-                        raft::linalg::L1Norm,
-                        true,
-                        stream);
-  
+  raft::linalg::rowNorm<value_t, size_t>(
+    sums.data(), data, (size_t)n, m, raft::linalg::L1Norm, true, stream);
+
   // Divide vector by row sums (modify in place)
-  raft::linalg::matrixVectorOp(data,
-                               const_cast<value_t*>(data),
-                               sums.data(),
-                               n,
-                               (value_idx)m,
-                               true,
-                               false,
-                               [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
-                               stream);
+  raft::linalg::matrixVectorOp(
+    data,
+    const_cast<value_t*>(data),
+    sums.data(),
+    n,
+    (value_idx)m,
+    true,
+    false,
+    [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
+    stream);
 }
 
 };  // namespace Utils

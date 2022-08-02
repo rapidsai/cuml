@@ -199,7 +199,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
   int min_cluster_size = params.min_cluster_size;
 
   build_linkage(handle, X, m, n, metric, params, out);
-  
+
   handle.sync_stream(stream);
   cudaDeviceSynchronize();
   CUML_LOG_DEBUG("Linkage build successful");

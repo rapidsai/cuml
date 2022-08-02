@@ -21,7 +21,7 @@ from cuml.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score
-from cuml.testing.utils import get_pattern, array_equal
+from cuml.testing.utils import get_pattern
 
 import numpy as np
 
@@ -494,19 +494,23 @@ def test_all_points_membership_vectors(nrows,
                        prediction_data=True)
     cuml_agg.fit(X)
 
-    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
-                             approx_min_span_tree=False,
-                             gen_min_span_tree=True,
-                             min_cluster_size=min_cluster_size,
-                             cluster_selection_epsilon=cluster_selection_epsilon,
-                             cluster_selection_method=cluster_selection_method,
-                             algorithm="generic",
-                             prediction_data=True)
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic",
+        prediction_data=True)
 
     sk_agg.fit(cp.asnumpy(X))
 
     cu_membership_vectors = all_points_membership_vectors(cuml_agg)
     cu_membership_vectors.sort(axis=1)
-    sk_membership_vectors = hdbscan.all_points_membership_vectors(sk_agg).astype("float32")
+    sk_membership_vectors = hdbscan.all_points_membership_vectors(
+        sk_agg).astype("float32")
     sk_membership_vectors.sort(axis=1)
-    assert_all_points_membership_vectors(cu_membership_vectors, sk_membership_vectors)
+    assert_all_points_membership_vectors(
+        cu_membership_vectors,
+        sk_membership_vectors)

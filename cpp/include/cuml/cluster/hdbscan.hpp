@@ -309,22 +309,21 @@ template class CondensedHierarchy<int, float>;
 template <typename value_idx, typename value_t>
 class PredictionData {
  public:
-  PredictionData(const raft::handle_t& handle_, value_idx m,  value_idx n)
-    :
-    handle(handle_),
-    exemplar_idx(0, handle.get_stream()),
-    exemplar_label_offsets(0, handle.get_stream()),
-    n_selected_clusters(0),
-    selected_clusters(0, handle.get_stream()),
-    deaths(0, handle.get_stream()),
-    n_exemplars(0),
-    n_rows(m),
-    n_cols(n)
+  PredictionData(const raft::handle_t& handle_, value_idx m, value_idx n)
+    : handle(handle_),
+      exemplar_idx(0, handle.get_stream()),
+      exemplar_label_offsets(0, handle.get_stream()),
+      n_selected_clusters(0),
+      selected_clusters(0, handle.get_stream()),
+      deaths(0, handle.get_stream()),
+      n_exemplars(0),
+      n_rows(m),
+      n_cols(n)
   {
   }
   size_t n_rows;
   size_t n_cols;
-  
+
   value_idx get_n_exemplars() { return n_exemplars; }
   value_idx get_n_selected_clusters() { return n_selected_clusters; }
   value_idx* get_exemplar_idx() { return exemplar_idx.data(); }

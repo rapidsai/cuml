@@ -29,57 +29,58 @@ __global__ void merge_height_kernel(value_t* heights,
                                     size_t m,
                                     value_idx n_selected_clusters,
                                     value_idx* selected_clusters)
-{ 
+{
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(m * n_selected_clusters)) {
-    value_idx row = idx / n_selected_clusters;
-    value_idx col = idx % n_selected_clusters;
-  value_idx right_cluster = selected_clusters[col];
-  value_idx left_cluster = parents[index_into_children[row]];
-  bool took_right_parent = false;
-  bool took_left_parent = false;
-  value_idx last_cluster;
+    value_idx row           = idx / n_selected_clusters;
+    value_idx col           = idx % n_selected_clusters;
+    value_idx right_cluster = selected_clusters[col];
+    value_idx left_cluster  = parents[index_into_children[row]];
+    bool took_right_parent  = false;
+    bool took_left_parent   = false;
+    value_idx last_cluster;
 
-  while (left_cluster != right_cluster){
-    if (left_cluster > right_cluster){
-      took_left_parent = true;
-      last_cluster = left_cluster;
-      left_cluster = parents[index_into_children[left_cluster]];
+    while (left_cluster != right_cluster) {
+      if (left_cluster > right_cluster) {
+        took_left_parent = true;
+        last_cluster     = left_cluster;
+        left_cluster     = parents[index_into_children[left_cluster]];
+      } else {
+        took_right_parent = true;
+        last_cluster      = right_cluster;
+        right_cluster     = parents[index_into_children[right_cluster]];
+      }
     }
+
+    if (took_left_parent && took_right_parent) {
+      heights[idx] = lambdas[index_into_children[last_cluster]];
+    }
+
     else {
-      took_right_parent = true;
-      last_cluster = right_cluster;
-      right_cluster = parents[index_into_children[right_cluster]];
+      heights[idx] = lambdas[index_into_children[row]];
     }
   }
-
-  if (took_left_parent && took_right_parent){
-    heights[idx] = lambdas[index_into_children[last_cluster]];
-  }
-
-  else{
-    heights[idx] = lambdas[index_into_children[row]];
-  }
-    }
 }
 
 template <typename value_idx, typename value_t>
 __global__ void prob_in_some_cluster_kernel(value_t* heights,
-                                     value_t* height_argmax,
-                                     value_t* deaths,
-                                     value_idx* index_into_children,
-                                     value_idx* selected_clusters,
-                                     value_t* lambdas,
-                                     value_t* prob_in_some_cluster,
-                                     value_idx n_selected_clusters,
-                                     value_idx n_leaves,
-                                     size_t m)
+                                            value_t* height_argmax,
+                                            value_t* deaths,
+                                            value_idx* index_into_children,
+                                            value_idx* selected_clusters,
+                                            value_t* lambdas,
+                                            value_t* prob_in_some_cluster,
+                                            value_idx n_selected_clusters,
+                                            value_idx n_leaves,
+                                            size_t m)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < (value_idx)m) {
-  value_t max_lambda = max(lambdas[index_into_children[idx]], deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
-  prob_in_some_cluster[idx] = heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
-  return;
+    value_t max_lambda = max(lambdas[index_into_children[idx]],
+                             deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
+    prob_in_some_cluster[idx] =
+      heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
+    return;
   }
 }
 
