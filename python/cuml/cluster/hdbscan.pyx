@@ -764,6 +764,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "connectivity",
             "alpha",
             "gen_min_span_tree",
+            "prediction_data"
         ]
 
 
