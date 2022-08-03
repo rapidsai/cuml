@@ -81,6 +81,8 @@ from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
+from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
+from cuml.metrics.cluster import v_measure_score
 
 
 @pytest.fixture(scope='module')
@@ -1485,3 +1487,12 @@ def test_mean_squared_error_cudf_series():
     err1 = mean_squared_error(a, b)
     err2 = mean_squared_error(a.values, b.values)
     assert err1 == err2
+
+
+@pytest.mark.parametrize("beta", [0.0, 0.5, 1.0, 2.0])
+def test_v_measure_score(beta):
+    labels_true = np.array([0, 0, 1, 1], dtype=np.int32)
+    labels_pred = np.array([1, 0, 1, 1], dtype=np.int32)
+    res = v_measure_score(labels_true, labels_pred, beta=beta)
+    ref = sklearn_v_measure_score(labels_true, labels_pred, beta=beta)
+    assert_almost_equal(res, ref)
