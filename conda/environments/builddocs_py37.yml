@@ -20,6 +20,7 @@ dependencies:
 # required for building rapids project docs
 - sphinx
 - sphinx_rtd_theme
+- sphinx-markdown-tables
 - sphinxcontrib-websupport
 - nbsphinx
 - numpydoc
@@ -27,5 +28,3 @@ dependencies:
 - recommonmark
 - pandoc=<2.0.0
 - pip
-- pip:
-  - sphinx-markdown-tables
