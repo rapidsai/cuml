@@ -135,60 +135,6 @@ __global__ void leafKernel(ObjectiveT objective,
   }
 }
 
-/* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
-template <typename OutT, typename InT>
-__device__ OutT* alignPointer(InT dataset)
-{
-  return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(dataset), sizeof(OutT)));
-}
-
-/**
- * @brief For a given values of (treeid, nodeid, seed), this function generates
- *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
- *        from the permutation.
- * @return The 'k'th value from the permutation
- * @note This function does not allocated any temporary buffer, all the
- *       necessary values are recomputed.
- */
-template <typename IdxT>
-DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
-{
-  __shared__ int blksum;
-  uint32_t pivot_hash;
-  int cnt = 0;
-
-  if (threadIdx.x == 0) { blksum = 0; }
-  // Compute hash for the 'k'th index and use it as pivote for sorting
-  pivot_hash = fnv1a32_basis;
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
-
-  // Compute hash for rest of the indices and count instances where i_hash is
-  // less than pivot_hash
-  uint32_t i_hash;
-  for (int i = threadIdx.x; i < N; i += blockDim.x) {
-    if (i == k) continue;  // Skip since k is the pivote index
-    i_hash = fnv1a32_basis;
-    i_hash = fnv1a32(i_hash, uint32_t(i));
-    i_hash = fnv1a32(i_hash, uint32_t(treeid));
-    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
-    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
-    i_hash = fnv1a32(i_hash, uint32_t(seed));
-
-    if (i_hash < pivot_hash)
-      cnt++;
-    else if (i_hash == pivot_hash && i < k)
-      cnt++;
-  }
-  __syncthreads();
-  if (cnt > 0) atomicAdd(&blksum, cnt);
-  __syncthreads();
-  return blksum;
-}
-
 /**
  * @brief For every threadblock, converts the smem pdf-histogram to
  *        cdf-histogram inplace using inclusive block-sum-scan and returns
@@ -234,6 +180,7 @@ __global__ void computeSplitKernel(BinT* histograms,
                                    const Quantiles<DataT, IdxT> quantiles,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
+                                   const IdxT* colids,
                                    int* done_count,
                                    int* mutex,
                                    volatile Split<DataT, IdxT>* splits,
@@ -262,7 +209,7 @@ __global__ void computeSplitKernel(BinT* histograms,
     col = colStart + blockIdx.y;
   } else {
     IdxT colIndex = colStart + blockIdx.y;
-    col           = select(colIndex, treeid, work_item.idx, seed, dataset.N);
+    col           = colids[nid * dataset.n_sampled_cols + colIndex];
   }
 
   // getting the n_bins for that feature
@@ -379,6 +326,7 @@ computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   const Quantiles<_DataT, _IdxT> quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,
+  const _IdxT* colids,
   int* done_count,
   int* mutex,
   volatile Split<_DataT, _IdxT>* splits,
