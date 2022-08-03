@@ -93,7 +93,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
             train_test_split(X, y, test_size=n_workers * 300, random_state=123)
 
         cu_rf_params = {
-            'n_estimators': 25,
+            'n_estimators': n_workers*8,
             'max_depth': 16,
             'n_bins': 256,
             'random_state': 10,
