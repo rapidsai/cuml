@@ -125,7 +125,6 @@ struct TSNEParams {
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
- * @param[in]  metric              Distance metric
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
