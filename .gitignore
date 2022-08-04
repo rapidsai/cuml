@@ -30,6 +30,8 @@ log
 dask-worker-space/
 tmp/
 .hypothesis
+wheels/
+_skbuild/
 
 ## files pickled in notebook when ran during python docstring generation
 docs/source/*.model
