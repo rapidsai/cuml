@@ -295,7 +295,6 @@ def _masked_column_median(arr, masked_value):
     mask = _get_mask(arr, masked_value)
     if arr.size == 0:
         return cp.full(arr.shape[1], cp.nan)
-    arr_sorted = arr
     if not cp.isnan(masked_value):
         arr_sorted = arr.copy()
         # If nan is not the missing value, any column with nans should
