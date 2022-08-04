@@ -31,6 +31,7 @@ except ImportError:
 import os
 import json
 import time
+import math
 import itertools as it
 import warnings
 import numpy as np
@@ -40,6 +41,7 @@ import cudf
 import pytest
 from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.nvtx_benchmark import Profiler
+from dask.distributed import wait
 import dask.array as da
 import dask.dataframe as df
 from copy import copy
@@ -49,18 +51,23 @@ from cuml.benchmark.bench_helper_funcs import pass_func, fit, predict, \
                                               fit_predict, fit_transform, \
                                               fit_kneighbors
 
-
 def distribute(client, data):
     if data is not None:
         n_rows = data.shape[0]
         n_workers = len(client.scheduler_info()['workers'])
+        rows_per_chunk = math.ceil(n_rows / n_workers)
         if isinstance(data, (np.ndarray, cp.ndarray)):
             dask_array = da.from_array(x=data,
-                                       chunks={0: n_rows // n_workers, 1: -1})
+                                       chunks={0: rows_per_chunk, 1: -1})
+            dask_array = dask_array.persist()
+            wait(dask_array)
+            client.rebalance()
             return dask_array
         elif isinstance(data, (cudf.DataFrame, cudf.Series)):
-            dask_df = df.from_pandas(data,
-                                     chunksize=n_rows // n_workers)
+            dask_df = df.from_pandas(data, chunksize=rows_per_chunk)
+            dask_df = dask_df.persist()
+            wait(dask_df)
+            client.rebalance()
             return dask_df
         else:
             raise ValueError('Could not distribute data')
