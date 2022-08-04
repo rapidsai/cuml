@@ -304,7 +304,7 @@ def _masked_column_median(arr, masked_value):
         arr_sorted.sort(axis=0)
     else:
         nan_cols = cp.full(arr.shape[1], False)
-        # nans are always sorted to end of array and the sort call 
+        # nans are always sorted to end of array and the sort call
         # copies the data
         arr_sorted = cp.sort(arr_sorted, axis=0)
 
