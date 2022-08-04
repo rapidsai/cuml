@@ -603,8 +603,10 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
     X_train_df, y_train_df = _prep_training_data(client, X_train, y_train, 1)
     X_test_dask_array = from_array(X_test)
 
+    n_estimators = n_workers*8
+
     if model_type == 'classification':
-        cuml_mod = cuRFC_mg(n_estimators=10, max_depth=8, n_bins=16,
+        cuml_mod = cuRFC_mg(n_estimators=n_estimators, max_depth=8, n_bins=16,
                             ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
         cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
@@ -616,7 +618,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         assert acc_score >= 0.70
 
     else:
-        cuml_mod = cuRFR_mg(n_estimators=10, max_depth=8, n_bins=16,
+        cuml_mod = cuRFR_mg(n_estimators=n_estimators, max_depth=8, n_bins=16,
                             ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
         cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
