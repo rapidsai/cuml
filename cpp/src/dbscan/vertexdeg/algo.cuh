@@ -16,14 +16,15 @@
 
 #pragma once
 
+#include "pack.h"
 #include <cuda_runtime.h>
 #include <math.h>
+#include <raft/device_atomics.cuh>
+#include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <rmm/device_uvector.hpp>
-
-#include "pack.h"
 
 namespace ML {
 namespace Dbscan {
@@ -41,7 +42,11 @@ void launcher(const raft::handle_t& handle,
               cudaStream_t stream,
               raft::distance::DistanceType metric)
 {
-  data.resetArray(stream, batch_size + 1);
+  // The last position of data.vd is the sum of all elements in this array
+  // (excluding it). Hence, its length is one more than the number of points
+  // Initialize it to zero.
+  index_t* d_nnz = data.vd + batch_size;
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
 
   ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8, "index_t should be 4 or 8 bytes");
 
@@ -50,6 +55,7 @@ void launcher(const raft::handle_t& handle,
   index_t k = data.D;
   value_t eps2;
 
+  // Compute adjacency matrix `adj` using Cosine or L2 metric.
   if (metric == raft::distance::DistanceType::CosineExpanded) {
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
@@ -79,7 +85,7 @@ void launcher(const raft::handle_t& handle,
     eps2 = 2 * data.eps;
 
     raft::spatial::knn::epsUnexpL2SqNeighborhood<value_t, index_t>(
-      data.adj, data.vd, data.x, data.x + start_vertex_id * k, m, n, k, eps2, stream);
+      data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
 
     /**
      * Restoring the input matrix after normalization.
@@ -94,14 +100,32 @@ void launcher(const raft::handle_t& handle,
       true,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
       stream);
-  }
-
-  else {
+  } else {
     eps2 = data.eps * data.eps;
 
+    // 1. The output matrix adj is now an n x m matrix (row-major order)
+    // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
+    // nullptr)
     raft::spatial::knn::epsUnexpL2SqNeighborhood<value_t, index_t>(
-      data.adj, data.vd, data.x, data.x + start_vertex_id * k, m, n, k, eps2, stream);
+      data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
   }
+
+  // Reduction of adj to compute the vertex degrees
+  raft::linalg::coalescedReduction<bool, index_t, index_t>(
+    data.vd,
+    data.adj,
+    data.N,
+    batch_size,
+    (index_t)0,
+    stream,
+    false,
+    [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
+    raft::Sum<index_t>(),
+    [d_nnz] __device__(index_t degree) {
+      atomicAdd(d_nnz, degree);
+      return degree;
+    });
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Algo

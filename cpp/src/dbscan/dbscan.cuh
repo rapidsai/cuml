@@ -110,6 +110,8 @@ void dbscanFitImpl(const raft::handle_t& handle,
 {
   raft::common::nvtx::range fun_scope("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
+  // XXX: for algo_vd and algo_adj, 0 (naive) is no longer an option and has
+  // been removed.
   int algo_vd  = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;
   int algo_ccl = 2;
