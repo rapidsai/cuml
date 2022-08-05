@@ -21,7 +21,7 @@
 
 #include <linalg/init.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/interruptible.hpp>
 
 namespace MLCommon {

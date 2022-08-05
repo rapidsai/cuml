@@ -24,8 +24,8 @@
 #include <matrix/grammatrix.cuh>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/gemm.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

@@ -19,9 +19,9 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <random>
 #include <test_utils.h>
 #include <vector>

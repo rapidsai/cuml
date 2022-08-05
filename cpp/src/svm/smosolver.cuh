@@ -24,13 +24,13 @@
 
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 #include <iostream>
 #include <limits>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <string>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
@@ -48,8 +48,8 @@
 #include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 #include "results.cuh"
 

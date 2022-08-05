@@ -19,9 +19,9 @@
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/eig.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/transpose.cuh>
 #include <raft/matrix/math.hpp>
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/cov.hpp>

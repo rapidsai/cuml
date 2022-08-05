@@ -19,10 +19,10 @@
 #include <cub/cub.cuh>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/handle.hpp>
 #include <raft/label/classlabels.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

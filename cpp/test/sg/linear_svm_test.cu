@@ -18,11 +18,11 @@
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
 #include <gtest/gtest.h>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/reduce.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/rng.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>

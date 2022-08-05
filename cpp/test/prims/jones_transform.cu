@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/handle.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>

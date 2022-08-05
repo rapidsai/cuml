@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance.hpp>
-#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/power.cuh>
-#include <raft/linalg/subtract.hpp>
+#include <raft/linalg/subtract.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/stats/mean.hpp>
 

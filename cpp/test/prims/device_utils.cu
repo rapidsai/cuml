@@ -17,7 +17,7 @@
 #include "test_utils.h"
 #include <common/device_utils.cuh>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/interruptible.hpp>
 #include <rmm/device_uvector.hpp>
 

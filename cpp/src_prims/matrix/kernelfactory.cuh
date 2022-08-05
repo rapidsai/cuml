@@ -19,7 +19,7 @@
 #include "grammatrix.cuh"
 #include "kernelmatrices.cuh"
 #include <cuml/matrix/kernelparams.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 namespace MLCommon {
 namespace Matrix {

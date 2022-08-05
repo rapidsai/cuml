@@ -18,7 +18,7 @@
 #include <glm/ridge.cuh>
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <test_utils.h>
 
 namespace ML {

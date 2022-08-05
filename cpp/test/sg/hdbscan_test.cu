@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/hdbscan.hpp>
@@ -31,7 +31,7 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>

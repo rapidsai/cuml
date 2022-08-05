@@ -21,9 +21,9 @@
 #include <label/classlabels.cuh>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.hpp>
 
 #include <rmm/device_uvector.hpp>

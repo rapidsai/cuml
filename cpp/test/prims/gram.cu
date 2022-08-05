@@ -22,8 +22,8 @@
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

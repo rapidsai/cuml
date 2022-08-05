@@ -24,7 +24,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <test_utils.h>
 
 #include <datasets/digits.h>
@@ -32,7 +32,7 @@
 #include <selection/knn.cuh>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 #include <selection/knn.cuh>

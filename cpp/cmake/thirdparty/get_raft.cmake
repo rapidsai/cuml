@@ -82,7 +82,7 @@ endfunction()
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             lowener
-                        PINNED_TAG       22.08-rm-deprecated
+                        PINNED_TAG       22.10-rm-deprecated
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory

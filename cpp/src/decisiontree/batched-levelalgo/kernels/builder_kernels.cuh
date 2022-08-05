@@ -20,7 +20,7 @@
 #include "../objectives.cuh"
 #include "../quantiles.h"
 
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 #include <cub/cub.cuh>
 

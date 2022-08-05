@@ -23,7 +23,7 @@
 #include <metrics/scores.cuh>
 
 #include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/random/permute.hpp>
 #include <raft/random/rng.cuh>
 

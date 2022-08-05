@@ -34,7 +34,7 @@
 #define FACTOR7 1
 
 #include <float.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/device_atomics.cuh>
 
 namespace ML {

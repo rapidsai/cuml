@@ -26,9 +26,9 @@
 #include <cub/cub.cuh>
 #include <math.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/reduce.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/reduce.cuh>
 #include <raft/stats/histogram.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

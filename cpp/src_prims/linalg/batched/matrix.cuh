@@ -21,11 +21,11 @@
 #include <common/fast_int_div.cuh>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/add.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>

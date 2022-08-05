@@ -21,7 +21,7 @@
 #include <cuml/random_projection/rproj_c.h>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 // TODO: This needs to be removed.
 #include <raft/sparse/detail/cusparse_wrappers.h>

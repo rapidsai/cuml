@@ -22,8 +22,8 @@
 #include <stdio.h>
 
 #include <cuml/common/logger.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/norm.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/norm.cuh>
 
 #include <cuda_runtime.h>
 
@@ -31,7 +31,7 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <raft/stats/sum.hpp>
 #include <sys/time.h>
 

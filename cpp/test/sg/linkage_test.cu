@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>
@@ -24,7 +24,7 @@
 #include <hierarchy/pw_dist_graph.cuh>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>

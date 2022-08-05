@@ -21,7 +21,7 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.hpp>

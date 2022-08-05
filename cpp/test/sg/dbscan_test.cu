@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/dbscan.hpp>
@@ -26,7 +26,7 @@
 #include <raft/distance/distance_type.hpp>
 
 #include <raft/handle.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 
 #include <test_utils.h>
 

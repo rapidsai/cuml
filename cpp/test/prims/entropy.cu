@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/entropy.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/interruptible.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
