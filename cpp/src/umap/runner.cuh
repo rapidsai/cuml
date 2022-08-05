@@ -37,11 +37,11 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/norm.hpp>
-#include <raft/sparse/op/filter.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <raft/cuda_utils.cuh>
 

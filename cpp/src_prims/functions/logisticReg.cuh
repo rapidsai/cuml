@@ -24,8 +24,8 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>

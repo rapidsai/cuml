@@ -36,7 +36,7 @@
 #include "optimize_batch_kernel.cuh"
 #include <string>
 
-#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/filter.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>

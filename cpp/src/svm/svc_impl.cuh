@@ -33,7 +33,7 @@
 #include <raft/label/classlabels.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <thrust/copy.h>

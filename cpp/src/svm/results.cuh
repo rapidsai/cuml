@@ -29,7 +29,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 

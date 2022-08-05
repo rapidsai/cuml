@@ -33,8 +33,8 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace ML {
 namespace Solver {

@@ -22,7 +22,7 @@
 #include <iostream>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/selection/knn.hpp>
+#include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/core/cudart_utils.hpp>

@@ -33,7 +33,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/op/sort.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "../prims/test_utils.h"

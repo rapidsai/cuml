@@ -32,7 +32,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

@@ -27,7 +27,7 @@
 #include <matrix/gather.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/random/permute.hpp>
+#include <raft/random/permute.cuh>
 
 #include <raft/comms/comms.hpp>
 #include <raft/core/cudart_utils.hpp>

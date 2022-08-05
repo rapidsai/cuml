@@ -25,7 +25,7 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.hpp>
+#include <raft/matrix/math.cuh>
 #include <raft/stats/mean.hpp>
 #include <rmm/device_uvector.hpp>
 

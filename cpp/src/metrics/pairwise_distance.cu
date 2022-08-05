@@ -32,7 +32,7 @@
 #include <raft/distance/specializations.hpp>
 #include <raft/handle.hpp>
 #include <raft/sparse/distance/common.h>
-#include <raft/sparse/distance/distance.hpp>
+#include <raft/sparse/distance/distance.cuh>
 
 namespace ML {
 

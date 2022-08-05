@@ -24,7 +24,7 @@
 
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/random/permute.hpp>
+#include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 
 #include <thrust/execution_policy.h>
