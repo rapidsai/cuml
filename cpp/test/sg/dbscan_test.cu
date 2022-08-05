@@ -25,7 +25,7 @@
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
 
 #include <test_utils.h>

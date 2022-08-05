@@ -19,7 +19,7 @@
 #include <iostream>
 #include <metrics/entropy.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

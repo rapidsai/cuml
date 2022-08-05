@@ -18,7 +18,7 @@
 
 #include <cuml/decomposition/params.hpp>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>

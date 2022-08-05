@@ -21,7 +21,7 @@
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 #include <cstddef>
 #include <cstdio>

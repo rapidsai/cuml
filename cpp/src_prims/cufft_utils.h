@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cufft.h>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 // TODO move to raft https://github.com/rapidsai/raft/issues/91
 namespace raft {

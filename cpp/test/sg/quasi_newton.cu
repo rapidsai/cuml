@@ -21,7 +21,7 @@
 #include <glm/qn/qn.cuh>
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <test_utils.h>
 #include <vector>

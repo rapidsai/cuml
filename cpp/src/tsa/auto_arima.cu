@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include "auto_arima.cuh"
 

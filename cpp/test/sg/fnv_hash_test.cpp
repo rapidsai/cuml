@@ -16,7 +16,7 @@
 
 #include <cuml/fil/fnv_hash.h>
 #include <gtest/gtest.h>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 struct fnv_vec_t {
   std::vector<char> input;

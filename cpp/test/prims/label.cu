@@ -21,7 +21,7 @@
 #include "test_utils.h"
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <iostream>

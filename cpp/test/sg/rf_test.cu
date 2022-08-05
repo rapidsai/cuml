@@ -27,7 +27,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
 
 #include <thrust/binary_search.h>

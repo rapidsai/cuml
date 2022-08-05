@@ -19,7 +19,7 @@
 #include "hw_utils.cuh"
 
 #include <raft/core/cudart_utils.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 template <typename Dtype>
 __device__ Dtype holtwinters_eval_device(int tid,

@@ -30,7 +30,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/distance.cuh>
 

@@ -34,7 +34,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 

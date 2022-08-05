@@ -23,7 +23,7 @@
 #include "pack.h"
 
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <rmm/device_uvector.hpp>
 

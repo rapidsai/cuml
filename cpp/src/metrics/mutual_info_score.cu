@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
 #include <metrics/mutual_info_score.cuh>

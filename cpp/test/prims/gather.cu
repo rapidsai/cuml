@@ -19,7 +19,7 @@
 #include <matrix/gather.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 

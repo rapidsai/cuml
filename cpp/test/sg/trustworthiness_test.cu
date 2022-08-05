@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 

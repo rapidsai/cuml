@@ -17,7 +17,7 @@
 
 #include "pairwise_distance_russell_rao.cuh"
 #include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

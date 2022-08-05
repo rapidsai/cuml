@@ -27,7 +27,7 @@
 
 #include <raft/core/cudart_utils.hpp>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 namespace UMAPAlgo {
 namespace kNNGraph {

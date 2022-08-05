@@ -18,7 +18,7 @@
 #include <common/device_utils.cuh>
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

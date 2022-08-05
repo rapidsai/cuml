@@ -19,7 +19,7 @@
 
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 

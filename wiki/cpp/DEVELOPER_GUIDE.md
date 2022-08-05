@@ -368,7 +368,7 @@ void foo(const double* const srcdata, double* const result)
 ```
 No work in any stream should start in `ML::algo` before the `cudaMemcpyAsync` in `stream` launched before the call to `ML::algo` is done. And all work in all streams used in `ML::algo` should be done before the `cudaMemcpyAsync` in `stream` launched after the call to `ML::algo` starts.
 
-This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t:get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API:
+This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/core/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t:get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API:
 
 ```cpp
 void cumlAlgo(const raft::handle_t& handle, ...)
@@ -414,7 +414,7 @@ E.g. with a CUDA-aware MPI, a cuML user could use code like this to inject an in
 
 ```cpp
 #include <mpi.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/comms/mpi_comms.hpp>
 #include <mlalgo/mlalgo.hpp>
 ...
