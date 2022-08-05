@@ -10,6 +10,7 @@ dependencies:
 - rapids-build-env=22.10.*
 - rapids-notebook-env=22.10.*
 - rapids-doc-env=22.10.*
+- scikit-build>=0.13.1
 - cudf=22.10.*
 - rmm=22.10.*
 - libcumlprims=22.10.*
@@ -28,6 +29,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
+- sphinx-markdown-tables
 - treelite=2.4.0
 - statsmodels
 - seaborn
@@ -35,9 +37,8 @@ dependencies:
 - nltk
 - pip
 - pip:
-    - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask.git@2022.7.1
+    - git+https://github.com/dask/distributed.git@2022.7.1
     - git+https://github.com/dask/dask-glm@main
     - sparse
 
