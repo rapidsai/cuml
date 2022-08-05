@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-set(CUML_VERSION 22.08.00)
+set(CUML_VERSION 22.10.00)
 
 project(
   cuml-python
