@@ -223,7 +223,6 @@ endif()
 
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
-<<<<<<< HEAD
   ConfigureTest(PREFIX PRIMS NAME ADD_SUB_DEV_SCALAR_TEST PATH prims/add_sub_dev_scalar.cu)
   ConfigureTest(PREFIX PRIMS NAME ADJUSTED_RAND_INDEX_TEST PATH prims/adjusted_rand_index.cu)
   ConfigureTest(PREFIX PRIMS NAME BATCHED_CSR_TEST PATH prims/batched/csr.cu)
