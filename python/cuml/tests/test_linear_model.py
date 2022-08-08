@@ -317,9 +317,21 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
     curidge_predict = curidge.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skridge = skRidge(fit_intercept=fit_intercept,
-                      normalize=normalize)
-    skridge.fit(X_train, y_train, sample_weight=wt)
+    # `normalize` is deprecated in sklearn versions >= 1
+    # StandardScaler is used instead explicitly to 
+    # replicate the same behavior
+    if sklearn.__version__ >= "1":
+        skridge = skRidge(fit_intercept=fit_intercept)
+        if normalize:
+            from sklearn.preprocessing import StandardScaler
+            skridge.fit(StandardScaler().fit_transform(X_train),
+                        y_train, sample_weight=wt)
+        else:
+            skridge.fit(X_train, y_train, sample_weight=wt)
+    else:
+        skridge = skRidge(fit_intercept=fit_intercept,
+                          normalize=normalize)
+        skridge.fit(X_train, y_train, sample_weight=wt)
 
     skridge_predict = skridge.predict(X_test)
 
