@@ -316,6 +316,8 @@ class PredictionData {
       n_selected_clusters(0),
       selected_clusters(0, handle.get_stream()),
       deaths(0, handle.get_stream()),
+      cluster_map(0, handle.get_stream()),
+      core_dists(0, handle.get_stream()),
       n_exemplars(0),
       n_rows(m),
       n_cols(n)
@@ -330,6 +332,8 @@ class PredictionData {
   value_idx* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
   value_idx* get_selected_clusters() { return selected_clusters.data(); }
   value_t* get_deaths() { return deaths.data(); }
+  value_idx* get_cluster_map() { return cluster_map.data(); }
+  value_t* get_core_dists() { return core_dists.data(); }
 
   void cache(const raft::handle_t& handle,
              value_idx n_exemplars_,
@@ -338,7 +342,9 @@ class PredictionData {
              value_t* deaths_,
              value_idx* exemplar_idx_,
              value_idx* exemplar_label_offsets_,
-             value_idx* selected_clusters_);
+             value_idx* selected_clusters_,
+             value_idx* cluster_map_,
+             value_t* core_dists_);
 
  private:
   const raft::handle_t& handle;
@@ -348,6 +354,8 @@ class PredictionData {
   value_idx n_selected_clusters;
   rmm::device_uvector<value_idx> selected_clusters;
   rmm::device_uvector<value_t> deaths;
+  rmm::device_uvector<value_idx> cluster_map;
+  rmm::device_uvector<value_t> core_dists;
 };
 
 template class PredictionData<int, float>;

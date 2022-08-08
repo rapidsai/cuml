@@ -21,6 +21,48 @@ namespace HDBSCAN {
 namespace detail {
 namespace Membership {
 
+template <typename value_idx>
+__global__ void cluster_map_kernel(value_idx* selected_clusters,
+                                   value_idx* parents,
+                                   value_idx* children,
+                                   value_idx* index_into_children,
+                                   value_idx* cluster_map,
+                                   value_idx n_selected_clusters,
+                                   value_idx n_leaves,
+                                   value_idx n_edges)
+{
+  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < n_edges && children[idx] > n_leaves) {
+    value_idx child = children[idx];
+    value_idx cluster = children[idx];
+    bool selected_cluster_found = false;
+    while (cluster >= n_leaves && !selected_cluster_found) {
+      value_idx left = 0;
+      value_idx right = n_selected_clusters - 1;
+      while (left <= right) {
+        value_idx mid = left + (right - left) / 2;
+        if (selected_clusters[mid] == cluster) {
+          selected_cluster_found = true;
+          break;
+        }
+        else if (selected_clusters[mid] < cluster) {
+          left = mid + 1;
+        }
+        else {
+          right = mid - 1;
+        }
+      }
+      if(!selected_cluster_found && cluster > n_leaves) {
+        cluster = parents[index_into_children[cluster]];
+      }
+    }
+    if (selected_cluster_found) {
+      cluster_map[child - n_leaves] = cluster;
+    }
+    return;
+  }
+}
+
 template <typename value_idx, typename value_t, int tpb = 256>
 __global__ void merge_height_kernel(value_t* heights,
                                     value_t* lambdas,

@@ -101,7 +101,9 @@ void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::hand
                                                                 value_t* deaths_,
                                                                 value_idx* exemplar_idx_,
                                                                 value_idx* exemplar_label_offsets_,
-                                                                value_idx* selected_clusters_)
+                                                                value_idx* selected_clusters_,
+                                                                value_idx* cluster_map_,
+                                                                value_t* core_dists_)
 {
   this->n_exemplars         = n_exemplars_;
   this->n_selected_clusters = n_selected_clusters_;
@@ -109,6 +111,8 @@ void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::hand
   exemplar_label_offsets.resize(n_selected_clusters_ + 1, handle.get_stream());
   deaths.resize(n_clusters, handle.get_stream());
   selected_clusters.resize(n_selected_clusters, handle.get_stream());
+  cluster_map.resize(n_clusters + 1, handle.get_stream());
+  core_dists.resize(n_rows, handle.get_stream());
   raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
   raft::copy(exemplar_label_offsets.begin(),
              exemplar_label_offsets_,
@@ -117,6 +121,10 @@ void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::hand
   raft::copy(deaths.begin(), deaths_, n_clusters, handle.get_stream());
   raft::copy(
     selected_clusters.begin(), selected_clusters_, n_selected_clusters_, handle.get_stream());
+  raft::copy(
+    cluster_map.begin(), cluster_map_, n_clusters + 1, handle.get_stream());
+  raft::copy(
+    core_dists.begin(), core_dists_, n_rows, handle.get_stream());
 }
 
 };  // end namespace ML

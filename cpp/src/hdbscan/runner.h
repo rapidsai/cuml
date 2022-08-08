@@ -122,6 +122,7 @@ void build_linkage(const raft::handle_t& handle,
                    size_t n,
                    raft::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
+                   value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
   auto stream = handle.get_stream();
@@ -131,7 +132,6 @@ void build_linkage(const raft::handle_t& handle,
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
-  rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(handle,
                                                   X,
@@ -141,7 +141,7 @@ void build_linkage(const raft::handle_t& handle,
                                                   params.min_samples,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
-                                                  core_dists.data(),
+                                                  core_dists,
                                                   mutual_reachability_coo);
 
   /**
@@ -149,7 +149,7 @@ void build_linkage(const raft::handle_t& handle,
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists, m);
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(handle,
                                             X,
@@ -198,7 +198,9 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
-  build_linkage(handle, X, m, n, metric, params, out);
+  rmm::device_uvector<value_t> core_dists(m, stream);
+
+  build_linkage(handle, X, m, n, metric, params, core_dists.data(), out);
 
   handle.sync_stream(stream);
   cudaDeviceSynchronize();
@@ -263,13 +265,13 @@ void _fit_hdbscan(const raft::handle_t& handle,
    */
   handle.sync_stream(stream);
   cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Computed stability scores");
   if (prediction_data) {
-    CUML_LOG_DEBUG("hello from gpu");
     detail::Membership::build_prediction_data(handle,
                                               out.get_condensed_tree(),
                                               out.get_labels(),
                                               label_map.data(),
+                                              core_dists.data(),
+                                              m,
                                               n_selected_clusters,
                                               pred_data);
   }

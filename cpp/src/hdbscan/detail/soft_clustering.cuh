@@ -60,11 +60,13 @@ namespace HDBSCAN {
 namespace detail {
 namespace Membership {
 
-template <typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, int tpb=256>
 void build_prediction_data(const raft::handle_t& handle,
                            Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                            value_idx* labels,
                            value_idx* label_map,
+                           value_t* core_dists,
+                           size_t m,
                            value_idx n_selected_clusters,
                            Common::PredictionData<value_idx, value_t>& prediction_data)
 {
@@ -76,9 +78,9 @@ void build_prediction_data(const raft::handle_t& handle,
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
   auto lambdas    = condensed_tree.get_lambdas();
-  auto n_edges    = condensed_tree.get_n_edges();
+  value_idx n_edges    = condensed_tree.get_n_edges();
   auto n_clusters = condensed_tree.get_n_clusters();
-  auto n_leaves   = condensed_tree.get_n_leaves();
+  value_idx n_leaves   = condensed_tree.get_n_leaves();
   auto sizes      = condensed_tree.get_sizes();
 
   // first compute the death of each cluster in the condensed hierarchy
@@ -174,6 +176,22 @@ void build_prediction_data(const raft::handle_t& handle,
                       return exemplar_labels[idx] + n_leaves;
                     });
 
+
+  rmm::device_uvector<value_idx> index_into_children(n_edges + 1, stream);
+  auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
+    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+    return;
+  };
+
+  auto it = thrust::make_zip_iterator(thrust::make_tuple(children, counting));
+  thrust::for_each(exec_policy, it, it + n_edges, index_op);
+
+  rmm::device_uvector<value_idx> cluster_map(n_clusters + 1 - n_leaves, stream);
+  thrust::fill(exec_policy, cluster_map.begin(), cluster_map.end(), -1);
+
+  int n_blocks = raft::ceildiv(n_edges, tpb);
+  cluster_map_kernel<<<n_blocks, tpb, 0, stream>>>(selected_clusters.data(), parents, children, index_into_children.data(), cluster_map.data(), n_selected_clusters, n_leaves, n_edges);
+
   prediction_data.cache(handle,
                         n_exemplars,
                         n_clusters,
@@ -181,7 +199,9 @@ void build_prediction_data(const raft::handle_t& handle,
                         deaths.data(),
                         exemplar_idx.data(),
                         exemplar_label_offsets.data(),
-                        selected_clusters.data());
+                        selected_clusters.data(),
+                        cluster_map.data(),
+                        core_dists);
 }
 
 template <typename value_idx, typename value_t>
