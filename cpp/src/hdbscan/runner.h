@@ -200,10 +200,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   build_linkage(handle, X, m, n, metric, params, out);
 
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Linkage build successful");
-
   /**
    * Condense branches of tree according to min cluster size
    */
@@ -214,9 +210,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                               min_cluster_size,
                                               m,
                                               out.get_condensed_tree());
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Built condensed hierarchy");
+
   /**
    * Extract labels from stability
    */
@@ -239,9 +233,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
                                       params.cluster_selection_epsilon);
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Extracted clusters");
+
   out.set_n_clusters(n_selected_clusters);
 
   auto lambdas_ptr   = thrust::device_pointer_cast(out.get_condensed_tree().get_lambdas());
@@ -261,11 +253,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Computed stability scores");
+
   if (prediction_data) {
-    CUML_LOG_DEBUG("hello from gpu");
     detail::Membership::build_prediction_data(handle,
                                               out.get_condensed_tree(),
                                               out.get_labels(),
