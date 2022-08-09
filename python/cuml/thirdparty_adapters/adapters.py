@@ -306,7 +306,7 @@ def _masked_column_median(arr, masked_value):
         nan_cols = cp.full(arr.shape[1], False)
         # nans are always sorted to end of array and the sort call
         # copies the data
-        arr_sorted = cp.sort(arr_sorted, axis=0)
+        arr_sorted = cp.sort(arr, axis=0)
 
     count_missing_values = mask.sum(axis=0)
     # Ignore missing values in determining "halfway" index of sorted
