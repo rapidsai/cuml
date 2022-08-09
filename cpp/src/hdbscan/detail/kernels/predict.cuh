@@ -34,6 +34,7 @@ __global__ void min_mutual_reachability_kernel(value_t* input_core_dists,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {
     value_t min_mr_dist = std::numeric_limits<value_t>::max();
+    value_idx min_mr_ind = -1;
     for(int i = 0; i < 2 * min_samples; i++) {
         value_t mr_dist = prediction_core_dists[i];
         if (input_core_dists[neighbor_indices[idx * 2 * min_samples + i]] > mr_dist) {

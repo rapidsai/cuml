@@ -31,6 +31,7 @@
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
 #include "detail/soft_clustering.cuh"
+#include "detail/predict.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
 namespace ML {

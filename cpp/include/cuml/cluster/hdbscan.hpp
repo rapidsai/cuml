@@ -422,4 +422,14 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
                                     float* membership_vec,
                                     const float* X,
                                     raft::distance::DistanceType metric);
+
+void _approximate_predict(const raft::handle_t& handle,
+                          HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                          HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                          const float* X,
+                          size_t n_prediction_points,
+                          raft::distance::DistanceType metric,
+                          int min_samples,
+                          int* out_labels,
+                          float* out_probabilities);
 }  // END namespace ML

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "kernels/predict.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 
@@ -55,19 +56,16 @@ namespace Predict {
  * @param[out] out_labels output cluster labels
  * @param[out] out_probabilities output probabilities
  */
-template <typename value_idx, typename value_t>
-void _approximate_predict(const raft::handle_t& handle,
+template <typename value_idx, typename value_t, int tpb = 256>
+void approximate_predict(const raft::handle_t& handle,
                           Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                           Common::PredictionData<value_idx, value_t>& prediction_data,
                           const value_t* X,
                           const value_t* prediction_points,
-                          size_t m,
-                          size_t n,
                           size_t n_prediction_points,
                           raft::distance::DistanceType metric,
                           int min_samples,
-                          value_t* input_core_dists,
-                          value_t* out_labels,
+                          value_idx* out_labels,
                           value_t* out_probabilities)
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
@@ -83,7 +81,9 @@ void _approximate_predict(const raft::handle_t& handle,
 
   std::vector<value_t*> inputs;
   inputs.push_back(const_cast<value_t*>(X));
-
+  
+  size_t m = prediction_data.n_rows;
+  size_t n = prediction_data.n_cols;
   std::vector<int> sizes;
   sizes.push_back(m);
 
@@ -96,7 +96,7 @@ void _approximate_predict(const raft::handle_t& handle,
 
   // perform knn
   brute_force_knn(handle,
-    X,
+    inputs,
     sizes,
     n,
     const_cast<value_t*>(prediction_points),
@@ -108,10 +108,10 @@ void _approximate_predict(const raft::handle_t& handle,
     true,
     metric);
 
-  auto indices = thrust::make_counting_iterator<value_idx>(0);
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
 
   // Slice core distances (distances to kth nearest neighbor)
-  thrust::transform(exec_policy, indices, indices + n_prediction_points, prediction_core_dists.data(), [dists = dists.data()] __device__(value_idx row) {
+  thrust::transform(exec_policy, counting, counting + n_prediction_points, prediction_core_dists.data(), [dists = dists.data(), min_samples] __device__(value_idx row) {
     return dists[row * min_samples * 2 + (min_samples - 1)];
   });
 
@@ -123,11 +123,11 @@ void _approximate_predict(const raft::handle_t& handle,
                     [] __device__(int64_t in) -> value_idx { return in; });
 
   rmm::device_uvector<value_t> min_mr_dists(n_prediction_points, stream);
-  rmm::device_uvector<value_t> min_mr_indices(n_prediction_points, stream);
+  rmm::device_uvector<value_idx> min_mr_indices(n_prediction_points, stream);
   
-  int n_blocks = raft::ceildiv(n_prediction_points, tpb);
+  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
   // get nearest neighbors for each prediction point in mutual reachability space
-  min_mutual_reachability_kernel<<<n_blocks, tpb, 0, stream>>>(input_core_dists,
+  min_mutual_reachability_kernel<<<n_blocks, tpb, 0, stream>>>(prediction_data.get_core_dists(),
                                  prediction_core_dists.data(),
                                  dists.data(),
                                  indices.data(),
@@ -143,12 +143,11 @@ void _approximate_predict(const raft::handle_t& handle,
     min_mr_dists.data(),
     min_mr_dists.data() + n_prediction_points,
     prediction_lambdas.data(),
-    [] __device__(valuue_t dist) {
+    [] __device__(value_t dist) {
       if (dist > 0) return (1 / dist); 
       return std::numeric_limits<value_t>::max();});
   
   rmm::device_uvector<value_idx> index_into_children(n_edges + 1, stream);
-  auto counting = thrust::make_counting_iterator<value_idx>(0);
 
   auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
     index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
@@ -159,7 +158,7 @@ void _approximate_predict(const raft::handle_t& handle,
     thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
     thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
     index_op);
-  cluster_probability_kernel(min_mr_indices.data(),
+  cluster_probability_kernel<<<n_blocks, tpb, 0, stream>>>(min_mr_indices.data(),
         prediction_lambdas.data(),
         index_into_children.data(),
         prediction_data.get_cluster_map(),

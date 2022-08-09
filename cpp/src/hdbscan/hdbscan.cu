@@ -93,6 +93,21 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 
+void _approximate_predict(const raft::handle_t& handle,
+  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+  const float* X,
+  const float* prediction_points,
+  size_t n_prediction_points,
+  raft::distance::DistanceType metric,
+  int min_samples,
+  int* out_labels,
+  float* out_probabilities)
+{
+  HDBSCAN::detail::Predict::approximate_predict(
+    handle, condensed_tree, prediction_data, X, prediction_points, n_prediction_points, metric, min_samples, out_labels, out_probabilities);
+}
+
 template <typename value_idx, typename value_t>
 void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::handle_t& handle,
                                                                 value_idx n_exemplars_,
