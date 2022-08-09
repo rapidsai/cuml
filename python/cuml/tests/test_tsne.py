@@ -19,13 +19,13 @@ import scipy
 import cupyx
 
 from cuml.manifold import TSNE
-from cuml.testing.utils import stress_param
+from cuml.testing.utils import array_equal, stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness
 from sklearn import datasets
-
+from sklearn.manifold import TSNE as skTSNE
 
 pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
                                         "experimental::")
@@ -271,3 +271,84 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
     if input_type == 'cupy':
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
+
+
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean',
+                                    'cityblock', 'l1', 'manhattan',
+                                    'minkowski', 'chebyshev',
+                                    'cosine', 'correlation'])
+def test_tsne_distance_metrics(metric):
+
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
+
+    tsne = TSNE(n_components=2,
+                random_state=1,
+                n_neighbors=DEFAULT_N_NEIGHBORS,
+                method='exact',
+                learning_rate_method='none',
+                min_grad_norm=1e-12,
+                perplexity=DEFAULT_PERPLEXITY,
+                metric=metric)
+
+    sk_tsne = skTSNE(n_components=2,
+                     random_state=1,
+                     min_grad_norm=1e-12,
+                     method='exact',
+                     perplexity=DEFAULT_PERPLEXITY,
+                     metric=metric)
+
+    cuml_embedding = tsne.fit_transform(data)
+    sk_embedding = sk_tsne.fit_transform(data)
+    nans = np.sum(np.isnan(cuml_embedding))
+    cuml_trust = trustworthiness(data, cuml_embedding, metric=metric)
+    sk_trust = trustworthiness(data, sk_embedding, metric=metric)
+
+    assert cuml_trust > 0.85
+    assert nans == 0
+    assert array_equal(sk_trust, cuml_trust, 0.05, with_sign=True)
+
+
+@pytest.mark.parametrize('method', ['fft', 'barnes_hut', 'exact'])
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'cityblock',
+                                    'l1', 'manhattan', 'cosine'])
+def test_tsne_distance_metrics_on_sparse_input(method, metric):
+
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
+    data_sparse = scipy.sparse.csr_matrix(data)
+
+    cuml_tsne = TSNE(n_components=2,
+                     random_state=1,
+                     n_neighbors=DEFAULT_N_NEIGHBORS,
+                     method=method,
+                     learning_rate_method='none',
+                     min_grad_norm=1e-12,
+                     perplexity=DEFAULT_PERPLEXITY,
+                     metric=metric)
+
+    if method == 'fft':
+        sk_tsne = skTSNE(n_components=2,
+                         random_state=1,
+                         min_grad_norm=1e-12,
+                         method='barnes_hut',
+                         perplexity=DEFAULT_PERPLEXITY,
+                         metric=metric)
+
+    else:
+        sk_tsne = skTSNE(n_components=2,
+                         random_state=1,
+                         min_grad_norm=1e-12,
+                         method=method,
+                         perplexity=DEFAULT_PERPLEXITY,
+                         metric=metric)
+
+    cuml_embedding = cuml_tsne.fit_transform(data_sparse)
+    nans = np.sum(np.isnan(cuml_embedding))
+    sk_embedding = sk_tsne.fit_transform(data_sparse)
+    cu_trust = trustworthiness(data, cuml_embedding, metric=metric)
+    sk_trust = trustworthiness(data, sk_embedding, metric=metric)
+
+    assert cu_trust > 0.85
+    assert nans == 0
+    assert array_equal(sk_trust, cu_trust, 0.05, with_sign=True)
