@@ -186,7 +186,7 @@ void build_prediction_data(const raft::handle_t& handle,
   auto it = thrust::make_zip_iterator(thrust::make_tuple(children, counting));
   thrust::for_each(exec_policy, it, it + n_edges, index_op);
 
-  rmm::device_uvector<value_idx> cluster_map(n_clusters + 1 - n_leaves, stream);
+  rmm::device_uvector<value_idx> cluster_map(n_clusters, stream);
   thrust::fill(exec_policy, cluster_map.begin(), cluster_map.end(), -1);
 
   int n_blocks = raft::ceildiv(n_edges, tpb);

@@ -32,7 +32,7 @@ __global__ void cluster_map_kernel(value_idx* selected_clusters,
                                    value_idx n_edges)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
-  if (idx < n_edges && children[idx] > n_leaves) {
+  if (idx < n_edges && children[idx] >= n_leaves) {
     value_idx child = children[idx];
     value_idx cluster = children[idx];
     bool selected_cluster_found = false;
