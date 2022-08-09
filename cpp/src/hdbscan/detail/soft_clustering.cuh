@@ -191,13 +191,11 @@ void build_prediction_data(const raft::handle_t& handle,
   prediction_data.cache(handle,
                         n_exemplars,
                         n_clusters,
-                        n_leaves,
                         n_selected_clusters,
                         deaths.data(),
                         exemplar_idx.data(),
                         exemplar_label_offsets.data(),
                         selected_clusters.data(),
-                        labels,
                         core_dists);
 }
 
