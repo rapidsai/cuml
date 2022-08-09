@@ -50,6 +50,7 @@ from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
+from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
     simplicial_set_embedding
@@ -149,6 +150,13 @@ class UMAP(Base,
     n_components: int (optional, default 2)
         The dimension of the space to embed into. This defaults to 2 to
         provide easy visualization, but can reasonably be set to any
+    metric : string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary.
     n_epochs: int (optional, default None)
         The number of training epochs to be used in optimizing the
         low dimensional embedding. Larger values result in more accurate
@@ -298,6 +306,8 @@ class UMAP(Base,
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
+                 metric="euclidean",
+                 metric_kwds=None,
                  n_epochs=None,
                  learning_rate=1.0,
                  min_dist=0.1,
@@ -328,6 +338,8 @@ class UMAP(Base,
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
+        self.metric = metric
+        self.metric_kwds = metric_kwds
         self.n_epochs = n_epochs if n_epochs else 0
 
         if init == "spectral" or init == "random":
@@ -418,6 +430,37 @@ class UMAP(Base,
         umap_params.target_weight = <float> cls.target_weight
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
+
+        # metric
+        metric_parsing = {
+            "l2": DistanceType.L2SqrtUnexpanded,
+            "euclidean": DistanceType.L2SqrtUnexpanded,
+            "sqeuclidean": DistanceType.L2Unexpanded,
+            "cityblock": DistanceType.L1,
+            "l1": DistanceType.L1,
+            "manhattan": DistanceType.L1,
+            "taxicab": DistanceType.L1,
+            "minkowski": DistanceType.LpUnexpanded,
+            "chebyshev": DistanceType.Linf,
+            "linf": DistanceType.Linf,
+            "cosine": DistanceType.CosineExpanded,
+            "correlation": DistanceType.CorrelationExpanded,
+            "hellinger": DistanceType.HellingerExpanded,
+            "hamming": DistanceType.HammingUnexpanded,
+            "jaccard": DistanceType.JaccardExpanded,
+            "canberra": DistanceType.Canberra
+        }
+
+        if cls.metric.lower() in metric_parsing:
+            umap_params.metric = metric_parsing[cls.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(cls.metric))
+
+        if cls.metric_kwds is None:
+            umap_params.p = <float> 2.0
+        else:
+            umap_params.p = <float>cls.metric_kwds.get('p')
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
@@ -768,4 +811,6 @@ class UMAP(Base,
             "hash_input",
             "random_state",
             "callback",
+            "metric",
+            "metric_kwds"
         ]
