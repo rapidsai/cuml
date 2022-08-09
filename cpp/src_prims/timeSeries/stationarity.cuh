@@ -30,7 +30,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/stats/mean.hpp>
+#include <raft/stats/mean.cuh>
 
 #include <rmm/device_uvector.hpp>
 

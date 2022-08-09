@@ -20,7 +20,7 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <random>
 #include <test_utils.h>

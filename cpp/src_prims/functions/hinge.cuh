@@ -27,8 +27,8 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/sum.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

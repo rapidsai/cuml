@@ -21,9 +21,9 @@
 #include <solver/cd.cuh>
 #include <test_utils.h>
 
-#include <raft/stats/mean.hpp>
-#include <raft/stats/meanvar.hpp>
-#include <raft/stats/stddev.hpp>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/meanvar.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace ML {
 namespace Solver {

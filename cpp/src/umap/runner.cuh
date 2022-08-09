@@ -47,7 +47,7 @@
 
 #include <common/nvtx.hpp>
 #include <cuda_runtime.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace UMAPAlgo {
 

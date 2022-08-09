@@ -16,7 +16,7 @@
  */
 
 #include "pairwise_distance_cosine.cuh"
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
 

@@ -18,7 +18,7 @@
 
 #include "grammatrix.cuh"
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/linalg/gemm.cuh>
 
 namespace MLCommon {

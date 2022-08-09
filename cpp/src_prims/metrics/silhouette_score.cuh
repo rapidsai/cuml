@@ -23,7 +23,7 @@
 #include <math.h>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>

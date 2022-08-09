@@ -25,7 +25,7 @@
 #include <cumlprims/opg/linalg/norm.hpp>
 
 #include "shuffle.h"
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/add.cuh>

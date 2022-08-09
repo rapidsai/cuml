@@ -22,7 +22,7 @@
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 
 #include <raft/core/handle.hpp>

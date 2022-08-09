@@ -24,10 +24,10 @@
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <cstddef>
 #include <memory>

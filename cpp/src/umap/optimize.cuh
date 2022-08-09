@@ -26,7 +26,7 @@
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/stats/mean.hpp>
+#include <raft/stats/mean.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>

@@ -32,7 +32,7 @@
 #include <thrust/transform.h>
 
 #include <raft/random/rng.cuh>
-#include <raft/stats/sum.hpp>
+#include <raft/stats/sum.cuh>
 #include <sys/time.h>
 
 #include <chrono>

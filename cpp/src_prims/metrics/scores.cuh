@@ -17,12 +17,12 @@
 #pragma once
 
 #include <raft/core/cudart_utils.hpp>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/spatial/knn/knn.hpp>
-#include <raft/stats/mean.hpp>
+#include <raft/spatial/knn/knn.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

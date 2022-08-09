@@ -28,12 +28,13 @@ function(find_and_configure_cumlprims_mg)
     endif()
 
     rapids_cpm_find(cumlprims_mg ${PKG_VERSION}
-      GLOBAL_TARGETS      cumlprims_mg::cumlprims_mg
-      BUILD_EXPORT_SET    cuml-exports
-      INSTALL_EXPORT_SET  cuml-exports
+        GLOBAL_TARGETS      cumlprims_mg::cumlprims_mg
+        BUILD_EXPORT_SET    cuml-exports
+        INSTALL_EXPORT_SET  cuml-exports
+        SOURCE_SUBDIR       cpp
         CPM_ARGS
-            GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
-            GIT_TAG        ${PKG_PINNED_TAG}
+        GIT_REPOSITORY      git@github.com:${PKG_FORK}/cumlprims_mg.git
+        GIT_TAG             ${PKG_PINNED_TAG}
     )
 
 endfunction()
@@ -49,8 +50,8 @@ endfunction()
 # `-D CPM_cumlprims_mg_SOURCE=/path/to/cumlprims_mg`
 ###
 find_and_configure_cumlprims_mg(VERSION    ${CUML_MIN_VERSION_cumlprims_mg}
-                                FORK       rapidsai
-                                PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
+                                FORK       lowener
+                                PINNED_TAG 22.10-raft-headers
                                 # When PINNED_TAG above doesn't match cuml,
                                 # force local cumlprims_mg clone in build directory
                                 # even if it's already installed.

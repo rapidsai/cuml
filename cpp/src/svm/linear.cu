@@ -24,7 +24,7 @@
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <omp.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>

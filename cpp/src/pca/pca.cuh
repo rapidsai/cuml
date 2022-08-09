@@ -24,9 +24,9 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/stats/cov.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/stats/cov.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include <rmm/device_uvector.hpp>
 #include <tsvd/tsvd.cuh>
 

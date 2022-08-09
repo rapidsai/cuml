@@ -29,9 +29,9 @@
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/random/permute.cuh>
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/distance/fused_l2_nn.hpp>
+#include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
