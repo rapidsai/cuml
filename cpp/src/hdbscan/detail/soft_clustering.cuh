@@ -186,21 +186,18 @@ void build_prediction_data(const raft::handle_t& handle,
   auto it = thrust::make_zip_iterator(thrust::make_tuple(children, counting));
   thrust::for_each(exec_policy, it, it + n_edges, index_op);
 
-  rmm::device_uvector<value_idx> cluster_map(n_clusters, stream);
-  thrust::fill(exec_policy, cluster_map.begin(), cluster_map.end(), -1);
-
   int n_blocks = raft::ceildiv(n_edges, tpb);
-  cluster_map_kernel<<<n_blocks, tpb, 0, stream>>>(selected_clusters.data(), parents, children, index_into_children.data(), cluster_map.data(), n_selected_clusters, n_leaves, n_edges);
 
   prediction_data.cache(handle,
                         n_exemplars,
                         n_clusters,
+                        n_leaves,
                         n_selected_clusters,
                         deaths.data(),
                         exemplar_idx.data(),
                         exemplar_label_offsets.data(),
                         selected_clusters.data(),
-                        cluster_map.data(),
+                        labels,
                         core_dists);
 }
 

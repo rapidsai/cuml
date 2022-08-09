@@ -58,7 +58,7 @@ template <typename value_idx, typename value_t>
 __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
                                            value_t* prediction_lambdas,
                                            value_idx* index_into_children,
-                                           value_idx* cluster_map,
+                                           value_idx* labels,
                                            value_t* deaths,
                                            value_idx* parents,
                                            value_idx n_leaves,
@@ -69,7 +69,7 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {
     value_idx cluster = parents[index_into_children[min_mr_indices[idx]]];
-    value_idx selected_cluster = cluster_map[cluster - n_leaves];
+    value_idx selected_cluster = labels[min_mr_indices[idx]];
     predicted_labels[idx] = selected_cluster;
     if (selected_cluster >= 0) {
       value_t max_lambda = deaths[cluster - n_leaves];
