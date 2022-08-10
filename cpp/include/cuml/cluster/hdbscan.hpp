@@ -306,6 +306,12 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 
 template class CondensedHierarchy<int, float>;
 
+/**
+ * Container object for computing and storing intermediate information needed later for computing
+ * membership vectors and approximate_predict.
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 class PredictionData {
  public:
@@ -324,6 +330,9 @@ class PredictionData {
   size_t n_rows;
   size_t n_cols;
 
+  // Using getters here, making the members private and forcing
+  // consistent state with the constructor. This should make
+  // it much easier to use / debug.
   value_idx get_n_exemplars() { return n_exemplars; }
   value_idx get_n_selected_clusters() { return n_selected_clusters; }
   value_idx* get_exemplar_idx() { return exemplar_idx.data(); }
@@ -331,6 +340,18 @@ class PredictionData {
   value_idx* get_selected_clusters() { return selected_clusters.data(); }
   value_t* get_deaths() { return deaths.data(); }
 
+  /**
+   * Resize buffers, copy and save all the required data needed later for prediction and membership
+   * vectors.
+   * @param handle_ raft handle for ordering cuda operations
+   * @param n_leaves_  number of exemplar points
+   * @param n_clusters number of clusters in the condensed hierarchy
+   * @param n_selected_clusters_ number of clusters selected
+   * @param deaths lambda values that mark the death of each cluster in the condensed hierarchy
+   * @param exemplar_idx_ IDs of exemplar points
+   * @param exemplar_label_offsets_ offsets indicating beginning and end of each cluster label
+   * @param selected_clusters_ selected clusters from the condensed hierarchy
+   */
   void cache(const raft::handle_t& handle,
              value_idx n_exemplars_,
              value_idx n_clusters,
