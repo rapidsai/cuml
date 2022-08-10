@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cuml/manifold/umapparams.h>
 #include <memory>
 
 namespace raft {

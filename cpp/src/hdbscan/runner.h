@@ -33,6 +33,10 @@
 #include "detail/soft_clustering.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+#include <thrust/transform.h>
+
 namespace ML {
 namespace HDBSCAN {
 

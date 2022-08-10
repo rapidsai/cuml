@@ -21,7 +21,10 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
 #include <raft/cudart_utils.h>
+#include <raft/distance/distance_type.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/transform.h>
 
 #include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
@@ -117,7 +120,7 @@ class TSNE_runner {
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
 
-      TSNE::get_distances(handle, input, k_graph, stream);
+      TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
 
     if (params.square_distances) {

@@ -33,11 +33,16 @@
 
 #include "../condensed_hierarchy.cu"
 
+#include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/tuple.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
