@@ -70,6 +70,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_leaves()
         int get_n_clusters()
         float *get_stabilities()
+        int *get_labels()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
@@ -859,13 +860,13 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-    cdef uintptr_t labels_ptr = clusterer.labels_.ptr
+    #cdef uintptr_t labels_ptr = clusterer.labels_.ptr
 
     _approximate_predict(handle_[0],
                          hdbscan_output_.get_condensed_tree(),
                          deref(pred_data_),
                          <float*> input_ptr,
-                         <int*> labels_ptr,
+                         <int*> hdbscan_output_.get_labels(),
                          <float*> prediction_ptr,
                          n_prediction_points,
                          _metrics_mapping[clusterer.metric],

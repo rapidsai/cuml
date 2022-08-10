@@ -35,8 +35,8 @@ __global__ void min_mutual_reachability_kernel(value_t* input_core_dists,
   if (idx < value_idx(n_prediction_points)) {
     value_t min_mr_dist = std::numeric_limits<value_t>::max();
     value_idx min_mr_ind = -1;
+    value_t mr_dist = prediction_core_dists[idx];
     for(int i = 0; i < 2 * min_samples; i++) {
-        value_t mr_dist = prediction_core_dists[i];
         if (input_core_dists[neighbor_indices[idx * 2 * min_samples + i]] > mr_dist) {
             mr_dist = input_core_dists[neighbor_indices[idx * 2 * min_samples + i]];
         }
@@ -60,6 +60,7 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
                                            value_idx* index_into_children,
                                            value_idx* labels,
                                            value_t* deaths,
+                                           value_idx* selected_clusters,
                                            value_idx* parents,
                                            value_idx n_leaves,
                                            size_t n_prediction_points,
@@ -69,10 +70,10 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {
     value_idx cluster = parents[index_into_children[min_mr_indices[idx]]];
-    value_idx selected_cluster = labels[min_mr_indices[idx]];
-    predicted_labels[idx] = selected_cluster;
-    if (selected_cluster >= 0) {
-      value_t max_lambda = deaths[cluster - n_leaves];
+    value_idx cluster_label = labels[min_mr_indices[idx]];
+    predicted_labels[idx] = cluster_label;
+    if (cluster_label >= 0) {
+      value_t max_lambda = deaths[selected_clusters[cluster_label] - n_leaves];
       if (max_lambda > 0) {
         cluster_probabilities[idx] = (max_lambda < prediction_lambdas[idx] ? max_lambda : prediction_lambdas[idx]) / max_lambda;
       }
