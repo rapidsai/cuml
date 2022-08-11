@@ -70,12 +70,11 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {
-    value_idx cluster = parents[index_into_children[min_mr_indices[idx]]];
     value_idx cluster_label = labels[min_mr_indices[idx]];
-    if (selected_clusters[cluster_label] > n_leaves && lambdas[index_into_children[cluster_label]] < prediction_lambdas[idx]) {
+    if (cluster_label >= 0 && selected_clusters[cluster_label] > n_leaves && lambdas[index_into_children[selected_clusters[cluster_label]]] < prediction_lambdas[idx]) {
       predicted_labels[idx] = cluster_label;
     }
-    else if (selected_clusters[cluster_label] == n_leaves) {
+    else if (cluster_label >= 0 && selected_clusters[cluster_label] == n_leaves) {
       predicted_labels[idx] = cluster_label;
     }
     else {
