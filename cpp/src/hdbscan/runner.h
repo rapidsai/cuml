@@ -34,6 +34,10 @@
 #include "detail/predict.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+#include <thrust/transform.h>
+
 namespace ML {
 namespace HDBSCAN {
 
