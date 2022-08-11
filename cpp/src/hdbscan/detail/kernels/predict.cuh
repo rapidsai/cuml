@@ -62,6 +62,7 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
                                            value_t* deaths,
                                            value_idx* selected_clusters,
                                            value_idx* parents,
+                                           value_t* lambdas,
                                            value_idx n_leaves,
                                            size_t n_prediction_points,
                                            value_idx* predicted_labels,
@@ -71,8 +72,16 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
   if (idx < value_idx(n_prediction_points)) {
     value_idx cluster = parents[index_into_children[min_mr_indices[idx]]];
     value_idx cluster_label = labels[min_mr_indices[idx]];
-    predicted_labels[idx] = cluster_label;
-    if (cluster_label >= 0) {
+    if (selected_clusters[cluster_label] > n_leaves && lambdas[index_into_children[cluster_label]] < prediction_lambdas[idx]) {
+      predicted_labels[idx] = cluster_label;
+    }
+    else if (selected_clusters[cluster_label] == n_leaves) {
+      predicted_labels[idx] = cluster_label;
+    }
+    else {
+      predicted_labels[idx] = -1;
+    }
+    if (predicted_labels[idx] >= 0) {
       value_t max_lambda = deaths[selected_clusters[cluster_label] - n_leaves];
       if (max_lambda > 0) {
         cluster_probabilities[idx] = (max_lambda < prediction_lambdas[idx] ? max_lambda : prediction_lambdas[idx]) / max_lambda;

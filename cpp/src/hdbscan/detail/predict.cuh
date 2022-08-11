@@ -77,6 +77,7 @@ void approximate_predict(const raft::handle_t& handle,
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
+  value_t* lambdas = condensed_tree.get_lambdas();
   auto n_edges    = condensed_tree.get_n_edges();
   auto n_leaves   = condensed_tree.get_n_leaves();
 
@@ -181,11 +182,13 @@ void approximate_predict(const raft::handle_t& handle,
         prediction_data.get_deaths(),
         prediction_data.get_selected_clusters(),
         parents,
+        lambdas,
         n_leaves,
         n_prediction_points,
         out_labels,
         out_probabilities);
   
+        raft::print_device_vector("out_labels", out_labels, n_prediction_points, std::cout);
 }
 
 };  // end namespace Predict
