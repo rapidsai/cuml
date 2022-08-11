@@ -424,8 +424,11 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     // ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
     //                               params.expected_probabilities.data(),
     //                               params.n_row * n_selected_clusters,
-    //                               raft::CompareApprox<float>(1e-5),
+    //                               raft::CompareApprox<float>(1e-4),
     //                               handle.get_stream()));
+
+                                  // raft::print_device_vector("expected", params.expected_probabilities.data() + 45, 30, std::cout);
+                                  raft::print_device_vector("aactual", membership_vec.data() + 45, 30, std::cout);
     ASSERT_TRUE(true);
   }
 

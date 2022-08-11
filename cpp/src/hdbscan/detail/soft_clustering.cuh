@@ -323,6 +323,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                     metric);
   
   raft::print_device_vector("exemplar_idx", prediction_data.get_exemplar_idx(), 10, std::cout);
+  raft::print_device_vector("exemplar_label_offsets", prediction_data.get_exemplar_label_offsets(), 10, std::cout);
   raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 10, std::cout);
 
   rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
