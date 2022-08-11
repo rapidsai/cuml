@@ -61,130 +61,6 @@ namespace detail {
 namespace Predict {
 
 template <typename value_idx, typename value_t>
-void build_prediction_data(const raft::handle_t& handle,
-                           Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                           value_idx* labels,
-                           value_idx* label_map,
-                           value_idx n_selected_clusters,
-                           Common::PredictionData<value_idx, value_t>& prediction_data)
-{
-  auto stream      = handle.get_stream();
-  auto exec_policy = handle.get_thrust_policy();
-
-  auto counting = thrust::make_counting_iterator<int>(0);
-
-  auto parents    = condensed_tree.get_parents();
-  auto children   = condensed_tree.get_children();
-  auto lambdas    = condensed_tree.get_lambdas();
-  auto n_edges    = condensed_tree.get_n_edges();
-  auto n_clusters = condensed_tree.get_n_clusters();
-  auto n_leaves   = condensed_tree.get_n_leaves();
-  auto sizes      = condensed_tree.get_sizes();
-
-  // first compute the death of each cluster in the condensed hierarchy
-  rmm::device_uvector<value_t> deaths(n_clusters, stream);
-
-  rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
-  raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
-
-  rmm::device_uvector<value_idx> sorted_parents_offsets(n_clusters + 1, stream);
-  Utils::parent_csr(handle, condensed_tree, sorted_parents.data(), sorted_parents_offsets.data());
-
-  // this is to find maximum lambdas of all children under a parent
-  Utils::cub_segmented_reduce(
-    lambdas,
-    deaths.data(),
-    n_clusters,
-    sorted_parents_offsets.data(),
-    stream,
-    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>);
-
-  rmm::device_uvector<int> is_leaf_cluster(n_clusters, stream);
-  thrust::fill(exec_policy, is_leaf_cluster.begin(), is_leaf_cluster.end(), 1);
-
-  auto leaf_cluster_op =
-    [is_leaf_cluster = is_leaf_cluster.data(), parents, sizes, n_leaves] __device__(auto idx) {
-      if (sizes[idx] > 1) { is_leaf_cluster[parents[idx] - n_leaves] = 0; }
-      return;
-    };
-
-  thrust::for_each(exec_policy, counting, counting + n_edges, leaf_cluster_op);
-
-  rmm::device_uvector<value_idx> is_exemplar(n_leaves, stream);
-  rmm::device_uvector<value_idx> exemplar_idx(n_leaves, stream);
-  rmm::device_uvector<value_idx> exemplar_label_offsets(n_selected_clusters + 1, stream);
-  rmm::device_uvector<value_idx> selected_clusters(n_selected_clusters, stream);
-
-  // classify whether or not a point is an exemplar point using the death values
-  auto exemplar_op = [is_exemplar = is_exemplar.data(),
-                      lambdas,
-                      is_leaf_cluster = is_leaf_cluster.data(),
-                      parents,
-                      children,
-                      n_leaves,
-                      deaths = deaths.data()] __device__(auto idx) {
-    if (children[idx] < n_leaves) {
-      is_exemplar[children[idx]] = (is_leaf_cluster[parents[idx] - n_leaves] &&
-                                    lambdas[idx] == deaths[parents[idx] - n_leaves]);
-      return;
-    }
-  };
-
-  thrust::for_each(exec_policy, counting, counting + n_edges, exemplar_op);
-
-  auto exemplar_idx_end_ptr = thrust::copy_if(
-    exec_policy,
-    counting,
-    counting + n_leaves,
-    exemplar_idx.data(),
-    [is_exemplar = is_exemplar.data()] __device__(auto idx) { return is_exemplar[idx]; });
-
-  value_idx n_exemplars = exemplar_idx_end_ptr - exemplar_idx.data();
-
-  // use the exemplar labels to fetch the set of selected clusters from the condensed hierarchy
-  rmm::device_uvector<value_idx> exemplar_labels(n_exemplars, stream);
-
-  thrust::transform(exec_policy,
-                    exemplar_idx.data(),
-                    exemplar_idx.data() + n_exemplars,
-                    exemplar_labels.data(),
-                    [labels] __device__(auto idx) { return labels[idx]; });
-
-  thrust::sort_by_key(
-    exec_policy, exemplar_labels.data(), exemplar_labels.data() + n_exemplars, exemplar_idx.data());
-
-  rmm::device_uvector<value_idx> converted_exemplar_labels(n_exemplars, stream);
-  thrust::transform(exec_policy,
-                    exemplar_labels.begin(),
-                    exemplar_labels.end(),
-                    converted_exemplar_labels.data(),
-                    [label_map] __device__(auto idx) { return label_map[idx]; });
-
-  raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
-                                           n_exemplars,
-                                           exemplar_label_offsets.data(),
-                                           n_selected_clusters + 1,
-                                           stream);
-
-  thrust::transform(exec_policy,
-                    exemplar_label_offsets.data(),
-                    exemplar_label_offsets.data() + n_selected_clusters,
-                    selected_clusters.data(),
-                    [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
-                      return exemplar_labels[idx] + n_leaves;
-                    });
-
-  prediction_data.cache(handle,
-                        n_exemplars,
-                        n_clusters,
-                        n_selected_clusters,
-                        deaths.data(),
-                        exemplar_idx.data(),
-                        exemplar_label_offsets.data(),
-                        selected_clusters.data());
-}
-
-template <typename value_idx, typename value_t>
 void all_points_dist_membership_vector(const raft::handle_t& handle,
                                        const value_t* X,
                                        size_t m,
@@ -445,6 +321,9 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                     prediction_data.get_exemplar_label_offsets(),
                                     dist_membership_vec.data(),
                                     metric);
+  
+  raft::print_device_vector("exemplar_idx", prediction_data.get_exemplar_idx(), 10, std::cout);
+  raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 10, std::cout);
 
   rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
@@ -468,6 +347,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                   merge_heights.data(),
                                   prob_in_some_cluster.data());
 
+                                  raft::print_device_vector("out_membership_vec", membership_vec, 10, std::cout);
   thrust::transform(exec_policy,
                     dist_membership_vec.begin(),
                     dist_membership_vec.end(),
@@ -489,6 +369,8 @@ void all_points_membership_vectors(const raft::handle_t& handle,
     false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
     stream);
+  
+  raft::print_device_vector("membership_vec", membership_vec, 10, std::cout);
 }
 
 };  // namespace Predict

@@ -152,6 +152,7 @@ class RobustSingleLinkageParams {
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
+  bool prediction_data = false;
 };
 
 /**
@@ -341,25 +342,16 @@ class PredictionData {
   value_t* get_deaths() { return deaths.data(); }
 
   /**
-   * Resize buffers, copy and save all the required data needed later for prediction and membership
-   * vectors.
+   * Resize buffers for to the required sizes for storing data
    * @param handle raft handle for ordering cuda operations
    * @param n_exemplars_  number of exemplar points
    * @param n_clusters number of clusters in the condensed hierarchy
    * @param n_selected_clusters_ number of clusters selected
-   * @param deaths_ lambda values that mark the death of each cluster in the condensed hierarchy
-   * @param exemplar_idx_ IDs of exemplar points
-   * @param exemplar_label_offsets_ offsets indicating beginning and end of each cluster label
-   * @param selected_clusters_ selected clusters from the condensed hierarchy
    */
-  void cache(const raft::handle_t& handle,
+  void allocate(const raft::handle_t& handle,
              value_idx n_exemplars_,
              value_idx n_clusters,
-             value_idx n_selected_clusters_,
-             value_t* deaths_,
-             value_idx* exemplar_idx_,
-             value_idx* exemplar_label_offsets_,
-             value_idx* selected_clusters_);
+             value_idx n_selected_clusters_);
 
  private:
   const raft::handle_t& handle;
@@ -372,6 +364,13 @@ class PredictionData {
 };
 
 template class PredictionData<int, float>;
+
+void build_prediction_data(const raft::handle_t& handle,
+                           CondensedHierarchy<int, float>& condensed_tree,
+                           int* labels,
+                           int* label_map,
+                           int n_selected_clusters,
+                           PredictionData<int, float>& prediction_data);
 
 };  // namespace Common
 };  // namespace HDBSCAN
@@ -407,7 +406,6 @@ void hdbscan(const raft::handle_t& handle,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
-             bool prediction_data,
              HDBSCAN::Common::PredictionData<int, float>& prediction_data_);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,

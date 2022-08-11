@@ -80,7 +80,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         float cluster_selection_epsilon,
 
         bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method
+        CLUSTER_SELECTION_METHOD cluster_selection_method,
+        bool prediction_data
 
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
@@ -95,7 +96,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output,
-                 bool prediction_data,
                  PredictionData[int, float] &prediction_data_)
 
     void build_condensed_hierarchy(
@@ -643,6 +643,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         params.max_cluster_size = self.max_cluster_size
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
         params.allow_single_cluster = self.allow_single_cluster
+        params.prediction_data = self.prediction_data
 
         if self.cluster_selection_method == 'eom':
             params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
@@ -670,7 +671,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                     <DistanceType> metric,
                     params,
                     deref(linkage_output),
-                    <bool> self.prediction_data,
                     deref(pred_data))
         else:
             raise ValueError("'connectivity' can only be one of "

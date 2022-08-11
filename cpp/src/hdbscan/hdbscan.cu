@@ -31,10 +31,9 @@ void hdbscan(const raft::handle_t& handle,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
-             bool prediction_data,
              HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
 {
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out, prediction_data, prediction_data_);
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out, prediction_data_);
 }
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
@@ -91,32 +90,6 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
-}
-
-template <typename value_idx, typename value_t>
-void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::handle_t& handle,
-                                                                value_idx n_exemplars_,
-                                                                value_idx n_clusters,
-                                                                value_idx n_selected_clusters_,
-                                                                value_t* deaths_,
-                                                                value_idx* exemplar_idx_,
-                                                                value_idx* exemplar_label_offsets_,
-                                                                value_idx* selected_clusters_)
-{
-  this->n_exemplars         = n_exemplars_;
-  this->n_selected_clusters = n_selected_clusters_;
-  exemplar_idx.resize(n_exemplars, handle.get_stream());
-  exemplar_label_offsets.resize(n_selected_clusters_ + 1, handle.get_stream());
-  deaths.resize(n_clusters, handle.get_stream());
-  selected_clusters.resize(n_selected_clusters, handle.get_stream());
-  raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
-  raft::copy(exemplar_label_offsets.begin(),
-             exemplar_label_offsets_,
-             n_selected_clusters_ + 1,
-             handle.get_stream());
-  raft::copy(deaths.begin(), deaths_, n_clusters, handle.get_stream());
-  raft::copy(
-    selected_clusters.begin(), selected_clusters_, n_selected_clusters_, handle.get_stream());
 }
 
 };  // end namespace ML

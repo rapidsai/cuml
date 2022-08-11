@@ -194,7 +194,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
                   Common::hdbscan_output<value_idx, value_t>& out,
-                  bool prediction_data,
                   Common::PredictionData<value_idx, value_t>& prediction_data_)
 {
   auto stream      = handle.get_stream();
@@ -258,8 +257,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * starting at 0 even in the presence of noise (-1)
    */
 
-  if (prediction_data) {
-    detail::Predict::build_prediction_data(handle,
+  if (params.prediction_data) {
+    Common::build_prediction_data(handle,
                                            out.get_condensed_tree(),
                                            out.get_labels(),
                                            label_map.data(),
