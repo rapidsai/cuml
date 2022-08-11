@@ -343,11 +343,11 @@ class PredictionData {
   /**
    * Resize buffers, copy and save all the required data needed later for prediction and membership
    * vectors.
-   * @param handle_ raft handle for ordering cuda operations
-   * @param n_leaves_  number of exemplar points
+   * @param handle raft handle for ordering cuda operations
+   * @param n_exemplars_  number of exemplar points
    * @param n_clusters number of clusters in the condensed hierarchy
    * @param n_selected_clusters_ number of clusters selected
-   * @param deaths lambda values that mark the death of each cluster in the condensed hierarchy
+   * @param deaths_ lambda values that mark the death of each cluster in the condensed hierarchy
    * @param exemplar_idx_ IDs of exemplar points
    * @param exemplar_label_offsets_ offsets indicating beginning and end of each cluster label
    * @param selected_clusters_ selected clusters from the condensed hierarchy
@@ -395,7 +395,10 @@ template class PredictionData<int, float>;
  * @param n number of columns in X
  * @param metric distance metric to use
  * @param params struct of configuration hyper-parameters
+ * @param prediction_data boolean indicating whether or not prediction_data_ should be calculated
  * @param out struct of output data and arrays on device
+ * @param prediction_data_ struct for storing computing and storing information to be used during
+ * prediction
  */
 void hdbscan(const raft::handle_t& handle,
              const float* X,
@@ -405,7 +408,7 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
              bool prediction_data,
-             HDBSCAN::Common::PredictionData<int, float>& pred_data);
+             HDBSCAN::Common::PredictionData<int, float>& prediction_data_);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,

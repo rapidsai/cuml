@@ -32,9 +32,9 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
              bool prediction_data,
-             HDBSCAN::Common::PredictionData<int, float>& pred_data)
+             HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
 {
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out, prediction_data, pred_data);
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out, prediction_data, prediction_data_);
 }
 
 void build_condensed_hierarchy(const raft::handle_t& handle,

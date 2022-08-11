@@ -96,7 +96,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  HDBSCANParams & params,
                  hdbscan_output & output,
                  bool prediction_data,
-                 PredictionData[int, float] &pred_data)
+                 PredictionData[int, float] &prediction_data_)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -118,7 +118,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
     void _all_points_membership_vectors(
         const handle_t &handle,
         CondensedHierarchy[int, float] &condensed_tree,
-        PredictionData[int, float] &pred_data,
+        PredictionData[int, float] &prediction_data_,
         float* membership_vec,
         float* X,
         DistanceType metric)

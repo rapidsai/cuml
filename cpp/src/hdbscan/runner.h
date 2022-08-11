@@ -195,7 +195,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   Common::HDBSCANParams& params,
                   Common::hdbscan_output<value_idx, value_t>& out,
                   bool prediction_data,
-                  Common::PredictionData<value_idx, value_t>& pred_data)
+                  Common::PredictionData<value_idx, value_t>& prediction_data_)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -264,7 +264,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                               out.get_labels(),
                                               label_map.data(),
                                               n_selected_clusters,
-                                              pred_data);
+                                              prediction_data_);
   }
 
   value_idx* label_map_ptr = label_map.data();
