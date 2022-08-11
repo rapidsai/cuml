@@ -259,12 +259,12 @@ void _fit_hdbscan(const raft::handle_t& handle,
    */
 
   if (prediction_data) {
-    detail::Membership::build_prediction_data(handle,
-                                              out.get_condensed_tree(),
-                                              out.get_labels(),
-                                              label_map.data(),
-                                              n_selected_clusters,
-                                              prediction_data_);
+    detail::Predict::build_prediction_data(handle,
+                                           out.get_condensed_tree(),
+                                           out.get_labels(),
+                                           label_map.data(),
+                                           n_selected_clusters,
+                                           prediction_data_);
   }
 
   value_idx* label_map_ptr = label_map.data();

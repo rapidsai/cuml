@@ -89,7 +89,7 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
                                     const float* X,
                                     raft::distance::DistanceType metric)
 {
-  HDBSCAN::detail::Membership::all_points_membership_vectors(
+  HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 

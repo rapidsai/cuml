@@ -58,7 +58,7 @@
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
-namespace Membership {
+namespace Predict {
 
 template <typename value_idx, typename value_t>
 void build_prediction_data(const raft::handle_t& handle,
@@ -491,7 +491,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
     stream);
 }
 
-};  // namespace Membership
+};  // namespace Predict
 };  // namespace detail
 };  // namespace HDBSCAN
 };  // namespace ML

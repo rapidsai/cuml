@@ -409,14 +409,14 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
       handle, params.n_row, params.n_col);
 
-    ML::HDBSCAN::detail::Membership::build_prediction_data(handle,
-                                                           condensed_tree,
-                                                           labels.data(),
-                                                           label_map.data(),
-                                                           n_selected_clusters,
-                                                           prediction_data_);
+    ML::HDBSCAN::detail::Predict::build_prediction_data(handle,
+                                                        condensed_tree,
+                                                        labels.data(),
+                                                        label_map.data(),
+                                                        n_selected_clusters,
+                                                        prediction_data_);
 
-    ML::HDBSCAN::detail::Membership::all_points_membership_vectors(
+    ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
       handle,
       condensed_tree,
       prediction_data_,
