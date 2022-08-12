@@ -38,6 +38,8 @@ from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
+from rmm._lib.memory_resource cimport DeviceMemoryResource, \
+    get_current_device_resource
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -251,6 +253,7 @@ cdef class ForestInference_impl():
     cdef size_t num_class
     cdef bool output_class
     cdef char* shape_str
+    cdef DeviceMemoryResource mr
 
     cdef forest32_t get_forest32(self):
         return get[forest32_t, forest32_t, forest64_t](self.forest_data)
@@ -263,6 +266,7 @@ cdef class ForestInference_impl():
         self.handle = handle
         self.forest_data = forest_variant(<forest32_t> NULL)
         self.shape_str = NULL
+        self.mr = get_current_device_resource()
 
     def get_shape_str(self):
         if self.shape_str:
