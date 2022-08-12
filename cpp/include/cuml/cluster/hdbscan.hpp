@@ -152,7 +152,7 @@ class RobustSingleLinkageParams {
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
-  bool prediction_data = false;
+  bool prediction_data                              = false;
 };
 
 /**
@@ -342,16 +342,24 @@ class PredictionData {
   value_t* get_deaths() { return deaths.data(); }
 
   /**
-   * Resize buffers for to the required sizes for storing data
+   * Resize buffers to the required sizes for storing data
    * @param handle raft handle for ordering cuda operations
    * @param n_exemplars_  number of exemplar points
-   * @param n_clusters number of clusters in the condensed hierarchy
    * @param n_selected_clusters_ number of clusters selected
    */
   void allocate(const raft::handle_t& handle,
-             value_idx n_exemplars_,
-             value_idx n_clusters,
-             value_idx n_selected_clusters_);
+                value_idx n_exemplars_,
+                value_idx n_selected_clusters_);
+
+  /**
+   * Resize buffers for cluster deaths to n_clusters
+   * @param handle raft handle for ordering cuda operations
+   * @param n_clusters_
+   */
+  void set_n_clusters(const raft::handle_t& handle, value_idx n_clusters_)
+  {
+    deaths.resize(n_clusters_, handle.get_stream());
+  }
 
  private:
   const raft::handle_t& handle;

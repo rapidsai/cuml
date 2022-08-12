@@ -407,11 +407,11 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
       handle, params.n_row, params.n_col);
 
     ML::HDBSCAN::Common::build_prediction_data(handle,
-                                                        condensed_tree,
-                                                        labels.data(),
-                                                        label_map.data(),
-                                                        n_selected_clusters,
-                                                        prediction_data_);
+                                               condensed_tree,
+                                               labels.data(),
+                                               label_map.data(),
+                                               n_selected_clusters,
+                                               prediction_data_);
 
     ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
       handle,
@@ -421,15 +421,11 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
       data.data(),
       raft::distance::DistanceType::L2SqrtExpanded);
 
-    // ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
-    //                               params.expected_probabilities.data(),
-    //                               params.n_row * n_selected_clusters,
-    //                               raft::CompareApprox<float>(1e-4),
-    //                               handle.get_stream()));
-
-                                  // raft::print_device_vector("expected", params.expected_probabilities.data() + 45, 30, std::cout);
-                                  raft::print_device_vector("aactual", membership_vec.data() + 45, 30, std::cout);
-    ASSERT_TRUE(true);
+    ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
+                                  params.expected_probabilities.data(),
+                                  params.n_row * n_selected_clusters,
+                                  raft::CompareApprox<float>(1e-5),
+                                  handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }

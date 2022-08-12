@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "detail/utils.h"
 
 #include <raft/cuda_utils.cuh>
@@ -5,9 +21,9 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/matrix/math.hpp>
 #include <raft/sparse/convert/csr.hpp>
 #include <raft/sparse/op/sort.hpp>
-#include <raft/matrix/math.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -27,15 +43,13 @@ namespace Common {
 
 template <typename value_idx, typename value_t>
 void PredictionData<value_idx, value_t>::allocate(const raft::handle_t& handle,
-                                                                   value_idx n_exemplars_,
-                                                                   value_idx n_clusters_,
-                                                                   value_idx n_selected_clusters_)
+                                                  value_idx n_exemplars_,
+                                                  value_idx n_selected_clusters_)
 {
   this->n_exemplars         = n_exemplars_;
   this->n_selected_clusters = n_selected_clusters_;
   exemplar_idx.resize(n_exemplars, handle.get_stream());
   exemplar_label_offsets.resize(n_selected_clusters + 1, handle.get_stream());
-  deaths.resize(n_clusters_, handle.get_stream());
   selected_clusters.resize(n_selected_clusters, handle.get_stream());
 }
 
@@ -60,18 +74,19 @@ void build_prediction_data(const raft::handle_t& handle,
   auto sizes      = condensed_tree.get_sizes();
 
   // first compute the death of each cluster in the condensed hierarchy
-  rmm::device_uvector<float> deaths(n_clusters, stream);
-
   rmm::device_uvector<int> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
   rmm::device_uvector<int> sorted_parents_offsets(n_clusters + 1, stream);
-  detail::Utils::parent_csr(handle, condensed_tree, sorted_parents.data(), sorted_parents_offsets.data());
+  detail::Utils::parent_csr(
+    handle, condensed_tree, sorted_parents.data(), sorted_parents_offsets.data());
+
+  prediction_data.set_n_clusters(handle, n_clusters);
 
   // this is to find maximum lambdas of all children under a parent
   detail::Utils::cub_segmented_reduce(
     lambdas,
-    deaths.data(),
+    prediction_data.get_deaths(),
     n_clusters,
     sorted_parents_offsets.data(),
     stream,
@@ -100,7 +115,7 @@ void build_prediction_data(const raft::handle_t& handle,
                       parents,
                       children,
                       n_leaves,
-                      deaths = deaths.data()] __device__(auto idx) {
+                      deaths = prediction_data.get_deaths()] __device__(auto idx) {
     if (children[idx] < n_leaves) {
       is_exemplar[children[idx]] = (is_leaf_cluster[parents[idx] - n_leaves] &&
                                     lambdas[idx] == deaths[parents[idx] - n_leaves]);
@@ -110,15 +125,10 @@ void build_prediction_data(const raft::handle_t& handle,
 
   thrust::for_each(exec_policy, counting, counting + n_edges, exemplar_op);
 
-  int n_exemplars = thrust::count_if(exec_policy,
-    is_exemplar.begin(),
-    is_exemplar.end(),
-    [] __device__(auto idx) { return idx; }); 		
+  int n_exemplars = thrust::count_if(
+    exec_policy, is_exemplar.begin(), is_exemplar.end(), [] __device__(auto idx) { return idx; });
 
-  prediction_data.allocate(handle,
-    n_exemplars,
-n_clusters,
-n_selected_clusters);
+  prediction_data.allocate(handle, n_exemplars, n_selected_clusters);
 
   auto exemplar_idx_end_ptr = thrust::copy_if(
     exec_policy,
@@ -131,13 +141,15 @@ n_selected_clusters);
   rmm::device_uvector<int> exemplar_labels(n_exemplars, stream);
 
   thrust::transform(exec_policy,
-    prediction_data.get_exemplar_idx(),
-    prediction_data.get_exemplar_idx() + n_exemplars,
+                    prediction_data.get_exemplar_idx(),
+                    prediction_data.get_exemplar_idx() + n_exemplars,
                     exemplar_labels.data(),
                     [labels] __device__(auto idx) { return labels[idx]; });
 
-  thrust::sort_by_key(
-    exec_policy, exemplar_labels.data(), exemplar_labels.data() + n_exemplars, prediction_data.get_exemplar_idx());
+  thrust::sort_by_key(exec_policy,
+                      exemplar_labels.data(),
+                      exemplar_labels.data() + n_exemplars,
+                      prediction_data.get_exemplar_idx());
 
   rmm::device_uvector<int> converted_exemplar_labels(n_exemplars, stream);
   thrust::transform(exec_policy,
@@ -153,14 +165,14 @@ n_selected_clusters);
                                            stream);
 
   thrust::transform(exec_policy,
-    prediction_data.get_exemplar_label_offsets(),
-    prediction_data.get_exemplar_label_offsets() + n_selected_clusters,
+                    prediction_data.get_exemplar_label_offsets(),
+                    prediction_data.get_exemplar_label_offsets() + n_selected_clusters,
                     prediction_data.get_selected_clusters(),
                     [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
                       return exemplar_labels[idx] + n_leaves;
                     });
 }
 
-}; // end namespace Common
-}; // end namespace HDBSCAN
+};  // end namespace Common
+};  // end namespace HDBSCAN
 };  // end namespace ML

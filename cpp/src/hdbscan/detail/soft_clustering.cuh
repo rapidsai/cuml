@@ -321,10 +321,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                     prediction_data.get_exemplar_label_offsets(),
                                     dist_membership_vec.data(),
                                     metric);
-  
-  raft::print_device_vector("exemplar_idx", prediction_data.get_exemplar_idx(), 10, std::cout);
-  raft::print_device_vector("exemplar_label_offsets", prediction_data.get_exemplar_label_offsets(), 10, std::cout);
-  raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 10, std::cout);
 
   rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
@@ -348,7 +344,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                   merge_heights.data(),
                                   prob_in_some_cluster.data());
 
-                                  raft::print_device_vector("out_membership_vec", membership_vec, 10, std::cout);
   thrust::transform(exec_policy,
                     dist_membership_vec.begin(),
                     dist_membership_vec.end(),
@@ -370,8 +365,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
     false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
     stream);
-  
-  raft::print_device_vector("membership_vec", membership_vec, 10, std::cout);
 }
 
 };  // namespace Predict
