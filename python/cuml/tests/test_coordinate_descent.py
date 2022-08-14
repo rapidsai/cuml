@@ -95,22 +95,13 @@ def test_lasso_default(datatype, nrows, column_info):
     assert cu_r2 >= sk_r2 - 0.07
 
 
-
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("model", ["lasso", "elastic-net"])
-@pytest.mark.parametrize(
-    "fit_intercept, normalize, distribution", [
-        (True, True, "lognormal"),
-        (True, True, "exponential"),
-        (True, False, "uniform"),
-        (True, False, "exponential"),
-        (False, True, "lognormal"),
-        (False, False, "uniform"),
-    ]
-)
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("distribution", ["lognormal", "exponential",
+                                          "uniform"])
 @pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
-def test_weighted_cd(datatype, model,
-                     fit_intercept, normalize, distribution):
+def test_weighted_cd(datatype, model, fit_intercept, distribution):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
@@ -135,15 +126,14 @@ def test_weighted_cd(datatype, model,
 
     # Initialization of cuML's linear regression model
     cumodel = cuModel(fit_intercept=fit_intercept, tol=1e-10,
-                    normalize=normalize, max_iter=1000)
+                      max_iter=1000)
 
     # fit and predict cuml linear regression model
     cumodel.fit(X_train, y_train, sample_weight=wt)
     cumodel_predict = cumodel.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skmodel = skModel(fit_intercept=fit_intercept, tol=1e-10,
-                      normalize=normalize, max_iter=1000)
+    skmodel = skModel(fit_intercept=fit_intercept, tol=1e-10, max_iter=1000)
     skmodel.fit(X_train, y_train, sample_weight=wt)
 
     skmodel_predict = skmodel.predict(X_test)
