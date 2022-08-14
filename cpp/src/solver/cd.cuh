@@ -190,7 +190,6 @@ void cdFit(const raft::handle_t& handle,
                         norm2_input.data(),
                         fit_intercept,
                         normalize,
-                        stream,
                         sample_weight);
   }
   if (sample_weight != nullptr) {
@@ -317,8 +316,7 @@ void cdFit(const raft::handle_t& handle,
                          mu_labels.data(),
                          norm2_input.data(),
                          fit_intercept,
-                         normalize,
-                         stream);
+                         normalize);
 
   } else {
     *intercept = math_t(0);

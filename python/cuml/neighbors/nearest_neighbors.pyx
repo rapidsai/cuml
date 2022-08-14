@@ -24,6 +24,7 @@ import cupyx
 import cudf
 import ctypes
 import warnings
+import math
 
 import cuml.internals
 from cuml.common.base import Base
@@ -178,7 +179,7 @@ class NearestNeighbors(Base,
         - ``'rbc'``: for the random ball algorithm, which partitions
           the data space and uses the triangle inequality to lower the
           number of potential distances. Currently, this algorithm
-          supports 2d Euclidean and Haversine.
+          supports Haversine (2d) and Euclidean in 2d and 3d.
         - ``'brute'``: for brute-force, slow but produces exact results
         - ``'ivfflat'``: for inverted file, divide the dataset in partitions
           and perform search on relevant partitions only
@@ -347,19 +348,21 @@ class NearestNeighbors(Base,
         self.n_dims = X.shape[1]
 
         if self.algorithm == "auto":
-            if self.n_dims == 2 and self.metric in \
-                    cuml.neighbors.VALID_METRICS["rbc"]:
+            if (self.n_dims == 2 or self.n_dims == 3) and \
+                not is_sparse(X) and \
+                self.metric in cuml.neighbors.VALID_METRICS["rbc"] and \
+                    math.sqrt(X.shape[0]) >= self.n_neighbors:
                 self.working_algorithm_ = "rbc"
             else:
                 self.working_algorithm_ = "brute"
 
-        if self.algorithm == "rbc" and self.n_dims > 2:
+        if self.algorithm == "rbc" and self.n_dims > 3:
             raise ValueError("The rbc algorithm is not supported for"
-                             " >2 dimensions currently.")
+                             " >3 dimensions currently.")
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
-            value_metric_str = "_SPARSE"
+            valid_metric_str = "_SPARSE"
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
@@ -703,7 +706,16 @@ class NearestNeighbors(Base,
         cdef BallCoverIndex[int64_t, float, uint32_t]* rbc_index = \
             <BallCoverIndex[int64_t, float, uint32_t]*> 0
 
-        if self.working_algorithm_ == 'brute':
+        fallback_to_brute = self.working_algorithm_ == "rbc" and \
+            n_neighbors > math.sqrt(self.X_m.shape[0])
+
+        if fallback_to_brute:
+            warnings.warn("algorithm='rbc' requires sqrt(%s) be "
+                          "> n_neighbors (%s). falling back to "
+                          "brute force search" %
+                          (self.X_m.shape[0], n_neighbors))
+
+        if self.working_algorithm_ == 'brute' or fallback_to_brute:
             inputs.push_back(<float*><uintptr_t>self.X_m.ptr)
             sizes.push_back(<int>self.X_m.shape[0])
 
@@ -886,12 +898,15 @@ class NearestNeighbors(Base,
     def __del__(self):
         cdef knnIndex* knn_index = <knnIndex*>0
         cdef BallCoverIndex* rbc_index = <BallCoverIndex*>0
-        if self.knn_index is not None:
+
+        kidx = self.__dict__['knn_index'] \
+            if 'knn_index' in self.__dict__ else None
+        if kidx is not None:
             if self.working_algorithm_ in ["ivfflat", "ivfpq", "ivfsq"]:
-                knn_index = <knnIndex*><uintptr_t>self.knn_index
+                knn_index = <knnIndex*><uintptr_t>kidx
                 del knn_index
             else:
-                rbc_index = <BallCoverIndex*><uintptr_t>self.knn_index
+                rbc_index = <BallCoverIndex*><uintptr_t>kidx
                 del rbc_index
 
 

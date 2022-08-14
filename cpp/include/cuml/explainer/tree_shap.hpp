@@ -20,25 +20,51 @@
 #include <cstdint>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <memory>
+#include <variant>
 
 namespace ML {
 namespace Explainer {
 
-// An abstract class representing an opaque handle to path information
-// extracted from a tree model. The implementation in tree_shap.cu will
-// define an internal class that inherits from this abtract class.
-class TreePathInfo {
- public:
-  enum class ThresholdTypeEnum : std::uint8_t { kFloat, kDouble };
-  virtual ThresholdTypeEnum GetThresholdType() const = 0;
-};
+template <typename T>
+class TreePathInfo;
 
-std::unique_ptr<TreePathInfo> extract_path_info(ModelHandle model);
-void gpu_treeshap(TreePathInfo* path_info,
-                  const float* data,
+using TreePathHandle =
+  std::variant<std::shared_ptr<TreePathInfo<float>>, std::shared_ptr<TreePathInfo<double>>>;
+
+using FloatPointer = std::variant<float*, double*>;
+
+TreePathHandle extract_path_info(ModelHandle model);
+
+void gpu_treeshap(TreePathHandle path_info,
+                  const FloatPointer data,
                   std::size_t n_rows,
                   std::size_t n_cols,
-                  float* out_preds);
+                  FloatPointer out_preds,
+                  std::size_t out_preds_size);
+
+void gpu_treeshap_interventional(TreePathHandle path_info,
+                                 const FloatPointer data,
+                                 std::size_t n_rows,
+                                 std::size_t n_cols,
+                                 const FloatPointer background_data,
+                                 std::size_t background_n_rows,
+                                 std::size_t background_n_cols,
+                                 FloatPointer out_preds,
+                                 std::size_t out_preds_size);
+
+void gpu_treeshap_interactions(TreePathHandle path_info,
+                               const FloatPointer data,
+                               std::size_t n_rows,
+                               std::size_t n_cols,
+                               FloatPointer out_preds,
+                               std::size_t out_preds_size);
+
+void gpu_treeshap_taylor_interactions(TreePathHandle path_info,
+                                      const FloatPointer data,
+                                      std::size_t n_rows,
+                                      std::size_t n_cols,
+                                      FloatPointer out_preds,
+                                      std::size_t out_preds_size);
 
 }  // namespace Explainer
 }  // namespace ML

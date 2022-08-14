@@ -30,6 +30,9 @@ import cupyx
 
 import numba.cuda as cuda
 
+from cuml.manifold.umap_utils cimport *
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params
+
 from cuml.common.sparsefuncs import extract_knn_graph
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
@@ -47,6 +50,10 @@ from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
+from cuml.metrics.distance_type cimport DistanceType
+
+from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
+    simplicial_set_embedding
 
 if has_scipy(True):
     import scipy.sparse
@@ -55,53 +62,12 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 
 import rmm
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdint cimport uint64_t
-from libc.stdint cimport int64_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport free
 
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
-
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
-
-    enum MetricType:
-        EUCLIDEAN = 0,
-        CATEGORICAL = 1
-
-cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
-
-    cdef cppclass GraphBasedDimRedCallback
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
-
-    cdef cppclass UMAPParams:
-        int n_neighbors,
-        int n_components,
-        int n_epochs,
-        float learning_rate,
-        float min_dist,
-        float spread,
-        float set_op_mix_ratio,
-        float local_connectivity,
-        float repulsion_strength,
-        int negative_sample_rate,
-        float transform_queue_size,
-        int verbosity,
-        float a,
-        float b,
-        float initial_alpha,
-        int init,
-        int target_n_neighbors,
-        MetricType target_metric,
-        float target_weight,
-        uint64_t random_state,
-        bool deterministic,
-        int optim_batch_size,
-        GraphBasedDimRedCallback * callback
 
 
 cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
@@ -114,7 +80,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
              int64_t * knn_indices,
              float * knn_dists,
              UMAPParams * params,
-             float * embeddings) except +
+             float * embeddings,
+             COO * graph) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -125,7 +92,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                     int n,
                     int d,
                     UMAPParams *params,
-                    float *embeddings) except +
+                    float *embeddings,
+                    COO * graph) except +
 
     void transform(handle_t & handle,
                    float * X,
@@ -182,6 +150,13 @@ class UMAP(Base,
     n_components: int (optional, default 2)
         The dimension of the space to embed into. This defaults to 2 to
         provide easy visualization, but can reasonably be set to any
+    metric : string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary.
     n_epochs: int (optional, default None)
         The number of training epochs to be used in optimizing the
         low dimensional embedding. Larger values result in more accurate
@@ -270,11 +245,6 @@ class UMAP(Base,
         consistency of trained embeddings, allowing for reproducible results
         to 3 digits of precision, but will do so at the expense of potentially
         slower training and increased memory usage.
-    optim_batch_size: int (optional, default 100000 / n_components)
-        Used to maintain the consistency of embeddings for large datasets.
-        The optimization step will be processed with at most optim_batch_size
-        edges at once preventing inconsistencies. A lower batch size will yield
-        more consistently repeatable embeddings at the cost of speed.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -336,6 +306,8 @@ class UMAP(Base,
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
+                 metric="euclidean",
+                 metric_kwds=None,
                  n_epochs=None,
                  learning_rate=1.0,
                  min_dist=0.1,
@@ -366,6 +338,8 @@ class UMAP(Base,
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
+        self.metric = metric
+        self.metric_kwds = metric_kwds
         self.n_epochs = n_epochs if n_epochs else 0
 
         if init == "spectral" or init == "random":
@@ -457,6 +431,37 @@ class UMAP(Base,
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
 
+        # metric
+        metric_parsing = {
+            "l2": DistanceType.L2SqrtUnexpanded,
+            "euclidean": DistanceType.L2SqrtUnexpanded,
+            "sqeuclidean": DistanceType.L2Unexpanded,
+            "cityblock": DistanceType.L1,
+            "l1": DistanceType.L1,
+            "manhattan": DistanceType.L1,
+            "taxicab": DistanceType.L1,
+            "minkowski": DistanceType.LpUnexpanded,
+            "chebyshev": DistanceType.Linf,
+            "linf": DistanceType.Linf,
+            "cosine": DistanceType.CosineExpanded,
+            "correlation": DistanceType.CorrelationExpanded,
+            "hellinger": DistanceType.HellingerExpanded,
+            "hamming": DistanceType.HammingUnexpanded,
+            "jaccard": DistanceType.JaccardExpanded,
+            "canberra": DistanceType.Canberra
+        }
+
+        if cls.metric.lower() in metric_parsing:
+            umap_params.metric = metric_parsing[cls.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(cls.metric))
+
+        if cls.metric_kwds is None:
+            umap_params.p = <float> 2.0
+        else:
+            umap_params.p = <float>cls.metric_kwds.get('p')
+
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
             callback_ptr = cls.callback.get_native_callback()
@@ -471,27 +476,7 @@ class UMAP(Base,
 
     @staticmethod
     def find_ab_params(spread, min_dist):
-        """ Function taken from UMAP-learn : https://github.com/lmcinnes/umap
-        Fit a, b params for the differentiable curve used in lower
-        dimensional fuzzy simplicial complex construction. We want the
-        smooth curve (from a pre-defined family with simple gradient) that
-        best matches an offset exponential decay.
-        """
-
-        def curve(x, a, b):
-            return 1.0 / (1.0 + a * x ** (2 * b))
-
-        if has_scipy():
-            from scipy.optimize import curve_fit
-        else:
-            raise RuntimeError('Scipy is needed to run find_ab_params')
-
-        xv = np.linspace(0, spread * 3, 300)
-        yv = np.zeros(xv.shape)
-        yv[xv < min_dist] = 1.0
-        yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
-        params, covar = curve_fit(curve, xv, yv)
-        return params[0], params[1]
+        return find_ab_params(spread, min_dist)
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
@@ -585,6 +570,7 @@ class UMAP(Base,
                                                       else None))
             y_raw = y_m.ptr
 
+        fss_graph = GraphHolder.new_graph(handle_.get_stream())
         if self.sparse_fit:
             fit_sparse(handle_[0],
                        <int*><uintptr_t> self.X_m.indptr.ptr,
@@ -595,7 +581,8 @@ class UMAP(Base,
                        <int> self.n_rows,
                        <int> self.n_dims,
                        <UMAPParams*> umap_params,
-                       <float*> embed_raw)
+                       <float*> embed_raw,
+                       <COO*> fss_graph.get())
 
         else:
             fit(handle_[0],
@@ -606,7 +593,10 @@ class UMAP(Base,
                 <int64_t*> knn_indices_raw,
                 <float*> knn_dists_raw,
                 <UMAPParams*>umap_params,
-                <float*>embed_raw)
+                <float*>embed_raw,
+                <COO*> fss_graph.get())
+
+        self.graph_ = fss_graph.get_cupy_coo()
 
         self.handle.sync()
 
@@ -732,10 +722,6 @@ class UMAP(Base,
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
-        if n_rows <= 1:
-            raise ValueError("There needs to be more than 1 sample to "
-                             "build nearest the neighbors graph")
-
         if n_cols != self.n_dims:
             raise ValueError("n_features of X must match n_features of "
                              "training data")
@@ -825,4 +811,6 @@ class UMAP(Base,
             "hash_input",
             "random_state",
             "callback",
+            "metric",
+            "metric_kwds"
         ]

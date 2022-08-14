@@ -504,9 +504,9 @@ struct sparse_forest : forest<typename node_t::real_type> {
 
   void free(const raft::handle_t& h) override
   {
-    forest<real_type>::free(h);
     trees_.release();
     nodes_.release();
+    forest<real_type>::free(h);
   }
 
   int num_nodes_ = 0;
@@ -581,7 +581,7 @@ void check_params(const forest_params_t* params, bool dense)
   ASSERT(params->blocks_per_sm >= 0, "blocks_per_sm must be nonnegative");
   ASSERT(params->n_items >= 0, "n_items must be non-negative");
   ASSERT(params->threads_per_tree > 0, "threads_per_tree must be positive");
-  ASSERT(thrust::detail::is_power_of_2(params->threads_per_tree),
+  ASSERT((params->threads_per_tree & (params->threads_per_tree - 1)) == 0,
          "threads_per_tree must be a power of 2");
   ASSERT(params->threads_per_tree <= FIL_TPB,
          "threads_per_tree must not "
@@ -616,6 +616,13 @@ template void init<dense_node<float>, float>(const raft::handle_t& h,
                                              const int* trees,
                                              const dense_node<float>* nodes,
                                              const forest_params_t* params);
+template void init<dense_node<double>, double>(const raft::handle_t& h,
+                                               forest_t<double>* pf,
+                                               const categorical_sets& cat_sets,
+                                               const std::vector<double>& vector_leaf,
+                                               const int* trees,
+                                               const dense_node<double>* nodes,
+                                               const forest_params_t* params);
 template void init<sparse_node16<float>, float>(const raft::handle_t& h,
                                                 forest_t<float>* pf,
                                                 const categorical_sets& cat_sets,
@@ -623,6 +630,13 @@ template void init<sparse_node16<float>, float>(const raft::handle_t& h,
                                                 const int* trees,
                                                 const sparse_node16<float>* nodes,
                                                 const forest_params_t* params);
+template void init<sparse_node16<double>, double>(const raft::handle_t& h,
+                                                  forest_t<double>* pf,
+                                                  const categorical_sets& cat_sets,
+                                                  const std::vector<double>& vector_leaf,
+                                                  const int* trees,
+                                                  const sparse_node16<double>* nodes,
+                                                  const forest_params_t* params);
 template void init<sparse_node8, float>(const raft::handle_t& h,
                                         forest_t<float>* pf,
                                         const categorical_sets& cat_sets,
@@ -639,6 +653,7 @@ void free(const raft::handle_t& h, forest_t<real_t> f)
 }
 
 template void free<float>(const raft::handle_t& h, forest_t<float> f);
+template void free<double>(const raft::handle_t& h, forest_t<double> f);
 
 template <typename real_t>
 void predict(const raft::handle_t& h,
@@ -657,6 +672,12 @@ template void predict<float>(const raft::handle_t& h,
                              const float* data,
                              size_t num_rows,
                              bool predict_proba);
+template void predict<double>(const raft::handle_t& h,
+                              forest_t<double> f,
+                              double* preds,
+                              const double* data,
+                              size_t num_rows,
+                              bool predict_proba);
 
 }  // namespace fil
 }  // namespace ML
