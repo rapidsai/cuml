@@ -168,11 +168,7 @@ void cdFit(const raft::handle_t& handle,
     raft::update_host(&h_sum_sw, sum_sw.data(), 1, stream);
 
     raft::linalg::multiplyScalar(
-      sample_weight,
-      sample_weight,
-      (math_t)n_rows / h_sum_sw,
-      n_rows,
-      stream);
+      sample_weight, sample_weight, (math_t)n_rows / h_sum_sw, n_rows, stream);
   }
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
@@ -296,12 +292,7 @@ void cdFit(const raft::handle_t& handle,
       labels,
       sample_weight);
     raft::linalg::powerScalar(sample_weight, sample_weight, (math_t)2, n_rows, stream);
-    raft::linalg::multiplyScalar(
-      sample_weight,
-      sample_weight,
-      h_sum_sw / n_rows,
-      n_rows,
-      stream);
+    raft::linalg::multiplyScalar(sample_weight, sample_weight, h_sum_sw / n_rows, n_rows, stream);
   }
 
   if (fit_intercept) {
