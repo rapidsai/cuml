@@ -319,7 +319,6 @@ void cdFit(raft::handle_t& handle,
         l1_ratio,
         shuffle,
         tol,
-        handle.get_stream(),
         sample_weight);
 }
 
@@ -359,7 +358,6 @@ void cdFit(raft::handle_t& handle,
         l1_ratio,
         shuffle,
         tol,
-        handle.get_stream(),
         sample_weight);
 }
 
@@ -379,7 +377,7 @@ void cdPredict(raft::handle_t& handle,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.get_stream());
+  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct);
 }
 
 void cdPredict(raft::handle_t& handle,
@@ -398,7 +396,7 @@ void cdPredict(raft::handle_t& handle,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.get_stream());
+  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct);
 }
 
 }  // namespace Solver

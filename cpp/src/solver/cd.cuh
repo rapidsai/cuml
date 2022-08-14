@@ -146,7 +146,6 @@ void cdFit(const raft::handle_t& handle,
            math_t l1_ratio,
            bool shuffle,
            math_t tol,
-           cudaStream_t stream,
            math_t* sample_weight)
 {
   raft::common::nvtx::range fun_scope("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
@@ -155,6 +154,7 @@ void cdFit(const raft::handle_t& handle,
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
+  cudaStream_t stream = handle.get_stream();
   rmm::device_uvector<math_t> residual(n_rows, stream);
   rmm::device_uvector<math_t> squared(n_cols, stream);
   rmm::device_uvector<math_t> mu_input(0, stream);
@@ -345,15 +345,14 @@ void cdPredict(const raft::handle_t& handle,
                const math_t* coef,
                math_t intercept,
                math_t* preds,
-               ML::loss_funct loss,
-               cudaStream_t stream)
+               ML::loss_funct loss)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
   ASSERT(loss == ML::loss_funct::SQRD_LOSS,
          "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-  Functions::linearRegH(handle, input, n_rows, n_cols, coef, preds, intercept, stream);
+  Functions::linearRegH(handle, input, n_rows, n_cols, coef, preds, intercept, handle.get_stream());
 }
 
 };  // namespace Solver
