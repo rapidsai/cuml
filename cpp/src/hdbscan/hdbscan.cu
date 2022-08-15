@@ -30,10 +30,29 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
+             HDBSCAN::Common::hdbscan_output<int, float>& out)
+{
+  rmm::device_uvector<int> label_map(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), out);
+}
+
+void hdbscan(const raft::handle_t& handle,
+             const float* X,
+             size_t m,
+             size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
              HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
 {
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out, prediction_data_);
+  rmm::device_uvector<int> label_map(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), out);
+  HDBSCAN::Common::build_prediction_data(handle,
+                                         out.get_condensed_tree(),
+                                         out.get_labels(),
+                                         label_map.data(),
+                                         out.get_n_clusters(),
+                                         prediction_data_);
 }
 
 void build_condensed_hierarchy(const raft::handle_t& handle,

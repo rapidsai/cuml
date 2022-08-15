@@ -152,7 +152,6 @@ class RobustSingleLinkageParams {
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
-  bool prediction_data                              = false;
 };
 
 /**
@@ -402,11 +401,18 @@ void build_prediction_data(const raft::handle_t& handle,
  * @param n number of columns in X
  * @param metric distance metric to use
  * @param params struct of configuration hyper-parameters
- * @param prediction_data boolean indicating whether or not prediction_data_ should be calculated
  * @param out struct of output data and arrays on device
  * @param prediction_data_ struct for storing computing and storing information to be used during
  * prediction
  */
+void hdbscan(const raft::handle_t& handle,
+             const float* X,
+             size_t m,
+             size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams& params,
+             HDBSCAN::Common::hdbscan_output<int, float>& out);
+
 void hdbscan(const raft::handle_t& handle,
              const float* X,
              size_t m,
