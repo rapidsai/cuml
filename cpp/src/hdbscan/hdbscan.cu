@@ -30,11 +30,29 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out,
-             bool prediction_data,
-             HDBSCAN::Common::PredictionData<int, float>& pred_data)
+             HDBSCAN::Common::hdbscan_output<int, float>& out)
 {
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out, prediction_data, pred_data);
+  rmm::device_uvector<int> label_map(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), out);
+}
+
+void hdbscan(const raft::handle_t& handle,
+             const float* X,
+             size_t m,
+             size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams& params,
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
+{
+  rmm::device_uvector<int> label_map(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), out);
+  HDBSCAN::Common::build_prediction_data(handle,
+                                         out.get_condensed_tree(),
+                                         out.get_labels(),
+                                         label_map.data(),
+                                         out.get_n_clusters(),
+                                         prediction_data_);
 }
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
@@ -89,10 +107,11 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
                                     const float* X,
                                     raft::distance::DistanceType metric)
 {
-  HDBSCAN::detail::Membership::all_points_membership_vectors(
+  HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 
+<<<<<<< HEAD
 void _approximate_predict(const raft::handle_t& handle,
   HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
   HDBSCAN::Common::PredictionData<int, float>& prediction_data,
@@ -139,4 +158,6 @@ void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::hand
     core_dists.begin(), core_dists_, n_rows, handle.get_stream());
 }
 
+=======
+>>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 };  // end namespace ML

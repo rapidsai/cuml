@@ -97,7 +97,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     hdbscan_params.min_cluster_size = params.min_cluster_size;
     hdbscan_params.min_samples      = params.min_pts;
 
-    HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle, params.n_row, params.n_col);
+    HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(handle, params.n_row, params.n_col);
 
     hdbscan(handle,
             data.data(),
@@ -106,8 +106,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
             raft::distance::DistanceType::L2SqrtExpanded,
             hdbscan_params,
             out,
-            false,
-            pred_data);
+            prediction_data_);
 
     handle.sync_stream(handle.get_stream());
 
@@ -344,8 +343,6 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
 
     params = ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>>::GetParam();
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
-
     rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
                                                 handle.get_stream());
     rmm::device_uvector<IdxT> condensed_children(params.condensed_children.size(),
@@ -406,17 +403,27 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
 
     rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
 
-    ML::HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle, params.n_row, params.n_col);
+    ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
+      handle, params.n_row, params.n_col);
 
+<<<<<<< HEAD
     rmm::device_uvector<T> core_dists(params.n_row, handle.get_stream());
 
     ML::HDBSCAN::detail::Membership::build_prediction_data(
       handle, condensed_tree, labels.data(), label_map.data(), core_dists.data(), params.n_row, n_selected_clusters, pred_data);
+=======
+    ML::HDBSCAN::Common::build_prediction_data(handle,
+                                               condensed_tree,
+                                               labels.data(),
+                                               label_map.data(),
+                                               n_selected_clusters,
+                                               prediction_data_);
+>>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 
-    ML::HDBSCAN::detail::Membership::all_points_membership_vectors(
+    ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
       handle,
       condensed_tree,
-      pred_data,
+      prediction_data_,
       membership_vec.data(),
       data.data(),
       raft::distance::DistanceType::L2SqrtExpanded);

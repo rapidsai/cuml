@@ -19,7 +19,7 @@
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
-namespace Membership {
+namespace Predict {
 
 template <typename value_idx, typename value_t, int tpb = 256>
 __global__ void merge_height_kernel(value_t* heights,
@@ -84,7 +84,7 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
   }
 }
 
-};  // namespace Membership
+};  // namespace Predict
 };  // namespace detail
 };  // namespace HDBSCAN
 };  // namespace ML

@@ -194,9 +194,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
-                  Common::hdbscan_output<value_idx, value_t>& out,
-                  bool prediction_data,
-                  Common::PredictionData<value_idx, value_t>& pred_data)
+                  value_idx* label_map,
+                  Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -206,10 +205,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
   rmm::device_uvector<value_t> core_dists(m, stream);
 
   build_linkage(handle, X, m, n, metric, params, core_dists.data(), out);
-
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Linkage build successful");
 
   /**
    * Condense branches of tree according to min cluster size
@@ -221,17 +216,13 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                               min_cluster_size,
                                               m,
                                               out.get_condensed_tree());
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Built condensed hierarchy");
+
   /**
    * Extract labels from stability
    */
 
   rmm::device_uvector<value_t> tree_stabilities(out.get_condensed_tree().get_n_clusters(),
                                                 handle.get_stream());
-
-  rmm::device_uvector<value_idx> label_map(m, stream);
 
   std::vector<value_idx> label_set;
   value_idx n_selected_clusters =
@@ -241,14 +232,12 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       out.get_labels(),
                                       tree_stabilities.data(),
                                       out.get_probabilities(),
-                                      label_map.data(),
+                                      label_map,
                                       params.cluster_selection_method,
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
                                       params.cluster_selection_epsilon);
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  CUML_LOG_DEBUG("Extracted clusters");
+
   out.set_n_clusters(n_selected_clusters);
 
   auto lambdas_ptr   = thrust::device_pointer_cast(out.get_condensed_tree().get_lambdas());
@@ -262,12 +251,13 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                           max_lambda,
                                           m,
                                           out.get_stabilities(),
-                                          label_map.data());
+                                          label_map);
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
+<<<<<<< HEAD
   handle.sync_stream(stream);
   cudaDeviceSynchronize();
   if (prediction_data) {
@@ -280,14 +270,15 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                               n_selected_clusters,
                                               pred_data);
   }
+=======
+>>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 
-  value_idx* label_map_ptr = label_map.data();
   thrust::transform(exec_policy,
                     out.get_labels(),
                     out.get_labels() + m,
                     out.get_labels(),
                     [=] __device__(value_idx label) {
-                      if (label != -1) return label_map_ptr[label];
+                      if (label != -1) return label_map[label];
                       return -1;
                     });
 }

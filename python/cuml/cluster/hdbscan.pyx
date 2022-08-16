@@ -81,7 +81,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         float cluster_selection_epsilon,
 
         bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method
+        CLUSTER_SELECTION_METHOD cluster_selection_method,
+        bool prediction_data
 
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
@@ -95,9 +96,15 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  size_t m, size_t n,
                  DistanceType metric,
                  HDBSCANParams & params,
+                 hdbscan_output & output)
+
+    void hdbscan(const handle_t & handle,
+                 const float* X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams& params,
                  hdbscan_output & output,
-                 bool prediction_data,
-                 PredictionData[int, float] &pred_data)
+                 PredictionData & prediction_data_)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -119,7 +126,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
     void _all_points_membership_vectors(
         const handle_t &handle,
         CondensedHierarchy[int, float] &condensed_tree,
-        PredictionData[int, float] &pred_data,
+        PredictionData[int, float] &prediction_data_,
         float* membership_vec,
         float* X,
         DistanceType metric)
@@ -673,18 +680,25 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         cdef PredictionData[int, float] *pred_data = new PredictionData(
             handle_[0], <int> n_rows, <int> n_cols)
-        self._prediction_data = <size_t>pred_data
-
         if self.connectivity == 'knn':
-            hdbscan(handle_[0],
-                    <float*>input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <DistanceType> metric,
-                    params,
-                    deref(linkage_output),
-                    <bool> self.prediction_data,
-                    deref(pred_data))
+            if self.prediction_data:
+                self._prediction_data = <size_t>pred_data
+                hdbscan(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output),
+                        deref(pred_data))
+            else:
+                hdbscan(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")

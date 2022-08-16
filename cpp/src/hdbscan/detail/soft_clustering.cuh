@@ -58,6 +58,7 @@
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
+<<<<<<< HEAD
 namespace Membership {
 
 template <typename value_idx, typename value_t, int tpb=256>
@@ -198,6 +199,9 @@ void build_prediction_data(const raft::handle_t& handle,
                         selected_clusters.data(),
                         core_dists);
 }
+=======
+namespace Predict {
+>>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 
 template <typename value_idx, typename value_t>
 void all_points_dist_membership_vector(const raft::handle_t& handle,
@@ -506,7 +510,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
     stream);
 }
 
-};  // namespace Membership
+};  // namespace Predict
 };  // namespace detail
 };  // namespace HDBSCAN
 };  // namespace ML

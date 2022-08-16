@@ -306,6 +306,12 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 
 template class CondensedHierarchy<int, float>;
 
+/**
+ * Container object for computing and storing intermediate information needed later for computing
+ * membership vectors and approximate_predict.
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 class PredictionData {
  public:
@@ -325,6 +331,9 @@ class PredictionData {
   size_t n_rows;
   size_t n_cols;
 
+  // Using getters here, making the members private and forcing
+  // consistent state with the constructor. This should make
+  // it much easier to use / debug.
   value_idx get_n_exemplars() { return n_exemplars; }
   value_idx get_n_selected_clusters() { return n_selected_clusters; }
   value_idx* get_exemplar_idx() { return exemplar_idx.data(); }
@@ -333,6 +342,7 @@ class PredictionData {
   value_t* get_deaths() { return deaths.data(); }
   value_t* get_core_dists() { return core_dists.data(); }
 
+<<<<<<< HEAD
   void cache(const raft::handle_t& handle,
              value_idx n_exemplars_,
              value_idx n_clusters,
@@ -342,6 +352,27 @@ class PredictionData {
              value_idx* exemplar_label_offsets_,
              value_idx* selected_clusters_,
              value_t* core_dists_);
+=======
+  /**
+   * Resize buffers to the required sizes for storing data
+   * @param handle raft handle for ordering cuda operations
+   * @param n_exemplars_  number of exemplar points
+   * @param n_selected_clusters_ number of clusters selected
+   */
+  void allocate(const raft::handle_t& handle,
+                value_idx n_exemplars_,
+                value_idx n_selected_clusters_);
+
+  /**
+   * Resize buffers for cluster deaths to n_clusters
+   * @param handle raft handle for ordering cuda operations
+   * @param n_clusters_
+   */
+  void set_n_clusters(const raft::handle_t& handle, value_idx n_clusters_)
+  {
+    deaths.resize(n_clusters_, handle.get_stream());
+  }
+>>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 
  private:
   const raft::handle_t& handle;
@@ -355,6 +386,13 @@ class PredictionData {
 };
 
 template class PredictionData<int, float>;
+
+void build_prediction_data(const raft::handle_t& handle,
+                           CondensedHierarchy<int, float>& condensed_tree,
+                           int* labels,
+                           int* label_map,
+                           int n_selected_clusters,
+                           PredictionData<int, float>& prediction_data);
 
 };  // namespace Common
 };  // namespace HDBSCAN
@@ -379,6 +417,8 @@ template class PredictionData<int, float>;
  * @param metric distance metric to use
  * @param params struct of configuration hyper-parameters
  * @param out struct of output data and arrays on device
+ * @param prediction_data_ struct for storing computing and storing information to be used during
+ * prediction
  */
 void hdbscan(const raft::handle_t& handle,
              const float* X,
@@ -386,9 +426,16 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
+             HDBSCAN::Common::hdbscan_output<int, float>& out);
+
+void hdbscan(const raft::handle_t& handle,
+             const float* X,
+             size_t m,
+             size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
-             bool prediction_data,
-             HDBSCAN::Common::PredictionData<int, float>& pred_data);
+             HDBSCAN::Common::PredictionData<int, float>& prediction_data_);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,
