@@ -391,6 +391,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    prediction_data : bool, optinal (default=False)
+        Whether to generate extra cached data for predicting labels or
+        membership vectors few new unseen points later. If you wish to
+        persist the clustering object for later re-use you probably want
+        to set this to True.
+
 
     Attributes
     ----------
