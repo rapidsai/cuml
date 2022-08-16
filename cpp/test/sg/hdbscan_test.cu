@@ -406,19 +406,12 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
       handle, params.n_row, params.n_col);
 
-<<<<<<< HEAD
-    rmm::device_uvector<T> core_dists(params.n_row, handle.get_stream());
-
-    ML::HDBSCAN::detail::Membership::build_prediction_data(
-      handle, condensed_tree, labels.data(), label_map.data(), core_dists.data(), params.n_row, n_selected_clusters, pred_data);
-=======
     ML::HDBSCAN::Common::build_prediction_data(handle,
                                                condensed_tree,
                                                labels.data(),
                                                label_map.data(),
                                                n_selected_clusters,
                                                prediction_data_);
->>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 
     ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
       handle,

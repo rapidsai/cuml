@@ -195,6 +195,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
                   value_idx* label_map,
+                  value_t* core_dists,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
@@ -202,9 +203,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
-  rmm::device_uvector<value_t> core_dists(m, stream);
-
-  build_linkage(handle, X, m, n, metric, params, core_dists.data(), out);
+  build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
   /**
    * Condense branches of tree according to min cluster size
@@ -257,22 +256,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
-<<<<<<< HEAD
-  handle.sync_stream(stream);
-  cudaDeviceSynchronize();
-  if (prediction_data) {
-    detail::Membership::build_prediction_data(handle,
-                                              out.get_condensed_tree(),
-                                              out.get_labels(),
-                                              label_map.data(),
-                                              core_dists.data(),
-                                              m,
-                                              n_selected_clusters,
-                                              pred_data);
-  }
-=======
->>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
-
   thrust::transform(exec_policy,
                     out.get_labels(),
                     out.get_labels() + m,

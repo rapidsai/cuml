@@ -322,7 +322,7 @@ class PredictionData {
       n_selected_clusters(0),
       selected_clusters(0, handle.get_stream()),
       deaths(0, handle.get_stream()),
-      core_dists(0, handle.get_stream()),
+      core_dists(m, handle.get_stream()),
       n_exemplars(0),
       n_rows(m),
       n_cols(n)
@@ -342,17 +342,6 @@ class PredictionData {
   value_t* get_deaths() { return deaths.data(); }
   value_t* get_core_dists() { return core_dists.data(); }
 
-<<<<<<< HEAD
-  void cache(const raft::handle_t& handle,
-             value_idx n_exemplars_,
-             value_idx n_clusters,
-             value_idx n_selected_clusters_,
-             value_t* deaths_,
-             value_idx* exemplar_idx_,
-             value_idx* exemplar_label_offsets_,
-             value_idx* selected_clusters_,
-             value_t* core_dists_);
-=======
   /**
    * Resize buffers to the required sizes for storing data
    * @param handle raft handle for ordering cuda operations
@@ -372,7 +361,6 @@ class PredictionData {
   {
     deaths.resize(n_clusters_, handle.get_stream());
   }
->>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 
  private:
   const raft::handle_t& handle;

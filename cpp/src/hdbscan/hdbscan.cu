@@ -33,7 +33,8 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::hdbscan_output<int, float>& out)
 {
   rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), out);
+  rmm::device_uvector<float> core_dists(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), core_dists.data(), out);
 }
 
 void hdbscan(const raft::handle_t& handle,
@@ -46,7 +47,7 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
 {
   rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), out);
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, label_map.data(), prediction_data_.get_core_dists(), out);
   HDBSCAN::Common::build_prediction_data(handle,
                                          out.get_condensed_tree(),
                                          out.get_labels(),
@@ -111,7 +112,6 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 
-<<<<<<< HEAD
 void _approximate_predict(const raft::handle_t& handle,
   HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
   HDBSCAN::Common::PredictionData<int, float>& prediction_data,
@@ -127,37 +127,4 @@ void _approximate_predict(const raft::handle_t& handle,
   HDBSCAN::detail::Predict::approximate_predict(
     handle, condensed_tree, prediction_data, X, labels, points_to_predict, n_prediction_points, metric, min_samples, out_labels, out_probabilities);
 }
-
-template <typename value_idx, typename value_t>
-void HDBSCAN::Common::PredictionData<value_idx, value_t>::cache(const raft::handle_t& handle,
-                                                                value_idx n_exemplars_,
-                                                                value_idx n_clusters,
-                                                                value_idx n_selected_clusters_,
-                                                                value_t* deaths_,
-                                                                value_idx* exemplar_idx_,
-                                                                value_idx* exemplar_label_offsets_,
-                                                                value_idx* selected_clusters_,
-                                                                value_t* core_dists_)
-{
-  this->n_exemplars         = n_exemplars_;
-  this->n_selected_clusters = n_selected_clusters_;
-  exemplar_idx.resize(n_exemplars, handle.get_stream());
-  exemplar_label_offsets.resize(n_selected_clusters_ + 1, handle.get_stream());
-  deaths.resize(n_clusters, handle.get_stream());
-  selected_clusters.resize(n_selected_clusters, handle.get_stream());
-  core_dists.resize(n_rows, handle.get_stream());
-  raft::copy(exemplar_idx.begin(), exemplar_idx_, n_exemplars_, handle.get_stream());
-  raft::copy(exemplar_label_offsets.begin(),
-             exemplar_label_offsets_,
-             n_selected_clusters_ + 1,
-             handle.get_stream());
-  raft::copy(deaths.begin(), deaths_, n_clusters, handle.get_stream());
-  raft::copy(
-    selected_clusters.begin(), selected_clusters_, n_selected_clusters_, handle.get_stream());
-  raft::copy(
-    core_dists.begin(), core_dists_, n_rows, handle.get_stream());
-}
-
-=======
->>>>>>> db324f4371d01f88be88762f9c51e71e6f623c9b
 };  // end namespace ML
