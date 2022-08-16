@@ -402,8 +402,6 @@ void build_prediction_data(const raft::handle_t& handle,
  * @param metric distance metric to use
  * @param params struct of configuration hyper-parameters
  * @param out struct of output data and arrays on device
- * @param prediction_data_ struct for storing computing and storing information to be used during
- * prediction
  */
 void hdbscan(const raft::handle_t& handle,
              const float* X,
@@ -413,6 +411,20 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out);
 
+/**
+ * Executes HDBSCAN clustering on an mxn-dimensional input array, X and builds the PredictionData
+ * object which computes and stores information needed later for prediction algorithms.
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X array (size m, n) on device in row-major format
+ * @param m number of rows in X
+ * @param n number of columns in X
+ * @param metric distance metric to use
+ * @param params struct of configuration hyper-parameters
+ * @param out struct of output data and arrays on device
+ * @param prediction_data_ struct for storing computing and storing information to be used during
+ * prediction
+ */
 void hdbscan(const raft::handle_t& handle,
              const float* X,
              size_t m,
