@@ -29,6 +29,7 @@
 #include <cmath>
 
 #include <thrust/copy.h>
+#include <thrust/count.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
