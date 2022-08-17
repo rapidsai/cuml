@@ -21,6 +21,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.hpp>
 
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/reduce.h>
+
 #define restrict __restrict__
 
 namespace ML {

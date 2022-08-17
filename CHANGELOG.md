@@ -1,3 +1,48 @@
+# cuML 22.08.00 (17 Aug 2022)
+
+## 🚨 Breaking Changes
+
+- Update Python build to scikit-build ([#4818](https://github.com/rapidsai/cuml/pull/4818)) [@dantegd](https://github.com/dantegd)
+- Bump `xgboost` to `1.6.0` from `1.5.2` ([#4777](https://github.com/rapidsai/cuml/pull/4777)) [@galipremsagar](https://github.com/galipremsagar)
+
+## 🐛 Bug Fixes
+
+- Revert &quot;Allow CuPy 11&quot; ([#4847](https://github.com/rapidsai/cuml/pull/4847)) [@galipremsagar](https://github.com/galipremsagar)
+- Fix RAFT_NVTX option not set ([#4825](https://github.com/rapidsai/cuml/pull/4825)) [@achirkin](https://github.com/achirkin)
+- Fix KNN error message. ([#4782](https://github.com/rapidsai/cuml/pull/4782)) [@trivialfis](https://github.com/trivialfis)
+- Update raft pinnings in dev yml files ([#4778](https://github.com/rapidsai/cuml/pull/4778)) [@galipremsagar](https://github.com/galipremsagar)
+- Bump `xgboost` to `1.6.0` from `1.5.2` ([#4777](https://github.com/rapidsai/cuml/pull/4777)) [@galipremsagar](https://github.com/galipremsagar)
+- Fixes exception when using predict_proba on fitted Pipeline object with a ColumnTransformer step ([#4774](https://github.com/rapidsai/cuml/pull/4774)) [@VamsiTallam95](https://github.com/VamsiTallam95)
+- Regression errors failing with mixed data type combinations ([#4770](https://github.com/rapidsai/cuml/pull/4770)) [@shaswat-indian](https://github.com/shaswat-indian)
+
+## 📖 Documentation
+
+- Use common code in python docs and defer `js` loading ([#4852](https://github.com/rapidsai/cuml/pull/4852)) [@galipremsagar](https://github.com/galipremsagar)
+- Centralize common css &amp; js code in docs ([#4844](https://github.com/rapidsai/cuml/pull/4844)) [@galipremsagar](https://github.com/galipremsagar)
+- Add ComplementNB to the documentation ([#4805](https://github.com/rapidsai/cuml/pull/4805)) [@lowener](https://github.com/lowener)
+- Fix forward-merge branch-22.06 to branch-22.08 ([#4789](https://github.com/rapidsai/cuml/pull/4789)) [@divyegala](https://github.com/divyegala)
+
+## 🚀 New Features
+
+- Update Python build to scikit-build ([#4818](https://github.com/rapidsai/cuml/pull/4818)) [@dantegd](https://github.com/dantegd)
+- Vectorizers to accept Pandas Series as input ([#4811](https://github.com/rapidsai/cuml/pull/4811)) [@shaswat-indian](https://github.com/shaswat-indian)
+- Cython wrapper for v-measure ([#4785](https://github.com/rapidsai/cuml/pull/4785)) [@shaswat-indian](https://github.com/shaswat-indian)
+
+## 🛠️ Improvements
+
+- Pin `dask` &amp; `distributed` for release ([#4850](https://github.com/rapidsai/cuml/pull/4850)) [@galipremsagar](https://github.com/galipremsagar)
+- Allow CuPy 11 ([#4837](https://github.com/rapidsai/cuml/pull/4837)) [@jakirkham](https://github.com/jakirkham)
+- Remove duplicate adj_to_csr implementation ([#4829](https://github.com/rapidsai/cuml/pull/4829)) [@ahendriksen](https://github.com/ahendriksen)
+- Update conda environment files to UCX 1.13.0 ([#4813](https://github.com/rapidsai/cuml/pull/4813)) [@pentschev](https://github.com/pentschev)
+- Update conda recipes to UCX 1.13.0 ([#4809](https://github.com/rapidsai/cuml/pull/4809)) [@pentschev](https://github.com/pentschev)
+- Fix #3414: remove naive versions dbscan algorithms ([#4804](https://github.com/rapidsai/cuml/pull/4804)) [@ahendriksen](https://github.com/ahendriksen)
+- Accelerate adjacency matrix to CSR conversion for DBSCAN ([#4803](https://github.com/rapidsai/cuml/pull/4803)) [@ahendriksen](https://github.com/ahendriksen)
+- Pin max version of `cuda-python` to `11.7.0` ([#4793](https://github.com/rapidsai/cuml/pull/4793)) [@Ethyling](https://github.com/Ethyling)
+- Allow cosine distance metric in dbscan ([#4776](https://github.com/rapidsai/cuml/pull/4776)) [@tarang-jain](https://github.com/tarang-jain)
+- Unpin `dask` &amp; `distributed` for development ([#4771](https://github.com/rapidsai/cuml/pull/4771)) [@galipremsagar](https://github.com/galipremsagar)
+- Clean up Thrust includes. ([#4675](https://github.com/rapidsai/cuml/pull/4675)) [@bdice](https://github.com/bdice)
+- Improvements in feature sampling ([#4278](https://github.com/rapidsai/cuml/pull/4278)) [@vinaydes](https://github.com/vinaydes)
+
 # cuML 22.06.00 (7 Jun 2022)
 
 ## 🐛 Bug Fixes
