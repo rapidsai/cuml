@@ -16,9 +16,9 @@
  */
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/specializations.cuh>
-#include <raft/core/handle.hpp>
 
 namespace ML {
 

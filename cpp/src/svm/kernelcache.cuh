@@ -23,8 +23,8 @@
 #include <linalg/init.h>
 #include <matrix/grammatrix.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <rmm/device_scalar.hpp>

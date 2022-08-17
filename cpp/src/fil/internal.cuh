@@ -22,8 +22,8 @@
 #include <cuml/fil/fil.h>
 #include <iostream>
 #include <numeric>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/error.hpp>
+#include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>

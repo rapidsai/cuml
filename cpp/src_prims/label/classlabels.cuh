@@ -18,9 +18,9 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/label/classlabels.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>

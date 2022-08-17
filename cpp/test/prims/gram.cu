@@ -21,8 +21,8 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 

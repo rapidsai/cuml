@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <vector>
 
 #include <cuml/cluster/dbscan.hpp>

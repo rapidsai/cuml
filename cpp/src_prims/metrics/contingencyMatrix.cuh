@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>

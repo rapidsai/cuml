@@ -20,8 +20,8 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 
 #include <cstddef>

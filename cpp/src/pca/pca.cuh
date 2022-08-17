@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuml/decomposition/params.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/transpose.cuh>

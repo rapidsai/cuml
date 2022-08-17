@@ -22,8 +22,8 @@
 #pragma once
 
 #include <math.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <rmm/device_scalar.hpp>
 

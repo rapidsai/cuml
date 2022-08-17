@@ -27,8 +27,8 @@
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>

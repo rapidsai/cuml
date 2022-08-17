@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>

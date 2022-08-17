@@ -16,8 +16,8 @@
  */
 
 #include "pairwise_distance_kl_divergence.cuh"
-#include <raft/distance/distance.cuh>
 #include <raft/core/handle.hpp>
+#include <raft/distance/distance.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

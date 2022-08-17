@@ -24,8 +24,8 @@
 #include <cache/cache_util.cuh>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
 // #TODO: Replace with public header when ready

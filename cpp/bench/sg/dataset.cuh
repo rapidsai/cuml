@@ -19,9 +19,9 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/make_regression.cuh>

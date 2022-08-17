@@ -23,8 +23,8 @@
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemv.cuh>

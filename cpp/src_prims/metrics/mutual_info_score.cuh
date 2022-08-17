@@ -27,8 +27,8 @@
 #include "contingencyMatrix.cuh"
 #include <cub/cub.cuh>
 #include <math.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

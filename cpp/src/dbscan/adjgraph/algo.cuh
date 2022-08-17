@@ -22,8 +22,8 @@
 
 #include "pack.h"
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <rmm/device_uvector.hpp>
 

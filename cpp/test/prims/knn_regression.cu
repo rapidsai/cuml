@@ -20,8 +20,8 @@
 
 #include <label/classlabels.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>

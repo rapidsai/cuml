@@ -19,9 +19,9 @@
 #include <vector>
 
 #include "base.hpp"
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/ternary_op.cuh>
 // #TODO: Replace with public header when ready

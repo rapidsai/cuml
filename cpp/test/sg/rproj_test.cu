@@ -18,8 +18,8 @@
 #include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <random>

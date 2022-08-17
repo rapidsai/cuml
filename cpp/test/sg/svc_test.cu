@@ -25,8 +25,8 @@
 #include <iostream>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelmatrices.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/transpose.cuh>

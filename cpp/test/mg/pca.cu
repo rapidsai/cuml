@@ -20,8 +20,8 @@
 #include <cumlprims/opg/linalg/gemm.hpp>
 #include <cumlprims/opg/matrix/matrix_utils.hpp>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <test_utils.h>
 

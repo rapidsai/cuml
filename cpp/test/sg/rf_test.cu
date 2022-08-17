@@ -25,9 +25,9 @@
 #include <cuml/tree/algo_helper.h>
 #include <raft/random/rng.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/transpose.cuh>
 
 #include <thrust/binary_search.h>

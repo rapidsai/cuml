@@ -31,10 +31,10 @@
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 

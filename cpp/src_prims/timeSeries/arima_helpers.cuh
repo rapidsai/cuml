@@ -21,8 +21,8 @@
 #include "jones_transform.cuh"
 #include <cuml/tsa/arima_common.h>
 #include <linalg/batched/matrix.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 

@@ -29,8 +29,8 @@
 
 #include <iostream>
 #include <limits>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <string>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

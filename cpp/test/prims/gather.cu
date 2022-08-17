@@ -17,9 +17,9 @@
 #include "test_utils.h"
 #include <gtest/gtest.h>
 #include <matrix/gather.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 

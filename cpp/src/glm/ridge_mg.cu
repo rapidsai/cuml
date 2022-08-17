@@ -22,8 +22,8 @@
 #include <cumlprims/opg/stats/mean.hpp>
 
 #include <raft/core/comms.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>

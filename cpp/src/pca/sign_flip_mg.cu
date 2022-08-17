@@ -19,8 +19,8 @@
 #include <thrust/execution_policy.h>
 
 #include <raft/core/comms.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/handle.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <rmm/exec_policy.hpp>

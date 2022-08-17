@@ -18,9 +18,9 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
+#include <raft/cuda_utils.cuh>
 
 namespace raft {
 

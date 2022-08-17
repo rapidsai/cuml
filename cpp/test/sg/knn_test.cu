@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>

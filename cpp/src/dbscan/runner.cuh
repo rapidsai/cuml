@@ -24,8 +24,8 @@
 #include "vertexdeg/runner.cuh"
 #include <common/nvtx.hpp>
 #include <label/classlabels.cuh>
-#include <raft/core/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/sparse/csr.hpp>
 
 #include <cuml/common/logger.hpp>

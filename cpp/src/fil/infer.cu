@@ -20,8 +20,8 @@
 
 #include <cuml/fil/multi_sum.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <thrust/functional.h>
 

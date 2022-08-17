@@ -20,8 +20,8 @@
 
 #include <common/fast_int_div.cuh>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>

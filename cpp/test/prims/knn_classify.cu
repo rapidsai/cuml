@@ -17,8 +17,8 @@
 #include "test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/label/classlabels.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/knn.cuh>

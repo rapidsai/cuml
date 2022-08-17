@@ -18,8 +18,8 @@
 
 #include <cuml/random_projection/rproj_c.h>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
