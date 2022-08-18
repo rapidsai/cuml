@@ -28,6 +28,8 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
 from cuml.common.input_utils import inp_array
 
+from cuml.common.interoperability import using_device_type, using_memory_type
+
 from cuml.common.memory_utils import rmm_cupy_ary
 from cuml.common.memory_utils import set_global_output_type
 from cuml.common.memory_utils import using_output_type
@@ -54,6 +56,8 @@ __all__ = [
     "inp_array",
     "rmm_cupy_ary",
     "set_global_output_type",
+    "using_device_type",
+    "using_memory_type",
     "using_output_type",
     "with_cupy_rmm",
     "sparse_scipy_to_cp",
