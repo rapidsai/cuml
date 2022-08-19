@@ -87,6 +87,30 @@ struct SoftClusteringInputs {
   std::vector<T> expected_probabilities;
 };
 
+template <typename T, typename IdxT>
+struct ApproximatePredictInputs {
+  IdxT n_row;
+  IdxT n_col;
+  IdxT n_points_to_predict;
+  int min_samples;
+  int min_cluster_size;
+
+  std::vector<T> data;
+  std::vector<T> points_to_predict;
+
+  std::vector<IdxT> condensed_parents;
+  std::vector<IdxT> condensed_children;
+  std::vector<T> condensed_lambdas;
+  std::vector<IdxT> condensed_sizes;
+
+  Common::CLUSTER_SELECTION_METHOD cluster_selection_method;
+  bool allow_single_cluster;
+  T cluster_selection_epsilon;
+
+  std::vector<T> expected_labels;
+  std::vector<T> expected_probabilities;
+};
+
 const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
