@@ -130,7 +130,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         float* membership_vec,
         float* X,
         DistanceType metric)
-    
+
     void _approximate_predict(const handle_t &handle,
                               CondensedHierarchy[int, float] &condensed_tree,
                               PredictionData[int, float] &prediction_data,
@@ -841,6 +841,39 @@ def all_points_membership_vectors(clusterer):
 
 
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
+    """Predict the cluster label of new points. The returned labels
+    will be those of the original clustering found by ``clusterer``,
+    and therefore are not (necessarily) the cluster labels that would
+    be found by clustering the original data combined with
+    ``points_to_predict``, hence the 'approximate' label.
+
+    If you simply wish to assign new points to an existing clustering
+    in the 'best' way possible, this is the function to use. If you
+    want to predict how ``points_to_predict`` would cluster with
+    the original data under HDBSCAN the most efficient existing approach
+    is to simply recluster with the new point(s) added to the original dataset.
+
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+        A clustering object that has been fit to the data and
+        either had ``prediction_data=True`` set, or called the
+        ``generate_prediction_data`` method after the fact.
+
+    points_to_predict : array, or array-like (n_samples, n_features)
+        The new data points to predict cluster labels for. They should
+        have the same dimensionality as the original dataset over which
+        clusterer was fit.
+
+    Returns
+    -------
+    labels : array (n_samples,)
+        The predicted labels of the ``points_to_predict``
+
+    probabilities : array (n_samples,)
+        The soft cluster scores for each of the ``points_to_predict``
+    """
+
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
                          "Please call clusterer.fit first")
@@ -854,8 +887,8 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         input_to_cuml_array(points_to_predict, order='C',
                             check_dtype=[np.float32],
                             convert_to_dtype=(np.float32
-                                                if convert_dtype
-                                                else None))
+                                              if convert_dtype
+                                              else None))
 
     cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
     cdef uintptr_t input_ptr = clusterer.X_m.ptr
@@ -880,8 +913,6 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-    #cdef uintptr_t labels_ptr = clusterer.labels_.ptr
-
     _approximate_predict(handle_[0],
                          hdbscan_output_.get_condensed_tree(),
                          deref(pred_data_),
@@ -895,4 +926,6 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                          <float*> prediction_probs_ptr)
 
     clusterer.handle.sync()
-    return prediction_labels.to_output(output_type="numpy", output_dtype="int"), prediction_probs.to_output(output_type="numpy", output_dtype="float32")
+    return prediction_labels.to_output(output_type="numpy",
+                                       output_dtype="int"),\
+        prediction_probs.to_output(output_type="numpy", output_dtype="float32")

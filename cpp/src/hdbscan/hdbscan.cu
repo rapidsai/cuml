@@ -115,18 +115,27 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
 }
 
 void _approximate_predict(const raft::handle_t& handle,
-  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-  const float* X,
-  int* labels,
-  const float* points_to_predict,
-  size_t n_prediction_points,
-  raft::distance::DistanceType metric,
-  int min_samples,
-  int* out_labels,
-  float* out_probabilities)
+                          HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                          HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                          const float* X,
+                          int* labels,
+                          const float* points_to_predict,
+                          size_t n_prediction_points,
+                          raft::distance::DistanceType metric,
+                          int min_samples,
+                          int* out_labels,
+                          float* out_probabilities)
 {
-  HDBSCAN::detail::Predict::approximate_predict(
-    handle, condensed_tree, prediction_data, X, labels, points_to_predict, n_prediction_points, metric, min_samples, out_labels, out_probabilities);
+  HDBSCAN::detail::Predict::approximate_predict(handle,
+                                                condensed_tree,
+                                                prediction_data,
+                                                X,
+                                                labels,
+                                                points_to_predict,
+                                                n_prediction_points,
+                                                metric,
+                                                min_samples,
+                                                out_labels,
+                                                out_probabilities);
 }
 };  // end namespace ML

@@ -342,7 +342,6 @@ class PredictionData {
   value_t* get_deaths() { return deaths.data(); }
   value_t* get_core_dists() { return core_dists.data(); }
 
-
   /**
    * Resize buffers to the required sizes for storing data
    * @param handle raft handle for ordering cuda operations
