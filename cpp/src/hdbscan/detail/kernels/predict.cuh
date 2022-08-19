@@ -80,6 +80,7 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
     else {
       predicted_labels[idx] = -1;
     }
+    // printf("%d %d\n", idx, predicted_labels[idx]);
     if (predicted_labels[idx] >= 0) {
       value_t max_lambda = deaths[selected_clusters[cluster_label] - n_leaves];
       if (max_lambda > 0) {
