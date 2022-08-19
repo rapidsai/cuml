@@ -193,6 +193,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
+                  value_idx* labels,
                   value_idx* label_map,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
@@ -226,7 +227,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
     detail::Extract::extract_clusters(handle,
                                       out.get_condensed_tree(),
                                       m,
-                                      out.get_labels(),
+                                      labels,
                                       tree_stabilities.data(),
                                       out.get_probabilities(),
                                       label_map,
@@ -242,7 +243,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
     exec_policy, lambdas_ptr, lambdas_ptr + out.get_condensed_tree().get_n_edges()));
 
   detail::Stability::get_stability_scores(handle,
-                                          out.get_labels(),
+                                          labels,
                                           tree_stabilities.data(),
                                           out.get_condensed_tree().get_n_clusters(),
                                           max_lambda,
@@ -255,14 +256,11 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * starting at 0 even in the presence of noise (-1)
    */
 
-  thrust::transform(exec_policy,
-                    out.get_labels(),
-                    out.get_labels() + m,
-                    out.get_labels(),
-                    [=] __device__(value_idx label) {
-                      if (label != -1) return label_map[label];
-                      return -1;
-                    });
+  thrust::transform(
+    exec_policy, labels, labels + m, out.get_labels(), [=] __device__(value_idx label) {
+      if (label != -1) return label_map[label];
+      return -1;
+    });
 }
 
 };  // end namespace HDBSCAN
