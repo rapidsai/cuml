@@ -51,6 +51,7 @@ from cuml.benchmark.bench_helper_funcs import pass_func, fit, predict, \
                                               fit_predict, fit_transform, \
                                               fit_kneighbors
 
+
 def distribute(client, data):
     if data is not None:
         n_rows = data.shape[0]
