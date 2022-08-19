@@ -70,6 +70,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_leaves()
         int get_n_clusters()
         float *get_stabilities()
+        int *get_labels()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
@@ -129,6 +130,18 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         float* membership_vec,
         float* X,
         DistanceType metric)
+    
+    void _approximate_predict(const handle_t &handle,
+                              CondensedHierarchy[int, float] &condensed_tree,
+                              PredictionData[int, float] &prediction_data,
+                              float* X,
+                              int* labels,
+                              float* points_to_predict,
+                              size_t n_prediction_points,
+                              DistanceType metric,
+                              int min_samples,
+                              int* out_labels,
+                              float* out_probabilities)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -825,3 +838,61 @@ def all_points_membership_vectors(clusterer):
         output_type="numpy",
         output_dtype="float32").reshape((clusterer.n_rows,
                                          clusterer.n_clusters_))
+
+
+def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
+    if not clusterer.fit_called_:
+        raise ValueError("The clusterer is not fit on data. "
+                         "Please call clusterer.fit first")
+
+    if not clusterer.prediction_data:
+        raise ValueError("PredictionData not generated. "
+                         "Please call clusterer.fit again with "
+                         "prediction_data=True")
+
+    points_to_predict_m, n_prediction_points, _, _ = \
+        input_to_cuml_array(points_to_predict, order='C',
+                            check_dtype=[np.float32],
+                            convert_to_dtype=(np.float32
+                                                if convert_dtype
+                                                else None))
+
+    cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
+    cdef uintptr_t input_ptr = clusterer.X_m.ptr
+
+    prediction_labels = CumlArray.empty(
+        (n_prediction_points,),
+        dtype="int")
+
+    cdef uintptr_t prediction_labels_ptr = prediction_labels.ptr
+
+    prediction_probs = CumlArray.empty(
+        (n_prediction_points,),
+        dtype="float32")
+
+    cdef uintptr_t prediction_probs_ptr = prediction_probs.ptr
+
+    cdef hdbscan_output *hdbscan_output_ = \
+        <hdbscan_output*><size_t>clusterer.hdbscan_output_
+
+    cdef PredictionData *pred_data_ = \
+        <PredictionData*><size_t>clusterer._prediction_data
+
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
+    #cdef uintptr_t labels_ptr = clusterer.labels_.ptr
+
+    _approximate_predict(handle_[0],
+                         hdbscan_output_.get_condensed_tree(),
+                         deref(pred_data_),
+                         <float*> input_ptr,
+                         <int*> hdbscan_output_.get_labels(),
+                         <float*> prediction_ptr,
+                         n_prediction_points,
+                         _metrics_mapping[clusterer.metric],
+                         clusterer.min_samples,
+                         <int*> prediction_labels_ptr,
+                         <float*> prediction_probs_ptr)
+
+    clusterer.handle.sync()
+    return prediction_labels.to_output(output_type="numpy", output_dtype="int"), prediction_probs.to_output(output_type="numpy", output_dtype="float32")

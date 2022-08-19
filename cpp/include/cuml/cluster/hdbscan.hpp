@@ -322,6 +322,7 @@ class PredictionData {
       n_selected_clusters(0),
       selected_clusters(0, handle.get_stream()),
       deaths(0, handle.get_stream()),
+      core_dists(m, handle.get_stream()),
       n_exemplars(0),
       n_rows(m),
       n_cols(n)
@@ -339,6 +340,8 @@ class PredictionData {
   value_idx* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
   value_idx* get_selected_clusters() { return selected_clusters.data(); }
   value_t* get_deaths() { return deaths.data(); }
+  value_t* get_core_dists() { return core_dists.data(); }
+
 
   /**
    * Resize buffers to the required sizes for storing data
@@ -368,6 +371,7 @@ class PredictionData {
   value_idx n_selected_clusters;
   rmm::device_uvector<value_idx> selected_clusters;
   rmm::device_uvector<value_t> deaths;
+  rmm::device_uvector<value_t> core_dists;
 };
 
 template class PredictionData<int, float>;
@@ -462,4 +466,16 @@ void _all_points_membership_vectors(const raft::handle_t& handle,
                                     float* membership_vec,
                                     const float* X,
                                     raft::distance::DistanceType metric);
+
+void _approximate_predict(const raft::handle_t& handle,
+                          HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                          HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                          const float* X,
+                          int* labels,
+                          const float* points_to_predict,
+                          size_t n_prediction_points,
+                          raft::distance::DistanceType metric,
+                          int min_samples,
+                          int* out_labels,
+                          float* out_probabilities);
 }  // END namespace ML
