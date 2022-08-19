@@ -40,8 +40,13 @@ from cuml.metrics.pairwise_kernels import pairwise_kernels
 from cuml.metrics.pairwise_kernels import PAIRWISE_KERNEL_FUNCTIONS
 from cuml.metrics.hinge_loss import hinge_loss
 from cuml.metrics.kl_divergence import kl_divergence
+<<<<<<< HEAD
+from cuml.metrics.cluster.davies_bouldin_score import \
+    cython_davies_bouldin_score as davies_bouldin_score
+=======
 from cuml.metrics.cluster.v_measure import \
     cython_v_measure as v_measure_score
+>>>>>>> 97941e3fa91020275265ac667a753042d88167db
 
 __all__ = [
     "trustworthiness",
@@ -64,5 +69,6 @@ __all__ = [
     "pairwise_kernels",
     "hinge_loss",
     "kl_divergence",
+    "davies_bouldin_score"
     "v_measure_score"
 ]

@@ -223,6 +223,9 @@ Metrics (clustering and manifold learning)
   .. automodule:: cuml.metrics.cluster.silhouette_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.davies_bouldin_score
+    :members:
+
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
