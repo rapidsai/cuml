@@ -107,7 +107,7 @@ struct ApproximatePredictInputs {
   bool allow_single_cluster;
   T cluster_selection_epsilon;
 
-  std::vector<T> expected_labels;
+  std::vector<IdxT> expected_labels;
   std::vector<T> expected_probabilities;
 };
 

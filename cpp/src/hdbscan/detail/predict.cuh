@@ -145,9 +145,9 @@ void approximate_predict(const raft::handle_t& handle,
   
                                  handle.sync_stream();
                                  cudaDeviceSynchronize();
-                                 raft::print_device_vector("input_core_dists", prediction_data.get_core_dists(), 20, std::cout);
-                                 raft::print_device_vector("pairwise_dists", dists.data(), 2 * min_samples, std::cout);
-                                 raft::print_device_vector("prediction_core_dists", prediction_core_dists.data(), 20, std::cout);
+  raft::print_device_vector("input_core_dists", prediction_data.get_core_dists(), 20, std::cout);
+  raft::print_device_vector("pairwise_dists", dists.data(), 2 * min_samples, std::cout);
+  raft::print_device_vector("prediction_core_dists", prediction_core_dists.data(), 20, std::cout);
   raft::print_device_vector("min_mr_dists", min_mr_dists.data(), 15, std::cout);
   raft::print_device_vector("min_mr_indices", min_mr_indices.data(), 15, std::cout);
   rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
