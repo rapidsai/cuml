@@ -364,4 +364,3 @@ __global__ void computeSplitKernel(BinT* histograms,
 
 }  // namespace DT
 }  // namespace ML
-
