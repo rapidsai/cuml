@@ -18,7 +18,6 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-import cudf
 import ctypes
 import numpy as np
 import inspect
