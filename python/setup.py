@@ -97,7 +97,7 @@ cmdclass = versioneer.get_cmdclass()
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
-setup(name='cuml',
+setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       description="cuML - RAPIDS ML Algorithms",
       version=versioneer.get_version(),
       classifiers=[
