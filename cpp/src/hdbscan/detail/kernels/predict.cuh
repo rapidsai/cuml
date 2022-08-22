@@ -35,8 +35,8 @@ __global__ void min_mutual_reachability_kernel(value_t* input_core_dists,
   if (idx < value_idx(n_prediction_points)) {
     value_t min_mr_dist  = std::numeric_limits<value_t>::max();
     value_idx min_mr_ind = -1;
-    value_t mr_dist      = prediction_core_dists[idx];
     for (int i = 0; i < 2 * min_samples; i++) {
+      value_t mr_dist = prediction_core_dists[idx];
       if (input_core_dists[neighbor_indices[idx * 2 * min_samples + i]] > mr_dist) {
         mr_dist = input_core_dists[neighbor_indices[idx * 2 * min_samples + i]];
       }
@@ -71,6 +71,7 @@ __global__ void cluster_probability_kernel(value_idx* min_mr_indices,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {
     value_idx cluster_label = labels[min_mr_indices[idx]];
+
     if (cluster_label >= 0 && selected_clusters[cluster_label] > n_leaves &&
         lambdas[index_into_children[selected_clusters[cluster_label]]] < prediction_lambdas[idx]) {
       predicted_labels[idx] = cluster_label;

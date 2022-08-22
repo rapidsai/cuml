@@ -131,6 +131,7 @@ void approximate_predict(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> min_mr_indices(n_prediction_points, stream);
 
   int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+
   // get nearest neighbors for each prediction point in mutual reachability space
   min_mutual_reachability_kernel<<<n_blocks, tpb, 0, stream>>>(prediction_data.get_core_dists(),
                                                                prediction_core_dists.data(),
@@ -165,7 +166,6 @@ void approximate_predict(const raft::handle_t& handle,
     thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
     index_op);
 
-  raft::print_device_vector("labels", labels + 275, 10, std::cout);
   cluster_probability_kernel<<<n_blocks, tpb, 0, stream>>>(min_mr_indices.data(),
                                                            prediction_lambdas.data(),
                                                            index_into_children.data(),

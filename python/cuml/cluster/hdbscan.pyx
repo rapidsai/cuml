@@ -895,7 +895,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     prediction_labels = CumlArray.empty(
         (n_prediction_points,),
-        dtype="int")
+        dtype="int32")
 
     cdef uintptr_t prediction_labels_ptr = prediction_labels.ptr
 
@@ -926,6 +926,5 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                          <float*> prediction_probs_ptr)
 
     clusterer.handle.sync()
-    return prediction_labels.to_output(output_type="numpy",
-                                       output_dtype="int"),\
+    return prediction_labels.to_output(output_type="numpy"),\
         prediction_probs.to_output(output_type="numpy", output_dtype="float32")
