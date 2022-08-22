@@ -35,7 +35,9 @@ void hdbscan(const raft::handle_t& handle,
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
   rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), label_map.data(), out);
+  rmm::device_uvector<float> core_dists(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(
+    handle, X, m, n, metric, params, labels.data(), label_map.data(), core_dists.data(), out);
 }
 
 void hdbscan(const raft::handle_t& handle,
@@ -49,7 +51,16 @@ void hdbscan(const raft::handle_t& handle,
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
   rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), label_map.data(), out);
+  HDBSCAN::_fit_hdbscan(handle,
+                        X,
+                        m,
+                        n,
+                        metric,
+                        params,
+                        labels.data(),
+                        label_map.data(),
+                        prediction_data_.get_core_dists(),
+                        out);
   HDBSCAN::Common::build_prediction_data(handle,
                                          out.get_condensed_tree(),
                                          labels.data(),

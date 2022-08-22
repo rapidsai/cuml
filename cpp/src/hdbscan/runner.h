@@ -126,6 +126,7 @@ void build_linkage(const raft::handle_t& handle,
                    size_t n,
                    raft::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
+                   value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
   auto stream = handle.get_stream();
@@ -135,7 +136,6 @@ void build_linkage(const raft::handle_t& handle,
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
-  rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(handle,
                                                   X,
@@ -145,7 +145,7 @@ void build_linkage(const raft::handle_t& handle,
                                                   params.min_samples,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
-                                                  core_dists.data(),
+                                                  core_dists,
                                                   mutual_reachability_coo);
 
   /**
@@ -153,7 +153,7 @@ void build_linkage(const raft::handle_t& handle,
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists, m);
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(handle,
                                             X,
@@ -195,6 +195,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   Common::HDBSCANParams& params,
                   value_idx* labels,
                   value_idx* label_map,
+                  value_t* core_dists,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
@@ -202,7 +203,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
-  build_linkage(handle, X, m, n, metric, params, out);
+  build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
   /**
    * Condense branches of tree according to min cluster size
