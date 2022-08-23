@@ -117,6 +117,7 @@ struct FixConnectivitiesRedOp {
  * @param[in] n number of columns
  * @param[in] metric distance metric to use
  * @param[in] params hyper parameters
+ * @param[in] core_dists buffer for storing core distances (size m)
  * @param[out] out output container object
  */
 template <typename value_idx = int64_t, typename value_t = float>
