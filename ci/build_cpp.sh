@@ -11,6 +11,9 @@ export CMAKE_GENERATOR=Ninja
 # TODO: Move to job config
 export CUDA=11.5
 
+# ucx-py version
+export UCX_PY_VERSION='0.28.*'
+
 # Check env
 source ci/check_env.sh
 
