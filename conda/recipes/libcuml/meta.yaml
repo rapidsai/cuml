@@ -55,6 +55,7 @@ requirements:
     - gmock
     - libfaiss {{ libfaiss_version }} *_cuda
     - libcublas-dev
+    - libcusolver-dev
 
 outputs:
   - name: libcuml
