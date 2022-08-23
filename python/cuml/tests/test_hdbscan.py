@@ -16,7 +16,8 @@
 import pytest
 
 
-from cuml.cluster import HDBSCAN, all_points_membership_vectors
+from cuml.cluster import HDBSCAN, all_points_membership_vectors,\
+    approximate_predict
 from cuml.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
 
@@ -514,3 +515,62 @@ def test_all_points_membership_vectors(nrows,
     assert_all_points_membership_vectors(
         cu_membership_vectors,
         sk_membership_vectors)
+
+
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('n_points_to_predict', [200, 500])
+@pytest.mark.parametrize('ncols', [10, 25])
+@pytest.mark.parametrize('nclusters', [15])
+@pytest.mark.parametrize('min_cluster_size', [30, 60])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 0.5])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+def test_approximate_predict(nrows,
+                             n_points_to_predict,
+                             ncols,
+                             nclusters,
+                             cluster_selection_epsilon,
+                             cluster_selection_method,
+                             min_cluster_size,
+                             max_cluster_size):
+    X, y = make_blobs(n_samples=nrows,
+                      n_features=ncols,
+                      centers=nclusters,
+                      cluster_std=0.7,
+                      shuffle=True,
+                      random_state=42)
+
+    points_to_predict, _ = make_blobs(n_samples=n_points_to_predict,
+                                      n_features=ncols,
+                                      centers=nclusters,
+                                      cluster_std=0.7,
+                                      shuffle=True,
+                                      random_state=42)
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=False,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method,
+                       prediction_data=True)
+    cuml_agg.fit(X)
+
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=False,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic",
+        prediction_data=True)
+
+    sk_agg.fit(cp.asnumpy(X))
+
+    cu_labels, cu_probs = approximate_predict(cuml_agg, points_to_predict)
+    sk_labels, sk_probs = hdbscan.approximate_predict(
+        sk_agg, points_to_predict)
+
+    assert(adjusted_rand_score(cu_labels, sk_labels) >= 0.95)
+    assert np.allclose(cu_probs, sk_probs, atol=0.05)
