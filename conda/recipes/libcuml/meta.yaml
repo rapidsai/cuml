@@ -57,6 +57,7 @@ requirements:
     - libcublas-dev
     - libcusolver-dev
     - libcusparse-dev
+    - libcurand-dev
 
 outputs:
   - name: libcuml
