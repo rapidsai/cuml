@@ -28,7 +28,7 @@ from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
 from cuml.common.input_utils import inp_array
 
-from cuml.common.interoperability import using_device_type, using_memory_type
+from cuml.common.device_selection import using_device_type, using_memory_type
 
 from cuml.common.memory_utils import rmm_cupy_ary
 from cuml.common.memory_utils import set_global_output_type
