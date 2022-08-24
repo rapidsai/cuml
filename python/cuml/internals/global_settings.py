@@ -25,14 +25,16 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
     def __init__(self):
         super().__init__()
         built_with_cuda = True
-        if built_with_cuda:
-            default_device_type = 'gpu' if has_cuda_gpu() else 'cpu'
+        if built_with_cuda and has_cuda_gpu():
+            default_device_type = 'gpu'
+            default_memory_type = 'global'
         else:
             default_device_type = 'cpu'
+            default_memory_type = 'host'
         self.shared_state = {
             '_output_type': None,
             '_device_type': default_device_type,
-            '_memory_type': default_device_type,
+            '_memory_type': default_memory_type,
             'root_cm': None
         }
 

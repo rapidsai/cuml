@@ -55,7 +55,7 @@ def set_global_memory_type(memory_type):
 def using_memory_type(memory_type):
     prev_memory_type = cuml.global_settings.memory_type
     try:
-        set_global_device_type(memory_type)
+        set_global_memory_type(memory_type)
         yield prev_memory_type
     finally:
         cuml.global_settings.memory_type = prev_memory_type
