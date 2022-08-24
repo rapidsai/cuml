@@ -308,7 +308,8 @@ template class CondensedHierarchy<int, float>;
 
 /**
  * Container object for computing and storing intermediate information needed later for computing
- * membership vectors and approximate_predict.
+ * membership vectors and approximate predict. Users are only expected to create an instance of this
+ * object, the hdbscan method will do the rest.
  * @tparam value_idx
  * @tparam value_t
  */
@@ -343,7 +344,8 @@ class PredictionData {
   value_t* get_core_dists() { return core_dists.data(); }
 
   /**
-   * Resize buffers to the required sizes for storing data
+   * Resize buffers to the required sizes for storing data. This is intended for internal use only
+   * and users are not expected to invoke this method.
    * @param handle raft handle for ordering cuda operations
    * @param n_exemplars_  number of exemplar points
    * @param n_selected_clusters_ number of clusters selected
@@ -415,7 +417,7 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::hdbscan_output<int, float>& out);
 
 /**
- * Executes HDBSCAN clustering on an mxn-dimensional input array, X and builds the PredictionData
+ * Executes HDBSCAN clustering on an mxn-dimensional input array, X, then builds the PredictionData
  * object which computes and stores information needed later for prediction algorithms.
  *
  * @param[in] handle raft handle for resource reuse
@@ -459,22 +461,23 @@ void _extract_clusters(const raft::handle_t& handle,
                        int max_cluster_size,
                        float cluster_selection_epsilon);
 
-void _all_points_membership_vectors(const raft::handle_t& handle,
-                                    HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-                                    HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-                                    float* membership_vec,
-                                    const float* X,
-                                    raft::distance::DistanceType metric);
+void compute_all_points_membership_vectors(
+  const raft::handle_t& handle,
+  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+  float* membership_vec,
+  const float* X,
+  raft::distance::DistanceType metric);
 
-void _approximate_predict(const raft::handle_t& handle,
-                          HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-                          HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-                          const float* X,
-                          int* labels,
-                          const float* points_to_predict,
-                          size_t n_prediction_points,
-                          raft::distance::DistanceType metric,
-                          int min_samples,
-                          int* out_labels,
-                          float* out_probabilities);
+void predict_out_of_sample(const raft::handle_t& handle,
+                           HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                           HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                           const float* X,
+                           int* labels,
+                           const float* points_to_predict,
+                           size_t n_prediction_points,
+                           raft::distance::DistanceType metric,
+                           int min_samples,
+                           int* out_labels,
+                           float* out_probabilities);
 }  // END namespace ML

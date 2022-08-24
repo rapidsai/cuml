@@ -123,7 +123,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
 
-    void _all_points_membership_vectors(
+    void compute_all_points_membership_vectors(
         const handle_t &handle,
         CondensedHierarchy[int, float] &condensed_tree,
         PredictionData[int, float] &prediction_data_,
@@ -131,17 +131,17 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         float* X,
         DistanceType metric)
 
-    void _approximate_predict(const handle_t &handle,
-                              CondensedHierarchy[int, float] &condensed_tree,
-                              PredictionData[int, float] &prediction_data,
-                              float* X,
-                              int* labels,
-                              float* points_to_predict,
-                              size_t n_prediction_points,
-                              DistanceType metric,
-                              int min_samples,
-                              int* out_labels,
-                              float* out_probabilities)
+    void predict_out_of_sample(const handle_t &handle,
+                               CondensedHierarchy[int, float] &condensed_tree,
+                               PredictionData[int, float] &prediction_data,
+                               float* X,
+                               int* labels,
+                               float* points_to_predict,
+                               size_t n_prediction_points,
+                               DistanceType metric,
+                               int min_samples,
+                               int* out_labels,
+                               float* out_probabilities)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -826,12 +826,12 @@ def all_points_membership_vectors(clusterer):
         <PredictionData*><size_t>clusterer._prediction_data
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
-    _all_points_membership_vectors(handle_[0],
-                                   hdbscan_output_.get_condensed_tree(),
-                                   deref(pred_data_),
-                                   <float*> membership_vec_ptr,
-                                   <float*> input_ptr,
-                                   _metrics_mapping[clusterer.metric])
+    compute_all_points_membership_vectors(handle_[0],
+                                          hdbscan_output_.get_condensed_tree(),
+                                          deref(pred_data_),
+                                          <float*> membership_vec_ptr,
+                                          <float*> input_ptr,
+                                          _metrics_mapping[clusterer.metric])
 
     clusterer.handle.sync()
     return membership_vec.to_output(
@@ -913,17 +913,17 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-    _approximate_predict(handle_[0],
-                         hdbscan_output_.get_condensed_tree(),
-                         deref(pred_data_),
-                         <float*> input_ptr,
-                         <int*> hdbscan_output_.get_labels(),
-                         <float*> prediction_ptr,
-                         n_prediction_points,
-                         _metrics_mapping[clusterer.metric],
-                         clusterer.min_samples,
-                         <int*> prediction_labels_ptr,
-                         <float*> prediction_probs_ptr)
+    predict_out_of_sample(handle_[0],
+                          hdbscan_output_.get_condensed_tree(),
+                          deref(pred_data_),
+                          <float*> input_ptr,
+                          <int*> hdbscan_output_.get_labels(),
+                          <float*> prediction_ptr,
+                          n_prediction_points,
+                          _metrics_mapping[clusterer.metric],
+                          clusterer.min_samples,
+                          <int*> prediction_labels_ptr,
+                          <float*> prediction_probs_ptr)
 
     clusterer.handle.sync()
     return prediction_labels.to_output(output_type="numpy"),\

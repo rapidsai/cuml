@@ -114,28 +114,29 @@ void _extract_clusters(const raft::handle_t& handle,
                                              cluster_selection_epsilon);
 }
 
-void _all_points_membership_vectors(const raft::handle_t& handle,
-                                    HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-                                    HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-                                    float* membership_vec,
-                                    const float* X,
-                                    raft::distance::DistanceType metric)
+void compute_all_points_membership_vectors(
+  const raft::handle_t& handle,
+  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+  float* membership_vec,
+  const float* X,
+  raft::distance::DistanceType metric)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 
-void _approximate_predict(const raft::handle_t& handle,
-                          HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-                          HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-                          const float* X,
-                          int* labels,
-                          const float* points_to_predict,
-                          size_t n_prediction_points,
-                          raft::distance::DistanceType metric,
-                          int min_samples,
-                          int* out_labels,
-                          float* out_probabilities)
+void predict_out_of_sample(const raft::handle_t& handle,
+                           HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                           HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                           const float* X,
+                           int* labels,
+                           const float* points_to_predict,
+                           size_t n_prediction_points,
+                           raft::distance::DistanceType metric,
+                           int min_samples,
+                           int* out_labels,
+                           float* out_probabilities)
 {
   HDBSCAN::detail::Predict::approximate_predict(handle,
                                                 condensed_tree,
