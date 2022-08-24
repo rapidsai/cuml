@@ -329,14 +329,8 @@ class CumlArray(Buffer):
     @nvtx.annotate(message="common.CumlArray.host_serialize", category="utils",
                    domain="cuml_python")
     def host_serialize(self):
-        """Serialize data and metadata associated with host memory.
-        Returns
-        -------
-        header : dict
-            The metadata required to reconstruct the object.
-        frames : list
-            The Buffers or memoryviews that the object should contain.
-        :meta private:
+        """
+        Serialize data and metadata associated with host memory.
         """
         header, frames = self.device_serialize()
         header["writeable"] = len(frames) * (None,)
