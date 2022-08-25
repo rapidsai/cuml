@@ -116,9 +116,10 @@ void build_prediction_data(const raft::handle_t& handle,
                       parents,
                       children,
                       n_leaves,
+                      labels,
                       deaths = prediction_data.get_deaths()] __device__(auto idx) {
     if (children[idx] < n_leaves) {
-      is_exemplar[children[idx]] = (is_leaf_cluster[parents[idx] - n_leaves] &&
+      is_exemplar[children[idx]] = (labels[idx] != -1 && is_leaf_cluster[parents[idx] - n_leaves] &&
                                     lambdas[idx] == deaths[parents[idx] - n_leaves]);
       return;
     }
@@ -157,21 +158,26 @@ void build_prediction_data(const raft::handle_t& handle,
                     exemplar_labels.begin(),
                     exemplar_labels.end(),
                     converted_exemplar_labels.data(),
-                    [label_map] __device__(auto idx) { return label_map[idx]; });
-
-  raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
-                                           n_exemplars,
-                                           prediction_data.get_exemplar_label_offsets(),
-                                           n_selected_clusters + 1,
-                                           stream);
-
-  thrust::transform(exec_policy,
-                    prediction_data.get_exemplar_label_offsets(),
-                    prediction_data.get_exemplar_label_offsets() + n_selected_clusters,
-                    prediction_data.get_selected_clusters(),
-                    [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
-                      return exemplar_labels[idx] + n_leaves;
+                    [label_map] __device__(auto label) {
+                      if (label != -1) return label_map[label];
+                      return -1;
                     });
+
+  if (n_exemplars > 0) {
+    raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
+                                             n_exemplars,
+                                             prediction_data.get_exemplar_label_offsets(),
+                                             n_selected_clusters + 1,
+                                             stream);
+
+    thrust::transform(exec_policy,
+                      prediction_data.get_exemplar_label_offsets(),
+                      prediction_data.get_exemplar_label_offsets() + n_selected_clusters,
+                      prediction_data.get_selected_clusters(),
+                      [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
+                        return exemplar_labels[idx] + n_leaves;
+                      });
+  }
 }
 
 };  // end namespace Common

@@ -309,62 +309,64 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   value_idx* selected_clusters  = prediction_data.get_selected_clusters();
   value_idx n_exemplars         = prediction_data.get_n_exemplars();
 
-  rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
+  if (n_selected_clusters > 0) {
+    rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
 
-  all_points_dist_membership_vector(handle,
-                                    X,
+    all_points_dist_membership_vector(handle,
+                                      X,
+                                      m,
+                                      n,
+                                      n_exemplars,
+                                      n_selected_clusters,
+                                      prediction_data.get_exemplar_idx(),
+                                      prediction_data.get_exemplar_label_offsets(),
+                                      dist_membership_vec.data(),
+                                      metric);
+
+    rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
+
+    all_points_outlier_membership_vector(handle,
+                                         condensed_tree,
+                                         deaths,
+                                         selected_clusters,
+                                         m,
+                                         n_selected_clusters,
+                                         merge_heights.data(),
+                                         membership_vec,
+                                         true);
+
+    rmm::device_uvector<value_t> prob_in_some_cluster(m, stream);
+    all_points_prob_in_some_cluster(handle,
+                                    condensed_tree,
+                                    deaths,
+                                    selected_clusters,
                                     m,
-                                    n,
-                                    n_exemplars,
                                     n_selected_clusters,
-                                    prediction_data.get_exemplar_idx(),
-                                    prediction_data.get_exemplar_label_offsets(),
-                                    dist_membership_vec.data(),
-                                    metric);
+                                    merge_heights.data(),
+                                    prob_in_some_cluster.data());
 
-  rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
+    thrust::transform(exec_policy,
+                      dist_membership_vec.begin(),
+                      dist_membership_vec.end(),
+                      membership_vec,
+                      membership_vec,
+                      thrust::multiplies<value_t>());
 
-  all_points_outlier_membership_vector(handle,
-                                       condensed_tree,
-                                       deaths,
-                                       selected_clusters,
-                                       m,
-                                       n_selected_clusters,
-                                       merge_heights.data(),
-                                       membership_vec,
-                                       true);
+    // Normalize to obtain probabilities conditioned on points belonging to some cluster
+    Utils::normalize(membership_vec, n_selected_clusters, m, stream);
 
-  rmm::device_uvector<value_t> prob_in_some_cluster(m, stream);
-  all_points_prob_in_some_cluster(handle,
-                                  condensed_tree,
-                                  deaths,
-                                  selected_clusters,
-                                  m,
-                                  n_selected_clusters,
-                                  merge_heights.data(),
-                                  prob_in_some_cluster.data());
-
-  thrust::transform(exec_policy,
-                    dist_membership_vec.begin(),
-                    dist_membership_vec.end(),
-                    membership_vec,
-                    membership_vec,
-                    thrust::multiplies<value_t>());
-
-  // Normalize to obtain probabilities conditioned on points belonging to some cluster
-  Utils::normalize(membership_vec, n_selected_clusters, m, stream);
-
-  // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
-  raft::linalg::matrixVectorOp(
-    membership_vec,
-    membership_vec,
-    prob_in_some_cluster.data(),
-    n_selected_clusters,
-    (value_idx)m,
-    true,
-    false,
-    [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
-    stream);
+    // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
+    raft::linalg::matrixVectorOp(
+      membership_vec,
+      membership_vec,
+      prob_in_some_cluster.data(),
+      n_selected_clusters,
+      (value_idx)m,
+      true,
+      false,
+      [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
+      stream);
+  }
 }
 
 };  // namespace Predict

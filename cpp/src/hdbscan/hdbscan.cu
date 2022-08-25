@@ -61,6 +61,7 @@ void hdbscan(const raft::handle_t& handle,
                         label_map.data(),
                         prediction_data_.get_core_dists(),
                         out);
+
   HDBSCAN::Common::build_prediction_data(handle,
                                          out.get_condensed_tree(),
                                          labels.data(),

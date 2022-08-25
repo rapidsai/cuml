@@ -517,49 +517,61 @@ def test_all_points_membership_vectors(nrows,
         sk_membership_vectors)
 
 
-@pytest.mark.parametrize('nrows', [1000, 10000])
-@pytest.mark.parametrize('n_points_to_predict', [200, 500])
-@pytest.mark.parametrize('ncols', [10, 25])
-@pytest.mark.parametrize('nclusters', [15])
-@pytest.mark.parametrize('min_cluster_size', [30, 60])
-@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 0.5])
+@pytest.mark.parametrize('nrows', [1000])
+@pytest.mark.parametrize('n_points_to_predict', [500])
+@pytest.mark.parametrize('dataset', dataset_names)
+@pytest.mark.parametrize('min_samples', [5, 50, 400, 800])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
+# @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
+@pytest.mark.parametrize('min_cluster_size', [10, 25, 100, 350])
+# @pytest.mark.parametrize('min_cluster_size', [25])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+# @pytest.mark.parametrize('allow_single_cluster', [False])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('connectivity', ['knn'])
 def test_approximate_predict(nrows,
                              n_points_to_predict,
-                             ncols,
-                             nclusters,
+                             dataset,
+                             min_samples,
                              cluster_selection_epsilon,
-                             cluster_selection_method,
                              min_cluster_size,
-                             max_cluster_size):
-    X, y = make_blobs(n_samples=nrows,
-                      n_features=ncols,
-                      centers=nclusters,
-                      cluster_std=0.7,
-                      shuffle=True,
-                      random_state=42)
+                             allow_single_cluster,
+                             max_cluster_size,
+                             cluster_selection_method,
+                             connectivity):
+    if dataset == 'noisy_circles':
+        X, y = datasets.make_circles(n_samples=nrows, factor=.5, noise=.05, random_state=42)
+        points_to_predict, _ = datasets.make_circles(n_samples=n_points_to_predict, factor=.5, noise=.05, random_state=42)
 
-    points_to_predict, _ = make_blobs(n_samples=n_points_to_predict,
-                                      n_features=ncols,
-                                      centers=nclusters,
-                                      cluster_std=0.7,
-                                      shuffle=True,
-                                      random_state=42)
+    elif dataset == 'noisy_moons':
+        X, y = datasets.make_moons(n_samples=nrows, noise=.05, random_state=42)
+        points_to_predict, _ = datasets.make_moons(n_samples=n_points_to_predict, noise=.05, random_state=42)
+
+    else:
+        X, y = datasets.make_blobs(n_samples=nrows,
+                                   cluster_std=[1.0, 2.5, 0.5],
+                                   random_state=42)
+        points_to_predict, _ = datasets.make_blobs(n_samples=n_points_to_predict,
+                                   cluster_std=[1.0, 2.5, 0.5],
+                                   random_state=42)
 
     cuml_agg = HDBSCAN(verbose=logger.level_info,
                        allow_single_cluster=False,
+                       min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
                        cluster_selection_epsilon=cluster_selection_epsilon,
                        cluster_selection_method=cluster_selection_method,
                        prediction_data=True)
+
     cuml_agg.fit(X)
 
     sk_agg = hdbscan.HDBSCAN(
-        allow_single_cluster=False,
+        allow_single_cluster=allow_single_cluster,
         approx_min_span_tree=False,
         gen_min_span_tree=True,
+        min_samples=min_samples,
         min_cluster_size=min_cluster_size,
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
@@ -572,5 +584,5 @@ def test_approximate_predict(nrows,
     sk_labels, sk_probs = hdbscan.approximate_predict(
         sk_agg, points_to_predict)
 
-    assert(adjusted_rand_score(cu_labels, sk_labels) >= 0.95)
+    assert(adjusted_rand_score(cu_labels, sk_labels) >= 0.99)
     assert np.allclose(cu_probs, sk_probs, atol=0.05)
