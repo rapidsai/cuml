@@ -221,7 +221,7 @@ __global__ void excess_sample_with_replacement_kernel(
     // compute the adjacent differences according to the functor
     // TODO: Replace deprecated 'FlagHeads' with 'SubtractLeft' when it is available
     BlockAdjacentDifferenceT(temp_storage.diff)
-      .FlagHeads(mask, items, mask, CustomDifference<IdxT>());
+      .SubtractLeft(items, mask, CustomDifference<IdxT>(), mask[0]);
 
     __syncthreads();
 
