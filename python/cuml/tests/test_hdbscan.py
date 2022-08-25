@@ -133,6 +133,16 @@ def assert_condensed_trees(sk_agg, min_cluster_size):
 
 
 def assert_all_points_membership_vectors(cu_vecs, sk_vecs):
+    cu_labels_sorted = np.argsort(cu_vecs)
+    sk_labels_sorted = np.argsort(sk_vecs)
+
+    for i in range(sk_labels_sorted.shape[1]):
+        assert adjusted_rand_score(cu_labels_sorted[:, i], sk_labels_sorted[:, i]) >= 0.99
+
+
+    cu_vecs.sort(axis=1)
+    sk_vecs.sort(axis=1)
+
     i = 0
     while i < sk_vecs.shape[0]:
         total_nz = 0
@@ -143,8 +153,7 @@ def assert_all_points_membership_vectors(cu_vecs, sk_vecs):
         if total_nz == sk_vecs.shape[1]:
             assert np.allclose(cu_vecs[i], sk_vecs[i], atol=0.1, rtol=0.1)
         i += 1
-
-
+    
 @pytest.mark.parametrize('nrows', [500])
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
@@ -471,14 +480,14 @@ def test_hdbscan_plots():
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 0.5])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
-def test_all_points_membership_vectors(nrows,
-                                       ncols,
-                                       nclusters,
-                                       cluster_selection_epsilon,
-                                       cluster_selection_method,
-                                       min_cluster_size,
-                                       allow_single_cluster,
-                                       max_cluster_size):
+def test_all_points_membership_vectors_make_blobs(nrows,
+                                                  ncols,
+                                                  nclusters,
+                                                  cluster_selection_epsilon,
+                                                  cluster_selection_method,
+                                                  min_cluster_size,
+                                                  allow_single_cluster,
+                                                  max_cluster_size):
     X, y = make_blobs(n_samples=nrows,
                       n_features=ncols,
                       centers=nclusters,
@@ -508,10 +517,68 @@ def test_all_points_membership_vectors(nrows,
     sk_agg.fit(cp.asnumpy(X))
 
     cu_membership_vectors = all_points_membership_vectors(cuml_agg)
-    cu_membership_vectors.sort(axis=1)
     sk_membership_vectors = hdbscan.all_points_membership_vectors(
         sk_agg).astype("float32")
-    sk_membership_vectors.sort(axis=1)
+    assert_all_points_membership_vectors(
+        cu_membership_vectors,
+        sk_membership_vectors)
+
+
+@pytest.mark.parametrize('nrows', [1000])
+@pytest.mark.parametrize('dataset', dataset_names)
+@pytest.mark.parametrize('min_samples', [15])
+@pytest.mark.parametrize('min_cluster_size', [10, 25])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom'])
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_all_points_membership_vectors_patterns(nrows,
+                                                dataset,
+                                                min_samples,
+                                                cluster_selection_epsilon,
+                                                cluster_selection_method,
+                                                min_cluster_size,
+                                                allow_single_cluster,
+                                                max_cluster_size):
+    if dataset == 'noisy_circles':
+        X, y = datasets.make_circles(n_samples=nrows, factor=.5, noise=.05, random_state=42)
+
+    elif dataset == 'noisy_moons':
+        X, y = datasets.make_moons(n_samples=nrows, noise=.05, random_state=42)
+
+    else:
+        X, y = datasets.make_blobs(n_samples=nrows,
+                                   cluster_std=[1.0, 2.5, 0.5],
+                                   random_state=42)
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       min_samples=min_samples,
+                       allow_single_cluster=allow_single_cluster,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method,
+                       prediction_data=True)
+    cuml_agg.fit(X)
+
+    sk_agg = hdbscan.HDBSCAN(
+        min_samples=min_samples,
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic",
+        prediction_data=True)
+
+    sk_agg.fit(X)
+
+    cu_membership_vectors = all_points_membership_vectors(cuml_agg)
+    sk_membership_vectors = hdbscan.all_points_membership_vectors(
+        sk_agg).astype("float32")
+
     assert_all_points_membership_vectors(
         cu_membership_vectors,
         sk_membership_vectors)
@@ -520,15 +587,12 @@ def test_all_points_membership_vectors(nrows,
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('n_points_to_predict', [500])
 @pytest.mark.parametrize('dataset', dataset_names)
-@pytest.mark.parametrize('min_samples', [5, 50, 400, 800])
-@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
-# @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_cluster_size', [10, 25, 100, 350])
-# @pytest.mark.parametrize('min_cluster_size', [25])
+@pytest.mark.parametrize('min_samples', [15])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0])
+@pytest.mark.parametrize('min_cluster_size', [10, 25])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
-# @pytest.mark.parametrize('allow_single_cluster', [False])
 @pytest.mark.parametrize('max_cluster_size', [0])
-@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_approximate_predict(nrows,
                              n_points_to_predict,
