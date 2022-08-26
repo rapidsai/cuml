@@ -18,14 +18,18 @@
 
 import os
 import inspect
+from importlib import import_module
+import numpy as np
 import nvtx
 
+import cuml
 import cuml.common
 import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
 import raft.common.handle
 import cuml.common.input_utils
+from cuml.common.input_utils import input_to_cuml_array
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
@@ -183,6 +187,8 @@ class Base(TagsMixin,
         self._input_type = None
         self.target_dtype = None
         self.n_features_in_ = None
+
+        self.set_device_interop()
 
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
@@ -379,6 +385,58 @@ class Base(TagsMixin,
                 func = getattr(self, func_name)
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
+
+    def set_device_interop(self):
+        for func_name in ['fit', 'transform', 'predict', 'fit_transform',
+                          'fit_predict']:
+            if hasattr(self, func_name):
+                def modified_func_generator(func_name, original_func):
+                    def modified_func(*args, **kwargs):
+                        device_type = cuml.global_settings.device_type
+                        if device_type == 'gpu':
+                            if hasattr(self, 'sk_model_'):
+                                for attribute in self.get_attributes_names():
+                                    if hasattr(self.sk_model_, attribute):
+                                        sk_attr = self.sk_model_.__dict__[attribute]
+                                        if isinstance(sk_attr, np.ndarray):
+                                            cuml_array = input_to_cuml_array(sk_attr)[0]
+                                            setattr(self, attribute, cuml_array)
+                                        else:
+                                            setattr(self, attribute, sk_attr)
+                            return original_func(*args, **kwargs)
+                        elif device_type == 'cpu':
+                            if not hasattr(self, 'sk_model_'):
+                                if hasattr(self, 'sk_import_path_'):
+                                    model_path = self.sk_import_path_
+                                else:
+                                    model_path = 'sklearn' + self.__class__.__module__[4:]
+                                model_name = self.__class__.__name__
+                                sk_model = getattr(import_module(model_path), model_name)
+                                self.sk_model_ = sk_model()
+                                for param in self.get_param_names():
+                                    self.sk_model_.__dict__[param] = self.__dict__[param]
+
+                            for attribute in self.get_attributes_names():
+                                if hasattr(self, attribute):
+                                    cu_attr = self.__dict__[attribute]
+                                    if hasattr(cu_attr, 'get_input_value'):
+                                        cu_attr_value = cu_attr.get_input_value()
+                                        if not cu_attr_value is None:
+                                            if cu_attr.input_type == 'cuml':
+                                                self.sk_model_.__dict__[attribute] = cu_attr_value.to_output('numpy')
+                                            else:
+                                                self.sk_model_.__dict__[attribute] = cu_attr_value
+                                    else:
+                                        self.sk_model_.__dict__[attribute] = cu_attr
+
+                            res = getattr(self.sk_model_, func_name)(*args, **kwargs)
+                            if func_name == 'fit':
+                                return self
+                            else:
+                                return res
+                    return modified_func
+                original_func = getattr(self, func_name)
+                setattr(self, func_name, modified_func_generator(func_name, original_func))
 
 
 # Internal, non class owned helper functions

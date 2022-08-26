@@ -70,6 +70,7 @@ class LinearRegression(Base,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
+    sk_import_path_ = 'sklearn.linear_model'
 
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -317,6 +318,14 @@ class LinearRegression(Base,
 
         return self
 
+    def predict(self, X, convert_dtype=True) -> CumlArray:
+        self.dtype = self.coef_.dtype
+        self.n_cols = self.coef_.shape[0]
+        return super().predict(X, convert_dtype=convert_dtype)
+
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
+
+    def get_attributes_names(self):
+        return ['coef_', 'intercept_']

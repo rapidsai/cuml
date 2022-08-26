@@ -16,6 +16,10 @@
 
 import pytest
 import cuml
+import numpy as np
+from sklearn.datasets import make_regression
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from cuml.linear_model import LinearRegression
 from cuml.common.device_selection import using_device_type, using_memory_type
 
 
@@ -46,3 +50,58 @@ def test_memory_type_exception():
     with pytest.raises(ValueError):
         with using_memory_type('wrong_option'):
             assert True
+
+
+X, y = make_regression(n_samples=2000, n_features=20, n_informative=15)
+X_train, X_test = X[:1800], X[1800:]
+y_train, _ = y[:1800], y[1800:]
+
+
+@pytest.mark.parametrize('fit_intercept', [False, True])
+@pytest.mark.parametrize('normalize', [False, True])
+def test_train_cpu_infer_cpu(fit_intercept, normalize):
+    model = LinearRegression(fit_intercept=fit_intercept,
+                             normalize=normalize)
+    with using_device_type('cpu'):
+        model.fit(X_train, y_train)
+        cu_pred = model.predict(X_test)
+
+    sk_model = skLinearRegression(fit_intercept=fit_intercept,
+                                  normalize=normalize)
+    sk_model.fit(X_train, y_train)
+    sk_pred = sk_model.predict(X_test)
+    np.testing.assert_allclose(sk_pred, cu_pred)
+
+
+@pytest.mark.parametrize('fit_intercept', [False, True])
+@pytest.mark.parametrize('normalize', [False, True])
+def test_train_gpu_infer_cpu(fit_intercept, normalize):
+    model = LinearRegression(fit_intercept=fit_intercept,
+                             normalize=normalize)
+    with using_device_type('gpu'):
+        model.fit(X_train, y_train)
+    with using_device_type('cpu'):
+        cu_pred = model.predict(X_test)
+
+    sk_model = skLinearRegression(fit_intercept=fit_intercept,
+                                  normalize=normalize)
+    sk_model.fit(X_train, y_train)
+    sk_pred = sk_model.predict(X_test)
+    np.testing.assert_allclose(sk_pred, cu_pred)
+
+
+@pytest.mark.parametrize('fit_intercept', [False, True])
+@pytest.mark.parametrize('normalize', [False, True])
+def test_train_cpu_infer_gpu(fit_intercept, normalize):
+    model = LinearRegression(fit_intercept=fit_intercept,
+                             normalize=normalize)
+    with using_device_type('cpu'):
+        model.fit(X_train, y_train)
+    with using_device_type('gpu'):
+        cu_pred = model.predict(X_test)
+
+    sk_model = skLinearRegression(fit_intercept=fit_intercept,
+                                  normalize=normalize)
+    sk_model.fit(X_train, y_train)
+    sk_pred = sk_model.predict(X_test)
+    np.testing.assert_allclose(sk_pred, cu_pred)
