@@ -495,7 +495,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  verbose=False,
                  connectivity='knn',
                  output_type=None,
-                 prediction_data=False,
                  prediction_data=False):
 
         super().__init__(handle=handle,
@@ -711,8 +710,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         cdef PredictionData[int, float] *pred_data = new PredictionData(
             handle_[0], <int> n_rows, <int> n_cols)
-        cdef PredictionData[int, float] *pred_data = new PredictionData(
-            handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn':
             if self.prediction_data:
                 self._prediction_data = <size_t>pred_data
@@ -724,17 +721,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                         params,
                         deref(linkage_output),
                         deref(pred_data))
-            else:
-                if self.prediction_data:
-                    self._prediction_data = <size_t>pred_data
-                hdbscan(handle_[0],
-                        <float*>input_ptr,
-                        <int> n_rows,
-                        <int> n_cols,
-                        <DistanceType> metric,
-                        params,
-                        deref(linkage_output),
-                        deref(pred_data))
+
             else:
                 hdbscan(handle_[0],
                         <float*>input_ptr,

@@ -31,7 +31,6 @@
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
 #include "detail/soft_clustering.cuh"
-#include "detail/soft_clustering.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <thrust/device_ptr.h>

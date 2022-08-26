@@ -104,8 +104,6 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(handle, params.n_row, params.n_col);
 
-    HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(handle, params.n_row, params.n_col);
-
     hdbscan(handle,
             data.data(),
             params.n_row,
@@ -113,7 +111,6 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
             raft::distance::DistanceType::L2SqrtExpanded,
             hdbscan_params,
             out,
-            prediction_data_,
             prediction_data_);
 
     handle.sync_stream(handle.get_stream());
