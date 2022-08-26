@@ -20,7 +20,6 @@ import numpy as np
 
 from libc.stdint cimport uintptr_t
 
-import cudf
 
 import cuml.internals
 
