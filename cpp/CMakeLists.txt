@@ -333,7 +333,8 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/genetic/program.cu
         src/genetic/node.cu
         src/hdbscan/hdbscan.cu
-        src/hdbscan/condensed_hierarchy.cu)
+        src/hdbscan/condensed_hierarchy.cu
+        src/hdbscan/prediction_data.cu)
   endif()
 
   if(all_algo OR holtwinters_algo)

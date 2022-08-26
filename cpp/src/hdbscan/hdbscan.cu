@@ -17,6 +17,9 @@
 #include "detail/condense.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+
 #include "runner.h"
 
 namespace ML {
@@ -29,7 +32,29 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out)
 {
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out);
+  rmm::device_uvector<int> labels(m, handle.get_stream());
+  rmm::device_uvector<int> label_map(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), label_map.data(), out);
+}
+
+void hdbscan(const raft::handle_t& handle,
+             const float* X,
+             size_t m,
+             size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams& params,
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
+{
+  rmm::device_uvector<int> labels(m, handle.get_stream());
+  rmm::device_uvector<int> label_map(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), label_map.data(), out);
+  HDBSCAN::Common::build_prediction_data(handle,
+                                         out.get_condensed_tree(),
+                                         labels.data(),
+                                         label_map.data(),
+                                         out.get_n_clusters(),
+                                         prediction_data_);
 }
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
@@ -75,6 +100,17 @@ void _extract_clusters(const raft::handle_t& handle,
                                              allow_single_cluster,
                                              max_cluster_size,
                                              cluster_selection_epsilon);
+}
+
+void _all_points_membership_vectors(const raft::handle_t& handle,
+                                    HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                                    HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                                    float* membership_vec,
+                                    const float* X,
+                                    raft::distance::DistanceType metric)
+{
+  HDBSCAN::detail::Predict::all_points_membership_vectors(
+    handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 
 };  // end namespace ML
