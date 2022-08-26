@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import copy
-import cudf
 import ctypes
 import math
 import numpy as np

@@ -28,7 +28,6 @@ from cuml.common.mixins import FMajorInputTagMixin
 
 import numpy as np
 
-import cudf
 
 from cython.operator cimport dereference as deref
 

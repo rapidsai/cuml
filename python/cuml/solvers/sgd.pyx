@@ -18,7 +18,6 @@
 import typing
 
 import ctypes
-import cudf
 import numpy as np
 import cupy as cp
 
