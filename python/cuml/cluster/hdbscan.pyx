@@ -726,7 +726,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                         deref(pred_data))
             else:
                 if self.prediction_data:
-                self._prediction_data = <size_t>pred_data
+                    self._prediction_data = <size_t>pred_data
                 hdbscan(handle_[0],
                         <float*>input_ptr,
                         <int> n_rows,
@@ -737,12 +737,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                         deref(pred_data))
             else:
                 hdbscan(handle_[0],
-                            <float*>input_ptr,
-                            <int> n_rows,
-                            <int> n_cols,
-                            <DistanceType> metric,
-                            params,
-                            deref(linkage_output))
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
@@ -849,7 +849,7 @@ def all_points_membership_vectors(clusterer):
         raise ValueError("PredictionData not generated. "
                          "Please call clusterer.fit again with "
                          "prediction_data=True")
-    
+
     if clusterer.n_clusters_ == 0:
         return np.zeros(clusterer.n_rows, dtype=np.float32)
 
