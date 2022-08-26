@@ -810,6 +810,9 @@ def all_points_membership_vectors(clusterer):
         raise ValueError("PredictionData not generated. "
                          "Please call clusterer.fit again with "
                          "prediction_data=True")
+    
+    if clusterer.n_clusters_ == 0:
+        return np.zeros(clusterer.n_rows, dtype=np.float32)
 
     cdef uintptr_t input_ptr = clusterer.X_m.ptr
 
@@ -882,6 +885,12 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         raise ValueError("PredictionData not generated. "
                          "Please call clusterer.fit again with "
                          "prediction_data=True")
+
+    if clusterer.n_clusters_ == 0:
+        logger.warn(
+            'Clusterer does not have any defined clusters, new data '
+            'will be automatically predicted as outliers.'
+        )
 
     points_to_predict_m, n_prediction_points, _, _ = \
         input_to_cuml_array(points_to_predict, order='C',
