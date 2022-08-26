@@ -16,7 +16,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 
 from numba import cuda

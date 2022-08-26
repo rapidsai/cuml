@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import cuml.internals
 import numpy as np
 import warnings
