@@ -80,8 +80,13 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         float cluster_selection_epsilon,
 
         bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method
+        CLUSTER_SELECTION_METHOD cluster_selection_method,
+        bool prediction_data
 
+    cdef cppclass PredictionData[int, float]:
+        PredictionData(const handle_t &handle,
+                       int m,
+                       int n)
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
@@ -91,6 +96,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output)
+
+    void hdbscan(const handle_t & handle,
+                 const float* X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams& params,
+                 hdbscan_output & output,
+                 PredictionData & prediction_data_)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -108,6 +121,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            CLUSTER_SELECTION_METHOD cluster_selection_method,
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
+
+    void _all_points_membership_vectors(
+        const handle_t &handle,
+        CondensedHierarchy[int, float] &condensed_tree,
+        PredictionData[int, float] &prediction_data_,
+        float* membership_vec,
+        float* X,
+        DistanceType metric)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -370,6 +391,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    prediction_data : bool, optinal (default=False)
+        Whether to generate extra cached data for predicting labels or
+        membership vectors few new unseen points later. If you wish to
+        persist the clustering object for later re-use you probably want
+        to set this to True.
+
 
     Attributes
     ----------
@@ -435,7 +462,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  handle=None,
                  verbose=False,
                  connectivity='knn',
-                 output_type=None):
+                 output_type=None,
+                 prediction_data=False):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -464,6 +492,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
 
         self.fit_called_ = False
+        self.prediction_data = prediction_data
 
         self.n_clusters_ = None
         self.n_leaves_ = None
@@ -572,6 +601,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
+        if self.prediction_data:
+            self.X_m = X_m
+            self.n_rows = n_rows
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -638,14 +671,27 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
+        cdef PredictionData[int, float] *pred_data = new PredictionData(
+            handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn':
-            hdbscan(handle_[0],
-                    <float*>input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <DistanceType> metric,
-                    params,
-                    deref(linkage_output))
+            if self.prediction_data:
+                self._prediction_data = <size_t>pred_data
+                hdbscan(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output),
+                        deref(pred_data))
+            else:
+                hdbscan(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
@@ -738,4 +784,44 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "connectivity",
             "alpha",
             "gen_min_span_tree",
+            "prediction_data"
         ]
+
+
+def all_points_membership_vectors(clusterer):
+    if not clusterer.fit_called_:
+        raise ValueError("The clusterer is not fit on data. "
+                         "Please call clusterer.fit first")
+
+    if not clusterer.prediction_data:
+        raise ValueError("PredictionData not generated. "
+                         "Please call clusterer.fit again with "
+                         "prediction_data=True")
+
+    cdef uintptr_t input_ptr = clusterer.X_m.ptr
+
+    membership_vec = CumlArray.empty(
+        (clusterer.n_rows * clusterer.n_clusters_,),
+        dtype="float32")
+
+    cdef uintptr_t membership_vec_ptr = membership_vec.ptr
+
+    cdef hdbscan_output *hdbscan_output_ = \
+        <hdbscan_output*><size_t>clusterer.hdbscan_output_
+
+    cdef PredictionData *pred_data_ = \
+        <PredictionData*><size_t>clusterer._prediction_data
+
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+    _all_points_membership_vectors(handle_[0],
+                                   hdbscan_output_.get_condensed_tree(),
+                                   deref(pred_data_),
+                                   <float*> membership_vec_ptr,
+                                   <float*> input_ptr,
+                                   _metrics_mapping[clusterer.metric])
+
+    clusterer.handle.sync()
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32").reshape((clusterer.n_rows,
+                                         clusterer.n_clusters_))
