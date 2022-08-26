@@ -82,8 +82,13 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method,
+        bool prediction_data,
         bool prediction_data
 
+    cdef cppclass PredictionData[int, float]:
+        PredictionData(const handle_t &handle,
+                       int m,
+                       int n)
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
                        int m,
@@ -97,6 +102,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output)
+
+    void hdbscan(const handle_t & handle,
+                 const float* X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams& params,
+                 hdbscan_output & output,
+                 PredictionData & prediction_data_)
 
     void hdbscan(const handle_t & handle,
                  const float* X,
@@ -410,6 +423,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         persist the clustering object for later re-use you probably want
         to set this to True.
 
+    prediction_data : bool, optinal (default=False)
+        Whether to generate extra cached data for predicting labels or
+        membership vectors few new unseen points later. If you wish to
+        persist the clustering object for later re-use you probably want
+        to set this to True.
+
 
     Attributes
     ----------
@@ -476,6 +495,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  verbose=False,
                  connectivity='knn',
                  output_type=None,
+                 prediction_data=False,
                  prediction_data=False):
 
         super().__init__(handle=handle,
@@ -505,6 +525,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
 
         self.fit_called_ = False
+        self.prediction_data = prediction_data
         self.prediction_data = prediction_data
 
         self.n_clusters_ = None
@@ -618,6 +639,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             self.X_m = X_m
             self.n_rows = n_rows
 
+        if self.prediction_data:
+            self.X_m = X_m
+            self.n_rows = n_rows
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -686,6 +711,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         cdef PredictionData[int, float] *pred_data = new PredictionData(
             handle_[0], <int> n_rows, <int> n_cols)
+        cdef PredictionData[int, float] *pred_data = new PredictionData(
+            handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn':
             if self.prediction_data:
                 self._prediction_data = <size_t>pred_data
@@ -698,13 +725,24 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                         deref(linkage_output),
                         deref(pred_data))
             else:
+                if self.prediction_data:
+                self._prediction_data = <size_t>pred_data
                 hdbscan(handle_[0],
                         <float*>input_ptr,
                         <int> n_rows,
                         <int> n_cols,
                         <DistanceType> metric,
                         params,
-                        deref(linkage_output))
+                        deref(linkage_output),
+                        deref(pred_data))
+            else:
+                hdbscan(handle_[0],
+                            <float*>input_ptr,
+                            <int> n_rows,
+                            <int> n_cols,
+                            <DistanceType> metric,
+                            params,
+                            deref(linkage_output))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
@@ -797,6 +835,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "connectivity",
             "alpha",
             "gen_min_span_tree",
+            "prediction_data"
             "prediction_data"
         ]
 

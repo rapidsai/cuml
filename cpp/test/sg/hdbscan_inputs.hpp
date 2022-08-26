@@ -87,6 +87,7 @@ struct SoftClusteringInputs {
   std::vector<T> expected_probabilities;
 };
 
+<<<<<<< HEAD
 template <typename T, typename IdxT>
 struct ApproximatePredictInputs {
   IdxT n_row;
@@ -111,6 +112,8 @@ struct ApproximatePredictInputs {
   std::vector<T> expected_probabilities;
 };
 
+=======
+>>>>>>> 80621f0b3718f565ece410ee3f71f36a8f44f5aa
 const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
@@ -6166,6 +6169,7 @@ const std::vector<SoftClusteringInputs<float, int>> soft_clustering_inputs = {
     0.0501381,   0.053290438, 0.047078118, 0.040903572, 0.0667583,   0.056616243, 0.07065173,
     0.0443147,   0.04315245,  0.056318313, 0.049550712, 0.042784892}}};
 
+<<<<<<< HEAD
 const std::vector<ApproximatePredictInputs<float, int>> approximate_predict_inputs = {
   {1000,
    15,
@@ -9518,5 +9522,7 @@ const std::vector<ApproximatePredictInputs<float, int>> approximate_predict_inpu
     0.87403995, 0.8159213,  0.84295577, 0.8421921,  0.7420118,  0.6360181,  0.81305146,
     0.8754587,  0.7677488,  0.90577155, 0.86267424, 0.882905,   0.79492515, 1.0,
     0.8293242,  0.8139433,  0.8155659,  0.68453956}}};
+=======
+>>>>>>> 80621f0b3718f565ece410ee3f71f36a8f44f5aa
 };  // namespace HDBSCAN
 };  // namespace ML
