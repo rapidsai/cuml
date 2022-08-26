@@ -119,8 +119,9 @@ void build_prediction_data(const raft::handle_t& handle,
                       labels,
                       deaths = prediction_data.get_deaths()] __device__(auto idx) {
     if (children[idx] < n_leaves) {
-      is_exemplar[children[idx]] = (labels[idx] != -1 && is_leaf_cluster[parents[idx] - n_leaves] &&
-                                    lambdas[idx] == deaths[parents[idx] - n_leaves]);
+      is_exemplar[children[idx]] =
+        (labels[children[idx]] != -1 && is_leaf_cluster[parents[idx] - n_leaves] &&
+         lambdas[idx] == deaths[parents[idx] - n_leaves]);
       return;
     }
   };
