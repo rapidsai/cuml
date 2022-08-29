@@ -144,7 +144,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         float* X,
         DistanceType metric)
 
-    void predict_out_of_sample(const handle_t &handle,
+    void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
                                PredictionData[int, float] &prediction_data,
                                float* X,
@@ -823,7 +823,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "alpha",
             "gen_min_span_tree",
             "prediction_data"
-            "prediction_data"
         ]
 
 
@@ -948,7 +947,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
-    predict_out_of_sample(handle_[0],
+    out_of_sample_predict(handle_[0],
                           hdbscan_output_.get_condensed_tree(),
                           deref(pred_data_),
                           <float*> input_ptr,

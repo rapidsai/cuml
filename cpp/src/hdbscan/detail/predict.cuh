@@ -17,15 +17,13 @@
 #pragma once
 
 #include "kernels/predict.cuh"
+#include "reachability.cuh"
+
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 
-#include <raft/linalg/unary_op.hpp>
-
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
-
-#include <cuml/neighbors/knn.hpp>
 
 #include <thrust/transform.h>
 
@@ -34,6 +32,135 @@ namespace HDBSCAN {
 namespace detail {
 namespace Predict {
 
+/**
+Find the nearest mutual reachability neighbor of a point, and  compute
+the associated lambda value for the point, given the mutual reachability
+distance to a nearest neighbor.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] input_core_dists an array of core distances for all points (size m)
+ * @param[in] prediction_core_dists an array of core distances for all prediction points (size
+n_prediction_points)
+ * @param[in] knn_dists knn distance array (size n_prediction_points * min_samples * 2)
+ * @param[in] knn_inds knn indices array (size n_prediction_points * min_samples * 2)
+ * @param[in] n_prediction_points number of prediction points
+ * @param[in] min_samples this neighborhood will be selected for core distances
+ * @param[out] min_mr_inds indices of points with the minimum mutual reachability distance (size
+n_prediction_points)
+ * @param[out] prediction_lambdas lambda values for prediction points (size n_prediction_points)
+ */
+template <typename value_idx, typename value_t, int tpb = 256>
+void _find_neighbor_and_lambda(const raft::handle_t& handle,
+                               value_t* input_core_dists,
+                               value_t* prediction_core_dists,
+                               value_t* knn_dists,
+                               value_idx* knn_inds,
+                               size_t n_prediction_points,
+                               int min_samples,
+                               value_idx* min_mr_inds,
+                               value_t* prediction_lambdas)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  // Buffer for storing the minimum mutual reachability distances
+  rmm::device_uvector<value_t> min_mr_dists(n_prediction_points, stream);
+
+  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+
+  // get nearest neighbors for each prediction point in mutual reachability space
+  min_mutual_reachability_kernel<<<n_blocks, tpb, 0, stream>>>(input_core_dists,
+                                                               prediction_core_dists,
+                                                               knn_dists,
+                                                               knn_inds,
+                                                               n_prediction_points,
+                                                               min_samples,
+                                                               min_mr_dists.data(),
+                                                               min_mr_inds);
+
+  // obtain lambda values from minimum mutual reachability distances
+  thrust::transform(exec_policy,
+                    min_mr_dists.data(),
+                    min_mr_dists.data() + n_prediction_points,
+                    prediction_lambdas,
+                    [] __device__(value_t dist) {
+                      if (dist > 0) return (1 / dist);
+                      return std::numeric_limits<value_t>::max();
+                    });
+}
+
+/**
+ Return the cluster label (of the original clustering) and membership
+ probability of a new data point.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree condensed hierarchy
+ * @param[in] prediction_data PredictionData object
+ * @param[in] n_prediction_points number of prediction points
+ * @param[in] min_mr_inds indices of points with the minimum mutual reachability distance (size
+ n_prediction_points)
+ * @param[in] prediction_lambdas lambda values for prediction points (size n_prediction_points)
+ * @param[in] labels monotonic labels of all points
+ * @param[out] out_labels output cluster labels
+ * @param[out] out_probabilities output probabilities
+ */
+template <typename value_idx, typename value_t, int tpb = 256>
+void _find_cluster_and_probability(const raft::handle_t& handle,
+                                   Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                                   Common::PredictionData<value_idx, value_t>& prediction_data,
+                                   size_t n_prediction_points,
+                                   value_idx* min_mr_inds,
+                                   value_t* prediction_lambdas,
+                                   value_idx* labels,
+                                   value_idx* out_labels,
+                                   value_t* out_probabilities)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  auto parents     = condensed_tree.get_parents();
+  auto children    = condensed_tree.get_children();
+  value_t* lambdas = condensed_tree.get_lambdas();
+  auto n_edges     = condensed_tree.get_n_edges();
+  auto n_leaves    = condensed_tree.get_n_leaves();
+
+  value_t* deaths              = prediction_data.get_deaths();
+  value_idx* selected_clusters = prediction_data.get_selected_clusters();
+
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+
+  rmm::device_uvector<value_idx> index_into_children(n_edges + 1, stream);
+
+  auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
+    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+    return;
+  };
+  thrust::for_each(
+    exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
+    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
+    index_op);
+
+  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+
+  cluster_probability_kernel<<<n_blocks, tpb, 0, stream>>>(min_mr_inds,
+                                                           prediction_lambdas,
+                                                           index_into_children.data(),
+                                                           labels,
+                                                           deaths,
+                                                           selected_clusters,
+                                                           parents,
+                                                           lambdas,
+                                                           n_leaves,
+                                                           n_prediction_points,
+                                                           out_labels,
+                                                           out_probabilities);
+}
 /**
  * Predict the cluster label and the probability of the label for new points.
  * The returned labels are those of the original clustering found by ``clusterer``,
@@ -45,11 +172,10 @@ namespace Predict {
  * @tparam value_t
  * @param[in] handle raft handle for resource reuse
  * @param[in] condensed_tree a condensed hierarchy
- * @param[in] prediction_data the PredictionData object created during fit
+ * @param[in] prediction_data PredictionData object
  * @param[in] X input data points (size m * n)
- * @param[in] prediction_points input prediction points (size n_prediction_points * n)
- * @param[in] m number of rows in X
- * @param[in] n number of columns in X
+ * @param[in] labels converted monotonic labels of the input data points
+ * @param[in] points_to_predict input prediction points (size n_prediction_points * n)
  * @param[in] n_prediction_points number of prediction points
  * @param[in] metric distance metric to use
  * @param[in] min_samples this neighborhood will be selected for core distances
@@ -75,109 +201,45 @@ void approximate_predict(const raft::handle_t& handle,
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
-  auto parents     = condensed_tree.get_parents();
-  auto children    = condensed_tree.get_children();
-  value_t* lambdas = condensed_tree.get_lambdas();
-  auto n_edges     = condensed_tree.get_n_edges();
-  auto n_leaves    = condensed_tree.get_n_leaves();
+  size_t m                  = prediction_data.n_rows;
+  size_t n                  = prediction_data.n_cols;
+  value_t* input_core_dists = prediction_data.get_core_dists();
 
-  std::vector<value_t*> inputs;
-  inputs.push_back(const_cast<value_t*>(X));
-
-  size_t m = prediction_data.n_rows;
-  size_t n = prediction_data.n_cols;
-  std::vector<int> sizes;
-  sizes.push_back(m);
-
-  // This is temporary. Once faiss is updated, we should be able to
-  // pass value_idx through to knn.
-  rmm::device_uvector<int64_t> int64_indices(min_samples * n_prediction_points * 2, stream);
-  rmm::device_uvector<value_idx> indices(min_samples * n_prediction_points * 2, stream);
+  rmm::device_uvector<value_idx> inds(min_samples * n_prediction_points * 2, stream);
   rmm::device_uvector<value_t> dists(min_samples * n_prediction_points * 2, stream);
   rmm::device_uvector<value_t> prediction_core_dists(n_prediction_points, stream);
 
   // perform knn
-  brute_force_knn(handle,
-                  inputs,
-                  sizes,
-                  n,
-                  const_cast<value_t*>(points_to_predict),
-                  n_prediction_points,
-                  int64_indices.data(),
-                  dists.data(),
-                  min_samples * 2,
-                  true,
-                  true,
-                  metric);
-
-  auto counting = thrust::make_counting_iterator<value_idx>(0);
+  Reachability::compute_knn(
+    handle, X, inds.data(), dists.data(), m, n, n_prediction_points, min_samples * 2, metric);
 
   // Slice core distances (distances to kth nearest neighbor)
-  thrust::transform(exec_policy,
-                    counting,
-                    counting + n_prediction_points,
-                    prediction_core_dists.data(),
-                    [dists = dists.data(), min_samples] __device__(value_idx row) {
-                      return dists[row * min_samples * 2 + min_samples];
-                    });
-  // convert from current knn's 64-bit to 32-bit.
-  thrust::transform(exec_policy,
-                    int64_indices.data(),
-                    int64_indices.data() + int64_indices.size(),
-                    indices.data(),
-                    [] __device__(int64_t in) -> value_idx { return in; });
+  Reachability::core_distances<value_idx>(
+    dists.data(), min_samples, min_samples * 2, m, prediction_core_dists.data(), stream);
 
-  rmm::device_uvector<value_t> min_mr_dists(n_prediction_points, stream);
-  rmm::device_uvector<value_idx> min_mr_indices(n_prediction_points, stream);
-
-  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
-
-  // get nearest neighbors for each prediction point in mutual reachability space
-  min_mutual_reachability_kernel<<<n_blocks, tpb, 0, stream>>>(prediction_data.get_core_dists(),
-                                                               prediction_core_dists.data(),
-                                                               dists.data(),
-                                                               indices.data(),
-                                                               n_prediction_points,
-                                                               min_samples,
-                                                               min_mr_dists.data(),
-                                                               min_mr_indices.data());
-
+  // Obtain lambdas for each prediction point using the closest point in mutual reachability space
   rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
+  rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);
+  _find_neighbor_and_lambda(handle,
+                            input_core_dists,
+                            prediction_core_dists.data(),
+                            dists.data(),
+                            inds.data(),
+                            n_prediction_points,
+                            min_samples,
+                            min_mr_inds.data(),
+                            prediction_lambdas.data());
 
-  // obtain lambda values from minimum mutual reachability distances.
-  thrust::transform(exec_policy,
-                    min_mr_dists.data(),
-                    min_mr_dists.data() + n_prediction_points,
-                    prediction_lambdas.data(),
-                    [] __device__(value_t dist) {
-                      if (dist > 0) return (1 / dist);
-                      return std::numeric_limits<value_t>::max();
-                    });
-
-  rmm::device_uvector<value_idx> index_into_children(n_edges + 1, stream);
-
-  auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
-    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
-    return;
-  };
-  thrust::for_each(
-    exec_policy,
-    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
-    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
-    index_op);
-
-  cluster_probability_kernel<<<n_blocks, tpb, 0, stream>>>(min_mr_indices.data(),
-                                                           prediction_lambdas.data(),
-                                                           index_into_children.data(),
-                                                           labels,
-                                                           prediction_data.get_deaths(),
-                                                           prediction_data.get_selected_clusters(),
-                                                           parents,
-                                                           lambdas,
-                                                           n_leaves,
-                                                           n_prediction_points,
-                                                           out_labels,
-                                                           out_probabilities);
+  // Using the nearest neighbor indices, find the assigned cluster label and probability
+  _find_cluster_and_probability(handle,
+                                condensed_tree,
+                                prediction_data,
+                                n_prediction_points,
+                                min_mr_inds.data(),
+                                prediction_lambdas.data(),
+                                labels,
+                                out_labels,
+                                out_probabilities);
 }
 
 };  // end namespace Predict

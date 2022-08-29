@@ -130,7 +130,7 @@ void compute_all_points_membership_vectors(
     handle, condensed_tree, prediction_data, membership_vec, X, metric);
 }
 
-void predict_out_of_sample(const raft::handle_t& handle,
+void out_of_sample_predict(const raft::handle_t& handle,
                            HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
                            HDBSCAN::Common::PredictionData<int, float>& prediction_data,
                            const float* X,
