@@ -88,10 +88,9 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         PredictionData(const handle_t &handle,
                        int m,
                        int n)
-    cdef cppclass PredictionData[int, float]:
-        PredictionData(const handle_t &handle,
-                       int m,
-                       int n)
+
+        size_t n_rows
+        size_t n_cols
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
@@ -814,6 +813,26 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
 
 def all_points_membership_vectors(clusterer):
+
+    """
+    Predict soft cluster membership vectors for all points in the
+    original dataset the clusterer was trained on. This function is more
+    efficient by making use of the fact that all points are already in the
+    condensed tree, and processing in bulk.
+
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+         A clustering object that has been fit to the data and
+        had ``prediction_data=True`` set.
+
+    Returns
+    -------
+    membership_vectors : array (n_samples, n_clusters)
+        The probability that point ``i`` of the original dataset is a member of
+        cluster ``j`` is in ``membership_vectors[i, j]``.
+    """
+
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
                          "Please call clusterer.fit first")
@@ -872,7 +891,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     ----------
     clusterer : HDBSCAN
         A clustering object that has been fit to the data and
-        either had ``prediction_data=True`` set.
+        had ``prediction_data=True`` set.
 
     points_to_predict : array, or array-like (n_samples, n_features)
         The new data points to predict cluster labels for. They should
@@ -902,6 +921,10 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
             'Clusterer does not have any defined clusters, new data '
             'will be automatically predicted as outliers.'
         )
+
+    if points_to_predict.shape[1] != \
+            clusterer.prediction_data_ptr.n_cols:
+        raise ValueError('New points dimension does not match fit data!')
 
     points_to_predict_m, n_prediction_points, _, _ = \
         input_to_cuml_array(points_to_predict, order='C',
