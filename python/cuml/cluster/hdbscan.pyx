@@ -82,7 +82,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method,
-        bool prediction_data,
         bool prediction_data
 
     cdef cppclass PredictionData[int, float]:
@@ -423,13 +422,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         persist the clustering object for later re-use you probably want
         to set this to True.
 
-    prediction_data : bool, optinal (default=False)
-        Whether to generate extra cached data for predicting labels or
-        membership vectors few new unseen points later. If you wish to
-        persist the clustering object for later re-use you probably want
-        to set this to True.
-
-
     Attributes
     ----------
     labels_ : ndarray, shape (n_samples, )
@@ -524,7 +516,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
 
         self.fit_called_ = False
-        self.prediction_data = prediction_data
         self.prediction_data = prediction_data
 
         self.n_clusters_ = None
@@ -638,10 +629,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             self.X_m = X_m
             self.n_rows = n_rows
 
-        if self.prediction_data:
-            self.X_m = X_m
-            self.n_rows = n_rows
-
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -708,11 +695,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
-        cdef PredictionData[int, float] *pred_data = new PredictionData(
+        cdef PredictionData[int, float] *prediction_data_ = new PredictionData(
             handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn':
             if self.prediction_data:
-                self._prediction_data = <size_t>pred_data
+                self.prediction_data_ptr = <size_t>prediction_data_
                 hdbscan(handle_[0],
                         <float*>input_ptr,
                         <int> n_rows,
@@ -720,7 +707,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                         <DistanceType> metric,
                         params,
                         deref(linkage_output),
-                        deref(pred_data))
+                        deref(prediction_data_))
 
             else:
                 hdbscan(handle_[0],
@@ -850,13 +837,13 @@ def all_points_membership_vectors(clusterer):
     cdef hdbscan_output *hdbscan_output_ = \
         <hdbscan_output*><size_t>clusterer.hdbscan_output_
 
-    cdef PredictionData *pred_data_ = \
-        <PredictionData*><size_t>clusterer._prediction_data
+    cdef PredictionData *prediction_data_ = \
+        <PredictionData*><size_t>clusterer.prediction_data_ptr
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
     compute_all_points_membership_vectors(handle_[0],
                                           hdbscan_output_.get_condensed_tree(),
-                                          deref(pred_data_),
+                                          deref(prediction_data_),
                                           <float*> input_ptr,
                                           _metrics_mapping[clusterer.metric],
                                           <float*> membership_vec_ptr)
@@ -885,8 +872,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     ----------
     clusterer : HDBSCAN
         A clustering object that has been fit to the data and
-        either had ``prediction_data=True`` set, or called the
-        ``generate_prediction_data`` method after the fact.
+        either had ``prediction_data=True`` set.
 
     points_to_predict : array, or array-like (n_samples, n_features)
         The new data points to predict cluster labels for. They should
@@ -942,14 +928,14 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     cdef hdbscan_output *hdbscan_output_ = \
         <hdbscan_output*><size_t>clusterer.hdbscan_output_
 
-    cdef PredictionData *pred_data_ = \
-        <PredictionData*><size_t>clusterer._prediction_data
+    cdef PredictionData *prediction_data_ = \
+        <PredictionData*><size_t>clusterer.prediction_data_ptr
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
     out_of_sample_predict(handle_[0],
                           hdbscan_output_.get_condensed_tree(),
-                          deref(pred_data_),
+                          deref(prediction_data_),
                           <float*> input_ptr,
                           <int*> hdbscan_output_.get_labels(),
                           <float*> prediction_ptr,
