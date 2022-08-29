@@ -211,14 +211,25 @@ void approximate_predict(const raft::handle_t& handle,
   rmm::device_uvector<value_t> prediction_core_dists(n_prediction_points, stream);
 
   // perform knn
-  Reachability::compute_knn(
-    handle, X, inds.data(), dists.data(), m, n, points_to_predict, n_prediction_points, min_samples * 2, metric);
+  Reachability::compute_knn(handle,
+                            X,
+                            inds.data(),
+                            dists.data(),
+                            m,
+                            n,
+                            points_to_predict,
+                            n_prediction_points,
+                            min_samples * 2,
+                            metric);
 
-  // Slice core distances (distances to kth nearest neighbor)
-  Reachability::core_distances<value_idx>(
-    dists.data(), min_samples, min_samples * 2, n_prediction_points, prediction_core_dists.data(), stream);
-
-    raft::print_device_vector("core_distances", prediction_core_dists.data(), n_prediction_points, std::cout);
+  // Slice core distances (distances to kth nearest neighbor). Note that we slice the
+  // (min_samples+1)-th to be consistent with Scikit-learn Contrib
+  Reachability::core_distances<value_idx>(dists.data(),
+                                          min_samples + 1,
+                                          min_samples * 2,
+                                          n_prediction_points,
+                                          prediction_core_dists.data(),
+                                          stream);
 
   // Obtain lambdas for each prediction point using the closest point in mutual reachability space
   rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
@@ -232,8 +243,6 @@ void approximate_predict(const raft::handle_t& handle,
                             min_samples,
                             min_mr_inds.data(),
                             prediction_lambdas.data());
-  
-  raft::print_device_vector("prediction_lambdas", prediction_lambdas.data(), n_prediction_points, std::cout);
 
   // Using the nearest neighbor indices, find the assigned cluster label and probability
   _find_cluster_and_probability(handle,

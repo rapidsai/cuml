@@ -581,8 +581,6 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                                   params.n_points_to_predict,
                                   raft::Compare<int>(),
                                   handle.get_stream()));
-    
-    raft::print_device_vector("out_probabilities", out_probabilities.data(), params.n_points_to_predict, std::cout);
 
     ASSERT_TRUE(raft::devArrMatch(out_probabilities.data(),
                                   params.expected_probabilities.data(),
