@@ -303,6 +303,9 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   value_idx* index_into_children = prediction_data.get_index_into_children();
   value_idx n_exemplars          = prediction_data.get_n_exemplars();
 
+  // Compute membership vectors only if the number of selected clusters is non-zero. This is done to
+  // avoid CUDA run-time errors in raft primitives for pairwise distances and other kernel
+  // invocations.
   if (n_selected_clusters > 0) {
     rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
 
