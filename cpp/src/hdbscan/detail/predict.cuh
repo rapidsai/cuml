@@ -39,6 +39,7 @@ distance to a nearest neighbor.
  *
  * @tparam value_idx
  * @tparam value_t
+ * @tparam tpb
  * @param[in] handle raft handle for resource reuse
  * @param[in] input_core_dists an array of core distances for all points (size m)
  * @param[in] prediction_core_dists an array of core distances for all prediction points (size
@@ -163,7 +164,7 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
 }
 /**
  * Predict the cluster label and the probability of the label for new points.
- * The returned labels are those of the original clustering found by ``clusterer``,
+ * The returned labels are those of the original clustering,
  * and therefore are not (necessarily) the cluster labels that would
  * be found by clustering the original data combined with
  * the prediction points, hence the 'approximate' label.

@@ -140,9 +140,9 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         const handle_t &handle,
         CondensedHierarchy[int, float] &condensed_tree,
         PredictionData[int, float] &prediction_data_,
-        float* membership_vec,
         float* X,
-        DistanceType metric)
+        DistanceType metric,
+        float* membership_vec)
 
     void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
@@ -857,9 +857,9 @@ def all_points_membership_vectors(clusterer):
     compute_all_points_membership_vectors(handle_[0],
                                           hdbscan_output_.get_condensed_tree(),
                                           deref(pred_data_),
-                                          <float*> membership_vec_ptr,
                                           <float*> input_ptr,
-                                          _metrics_mapping[clusterer.metric])
+                                          _metrics_mapping[clusterer.metric],
+                                          <float*> membership_vec_ptr)
 
     clusterer.handle.sync()
     return membership_vec.to_output(

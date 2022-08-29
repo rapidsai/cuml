@@ -284,13 +284,26 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
                                                             m);
 }
 
+/**
+ * Predict soft cluster membership vectors for all points in the original dataset the clusterer was
+ * trained on
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree a condensed hierarchy
+ * @param[in] prediction_data PredictionData object
+ * @param[in] X all points (size m * n)
+ * @param[in] metric distance metric to use
+ * @param[out] membership_vec output membership vectors (size m * n_selected_clusters)
+ */
 template <typename value_idx, typename value_t>
 void all_points_membership_vectors(const raft::handle_t& handle,
                                    Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
                                    Common::PredictionData<value_idx, value_t>& prediction_data,
-                                   value_t* membership_vec,
                                    const value_t* X,
-                                   raft::distance::DistanceType metric)
+                                   raft::distance::DistanceType metric,
+                                   value_t* membership_vec)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();

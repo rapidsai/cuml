@@ -54,6 +54,20 @@ void PredictionData<value_idx, value_t>::allocate(const raft::handle_t& handle,
   selected_clusters.resize(n_selected_clusters, handle.get_stream());
 }
 
+/**
+ * Populates the PredictionData container object. Computes and stores: the indices of exemplar
+ * points sorted by their cluster labels, cluster label offsets of the exemplars and the set of
+ * clusters selected from the cluster tree. This is intended for internal use only and users are not
+ * expected to invoke this method.
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree a condensed hierarchy
+ * @param[in] labels unconverted non-monotonic labels. These are intermediate outputs in the hdbscan
+ * method
+ * @param[in] label_map map of original labels to new final labels (size n_leaves)
+ * @param[in] n_selected_clusters number of clusters in the final clustering
+ * @param[in] prediction_data PreditionData object
+ */
 void build_prediction_data(const raft::handle_t& handle,
                            CondensedHierarchy<int, float>& condensed_tree,
                            int* labels,

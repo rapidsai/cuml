@@ -422,9 +422,9 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
       handle,
       condensed_tree,
       prediction_data_,
-      membership_vec.data(),
       data.data(),
-      raft::distance::DistanceType::L2SqrtExpanded);
+      raft::distance::DistanceType::L2SqrtExpanded,
+      membership_vec.data());
 
     ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
                                   params.expected_probabilities.data(),
