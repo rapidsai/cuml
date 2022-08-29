@@ -346,11 +346,12 @@ class PredictionData {
   value_idx* get_index_into_children() { return index_into_children.data(); }
 
   /**
-   * Resize buffers to the required sizes for storing data. This is intended for internal use only
-   * and users are not expected to invoke this method.
-   * @param handle raft handle for ordering cuda operations
-   * @param n_exemplars_  number of exemplar points
-   * @param n_selected_clusters_ number of clusters selected
+   * Resizes the buffers in the PredictionData object.
+   *
+   * @param[in] handle raft handle for resource reuse
+   * @param[in] n_exemplars_ number of exemplar points
+   * @param[in] n_selected_clusters_ number of selected clusters in the final clustering
+   * @param[in] n_edges_ number of edges in the condensed hierarchy
    */
   void allocate(const raft::handle_t& handle,
                 value_idx n_exemplars_,
@@ -360,7 +361,7 @@ class PredictionData {
   /**
    * Resize buffers for cluster deaths to n_clusters
    * @param handle raft handle for ordering cuda operations
-   * @param n_clusters_
+   * @param n_clusters_ number of clusters
    */
   void set_n_clusters(const raft::handle_t& handle, value_idx n_clusters_)
   {

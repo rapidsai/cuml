@@ -42,14 +42,6 @@ namespace ML {
 namespace HDBSCAN {
 namespace Common {
 
-/**
- * Resizes the buffers in the PredictionData object.
- *
- * @param[in] handle raft handle for resource reuse
- * @param[in] n_exemplars_ number of exemplar points
- * @param[in] n_selected_clusters_ number of selected clusters in the final clustering
- * @param[in] n_edges_ number of edges in the condensed hierarchy
- */
 template <typename value_idx, typename value_t>
 void PredictionData<value_idx, value_t>::allocate(const raft::handle_t& handle,
                                                   value_idx n_exemplars_,
@@ -70,6 +62,7 @@ void PredictionData<value_idx, value_t>::allocate(const raft::handle_t& handle,
  * an important feature for speed-up in comparison with Scikit-learn Contrib. This is intended for
  * internal use only and users are not expected to invoke this method.
  *
+ * @tparam value_idx
  * @param[in] handle raft handle for resource reuse
  * @param[in] children children array of condensed hierarchy
  * @param[in] n_edges number of edges in children array
