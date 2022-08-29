@@ -42,23 +42,63 @@ namespace ML {
 namespace HDBSCAN {
 namespace Common {
 
+/**
+ * Resizes the buffers in the PredictionData object.
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] n_exemplars_ number of exemplar points
+ * @param[in] n_selected_clusters_ number of selected clusters in the final clustering
+ * @param[in] n_edges_ number of edges in the condensed hierarchy
+ */
 template <typename value_idx, typename value_t>
 void PredictionData<value_idx, value_t>::allocate(const raft::handle_t& handle,
                                                   value_idx n_exemplars_,
-                                                  value_idx n_selected_clusters_)
+                                                  value_idx n_selected_clusters_,
+                                                  value_idx n_edges_)
 {
   this->n_exemplars         = n_exemplars_;
   this->n_selected_clusters = n_selected_clusters_;
   exemplar_idx.resize(n_exemplars, handle.get_stream());
   exemplar_label_offsets.resize(n_selected_clusters + 1, handle.get_stream());
   selected_clusters.resize(n_selected_clusters, handle.get_stream());
+  index_into_children.resize(n_edges_ + 1, handle.get_stream());
 }
 
 /**
+ * Builds an index into the children array of the CondensedHierarchy object. This is useful for
+ * constant time lookups during bottom-up tree traversals in prediction algorithms. It is therefore
+ * an important feature for speed-up in comparison with Scikit-learn Contrib. This is intended for
+ * internal use only and users are not expected to invoke this method.
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] children children array of condensed hierarchy
+ * @param[in] n_edges number of edges in children array
+ * @param[out] index_into_children index into the children array (size n_edges + 1)
+ */
+template <typename value_idx>
+void build_index_into_children(const raft::handle_t& handle,
+                               value_idx* children,
+                               value_idx n_edges,
+                               value_idx* index_into_children)
+{
+  auto exec_policy = handle.get_thrust_policy();
+
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+
+  auto index_op = [index_into_children] __device__(auto t) {
+    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+    return;
+  };
+  thrust::for_each(
+    exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
+    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
+    index_op);
+}
+/**
  * Populates the PredictionData container object. Computes and stores: the indices of exemplar
  * points sorted by their cluster labels, cluster label offsets of the exemplars and the set of
- * clusters selected from the cluster tree. This is intended for internal use only and users are not
- * expected to invoke this method.
+ * clusters selected from the cluster tree.
  *
  * @param[in] handle raft handle for resource reuse
  * @param[in] condensed_tree a condensed hierarchy
@@ -145,7 +185,7 @@ void build_prediction_data(const raft::handle_t& handle,
   int n_exemplars = thrust::count_if(
     exec_policy, is_exemplar.begin(), is_exemplar.end(), [] __device__(auto idx) { return idx; });
 
-  prediction_data.allocate(handle, n_exemplars, n_selected_clusters);
+  prediction_data.allocate(handle, n_exemplars, n_selected_clusters, n_edges);
 
   auto exemplar_idx_end_ptr = thrust::copy_if(
     exec_policy,
@@ -192,6 +232,9 @@ void build_prediction_data(const raft::handle_t& handle,
                       [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
                         return exemplar_labels[idx] + n_leaves;
                       });
+
+    // build the index into the children array for constant time lookups
+    build_index_into_children(handle, children, n_edges, prediction_data.get_index_into_children());
   }
 }
 

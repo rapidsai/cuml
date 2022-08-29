@@ -324,6 +324,7 @@ class PredictionData {
       selected_clusters(0, handle.get_stream()),
       deaths(0, handle.get_stream()),
       core_dists(m, handle.get_stream()),
+      index_into_children(0, handle.get_stream()),
       n_exemplars(0),
       n_rows(m),
       n_cols(n)
@@ -342,6 +343,7 @@ class PredictionData {
   value_idx* get_selected_clusters() { return selected_clusters.data(); }
   value_t* get_deaths() { return deaths.data(); }
   value_t* get_core_dists() { return core_dists.data(); }
+  value_idx* get_index_into_children() { return index_into_children.data(); }
 
   /**
    * Resize buffers to the required sizes for storing data. This is intended for internal use only
@@ -352,7 +354,8 @@ class PredictionData {
    */
   void allocate(const raft::handle_t& handle,
                 value_idx n_exemplars_,
-                value_idx n_selected_clusters_);
+                value_idx n_selected_clusters_,
+                value_idx n_edges_);
 
   /**
    * Resize buffers for cluster deaths to n_clusters
@@ -373,6 +376,7 @@ class PredictionData {
   rmm::device_uvector<value_idx> selected_clusters;
   rmm::device_uvector<value_t> deaths;
   rmm::device_uvector<value_t> core_dists;
+  rmm::device_uvector<value_idx> index_into_children;
 };
 
 template class PredictionData<int, float>;

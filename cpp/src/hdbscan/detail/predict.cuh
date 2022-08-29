@@ -130,28 +130,15 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
   auto n_edges     = condensed_tree.get_n_edges();
   auto n_leaves    = condensed_tree.get_n_leaves();
 
-  value_t* deaths              = prediction_data.get_deaths();
-  value_idx* selected_clusters = prediction_data.get_selected_clusters();
-
-  auto counting = thrust::make_counting_iterator<value_idx>(0);
-
-  rmm::device_uvector<value_idx> index_into_children(n_edges + 1, stream);
-
-  auto index_op = [index_into_children = index_into_children.data()] __device__(auto t) {
-    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
-    return;
-  };
-  thrust::for_each(
-    exec_policy,
-    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
-    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
-    index_op);
+  value_t* deaths                = prediction_data.get_deaths();
+  value_idx* selected_clusters   = prediction_data.get_selected_clusters();
+  value_idx* index_into_children = prediction_data.get_index_into_children();
 
   int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
 
   cluster_probability_kernel<<<n_blocks, tpb, 0, stream>>>(min_mr_inds,
                                                            prediction_lambdas,
-                                                           index_into_children.data(),
+                                                           index_into_children,
                                                            labels,
                                                            deaths,
                                                            selected_clusters,
