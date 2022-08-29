@@ -25,9 +25,9 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/norm.hpp>
+#include <raft/label/classlabels.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/norm.cuh>
 
 #include <algorithm>
 
