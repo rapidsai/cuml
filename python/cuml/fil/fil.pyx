@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import copy
-import cudf
 import ctypes
 import math
 import numpy as np
@@ -198,6 +197,11 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
+    cdef enum precision_t:
+        PRECISION_NATIVE,
+        PRECISION_FLOAT32,
+        PRECISION_FLOAT64
+
     cdef cppclass forest[real_t]:
         pass
 
@@ -228,6 +232,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         int n_items
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
+        precision_t precision
 
     cdef void free[real_t](handle_t& handle,
                            forest[real_t]*)
@@ -305,6 +310,18 @@ cdef class ForestInference_impl():
         if storage_type_str == 'sparse8':
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
+
+    def get_precision(self, precision):
+        precision_dict = {'native': precision_t.PRECISION_NATIVE,
+                          'float32': precision_t.PRECISION_FLOAT32,
+                          'float64': precision_t.PRECISION_FLOAT64}
+        if precision not in precision_dict:
+            raise ValueError(
+                "The value entered for precision is not "
+                "supported. Please refer to the documentation at"
+                "(https://docs.rapids.ai/api/cuml/nightly/api.html#"
+                "forest-inferencing) to see the accepted values.")
+        return precision_dict[precision]
 
     def predict(self, X,
                 output_dtype=None,
@@ -433,6 +450,7 @@ cdef class ForestInference_impl():
             treelite_params.pforest_shape_str = &self.shape_str
         else:
             treelite_params.pforest_shape_str = NULL
+        treelite_params.precision = self.get_precision(kwargs['precision'])
 
         cdef handle_t* handle_ =\
             <handle_t*><size_t>self.handle.getHandle()
@@ -592,6 +610,15 @@ class ForestInference(Base,
         if True or equivalent, creates a ForestInference.shape_str
         (writes a human-readable forest shape description as a
         multiline ascii string)
+    precision : string (default='native')
+        precision of weights and thresholds of the FIL model loaded from
+        the treelite model.
+
+        - ``'native'``: load in float64 if the treelite model contains float64
+          weights or thresholds, otherwise load in float32
+        - ``'float32'``: always load in float32, may lead to loss of precision
+          if the treelite model contains float64 weights or thresholds
+        - ``'float64'``: always load in float64
     """)
         return func
 
@@ -681,7 +708,7 @@ class ForestInference(Base,
                                  threads_per_tree=1,
                                  n_items=0,
                                  compute_shape_str=False,
-                                 ):
+                                 precision='native'):
         """Creates a FIL model using the treelite model
         passed to the function.
 
@@ -719,6 +746,7 @@ class ForestInference(Base,
                           threads_per_tree=1,
                           n_items=0,
                           compute_shape_str=False,
+                          precision='native',
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
@@ -770,6 +798,16 @@ class ForestInference(Base,
             if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
+        precision : string (default='native')
+            precision of weights and thresholds of the FIL model loaded from
+            the treelite model.
+
+            - ``'native'``: load in float64 if the treelite model contains
+              float64 weights or thresholds, otherwise load in float32
+            - ``'float32'``: always load in float32, may lead to loss of
+              precision if the treelite model contains float64 weights or
+              thresholds
+            - ``'float64'``: always load in float64
 
         Returns
         ----------
@@ -798,6 +836,7 @@ class ForestInference(Base,
              threads_per_tree=1,
              n_items=0,
              compute_shape_str=False,
+             precision='native',
              model_type="xgboost",
              handle=None):
         """
@@ -852,6 +891,17 @@ class ForestInference(Base,
             if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
+        precision : string (default='native')
+            precision of weights and thresholds of the FIL model loaded from
+            the treelite model.
+
+            - ``'native'``: load in float64 if the treelite model contains
+              float64 weights or thresholds, otherwise load in float32
+            - ``'float32'``: always load in float32, may lead to loss of
+              precision if the treelite model contains float64 weights or
+              thresholds
+            - ``'float64'``: always load in float64
+
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'xgboost_json', 'lightgbm'.
@@ -881,6 +931,7 @@ class ForestInference(Base,
                                    threads_per_tree=1,
                                    n_items=0,
                                    compute_shape_str=False,
+                                   precision='native'
                                    ):
         """
         Returns a FIL instance by converting a treelite model to

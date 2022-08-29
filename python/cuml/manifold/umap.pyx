@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import typing
-import cudf
 import ctypes
 import numpy as np
 import pandas as pd

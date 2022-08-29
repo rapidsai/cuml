@@ -24,6 +24,7 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
 
 #include <metrics/adjusted_rand_index.cuh>
@@ -96,13 +97,16 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     hdbscan_params.min_cluster_size = params.min_cluster_size;
     hdbscan_params.min_samples      = params.min_pts;
 
+    HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(handle, params.n_row, params.n_col);
+
     hdbscan(handle,
             data.data(),
             params.n_row,
             params.n_col,
             raft::distance::DistanceType::L2SqrtExpanded,
             hdbscan_params,
-            out);
+            out,
+            prediction_data_);
 
     handle.sync_stream(handle.get_stream());
 
@@ -329,6 +333,116 @@ TEST_P(ClusterSelectionTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 INSTANTIATE_TEST_CASE_P(ClusterSelectionTest,
                         ClusterSelectionTestF_Int,
                         ::testing::ValuesIn(cluster_selection_inputs));
+
+template <typename T, typename IdxT>
+class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>> {
+ protected:
+  void basicTest()
+  {
+    raft::handle_t handle;
+
+    params = ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>>::GetParam();
+
+    rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
+                                                handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_children(params.condensed_children.size(),
+                                                 handle.get_stream());
+    rmm::device_uvector<T> condensed_lambdas(params.condensed_lambdas.size(), handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(), handle.get_stream());
+
+    raft::copy(condensed_parents.data(),
+               params.condensed_parents.data(),
+               condensed_parents.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_children.data(),
+               params.condensed_children.data(),
+               condensed_children.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_lambdas.data(),
+               params.condensed_lambdas.data(),
+               condensed_lambdas.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_sizes.data(),
+               params.condensed_sizes.data(),
+               condensed_sizes.size(),
+               handle.get_stream());
+
+    rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
+    raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
+
+    ML::HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle,
+                                                                    params.n_row,
+                                                                    params.condensed_parents.size(),
+                                                                    condensed_parents.data(),
+                                                                    condensed_children.data(),
+                                                                    condensed_lambdas.data(),
+                                                                    condensed_sizes.data());
+
+    rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
+
+    // intermediate outputs
+    rmm::device_uvector<T> stabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
+
+    int n_selected_clusters =
+      ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+                                                     condensed_tree,
+                                                     params.n_row,
+                                                     labels.data(),
+                                                     stabilities.data(),
+                                                     probabilities.data(),
+                                                     label_map.data(),
+                                                     params.cluster_selection_method,
+                                                     params.allow_single_cluster,
+                                                     0,
+                                                     params.cluster_selection_epsilon);
+
+    rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
+
+    ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
+      handle, params.n_row, params.n_col);
+
+    ML::HDBSCAN::Common::build_prediction_data(handle,
+                                               condensed_tree,
+                                               labels.data(),
+                                               label_map.data(),
+                                               n_selected_clusters,
+                                               prediction_data_);
+
+    ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
+      handle,
+      condensed_tree,
+      prediction_data_,
+      membership_vec.data(),
+      data.data(),
+      raft::distance::DistanceType::L2SqrtExpanded);
+
+    ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
+                                  params.expected_probabilities.data(),
+                                  params.n_row * n_selected_clusters,
+                                  raft::CompareApprox<float>(1e-5),
+                                  handle.get_stream()));
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {}
+
+ protected:
+  SoftClusteringInputs<T, IdxT> params;
+  // T score;
+};
+
+typedef SoftClusteringTest<float, int> SoftClusteringTestF_Int;
+TEST_P(SoftClusteringTestF_Int, Result) { EXPECT_TRUE(true); }
+
+INSTANTIATE_TEST_CASE_P(SoftClusteringTest,
+                        SoftClusteringTestF_Int,
+                        ::testing::ValuesIn(soft_clustering_inputs));
 
 }  // namespace HDBSCAN
 }  // end namespace ML

@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import cudf
 import numpy as np
 
 from libc.stdint cimport uintptr_t
