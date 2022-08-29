@@ -6169,7 +6169,7 @@ const std::vector<SoftClusteringInputs<float, int>> soft_clustering_inputs = {
 const std::vector<ApproximatePredictInputs<float, int>> approximate_predict_inputs = {
   {1000,
    15,
-   20,
+   200,
    5,
    10,
    {-6.6041913,   3.047298,      4.655545,     0.83865887,     5.1522017,     0.3939999,

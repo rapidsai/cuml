@@ -76,20 +76,25 @@ void core_distances(
  * Wraps the brute force knn API, to be used for both training and prediction
  * @tparam value_idx data type for integrals
  * @tparam value_t data type for distance
- * @tparam tpb block size for kernel
- * @param[in] knn_dists knn distance array (size n * k)
- * @param[in] min_samples this neighbor will be selected for core distances
- * @param[in] n number of samples
- * @param[out] out output array (size n)
- * @param[in] stream stream for which to order cuda operations
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X input data points (size m * n)
+ * @param[out] inds nearest neighbor indices (size n_search_items * k)
+ * @param[out] dists nearest neighbor distances (size n_search_items * k)
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] search_items array of items to search of dimensionality D (size n_search_items * n)
+ * @param[in] n_search_items number of rows in search_items
+ * @param[in] k number of nearest neighbors
+ * @param[in] metric distance metric to use
  */
-template <typename value_idx, typename value_t, int tpb = 256>
+template <typename value_idx, typename value_t>
 void compute_knn(const raft::handle_t& handle,
                  const value_t* X,
                  value_idx* inds,
                  value_t* dists,
                  size_t m,
                  size_t n,
+                 const value_t* search_items,
                  size_t n_search_items,
                  int k,
                  raft::distance::DistanceType metric)
@@ -104,15 +109,15 @@ void compute_knn(const raft::handle_t& handle,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
-  rmm::device_uvector<int64_t> int64_indices(k * m, stream);
+  rmm::device_uvector<int64_t> int64_indices(k * n_search_items, stream);
 
   // perform knn
   brute_force_knn(handle,
                   inputs,
                   sizes,
                   n,
-                  const_cast<value_t*>(X),
-                  m,
+                  const_cast<value_t*>(search_items),
+                  n_search_items,
                   int64_indices.data(),
                   dists,
                   k,
@@ -192,7 +197,7 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   rmm::device_uvector<value_t> dists(min_samples * m, stream);
 
   // perform knn
-  compute_knn(handle, X, inds.data(), dists.data(), m, n, m, min_samples, metric);
+  compute_knn(handle, X, inds.data(), dists.data(), m, n, X, m, min_samples, metric);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
