@@ -16,8 +16,8 @@
 
 #include "detail/utils.h"
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 

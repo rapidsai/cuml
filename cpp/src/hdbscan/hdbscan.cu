@@ -17,8 +17,8 @@
 #include "detail/condense.cuh"
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/cuda_utils.cuh>
 
 #include "runner.h"
 
