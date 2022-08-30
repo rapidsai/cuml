@@ -585,7 +585,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     ASSERT_TRUE(raft::devArrMatch(out_probabilities.data(),
                                   params.expected_probabilities.data(),
                                   params.n_points_to_predict,
-                                  raft::CompareApprox<float>(1e-4),
+                                  raft::CompareApprox<float>(1e-2),
                                   handle.get_stream()));
   }
 
