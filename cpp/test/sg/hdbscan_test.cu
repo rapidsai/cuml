@@ -538,7 +538,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     auto stream = handle.get_stream();
     rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
-                                                       params.min_samples * params.n_row * 2);
+                                                       (params.min_samples + 1) * params.n_row * 2);
 
     ML::HDBSCAN::detail::Reachability::mutual_reachability_graph(
       handle,
@@ -546,7 +546,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
       (size_t)params.n_row,
       (size_t)params.n_col,
       raft::distance::DistanceType::L2SqrtExpanded,
-      params.min_samples,
+      params.min_samples + 1,
       (float)1.0,
       mutual_reachability_indptr.data(),
       pred_data.get_core_dists(),

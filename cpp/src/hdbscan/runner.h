@@ -136,14 +136,18 @@ void build_linkage(const raft::handle_t& handle,
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
+  // Note that (min_samples+1) is parsed while allocating space for the COO matrix and to the
+  // mutual_reachability_graph function. This was done to account for self-loops in the knn graph
+  // and be consistent with Scikit learn Contrib.
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream,
+                                                                (params.min_samples + 1) * m * 2);
 
   detail::Reachability::mutual_reachability_graph(handle,
                                                   X,
                                                   (size_t)m,
                                                   (size_t)n,
                                                   metric,
-                                                  params.min_samples,
+                                                  params.min_samples + 1,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
                                                   core_dists,
