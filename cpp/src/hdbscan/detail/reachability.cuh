@@ -68,7 +68,7 @@ void core_distances(
   auto indices = thrust::make_counting_iterator<value_idx>(0);
 
   thrust::transform(exec_policy, indices, indices + n, out, [=] __device__(value_idx row) {
-    return knn_dists[row * n_neighbors + (min_samples - 1)];
+    return knn_dists[row * n_neighbors + min_samples];
   });
 }
 

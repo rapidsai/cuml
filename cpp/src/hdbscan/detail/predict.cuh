@@ -212,7 +212,7 @@ void approximate_predict(const raft::handle_t& handle,
   // Slice core distances (distances to kth nearest neighbor). Note that we slice the
   // (min_samples+1)-th to be consistent with Scikit-learn Contrib
   Reachability::core_distances<value_idx>(dists.data(),
-                                          min_samples + 1,
+                                          min_samples,
                                           min_samples * 2,
                                           n_prediction_points,
                                           prediction_core_dists.data(),
