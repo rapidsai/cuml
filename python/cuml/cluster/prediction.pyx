@@ -224,7 +224,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                             convert_to_dtype=(np.float32
                                               if convert_dtype
                                               else None))
-    
+
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
 
