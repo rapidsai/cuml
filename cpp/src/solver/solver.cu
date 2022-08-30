@@ -298,7 +298,7 @@ void cdFit(raft::handle_t& handle,
            float l1_ratio,
            bool shuffle,
            float tol,
-           float* sample_weight)
+           float* sample_weight = nullptr)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
@@ -337,7 +337,7 @@ void cdFit(raft::handle_t& handle,
            double l1_ratio,
            bool shuffle,
            double tol,
-           double* sample_weight)
+           double* sample_weight = nullptr)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 

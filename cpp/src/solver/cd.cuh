@@ -127,8 +127,9 @@ __global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  *        boolean parameter to control whether coordinates will be picked randomly or not
  * @param tol
  *        tolerance to stop the solver
- * @param stream
- *        cuda stream
+ * @param sample_weight
+ *        device pointer to sample weight vector of length n_rows (nullptr or uniform weights)
+ *        This vector is modified during the computation
  */
 template <typename math_t>
 void cdFit(const raft::handle_t& handle,
@@ -146,7 +147,7 @@ void cdFit(const raft::handle_t& handle,
            math_t l1_ratio,
            bool shuffle,
            math_t tol,
-           math_t* sample_weight)
+           math_t* sample_weight = nullptr)
 {
   raft::common::nvtx::range fun_scope("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
@@ -334,8 +335,6 @@ void cdFit(const raft::handle_t& handle,
  * @param loss
  *        enum to use different loss functions. Only linear regression loss functions is supported
  * right now.
- * @param stream
- *        cuda stream
  */
 template <typename math_t>
 void cdPredict(const raft::handle_t& handle,
