@@ -16,7 +16,7 @@
 import pytest
 
 
-from cuml.cluster import HDBSCAN
+from cuml.cluster import HDBSCAN, all_points_membership_vectors
 from cuml.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
 
@@ -129,6 +129,19 @@ def assert_condensed_trees(sk_agg, min_cluster_size):
         assert np.allclose(l2_cu, l2_sk, atol=1e-5, rtol=1e-6)
         assert np.allclose(s2_cu, s2_sk, atol=1e-5, rtol=1e-6)
     assert lev > 1
+
+
+def assert_all_points_membership_vectors(cu_vecs, sk_vecs):
+    i = 0
+    while i < sk_vecs.shape[0]:
+        total_nz = 0
+        for j in range(sk_vecs.shape[1]):
+            if sk_vecs[i][j] < 1e-3 or cu_vecs[i][j] < 1e-3:
+                break
+            total_nz += 1
+        if total_nz == sk_vecs.shape[1]:
+            assert np.allclose(cu_vecs[i], sk_vecs[i], atol=0.1, rtol=0.1)
+        i += 1
 
 
 @pytest.mark.parametrize('nrows', [500])
@@ -447,3 +460,57 @@ def test_hdbscan_plots():
     cuml_agg.fit(X)
 
     assert cuml_agg.minimum_spanning_tree_ is None
+
+
+@pytest.mark.parametrize('nrows', [1000, 10000])
+@pytest.mark.parametrize('ncols', [10, 25])
+@pytest.mark.parametrize('nclusters', [10, 15])
+@pytest.mark.parametrize('allow_single_cluster', [False, True])
+@pytest.mark.parametrize('min_cluster_size', [30, 60])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 0.5])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+def test_all_points_membership_vectors(nrows,
+                                       ncols,
+                                       nclusters,
+                                       cluster_selection_epsilon,
+                                       cluster_selection_method,
+                                       min_cluster_size,
+                                       allow_single_cluster,
+                                       max_cluster_size):
+    X, y = make_blobs(n_samples=nrows,
+                      n_features=ncols,
+                      centers=nclusters,
+                      cluster_std=0.7,
+                      shuffle=True,
+                      random_state=42)
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=allow_single_cluster,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method,
+                       prediction_data=True)
+    cuml_agg.fit(X)
+
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic",
+        prediction_data=True)
+
+    sk_agg.fit(cp.asnumpy(X))
+
+    cu_membership_vectors = all_points_membership_vectors(cuml_agg)
+    cu_membership_vectors.sort(axis=1)
+    sk_membership_vectors = hdbscan.all_points_membership_vectors(
+        sk_agg).astype("float32")
+    sk_membership_vectors.sort(axis=1)
+    assert_all_points_membership_vectors(
+        cu_membership_vectors,
+        sk_membership_vectors)
