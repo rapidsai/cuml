@@ -17,7 +17,6 @@
 
 
 import ctypes
-import cudf
 import cuml.common.opg_data_utils_mg as opg
 import numpy as np
 import rmm
