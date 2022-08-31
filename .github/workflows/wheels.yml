@@ -15,6 +15,7 @@ jobs:
       cibw-before-build: "pip install rmm-cuda11 raft-cuda11 libraft-cuda11 libcumlprims_mg-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DCMAKE_MESSAGE_LOG_LEVEL=DEBUG -DBUILD_CUML_C_LIBRARY=OFF -DBUILD_CUML_CPP_LIBRARY=ON -DBUILD_CUML_EXAMPLES=OFF -DBUILD_CUML_TESTS=OFF -DBUILD_PRIMS_TESTS=OFF -DBUILD_CUML_BENCH=OFF -DBUILD_CUML_PRIMS_BENCH=OFF'
       auditwheel-skip-repair: "true"
+      wheel-pattern-override: "py3-none-linux"
     secrets: inherit
   cuml-wheel:
     needs: libcuml-wheel
