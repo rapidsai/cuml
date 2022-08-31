@@ -2069,11 +2069,12 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
 
     Examples
     --------
+    >>> import cupy as cp
     >>> from cuml.preprocessing import KernelCenterer
     >>> from cuml.metrics import pairwise_kernels
-    >>> X = [[ 1., -2.,  2.],
-    ...      [ -2.,  1.,  3.],
-    ...      [ 4.,  1., -2.]]
+    >>> X = cp.array([[ 1., -2.,  2.],
+    ...               [ -2.,  1.,  3.],
+    ...               [ 4.,  1., -2.]])
     >>> K = pairwise_kernels(X, metric='linear')
     >>> K
     array([[  9.,   2.,  -2.],
