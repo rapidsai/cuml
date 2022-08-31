@@ -7,7 +7,7 @@ on:
 
 jobs:
   libcuml-wheel:
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-amd64.yml@feat/wheel-ci-actions
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
     with:
       package-name: libcuml_cuda11
       package-dir: cpp
@@ -18,7 +18,7 @@ jobs:
     secrets: inherit
   cuml-wheel:
     needs: libcuml-wheel
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-amd64.yml@feat/wheel-ci-actions
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
     with:
       package-name: cuml
       package-dir: python
