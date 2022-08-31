@@ -161,6 +161,16 @@ void cdFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> mu_input(0, stream);
   rmm::device_uvector<math_t> mu_labels(0, stream);
   rmm::device_uvector<math_t> norm2_input(0, stream);
+  math_t h_sum_sw = 0;
+
+  if (sample_weight != nullptr) {
+    rmm::device_scalar<math_t> sum_sw(stream);
+    raft::stats::sum(sum_sw.data(), sample_weight, 1, n_rows, true, stream);
+    raft::update_host(&h_sum_sw, sum_sw.data(), 1, stream);
+
+    raft::linalg::multiplyScalar(
+      sample_weight, sample_weight, (math_t)n_rows / h_sum_sw, n_rows, stream);
+  }
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
