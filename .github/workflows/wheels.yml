@@ -25,7 +25,7 @@ jobs:
       package-dir: python
       python-version: "3.8 3.9"
       skbuild-configure-options: "-DFIND_CUML_CPP=ON"
-      cibw-before-all: "apt-get install -y libblas-dev libmkl-dev liblapack-dev"
+      cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
       gpu-smoketest-before-amd64: "pip install rmm-cuda11 cudf-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-arm64: "pip install rmm-cuda11 cudf-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       cibw-test-requires: "pytest"
