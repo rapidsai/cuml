@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/solver/cd.cuh>
+#include <cuml/solvers/params.hpp>
+#include <cuml/solvers/solver.hpp>
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/matrix/matrix.cuh>
@@ -27,8 +28,6 @@
 
 namespace ML {
 namespace Solver {
-
-using namespace MLCommon;
 
 template <typename T>
 struct CdInputs {
@@ -106,7 +105,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     T coef4_ref_h[params.n_col] = {1.75420431, -0.16215289};
     raft::update_device(coef4_ref.data(), coef4_ref_h, params.n_col, stream);
 
-    T coef5_ref_h[params.n_col] = {0.02541492, 0.82805702};
+    T coef5_ref_h[params.n_col] = {0.12381484, -0.31647292};
     raft::update_device(coef5_ref.data(), coef5_ref_h, params.n_col, stream);
 
     bool fit_intercept   = false;
@@ -195,7 +194,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           l1_ratio,
           shuffle,
           tol,
-          sample_weight);
+          sample_weight_ptr);
 
     fit_intercept     = true;
     normalize         = false;

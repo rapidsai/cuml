@@ -298,28 +298,28 @@ void cdFit(raft::handle_t& handle,
            float l1_ratio,
            bool shuffle,
            float tol,
-           float* sample_weight = nullptr)
+           float* sample_weight)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-  cdFit(handle,
-        input,
-        n_rows,
-        n_cols,
-        labels,
-        coef,
-        intercept,
-        fit_intercept,
-        normalize,
-        epochs,
-        loss_funct,
-        alpha,
-        l1_ratio,
-        shuffle,
-        tol,
-        sample_weight);
+  cdFit<float>(handle,
+               input,
+               n_rows,
+               n_cols,
+               labels,
+               coef,
+               intercept,
+               fit_intercept,
+               normalize,
+               epochs,
+               loss_funct,
+               alpha,
+               l1_ratio,
+               shuffle,
+               tol,
+               sample_weight);
 }
 
 void cdFit(raft::handle_t& handle,
@@ -337,28 +337,28 @@ void cdFit(raft::handle_t& handle,
            double l1_ratio,
            bool shuffle,
            double tol,
-           double* sample_weight = nullptr)
+           double* sample_weight)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-  cdFit(handle,
-        input,
-        n_rows,
-        n_cols,
-        labels,
-        coef,
-        intercept,
-        fit_intercept,
-        normalize,
-        epochs,
-        loss_funct,
-        alpha,
-        l1_ratio,
-        shuffle,
-        tol,
-        sample_weight);
+  cdFit<double>(handle,
+                input,
+                n_rows,
+                n_cols,
+                labels,
+                coef,
+                intercept,
+                fit_intercept,
+                normalize,
+                epochs,
+                loss_funct,
+                alpha,
+                l1_ratio,
+                shuffle,
+                tol,
+                sample_weight);
 }
 
 void cdPredict(raft::handle_t& handle,
@@ -377,7 +377,7 @@ void cdPredict(raft::handle_t& handle,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct);
+  cdPredict<float>(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct);
 }
 
 void cdPredict(raft::handle_t& handle,
@@ -396,7 +396,7 @@ void cdPredict(raft::handle_t& handle,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct);
+  cdPredict<double>(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct);
 }
 
 }  // namespace Solver
