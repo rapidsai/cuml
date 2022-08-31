@@ -37,8 +37,8 @@ from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
-from rmm._lib.memory_resource cimport DeviceMemoryResource, \
-    get_current_device_resource
+from rmm._lib.memory_resource cimport DeviceMemoryResource
+from rmm._lib.memory_resource cimport get_current_device_resource
 
 import treelite
 import treelite.sklearn as tl_skl
