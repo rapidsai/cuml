@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.nearest_neighbors import kneighbors_graph
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
+from cuml.neighbors.kernel_density import (
+    KernelDensity, VALID_KERNELS, logsumexp_kernel)
 
 VALID_METRICS = {
     "brute": set([
@@ -33,6 +35,10 @@ VALID_METRICS = {
         "inner_product", "sqeuclidean",
         "haversine"
     ]),
+    "rbc": set([
+        "euclidean", "haversine",
+        "l2"
+    ]),
     "ivfflat": set([
         "l2", "euclidean", "sqeuclidean",
         "inner_product", "cosine", "correlation"
@@ -45,7 +51,7 @@ VALID_METRICS = {
         "l2", "euclidean", "sqeuclidean",
         "inner_product", "cosine", "correlation"
     ])
-    }
+}
 
 VALID_METRICS_SPARSE = {
     "brute": set(["euclidean", "l2", "inner_product",

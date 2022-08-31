@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ void permutation_shap_dataset_impl(const raft::handle_t& handle,
   _fused_tile_scatter_pe<<<nblks, nthreads, 0, stream>>>(
     dataset, background, nrows_dataset, ncols, row, idx, nrows_background, ncols, row_major);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void permutation_shap_dataset(const raft::handle_t& handle,
@@ -163,7 +163,7 @@ void shap_main_effect_dataset_impl(const raft::handle_t& handle,
   _fused_tile_scatter_pe<<<nblks, nthreads, 0, stream>>>(
     dataset, background, total_num_elements / ncols, ncols, row, idx, nrows_bg, 1, row_major);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void shap_main_effect_dataset(const raft::handle_t& handle,
@@ -222,7 +222,7 @@ void update_perm_shap_values_impl(const raft::handle_t& handle,
 
   update_perm_shap_values_kernel<<<nblks, nthreads, 0, 0>>>(shap_values, y_hat, ncols, idx);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 void update_perm_shap_values(const raft::handle_t& handle,

@@ -18,7 +18,7 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
 #include "random_algo.cuh"
 #include "spectral_algo.cuh"

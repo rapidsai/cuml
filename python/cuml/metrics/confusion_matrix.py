@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,11 +49,11 @@ def confusion_matrix(y_true, y_pred,
         once in y_true or y_pred are used in sorted order.
     sample_weight : array-like (device or host) shape = (n_samples,), optional
         Sample weights.
-    normalize : string in [‘true’, ‘pred’, ‘all’]
+    normalize : string in ['true', 'pred', 'all'] or None (default=None)
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.
-    convert_dtype : bool, optional (default = False)
+    convert_dtype : bool, optional (default=False)
         When set to True, the confusion matrix method will automatically
         convert the predictions, ground truth, and labels arrays to np.int32.
 

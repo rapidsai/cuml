@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,19 @@
 
 #pragma once
 
-#include <common/nvtx.hpp>
-
-#include <decisiontree/treelite_util.h>
-#include <decisiontree/batched-levelalgo/quantile.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
-
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
+#include <decisiontree/treelite_util.h>
 
 #include <metrics/scores.cuh>
-#include <raft/random/rng.cuh>
-#include <random/permute.cuh>
 
+#include <raft/common/nvtx.hpp>
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/random/permute.hpp>
 #include <raft/random/rng.cuh>
+
+#include <thrust/execution_policy.h>
+#include <thrust/sequence.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -55,13 +52,13 @@ class RandomForest {
                       rmm::device_uvector<int>* selected_rows,
                       const cudaStream_t stream)
   {
-    ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
+    raft::common::nvtx::range fun_scope("bootstrapping row IDs @randomforest.cuh");
 
     // Hash these together so they are uncorrelated
     auto rs = DT::fnv1a32_basis;
     rs      = DT::fnv1a32(rs, rf_params.seed);
     rs      = DT::fnv1a32(rs, tree_id);
-    raft::random::Rng rng(rs, raft::random::GeneratorType::GenKiss99);
+    raft::random::Rng rng(rs, raft::random::GenPhilox);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
       rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
@@ -70,7 +67,6 @@ class RandomForest {
       // Use all the samples from the dataset
       thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
     }
-    ML::POP_RANGE();
   }
 
   void error_checking(const T* input, L* predictions, int n_rows, int n_cols, bool predict) const
@@ -124,7 +120,7 @@ class RandomForest {
            int n_unique_labels,
            RandomForestMetaData<T, L>*& forest)
   {
-    ML::PUSH_RANGE("RandomForest::fit @randomforest.cuh");
+    raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows           = 0;
@@ -140,10 +136,18 @@ class RandomForest {
       n_sampled_rows = n_rows;
     }
     int n_streams = this->rf_params.n_streams;
-    ASSERT(n_streams <= handle.get_num_internal_streams(),
-           "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
+    ASSERT(static_cast<std::size_t>(n_streams) <= handle.get_stream_pool_size(),
+           "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%lu)",
            n_streams,
-           handle.get_num_internal_streams());
+           handle.get_stream_pool_size());
+
+    // computing the quantiles: last two return values are shared pointers to device memory
+    // encapsulated by quantiles struct
+    auto [quantiles, quantiles_array, n_bins_array] =
+      DT::computeQuantiles(handle, input, this->rf_params.tree_params.max_n_bins, n_rows, n_cols);
+
+    // n_streams should not be less than n_trees
+    if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;
 
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
@@ -152,19 +156,15 @@ class RandomForest {
     // constructor
     std::deque<rmm::device_uvector<int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
-      selected_rows.emplace_back(n_sampled_rows, handle.get_internal_stream(i));
+      selected_rows.emplace_back(n_sampled_rows, handle.get_stream_from_stream_pool(i));
     }
-
-    auto global_quantiles =
-      DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
+      auto s        = handle.get_stream_from_stream_pool(stream_id);
 
-      this->get_row_sample(
-        i, n_rows, &selected_rows[stream_id], handle.get_internal_stream(stream_id));
+      this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -176,6 +176,7 @@ class RandomForest {
       */
 
       forest->trees[i] = DT::DecisionTree::fit(handle,
+                                               s,
                                                input,
                                                n_cols,
                                                n_rows,
@@ -184,16 +185,12 @@ class RandomForest {
                                                n_unique_labels,
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
-                                               global_quantiles,
+                                               quantiles,
                                                i);
     }
     // Cleanup
-    for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
-      CUDA_CHECK(cudaStreamSynchronize(s));
-    }
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    ML::POP_RANGE();
+    handle.sync_stream_pool();
+    handle.sync_stream();
   }
 
   /**
@@ -218,68 +215,46 @@ class RandomForest {
     std::vector<L> h_predictions(n_rows);
     cudaStream_t stream = user_handle.get_stream();
 
-    std::vector<T> h_input(n_rows * n_cols);
-    raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    std::vector<T> h_input(std::size_t(n_rows) * n_cols);
+    raft::update_host(h_input.data(), input, std::size_t(n_rows) * n_cols, stream);
+    user_handle.sync_stream(stream);
 
     int row_size = n_cols;
 
     ML::PatternSetter _("%v");
     for (int row_id = 0; row_id < n_rows; row_id++) {
-      if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-        std::stringstream ss;
-        ss << "Predict for sample: ";
-        for (int i = 0; i < n_cols; i++)
-          ss << h_input[row_id * row_size + i] << ", ";
-        CUML_LOG_DEBUG(ss.str().c_str());
+      std::vector<T> row_prediction(forest->trees[0]->num_outputs);
+      for (int i = 0; i < this->rf_params.n_trees; i++) {
+        DT::DecisionTree::predict(user_handle,
+                                  *forest->trees[i],
+                                  &h_input[row_id * row_size],
+                                  1,
+                                  n_cols,
+                                  row_prediction.data(),
+                                  forest->trees[i]->num_outputs,
+                                  verbosity);
       }
-
+      for (int k = 0; k < forest->trees[0]->num_outputs; k++) {
+        row_prediction[k] /= this->rf_params.n_trees;
+      }
       if (rf_type == RF_type::CLASSIFICATION) {  // classification task: use 'majority' prediction
-        std::map<int, int> prediction_to_cnt;
-        std::pair<std::map<int, int>::iterator, bool> ret;
-        int max_cnt_so_far      = 0;
-        int majority_prediction = -1;
-
-        for (int i = 0; i < this->rf_params.n_trees; i++) {
-          L prediction;
-          DT::DecisionTree::predict(user_handle,
-                                    forest->trees[i].get(),
-                                    &h_input[row_id * row_size],
-                                    1,
-                                    n_cols,
-                                    &prediction,
-                                    verbosity);
-          ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
-          if (!(ret.second)) { ret.first->second += 1; }
-          // Break ties with smaller label
-          if (max_cnt_so_far < ret.first->second ||
-              (max_cnt_so_far == ret.first->second && ret.first->first < majority_prediction)) {
-            max_cnt_so_far      = ret.first->second;
-            majority_prediction = ret.first->first;
+        L best_class = 0;
+        T best_prob  = 0.0;
+        for (int k = 0; k < forest->trees[0]->num_outputs; k++) {
+          if (row_prediction[k] > best_prob) {
+            best_class = k;
+            best_prob  = row_prediction[k];
           }
         }
 
-        h_predictions[row_id] = majority_prediction;
-      } else {  // regression task: use 'average' prediction
-        L sum_predictions = 0;
-        for (int i = 0; i < this->rf_params.n_trees; i++) {
-          L prediction;
-          DT::DecisionTree::predict(user_handle,
-                                    forest->trees[i].get(),
-                                    &h_input[row_id * row_size],
-                                    1,
-                                    n_cols,
-                                    &prediction,
-                                    verbosity);
-          sum_predictions += prediction;
-        }
-        // Random forest's prediction is the arithmetic mean of all its decision tree predictions.
-        h_predictions[row_id] = sum_predictions / this->rf_params.n_trees;
+        h_predictions[row_id] = best_class;
+      } else {
+        h_predictions[row_id] = row_prediction[0];
       }
     }
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    user_handle.sync_stream(stream);
   }
 
   /**

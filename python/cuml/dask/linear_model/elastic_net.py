@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,9 +58,9 @@ class ElasticNet(BaseEstimator):
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
     selection : {'cyclic', 'random'} (default='cyclic')
-        If set to ‘random’, a random coefficient is updated every iteration
+        If set to 'random', a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
-        This (setting to ‘random’) often leads to significantly faster
+        This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for

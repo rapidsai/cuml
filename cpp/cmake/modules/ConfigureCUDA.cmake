@@ -28,12 +28,15 @@ list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
     list(APPEND CUML_CUDA_FLAGS -Werror=all-warnings)
 endif()
-list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
+list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations,-Wno-error=sign-compare)
 
 if(DISABLE_DEPRECATION_WARNING)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations)
     list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
 endif()
+
+# make sure we produce smallest binary size
+list(APPEND CUML_CUDA_FLAGS -Xfatbin=-compress-all)
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINE_INFO)

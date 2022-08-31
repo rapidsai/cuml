@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ from libc.stdint cimport uintptr_t
 
 from cuml.common import input_to_cuml_array
 from cuml.metrics.pairwise_distances import _determine_metric
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.prims.label.classlabels import make_monotonic, check_labels
 

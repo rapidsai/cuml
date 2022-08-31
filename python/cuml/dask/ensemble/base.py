@@ -102,7 +102,7 @@ class BaseRandomForestModel(object):
         self.active_workers = data.workers
         self.datatype = data.datatype
         if self.datatype == 'cudf':
-            has_float64 = (dataset[0].dtypes.any() == np.float64)
+            has_float64 = (dataset[0].dtypes == np.float64).any()
         else:
             has_float64 = (dataset[0].dtype == np.float64)
         if has_float64:

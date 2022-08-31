@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-from sklearn.pipeline import Pipeline, make_pipeline
+from cuml.common.import_utils import has_sklearn
+
+if has_sklearn():
+    from sklearn.pipeline import Pipeline, make_pipeline
 
 disclaimer = """
 This code is developed and maintained by scikit-learn and imported

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@
 #pragma once
 
 #include <stddef.h>
+
+#include <variant>  // for std::get<>, std::variant<>
+
 #include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
@@ -28,10 +31,8 @@ class handle_t;
 namespace ML {
 namespace fil {
 
-/** @note FIL only supports inference with single precision.
- *  TODO(canonizer): parameterize the functions and structures by the data type
- *  and the threshold/weight type.
- */
+/** @note FIL supports inference with both single and double precision. However,
+    the floating-point type used in the data and model must be the same. */
 
 /** Inference algorithm to use. */
 enum algo_t {
@@ -54,23 +55,48 @@ enum algo_t {
 enum storage_type_t {
   /** decide automatically; currently always builds dense forests */
   AUTO,
-  /** import the forest as dense */
+  /** import the forest as dense (8 or 16-bytes nodes, depending on model precision */
   DENSE,
   /** import the forest as sparse (currently always with 16-byte nodes) */
   SPARSE,
   /** (experimental) import the forest as sparse with 8-byte nodes; can fail if
       8-byte nodes are not enough to store the forest, e.g. there are too many
-      nodes in a tree or too many features; note that the number of bits used to
-      store the child or feature index can change in the future; this can affect
-      whether a particular forest can be imported as SPARSE8 */
+      nodes in a tree or too many features or the thresholds are double precision;
+      note that the number of bits used to store the child or feature index can
+      change in the future; this can affect whether a particular forest can be
+      imported as SPARSE8 */
   SPARSE8,
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
+/** precision_t defines the precision of the FIL model imported from a treelite model */
+enum precision_t {
+  /** use the native precision of the treelite model, i.e. float64 if it has weights or
+      thresholds of type float64, otherwise float32 */
+  PRECISION_NATIVE,
+  /** always create a float32 FIL model; this may lead to loss of precision if the
+      treelite model contains float64 parameters */
+  PRECISION_FLOAT32,
+  /** always create a float64 FIL model */
+  PRECISION_FLOAT64
+};
+
+template <typename real_t>
 struct forest;
 
 /** forest_t is the predictor handle */
-typedef forest* forest_t;
+template <typename real_t>
+using forest_t = forest<real_t>*;
+
+/** forest32_t and forest64_t are definitions required in Cython */
+using forest32_t = forest<float>*;
+using forest64_t = forest<double>*;
+
+/** forest_variant is used to get a forest represented with either float or double. */
+using forest_variant = std::variant<forest_t<float>, forest_t<double>>;
+
+/** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
+constexpr int MAX_N_ITEMS = 4;
 
 /** treelite_params_t are parameters for importing treelite models */
 struct treelite_params_t {
@@ -94,11 +120,13 @@ struct treelite_params_t {
   // can only be a power of 2
   int threads_per_tree;
   // n_items is how many input samples (items) any thread processes. If 0 is given,
-  // choose most (up to 4) that fit into shared memory.
+  // choose most (up to MAX_N_ITEMS) that fit into shared memory.
   int n_items;
   // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
   // contains forest shape
   char** pforest_shape_str;
+  // precision in which to load the treelite model
+  precision_t precision;
 };
 
 /** from_treelite uses a treelite model to initialize the forest
@@ -108,7 +136,7 @@ struct treelite_params_t {
  * @param tl_params additional parameters for the forest
  */
 void from_treelite(const raft::handle_t& handle,
-                   forest_t* pforest,
+                   forest_variant* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params);
 
@@ -116,24 +144,26 @@ void from_treelite(const raft::handle_t& handle,
  *  @param h cuML handle used by this function
  *  @param f the forest to free; not usable after the call to this function
  */
-void free(const raft::handle_t& h, forest_t f);
+template <typename real_t>
+void free(const raft::handle_t& h, forest_t<real_t> f);
 
 /** predict predicts on data (with n rows) using forest and writes results into preds;
  *  the number of columns is stored in forest, and both preds and data point to GPU memory
  *  @param h cuML handle used by this function
  *  @param f forest used for predictions
  *  @param preds array in GPU memory to store predictions into
-        size == predict_proba ? (2*num_rows) : num_rows
+ *      size = predict_proba ? (2*num_rows) : num_rows
  *  @param data array of size n * cols (cols is the number of columns
  *      for the forest f) from which to predict
  *  @param num_rows number of data rows
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
+template <typename real_t>
 void predict(const raft::handle_t& h,
-             forest_t f,
-             float* preds,
-             const float* data,
+             forest_t<real_t> f,
+             real_t* preds,
+             const real_t* data,
              size_t num_rows,
              bool predict_proba = false);
 

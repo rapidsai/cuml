@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 
 set -e
 
@@ -23,31 +23,20 @@ if [[ -z "$MY_UPLOAD_KEY" ]]; then
 fi
 
 ################################################################################
-# SETUP - Get conda file output locations
-################################################################################
-
-gpuci_logger "Get conda file output locations"
-
-export LIBCUML_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --output`
-export CUML_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=$PYTHON --output`
-
-################################################################################
 # UPLOAD - Conda packages
 ################################################################################
 
 gpuci_logger "Starting conda uploads"
 
 if [[ "$BUILD_LIBCUML" == "1" && "$UPLOAD_LIBCUML" == "1" ]]; then
-  test -e ${LIBCUML_FILE}
+  LIBCUML_FILES=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --output)
   echo "Upload libcuml"
-  echo ${LIBCUML_FILE}
-  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBCUML_FILE} --no-progress
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing --no-progress ${LIBCUML_FILES}
 fi
 
 if [[ "$BUILD_CUML" == "1" && "$UPLOAD_CUML" == "1" ]]; then
+  CUML_FILE=$(conda build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=$PYTHON --output)
   test -e ${CUML_FILE}
-  echo "Upload cuml"
-  echo ${CUML_FILE}
+  echo "Upload cuml: ${CUML_FILE}"
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${CUML_FILE} --no-progress
 fi
-

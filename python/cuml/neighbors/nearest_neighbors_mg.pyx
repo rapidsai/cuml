@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import cuml.common.logger as logger
 
 from cuml.neighbors import NearestNeighbors
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 

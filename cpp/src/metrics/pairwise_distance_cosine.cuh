@@ -16,7 +16,8 @@
  */
 #pragma once
 
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
+#include <raft/distance/specializations.hpp>
 #include <raft/handle.hpp>
 
 namespace ML {
@@ -29,7 +30,6 @@ void pairwise_distance_cosine(const raft::handle_t& handle,
                               int m,
                               int n,
                               int k,
-                              raft::distance::DistanceType metric,
                               bool isRowMajor,
                               double metric_arg);
 
@@ -40,7 +40,6 @@ void pairwise_distance_cosine(const raft::handle_t& handle,
                               int m,
                               int n,
                               int k,
-                              raft::distance::DistanceType metric,
                               bool isRowMajor,
                               float metric_arg);
 

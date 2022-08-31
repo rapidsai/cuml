@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 
 import cupy as cp
+import cupyx as cpx
 from numba import cuda
 from math import ceil
 
@@ -356,6 +357,7 @@ def csr_polynomial_expansion(X, interaction_only, degree):
                                 d, interaction_only, degree,
                                 expanded_indptr)
 
-    return cp.sparse.csr_matrix((expanded_data, expanded_indices,
-                                 expanded_indptr),
-                                shape=(num_rows, expanded_dimensionality))
+    return cpx.scipy.sparse.csr_matrix((expanded_data, expanded_indices,
+                                        expanded_indptr),
+                                       shape=(num_rows,
+                                              expanded_dimensionality))

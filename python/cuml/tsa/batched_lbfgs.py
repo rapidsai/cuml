@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 import cuml.common.logger as logger
 import numpy as np
+import nvtx
 
-from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
 from cuml.common import has_scipy
 
 
@@ -36,6 +36,9 @@ def _fd_fprime(x, f, h):
     return g
 
 
+@nvtx.annotate(
+    message="LBFGS",
+    domain="cuml_python")
 def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                          bounds=None, m=10, factr=1e7, pgtol=1e-5,
                          epsilon=1e-8,
@@ -87,7 +90,6 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     else:
         raise RuntimeError("Scipy is needed to run batched_fmin_lbfgs_b")
 
-    nvtx_range_push("LBFGS")
     n = len(x0) // num_batches
 
     if fprime is None:
@@ -140,50 +142,51 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     warn_flag = np.zeros(num_batches)
 
     while not all(converged):
-        nvtx_range_push("LBFGS-ITERATION")
-        for ib in range(num_batches):
-            if converged[ib]:
-                continue
+        with nvtx.annotate("LBFGS-ITERATION", domain="cuml_python"):
+            for ib in range(num_batches):
+                if converged[ib]:
+                    continue
 
-            _lbfgsb.setulb(m, x[ib],
-                           low_bnd, upper_bnd,
-                           nbd,
-                           f[ib], g[ib],
-                           factr, pgtol,
-                           wa[ib], iwa[ib],
-                           task[ib],
-                           iprint,
-                           csave[ib],
-                           lsave[ib],
-                           isave[ib],
-                           dsave[ib],
-                           maxls)
+                _lbfgsb.setulb(
+                    m, x[ib],
+                    low_bnd, upper_bnd,
+                    nbd,
+                    f[ib], g[ib],
+                    factr, pgtol,
+                    wa[ib], iwa[ib],
+                    task[ib],
+                    iprint,
+                    csave[ib],
+                    lsave[ib],
+                    isave[ib],
+                    dsave[ib],
+                    maxls)
 
-        xk = np.concatenate(x)
-        fk = func(xk)
-        gk = fprime(xk)
-        for ib in range(num_batches):
-            if converged[ib]:
-                continue
-            task_str = task[ib].tobytes()
-            task_str_strip = task[ib].tobytes().strip(b'\x00').strip()
-            if task_str.startswith(b'FG'):
-                # needs function evalation
-                f[ib] = fk[ib]
-                g[ib] = gk[ib*n:(ib+1)*n]
-            elif task_str.startswith(b'NEW_X'):
-                n_iterations[ib] += 1
-                if n_iterations[ib] >= maxiter:
-                    task[ib][:] = 'STOP: TOTAL NO. of ITERATIONS REACHED LIMIT'
-            elif task_str_strip.startswith(b'CONV'):
-                converged[ib] = True
-                warn_flag[ib] = 0
-            else:
-                converged[ib] = True
-                warn_flag[ib] = 2
-                continue
+            xk = np.concatenate(x)
+            fk = func(xk)
+            gk = fprime(xk)
+            for ib in range(num_batches):
+                if converged[ib]:
+                    continue
+                task_str = task[ib].tobytes()
+                task_str_strip = task[ib].tobytes().strip(b'\x00').strip()
+                if task_str.startswith(b'FG'):
+                    # needs function evalation
+                    f[ib] = fk[ib]
+                    g[ib] = gk[ib*n:(ib+1)*n]
+                elif task_str.startswith(b'NEW_X'):
+                    n_iterations[ib] += 1
+                    if n_iterations[ib] >= maxiter:
+                        task[ib][:] = \
+                            'STOP: TOTAL NO. of ITERATIONS REACHED LIMIT'
+                elif task_str_strip.startswith(b'CONV'):
+                    converged[ib] = True
+                    warn_flag[ib] = 0
+                else:
+                    converged[ib] = True
+                    warn_flag[ib] = 2
+                    continue
 
-        nvtx_range_pop()
     xk = np.concatenate(x)
 
     if iprint > 0:
@@ -198,5 +201,4 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                     logger.info("WARNING: id={} convergence issue: {}".format(
                         ib, task[ib].tobytes()))
 
-    nvtx_range_pop()
     return xk, n_iterations, warn_flag

@@ -71,8 +71,6 @@ cumlError_t knn_search(const cumlHandle_t handle,
   raft::distance::DistanceType metric_distance_type =
     static_cast<raft::distance::DistanceType>(metric_type);
 
-  std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
-
   std::vector<float*> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);
   for (int i = 0; i < n_params; i++) {

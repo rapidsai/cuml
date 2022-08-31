@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,28 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <common/nvtx.hpp>
-#include <label/classlabels.cuh>
-#include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
 #include "mergelabels/runner.cuh"
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
+#include <common/nvtx.hpp>
+#include <label/classlabels.cuh>
+#include <raft/common/nvtx.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/sparse/csr.hpp>
 
 #include <cuml/common/logger.hpp>
 
-#include <common/nvtx.hpp>
+#include <raft/common/nvtx.hpp>
 
 #include <label/classlabels.cuh>
+
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/iterator/counting_iterator.h>
 
 #include <cstddef>
 
@@ -113,7 +119,8 @@ std::size_t run(const raft::handle_t& handle,
                 int algo_ccl,
                 void* workspace,
                 std::size_t batch_size,
-                cudaStream_t stream)
+                cudaStream_t stream,
+                raft::distance::DistanceType metric)
 {
   const std::size_t align = 256;
   Index_ n_batches        = raft::ceildiv((std::size_t)n_owned_rows, batch_size);
@@ -141,6 +148,7 @@ std::size_t run(const raft::handle_t& handle,
   std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
   std::size_t vd_size       = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
   std::size_t ex_scan_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
+  std::size_t row_cnt_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
   std::size_t labels_size   = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
@@ -153,7 +161,8 @@ std::size_t run(const raft::handle_t& handle,
          (unsigned long)batch_size);
 
   if (workspace == NULL) {
-    auto size = adj_size + core_pts_size + m_size + vd_size + ex_scan_size + 2 * labels_size;
+    auto size =
+      adj_size + core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size + 2 * labels_size;
     return size;
   }
 
@@ -172,6 +181,8 @@ std::size_t run(const raft::handle_t& handle,
   temp += vd_size;
   Index_* ex_scan = (Index_*)temp;
   temp += ex_scan_size;
+  Index_* row_counters = (Index_*)temp;
+  temp += row_cnt_size;
   Index_* labels_temp = (Index_*)temp;
   temp += labels_size;
   Index_* work_buffer = (Index_*)temp;
@@ -188,15 +199,15 @@ std::size_t run(const raft::handle_t& handle,
       "- Batch %d / %ld (%ld samples)", i + 1, (unsigned long)n_batches, (unsigned long)n_points);
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
-    ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
+    raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
     VertexDeg::run<Type_f, Index_>(
-      handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream);
-    ML::POP_RANGE();
+      handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream, metric);
+    raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing core point mask");
-    ML::PUSH_RANGE("Trace::Dbscan::CorePoints");
+    raft::common::nvtx::push_range("Trace::Dbscan::CorePoints");
     CorePoints::compute<Index_>(handle, vd, core_pts, min_pts, start_vertex_id, n_points, stream);
-    ML::POP_RANGE();
+    raft::common::nvtx::pop_range();
   }
   // 2. Exchange with the other workers
   if (opg) CorePoints::exchange(handle, core_pts, N, start_row, stream);
@@ -216,27 +227,37 @@ std::size_t run(const raft::handle_t& handle,
     // i==0 -> adj and vd for batch 0 already in memory
     if (i > 0) {
       CUML_LOG_DEBUG("--> Computing vertex degrees");
-      ML::PUSH_RANGE("Trace::Dbscan::VertexDeg");
+      raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
       VertexDeg::run<Type_f, Index_>(
-        handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream);
-      ML::POP_RANGE();
+        handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream, metric);
+      raft::common::nvtx::pop_range();
     }
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
 
     CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
-    ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
+    raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
     if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
       maxadjlen = curradjlen;
       adj_graph.resize(maxadjlen, stream);
     }
-    AdjGraph::run<Index_>(
-      handle, adj, vd, adj_graph.data(), curradjlen, ex_scan, N, algo_adj, n_points, stream);
-    ML::POP_RANGE();
+    AdjGraph::run<Index_>(handle,
+                          adj,
+                          vd,
+                          adj_graph.data(),
+                          curradjlen,
+                          ex_scan,
+                          N,
+                          algo_adj,
+                          n_points,
+                          row_counters,
+                          stream);
+
+    raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing connected components");
-    ML::PUSH_RANGE("Trace::Dbscan::WeakCC");
-    raft::sparse::weak_cc_batched<Index_, 1024>(
+    raft::common::nvtx::push_range("Trace::Dbscan::WeakCC");
+    raft::sparse::weak_cc_batched<Index_>(
       i == 0 ? labels : labels_temp,
       ex_scan,
       adj_graph.data(),
@@ -249,7 +270,7 @@ std::size_t run(const raft::handle_t& handle,
       [core_pts, N] __device__(Index_ global_id) {
         return global_id < N ? __ldg((char*)core_pts + global_id) : 0;
       });
-    ML::POP_RANGE();
+    raft::common::nvtx::pop_range();
 
     if (i > 0) {
       // The labels_temp array contains the labelling for the neighborhood
@@ -259,9 +280,9 @@ std::size_t run(const raft::handle_t& handle,
       // weak_cc_batched and skipping the merge step would lead to incorrect
       // results as described in #3094.
       CUML_LOG_DEBUG("--> Accumulating labels");
-      ML::PUSH_RANGE("Trace::Dbscan::MergeLabels");
+      raft::common::nvtx::push_range("Trace::Dbscan::MergeLabels");
       MergeLabels::run<Index_>(handle, labels, labels_temp, core_pts, work_buffer, m, N, stream);
-      ML::POP_RANGE();
+      raft::common::nvtx::pop_range();
     }
   }
 
@@ -273,16 +294,16 @@ std::size_t run(const raft::handle_t& handle,
 
   // Final relabel
   if (my_rank == 0) {
-    ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
+    raft::common::nvtx::push_range("Trace::Dbscan::FinalRelabel");
     if (algo_ccl == 2) final_relabel(labels, N, stream);
     std::size_t nblks = raft::ceildiv<std::size_t>(N, TPB);
     relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
-    CUDA_CHECK(cudaPeekAtLastError());
-    ML::POP_RANGE();
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    raft::common::nvtx::pop_range();
 
     // Calculate the core_indices only if an array was passed in
     if (core_indices != nullptr) {
-      ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
+      raft::common::nvtx::range fun_scope("Trace::Dbscan::CoreSampleIndices");
 
       // Create the execution policy
       auto thrust_exec_policy = handle.get_thrust_policy();
@@ -304,8 +325,6 @@ std::size_t run(const raft::handle_t& handle,
                       dev_core_pts,
                       dev_core_indices,
                       [=] __device__(const bool is_core_point) { return is_core_point; });
-
-      ML::POP_RANGE();
     }
   }
 

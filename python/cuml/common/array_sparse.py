@@ -119,6 +119,7 @@ class SparseCumlArray():
         self.shape = data.shape
         self.dtype = self.data.dtype
         self.nnz = data.nnz
+        self.index = None
 
     @nvtx.annotate(message="common.SparseCumlArray.to_output",
                    category="utils", domain="cuml_python")

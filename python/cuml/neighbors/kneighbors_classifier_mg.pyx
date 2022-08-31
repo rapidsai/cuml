@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from cuml.internals import api_base_return_generic_skipall
 
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common import input_to_cuml_array
 

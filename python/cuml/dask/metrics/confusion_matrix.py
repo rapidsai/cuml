@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ def confusion_matrix(y_true, y_pred,
         once in y_true or y_pred are used in sorted order.
     sample_weight : dask.Array (device or host) shape = (n_samples,), optional
         Sample weights.
-    normalize : string in [‘true’, ‘pred’, ‘all’]
+    normalize : string in ['true', 'pred', 'all']
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.

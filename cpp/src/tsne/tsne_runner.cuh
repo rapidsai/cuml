@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,16 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/manifold/common.hpp>
-#include <rmm/device_uvector.hpp>
 #include "distances.cuh"
 #include "exact_kernels.cuh"
 #include "utils.cuh"
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/common.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/distance/distance_type.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/transform.h>
 
 #include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
@@ -74,7 +77,7 @@ class TSNE_runner {
         " might be a bit strange...");
   }
 
-  void run()
+  value_t run()
   {
     distance_and_perplexity();
 
@@ -86,11 +89,11 @@ class TSNE_runner {
 
     switch (params.algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
-        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
-        break;
-      case TSNE_ALGORITHM::FFT: TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
-      case TSNE_ALGORITHM::EXACT: TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
+        return TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      case TSNE_ALGORITHM::FFT: return TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      case TSNE_ALGORITHM::EXACT: return TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
     }
+    return 0;
   }
 
  private:
@@ -117,7 +120,7 @@ class TSNE_runner {
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
 
-      TSNE::get_distances(handle, input, k_graph, stream);
+      TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
 
     if (params.square_distances) {
@@ -137,7 +140,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Normalize distances
     CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-    TSNE::normalize_distances(n, k_graph.knn_dists, params.n_neighbors, stream);
+    TSNE::normalize_distances(k_graph.knn_dists, n * params.n_neighbors, stream);
     //---------------------------------------------------
     END_TIMER(NormalizeTime);
 
@@ -160,6 +163,13 @@ class TSNE_runner {
 
     START_TIMER;
     //---------------------------------------------------
+    // Normalize perplexity to prepare for symmetrization
+    raft::linalg::scalarMultiply(P.data(), P.data(), 1.0f / (2.0f * n), P.size(), stream);
+    //---------------------------------------------------
+    END_TIMER(NormalizeTime);
+
+    START_TIMER;
+    //---------------------------------------------------
     // Convert data to COO layout
     TSNE::symmetrize_perplexity(P.data(),
                                 k_graph.knn_indices,
@@ -172,12 +182,15 @@ class TSNE_runner {
     END_TIMER(SymmetrizeTime);
   }
 
+ public:
+  raft::sparse::COO<value_t, value_idx> COO_Matrix;
+
+ private:
   const raft::handle_t& handle;
   tsne_input& input;
   knn_graph<value_idx, value_t>& k_graph;
   TSNEParams& params;
 
-  raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;
   value_t* Y;
 };

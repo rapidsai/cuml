@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@ import cupy as cp
 import numpy as np
 import operator
 import nvtx
+import rmm
 
+# Temporarily disabled due to CUDA 11.0 issue
+# https://github.com/rapidsai/cuml/issues/4332
 from rmm import DeviceBuffer
 from cudf import DataFrame
 from cudf import Series
@@ -29,6 +32,7 @@ from cuml.common.memory_utils import _order_to_strides
 from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import class_with_cupy_rmm
 from numba import cuda
+from typing import Tuple
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -96,7 +100,12 @@ class CumlArray(Buffer):
 
     @nvtx.annotate(message="common.CumlArray.__init__", category="utils",
                    domain="cuml_python")
-    def __init__(self, data=None, owner=None, dtype=None, shape=None,
+    def __init__(self,
+                 data=None,
+                 index=None,
+                 owner=None,
+                 dtype=None,
+                 shape=None,
                  order=None):
 
         # Checks of parameters
@@ -130,25 +139,45 @@ class CumlArray(Buffer):
 
         ary_interface = False
 
-        # Base class (Buffer) constructor call
         size, shape = _get_size_from_shape(shape, dtype)
 
         if not memview_construction and not detailed_construction:
-            # Convert to cupy array and manually specify the ptr, size and
-            # owner. This is to avoid the restriction on Buffer that requires
-            # all data be u8
             cupy_data = cp.asarray(data)
-            flattened_data = cupy_data.data.ptr
 
             # Size for Buffer is not the same as for cupy. Use nbytes
             size = cupy_data.nbytes
             owner = cupy_data if cupy_data.flags.owndata else data
-        else:
-            flattened_data = data
+            data = cupy_data
 
-        super().__init__(data=flattened_data,
-                         owner=owner,
-                         size=size)
+        self._index = index
+
+        if hasattr(data, "__array_interface__"):
+            ary_interface = data.__array_interface__
+        elif hasattr(data, "__cuda_array_interface__"):
+            ary_interface = data.__cuda_array_interface__
+
+        # We no longer call the super init due to the refactor
+        if isinstance(data, int):
+            if size is None:
+                raise ValueError(
+                    "size must be specified when `data` is an integer"
+                )
+            if size < 0:
+                raise ValueError("size cannot be negative")
+            self._ptr = data
+            self._size = size
+            self._owner = owner
+
+        elif isinstance(data, DeviceBuffer) or isinstance(data, Buffer):
+            self._ptr = data.ptr
+            self._size = data.size
+            self._owner = data
+
+        elif ary_interface:
+            ptr = ary_interface["data"][0] or 0
+            self._ptr = ptr
+            self._size = size
+            self._owner = data
 
         # Post processing of meta data
         if detailed_construction:
@@ -157,16 +186,7 @@ class CumlArray(Buffer):
             self.order = order
             self.strides = _order_to_strides(order, shape, dtype)
 
-        elif hasattr(data, "__array_interface__"):
-            ary_interface = data.__array_interface__
-
-        elif hasattr(data, "__cuda_array_interface__"):
-            ary_interface = data.__cuda_array_interface__
-
-        else:
-            raise TypeError("Unrecognized data type: %s" % str(type(data)))
-
-        if ary_interface:
+        elif ary_interface:
             self.shape = ary_interface['shape']
             self.dtype = np.dtype(ary_interface['typestr'])
             if ary_interface.get('strides', None) is None:
@@ -176,6 +196,19 @@ class CumlArray(Buffer):
             else:
                 self.strides = ary_interface['strides']
                 self.order = _strides_to_order(self.strides, self.dtype)
+
+        else:
+            raise TypeError("Unrecognized data type: %s" % str(type(data)))
+
+    # We use the index as a property to allow for validation/processing
+    # in the future if needed
+    @property
+    def index(self):
+        return self._index
+
+    @index.setter
+    def index(self, index):
+        self._index = index
 
     @with_cupy_rmm
     def __getitem__(self, slice):
@@ -265,7 +298,8 @@ class CumlArray(Buffer):
                 mat = cp.asarray(self, dtype=output_dtype)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
-                return DataFrame(mat)
+                return DataFrame(mat,
+                                 index=self.index)
             else:
                 raise ValueError('cuDF unsupported Array dtype')
 
@@ -275,7 +309,9 @@ class CumlArray(Buffer):
             if len(self.shape) == 1:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
-                    return Series(self, dtype=output_dtype)
+                    return Series(self,
+                                  dtype=output_dtype,
+                                  index=self.index)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
             elif self.shape[1] > 1:
@@ -290,22 +326,57 @@ class CumlArray(Buffer):
 
         return self
 
+    @nvtx.annotate(message="common.CumlArray.host_serialize", category="utils",
+                   domain="cuml_python")
+    def host_serialize(self):
+        header, frames = self.device_serialize()
+        header["writeable"] = len(frames) * (None,)
+        frames = [
+            f.to_host_array().data if c else memoryview(f)
+            for c, f in zip(header["is-cuda"], frames)
+        ]
+        return header, frames
+
     @nvtx.annotate(message="common.CumlArray.serialize", category="utils",
                    domain="cuml_python")
-    def serialize(self):
+    def serialize(self) -> Tuple[dict, list]:
         header, frames = super().serialize()
         header["constructor-kwargs"] = {
             "dtype": self.dtype.str,
             "shape": self.shape,
             "order": self.order,
         }
-        frames = [Buffer(f) for f in frames]
+        frames = [CumlArray(f) for f in frames]
         return header, frames
+
+    @nvtx.annotate(message="common.CumlArray.copy", category="utils",
+                   domain="cuml_python")
+    def copy(self) -> Buffer:
+        """
+        Create a new Buffer containing a copy of the data contained
+        in this Buffer.
+        """
+        from rmm._lib.device_buffer import copy_device_to_ptr
+
+        out = Buffer.empty(size=self.size)
+        copy_device_to_ptr(self.ptr, out.ptr, self.size)
+        return out
+
+    @nvtx.annotate(message="common.CumlArray.to_host_array", category="utils",
+                   domain="cuml_python")
+    def to_host_array(self):
+        data = np.empty((self.size,), "u1")
+        rmm._lib.device_buffer.copy_ptr_to_host(self.ptr, data)
+        return data
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.empty", category="utils",
                    domain="cuml_python")
-    def empty(cls, shape, dtype, order='F'):
+    def empty(cls,
+              shape,
+              dtype,
+              order='F',
+              index=None):
         """
         Create an empty Array with an allocated but uninitialized DeviceBuffer
 
@@ -319,12 +390,17 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
 
-        return CumlArray(cp.empty(shape, dtype, order))
+        return CumlArray(cp.empty(shape, dtype, order), index=index)
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.full", category="utils",
                    domain="cuml_python")
-    def full(cls, shape, value, dtype, order='F'):
+    def full(cls,
+             shape,
+             value,
+             dtype,
+             order='F',
+             index=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to value.
 
@@ -338,12 +414,16 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
 
-        return CumlArray(cp.full(shape, value, dtype, order))
+        return CumlArray(cp.full(shape, value, dtype, order), index=index)
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.zeros", category="utils",
                    domain="cuml_python")
-    def zeros(cls, shape, dtype='float32', order='F'):
+    def zeros(cls,
+              shape,
+              dtype='float32',
+              order='F',
+              index=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -356,12 +436,17 @@ class CumlArray(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order)
+        return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order,
+                              index=index)
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.ones", category="utils",
                    domain="cuml_python")
-    def ones(cls, shape, dtype='float32', order='F'):
+    def ones(cls,
+             shape,
+             dtype='float32',
+             order='F',
+             index=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -374,16 +459,20 @@ class CumlArray(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)
+        return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order,
+                              index=index)
 
 
 def _check_low_level_type(data):
     if isinstance(data, CumlArray):
         return False
-    elif not (
+    if not (
         hasattr(data, "__array_interface__")
         or hasattr(data, "__cuda_array_interface__")
-    ) or isinstance(data, (DeviceBuffer, Buffer)):
+        # Temporarily disabled due to CUDA 11.0 issue
+        # https://github.com/rapidsai/cuml/issues/4332
+        # ) or isinstance(data, (DeviceBuffer, Buffer)):
+    ) or isinstance(data, Buffer):
         return True
     else:
         return False

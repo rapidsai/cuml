@@ -63,7 +63,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. autofunction:: cuml.preprocessing.model_selection.train_test_split
+ .. autofunction:: cuml.model_selection.train_test_split
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
@@ -82,9 +82,46 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
+Feature Scaling and Normalization (Single-GPU)
+----------------------------------------------
+.. autoclass:: cuml.preprocessing.MaxAbsScaler
+    :members:
+.. autoclass:: cuml.preprocessing.MinMaxScaler
+    :members:
+.. autoclass:: cuml.preprocessing.Normalizer
+    :members:
+.. autoclass:: cuml.preprocessing.RobustScaler
+    :members:
+.. autoclass:: cuml.preprocessing.StandardScaler
+    :members:
+.. autofunction:: cuml.preprocessing.maxabs_scale
+.. autofunction:: cuml.preprocessing.minmax_scale
+.. autofunction:: cuml.preprocessing.normalize
+.. autofunction:: cuml.preprocessing.robust_scale
+.. autofunction:: cuml.preprocessing.scale
+
+Other preprocessing methods (Single-GPU)
+----------------------------------------
+.. autoclass:: cuml.preprocessing.Binarizer
+    :members:
+.. autoclass:: cuml.preprocessing.FunctionTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.KBinsDiscretizer
+    :members:
+.. autoclass:: cuml.preprocessing.MissingIndicator
+    :members:
+.. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.SimpleImputer
+    :members:
+.. autofunction:: cuml.preprocessing.add_dummy_feature
+.. autofunction:: cuml.preprocessing.binarize
+
+.. automodule:: cuml.compose
+   :members: ColumnTransformer, make_column_transformer, make_column_selector
 
 Text Preprocessing (Single-GPU)
----------------------------------------
+-------------------------------
  .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
@@ -165,6 +202,10 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.pairwise_distances
     :members:
 
+  .. automodule:: cuml.metrics.pairwise_kernels
+    :members:
+
+
 Metrics (clustering and manifold learning)
 ------------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
@@ -186,6 +227,9 @@ Metrics (clustering and manifold learning)
     :members:
 
   .. automodule:: cuml.metrics.cluster.mutual_info_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.v_measure_score
     :members:
 
 Benchmarking
@@ -267,6 +311,9 @@ Naive Bayes
 .. autoclass:: cuml.naive_bayes.BernoulliNB
     :members:
 
+.. autoclass:: cuml.naive_bayes.ComplementNB
+    :members:
+
 .. autoclass:: cuml.naive_bayes.GaussianNB
     :members:
 
@@ -315,6 +362,12 @@ Support Vector Machines
 .. autoclass:: cuml.svm.SVR
     :members:
 
+.. autoclass:: cuml.svm.LinearSVC
+    :members:
+
+.. autoclass:: cuml.svm.LinearSVR
+    :members:
+
 Nearest Neighbors Classification
 --------------------------------
 
@@ -328,6 +381,13 @@ Nearest Neighbors Regression
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
     :noindex:
+
+Kernel Ridge Regression
+-----------------------
+
+.. autoclass:: cuml.KernelRidge
+    :members:
+
 
 Clustering
 ==========
@@ -421,6 +481,12 @@ Nearest Neighbors Regression
 --------------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
+    :members:
+
+Kernel Density Estimation
+--------------------------------
+
+.. autoclass:: cuml.neighbors.KernelDensity
     :members:
 
 Time Series
@@ -566,15 +632,12 @@ Experimental
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
 
-Preprocessing
--------------
-.. automodule:: cuml.experimental.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
-      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
-      add_dummy_feature, binarize, minmax_scale, normalize,
-      PolynomialFeatures, robust_scale, scale
-
 Linear Models
 -------------
 .. autoclass:: cuml.experimental.linear_model.Lars
+   :members:
+
+Model Explainability
+--------------------
+.. autoclass:: cuml.explainer.TreeExplainer
    :members:

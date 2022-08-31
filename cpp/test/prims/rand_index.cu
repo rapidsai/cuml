@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,13 +79,13 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     truthRandIndex      = (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
 
     // allocating and initializing memory to the GPU
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
     rmm::device_uvector<T> firstClusterArray(size, stream);
     rmm::device_uvector<T> secondClusterArray(size, stream);
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
+    RAFT_CUDA_TRY(
       cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
 
     raft::update_device(firstClusterArray.data(), &arr1[0], (int)size, stream);
@@ -97,7 +97,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
   }
 
   // the destructor
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   randIndexParam params;

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
 import cuml.internals
-from cuml.raft.common.handle cimport handle_t
-from cuml.raft.common.handle import Handle
+from raft.common.handle cimport handle_t
+from raft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -112,6 +112,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     cpp_order.p, cpp_order.d, cpp_order.q = order
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
     cpp_order.k = <int>intercept
+    cpp_order.n_exog = 0
 
     # Set the default output type to "cupy". This will be ignored if the user
     # has set `cuml.global_settings.output_type`. Only necessary for array

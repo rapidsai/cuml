@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 import cuml
 import cupy as cp
+from raft.common.handle import Handle
 
 from cuml.common.input_utils import input_to_cupy_array
 
@@ -69,7 +70,7 @@ def get_handle_from_cuml_model_func(func, create_new=False):
         if owner.handle is not None:
             return owner.handle
 
-    handle = cuml.raft.common.handle.Handle() if create_new else None
+    handle = Handle() if create_new else None
     return handle
 
 

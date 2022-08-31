@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-import cudf
 import ctypes
 import numpy as np
 import inspect
@@ -29,7 +28,7 @@ import cupy
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
 from cuml.common.array import CumlArray
@@ -39,6 +38,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_graph
+from cuml.metrics.distance_type cimport DistanceType
 import rmm
 
 from libcpp cimport bool
@@ -79,6 +79,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int verbosity,
         bool initialize_embeddings,
         bool square_distances,
+        DistanceType metric,
+        float p,
         TSNE_ALGORITHM algorithm
 
 
@@ -92,7 +94,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int64_t* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -105,7 +108,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
 
 class TSNE(Base,
@@ -149,9 +153,10 @@ class TSNE(Base,
         Used in the 'exact' and 'fft' algorithms. Consider reducing if
         the embeddings are unsatisfactory. It's recommended to use a
         smaller value for smaller datasets.
-    metric : str 'euclidean' only (default 'euclidean')
-        Currently only supports euclidean distance. Will support cosine in
-        a future release.
+    metric : str (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'minkowski',
+        'chebyshev', 'cosine', 'correlation']
     init : str 'random' (default 'random')
         Currently supports random intialization.
     verbose : int or boolean, default=False
@@ -161,7 +166,7 @@ class TSNE(Base,
         Setting this can make repeated runs look more similar. Note, however,
         that this highly parallelized t-SNE implementation is not completely
         deterministic between runs, even with the same `random_state`.
-    method : str 'barnes_hut', 'fft' or 'exact' (default 'barnes_hut')
+    method : str 'fft', 'barnes_hut' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
     angle : float (default 0.5)
@@ -170,7 +175,8 @@ class TSNE(Base,
         0.8. (Barnes-Hut only.)
     learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. 'adaptive' tunes the learning rate, early
-        exaggeration and perplexity automatically based on input size.
+        exaggeration, perplexity and n_neighbors automatically based on
+        input size.
     n_neighbors : int (default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
@@ -186,11 +192,13 @@ class TSNE(Base,
         During the late phases, less forcefully apply gradients.
     square_distances : boolean, default=True
         Whether TSNE should square the distance values.
-        Internally, this will be used to compute a kNN graph using 'euclidean'
+        Internally, this will be used to compute a kNN graph using the provided
         metric and then squaring it when True. If a `knn_graph` is passed
         to `fit` or `fit_transform` methods, all the distances will be
         squared when True. For example, if a `knn_graph` was obtained using
         'sqeuclidean' metric, the distances will still be squared when True.
+        Note: This argument should likely be set to False for distance metrics
+        other than 'euclidean' and 'l2'.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -203,6 +211,12 @@ class TSNE(Base,
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    kl_divergence_ : float
+        Kullback-Leibler divergence after optimization. An experimental
+        feature at this time.
 
     References
     -----------
@@ -250,10 +264,11 @@ class TSNE(Base,
                  n_iter_without_progress=300,
                  min_grad_norm=1e-07,
                  metric='euclidean',
+                 metric_params=None,
                  init='random',
                  verbose=False,
                  random_state=None,
-                 method='barnes_hut',
+                 method='fft',
                  angle=0.5,
                  learning_rate_method='adaptive',
                  n_neighbors=90,
@@ -272,10 +287,6 @@ class TSNE(Base,
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
-        if n_components != 2 and (method == 'barnes_hut' or method == 'fft'):
-            warnings.warn("Barnes Hut and FFT only work when "
-                          "n_components == 2. Switching to exact.")
-            method = 'exact'
         if n_components != 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(n_components))
@@ -297,11 +308,6 @@ class TSNE(Base,
         if n_iter <= 100:
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
-        if metric.lower() != 'euclidean':
-            # TODO https://github.com/rapidsai/cuml/issues/1653
-            warnings.warn("TSNE does not support {} (only Euclidean).".format(
-                          metric))
-            metric = 'euclidean'
         if init.lower() != 'random':
             # TODO https://github.com/rapidsai/cuml/issues/3458
             warnings.warn("TSNE does not support {} but only random "
@@ -335,6 +341,9 @@ class TSNE(Base,
             raise ValueError("post_momentum = {} should be more than "
                              "pre_momentum = {}".format(post_momentum,
                                                         pre_momentum))
+        if method == "fft":
+            warnings.warn("Starting from version 22.04, the default method "
+                          "of TSNE is 'fft'.")
 
         self.n_components = n_components
         self.perplexity = perplexity
@@ -345,6 +354,7 @@ class TSNE(Base,
         self.n_iter_without_progress = n_iter_without_progress
         self.min_grad_norm = min_grad_norm
         self.metric = metric
+        self.metric_params = metric_params
         self.init = init
         self.random_state = random_state
         self.method = method
@@ -447,7 +457,8 @@ class TSNE(Base,
         self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
             order="F",
-            dtype=np.float32)
+            dtype=np.float32,
+            index=self.X_m.index)
 
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
@@ -478,11 +489,6 @@ class TSNE(Base,
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
         elif self.method == 'fft':
-            warnings.warn("Method 'fft' is experimental and may be " +
-                          "unstable. If you find this implementation is not" +
-                          " behaving as intended, please consider using one" +
-                          " of the other methods, such as 'barnes_hut' or" +
-                          " 'exact'")
             algo = TSNE_ALGORITHM.FFT
         elif self.method == 'exact':
             algo = TSNE_ALGORITHM.EXACT
@@ -493,18 +499,24 @@ class TSNE(Base,
         cdef TSNEParams* params = <TSNEParams*> <size_t> \
             self._build_tsne_params(algo)
 
+        cdef float kl_divergence = 0
+
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
-                            <int*><uintptr_t> self.X_m.indptr.ptr,
-                            <int*><uintptr_t> self.X_m.indices.ptr,
-                            <float*><uintptr_t> self.X_m.data.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indptr.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indices.ptr,
+                            <float*><uintptr_t>
+                            self.X_m.data.ptr,
                             <float*> embed_ptr,
                             <int> self.X_m.nnz,
                             <int> n,
                             <int> p,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
-                            <TSNEParams&> deref(params))
+                            <TSNEParams&> deref(params),
+                            &kl_divergence)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -513,11 +525,14 @@ class TSNE(Base,
                      <int> p,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
-                     <TSNEParams&> deref(params))
+                     <TSNEParams&> deref(params),
+                     &kl_divergence)
 
         self.handle.sync()
         free(params)
 
+        self._kl_divergence_ = kl_divergence
+        logger.debug("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -572,7 +587,45 @@ class TSNE(Base,
         params.initialize_embeddings = <bool> True
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
+
+        # metric
+        metric_parsing = {
+            "l2": DistanceType.L2SqrtExpanded,
+            "euclidean": DistanceType.L2SqrtExpanded,
+            "sqeuclidean": DistanceType.L2Expanded,
+            "cityblock": DistanceType.L1,
+            "l1": DistanceType.L1,
+            "manhattan": DistanceType.L1,
+            "minkowski": DistanceType.LpUnexpanded,
+            "chebyshev": DistanceType.Linf,
+            "cosine": DistanceType.CosineExpanded,
+            "correlation": DistanceType.CorrelationExpanded
+        }
+
+        if self.metric.lower() in metric_parsing:
+            params.metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
+
+        if self.metric_params is None:
+            params.p = <float> 2.0
+        else:
+            params.p = <float>self.metric_params.get('p')
+
         return <size_t> params
+
+    @property
+    def kl_divergence_(self):
+        if self.method == 'barnes_hut':
+            warnings.warn("The calculation of the Kullback-Leibler "
+                          "divergence is still an experimental feature "
+                          "while using the Barnes Hut algorithm.")
+        return self._kl_divergence_
+
+    @kl_divergence_.setter
+    def kl_divergence_(self, value):
+        self._kl_divergence_ = value
 
     def __del__(self):
 
@@ -602,6 +655,7 @@ class TSNE(Base,
             "n_iter_without_progress",
             "min_grad_norm",
             "metric",
+            "metric_params",
             "init",
             "random_state",
             "method",

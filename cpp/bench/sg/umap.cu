@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/manifold/umapparams.h>
+#include "benchmark.cuh"
 #include <cuml/manifold/umap.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <raft/cuda_utils.cuh>
 #include <utility>
-#include "benchmark.cuh"
 
 namespace ML {
 namespace Bench {
@@ -42,7 +42,7 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream)
   static const int TPB = 256;
   auto nblks           = raft::ceildiv<IdxT>(len, TPB);
   castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
-  CUDA_CHECK(cudaGetLastError());
+  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 class UmapBase : public BlobsFixture<float, int> {
@@ -115,6 +115,7 @@ class UmapSupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
+    auto graph = raft::sparse::COO<float, int>(stream);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               yFloat,
@@ -123,7 +124,8 @@ class UmapSupervised : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings);
+              embeddings,
+              &graph);
   }
 };
 ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
@@ -135,6 +137,7 @@ class UmapUnsupervised : public UmapBase {
  protected:
   void coreBenchmarkMethod()
   {
+    auto graph = raft::sparse::COO<float, int>(stream);
     UMAP::fit(*this->handle,
               this->data.X.data(),
               nullptr,
@@ -143,7 +146,8 @@ class UmapUnsupervised : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings);
+              embeddings,
+              &graph);
   }
 };
 ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -173,6 +177,7 @@ class UmapTransform : public UmapBase {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
+    auto graph = raft::sparse::COO<float, int>(stream);
     UMAP::fit(handle,
               this->data.X.data(),
               yFloat,
@@ -181,7 +186,8 @@ class UmapTransform : public UmapBase {
               nullptr,
               nullptr,
               &uParams,
-              embeddings);
+              embeddings,
+              &graph);
   }
   void deallocateBuffers(const ::benchmark::State& state)
   {

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,16 +182,21 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
-            X = input_to_cupy_array(X, order='K',
+            X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32])
+            index = X.index
+            # todo: improve index management for cupy based codebases
+            X = X.array.to_output('cupy')
 
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
         y_hat = invert_labels(indices, classes=self.classes_)
+        y_hat = CumlArray(data=y_hat, index=index)
         return y_hat
 
     @generate_docstring(
@@ -220,11 +225,15 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
-            X = input_to_cupy_array(X, order='K',
+            X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32,
                                                  cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32])
+            index = X.index
+            # todo: improve index management for cupy based codebases
+            X = X.array.to_output('cupy')
 
         X = self._check_X(X)
         jll = self._joint_log_likelihood(X)
@@ -246,6 +255,7 @@ class _BaseNB(Base, ClassifierMixin):
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
+        result = CumlArray(data=result, index=index)
         return result
 
     @generate_docstring(
@@ -303,21 +313,24 @@ class GaussianNB(_BaseNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-    >>>              cp.float32)
-    >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
-    >>> from cuml.naive_bayes import GaussianNB
-    >>> clf = GaussianNB()
-    >>> clf.fit(X, Y)
-    GaussianNB()
-    >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
-    [1]
-    >>> clf_pf = GaussianNB()
-    >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
-    GaussianNB()
-    >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
-    [1]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1],
+        ...                 [3, 2]], cp.float32)
+        >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
+        >>> from cuml.naive_bayes import GaussianNB
+        >>> clf = GaussianNB()
+        >>> clf.fit(X, Y)
+        GaussianNB()
+        >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
+        [1]
+        >>> clf_pf = GaussianNB()
+        >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
+        GaussianNB()
+        >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
+        [1]
     """
 
     def __init__(self, *, priors=None, var_smoothing=1e-9,
@@ -363,7 +376,7 @@ class GaussianNB(_BaseNB):
             raise ValueError("classes must be passed on the first call "
                              "to partial_fit.")
 
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(X, order='K',
@@ -513,7 +526,7 @@ class GaussianNB(_BaseNB):
         new_var = cp.zeros((self.n_classes_, self.n_features_), order="F",
                            dtype=X.dtype)
         class_counts = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             X = X.tocoo()
 
             count_features_coo = count_features_coo_kernel(X.dtype,
@@ -651,8 +664,8 @@ class GaussianNB(_BaseNB):
 
 class _BaseDiscreteNB(_BaseNB):
 
-    def __init__(self, *, class_prior=None, verbose=False,
-                 handle=None, output_type=None):
+    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
+                 verbose=False, handle=None, output_type=None):
         super(_BaseDiscreteNB, self).__init__(verbose=verbose,
                                               handle=handle,
                                               output_type=output_type)
@@ -661,6 +674,10 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             self.class_prior = None
 
+        if alpha < 0:
+            raise ValueError("Smoothing parameter alpha should be >= 0.")
+        self.alpha = alpha
+        self.fit_prior = fit_prior
         self.fit_called_ = False
         self.n_classes_ = 0
         self.n_features_ = None
@@ -720,7 +737,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         sample_weight : array-like of shape (n_samples)
                         Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored
+                        unweighted). Currently sample weight is ignored.
 
         Returns
         -------
@@ -741,7 +758,7 @@ class _BaseDiscreteNB(_BaseNB):
                 as scipy_sparse_isspmatrix
 
         # TODO: use SparseCumlArray
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+        if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
             X = input_to_cupy_array(X, order='K',
@@ -780,7 +797,7 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             check_labels(Y, self.classes_)
 
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             # X is assumed to be a COO here
             self._count_sparse(X.row, X.col, X.data, X.shape, Y, self.classes_)
         else:
@@ -804,7 +821,9 @@ class _BaseDiscreteNB(_BaseNB):
         y : array-like shape (n_samples) Target values.
         sample_weight : array-like of shape (n_samples)
             Weights applied to individial samples (1. for unweighted).
+            Currently sample weight is ignored.
         """
+        self.fit_called_ = False
         return self.partial_fit(X, y, sample_weight)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
@@ -830,7 +849,7 @@ class _BaseDiscreteNB(_BaseNB):
         Sum feature counts & class prior counts and add to current model.
         Parameters
         ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
                   (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
@@ -944,6 +963,8 @@ class _BaseDiscreteNB(_BaseNB):
     def get_param_names(self):
         return super().get_param_names() + \
             [
+                "alpha",
+                "fit_prior",
                 "class_prior"
             ]
 
@@ -965,13 +986,13 @@ class MultinomialNB(_BaseDiscreteNB):
     Parameters
     ----------
 
-    alpha : float
+    alpha : float (default=1.0)
         Additive (Laplace/Lidstone) smoothing parameter (0 for no
         smoothing).
-    fit_prior : boolean
+    fit_prior : boolean (default=True)
         Whether to learn class prior probabilities or no. If false, a
         uniform prior will be used.
-    class_prior : array-like, size (n_classes)
+    class_prior : array-like, size (n_classes) (default=None)
         Prior probabilities of the classes. If specified, the priors are
         not adjusted according to the data.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
@@ -990,6 +1011,22 @@ class MultinomialNB(_BaseDiscreteNB):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
+    Attributes
+    ----------
+    class_count_ : ndarray of shape (n_classes)
+        Number of samples encountered for each class during fitting.
+    class_log_prior_ : ndarray of shape (n_classes)
+        Log probability of each class (smoothed).
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_count_ : ndarray of shape (n_classes, n_features)
+        Number of samples encountered for each (class, feature)
+        during fitting.
+    feature_log_prob_ : ndarray of shape (n_classes, n_features)
+        Empirical log probability of features given a class, P(x_i|y).
+    n_features_ : int
+        Number of features of each sample.
+
     Examples
     --------
 
@@ -998,42 +1035,37 @@ class MultinomialNB(_BaseDiscreteNB):
 
     .. code-block:: python
 
-        import cupy as cp
+        >>> import cupy as cp
+        >>> import cupyx
+        >>> from sklearn.datasets import fetch_20newsgroups
+        >>> from sklearn.feature_extraction.text import CountVectorizer
+        >>> from cuml.naive_bayes import MultinomialNB
 
-        from sklearn.datasets import fetch_20newsgroups
-        from sklearn.feature_extraction.text import CountVectorizer
+        >>> # Load corpus
+        >>> twenty_train = fetch_20newsgroups(subset='train', shuffle=True,
+        ...                                   random_state=42)
 
-        from cuml.naive_bayes import MultinomialNB
+        >>> # Turn documents into term frequency vectors
 
-        # Load corpus
+        >>> count_vect = CountVectorizer()
+        >>> features = count_vect.fit_transform(twenty_train.data)
 
-        twenty_train = fetch_20newsgroups(subset='train',
-                                shuffle=True, random_state=42)
+        >>> # Put feature vectors and labels on the GPU
 
-        # Turn documents into term frequency vectors
+        >>> X = cupyx.scipy.sparse.csr_matrix(features.tocsr(),
+        ...                                   dtype=cp.float32)
+        >>> y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-        count_vect = CountVectorizer()
-        features = count_vect.fit_transform(twenty_train.data)
+        >>> # Train model
 
-        # Put feature vectors and labels on the GPU
+        >>> model = MultinomialNB()
+        >>> model.fit(X, y)
+        MultinomialNB()
 
-        X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-        y = cp.asarray(twenty_train.target, dtype=cp.int32)
+        >>> # Compute accuracy on training set
 
-        # Train model
-
-        model = MultinomialNB()
-        model.fit(X, y)
-
-        # Compute accuracy on training set
-
-        model.score(X, y)
-
-    Output:
-
-    .. code-block:: python
-
-        0.9244298934936523
+        >>> model.score(X, y)
+        0.9245...
 
     """
     def __init__(self, *,
@@ -1043,12 +1075,12 @@ class MultinomialNB(_BaseDiscreteNB):
                  output_type=None,
                  handle=None,
                  verbose=False):
-        super(MultinomialNB, self).__init__(class_prior=class_prior,
+        super(MultinomialNB, self).__init__(alpha=alpha,
+                                            fit_prior=fit_prior,
+                                            class_prior=class_prior,
                                             handle=handle,
                                             output_type=output_type,
                                             verbose=verbose)
-        self.alpha = alpha
-        self.fit_prior = fit_prior
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -1077,13 +1109,6 @@ class MultinomialNB(_BaseDiscreteNB):
         ret = X.dot(self.feature_log_prob_.T)
         ret += self.class_log_prior_
         return ret
-
-    def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "alpha",
-                "fit_prior",
-            ]
 
 
 class BernoulliNB(_BaseDiscreteNB):
@@ -1127,16 +1152,14 @@ class BernoulliNB(_BaseDiscreteNB):
     Attributes
     ----------
     class_count_ : ndarray of shape (n_classes)
-        Number of samples encountered for each class during fitting. This
-        value is weighted by the sample weight when provided.
+        Number of samples encountered for each class during fitting.
     class_log_prior_ : ndarray of shape (n_classes)
         Log probability of each class (smoothed).
     classes_ : ndarray of shape (n_classes,)
         Class labels known to the classifier
     feature_count_ : ndarray of shape (n_classes, n_features)
         Number of samples encountered for each (class, feature)
-        during fitting. This value is weighted by the sample weight when
-        provided.
+        during fitting.
     feature_log_prob_ : ndarray of shape (n_classes, n_features)
         Empirical log probability of features given a class, P(x_i|y).
     n_features_ : int
@@ -1144,16 +1167,19 @@ class BernoulliNB(_BaseDiscreteNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> rng = cp.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
-    >>> from cuml.naive_bayes import BernoulliNB
-    >>> clf = BernoulliNB()
-    >>> clf.fit(X, Y)
-    BernoulliNB()
-    >>> print(clf.predict(X[2:3]))
-    [3]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(1)
+        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+        >>> from cuml.naive_bayes import BernoulliNB
+        >>> clf = BernoulliNB()
+        >>> clf.fit(X, Y)
+        BernoulliNB()
+        >>> print(clf.predict(X[2:3]))
+        [3]
 
     References
     ----------
@@ -1169,18 +1195,18 @@ class BernoulliNB(_BaseDiscreteNB):
     def __init__(self, *, alpha=1.0, binarize=.0, fit_prior=True,
                  class_prior=None, output_type=None, handle=None,
                  verbose=False):
-        super(BernoulliNB, self).__init__(class_prior=class_prior,
+        super(BernoulliNB, self).__init__(alpha=alpha,
+                                          fit_prior=fit_prior,
+                                          class_prior=class_prior,
                                           handle=handle,
                                           output_type=output_type,
                                           verbose=verbose)
-        self.alpha = alpha
         self.binarize = binarize
-        self.fit_prior = fit_prior
 
     def _check_X(self, X):
         X = super()._check_X(X)
         if self.binarize is not None:
-            if cp.sparse.isspmatrix(X):
+            if cupyx.scipy.sparse.isspmatrix(X):
                 X.data = binarize(X.data, threshold=self.binarize)
             else:
                 X = binarize(X, threshold=self.binarize)
@@ -1189,7 +1215,7 @@ class BernoulliNB(_BaseDiscreteNB):
     def _check_X_y(self, X, y):
         X, y = super()._check_X_y(X, y)
         if self.binarize is not None:
-            if cp.sparse.isspmatrix(X):
+            if cupyx.scipy.sparse.isspmatrix(X):
                 X.data = binarize(X.data, threshold=self.binarize)
             else:
                 X = binarize(X, threshold=self.binarize)
@@ -1230,9 +1256,159 @@ class BernoulliNB(_BaseDiscreteNB):
     def get_param_names(self):
         return super().get_param_names() + \
             [
-                "alpha",
-                "binarize",
-                "fit_prior",
+                "binarize"
+            ]
+
+
+class ComplementNB(_BaseDiscreteNB):
+    """
+    The Complement Naive Bayes classifier described in Rennie et al. (2003).
+    The Complement Naive Bayes classifier was designed to correct the "severe
+    assumptions" made by the standard Multinomial Naive Bayes classifier. It is
+    particularly suited for imbalanced data sets.
+
+    Parameters
+    ----------
+
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter
+        (0 for no smoothing).
+    fit_prior : bool, default=True
+        Whether to learn class prior probabilities or not.
+        If false, a uniform prior will be used.
+    class_prior : array-like of shape (n_classes,), default=None
+        Prior probabilities of the classes. If specified the priors are not
+        adjusted according to the data.
+    norm : bool, default=False
+        Whether or not a second normalization of the weights is performed.
+        The default behavior mirrors the implementation found in Mahout and
+        Weka, which do not follow the full algorithm described in Table 9 of
+        the paper.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
+    Attributes
+    ----------
+    class_count_ : ndarray of shape (n_classes)
+        Number of samples encountered for each class during fitting.
+    class_log_prior_ : ndarray of shape (n_classes)
+        Log probability of each class (smoothed).
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_count_ : ndarray of shape (n_classes, n_features)
+        Number of samples encountered for each (class, feature)
+        during fitting.
+    feature_log_prob_ : ndarray of shape (n_classes, n_features)
+        Empirical log probability of features given a class, P(x_i|y).
+    n_features_ : int
+        Number of features of each sample.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(1)
+        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+        >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+        >>> from cuml.naive_bayes import ComplementNB
+        >>> clf = ComplementNB()
+        >>> clf.fit(X, Y)
+        ComplementNB()
+        >>> print(clf.predict(X[2:3]))
+        [3]
+
+    References
+    ----------
+    Rennie, J. D., Shih, L., Teevan, J., & Karger, D. R. (2003).
+    Tackling the poor assumptions of naive bayes text classifiers. In ICML
+    (Vol. 3, pp. 616-623).
+    https://people.csail.mit.edu/jrennie/papers/icml03-nb.pdf
+    """
+    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
+                 norm=False, output_type=None, handle=None,
+                 verbose=False):
+        super(ComplementNB, self).__init__(alpha=alpha,
+                                           fit_prior=fit_prior,
+                                           class_prior=class_prior,
+                                           handle=handle,
+                                           output_type=output_type,
+                                           verbose=verbose)
+        self.norm = norm
+
+    def _check_X(self, X):
+        X = super()._check_X(X)
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X_min = X.data.min()
+        else:
+            X_min = X.min()
+        if X_min < 0:
+            raise ValueError("Negative values in data passed to ComplementNB")
+        return X
+
+    def _check_X_y(self, X, y):
+        X, y = super()._check_X_y(X, y)
+        if cupyx.scipy.sparse.isspmatrix(X):
+            X_min = X.data.min()
+        else:
+            X_min = X.min()
+        if X_min < 0:
+            raise ValueError("Negative values in data passed to ComplementNB")
+        return X, y
+
+    def _count(self, X, Y, classes):
+        super()._count(X, Y, classes)
+        self.feature_all_ = self.feature_count_.sum(axis=0)
+
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y,
+                      classes):
+        super()._count_sparse(x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y,
+                              classes)
+        self.feature_all_ = self.feature_count_.sum(axis=0)
+
+    def _joint_log_likelihood(self, X):
+        """Calculate the class scores for the samples in X."""
+        jll = X.dot(self.feature_log_prob_.T)
+        if len(self.class_count_) == 1:
+            jll += self.class_log_prior_
+        return jll
+
+    def _update_feature_log_prob(self, alpha):
+        """
+        Apply smoothing to raw counts and compute the weights.
+
+        Parameters
+        ----------
+
+        alpha : float amount of smoothing to apply (0. means no smoothing)
+        """
+        comp_count = self.feature_all_ + alpha - self.feature_count_
+        logged = cp.log(comp_count / comp_count.sum(axis=1, keepdims=True))
+        if self.norm:
+            summed = logged.sum(axis=1, keepdims=True)
+            feature_log_prob = logged / summed
+        else:
+            feature_log_prob = -logged
+        self.feature_log_prob_ = feature_log_prob
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "norm"
             ]
 
 
@@ -1294,28 +1470,31 @@ class CategoricalNB(_BaseDiscreteNB):
 
     Examples
     --------
-    >>> import cupy as cp
-    >>> rng = cp.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> y = cp.array([1, 2, 3, 4, 5, 6])
-    >>> from cuml.naive_bayes import CategoricalNB
-    >>> clf = CategoricalNB()
-    >>> clf.fit(X, y)
-    CategoricalNB()
-    >>> print(clf.predict(X[2:3]))
-    [3]
+
+    .. code-block:: python
+
+        >>> import cupy as cp
+        >>> rng = cp.random.RandomState(1)
+        >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+        >>> y = cp.array([1, 2, 3, 4, 5, 6])
+        >>> from cuml.naive_bayes import CategoricalNB
+        >>> clf = CategoricalNB()
+        >>> clf.fit(X, y)
+        CategoricalNB()
+        >>> print(clf.predict(X[2:3]))
+        [3]
     """
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  output_type=None, handle=None, verbose=False):
-        super(CategoricalNB, self).__init__(class_prior=class_prior,
+        super(CategoricalNB, self).__init__(alpha=alpha,
+                                            fit_prior=fit_prior,
+                                            class_prior=class_prior,
                                             handle=handle,
                                             output_type=output_type,
                                             verbose=verbose)
-        self.alpha = alpha
-        self.fit_prior = fit_prior
 
     def _check_X_y(self, X, y):
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
             X.data = X.data.astype(cp.int32)
@@ -1333,7 +1512,7 @@ class CategoricalNB(_BaseDiscreteNB):
         return X, y
 
     def _check_X(self, X):
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
             X.data = X.data.astype(cp.int32)
@@ -1352,6 +1531,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
         """Fit Naive Bayes classifier according to X, y
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
@@ -1367,6 +1547,7 @@ class CategoricalNB(_BaseDiscreteNB):
         sample_weight : array-like of shape (n_samples), default=None
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
+
         Returns
         -------
         self : object
@@ -1384,6 +1565,7 @@ class CategoricalNB(_BaseDiscreteNB):
         This method has some performance overhead hence it is better to call
         partial_fit on chunks of data that are as large as possible
         (as long as fitting in the memory budget) to hide the overhead.
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
@@ -1403,6 +1585,7 @@ class CategoricalNB(_BaseDiscreteNB):
         sample_weight : array-like of shape (n_samples), default=None
             Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
+
         Returns
         -------
         self : object
@@ -1444,14 +1627,13 @@ class CategoricalNB(_BaseDiscreteNB):
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
         # In case of a partial fit, pad the array to have the highest feature
-        if feature_diff > 0:
-            if not cp.sparse.issparse(self.category_count_):
-                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
-                    (self.n_features_ * n_classes, highest_feature))
-            else:
-                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
-                    self.category_count_,
-                    shape=(self.n_features_ * n_classes, highest_feature))
+        if not cupyx.scipy.sparse.issparse(self.category_count_):
+            self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                (self.n_features_ * n_classes, highest_feature))
+        elif feature_diff > 0:
+            self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                self.category_count_,
+                shape=(self.n_features_ * n_classes, highest_feature))
         highest_feature = self.category_count_.shape[1]
 
         count_features_coo = cp.ElementwiseKernel(
@@ -1537,7 +1719,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _update_feature_log_prob(self, alpha):
         highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
-        if cp.sparse.issparse(self.category_count_):
+        if cupyx.scipy.sparse.issparse(self.category_count_):
             # For sparse data we avoid the creation of the dense matrix
             # feature_log_prob_. This can be created on the fly during
             # the prediction without using as much memory.
@@ -1572,7 +1754,7 @@ class CategoricalNB(_BaseDiscreteNB):
             raise ValueError("Expected input with %d features, got %d instead"
                              % (self.n_features_, X.shape[1]))
         n_rows = X.shape[0]
-        if cp.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.isspmatrix(X):
             # For sparse data we assume that most categories will be zeros,
             # so we first compute the jll for categories 0
             features_zeros = self.smoothed_cat_count[:, 0].todense()
@@ -1609,11 +1791,3 @@ class CategoricalNB(_BaseDiscreteNB):
             jll = jll.sum(1)
         jll += self.class_log_prior_
         return jll
-
-    def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "alpha",
-                "class_prior",
-                "fit_prior"
-            ]

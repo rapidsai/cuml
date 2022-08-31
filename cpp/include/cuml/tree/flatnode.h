@@ -33,20 +33,14 @@
 template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {
  private:
-  LabelT prediction     = LabelT(0);
   IdxT colid            = 0;
   DataT quesval         = DataT(0);
   DataT best_metric_val = DataT(0);
   IdxT left_child_id    = -1;
   IdxT instance_count   = 0;
-  FLATNODE_HD SparseTreeNode(LabelT prediction,
-                             IdxT colid,
-                             DataT quesval,
-                             DataT best_metric_val,
-                             int64_t left_child_id,
-                             IdxT instance_count)
-    : prediction(prediction),
-      colid(colid),
+  FLATNODE_HD SparseTreeNode(
+    IdxT colid, DataT quesval, DataT best_metric_val, int64_t left_child_id, IdxT instance_count)
+    : colid(colid),
       quesval(quesval),
       best_metric_val(best_metric_val),
       left_child_id(left_child_id),
@@ -55,7 +49,6 @@ struct SparseTreeNode {
   }
 
  public:
-  FLATNODE_HD LabelT Prediction() const { return prediction; }
   FLATNODE_HD IdxT ColumnId() const { return colid; }
   FLATNODE_HD DataT QueryValue() const { return quesval; }
   FLATNODE_HD DataT BestMetric() const { return best_metric_val; }
@@ -67,17 +60,17 @@ struct SparseTreeNode {
     IdxT colid, DataT quesval, DataT best_metric_val, int64_t left_child_id, IdxT instance_count)
   {
     return SparseTreeNode<DataT, LabelT>{
-      LabelT(0), colid, quesval, best_metric_val, left_child_id, instance_count};
+      colid, quesval, best_metric_val, left_child_id, instance_count};
   }
-  FLATNODE_HD static SparseTreeNode CreateLeafNode(LabelT prediction, IdxT instance_count)
+  FLATNODE_HD static SparseTreeNode CreateLeafNode(IdxT instance_count)
   {
-    return SparseTreeNode<DataT, LabelT>{prediction, 0, 0, 0, -1, instance_count};
+    return SparseTreeNode<DataT, LabelT>{0, 0, 0, -1, instance_count};
   }
   FLATNODE_HD bool IsLeaf() const { return left_child_id == -1; }
   bool operator==(const SparseTreeNode& other) const
   {
-    return (this->prediction == other.prediction) && (this->colid == other.colid) &&
-           (this->quesval == other.quesval) && (this->best_metric_val == other.best_metric_val) &&
+    return (this->colid == other.colid) && (this->quesval == other.quesval) &&
+           (this->best_metric_val == other.best_metric_val) &&
            (this->left_child_id == other.left_child_id) &&
            (this->instance_count == other.instance_count);
   }

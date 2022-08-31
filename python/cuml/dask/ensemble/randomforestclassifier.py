@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,14 +49,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     Future versions of the API will support more flexible data
     distribution and additional input types.
 
-    The distributed algorithm uses an embarrassingly-parallel
-    approach. For a forest with N trees being built on w workers, each
-    worker simply builds N/w trees on the data it has available
+    The distributed algorithm uses an *embarrassingly-parallel*
+    approach. For a forest with `N` trees being built on `w` workers, each
+    worker simply builds `N/w` trees on the data it has available
     locally. In many cases, partitioning the data so that each worker
     builds trees on a subset of the total dataset works well, but
     it generally requires the data to be well-shuffled in advance.
     Alternatively, callers can replicate all of the data across
-    workers so that rf.fit receives w partitions, each containing the
+    workers so that ``rf.fit`` receives `w` partitions, each containing the
     same data. This would produce results approximately identical to
     single-GPU fitting.
 
@@ -65,7 +65,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
     Parameters
     -----------
-    n_estimators : int (default = 10)
+    n_estimators : int (default = 100)
                    total number of trees in the forest (not per-worker)
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -74,55 +74,62 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_criterion : The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-        2 and 3 not valid for classification
-        (default = 0)
-    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE (default = 1)
-        the algorithm to determine how nodes are split in the tree.
-    split_criterion : The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY, 4 for CRITERION_END.
-        2 and 3 not valid for classification
-        (default = 0)
+    split_criterion : int or string (default = ``0`` (``'gini'``))
+        The criterion used to split nodes.\n
+         * ``0`` or ``'gini'`` for gini impurity
+         * ``1`` or ``'entropy'`` for information gain (entropy)
+         * ``2`` or ``'mse'`` for mean squared error
+         * ``4`` or ``'poisson'`` for poisson half deviance
+         * ``5`` or ``'gamma'`` for gamma half deviance
+         * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+
+        ``2``, ``'mse'``, ``4``, ``'poisson'``, ``5``, ``'gamma'``, ``6``,
+        ``'inverse_gaussian'`` not valid for classification
     bootstrap : boolean (default = True)
-        Control bootstrapping.
-        If set, each tree in the forest is built
-        on a bootstrapped sample with replacement.
-        If False, the whole dataset is used to build each tree.
+        Control bootstrapping.\n
+         * If ``True``, each tree in the forest is built on a bootstrapped
+           sample with replacement.
+         * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = -1)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
+    max_depth : int (default = 16)
+        Maximum tree depth. Must be greater than 0.
+        Unlimited depth (i.e, until leaves are pure)
+        is not supported.\n
+        .. note:: This default differs from scikit-learn's
+          random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)
-        Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+        Maximum leaf nodes per tree. Soft constraint. Unlimited, If ``-1``.
     max_features : float (default = 'auto')
         Ratio of number of features (columns) to consider
-        per node split.
-    n_bins : int (default = 8)
-        Number of bins used by the split algorithm.
+        per node split.\n
+         * If type ``int`` then ``max_features`` is the absolute count of
+           features to be used.
+         * If type ``float`` then ``max_features`` is a fraction.
+         * If ``'auto'`` then ``max_features=n_features = 1.0``.
+         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+         * If ``None``, then ``max_features = 1.0``.
+
+    n_bins : int (default = 128)
+        Maximum number of bins used by the split algorithm per feature.
     min_samples_leaf : int or float (default = 1)
-        The minimum number of samples (rows) in each leaf node.
-        If int, then min_samples_leaf represents the minimum number.
-        If float, then min_samples_leaf represents a fraction and
-        ceil(min_samples_leaf * n_rows) is the minimum number of samples
-        for each leaf node.
+        The minimum number of samples (rows) in each leaf node.\n
+         * If type ``int``, then ``min_samples_leaf`` represents the minimum
+           number.
+         * If ``float``, then ``min_samples_leaf`` represents a fraction
+           and ``ceil(min_samples_leaf * n_rows)`` is the minimum number of
+           samples for each leaf node.
+
     min_samples_split : int or float (default = 2)
-        The minimum number of samples required to split an internal node.
-        If int, then min_samples_split represents the minimum number.
-        If float, then min_samples_split represents a fraction and
-        ceil(min_samples_split * n_rows) is the minimum number of samples
-        for each split.
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual RF trees.
-        Only relevant for GLOBAL_QUANTILE split_algo.
-    use_experimental_backend : boolean (default = True)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
+        The minimum number of samples required to split an internal
+        node.\n
+         * If type ``int``, then ``min_samples_split`` represents the minimum
+           number.
+         * If type ``float``, then ``min_samples_split`` represents a fraction
+           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
+           samples for each split.
+
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
@@ -151,7 +158,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         workers=None,
         client=None,
         verbose=False,
-        n_estimators=10,
+        n_estimators=100,
         random_state=None,
         ignore_empty_partitions=False,
         **kwargs
@@ -228,8 +235,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
-                                                           X_dask_cudf=workers,
-                                                           y_dask_cudf=workers
+                                                           X_dask_cudf:workers,
+                                                           y_dask_cudf:workers
                                                            })
 
         Parameters
@@ -301,7 +308,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'auto'`` - choose the algorithm automatically. (Default)
              * ``'batch_tree_reorg'`` is used for dense storage
                and 'naive' for sparse storage
 
@@ -342,7 +349,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             for inference.
 
         Returns
-        ----------
+        -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
 
         """
@@ -416,8 +423,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
+
         Returns
-        ----------
+        -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
         c = default_client()
@@ -489,7 +497,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
                more coalescing-friendly
              * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
                multiple rows per thread block
-             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'auto'`` - choose the algorithm automatically. (Default)
              * ``'batch_tree_reorg'`` is used for dense storage
                and 'naive' for sparse storage
 
@@ -513,9 +521,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
         Returns
         -------
-        y : NumPy
-           Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
-
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 #
 
 import cuml.internals
-import sklearn.multiclass
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.common.import_utils import has_sklearn
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
@@ -41,17 +41,21 @@ class MulticlassClassifier(Base, ClassifierMixin):
     Examples
     --------
 
-    >>> from cuml.linear_model import LogisticRegression
-    >>> from cuml.multiclass import MulticlassClassifier
-    >>> from cuml.datasets.classification import make_classification
-    >>>
-    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-    ...                            n_classes=3, random_state=137)
-    >>>
-    >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
-    >>> cls.fit(X,y)
-    >>> cls.predict(X)
-    array([1, 1, 1, 0, 0, 2, 2, 2, 0, 1])
+    .. code-block:: python
+
+        >>> from cuml.linear_model import LogisticRegression
+        >>> from cuml.multiclass import MulticlassClassifier
+        >>> from cuml.datasets.classification import make_classification
+
+        >>> X, y = make_classification(n_samples=10, n_features=6,
+        ...                            n_informative=4, n_classes=3,
+        ...                            random_state=137)
+
+        >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
+        >>> cls.fit(X,y)
+        MulticlassClassifier()
+        >>> cls.predict(X)
+        array([2, 0, 2, 2, 2, 1, 1, 0, 1, 1])
 
     Parameters
     ----------
@@ -112,6 +116,10 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Fit a multiclass classifier.
         """
+        if not has_sklearn():
+            raise ImportError("Scikit-learn is needed to use "
+                              "MulticlassClassifier derived classes.")
+        import sklearn.multiclass
         if self.strategy == 'ovr':
             self.multiclass_estimator = sklearn.multiclass.\
                 OneVsRestClassifier(self.estimator, n_jobs=None)
@@ -176,17 +184,21 @@ class OneVsRestClassifier(MulticlassClassifier):
     Examples
     --------
 
-    >>> from cuml.linear_model import LogisticRegression
-    >>> from cuml.multiclass import OneVsRestClassifier
-    >>> from cuml.datasets.classification import make_classification
-    >>>
-    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-    ...                            n_classes=3, random_state=137)
-    >>>
-    >>> cls = OneVsRestClassifier(LogisticRegression())
-    >>> cls.fit(X,y)
-    >>> cls.predict(X)
-    array([1, 1, 1, 0, 1, 2, 2, 2, 0, 1])
+    .. code-block:: python
+
+        >>> from cuml.linear_model import LogisticRegression
+        >>> from cuml.multiclass import OneVsRestClassifier
+        >>> from cuml.datasets.classification import make_classification
+
+        >>> X, y = make_classification(n_samples=10, n_features=6,
+        ...                            n_informative=4, n_classes=3,
+        ...                            random_state=137)
+
+        >>> cls = OneVsRestClassifier(LogisticRegression())
+        >>> cls.fit(X,y)
+        OneVsRestClassifier()
+        >>> cls.predict(X)
+        array([2, 0, 2, 2, 2, 1, 1, 0, 1, 1])
 
 
     Parameters
@@ -243,17 +255,21 @@ class OneVsOneClassifier(MulticlassClassifier):
     Examples
     --------
 
-    >>> from cuml.linear_model import LogisticRegression
-    >>> from cuml.multiclass import OneVsOneClassifier
-    >>> from cuml.datasets.classification import make_classification
-    >>>
-    >>> X, y = make_classification(n_samples=10, n_features=6, n_informative=4,
-    ...                            n_classes=3, random_state=137)
-    >>>
-    >>> cls = OneVsOneClassifier(LogisticRegression())
-    >>> cls.fit(X,y)
-    >>> cls.predict(X)
-    array([1, 1, 1, 0, 0, 2, 2, 2, 0, 1])
+    .. code-block:: python
+
+        >>> from cuml.linear_model import LogisticRegression
+        >>> from cuml.multiclass import OneVsOneClassifier
+        >>> from cuml.datasets.classification import make_classification
+
+        >>> X, y = make_classification(n_samples=10, n_features=6,
+        ...                            n_informative=4, n_classes=3,
+        ...                            random_state=137)
+
+        >>> cls = OneVsOneClassifier(LogisticRegression())
+        >>> cls.fit(X,y)
+        OneVsOneClassifier()
+        >>> cls.predict(X)
+        array([2, 0, 2, 2, 2, 1, 1, 0, 1, 1])
 
     Parameters
     ----------

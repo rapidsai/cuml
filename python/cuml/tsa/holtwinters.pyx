@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from cuml.common import using_output_type
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:
@@ -109,25 +109,21 @@ class ExponentialSmoothing(Base):
 
     .. code-block:: python
 
-        from cuml import ExponentialSmoothing
-        import cudf
-        import numpy as np
-        data = cudf.Series([1, 2, 3, 4, 5, 6,
-                            7, 8, 9, 10, 11, 12,
-                            2, 3, 4, 5, 6, 7,
-                            8, 9, 10, 11, 12, 13,
-                            3, 4, 5, 6, 7, 8, 9,
-                            10, 11, 12, 13, 14],
-                            dtype=np.float64)
-        cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
-        cu_hw.fit()
-        cu_pred = cu_hw.forecast(4)
-        print('Forecasted points:', cu_pred)
-
-    Output:
-
-    .. code-block:: python
-
+        >>> from cuml import ExponentialSmoothing
+        >>> import cudf
+        >>> import cupy as cp
+        >>> data = cudf.Series([1, 2, 3, 4, 5, 6,
+        ...                     7, 8, 9, 10, 11, 12,
+        ...                     2, 3, 4, 5, 6, 7,
+        ...                     8, 9, 10, 11, 12, 13,
+        ...                     3, 4, 5, 6, 7, 8, 9,
+        ...                     10, 11, 12, 13, 14],
+        ...                     dtype=cp.float64)
+        >>> cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
+        >>> cu_hw.fit()
+        ExponentialSmoothing()
+        >>> cu_pred = cu_hw.forecast(4)
+        >>> print('Forecasted points:', cu_pred) # doctest: +SKIP
         Forecasted points :
         0    4.000143766093652
         1    5.000000163513641

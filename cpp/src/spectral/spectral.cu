@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 
-#include <raft/sparse/linalg/spectral.cuh>
+#include <raft/sparse/linalg/spectral.hpp>
 
 namespace raft {
 class handle_t;

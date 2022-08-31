@@ -307,12 +307,14 @@ __global__ void compute_repulsive_forces_kernel(
 
 template <typename value_idx, typename value_t>
 __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
+                                         value_t* __restrict__ Qs,
                                          const value_t* __restrict__ pij,
                                          const value_idx* __restrict__ coo_rows,
                                          const value_idx* __restrict__ coo_cols,
                                          const value_t* __restrict__ points,
                                          const value_idx num_points,
-                                         const value_idx num_nonzero)
+                                         const value_idx num_nonzero,
+                                         const value_t dof)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_nonzero) return;
@@ -327,11 +329,18 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   value_t dx = ix - jx;
   value_t dy = iy - jy;
 
-  value_t denom = 1 + (dx * dx) + (dy * dy);
+  const value_t dist = (dx * dx) + (dy * dy);
 
-  value_t pijqij = pij[TID] / denom;
-  atomicAdd(attr_forces + i, pijqij * dx);
-  atomicAdd(attr_forces + num_points + i, pijqij * dy);
+  const value_t P  = pij[TID];
+  const value_t Q  = compute_q(dist, dof);
+  const value_t PQ = P * Q;
+
+  atomicAdd(attr_forces + i, PQ * dx);
+  atomicAdd(attr_forces + num_points + i, PQ * dy);
+
+  if (Qs) {  // when computing KL div
+    Qs[TID] = Q;
+  }
 }
 
 template <typename value_idx, typename value_t>

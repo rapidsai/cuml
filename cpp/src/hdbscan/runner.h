@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,19 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/sparse/coo.cuh>
+#include <raft/sparse/coo.hpp>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
-#include <cuml/cluster/hdbscan.hpp>
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
+#include "detail/soft_clustering.cuh"
+#include <cuml/cluster/hdbscan.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+#include <thrust/transform.h>
 
 namespace ML {
 namespace HDBSCAN {
@@ -188,6 +193,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
+                  value_idx* labels,
+                  value_idx* label_map,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
@@ -215,17 +222,15 @@ void _fit_hdbscan(const raft::handle_t& handle,
   rmm::device_uvector<value_t> tree_stabilities(out.get_condensed_tree().get_n_clusters(),
                                                 handle.get_stream());
 
-  rmm::device_uvector<value_idx> label_map(m, stream);
-
   std::vector<value_idx> label_set;
   value_idx n_selected_clusters =
     detail::Extract::extract_clusters(handle,
                                       out.get_condensed_tree(),
                                       m,
-                                      out.get_labels(),
+                                      labels,
                                       tree_stabilities.data(),
                                       out.get_probabilities(),
-                                      label_map.data(),
+                                      label_map,
                                       params.cluster_selection_method,
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
@@ -238,28 +243,24 @@ void _fit_hdbscan(const raft::handle_t& handle,
     exec_policy, lambdas_ptr, lambdas_ptr + out.get_condensed_tree().get_n_edges()));
 
   detail::Stability::get_stability_scores(handle,
-                                          out.get_labels(),
+                                          labels,
                                           tree_stabilities.data(),
                                           out.get_condensed_tree().get_n_clusters(),
                                           max_lambda,
                                           m,
                                           out.get_stabilities(),
-                                          label_map.data());
+                                          label_map);
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
 
-  value_idx* label_map_ptr = label_map.data();
-  thrust::transform(exec_policy,
-                    out.get_labels(),
-                    out.get_labels() + m,
-                    out.get_labels(),
-                    [=] __device__(value_idx label) {
-                      if (label != -1) return label_map_ptr[label];
-                      return -1;
-                    });
+  thrust::transform(
+    exec_policy, labels, labels + m, out.get_labels(), [=] __device__(value_idx label) {
+      if (label != -1) return label_map[label];
+      return -1;
+    });
 }
 
 };  // end namespace HDBSCAN

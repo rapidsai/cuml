@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <cuml/datasets/make_blobs.hpp>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 namespace ML {
 namespace Datasets {
@@ -35,20 +35,20 @@ void make_blobs(const raft::handle_t& handle,
                 float center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
-                               labels,
-                               n_rows,
-                               n_cols,
-                               n_clusters,
-                               handle.get_stream(),
-                               row_major,
-                               centers,
-                               cluster_std,
-                               cluster_std_scalar,
-                               shuffle,
-                               center_box_min,
-                               center_box_max,
-                               seed);
+  raft::random::make_blobs(out,
+                           labels,
+                           n_rows,
+                           n_cols,
+                           n_clusters,
+                           handle.get_stream(),
+                           row_major,
+                           centers,
+                           cluster_std,
+                           cluster_std_scalar,
+                           shuffle,
+                           center_box_min,
+                           center_box_max,
+                           seed);
 }
 
 void make_blobs(const raft::handle_t& handle,
@@ -66,20 +66,20 @@ void make_blobs(const raft::handle_t& handle,
                 double center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
-                               labels,
-                               n_rows,
-                               n_cols,
-                               n_clusters,
-                               handle.get_stream(),
-                               row_major,
-                               centers,
-                               cluster_std,
-                               cluster_std_scalar,
-                               shuffle,
-                               center_box_min,
-                               center_box_max,
-                               seed);
+  raft::random::make_blobs(out,
+                           labels,
+                           n_rows,
+                           n_cols,
+                           n_clusters,
+                           handle.get_stream(),
+                           row_major,
+                           centers,
+                           cluster_std,
+                           cluster_std_scalar,
+                           shuffle,
+                           center_box_min,
+                           center_box_max,
+                           seed);
 }
 
 void make_blobs(const raft::handle_t& handle,
@@ -97,20 +97,20 @@ void make_blobs(const raft::handle_t& handle,
                 float center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
-                               labels,
-                               n_rows,
-                               n_cols,
-                               n_clusters,
-                               handle.get_stream(),
-                               row_major,
-                               centers,
-                               cluster_std,
-                               cluster_std_scalar,
-                               shuffle,
-                               center_box_min,
-                               center_box_max,
-                               seed);
+  raft::random::make_blobs(out,
+                           labels,
+                           n_rows,
+                           n_cols,
+                           n_clusters,
+                           handle.get_stream(),
+                           row_major,
+                           centers,
+                           cluster_std,
+                           cluster_std_scalar,
+                           shuffle,
+                           center_box_min,
+                           center_box_max,
+                           seed);
 }
 
 void make_blobs(const raft::handle_t& handle,
@@ -128,20 +128,20 @@ void make_blobs(const raft::handle_t& handle,
                 double center_box_max,
                 uint64_t seed)
 {
-  MLCommon::Random::make_blobs(out,
-                               labels,
-                               n_rows,
-                               n_cols,
-                               n_clusters,
-                               handle.get_stream(),
-                               row_major,
-                               centers,
-                               cluster_std,
-                               cluster_std_scalar,
-                               shuffle,
-                               center_box_min,
-                               center_box_max,
-                               seed);
+  raft::random::make_blobs(out,
+                           labels,
+                           n_rows,
+                           n_cols,
+                           n_clusters,
+                           handle.get_stream(),
+                           row_major,
+                           centers,
+                           cluster_std,
+                           cluster_std_scalar,
+                           shuffle,
+                           center_box_min,
+                           center_box_max,
+                           seed);
 }
 }  // namespace Datasets
 }  // namespace ML

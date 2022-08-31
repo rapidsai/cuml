@@ -161,7 +161,7 @@ class TfidfTransformer(Base):
         # log+1 instead of log makes sure terms with zero idf don't get
         # suppressed entirely.
         idf = cp.log(n_samples / df) + 1
-        self._idf_diag = cp.sparse.dia_matrix(
+        self._idf_diag = cupyx.scipy.sparse.dia_matrix(
             (idf, 0),
             shape=(self.__n_features, self.__n_features),
             dtype=df.dtype

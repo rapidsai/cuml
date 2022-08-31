@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include <cumlprims/opg/matrix/data.hpp>
+#include <cumlprims/opg/matrix/part_descriptor.hpp>
 #include <raft/handle.hpp>
 
 namespace ML {
@@ -40,17 +40,17 @@ void sign_flip(raft::handle_t& handle,
                std::vector<MLCommon::Matrix::Data<float>*>& input_data,
                MLCommon::Matrix::PartDescriptor& input_desc,
                float* components,
-               int n_components,
+               std::size_t n_components,
                cudaStream_t* streams,
-               int n_stream);
+               std::uint32_t n_stream);
 
 void sign_flip(raft::handle_t& handle,
                std::vector<MLCommon::Matrix::Data<double>*>& input_data,
                MLCommon::Matrix::PartDescriptor& input_desc,
                double* components,
-               int n_components,
+               std::size_t n_components,
                cudaStream_t* streams,
-               int n_stream);
+               std::uint32_t n_stream);
 
 };  // end namespace opg
 };  // end namespace PCA

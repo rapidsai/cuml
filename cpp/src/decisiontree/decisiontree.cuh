@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,39 +16,31 @@
 
 #pragma once
 
-#include <common/Timer.h>
-#include "batched-levelalgo/builder.cuh"
-#include "batched-levelalgo/quantile.cuh"
-#include "treelite_util.h"
-
-#include <cuml/tree/algo_helper.h>
-#include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/flatnode.h>
 
 #include <raft/cudart_utils.h>
-#include <memory>
 #include <raft/handle.hpp>
 
+#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
 #include <algorithm>
 #include <climits>
-#include <common/iota.cuh>
-#include <common/nvtx.hpp>
-#include <cuml/common/logger.hpp>
-#include <cuml/tree/decisiontree.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>
 #include <numeric>
+#include <raft/common/nvtx.hpp>
 #include <random>
-#include <type_traits>
 #include <vector>
-#include "treelite_util.h"
+
+#include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
+
 #define TREELITE_CHECK(call)                                                                     \
   do {                                                                                           \
     int status = call;                                                                           \
@@ -73,35 +65,6 @@ inline bool is_dev_ptr(const void* p)
   }
 }
 
-template <class T, class L>
-std::string get_node_text(const std::string& prefix,
-                          const std::vector<SparseTreeNode<T, L>>& sparsetree,
-                          int idx,
-                          bool isLeft)
-{
-  const SparseTreeNode<T, L>& node = sparsetree[idx];
-
-  std::ostringstream oss;
-
-  // print the value of the node
-  std::stringstream ss;
-  ss << prefix.c_str();
-  ss << (isLeft ? "├" : "└");
-  ss << node;
-
-  oss << ss.str();
-
-  if (!node.IsLeaf()) {
-    // enter the next tree level - left and right branch
-    oss << "\n"
-        << get_node_text(prefix + (isLeft ? "│   " : "    "), sparsetree, node.LeftChildId(), true)
-        << "\n"
-        << get_node_text(
-             prefix + (isLeft ? "│   " : "    "), sparsetree, node.RightChildId(), false);
-  }
-  return oss.str();
-}
-
 template <typename T>
 std::string to_string_high_precision(T x)
 {
@@ -118,11 +81,49 @@ std::string to_string_high_precision(T x)
 }
 
 template <class T, class L>
-std::string get_node_json(const std::string& prefix,
-                          const std::vector<SparseTreeNode<T, L>>& sparsetree,
-                          int idx)
+std::string get_node_text(const std::string& prefix,
+                          const TreeMetaDataNode<T, L>* tree,
+                          int idx,
+                          bool isLeft)
 {
-  const SparseTreeNode<T, L>& node = sparsetree[idx];
+  const SparseTreeNode<T, L>& node = tree->sparsetree[idx];
+
+  std::ostringstream oss;
+
+  // print the value of the node
+  oss << prefix.c_str();
+  oss << (isLeft ? "├" : "└");
+
+  if (node.IsLeaf()) {
+    oss << "(leaf, "
+        << "prediction: [";
+
+    for (int k = 0; k < tree->num_outputs - 1; k++) {
+      oss << tree->vector_leaf[idx * tree->num_outputs + k] << ", ";
+    }
+    oss << tree->vector_leaf[idx * tree->num_outputs + tree->num_outputs - 1];
+
+    oss << "], best_metric_val: " << node.BestMetric() << ")";
+  } else {
+    oss << "("
+        << "colid: " << node.ColumnId() << ", quesval: " << node.QueryValue()
+        << ", best_metric_val: " << node.BestMetric() << ")";
+  }
+
+  if (!node.IsLeaf()) {
+    // enter the next tree level - left and right branch
+    oss << "\n"
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), tree, node.LeftChildId(), true)
+        << "\n"
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), tree, node.RightChildId(), false);
+  }
+  return oss.str();
+}
+
+template <class T, class L>
+std::string get_node_json(const std::string& prefix, const TreeMetaDataNode<T, L>* tree, int idx)
+{
+  const SparseTreeNode<T, L>& node = tree->sparsetree[idx];
 
   std::ostringstream oss;
   if (!node.IsLeaf()) {
@@ -133,30 +134,20 @@ std::string get_node_json(const std::string& prefix,
     oss << ", \"yes\": " << node.LeftChildId() << ", \"no\": " << (node.RightChildId())
         << ", \"children\": [\n";
     // enter the next tree level - left and right branch
-    oss << get_node_json(prefix + "  ", sparsetree, node.LeftChildId()) << ",\n"
-        << get_node_json(prefix + "  ", sparsetree, node.RightChildId()) << "\n"
+    oss << get_node_json(prefix + "  ", tree, node.LeftChildId()) << ",\n"
+        << get_node_json(prefix + "  ", tree, node.RightChildId()) << "\n"
         << prefix << "]}";
   } else {
-    oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << to_string_high_precision(node.Prediction());
-    oss << ", \"instance_count\": " << node.InstanceCount();
+    oss << prefix << "{\"nodeid\": " << idx << ", \"leaf_value\": [";
+    for (int k = 0; k < tree->num_outputs - 1; k++) {
+      oss << to_string_high_precision(tree->vector_leaf[idx * tree->num_outputs + k]) << ", ";
+    }
+    oss << to_string_high_precision(
+      tree->vector_leaf[idx * tree->num_outputs + tree->num_outputs - 1]);
+    oss << "], \"instance_count\": " << node.InstanceCount();
     oss << "}";
   }
   return oss.str();
-}
-
-template <typename T, typename L>
-std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
-{
-  if (node.IsLeaf()) {
-    os << "(leaf, "
-       << "prediction: " << node.Prediction() << ", best_metric_val: " << node.BestMetric() << ")";
-  } else {
-    os << "("
-       << "colid: " << node.ColumnId() << ", quesval: " << node.QueryValue()
-       << ", best_metric_val: " << node.BestMetric() << ")";
-  }
-  return os;
 }
 
 template <class T, class L>
@@ -188,7 +179,8 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
     next_level_queue.resize(std::max(2 * cur_level_size, next_level_queue.size()));
 
     for (size_t i = 0; i < cur_level_size; ++i) {
-      const SparseTreeNode<T, L>& q_node = rf_tree.sparsetree[cur_level_queue[cur_front].first];
+      auto cuml_node_id                  = cur_level_queue[cur_front].first;
+      const SparseTreeNode<T, L>& q_node = rf_tree.sparsetree[cuml_node_id];
       auto tl_node_id                    = cur_level_queue[cur_front].second;
       ++cur_front;
 
@@ -208,14 +200,15 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
           tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {
+        auto leaf_begin = rf_tree.vector_leaf.begin() + cuml_node_id * num_class;
         if (num_class == 1) {
-          tl_tree.SetLeaf(tl_node_id, static_cast<T>(q_node.Prediction()));
+          tl_tree.SetLeaf(tl_node_id, *leaf_begin);
         } else {
-          std::vector<T> leaf_vector(num_class, 0);
-          leaf_vector[q_node.Prediction()] = 1;
+          std::vector<T> leaf_vector(leaf_begin, leaf_begin + num_class);
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
+      tl_tree.SetDataCount(tl_node_id, q_node.InstanceCount());
     }
 
     cur_level_queue.swap(next_level_queue);
@@ -232,15 +225,16 @@ class DecisionTree {
   template <class DataT, class LabelT>
   static std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> fit(
     const raft::handle_t& handle,
+    const cudaStream_t s,
     const DataT* data,
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    rmm::device_uvector<int>* rowids,
+    rmm::device_uvector<int>* row_ids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
+    const Quantiles<DataT, int>& quantiles,
     int treeid)
   {
     if (params.split_criterion ==
@@ -251,8 +245,9 @@ class DecisionTree {
     }
     using IdxT = int;
     // Dispatch objective
-    if (params.split_criterion == CRITERION::GINI) {
+    if (not std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GINI) {
       return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                 s,
                                                                  treeid,
                                                                  seed,
                                                                  params,
@@ -260,12 +255,14 @@ class DecisionTree {
                                                                  labels,
                                                                  nrows,
                                                                  ncols,
-                                                                 rowids,
+                                                                 row_ids,
                                                                  unique_labels,
                                                                  quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::ENTROPY) {
+    } else if (not std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::ENTROPY) {
       return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    s,
                                                                     treeid,
                                                                     seed,
                                                                     params,
@@ -273,12 +270,13 @@ class DecisionTree {
                                                                     labels,
                                                                     nrows,
                                                                     ncols,
-                                                                    rowids,
+                                                                    row_ids,
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::MSE) {
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                s,
                                                                 treeid,
                                                                 seed,
                                                                 params,
@@ -286,9 +284,53 @@ class DecisionTree {
                                                                 labels,
                                                                 nrows,
                                                                 ncols,
-                                                                rowids,
+                                                                row_ids,
                                                                 unique_labels,
                                                                 quantiles)
+        .train();
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::POISSON) {
+      return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    s,
+                                                                    treeid,
+                                                                    seed,
+                                                                    params,
+                                                                    data,
+                                                                    labels,
+                                                                    nrows,
+                                                                    ncols,
+                                                                    row_ids,
+                                                                    unique_labels,
+                                                                    quantiles)
+        .train();
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
+      return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                  s,
+                                                                  treeid,
+                                                                  seed,
+                                                                  params,
+                                                                  data,
+                                                                  labels,
+                                                                  nrows,
+                                                                  ncols,
+                                                                  row_ids,
+                                                                  unique_labels,
+                                                                  quantiles)
+        .train();
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
+      return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                            s,
+                                                                            treeid,
+                                                                            seed,
+                                                                            params,
+                                                                            data,
+                                                                            labels,
+                                                                            nrows,
+                                                                            ncols,
+                                                                            row_ids,
+                                                                            unique_labels,
+                                                                            quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");
@@ -297,11 +339,12 @@ class DecisionTree {
 
   template <class DataT, class LabelT>
   static void predict(const raft::handle_t& handle,
-                      const DT::TreeMetaDataNode<DataT, LabelT>* tree,
+                      const DT::TreeMetaDataNode<DataT, LabelT>& tree,
                       const DataT* rows,
-                      const int n_rows,
-                      const int n_cols,
-                      LabelT* predictions,
+                      std::size_t n_rows,
+                      std::size_t n_cols,
+                      DataT* predictions,
+                      int num_outputs,
                       int verbosity)
   {
     if (verbosity >= 0) { ML::Logger::get().setLevel(verbosity); }
@@ -309,44 +352,44 @@ class DecisionTree {
            "DT Error: Current impl. expects both input and predictions to be CPU "
            "pointers.\n");
 
-    ASSERT(tree && (tree->sparsetree.size() != 0),
+    ASSERT(tree.sparsetree.size() != 0,
            "Cannot predict w/ empty tree, tree size %zu",
-           tree->sparsetree.size());
-    ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-    ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+           tree.sparsetree.size());
 
-    predict_all(tree, rows, n_rows, n_cols, predictions);
+    predict_all(tree, rows, n_rows, n_cols, predictions, num_outputs);
   }
 
   template <class DataT, class LabelT>
-  static void predict_all(const DT::TreeMetaDataNode<DataT, LabelT>* tree,
+  static void predict_all(const DT::TreeMetaDataNode<DataT, LabelT>& tree,
                           const DataT* rows,
-                          const int n_rows,
-                          const int n_cols,
-                          LabelT* preds)
+                          std::size_t n_rows,
+                          std::size_t n_cols,
+                          DataT* preds,
+                          int num_outputs)
   {
-    for (int row_id = 0; row_id < n_rows; row_id++) {
-      preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
+    for (std::size_t row_id = 0; row_id < n_rows; row_id++) {
+      predict_one(&rows[row_id * n_cols], tree, preds + row_id * num_outputs, num_outputs);
     }
   }
 
   template <class DataT, class LabelT>
-  static LabelT predict_one(const DataT* row,
-                            const std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
-                            int idx)
+  static void predict_one(const DataT* row,
+                          const DT::TreeMetaDataNode<DataT, LabelT>& tree,
+                          DataT* preds_out,
+                          int num_outputs)
   {
-    auto colid     = sparsetree[idx].ColumnId();
-    DataT quesval  = sparsetree[idx].QueryValue();
-    auto leftchild = sparsetree[idx].LeftChildId();
-    if (sparsetree[idx].IsLeaf()) {
-      CUML_LOG_DEBUG("Leaf node. Predicting %f", (float)sparsetree[idx].Prediction());
-      return sparsetree[idx].Prediction();
-    } else if (row[colid] <= quesval) {
-      CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid, (float)quesval);
-      return predict_one(row, sparsetree, leftchild);
-    } else {
-      CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid, (float)quesval);
-      return predict_one(row, sparsetree, leftchild + 1);
+    std::size_t idx = 0;
+    auto n          = tree.sparsetree[idx];
+    while (!n.IsLeaf()) {
+      if (row[n.ColumnId()] <= n.QueryValue()) {
+        idx = n.LeftChildId();
+      } else {
+        idx = n.RightChildId();
+      }
+      n = tree.sparsetree[idx];
+    }
+    for (int i = 0; i < num_outputs; i++) {
+      preds_out[i] += tree.vector_leaf[idx * num_outputs + i];
     }
   }
 

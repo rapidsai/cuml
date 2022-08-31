@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -159,34 +159,36 @@ class IncrementalPCA(PCA):
         >>> import cupy as cp
         >>> import cupyx
         >>>
-        >>> X = cupyx.scipy.sparse.random(1000, 4, format='csr', density=0.07)
+        >>> X = cupyx.scipy.sparse.random(1000, 4, format='csr',
+        ...                               density=0.07, random_state=5)
         >>> ipca = IncrementalPCA(n_components=2, batch_size=200)
         >>> ipca.fit(X)
+        IncrementalPCA()
         >>>
         >>> # Components:
-        >>> ipca.components_
-        array([[-0.02362926,  0.87328851, -0.15971988,  0.45967206],
-            [-0.14643883,  0.11414225,  0.97589354,  0.11471273]])
+        >>> ipca.components_ # doctest: +SKIP
+        array([[ 0.23698335, -0.06073393,  0.04310868,  0.9686547 ],
+               [ 0.27040346, -0.57185116,  0.76248786, -0.13594291]])
         >>>
         >>> # Singular Values:
-        >>> ipca.singular_values_
-        array([4.90298662, 4.54498226])
+        >>> ipca.singular_values_ # doctest: +SKIP
+        array([5.06637586, 4.59406975])
         >>>
         >>> # Explained Variance:
-        >>> ipca.explained_variance_
-        array([0.02406334, 0.02067754])
+        >>> ipca.explained_variance_ # doctest: +SKIP
+        array([0.02569386, 0.0211266 ])
         >>>
         >>> # Explained Variance Ratio:
-        >>> ipca.explained_variance_ratio_
-        array([0.28018011, 0.24075775])
+        >>> ipca.explained_variance_ratio_ # doctest: +SKIP
+        array([0.30424536, 0.25016372])
         >>>
         >>> # Mean:
-        >>> ipca.mean_
-        array([0.03249896, 0.03629852, 0.03268694, 0.03216601])
+        >>> ipca.mean_ # doctest: +SKIP
+        array([0.02693948, 0.0326928 , 0.03818463, 0.03861492])
         >>>
         >>> # Noise Variance:
-        >>> ipca.noise_variance_.item()
-        0.003474966583315544
+        >>> ipca.noise_variance_.item() # doctest: +SKIP
+        0.0037122774558343763
 
     """
     def __init__(self, *, handle=None, n_components=None, whiten=False,

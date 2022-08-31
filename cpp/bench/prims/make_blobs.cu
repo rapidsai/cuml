@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <random/make_blobs.cuh>
+#include <raft/random/make_blobs.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -40,16 +40,21 @@ struct MakeBlobs : public Fixture {
     labels.resize(params.rows, stream);
   }
 
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
+    data.release();
+    labels.release();
+  }
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {
-      MLCommon::Random::make_blobs(data.data(),
-                                   labels.data(),
-                                   params.rows,
-                                   params.cols,
-                                   params.clusters,
-                                   this->stream,
-                                   params.row_major);
+      raft::random::make_blobs(data.data(),
+                               labels.data(),
+                               params.rows,
+                               params.cols,
+                               params.clusters,
+                               this->stream,
+                               params.row_major);
     });
   }
 

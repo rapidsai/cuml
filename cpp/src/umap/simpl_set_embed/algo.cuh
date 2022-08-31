@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,37 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <curand.h>
 #include <math.h>
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/system/cuda/execution_policy.h>
 
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 
 #include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/random/rng_impl.cuh>
-#include <raft/sparse/coo.cuh>
+#include <raft/linalg/unary_op.hpp>
+#include <raft/sparse/coo.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <string>
 #include "optimize_batch_kernel.cuh"
+#include <string>
 
+#include <raft/sparse/op/filter.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
-#include <raft/sparse/op/filter.cuh>
-#pragma once
+#include <thrust/reduce.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
@@ -238,11 +240,13 @@ void optimize_layout(T* head_embedding,
   T* d_tail_buffer = tail_embedding;
   if (params->deterministic) {
     head_buffer.resize(head_n * params->n_components, stream_view);
-    CUDA_CHECK(cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
     // No need for tail if it's not being written.
     if (move_other) {
       tail_buffer.resize(tail_n * params->n_components, stream_view);
-      CUDA_CHECK(cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
     }
     d_head_buffer = head_buffer.data();
     d_tail_buffer = tail_buffer.data();
@@ -289,7 +293,7 @@ void optimize_layout(T* head_embedding,
                               move_other,
                               stream_view);
     }
-    CUDA_CHECK(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
   }
 }
@@ -336,10 +340,10 @@ void launcher(
     stream);
 
   raft::sparse::COO<T> out(stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, stream);
+  raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
 
   rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
-  CUDA_CHECK(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
 
@@ -362,7 +366,7 @@ void launcher(
                             n_epochs,
                             stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 }  // namespace Algo

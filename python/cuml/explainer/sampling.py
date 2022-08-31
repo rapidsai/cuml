@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cudf
 import cupy as cp
-import numpy as np
-import pandas as pd
-from numba import cuda
 from scipy.sparse import issparse
 
 import cuml
@@ -65,24 +61,15 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
                         dtypes: cuDF DataFrame, cuDF Series, cupy, numba,\
                         numpy, pandas DataFrame, pandas Series")
 
-    if output_dtype == cudf.DataFrame:
+    if "DataFrame" in str(output_dtype):
         group_names = X.columns
-        X = X.values
-    elif output_dtype == cudf.Series:
+        X = cp.array(X.values, copy=False)
+    if "Series" in str(output_dtype):
         group_names = X.name
-        X = X.values.reshape(-1, 1)
-    elif output_dtype == pd.DataFrame:
-        group_names = X.columns
-        X = cp.array(X.values)
-    elif output_dtype == pd.Series:
-        group_names = X.name
-        X = cp.array(X.values.reshape(-1, 1))
+        X = cp.array(X.values.reshape(-1, 1), copy=False)
     else:
         # it's either numpy, cupy or numba
-        if output_dtype == cuda.devicearray.DeviceNDArrayBase:
-            X = cp.array(X)
-        elif output_dtype == np.ndarray:
-            X = cp.array(X)
+        X = cp.array(X, copy=False)
         try:
             # more than one column
             group_names = [str(i) for i in range(X.shape[1])]

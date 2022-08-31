@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,10 +41,10 @@ def hinge_loss(y_true,
         Predicted decisions, as output by decision_function (floats)
 
     labels: cuDF Series or cuPy array, default=None
-            In multiclass problems, this must include all class labels.
+        In multiclass problems, this must include all class labels.
 
     sample_weight: cupy array of shape (n_samples,), default=None
-                   Sample weights to be used for computing the average
+        Sample weights to be used for computing the average
 
     Returns
     -------

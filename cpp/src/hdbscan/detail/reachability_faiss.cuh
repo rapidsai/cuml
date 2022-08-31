@@ -2,11 +2,11 @@
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
- * LICENSE file thirdparty/faiss.license.
+ * LICENSE file thirdparty/LICENSES/LICENSE.faiss
  */
 
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 #pragma once
 
 #include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/StandardGpuResources.h>
 
 #include <faiss/impl/AuxIndexStructures.h>
 #include <faiss/impl/FaissException.h>
@@ -41,6 +40,7 @@
 
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -212,7 +212,7 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
   auto stream = handle.get_stream();
 
   faiss::gpu::DeviceScope ds(device);
-  faiss::gpu::StandardGpuResources res;
+  raft::spatial::knn::RmmGpuResources res;
 
   res.noTempMemory();
   res.setDefaultStream(device, stream);

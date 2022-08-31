@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,73 +66,66 @@ class LogisticRegression(Base,
 
     Examples
     --------
-    .. code-block:: python
-
-        import cudf
-        import numpy as np
-
-        # Both import methods supported
-        # from cuml import LogisticRegression
-        from cuml.linear_model import LogisticRegression
-
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-        y = cudf.Series( np.array([0.0, 0.0, 1.0, 1.0], dtype = np.float32) )
-
-        reg = LogisticRegression()
-        reg.fit(X,y)
-
-        print("Coefficients:")
-        print(reg.coef_)
-        print("Intercept:")
-        print(reg.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([1,5], dtype = np.float32)
-        X_new['col2'] = np.array([2,5], dtype = np.float32)
-
-        preds = reg.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
 
     .. code-block:: python
 
-        Coefficients:
-                    0.22309814
-                    0.21012752
-        Intercept:
-                    -0.7548761
-        Predictions:
-                    0    0.0
-                    1    1.0
+        >>> import cudf
+        >>> import numpy as np
+
+        >>> # Both import methods supported
+        >>> # from cuml import LogisticRegression
+        >>> from cuml.linear_model import LogisticRegression
+
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+        >>> X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        >>> y = cudf.Series(np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32))
+
+        >>> reg = LogisticRegression()
+        >>> reg.fit(X,y)
+        LogisticRegression()
+        >>> print(reg.coef_)
+        0    0.698...
+        1    0.570...
+        dtype: float32
+        >>> print(reg.intercept_)
+        0   -2.188...
+        dtype: float32
+
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = np.array([1,5], dtype = np.float32)
+        >>> X_new['col2'] = np.array([2,5], dtype = np.float32)
+
+        >>> preds = reg.predict(X_new)
+
+        >>> print(preds)
+        0    0.0
+        1    1.0
+        dtype: float32
 
     Parameters
     -----------
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
+    penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
         Used to specify the norm used in the penalization.
         If 'none' or 'l2' are selected, then L-BFGS solver will be used.
         If 'l1' is selected, solver OWL-QN will be used.
         If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
         otherwise L-BFGS will be used.
-    tol: float (default = 1e-4)
+    tol : float (default = 1e-4)
         Tolerance for stopping criteria.
         The exact stopping conditions depend on the chosen solver.
         Check the solver's documentation for more details:
 
           * :class:`Quasi-Newton (L-BFGS/OWL-QN)<cuml.QN>`
 
-    C: float (default = 1.0)
+    C : float (default = 1.0)
         Inverse of regularization strength; must be a positive float.
-    fit_intercept: boolean (default = True)
+    fit_intercept : boolean (default = True)
         If True, the model tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    class_weight: None
+    class_weight : None
         Custom class weighs are currently not supported.
-    class_weight: dict or 'balanced', default=None
+    class_weight : dict or 'balanced', default=None
         By default all classes have a weight one. However, a dictionary
         can be provided with weights associated with classes
         in the form ``{class_label: weight}``. The "balanced" mode
@@ -141,17 +134,17 @@ class LogisticRegression(Base,
         as ``n_samples / (n_classes * np.bincount(y))``. Note that
         these weights will be multiplied with sample_weight
         (passed through the fit method) if sample_weight is specified.
-    max_iter: int (default = 1000)
+    max_iter : int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
-    linesearch_max_iter: int (default = 50)
+    linesearch_max_iter : int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    l1_ratio: float or None, optional (default=None)
+    l1_ratio : float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
-    solver: 'qn', 'lbfgs', 'owl' (default='qn').
+    solver : 'qn', 'lbfgs', 'owl' (default='qn').
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the conditions of the l1 regularization described

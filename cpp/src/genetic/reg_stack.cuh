@@ -18,6 +18,13 @@
 
 #include <raft/cuda_utils.cuh>
 
+#ifndef CUDA_PRAGMA_UNROLL
+#ifdef __CUDA_ARCH__
+#define CUDA_PRAGMA_UNROLL _Pragma("unroll")
+#else
+#define CUDA_PRAGMA_UNROLL
+#endif  // __CUDA_ARCH__
+#endif  // CUDA_PRAGMA_UNROLL
 namespace cuml {
 namespace genetic {
 
@@ -34,7 +41,7 @@ template <typename DataT, int MaxSize>
 struct stack {
   explicit HDI stack() : elements_(0)
   {
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < MaxSize; ++i) {
       regs_[i] = DataT(0);
     }
@@ -61,17 +68,17 @@ struct stack {
    */
   HDI void push(DataT val)
   {
-#pragma unroll
-    for (int i = 0; i < MaxSize; ++i) {
+    CUDA_PRAGMA_UNROLL
+    for (int i = MaxSize - 1; i >= 0; --i) {
       if (elements_ == i) {
-        regs_[i] = val;
         ++elements_;
+        regs_[i] = val;
       }
     }
   }
 
   /**
-   * @brief Pops the top element from the stack
+   * @brief Lazily pops the top element from the stack
    *
    * @return pops the element and returns it, if already reached bottom, then it
    *         returns zero.
@@ -83,14 +90,14 @@ struct stack {
    */
   HDI DataT pop()
   {
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < MaxSize; ++i) {
-      if (elements_ - 1 == i) {
-        --elements_;
+      if (elements_ == (i + 1)) {
+        elements_--;
         return regs_[i];
       }
     }
-    // shouldn't reach here!
+
     return DataT(0);
   }
 

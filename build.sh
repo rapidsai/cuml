@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -23,29 +23,32 @@ VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
-   clean            - remove all existing build artifacts and configuration (start over)
-   libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
-                      around the C++ code.
-   cuml             - build the cuml Python package
-   cpp-mgtests      - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
-   prims            - build the ml-prims tests
-   bench            - build the libcuml C++ benchmark
-   prims-bench      - build the ml-prims C++ benchmark
-   cppdocs          - build the C++ API doxygen documentation
-   pydocs           - build the general and Python API documentation
+   clean             - remove all existing build artifacts and configuration (start over)
+   libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
+                       around the C++ code.
+   cuml              - build the cuml Python package
+   cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   prims             - build the ml-prims tests
+   bench             - build the libcuml C++ benchmark
+   prims-bench       - build the ml-prims C++ benchmark
+   cppdocs           - build the C++ API doxygen documentation
+   pydocs            - build the general and Python API documentation
  and <flag> is:
-   -v               - verbose build mode
-   -g               - build for debug
-   -n               - no install step
-   -h               - print this text
-   --allgpuarch     - build for all supported GPU architectures
-   --singlegpu      - Build libcuml and cuml without multigpu components
-   --nolibcumltest  - disable building libcuml C++ tests for a faster build
-   --nvtx           - Enable nvtx for profiling support
-   --show_depr_warn - show cmake deprecation warnings
-   --codecov        - Enable code coverage support by compiling with Cython linetracing
-                      and profiling enabled (WARNING: Impacts performance)
-   --ccache         - Use ccache to cache previous compilations
+   -v                - verbose build mode
+   -g                - build for debug
+   -n                - no install step
+   -h                - print this text
+   --allgpuarch      - build for all supported GPU architectures
+   --singlegpu       - Build libcuml and cuml without multigpu components
+   --nolibcumltest   - disable building libcuml C++ tests for a faster build
+   --nvtx            - Enable nvtx for profiling support
+   --show_depr_warn  - show cmake deprecation warnings
+   --codecov         - Enable code coverage support by compiling with Cython linetracing
+                       and profiling enabled (WARNING: Impacts performance)
+   --ccache          - Use ccache to cache previous compilations
+   --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
+   --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
+   --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
@@ -76,6 +79,7 @@ BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
+BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
 
 # Set defaults for vars that may not have been defined externally
@@ -129,6 +133,7 @@ LONG_ARGUMENT_LIST=(
     "codecov"
     "ccache"
     "nolibcumltest"
+    "nocloneraft"
 )
 
 # Short arguments
@@ -157,7 +162,7 @@ while true; do
             exit 0
             ;;
         -v | --verbose )
-            VERBOSE=true
+            VERBOSE_FLAG="-v"
             CMAKE_LOG_LEVEL=VERBOSE
             ;;
         -g | --debug )
@@ -188,6 +193,15 @@ while true; do
         --nolibcumltest )
             BUILD_CUML_TESTS=OFF
             ;;
+        --nocloneraft )
+            DISABLE_FORCE_CLONE_RAFT=ON
+            ;;
+        --static-faiss )
+            BUILD_STATIC_FAISS=ON
+            ;;
+        --static-treelite )
+            BUILD_STATIC_TREELITE=ON
+            ;;
         --)
             shift
             break
@@ -215,7 +229,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Before
 
 ################################################################################
 # Configure for building all C++ targets
@@ -236,9 +249,12 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
+          -DCUML_ALGORITHMS="ALL" \
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
+          -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
@@ -248,41 +264,14 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           ..
 fi
 
-# Run all make targets at once
-
-MAKE_TARGETS=
-if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml"
-    if ! hasArg --nolibcumltest; then
-      MAKE_TARGETS="${MAKE_TARGETS} ml"
-    fi
-fi
-if hasArg cpp-mgtests; then
-    MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
-fi
-if hasArg prims; then
-    MAKE_TARGETS="${MAKE_TARGETS} prims"
-fi
-if hasArg bench; then
-    MAKE_TARGETS="${MAKE_TARGETS} sg_benchmark"
-fi
-if hasArg prims-bench; then
-    MAKE_TARGETS="${MAKE_TARGETS} prims_benchmark"
-fi
-
 # If `./build.sh cuml` is called, don't build C/C++ components
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     cd ${LIBCUML_BUILD_DIR}
-    build_args="--target ${MAKE_TARGETS} ${INSTALL_TARGET}"
-    if [ ! -z ${VERBOSE} ]
-    then
-      build_args="-v ${build_args}"
+    if [ -n "${INSTALL_TARGET}" ]; then
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
+    else
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
     fi
-    if [ ! -z ${PARALLEL_LEVEL} ]
-    then
-      build_args="-j${PARALLEL_LEVEL} ${build_args}"
-    fi
-    cmake --build ${LIBCUML_BUILD_DIR} ${build_args}
 fi
 
 if hasArg cppdocs; then
@@ -293,11 +282,16 @@ fi
 
 # Build and (optionally) install the cuml Python package
 if completeBuild || hasArg cuml || hasArg pydocs; then
+    # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
+        CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+    fi
+
     cd ${REPODIR}/python
+
+    python setup.py build_ext --inplace -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     fi
 
     if hasArg pydocs; then

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,17 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/linalg/distance_type.h>
 #include <cuml/manifold/common.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/selection/knn.cuh>
+#include <raft/distance/distance_type.hpp>
+#include <raft/linalg/unary_op.hpp>
+#include <raft/sparse/selection/knn.hpp>
 #include <selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
 
-#include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
 
 namespace UMAPAlgo {
@@ -70,7 +69,9 @@ void launcher(const raft::handle_t& handle,
                                       inputsB.n,
                                       out.knn_indices,
                                       out.knn_dists,
-                                      n_neighbors);
+                                      n_neighbors,
+                                      params->metric,
+                                      params->p);
 }
 
 // Instantiation for dense inputs, int indices
@@ -113,7 +114,8 @@ void launcher(const raft::handle_t& handle,
                                            handle,
                                            ML::Sparse::DEFAULT_BATCH_SIZE,
                                            ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           raft::distance::DistanceType::L2Expanded);
+                                           params->metric,
+                                           params->p);
 }
 
 template <>

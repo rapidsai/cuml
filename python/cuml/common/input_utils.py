@@ -28,13 +28,16 @@ import cuml.internals
 import cuml.common.array
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_scipy
+from cuml.common.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
 from cuml.common.memory_utils import ArrayInfo
 from cuml.common.memory_utils import _check_array_contiguity
 
 if has_scipy():
     import scipy.sparse
+
+if has_dask_cudf():
+    import dask_cudf
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -308,7 +311,13 @@ def input_to_cuml_array(X,
                           safe_dtype=safe_dtype_conversion)
         check_dtype = False
 
+    index = getattr(X, 'index', None)
+
     # format conversion
+
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
 
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
@@ -322,9 +331,10 @@ def input_to_cuml_array(X,
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
-            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
+            X_m = CumlArray(data=X.to_cupy(), index=index)
         else:
-            X_m = CumlArray(data=X.as_gpu_matrix(order=order))
+            X_m = CumlArray(data=cp.array(X.to_cupy(), order=order),
+                            index=index)
 
     elif isinstance(X, CumlArray):
         X_m = X
@@ -349,7 +359,6 @@ def input_to_cuml_array(X,
             if not _check_array_contiguity(X):
                 debug("Non contiguous array or view detected, a "
                       "contiguous copy of the data will be done.")
-                # X = cp.array(X, order=order, copy=True)
                 make_copy = True
 
         # If we have a host array, we copy it first before changing order
@@ -359,7 +368,8 @@ def input_to_cuml_array(X,
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
-        X_m = CumlArray(data=cp_arr)
+        X_m = CumlArray(data=cp_arr,
+                        index=index)
 
         if deepcopy:
             X_m = copy.deepcopy(X_m)
@@ -404,9 +414,13 @@ def input_to_cuml_array(X,
 
     if (check_order(X_m.order)):
         X_m = cp.array(X_m, copy=False, order=order)
-        X_m = CumlArray(data=X_m)
+        X_m = CumlArray(data=X_m,
+                        index=index)
 
-    return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+    return cuml_array(array=X_m,
+                      n_rows=n_rows,
+                      n_cols=n_cols,
+                      dtype=X_m.dtype)
 
 
 @nvtx.annotate(message="common.input_utils.input_to_cupy_array",
@@ -555,6 +569,10 @@ def convert_dtype(X,
     Convert X to be of dtype `dtype`, raising a TypeError
     if the conversion would lose information.
     """
+
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
 
     if safe_dtype:
         would_lose_info = _typecast_will_lose_information(X, to_dtype)

@@ -18,7 +18,7 @@
 
 import cupy as np
 import cupyx
-from cupy import sparse
+from cupyx.scipy import sparse
 
 
 def row_norms(X, squared=False):

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <cuml/datasets/make_regression.hpp>
-#include <random/make_regression.cuh>
+#include <raft/random/make_regression.hpp>
 
 namespace ML {
 namespace Datasets {
@@ -41,21 +41,21 @@ void make_regression_helper(const raft::handle_t& handle,
   cublasHandle_t cublas_handle       = handle_impl.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle_impl.get_cusolver_dn_handle();
 
-  MLCommon::Random::make_regression(handle,
-                                    out,
-                                    values,
-                                    n_rows,
-                                    n_cols,
-                                    n_informative,
-                                    stream,
-                                    coef,
-                                    n_targets,
-                                    bias,
-                                    effective_rank,
-                                    tail_strength,
-                                    noise,
-                                    shuffle,
-                                    seed);
+  raft::random::make_regression(handle,
+                                out,
+                                values,
+                                n_rows,
+                                n_cols,
+                                n_informative,
+                                stream,
+                                coef,
+                                n_targets,
+                                bias,
+                                effective_rank,
+                                tail_strength,
+                                noise,
+                                shuffle,
+                                seed);
 }
 
 void make_regression(const raft::handle_t& handle,

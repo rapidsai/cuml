@@ -40,7 +40,7 @@ def validate_dask_array(darray, client=None):
 
 def _conv_df_to_sparse(x):
     cupy_ary = rmm_cupy_ary(cp.asarray,
-                            x.as_gpu_matrix(),
+                            x.to_cupy(),
                             dtype=x.dtypes[0])
 
     return cupyx.scipy.sparse.csr_matrix(cupy_ary)

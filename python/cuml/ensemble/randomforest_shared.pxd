@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
@@ -42,6 +42,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         ENTROPY,
         MSE,
         MAE,
+        POISSON,
+        GAMMA,
+        INVERSE_GAUSSIAN,
         CRITERION_END
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -77,8 +80,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
-                                          int,
-                                          int) except +
+                                          int
+                                          ) except +
 
     cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
 

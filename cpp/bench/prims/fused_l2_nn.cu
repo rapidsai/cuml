@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
 #include <limits>
-#include <raft/distance/fused_l2_nn.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/distance/fused_l2_nn.hpp>
+#include <raft/handle.hpp>
+#include <raft/linalg/norm.hpp>
+#include <raft/random/rng.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -43,13 +45,14 @@ struct FusedL2NN : public Fixture {
     alloc(out, params.m);
     alloc(workspace, params.m);
     raft::random::Rng r(123456ULL);
+    raft::handle_t handle{stream};
+
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);
     raft::linalg::rowNorm(xn, x, params.k, params.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn, y, params.k, params.n, raft::linalg::L2Norm, true, stream);
-    auto blks = raft::ceildiv(params.m, 256);
-    raft::distance::initKernel<T, cub::KeyValuePair<int, T>, int>
-      <<<blks, 256, 0, stream>>>(out, params.m, std::numeric_limits<T>::max(), op);
+    raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
+      handle, out, params.m, std::numeric_limits<T>::max(), op);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) override

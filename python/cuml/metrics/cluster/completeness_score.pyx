@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 # distutils: language = c++
 
 import cuml.internals
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libc.stdint cimport uintptr_t
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
-from cuml.raft.common.handle import Handle
+from raft.common.handle import Handle
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":

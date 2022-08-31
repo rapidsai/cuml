@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -187,5 +187,6 @@ class Profiler:
         self._display_results(results)
 
 
-profiler = Profiler()
-profiler.profile(sys.argv[1])
+if __name__ == "__main__":
+    profiler = Profiler()
+    profiler.profile(sys.argv[1])

@@ -13,7 +13,7 @@
 
 
 from scipy import sparse as cpu_sp
-from cupy import sparse as gpu_sp
+from cupyx.scipy import sparse as gpu_sp
 import cupy as np
 import numpy as cpu_np
 

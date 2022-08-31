@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,18 @@
 
 #pragma once
 
+#include <cuml/cluster/spectral.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/sparse/coo.cuh>
+#include <raft/linalg/add.hpp>
+#include <raft/linalg/transpose.hpp>
+#include <raft/random/rng.hpp>
+#include <raft/sparse/coo.hpp>
 
-#include <raft/linalg/add.cuh>
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
 
-#include <raft/linalg/transpose.h>
-#include <raft/random/rng.cuh>
-
-#include <cuml/cluster/spectral.hpp>
 #include <iostream>
 
 namespace UMAPAlgo {
@@ -91,7 +93,7 @@ void launcher(const raft::handle_t& handle,
 
   raft::linalg::add(embedding, embedding, tmp_storage.data(), n * params->n_components, stream);
 
-  CUDA_CHECK(cudaPeekAtLastError());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace SpectralInit
 }  // namespace InitEmbed

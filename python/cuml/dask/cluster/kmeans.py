@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from cuml.raft.dask.common.comms import Comms
-from cuml.raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import Comms
+from raft.dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -74,15 +74,15 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         from data for the initial centroids. If an ndarray is passed,
         it should be of shape (n_clusters, n_features) and gives the
         initial centers.
-    oversampling_factor : int (default = 2) The amount of points to sample
-        in scalable k-means++ initialization for potential centroids.
-        Increasing this value can lead to better initial centroids at the
-        cost of memory. The total number of centroids sampled in scalable
-        k-means++ is oversampling_factor * n_clusters * 8.
-    max_samples_per_batch : int (default = 32768) The number of data
-        samples to use for batches of the pairwise distance computation.
-        This computation is done throughout both fit predict. The default
-        should suit most cases. The total number of elements in the
+    oversampling_factor : int (default = 2)
+        The amount of points to sample in scalable k-means++ initialization for
+        potential centroids. Increasing this value can lead to better initial
+        centroids at the cost of memory. The total number of centroids sampled
+        in scalable k-means++ is oversampling_factor * n_clusters * 8.
+    max_samples_per_batch : int (default = 32768)
+        The number of data samples to use for batches of the pairwise distance
+        computation. This computation is done throughout both fit predict.
+        The default should suit most cases. The total number of elements in the
         batched pairwise distance computation is max_samples_per_batch
         * n_clusters. It might become necessary to lower this number when
         n_clusters becomes prohibitively large.
@@ -141,12 +141,14 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         X : Dask cuDF DataFrame or CuPy backed Dask Array
         Training data to cluster.
 
-        sample_weight : Dask cuDF DataFrame or CuPy backed Dask Array
-                        shape = (n_samples,), default=None # noqa
+        sample_weight : Dask cuDF DataFrame or CuPy backed Dask Array \
+                shape = (n_samples,), default=None # noqa
+
             The weights for each observation in X. If None, all observations
             are assigned equal weight.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         """
 
         sample_weight = self._check_normalize_sample_weight(sample_weight)

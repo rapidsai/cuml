@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ struct Pack {
    */
   void resetArray(cudaStream_t stream, Index_ vdlen)
   {
-    CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));
   }
 };
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ level_critical = CUML_LEVEL_CRITICAL
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
 
-cdef void _log_callback(int lvl, const char * msg) nogil:
+cdef void _log_callback(int lvl, const char * msg) with gil:
     """
     Default spdlogs callback function to redirect logs correctly to sys.stdout
 
@@ -86,35 +86,15 @@ cdef void _log_callback(int lvl, const char * msg) nogil:
     msg : char *
         Message to be logged
     """
-    with gil:
-        print(msg.decode('utf-8'), end='')
+    print(msg.decode('utf-8'), end='')
 
 
-cdef void _nogil_log_callback(int lvl, const char * msg) nogil:
-    """
-    Wrapper for _log_callback to explicitly disable Cython's automatic GIL
-    acquire
-    """
-    with nogil:
-        _log_callback(lvl, msg)
-
-
-cdef void _log_flush() nogil:
+cdef void _log_flush() with gil:
     """
     Default spdlogs callback function to flush logs
     """
-    with gil:
-        if sys.stdout is not None:
-            sys.stdout.flush()
-
-
-cdef void _nogil_log_flush() nogil:
-    """
-    Wrapper for _log_flush to explicitly disable Cython's automatic GIL
-    acquire
-    """
-    with nogil:
-        _log_flush()
+    if sys.stdout is not None:
+        sys.stdout.flush()
 
 
 class LogLevelSetter:
@@ -187,14 +167,14 @@ def set_pattern(pattern):
     Examples
     --------
 
-    .. code-block:: python
-
-        # regular usage of setting a logging pattern for all subsequent logs
-        logger.set_pattern("--> [%H-%M-%S] %v")
-
-        # in case one wants to temporarily set the pattern for a code block
-        with logger.set_pattern("--> [%H-%M-%s] %v") as _:
-            logger.info("Hello world!")
+    >>> # regular usage of setting a logging pattern for all subsequent logs
+    >>> import cuml.common.logger as logger
+    >>> logger.set_pattern("--> [%H-%M-%S] %v")
+    <cuml.common.logger.PatternSetter object at 0x...>
+    >>> # in case one wants to temporarily set the pattern for a code block
+    >>> with logger.set_pattern("--> [%H-%M-%S] %v") as _:
+    ...     logger.info("Hello world!")
+    --> [...] Hello world!
 
     Parameters
     ----------
@@ -366,5 +346,5 @@ def flush():
 
 
 # Set callback functions to handle redirected sys.stdout in Python
-Logger.get().setCallback(_nogil_log_callback)
-Logger.get().setFlush(_nogil_log_flush)
+Logger.get().setCallback(_log_callback)
+Logger.get().setFlush(_log_flush)

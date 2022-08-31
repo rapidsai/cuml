@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import cuml.common
 import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
-import cuml.raft.common.handle
+import raft.common.handle
 import cuml.common.input_utils
 
 from cuml.common.doc_utils import generate_docstring
@@ -143,8 +143,7 @@ class Base(TagsMixin,
         # stream and handle example:
 
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
-        handle.setStream(stream)
+        handle = cuml.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -165,7 +164,7 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.raft.common.handle.Handle() if handle is None \
+        self.handle = raft.common.handle.Handle() if handle is None \
             else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
@@ -267,7 +266,7 @@ class Base(TagsMixin,
         if "solver_model" in self.__dict__.keys():
             return getattr(self.solver_model, attr)
         else:
-            raise AttributeError
+            raise AttributeError(attr)
 
     def _set_base_attributes(self,
                              output_type=None,

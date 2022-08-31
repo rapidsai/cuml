@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,11 @@
 
 #pragma once
 
-#include <math.h>
 #include <cuml/solvers/params.hpp>
+#include <math.h>
 
 namespace ML {
 namespace Solver {
-
-using namespace MLCommon;
 
 template <typename math_t>
 math_t max(math_t a, math_t b)

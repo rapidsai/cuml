@@ -127,11 +127,9 @@ int main(int argc, char* argv[])
     std::cout << "Run KMeans with k=" << params.n_clusters << ", max_iterations=" << params.max_iter
               << std::endl;
 
-    raft::handle_t handle;
-
     cudaStream_t stream;
     CUDA_RT_CALL(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    raft::handle_t handle{stream};
 
     // srcdata size n_samples * n_features
     double* d_srcdata = nullptr;
