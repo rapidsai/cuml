@@ -7,20 +7,21 @@ channels:
 dependencies:
 - cudatoolkit=11.0
 - cuda-python >=11.5,<11.7.1
-- rapids-build-env=22.08.*
-- rapids-notebook-env=22.08.*
-- rapids-doc-env=22.08.*
-- cudf=22.08.*
-- rmm=22.08.*
-- libcumlprims=22.08.*
-- libraft-headers=22.08.*
-- libraft-distance=22.08.*
-- libraft-nn=22.08.*
-- pyraft=22.08.*
-- dask-cudf=22.08.*
-- dask-cuda=22.08.*
-- ucx>=1.12.1
-- ucx-py=0.27.*
+- rapids-build-env=22.10.*
+- rapids-notebook-env=22.10.*
+- rapids-doc-env=22.10.*
+- scikit-build>=0.13.1
+- cudf=22.10.*
+- rmm=22.10.*
+- libcumlprims=22.10.*
+- libraft-headers=22.10.*
+- libraft-distance=22.10.*
+- libraft-nn=22.10.*
+- pyraft=22.10.*
+- dask-cudf=22.10.*
+- dask-cuda=22.10.*
+- ucx>=1.13.0
+- ucx-py=0.28.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
@@ -28,6 +29,7 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
+- sphinx-markdown-tables
 - treelite=2.4.0
 - statsmodels
 - seaborn
@@ -35,9 +37,8 @@ dependencies:
 - nltk
 - pip
 - pip:
-    - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
+    - git+https://github.com/dask/dask.git@2022.7.1
+    - git+https://github.com/dask/distributed.git@2022.7.1
     - git+https://github.com/dask/dask-glm@main
     - sparse
 

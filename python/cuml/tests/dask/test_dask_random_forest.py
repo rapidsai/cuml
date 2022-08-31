@@ -587,7 +587,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         X, y = make_classification(n_samples=n_workers * 1000,
                                    n_features=20, n_informative=15,
                                    n_classes=4, n_clusters_per_class=1,
-                                   random_state=123)
+                                   random_state=999)
         y = y.astype(np.int32)
     else:
         X, y = make_regression(n_samples=n_workers * 1000, n_features=20,

@@ -536,7 +536,7 @@ def rf_classification(
         n_bins=16,
         split_criterion=0,
         min_samples_leaf=2,
-        random_state=123,
+        random_state=999,
         n_estimators=40,
         handle=handle,
         max_leaves=-1,
