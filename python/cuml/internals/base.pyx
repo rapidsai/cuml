@@ -490,6 +490,18 @@ class Base(TagsMixin,
                                     else:
                                         self.sk_model_.__dict__[attribute] = cu_attr
 
+                            def to_host(data):
+                                if isinstance(data, (int, float, complex, bool, str, type(None), dict, set, list, tuple)):
+                                    return data
+                                else:
+                                    try:
+                                        return input_to_host_array(data)[0]
+                                    except:
+                                        return data
+                            args = tuple(to_host(arg) for arg in args)
+                            for key, kwarg in kwargs.items():
+                                kwargs[key] = to_host(kwarg)
+
                             res = getattr(self.sk_model_, func_name)(*args, **kwargs)
                             if func_name == 'fit':
                                 return self
