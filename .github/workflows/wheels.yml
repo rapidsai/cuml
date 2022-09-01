@@ -26,7 +26,7 @@ jobs:
       python-version: "3.8 3.9"
       skbuild-configure-options: "-DFIND_CUML_CPP=ON"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-before-build: "pip install rmm-cuda11 raft-cuda11 cudf-cuda11 libcuml-cuda11 libcumlprims-mg-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 raft-cuda11 cudf-cuda11 libcuml-cuda11 libcumlprims-mg-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-amd64: "pip install rmm-cuda11 cudf-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-arm64: "pip install rmm-cuda11 cudf-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       cibw-test-requires: "pytest"
