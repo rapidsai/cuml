@@ -9,10 +9,10 @@ jobs:
   libcuml-wheel:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
     with:
-      package-name: libcuml_cuda11
+      package-name: libcuml_cu11
       package-dir: cpp
       python-version: "3.8"
-      cibw-before-build: "pip install rmm-cuda11 raft-cuda11 libraft-cuda11 libcumlprims_mg-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      cibw-before-build: "pip install rmm-cu11 raft-cu11 libraft-cu11 libcumlprims-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DCMAKE_MESSAGE_LOG_LEVEL=DEBUG -DBUILD_CUML_C_LIBRARY=OFF -DBUILD_CUML_CPP_LIBRARY=ON -DBUILD_CUML_EXAMPLES=OFF -DBUILD_CUML_TESTS=OFF -DBUILD_PRIMS_TESTS=OFF -DBUILD_CUML_BENCH=OFF -DBUILD_CUML_PRIMS_BENCH=OFF'
       auditwheel-skip-repair: "true"
       wheel-pattern-override: "py3-none-linux"
@@ -26,9 +26,9 @@ jobs:
       python-version: "3.8 3.9"
       skbuild-configure-options: "-DFIND_CUML_CPP=ON"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 raft-cuda11 cudf-cuda11 libcuml-cuda11 libcumlprims-mg-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
-      gpu-smoketest-before-amd64: "pip install rmm-cuda11 cudf-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
-      gpu-smoketest-before-arm64: "pip install rmm-cuda11 cudf-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      cibw-before-build: "pip install rmm-cu11 libraft-cu11 raft-cu11 cudf-cu11 libcuml-cu11 libcumlprims-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      gpu-smoketest-before-amd64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      gpu-smoketest-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       cibw-test-requires: "pytest"
       cibw-test-command: "pytest -v ./python/cuml/tests"
       gpu-smoketest: "import cudf; from cuml.cluster import DBSCAN; gdf_float = cudf.DataFrame(); gdf_float['0'] = [1.0, 2.0, 5.0]; gdf_float['1'] = [4.0, 2.0, 1.0]; gdf_float['2'] = [4.0, 2.0, 1.0]; dbscan_float = DBSCAN(eps=1.0, min_samples=1); dbscan_float.fit(gdf_float); print(dbscan_float.labels_)"
