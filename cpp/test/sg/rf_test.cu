@@ -31,10 +31,17 @@
 #include <raft/linalg/transpose.hpp>
 
 #include <thrust/binary_search.h>
+#include <thrust/copy.h>
 #include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/functional.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
+#include <thrust/random.h>
 #include <thrust/shuffle.h>
+#include <thrust/transform.h>
 
 #include <gtest/gtest.h>
 

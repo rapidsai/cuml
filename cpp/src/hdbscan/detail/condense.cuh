@@ -30,7 +30,11 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/fill.h>
 #include <thrust/reduce.h>
 
 namespace ML {

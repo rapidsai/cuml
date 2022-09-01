@@ -34,7 +34,10 @@
 #include <cuml/neighbors/knn.hpp>
 #include <raft/distance/distance.hpp>
 
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 namespace ML {
 namespace HDBSCAN {

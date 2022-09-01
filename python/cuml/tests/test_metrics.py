@@ -81,6 +81,8 @@ from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
+from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
+from cuml.metrics.cluster import v_measure_score
 
 
 @pytest.fixture(scope='module')
@@ -175,7 +177,7 @@ def test_sklearn_search():
 def test_accuracy(nrows, ncols, n_info, datatype):
 
     use_handle = True
-    train_rows = np.int32(nrows*0.8)
+    train_rows = np.int32(nrows * 0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
                                random_state=123, n_classes=5)
@@ -249,7 +251,7 @@ def test_rand_index_score(name, nrows):
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
     cuml_score = cu_silhouette_score(X, labels, metric=metric,
-                                     chunksize=int(X.shape[0]/chunk_divider))
+                                     chunksize=int(X.shape[0] / chunk_divider))
     sk_score = sk_silhouette_score(X, labels, metric=metric)
     assert_almost_equal(cuml_score, sk_score, decimal=2)
 
@@ -481,15 +483,18 @@ def test_regression_metrics():
 
 
 @pytest.mark.parametrize('n_samples', [50, stress_param(500000)])
-@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
+@pytest.mark.parametrize('y_dtype',
+                         [np.int32, np.int64, np.float32, np.float64])
+@pytest.mark.parametrize('pred_dtype',
+                         [np.int32, np.int64, np.float32, np.float64])
 @pytest.mark.parametrize('function', ['mse', 'mae', 'msle'])
-def test_regression_metrics_random(n_samples, dtype, function):
-    if dtype == np.float32 and n_samples == 500000:
-        # stress test for float32 fails because of floating point precision
-        pytest.xfail()
+def test_regression_metrics_random_with_mixed_dtypes(n_samples, y_dtype,
+                                                     pred_dtype, function):
+    y_true, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(y_dtype))
 
-    y_true, y_pred, _, _ = generate_random_labels(
-        lambda rng: rng.randint(0, 1000, n_samples).astype(dtype))
+    y_pred, _, _, _ = generate_random_labels(
+        lambda rng: rng.randint(0, 1000, n_samples).astype(pred_dtype))
 
     cuml_reg, sklearn_reg = {
         'mse': (mean_squared_error, sklearn_mse),
@@ -983,6 +988,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
     # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
     compare_precision = 10
 
+    print(X.shape, Y.shape, metric)
     # Compare to sklearn, fp64
     S = pairwise_distances(X, Y, metric=metric)
 
@@ -1071,7 +1077,7 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean"])
+@pytest.mark.parametrize("metric", ["haversine"])
 def test_pairwise_distances_unsuppored_metrics(metric):
     rng = np.random.RandomState(3)
 
@@ -1392,7 +1398,7 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
 @pytest.mark.parametrize("input_type", ["cudf", "cupy"])
 @pytest.mark.parametrize("n_classes", [2, 5])
 def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
-    train_rows = np.int32(nrows*0.8)
+    train_rows = np.int32(nrows * 0.8)
     X, y = make_classification(n_samples=nrows, n_features=ncols,
                                n_clusters_per_class=1, n_informative=n_info,
                                random_state=123, n_classes=n_classes)
@@ -1482,3 +1488,12 @@ def test_mean_squared_error_cudf_series():
     err1 = mean_squared_error(a, b)
     err2 = mean_squared_error(a.values, b.values)
     assert err1 == err2
+
+
+@pytest.mark.parametrize("beta", [0.0, 0.5, 1.0, 2.0])
+def test_v_measure_score(beta):
+    labels_true = np.array([0, 0, 1, 1], dtype=np.int32)
+    labels_pred = np.array([1, 0, 1, 1], dtype=np.int32)
+    res = v_measure_score(labels_true, labels_pred, beta=beta)
+    ref = sklearn_v_measure_score(labels_true, labels_pred, beta=beta)
+    assert_almost_equal(res, ref)

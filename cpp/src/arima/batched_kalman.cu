@@ -20,6 +20,7 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <cub/cub.cuh>
+#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 

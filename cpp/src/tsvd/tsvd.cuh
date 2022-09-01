@@ -35,6 +35,8 @@
 #include <rmm/exec_policy.hpp>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace ML {
 

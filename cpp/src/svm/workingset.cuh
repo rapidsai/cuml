@@ -36,7 +36,9 @@
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
 
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/iterator/permutation_iterator.h>
 
 #include <cub/cub.cuh>

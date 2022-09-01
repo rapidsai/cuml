@@ -31,6 +31,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 import cuml
 from cuml.testing.utils import as_type
 
+pytestmark = pytest.mark.skip
 
 # See issue #4729
 # Xgboost disabled due to CI failures
