@@ -25,6 +25,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
 from cudf import Series
 from numpy.testing import assert_array_equal
 import numpy as np
+import pandas as pd
 
 
 def test_count_vectorizer():
@@ -529,4 +530,23 @@ def test_hashingvectorizer_delimiter():
         token_pattern=None,
         preprocessor=lambda s: s,
     ).fit_transform(corpus)
+    assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())
+
+
+@pytest.mark.parametrize('vectorizer', ['tfidf', 'hash_vec', 'count_vec'])
+def test_vectorizer_with_pandas_series(vectorizer):
+    corpus = [
+        "This Is DoC",
+        "this DoC is the second DoC.",
+        "And this document is the third one.",
+        "and Is this the first document?",
+    ]
+    cuml_vec, sklearn_vec = {
+        'tfidf': (TfidfVectorizer, SkTfidfVect),
+        'hash_vec': (HashingVectorizer, SkHashVect),
+        'count_vec': (CountVectorizer, SkCountVect)
+    }[vectorizer]
+    raw_documents = pd.Series(corpus)
+    res = cuml_vec().fit_transform(raw_documents)
+    ref = sklearn_vec().fit_transform(raw_documents)
     assert_almost_equal_hash_matrices(res.todense().get(), ref.toarray())

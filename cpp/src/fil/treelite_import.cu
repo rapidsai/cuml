@@ -673,13 +673,39 @@ void from_treelite(const raft::handle_t& handle,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
-  // floating-point type used for model representation
-  using real_t = decltype(threshold_t(0) + leaf_t(0));
+  precision_t precision = tl_params->precision;
+  // choose the precision based on model if required
+  if (precision == PRECISION_NATIVE) {
+    precision = std::is_same_v<decltype(threshold_t(0) + leaf_t(0)), float> ? PRECISION_FLOAT32
+                                                                            : PRECISION_FLOAT64;
+  }
 
-  // get the pointer to the right forest variant
-  *pforest_variant          = (forest_t<real_t>)nullptr;
-  forest_t<real_t>* pforest = &std::get<forest_t<real_t>>(*pforest_variant);
+  switch (precision) {
+    case PRECISION_FLOAT32: {
+      *pforest_variant         = (forest_t<float>)nullptr;
+      forest_t<float>* pforest = &std::get<forest_t<float>>(*pforest_variant);
+      from_treelite(handle, pforest, model, tl_params);
+      break;
+    }
+    case PRECISION_FLOAT64: {
+      *pforest_variant          = (forest_t<double>)nullptr;
+      forest_t<double>* pforest = &std::get<forest_t<double>>(*pforest_variant);
+      from_treelite(handle, pforest, model, tl_params);
+      break;
+    }
+    default:
+      ASSERT(false,
+             "bad value of tl_params->precision, must be one of "
+             "PRECISION_{NATIVE,FLOAT32,FLOAT64}");
+  }
+}
 
+template <typename threshold_t, typename leaf_t, typename real_t>
+void from_treelite(const raft::handle_t& handle,
+                   forest_t<real_t>* pforest,
+                   const tl::ModelImpl<threshold_t, leaf_t>& model,
+                   const treelite_params_t* tl_params)
+{
   // Invariants on threshold and leaf types
   static_assert(type_supported<threshold_t>(),
                 "Model must contain float32 or float64 thresholds for splits");

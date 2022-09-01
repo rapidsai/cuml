@@ -21,7 +21,6 @@ import typing
 import numpy as np
 import cupy as cp
 import cupyx
-import cudf
 import ctypes
 import warnings
 import math

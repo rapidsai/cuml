@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 import ctypes
-import cudf
 import numpy as np
 import cupy as cp
 import warnings
