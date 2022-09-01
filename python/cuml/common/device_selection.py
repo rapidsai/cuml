@@ -23,9 +23,9 @@ def set_global_device_type(device_type):
     if (isinstance(device_type, str)):
         device_type = device_type.lower()
 
-    if device_type not in ['cpu', 'gpu', None]:
-        raise ValueError('Parameter device_type must be one of "cpu", '
-                         '"gpu", or None')
+    if device_type not in ['cpu', 'gpu']:
+        raise ValueError('Parameter device_type must be one of "cpu" or '
+                         '"gpu"')
 
     cuml.global_settings.device_type = device_type
 
@@ -44,9 +44,9 @@ def set_global_memory_type(memory_type):
     if (isinstance(memory_type, str)):
         memory_type = memory_type.lower()
 
-    if memory_type not in ['global', 'host', 'managed', 'mirror', None]:
+    if memory_type not in ['global', 'host', 'managed', 'mirror']:
         raise ValueError('Parameter memory_type must be one of "global", '
-                         '"host", "managed", "mirror" or None')
+                         '"host", "managed" or "mirror"')
 
     cuml.global_settings.memory_type = memory_type
 
