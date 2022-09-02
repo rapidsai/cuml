@@ -21,6 +21,14 @@ import numpy as np
 from cuml.common.exceptions import NotFittedError
 import warnings
 
+def get_stat_func(stat):
+    def func(ds):
+        if hasattr(ds, stat):
+            return getattr(ds, stat)()
+        else:
+            # implement stat
+            raise ValueError(f'{stat} function is not implemented.')
+    return func
 
 class TargetEncoder:
     """
@@ -233,7 +241,7 @@ class TargetEncoder:
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
-        self.y_stat_val = eval(f'train[self.y_col].{self.stat}()')
+        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
         if self.stat in ['median']:
             return self._fit_transform_for_loop(train, x_cols)
 
