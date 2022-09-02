@@ -142,6 +142,8 @@ void out_of_sample_predict(const raft::handle_t& handle,
                            int* out_labels,
                            float* out_probabilities)
 {
+  // Note that (min_samples+1) is parsed to the approximate_predict function. This was done for the
+  // core distance computation to consistent with Scikit learn Contrib.
   HDBSCAN::detail::Predict::approximate_predict(handle,
                                                 condensed_tree,
                                                 prediction_data,
@@ -150,7 +152,7 @@ void out_of_sample_predict(const raft::handle_t& handle,
                                                 points_to_predict,
                                                 n_prediction_points,
                                                 metric,
-                                                min_samples,
+                                                min_samples + 1,
                                                 out_labels,
                                                 out_probabilities);
 }

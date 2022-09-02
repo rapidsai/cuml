@@ -339,6 +339,23 @@ INSTANTIATE_TEST_CASE_P(ClusterSelectionTest,
                         ClusterSelectionTestF_Int,
                         ::testing::ValuesIn(cluster_selection_inputs));
 
+// This test was constructed in the following manner: The same condensed tree and set of selected
+// clusters need to be passed to the reference implementation and then compare the results from
+// cuML and the reference implementation for an approximate match of probabilities. To fetch the
+// condensed hierarchy in the same format as required by the reference implementation, a simple
+// python script can be written:
+// 1. Print the parents, children, lambdas and sizes array of the condensed hierarchy.
+// 2. Convert them into a list ``condensed_tree`` of tuples where each tuples is of the form.
+//    ``(parents[i], children[i], lambdas[i], sizes[i])``
+// 3. Convert the list into a numpy array with the following command:
+//    ``condensed_tree_array = np.array(condened_tree, dtype=[('parent', np.intp), ('child',
+//                                      np.intp), ('lambda_val', float), ('child_size',
+//                                      np.intp)])``
+// 4. Store it in a pickle file.
+// The reference source code is modified in the following way: Edit the raw tree in the init
+// function of the PredictionData object in prediction.py by loading it from the pickle file. Also
+// edit the selected clusters array. Do the same in the all_points_membership_vectors function and
+// the approximate_predict functions.
 template <typename T, typename IdxT>
 class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>> {
  protected:
@@ -418,13 +435,12 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
                                                n_selected_clusters,
                                                prediction_data_);
 
-    ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
-      handle,
-      condensed_tree,
-      prediction_data_,
-      data.data(),
-      raft::distance::DistanceType::L2SqrtExpanded,
-      membership_vec.data());
+    ML::compute_all_points_membership_vectors(handle,
+                                              condensed_tree,
+                                              prediction_data_,
+                                              data.data(),
+                                              raft::distance::DistanceType::L2SqrtExpanded,
+                                              membership_vec.data());
 
     ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
                                   params.expected_probabilities.data(),
@@ -561,17 +577,17 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
 
-    ML::HDBSCAN::detail::Predict::approximate_predict(handle,
-                                                      condensed_tree,
-                                                      pred_data,
-                                                      const_cast<float*>(data.data()),
-                                                      labels.data(),
-                                                      const_cast<float*>(points_to_predict.data()),
-                                                      (size_t)params.n_points_to_predict,
-                                                      raft::distance::DistanceType::L2SqrtExpanded,
-                                                      params.min_samples,
-                                                      out_labels.data(),
-                                                      out_probabilities.data());
+    ML::out_of_sample_predict(handle,
+                              condensed_tree,
+                              pred_data,
+                              const_cast<float*>(data.data()),
+                              labels.data(),
+                              const_cast<float*>(points_to_predict.data()),
+                              (size_t)params.n_points_to_predict,
+                              raft::distance::DistanceType::L2SqrtExpanded,
+                              params.min_samples,
+                              out_labels.data(),
+                              out_probabilities.data());
 
     handle.sync_stream(handle.get_stream());
     cudaDeviceSynchronize();

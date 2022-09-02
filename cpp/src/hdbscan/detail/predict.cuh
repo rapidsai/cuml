@@ -44,10 +44,10 @@ distance to a nearest neighbor.
  * @param[in] input_core_dists an array of core distances for all points (size m)
  * @param[in] prediction_core_dists an array of core distances for all prediction points (size
 n_prediction_points)
- * @param[in] knn_dists knn distance array (size n_prediction_points * min_samples * 2)
- * @param[in] knn_inds knn indices array (size n_prediction_points * min_samples * 2)
+ * @param[in] knn_dists knn distance array (size n_prediction_points * neighborhood)
+ * @param[in] knn_inds knn indices array (size n_prediction_points * neighborhood)
  * @param[in] n_prediction_points number of prediction points
- * @param[in] min_samples this neighborhood will be selected for core distances
+ * @param[in] neighborhood the neighborhood of prediction points
  * @param[out] min_mr_inds indices of points with the minimum mutual reachability distance (size
 n_prediction_points)
  * @param[out] prediction_lambdas lambda values for prediction points (size n_prediction_points)
@@ -59,7 +59,7 @@ void _find_neighbor_and_lambda(const raft::handle_t& handle,
                                value_t* knn_dists,
                                value_idx* knn_inds,
                                size_t n_prediction_points,
-                               int min_samples,
+                               int neighborhood,
                                value_idx* min_mr_inds,
                                value_t* prediction_lambdas)
 {
@@ -77,7 +77,7 @@ void _find_neighbor_and_lambda(const raft::handle_t& handle,
                                                                knn_dists,
                                                                knn_inds,
                                                                n_prediction_points,
-                                                               min_samples,
+                                                               neighborhood,
                                                                min_mr_dists.data(),
                                                                min_mr_inds);
 
@@ -166,7 +166,7 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
  * @param[in] points_to_predict input prediction points (size n_prediction_points * n)
  * @param[in] n_prediction_points number of prediction points
  * @param[in] metric distance metric to use
- * @param[in] min_samples this neighborhood will be selected for core distances
+ * @param[in] min_samples neighborhood size during training (includes self-loop)
  * @param[out] out_labels output cluster labels
  * @param[out] out_probabilities output probabilities
  */
@@ -193,8 +193,11 @@ void approximate_predict(const raft::handle_t& handle,
   size_t n                  = prediction_data.n_cols;
   value_t* input_core_dists = prediction_data.get_core_dists();
 
-  rmm::device_uvector<value_idx> inds(min_samples * n_prediction_points * 2, stream);
-  rmm::device_uvector<value_t> dists(min_samples * n_prediction_points * 2, stream);
+  // this is the neighborhood of prediction points for which MR distances are computed
+  int neighborhood = (min_samples - 1) * 2;
+
+  rmm::device_uvector<value_idx> inds(neighborhood * n_prediction_points, stream);
+  rmm::device_uvector<value_t> dists(neighborhood * n_prediction_points, stream);
   rmm::device_uvector<value_t> prediction_core_dists(n_prediction_points, stream);
 
   // perform knn
@@ -206,14 +209,14 @@ void approximate_predict(const raft::handle_t& handle,
                             n,
                             points_to_predict,
                             n_prediction_points,
-                            min_samples * 2,
+                            neighborhood,
                             metric);
 
-  // Slice core distances (distances to kth nearest neighbor). Note that we slice the
-  // (min_samples+1)-th to be consistent with Scikit-learn Contrib
+  // Slice core distances (distances to kth nearest neighbor). The index of the neighbor is
+  // consistent with Scikit-learn Contrib
   Reachability::core_distances<value_idx>(dists.data(),
-                                          min_samples + 1,
-                                          min_samples * 2,
+                                          min_samples,
+                                          neighborhood,
                                           n_prediction_points,
                                           prediction_core_dists.data(),
                                           stream);
@@ -227,7 +230,7 @@ void approximate_predict(const raft::handle_t& handle,
                             dists.data(),
                             inds.data(),
                             n_prediction_points,
-                            min_samples,
+                            neighborhood,
                             min_mr_inds.data(),
                             prediction_lambdas.data());
 

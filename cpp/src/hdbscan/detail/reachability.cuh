@@ -61,6 +61,9 @@ template <typename value_idx, typename value_t, int tpb = 256>
 void core_distances(
   value_t* knn_dists, int min_samples, int n_neighbors, size_t n, value_t* out, cudaStream_t stream)
 {
+  ASSERT(n_neighbors >= min_samples,
+         "the size of the neighborhood should be greater than or equal to min_samples");
+
   int blocks = raft::ceildiv(n, (size_t)tpb);
 
   auto exec_policy = rmm::exec_policy(stream);
