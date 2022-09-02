@@ -704,7 +704,8 @@ def test_approximate_predict_moons(nrows,
                                    cluster_selection_method,
                                    connectivity):
 
-    X, y = datasets.make_moons(n_samples=nrows+n_points_to_predict, noise=.05, random_state=42)
+    X, y = datasets.make_moons(n_samples=nrows+n_points_to_predict,
+                               noise=.05, random_state=42)
 
     X_train = X[:nrows]
     X_test = X[nrows:]
@@ -741,7 +742,8 @@ def test_approximate_predict_moons(nrows,
     cu_unique = np.unique(cu_labels)
     if len(sk_unique) == len(cu_unique):
         assert(adjusted_rand_score(cu_labels, sk_labels) >= 0.99)
-        assert(array_equal(cu_probs, sk_probs, unit_tol=0.05, total_tol=0.005))
+        assert(array_equal(cu_probs, sk_probs, unit_tol=0.05,
+                           total_tol=0.005))
 
 
 @pytest.mark.parametrize('nrows', [1000])
@@ -802,4 +804,5 @@ def test_approximate_predict_circles(nrows,
     cu_unique = np.unique(cu_labels)
     if len(sk_unique) == len(cu_unique):
         assert(adjusted_rand_score(cu_labels, sk_labels) >= 0.99)
-        assert(array_equal(cu_probs, sk_probs, unit_tol=0.05, total_tol=0.005))
+        assert(array_equal(cu_probs, sk_probs, unit_tol=0.05,
+                           total_tol=0.005))
