@@ -229,7 +229,7 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True,
+    def fit_(self, X, y, convert_dtype=True,
             sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
@@ -317,10 +317,10 @@ class LinearRegression(Base,
 
         return self
 
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict_(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
-        self.n_cols = self.coef_.shape[-1]
-        return super().predict(X, convert_dtype=convert_dtype)
+        self.n_cols = self.coef_.shape[0]
+        return super().predict_(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \
