@@ -223,8 +223,6 @@ class Base(TagsMixin,
         self.target_dtype = None
         self.n_features_in_ = None
 
-        self.set_device_interop()
-
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
@@ -253,6 +251,100 @@ class Base(TagsMixin,
         if hasattr(self, 'sk_model_'):
             output += ' <sk_model_ attribute used>'
         return output
+
+    def dispatch_func(self, func_name, original_func, *args, **kwargs):
+        # look for current device_type
+        device_type = cuml.global_settings.device_type
+        if device_type == 'gpu':
+            # check if the sklean model already set as attribute of the cuml estimator
+            # its presence should signify that CPU execution was used previously
+            if hasattr(self, 'sk_model_'):
+                # transfer attributes trained with sklearn
+                for attribute in self.get_attributes_names():
+                    # check presence of attribute
+                    if hasattr(self.sk_model_, attribute):
+                        # get the sklearn attribute
+                        sk_attr = self.sk_model_.__dict__[attribute]
+                        # if the sklearn attribute is an array
+                        if isinstance(sk_attr, np.ndarray):
+                            # transfer array to gpu and set it as a cuml attribute
+                            cuml_array = input_to_cuml_array(sk_attr)[0]
+                            setattr(self, attribute, cuml_array)
+                        else:
+                            # transfer all other types of attributes directly
+                            setattr(self, attribute, sk_attr)
+            # call the original cuml method
+            return original_func(*args, **kwargs)
+        elif device_type == 'cpu':
+            # check if the sklean model already set as attribute of the cuml estimator
+            # its presence should signify that CPU execution was used previously
+            if not hasattr(self, 'sk_model_'):
+                # import model in sklearn
+                if hasattr(self, 'sk_import_path_'):
+                    # if importation path differs from the one of sklearn look for sk_import_path_
+                    model_path = self.sk_import_path_
+                else:
+                    # importation from similar path to the current estimator class
+                    model_path = 'sklearn' + self.__class__.__module__[4:]
+                model_name = self.__class__.__name__
+                sk_model = getattr(import_module(model_path), model_name)
+                # initialize model
+                self.sk_model_ = sk_model()
+                # transfer params set during cuml estimator initialization
+                for param in self.get_param_names():
+                    self.sk_model_.__dict__[param] = self.__dict__[param]
+
+            # transfer attributes trained with cuml
+            for attribute in self.get_attributes_names():
+                # check presence of attribute
+                if hasattr(self, attribute):
+                    # get the cuml attribute
+                    cu_attr = self.__dict__[attribute]
+                    # if the cuml attribute is a CumlArrayDescriptorMeta
+                    if hasattr(cu_attr, 'get_input_value'):
+                        # extract the actual value from the CumlArrayDescriptorMeta
+                        cu_attr_value = cu_attr.get_input_value()
+                        # check if descriptor is empty
+                        if cu_attr_value is not None:
+                            if cu_attr.input_type == 'cuml':
+                                # transform cumlArray to numpy and set it as an attribute in the sklearn model
+                                self.sk_model_.__dict__[attribute] = cu_attr_value.to_output('numpy')
+                            else:
+                                # transfer all other types of attributes directly
+                                self.sk_model_.__dict__[attribute] = cu_attr_value
+                    else:
+                        # transfer all other types of attributes directly
+                        self.sk_model_.__dict__[attribute] = cu_attr
+
+            # helper function to convert non-builtin as numpy arrays
+            def to_host(data):
+                if isinstance(data, (int, float, complex, bool, str, type(None), dict, set, list, tuple)):
+                    return data
+                else:
+                    try:
+                        return input_to_host_array(data)[0]
+                    except:
+                        return data
+            # converts all the args
+            args = tuple(to_host(arg) for arg in args)
+            # converts all the kwarg
+            for key, kwarg in kwargs.items():
+                kwargs[key] = to_host(kwarg)
+
+            # call the method from the sklearn model
+            res = getattr(self.sk_model_, func_name)(*args, **kwargs)
+            if func_name == 'fit':
+                # always return the cuml estimator while training
+                return self
+            else:
+                # return method result
+                return res
+
+    def fit(self, X, y, **kwargs):
+        return self.dispatch_func('fit', self.fit_, X, y, **kwargs)
+
+    def predict(self, X, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict', self.predict_, X, **kwargs)
 
     def get_param_names(self):
         """
@@ -446,108 +538,6 @@ class Base(TagsMixin,
                 func = getattr(self, func_name)
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
-
-    def set_device_interop(self):
-        # update common methods in estimator
-        for func_name in ['fit', 'transform', 'predict', 'fit_transform',
-                          'fit_predict']:
-            # check availibility of the method in the estimator
-            if hasattr(self, func_name):
-                # generator of the updated method
-                def modified_func_generator(func_name, original_func):
-                    def modified_func(*args, **kwargs):
-                        # look for current device_type
-                        device_type = cuml.global_settings.device_type
-                        if device_type == 'gpu':
-                            # check if the sklean model already set as attribute of the cuml estimator
-                            # its presence should signify that CPU execution was used previously
-                            if hasattr(self, 'sk_model_'):
-                                # transfer attributes trained with sklearn
-                                for attribute in self.get_attributes_names():
-                                    # check presence of attribute
-                                    if hasattr(self.sk_model_, attribute):
-                                        # get the sklearn attribute
-                                        sk_attr = self.sk_model_.__dict__[attribute]
-                                        # if the sklearn attribute is an array
-                                        if isinstance(sk_attr, np.ndarray):
-                                            # transfer array to gpu and set it as a cuml attribute
-                                            cuml_array = input_to_cuml_array(sk_attr)[0]
-                                            setattr(self, attribute, cuml_array)
-                                        else:
-                                            # transfer all other types of attributes directly
-                                            setattr(self, attribute, sk_attr)
-                            # call the original cuml method
-                            return original_func(*args, **kwargs)
-                        elif device_type == 'cpu':
-                            # check if the sklean model already set as attribute of the cuml estimator
-                            # its presence should signify that CPU execution was used previously
-                            if not hasattr(self, 'sk_model_'):
-                                # import model in sklearn
-                                if hasattr(self, 'sk_import_path_'):
-                                    # if importation path differs from the one of sklearn look for sk_import_path_
-                                    model_path = self.sk_import_path_
-                                else:
-                                    # importation from similar path to the current estimator class
-                                    model_path = 'sklearn' + self.__class__.__module__[4:]
-                                model_name = self.__class__.__name__
-                                sk_model = getattr(import_module(model_path), model_name)
-                                # initialize model
-                                self.sk_model_ = sk_model()
-                                # transfer params set during cuml estimator initialization
-                                for param in self.get_param_names():
-                                    self.sk_model_.__dict__[param] = self.__dict__[param]
-
-                            # transfer attributes trained with cuml
-                            for attribute in self.get_attributes_names():
-                                # check presence of attribute
-                                if hasattr(self, attribute):
-                                    # get the cuml attribute
-                                    cu_attr = self.__dict__[attribute]
-                                    # if the cuml attribute is a CumlArrayDescriptorMeta
-                                    if hasattr(cu_attr, 'get_input_value'):
-                                        # extract the actual value from the CumlArrayDescriptorMeta
-                                        cu_attr_value = cu_attr.get_input_value()
-                                        # check if descriptor is empty
-                                        if cu_attr_value is not None:
-                                            if cu_attr.input_type == 'cuml':
-                                                # transform cumlArray to numpy and set it as an attribute in the sklearn model
-                                                self.sk_model_.__dict__[attribute] = cu_attr_value.to_output('numpy')
-                                            else:
-                                                # transfer all other types of attributes directly
-                                                self.sk_model_.__dict__[attribute] = cu_attr_value
-                                    else:
-                                        # transfer all other types of attributes directly
-                                        self.sk_model_.__dict__[attribute] = cu_attr
-
-                            # helper function to convert non-builtin as numpy arrays
-                            def to_host(data):
-                                if isinstance(data, (int, float, complex, bool, str, type(None), dict, set, list, tuple)):
-                                    return data
-                                else:
-                                    try:
-                                        return input_to_host_array(data)[0]
-                                    except:
-                                        return data
-                            # converts all the args
-                            args = tuple(to_host(arg) for arg in args)
-                            # converts all the kwarg
-                            for key, kwarg in kwargs.items():
-                                kwargs[key] = to_host(kwarg)
-
-                            # call the method from the sklearn model
-                            res = getattr(self.sk_model_, func_name)(*args, **kwargs)
-                            if func_name == 'fit':
-                                # always return the cuml estimator while training
-                                return self
-                            else:
-                                # return method result
-                                return res
-                    # return the modified method to be used as a replacement
-                    return modified_func
-                # get method initially present in the estimator
-                original_func = getattr(self, func_name)
-                # build the modified method and set it as a replacement of the old one
-                setattr(self, func_name, modified_func_generator(func_name, original_func))
 
 
 # Internal, non class owned helper functions
