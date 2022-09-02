@@ -21,6 +21,7 @@ import numpy as np
 from cuml.common.exceptions import NotFittedError
 import warnings
 
+
 def get_stat_func(stat):
     def func(ds):
         if hasattr(ds, stat):
@@ -29,6 +30,7 @@ def get_stat_func(stat):
             # implement stat
             raise ValueError(f'{stat} function is not implemented.')
     return func
+
 
 class TargetEncoder:
     """
