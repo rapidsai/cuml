@@ -24,6 +24,8 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/predict.cuh>
+#include <hdbscan/detail/reachability.cuh>
 #include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
 
@@ -36,6 +38,9 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/execution_policy.h>
+#include <thrust/transform.h>
 
 #include "../prims/test_utils.h"
 
@@ -334,6 +339,23 @@ INSTANTIATE_TEST_CASE_P(ClusterSelectionTest,
                         ClusterSelectionTestF_Int,
                         ::testing::ValuesIn(cluster_selection_inputs));
 
+// This test was constructed in the following manner: The same condensed tree and set of selected
+// clusters need to be passed to the reference implementation and then compare the results from
+// cuML and the reference implementation for an approximate match of probabilities. To fetch the
+// condensed hierarchy in the same format as required by the reference implementation, a simple
+// python script can be written:
+// 1. Print the parents, children, lambdas and sizes array of the condensed hierarchy.
+// 2. Convert them into a list ``condensed_tree`` of tuples where each tuples is of the form.
+//    ``(parents[i], children[i], lambdas[i], sizes[i])``
+// 3. Convert the list into a numpy array with the following command:
+//    ``condensed_tree_array = np.array(condened_tree, dtype=[('parent', np.intp), ('child',
+//                                      np.intp), ('lambda_val', float), ('child_size',
+//                                      np.intp)])``
+// 4. Store it in a pickle file.
+// The reference source code is modified in the following way: Edit the raw tree in the init
+// function of the PredictionData object in prediction.py by loading it from the pickle file. Also
+// edit the selected clusters array. Do the same in the all_points_membership_vectors function and
+// the approximate_predict functions.
 template <typename T, typename IdxT>
 class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>> {
  protected:
@@ -413,13 +435,12 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
                                                n_selected_clusters,
                                                prediction_data_);
 
-    ML::HDBSCAN::detail::Predict::all_points_membership_vectors(
-      handle,
-      condensed_tree,
-      prediction_data_,
-      membership_vec.data(),
-      data.data(),
-      raft::distance::DistanceType::L2SqrtExpanded);
+    ML::compute_all_points_membership_vectors(handle,
+                                              condensed_tree,
+                                              prediction_data_,
+                                              data.data(),
+                                              raft::distance::DistanceType::L2SqrtExpanded,
+                                              membership_vec.data());
 
     ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
                                   params.expected_probabilities.data(),
@@ -444,5 +465,160 @@ INSTANTIATE_TEST_CASE_P(SoftClusteringTest,
                         SoftClusteringTestF_Int,
                         ::testing::ValuesIn(soft_clustering_inputs));
 
+template <typename T, typename IdxT>
+class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredictInputs<T, IdxT>> {
+ public:
+  void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map, IdxT m)
+  {
+    thrust::transform(
+      handle.get_thrust_policy(), labels, labels + m, labels, [label_map] __device__(IdxT label) {
+        if (label != -1) return label_map[label];
+        return -1;
+      });
+  }
+
+ protected:
+  void basicTest()
+  {
+    raft::handle_t handle;
+
+    params = ::testing::TestWithParam<ApproximatePredictInputs<T, IdxT>>::GetParam();
+
+    rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
+                                                handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_children(params.condensed_children.size(),
+                                                 handle.get_stream());
+    rmm::device_uvector<T> condensed_lambdas(params.condensed_lambdas.size(), handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(), handle.get_stream());
+
+    raft::copy(condensed_parents.data(),
+               params.condensed_parents.data(),
+               condensed_parents.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_children.data(),
+               params.condensed_children.data(),
+               condensed_children.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_lambdas.data(),
+               params.condensed_lambdas.data(),
+               condensed_lambdas.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_sizes.data(),
+               params.condensed_sizes.data(),
+               condensed_sizes.size(),
+               handle.get_stream());
+
+    rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
+    raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
+
+    rmm::device_uvector<T> points_to_predict(params.n_points_to_predict * params.n_col,
+                                             handle.get_stream());
+    raft::copy(points_to_predict.data(),
+               params.points_to_predict.data(),
+               points_to_predict.size(),
+               handle.get_stream());
+
+    ML::HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle,
+                                                                    params.n_row,
+                                                                    params.condensed_parents.size(),
+                                                                    condensed_parents.data(),
+                                                                    condensed_children.data(),
+                                                                    condensed_lambdas.data(),
+                                                                    condensed_sizes.data());
+
+    rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
+
+    // intermediate outputs
+    rmm::device_uvector<T> stabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
+
+    int n_selected_clusters =
+      ML::HDBSCAN::detail::Extract::extract_clusters(handle,
+                                                     condensed_tree,
+                                                     params.n_row,
+                                                     labels.data(),
+                                                     stabilities.data(),
+                                                     probabilities.data(),
+                                                     label_map.data(),
+                                                     params.cluster_selection_method,
+                                                     params.allow_single_cluster,
+                                                     0,
+                                                     params.cluster_selection_epsilon);
+
+    ML::HDBSCAN::Common::PredictionData<IdxT, T> pred_data(handle, params.n_row, params.n_col);
+
+    auto stream = handle.get_stream();
+    rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
+    raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
+                                                       (params.min_samples + 1) * params.n_row * 2);
+
+    ML::HDBSCAN::detail::Reachability::mutual_reachability_graph(
+      handle,
+      data.data(),
+      (size_t)params.n_row,
+      (size_t)params.n_col,
+      raft::distance::DistanceType::L2SqrtExpanded,
+      params.min_samples + 1,
+      (float)1.0,
+      mutual_reachability_indptr.data(),
+      pred_data.get_core_dists(),
+      mutual_reachability_coo);
+
+    ML::HDBSCAN::Common::build_prediction_data(
+      handle, condensed_tree, labels.data(), label_map.data(), n_selected_clusters, pred_data);
+
+    // outputs
+    rmm::device_uvector<IdxT> out_labels(params.n_points_to_predict, handle.get_stream());
+    rmm::device_uvector<T> out_probabilities(params.n_points_to_predict, handle.get_stream());
+
+    transformLabels(handle, labels.data(), label_map.data(), params.n_row);
+
+    ML::out_of_sample_predict(handle,
+                              condensed_tree,
+                              pred_data,
+                              const_cast<float*>(data.data()),
+                              labels.data(),
+                              const_cast<float*>(points_to_predict.data()),
+                              (size_t)params.n_points_to_predict,
+                              raft::distance::DistanceType::L2SqrtExpanded,
+                              params.min_samples,
+                              out_labels.data(),
+                              out_probabilities.data());
+
+    handle.sync_stream(handle.get_stream());
+    cudaDeviceSynchronize();
+
+    ASSERT_TRUE(raft::devArrMatch(out_labels.data(),
+                                  params.expected_labels.data(),
+                                  params.n_points_to_predict,
+                                  raft::Compare<int>(),
+                                  handle.get_stream()));
+
+    ASSERT_TRUE(raft::devArrMatch(out_probabilities.data(),
+                                  params.expected_probabilities.data(),
+                                  params.n_points_to_predict,
+                                  raft::CompareApprox<float>(1e-2),
+                                  handle.get_stream()));
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {}
+
+ protected:
+  ApproximatePredictInputs<T, IdxT> params;
+  // T score;
+};
+
+typedef ApproximatePredictTest<float, int> ApproximatePredictTestF_Int;
+TEST_P(ApproximatePredictTestF_Int, Result) { EXPECT_TRUE(true); }
+
+INSTANTIATE_TEST_CASE_P(ApproximatePredictTest,
+                        ApproximatePredictTestF_Int,
+                        ::testing::ValuesIn(approximate_predict_inputs));
 }  // namespace HDBSCAN
 }  // end namespace ML
