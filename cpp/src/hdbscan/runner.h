@@ -117,6 +117,7 @@ struct FixConnectivitiesRedOp {
  * @param[in] n number of columns
  * @param[in] metric distance metric to use
  * @param[in] params hyper parameters
+ * @param[in] core_dists buffer for storing core distances (size m)
  * @param[out] out output container object
  */
 template <typename value_idx = int64_t, typename value_t = float>
@@ -126,6 +127,7 @@ void build_linkage(const raft::handle_t& handle,
                    size_t n,
                    raft::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
+                   value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
   auto stream = handle.get_stream();
@@ -134,18 +136,21 @@ void build_linkage(const raft::handle_t& handle,
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
-  rmm::device_uvector<value_t> core_dists(m, stream);
+  // Note that (min_samples+1) is parsed while allocating space for the COO matrix and to the
+  // mutual_reachability_graph function. This was done to account for self-loops in the knn graph
+  // and be consistent with Scikit learn Contrib.
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream,
+                                                                (params.min_samples + 1) * m * 2);
 
   detail::Reachability::mutual_reachability_graph(handle,
                                                   X,
                                                   (size_t)m,
                                                   (size_t)n,
                                                   metric,
-                                                  params.min_samples,
+                                                  params.min_samples + 1,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
-                                                  core_dists.data(),
+                                                  core_dists,
                                                   mutual_reachability_coo);
 
   /**
@@ -153,7 +158,7 @@ void build_linkage(const raft::handle_t& handle,
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists, m);
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(handle,
                                             X,
@@ -195,6 +200,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   Common::HDBSCANParams& params,
                   value_idx* labels,
                   value_idx* label_map,
+                  value_t* core_dists,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
@@ -202,7 +208,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
-  build_linkage(handle, X, m, n, metric, params, out);
+  build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
   /**
    * Condense branches of tree according to min cluster size
