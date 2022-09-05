@@ -19,6 +19,7 @@ set(cython_sources
     dbscan.pyx
     hdbscan.pyx
     kmeans.pyx
+    prediction.pyx
 )
 
 if(NOT SINGLEGPU)

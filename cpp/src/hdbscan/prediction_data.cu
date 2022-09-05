@@ -45,15 +45,62 @@ namespace Common {
 template <typename value_idx, typename value_t>
 void PredictionData<value_idx, value_t>::allocate(const raft::handle_t& handle,
                                                   value_idx n_exemplars_,
-                                                  value_idx n_selected_clusters_)
+                                                  value_idx n_selected_clusters_,
+                                                  value_idx n_edges_)
 {
   this->n_exemplars         = n_exemplars_;
   this->n_selected_clusters = n_selected_clusters_;
   exemplar_idx.resize(n_exemplars, handle.get_stream());
   exemplar_label_offsets.resize(n_selected_clusters + 1, handle.get_stream());
   selected_clusters.resize(n_selected_clusters, handle.get_stream());
+  index_into_children.resize(n_edges_ + 1, handle.get_stream());
 }
 
+/**
+ * Builds an index into the children array of the CondensedHierarchy object. This is useful for
+ * constant time lookups during bottom-up tree traversals in prediction algorithms. It is therefore
+ * an important feature for speed-up in comparison with Scikit-learn Contrib. This is intended for
+ * internal use only and users are not expected to invoke this method.
+ *
+ * @tparam value_idx
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] children children array of condensed hierarchy
+ * @param[in] n_edges number of edges in children array
+ * @param[out] index_into_children index into the children array (size n_edges + 1)
+ */
+template <typename value_idx>
+void build_index_into_children(const raft::handle_t& handle,
+                               value_idx* children,
+                               value_idx n_edges,
+                               value_idx* index_into_children)
+{
+  auto exec_policy = handle.get_thrust_policy();
+
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+
+  auto index_op = [index_into_children] __device__(auto t) {
+    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+    return;
+  };
+  thrust::for_each(
+    exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
+    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
+    index_op);
+}
+/**
+ * Populates the PredictionData container object. Computes and stores: the indices of exemplar
+ * points sorted by their cluster labels, cluster label offsets of the exemplars and the set of
+ * clusters selected from the cluster tree.
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree a condensed hierarchy
+ * @param[in] labels unconverted non-monotonic labels. These are intermediate outputs in the hdbscan
+ * method
+ * @param[in] label_map map of original labels to new final labels (size n_leaves)
+ * @param[in] n_selected_clusters number of clusters in the final clustering
+ * @param[in] prediction_data PreditionData object
+ */
 void build_prediction_data(const raft::handle_t& handle,
                            CondensedHierarchy<int, float>& condensed_tree,
                            int* labels,
@@ -116,10 +163,12 @@ void build_prediction_data(const raft::handle_t& handle,
                       parents,
                       children,
                       n_leaves,
+                      labels,
                       deaths = prediction_data.get_deaths()] __device__(auto idx) {
     if (children[idx] < n_leaves) {
-      is_exemplar[children[idx]] = (is_leaf_cluster[parents[idx] - n_leaves] &&
-                                    lambdas[idx] == deaths[parents[idx] - n_leaves]);
+      is_exemplar[children[idx]] =
+        (labels[children[idx]] != -1 && is_leaf_cluster[parents[idx] - n_leaves] &&
+         lambdas[idx] == deaths[parents[idx] - n_leaves]);
       return;
     }
   };
@@ -129,7 +178,7 @@ void build_prediction_data(const raft::handle_t& handle,
   int n_exemplars = thrust::count_if(
     exec_policy, is_exemplar.begin(), is_exemplar.end(), [] __device__(auto idx) { return idx; });
 
-  prediction_data.allocate(handle, n_exemplars, n_selected_clusters);
+  prediction_data.allocate(handle, n_exemplars, n_selected_clusters, n_edges);
 
   auto exemplar_idx_end_ptr = thrust::copy_if(
     exec_policy,
@@ -157,21 +206,29 @@ void build_prediction_data(const raft::handle_t& handle,
                     exemplar_labels.begin(),
                     exemplar_labels.end(),
                     converted_exemplar_labels.data(),
-                    [label_map] __device__(auto idx) { return label_map[idx]; });
-
-  raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
-                                           n_exemplars,
-                                           prediction_data.get_exemplar_label_offsets(),
-                                           n_selected_clusters + 1,
-                                           stream);
-
-  thrust::transform(exec_policy,
-                    prediction_data.get_exemplar_label_offsets(),
-                    prediction_data.get_exemplar_label_offsets() + n_selected_clusters,
-                    prediction_data.get_selected_clusters(),
-                    [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
-                      return exemplar_labels[idx] + n_leaves;
+                    [label_map] __device__(auto label) {
+                      if (label != -1) return label_map[label];
+                      return -1;
                     });
+
+  if (n_exemplars > 0) {
+    raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
+                                             n_exemplars,
+                                             prediction_data.get_exemplar_label_offsets(),
+                                             n_selected_clusters + 1,
+                                             stream);
+
+    thrust::transform(exec_policy,
+                      prediction_data.get_exemplar_label_offsets(),
+                      prediction_data.get_exemplar_label_offsets() + n_selected_clusters,
+                      prediction_data.get_selected_clusters(),
+                      [exemplar_labels = exemplar_labels.data(), n_leaves] __device__(auto idx) {
+                        return exemplar_labels[idx] + n_leaves;
+                      });
+
+    // build the index into the children array for constant time lookups
+    build_index_into_children(handle, children, n_edges, prediction_data.get_index_into_children());
+  }
 }
 
 };  // end namespace Common
