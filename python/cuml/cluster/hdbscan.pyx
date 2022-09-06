@@ -70,6 +70,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_leaves()
         int get_n_clusters()
         float *get_stabilities()
+        int *get_labels()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
@@ -88,6 +89,9 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
                        int m,
                        int n)
 
+        size_t n_rows
+        size_t n_cols
+
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
     void hdbscan(const handle_t & handle,
@@ -96,6 +100,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output)
+
+    void hdbscan(const handle_t & handle,
+                 const float* X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams& params,
+                 hdbscan_output & output,
+                 PredictionData & prediction_data_)
 
     void hdbscan(const handle_t & handle,
                  const float* X,
@@ -121,14 +133,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            CLUSTER_SELECTION_METHOD cluster_selection_method,
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
-
-    void _all_points_membership_vectors(
-        const handle_t &handle,
-        CondensedHierarchy[int, float] &condensed_tree,
-        PredictionData[int, float] &prediction_data_,
-        float* membership_vec,
-        float* X,
-        DistanceType metric)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -397,7 +401,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         persist the clustering object for later re-use you probably want
         to set this to True.
 
-
     Attributes
     ----------
     labels_ : ndarray, shape (n_samples, )
@@ -604,6 +607,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         if self.prediction_data:
             self.X_m = X_m
             self.n_rows = n_rows
+            self.n_cols = n_cols
 
         cdef uintptr_t input_ptr = X_m.ptr
 
@@ -671,11 +675,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
-        cdef PredictionData[int, float] *pred_data = new PredictionData(
+        cdef PredictionData[int, float] *prediction_data_ = new PredictionData(
             handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn':
             if self.prediction_data:
-                self._prediction_data = <size_t>pred_data
+                self.prediction_data_ptr = <size_t>prediction_data_
                 hdbscan(handle_[0],
                         <float*>input_ptr,
                         <int> n_rows,
@@ -683,7 +687,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                         <DistanceType> metric,
                         params,
                         deref(linkage_output),
-                        deref(pred_data))
+                        deref(prediction_data_))
+
             else:
                 hdbscan(handle_[0],
                         <float*>input_ptr,
@@ -786,42 +791,3 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "gen_min_span_tree",
             "prediction_data"
         ]
-
-
-def all_points_membership_vectors(clusterer):
-    if not clusterer.fit_called_:
-        raise ValueError("The clusterer is not fit on data. "
-                         "Please call clusterer.fit first")
-
-    if not clusterer.prediction_data:
-        raise ValueError("PredictionData not generated. "
-                         "Please call clusterer.fit again with "
-                         "prediction_data=True")
-
-    cdef uintptr_t input_ptr = clusterer.X_m.ptr
-
-    membership_vec = CumlArray.empty(
-        (clusterer.n_rows * clusterer.n_clusters_,),
-        dtype="float32")
-
-    cdef uintptr_t membership_vec_ptr = membership_vec.ptr
-
-    cdef hdbscan_output *hdbscan_output_ = \
-        <hdbscan_output*><size_t>clusterer.hdbscan_output_
-
-    cdef PredictionData *pred_data_ = \
-        <PredictionData*><size_t>clusterer._prediction_data
-
-    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
-    _all_points_membership_vectors(handle_[0],
-                                   hdbscan_output_.get_condensed_tree(),
-                                   deref(pred_data_),
-                                   <float*> membership_vec_ptr,
-                                   <float*> input_ptr,
-                                   _metrics_mapping[clusterer.metric])
-
-    clusterer.handle.sync()
-    return membership_vec.to_output(
-        output_type="numpy",
-        output_dtype="float32").reshape((clusterer.n_rows,
-                                         clusterer.n_clusters_))

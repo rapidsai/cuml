@@ -15,7 +15,11 @@
  */
 
 #include "detail/condense.cuh"
+#include "detail/predict.cuh"
 #include <cuml/cluster/hdbscan.hpp>
+
+#include <raft/cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
@@ -34,7 +38,9 @@ void hdbscan(const raft::handle_t& handle,
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
   rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), label_map.data(), out);
+  rmm::device_uvector<float> core_dists(m, handle.get_stream());
+  HDBSCAN::_fit_hdbscan(
+    handle, X, m, n, metric, params, labels.data(), label_map.data(), core_dists.data(), out);
 }
 
 void hdbscan(const raft::handle_t& handle,
@@ -48,7 +54,17 @@ void hdbscan(const raft::handle_t& handle,
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
   rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), label_map.data(), out);
+  HDBSCAN::_fit_hdbscan(handle,
+                        X,
+                        m,
+                        n,
+                        metric,
+                        params,
+                        labels.data(),
+                        label_map.data(),
+                        prediction_data_.get_core_dists(),
+                        out);
+
   HDBSCAN::Common::build_prediction_data(handle,
                                          out.get_condensed_tree(),
                                          labels.data(),
@@ -102,15 +118,42 @@ void _extract_clusters(const raft::handle_t& handle,
                                              cluster_selection_epsilon);
 }
 
-void _all_points_membership_vectors(const raft::handle_t& handle,
-                                    HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-                                    HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-                                    float* membership_vec,
-                                    const float* X,
-                                    raft::distance::DistanceType metric)
+void compute_all_points_membership_vectors(
+  const raft::handle_t& handle,
+  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+  const float* X,
+  raft::distance::DistanceType metric,
+  float* membership_vec)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
-    handle, condensed_tree, prediction_data, membership_vec, X, metric);
+    handle, condensed_tree, prediction_data, X, metric, membership_vec);
 }
 
+void out_of_sample_predict(const raft::handle_t& handle,
+                           HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                           HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                           const float* X,
+                           int* labels,
+                           const float* points_to_predict,
+                           size_t n_prediction_points,
+                           raft::distance::DistanceType metric,
+                           int min_samples,
+                           int* out_labels,
+                           float* out_probabilities)
+{
+  // Note that (min_samples+1) is parsed to the approximate_predict function. This was done for the
+  // core distance computation to consistent with Scikit learn Contrib.
+  HDBSCAN::detail::Predict::approximate_predict(handle,
+                                                condensed_tree,
+                                                prediction_data,
+                                                X,
+                                                labels,
+                                                points_to_predict,
+                                                n_prediction_points,
+                                                metric,
+                                                min_samples + 1,
+                                                out_labels,
+                                                out_probabilities);
+}
 };  // end namespace ML
