@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
+#include <cuml/solvers/params.hpp>
+#include <cuml/solvers/solver.hpp>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/matrix/matrix.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
-#include <solver/cd.cuh>
 #include <test_utils.h>
 
-#include <raft/stats/mean.hpp>
-#include <raft/stats/meanvar.hpp>
-#include <raft/stats/stddev.hpp>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/meanvar.cuh>
+#include <raft/stats/stddev.cuh>
 
 namespace ML {
 namespace Solver {
-
-using namespace MLCommon;
 
 template <typename T>
 struct CdInputs {
@@ -45,24 +44,29 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
       stream(handle.get_stream()),
       data(params.n_row * params.n_col, stream),
       labels(params.n_row, stream),
+      sample_weight(params.n_row, stream),
       coef(params.n_col, stream),
       coef2(params.n_col, stream),
       coef3(params.n_col, stream),
       coef4(params.n_col, stream),
+      coef5(params.n_col, stream),
       coef_ref(params.n_col, stream),
       coef2_ref(params.n_col, stream),
       coef3_ref(params.n_col, stream),
-      coef4_ref(params.n_col, stream)
+      coef4_ref(params.n_col, stream),
+      coef5_ref(params.n_col, stream)
   {
     RAFT_CUDA_TRY(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef3.data(), 0, coef3.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef4.data(), 0, coef4.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef5.data(), 0, coef5.size() * sizeof(T), stream));
 
     RAFT_CUDA_TRY(cudaMemsetAsync(coef_ref.data(), 0, coef_ref.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef2_ref.data(), 0, coef2_ref.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef3_ref.data(), 0, coef3_ref.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef4_ref.data(), 0, coef4_ref.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(coef5_ref.data(), 0, coef5_ref.size() * sizeof(T), stream));
   }
 
  protected:
@@ -75,6 +79,9 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
 
     T labels_h[params.n_row] = {6.0, 8.3, 9.8, 11.2};
     raft::update_device(labels.data(), labels_h, params.n_row, stream);
+
+    T sample_weight_h[params.n_row] = {1.0, 0.1, 1.81, 3.2};
+    raft::update_device(sample_weight.data(), sample_weight_h, params.n_row, stream);
 
     /* How to reproduce the coefficients for this test:
 
@@ -98,14 +105,18 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     T coef4_ref_h[params.n_col] = {1.75420431, -0.16215289};
     raft::update_device(coef4_ref.data(), coef4_ref_h, params.n_col, stream);
 
-    bool fit_intercept  = false;
-    bool normalize      = false;
-    int epochs          = 200;
-    T alpha             = T(0.2);
-    T l1_ratio          = T(1.0);
-    bool shuffle        = false;
-    T tol               = T(1e-4);
-    ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
+    T coef5_ref_h[params.n_col] = {0.12381484, -0.31647292};
+    raft::update_device(coef5_ref.data(), coef5_ref_h, params.n_col, stream);
+
+    bool fit_intercept   = false;
+    bool normalize       = false;
+    int epochs           = 200;
+    T alpha              = T(0.2);
+    T l1_ratio           = T(1.0);
+    bool shuffle         = false;
+    T tol                = T(1e-4);
+    ML::loss_funct loss  = ML::loss_funct::SQRD_LOSS;
+    T* sample_weight_ptr = nullptr;
 
     intercept = T(0);
     cdFit(handle,
@@ -123,7 +134,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           l1_ratio,
           shuffle,
           tol,
-          stream);
+          sample_weight_ptr);
 
     fit_intercept = true;
     intercept2    = T(0);
@@ -142,7 +153,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           l1_ratio,
           shuffle,
           tol,
-          stream);
+          sample_weight_ptr);
 
     alpha         = T(1.0);
     l1_ratio      = T(0.5);
@@ -163,7 +174,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           l1_ratio,
           shuffle,
           tol,
-          stream);
+          sample_weight_ptr);
 
     fit_intercept = true;
     normalize     = true;
@@ -183,7 +194,28 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           l1_ratio,
           shuffle,
           tol,
-          stream);
+          sample_weight_ptr);
+
+    fit_intercept     = true;
+    normalize         = false;
+    intercept2        = T(0);
+    sample_weight_ptr = sample_weight.data();
+    cdFit(handle,
+          data.data(),
+          params.n_row,
+          params.n_col,
+          labels.data(),
+          coef5.data(),
+          &intercept2,
+          fit_intercept,
+          normalize,
+          epochs,
+          loss,
+          alpha,
+          l1_ratio,
+          shuffle,
+          tol,
+          sample_weight_ptr);
   }
 
   void SetUp() override { lasso(); }
@@ -193,10 +225,11 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  rmm::device_uvector<T> data, labels, coef, coef_ref;
+  rmm::device_uvector<T> data, labels, sample_weight, coef, coef_ref;
   rmm::device_uvector<T> coef2, coef2_ref;
   rmm::device_uvector<T> coef3, coef3_ref;
   rmm::device_uvector<T> coef4, coef4_ref;
+  rmm::device_uvector<T> coef5, coef5_ref;
   T intercept, intercept2;
 };
 
@@ -236,7 +269,7 @@ TEST_P(CdTestF, Fit)
     coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(raft::devArrMatch(
-    coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+    coef5_ref.data(), coef5.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef CdTest<double> CdTestD;
@@ -269,6 +302,9 @@ TEST_P(CdTestD, Fit)
 
   ASSERT_TRUE(raft::devArrMatch(
     coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+
+  ASSERT_TRUE(raft::devArrMatch(
+    coef5_ref.data(), coef5.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(CdTests, CdTestF, ::testing::ValuesIn(inputsf2));

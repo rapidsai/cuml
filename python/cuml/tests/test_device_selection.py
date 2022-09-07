@@ -156,6 +156,7 @@ def test_train_gpu_infer_gpu(lr_data):
     sk_pred = sk_model.predict(X_test)
     np.testing.assert_allclose(sk_pred, cu_pred)
 
+
 @pytest.mark.parametrize('fit_intercept', [False, True])
 @pytest.mark.parametrize('normalize', [False, True])
 def test_pickle_interop(fit_intercept, normalize):
@@ -176,7 +177,7 @@ def test_pickle_interop(fit_intercept, normalize):
         cu_pred = pickled_model.predict(X_test)
 
         sk_model = skLinearRegression(fit_intercept=fit_intercept,
-                                  normalize=normalize)
+                                      normalize=normalize)
     sk_model.fit(X_train, y_train)
     sk_pred = sk_model.predict(X_test)
     np.testing.assert_allclose(sk_pred, cu_pred)

@@ -219,8 +219,9 @@ class Base(TagsMixin,
         # look for current device_type
         device_type = cuml.global_settings.device_type
         if device_type == 'gpu':
-            # check if the sklean model already set as attribute of the cuml estimator
-            # its presence should signify that CPU execution was used previously
+            # check if the sklean model already set as attribute of the cuml
+            # estimator its presence should signify that CPU execution was
+            # used previously
             if hasattr(self, 'sk_model_'):
                 # transfer attributes trained with sklearn
                 for attribute in self.get_attributes_names():
@@ -230,7 +231,8 @@ class Base(TagsMixin,
                         sk_attr = self.sk_model_.__dict__[attribute]
                         # if the sklearn attribute is an array
                         if isinstance(sk_attr, np.ndarray):
-                            # transfer array to gpu and set it as a cuml attribute
+                            # transfer array to gpu and set it as a cuml
+                            # attribute
                             cuml_array = input_to_cuml_array(sk_attr)[0]
                             setattr(self, attribute, cuml_array)
                         else:
@@ -239,15 +241,18 @@ class Base(TagsMixin,
             # call the original cuml method
             return original_func(*args, **kwargs)
         elif device_type == 'cpu':
-            # check if the sklean model already set as attribute of the cuml estimator
-            # its presence should signify that CPU execution was used previously
+            # check if the sklean model already set as attribute of the cuml
+            # estimator its presence should signify that CPU execution was
+            # used previously
             if not hasattr(self, 'sk_model_'):
                 # import model in sklearn
                 if hasattr(self, 'sk_import_path_'):
-                    # if importation path differs from the one of sklearn look for sk_import_path_
+                    # if importation path differs from the one of sklearn
+                    # look for sk_import_path_
                     model_path = self.sk_import_path_
                 else:
-                    # importation from similar path to the current estimator class
+                    # importation from similar path to the current estimator
+                    # class
                     model_path = 'sklearn' + self.__class__.__module__[4:]
                 model_name = self.__class__.__name__
                 sk_model = getattr(import_module(model_path), model_name)
@@ -265,28 +270,34 @@ class Base(TagsMixin,
                     cu_attr = self.__dict__[attribute]
                     # if the cuml attribute is a CumlArrayDescriptorMeta
                     if hasattr(cu_attr, 'get_input_value'):
-                        # extract the actual value from the CumlArrayDescriptorMeta
+                        # extract the actual value from the
+                        # CumlArrayDescriptorMeta
                         cu_attr_value = cu_attr.get_input_value()
                         # check if descriptor is empty
                         if cu_attr_value is not None:
                             if cu_attr.input_type == 'cuml':
-                                # transform cumlArray to numpy and set it as an attribute in the sklearn model
-                                self.sk_model_.__dict__[attribute] = cu_attr_value.to_output('numpy')
+                                # transform cumlArray to numpy and set it as
+                                # an attribute in the sklearn model
+                                self.sk_model_.__dict__[attribute] = \
+                                    cu_attr_value.to_output('numpy')
                             else:
-                                # transfer all other types of attributes directly
-                                self.sk_model_.__dict__[attribute] = cu_attr_value
+                                # transfer all other types of attributes
+                                # directly
+                                self.sk_model_.__dict__[attribute] = \
+                                    cu_attr_value
                     else:
                         # transfer all other types of attributes directly
                         self.sk_model_.__dict__[attribute] = cu_attr
 
             # helper function to convert non-builtin as numpy arrays
             def to_host(data):
-                if isinstance(data, (int, float, complex, bool, str, type(None), dict, set, list, tuple)):
+                if isinstance(data, (int, float, complex, bool, str,
+                              type(None), dict, set, list, tuple)):
                     return data
                 else:
                     try:
                         return input_to_host_array(data)[0]
-                    except:
+                    except Exception as e:
                         return data
             # converts all the args
             args = tuple(to_host(arg) for arg in args)

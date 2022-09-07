@@ -163,7 +163,7 @@ class ElasticNet(Base,
         max_iter: int
         tol: float or double.
         solver: str, 'cd' or 'qn'
-        selection : str, ‘cyclic’, or 'random'
+        selection : str, 'cyclic', or 'random'
 
         For additional docs, see `scikitlearn's ElasticNet
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
@@ -234,12 +234,14 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True) -> "ElasticNet":
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "ElasticNet":
         """
         Fit the model with X and y.
 
         """
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype)
+        self.solver_model.fit(X, y, convert_dtype=convert_dtype,
+                              sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
             self.coef_ = CumlArray(
                 data=self.solver_model.coef_,

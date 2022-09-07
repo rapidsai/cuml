@@ -230,7 +230,7 @@ class LinearRegression(Base,
 
     @generate_docstring()
     def fit_(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "LinearRegression":
+             sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
