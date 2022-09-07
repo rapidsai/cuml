@@ -20,6 +20,7 @@ from ._data import PolynomialFeatures
 
 from ._imputation import SimpleImputer
 from ._imputation import MissingIndicator
+from ._imputation import KNNImputer
 from ._discretization import KBinsDiscretizer
 
 from ._function_transformer import FunctionTransformer
@@ -46,6 +47,7 @@ __all__ = [
     'StandardScaler',
     'SimpleImputer',
     'MissingIndicator',
+    'KNNImputer',
     'ColumnTransformer',
     'FunctionTransformer',
     'add_dummy_feature',
