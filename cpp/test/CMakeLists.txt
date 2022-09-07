@@ -41,7 +41,7 @@ function(ConfigureTest)
     CUDA::cusolver${_ctk_static_suffix}
     CUDA::cudart${_ctk_static_suffix}
     CUDA::cusparse${_ctk_static_suffix}
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
     raft::raft
     $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>

@@ -137,6 +137,7 @@ if(CUDA_STATIC_RUNTIME)
   # we also want to statically link BLAS
   set(BLA_STATIC ON)
   set(_ctk_static_suffix "_static")
+  set(_ctk_static_suffix_cufft "_static_nocallback")
   # Control legacy FindCUDA.cmake behavior too
   # Remove this after we push it into rapids-cmake:
   # https://github.com/rapidsai/rapids-cmake/pull/259
@@ -539,7 +540,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
       $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     PRIVATE
-      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
+      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
       ${TREELITE_LIBS}
       $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
       ${OpenMP_CXX_LIB_NAMES}
