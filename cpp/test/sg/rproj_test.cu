@@ -15,7 +15,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <cuml/random_projection/rproj_c.h>
+#include <cuml/randomprojection/randomprojection_c.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/cuda_utils.cuh>

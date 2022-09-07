@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "rproj_utils.cuh"
+#include "randomprojection_utils.cuh"
 
-#include <cuml/random_projection/rproj_c.h>
+#include <cuml/randomprojection/randomprojection_c.h>
 
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
@@ -74,34 +74,20 @@ void sparse_random_matrix(const raft::handle_t& h,
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
     rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5), scale, stream);
   } else {
-    std::size_t indices_alloc = params.n_features * params.n_components;
-    std::size_t indptr_alloc  = (params.n_components + 1);
-    std::vector<int> indices(indices_alloc);
-    std::vector<int> indptr(indptr_alloc);
+    std::vector<int> indptr(params.n_components + 1);
+    std::vector<int> indices(params.n_features * params.n_components);
 
-    std::size_t offset      = 0;
-    std::size_t indices_idx = 0;
-    std::size_t indptr_idx  = 0;
+    size_t n_elements = sample_without_replacement(indptr.data(), indices.data(), params, stream);
 
-    for (int i = 0; i < params.n_components; i++) {
-      int n_nonzero = binomial(h, params.n_features, params.density, params.random_state);
-      sample_without_replacement(params.n_features, n_nonzero, indices.data(), indices_idx);
-      indptr[indptr_idx] = offset;
-      indptr_idx++;
-      offset += n_nonzero;
-    }
-
-    indptr[indptr_idx] = offset;
-
-    auto len = offset;
-    random_matrix->indices.resize(len, stream);
-    raft::update_device(random_matrix->indices.data(), indices.data(), len, stream);
-
-    len = indptr_idx + 1;
+    size_t len = params.n_components + 1;
     random_matrix->indptr.resize(len, stream);
     raft::update_device(random_matrix->indptr.data(), indptr.data(), len, stream);
 
-    len = offset;
+    len = n_elements;
+    random_matrix->indices.resize(len, stream);
+    raft::update_device(random_matrix->indices.data(), indices.data(), len, stream);
+
+    len = n_elements;
     random_matrix->sparse_data.resize(len, stream);
     auto rng     = raft::random::Rng(params.random_state);
     math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);

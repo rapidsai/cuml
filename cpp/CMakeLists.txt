@@ -407,7 +407,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR randomprojection_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        src/random_projection/rproj.cu)
+      src/randomprojection/randomprojection.cu)
   endif()
 
   # todo: separate solvers better

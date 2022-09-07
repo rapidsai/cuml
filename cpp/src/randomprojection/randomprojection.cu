@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "rproj.cuh"
-#include <cuml/random_projection/rproj_c.h>
+#include "randomprojection.cuh"
+#include <cuml/randomprojection/randomprojection_c.h>
 
 namespace ML {
 
