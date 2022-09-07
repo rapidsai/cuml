@@ -21,7 +21,7 @@
 #include "stabilities.cuh"
 #include "utils.h"
 
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
