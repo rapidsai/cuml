@@ -17,11 +17,11 @@
 #include "test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/label/classlabels.hpp>
-#include <raft/random/make_blobs.hpp>
-#include <raft/spatial/knn/knn.hpp>
+#include <raft/label/classlabels.cuh>
+#include <raft/random/make_blobs.cuh>
+#include <raft/spatial/knn/knn.cuh>
 #include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>

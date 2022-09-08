@@ -22,9 +22,9 @@
 #pragma once
 
 #include <math.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/map_then_reduce.cuh>
 #include <rmm/device_scalar.hpp>
 
 namespace MLCommon {

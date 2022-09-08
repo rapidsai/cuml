@@ -19,8 +19,8 @@
 
 #include <linalg/batched/matrix.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/add.cuh>
 
 #include <gtest/gtest.h>
 

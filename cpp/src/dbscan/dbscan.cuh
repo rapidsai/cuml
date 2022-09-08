@@ -18,7 +18,7 @@
 
 #include "runner.cuh"
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>

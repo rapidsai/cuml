@@ -22,9 +22,9 @@
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -171,6 +171,7 @@ void cdFit(const raft::handle_t& handle,
     raft::linalg::multiplyScalar(
       sample_weight, sample_weight, (math_t)n_rows / h_sum_sw, n_rows, stream);
   }
+
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
