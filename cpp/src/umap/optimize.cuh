@@ -169,7 +169,7 @@ void optimize_params(T* input,
   } while (tol_grads < 2 && num_iters < max_epochs);
 }
 
-void find_params_ab(UMAPParams* params, cudaStream_t stream)
+inline void find_params_ab(UMAPParams* params, cudaStream_t stream)
 {
   float spread   = params->spread;
   float min_dist = params->min_dist;

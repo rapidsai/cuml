@@ -68,6 +68,7 @@ option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
 option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
@@ -91,6 +92,7 @@ message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML_CPP: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
+message(VERBOSE "CUML_CPP: Statically link the CUDA toolkit runtime and libraries: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Build and statically link RAFT libraries: ${CUML_USE_RAFT_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
@@ -129,12 +131,28 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+set(_ctk_static_suffix "")
+if(CUDA_STATIC_RUNTIME)
+  # If we're statically linking CTK cuBLAS,
+  # we also want to statically link BLAS
+  set(BLA_STATIC ON)
+  set(_ctk_static_suffix "_static")
+  set(_ctk_static_suffix_cufft "_static_nocallback")
+  # Control legacy FindCUDA.cmake behavior too
+  # Remove this after we push it into rapids-cmake:
+  # https://github.com/rapidsai/rapids-cmake/pull/259
+  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+endif()
+
 if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "CUML_CPP: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
   endif()
 endif()
+
+# CUDA runtime
+rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -522,7 +540,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
       $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     PRIVATE
-      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
+      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
       ${TREELITE_LIBS}
       $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
       ${OpenMP_CXX_LIB_NAMES}
