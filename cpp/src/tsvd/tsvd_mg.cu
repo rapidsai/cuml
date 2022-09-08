@@ -25,12 +25,12 @@
 #include <cumlprims/opg/stats/mean_center.hpp>
 #include <cumlprims/opg/stats/stddev.hpp>
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean_center.cuh>
 
 #include <cstddef>
 

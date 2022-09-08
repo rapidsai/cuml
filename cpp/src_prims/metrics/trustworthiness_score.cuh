@@ -15,9 +15,9 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/specializations.hpp>
-#include <raft/spatial/knn/knn.hpp>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/distance/specializations.cuh>
+#include <raft/spatial/knn/knn.cuh>
+#include <raft/spatial/knn/specializations.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>

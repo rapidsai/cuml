@@ -17,7 +17,7 @@
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/map.hpp>
+#include <raft/linalg/map.cuh>
 
 #include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
@@ -26,7 +26,7 @@
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 #include <thrust/reduce.h>

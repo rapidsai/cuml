@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #include <cuml/metrics/metrics.hpp>
 
-#include <raft/distance/distance.hpp>
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/distance/specializations.cuh>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Metrics {
