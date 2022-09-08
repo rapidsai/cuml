@@ -20,7 +20,7 @@
 from rmm._cuda.gpu import getDeviceCount
 
 
-def has_cuda_gpu():
+def is_cuda_available():
     return getDeviceCount() >= 1
 
 

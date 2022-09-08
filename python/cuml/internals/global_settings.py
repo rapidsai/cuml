@@ -15,7 +15,7 @@
 #
 
 import threading
-from cuml.common.cuda import has_cuda_gpu
+from cuml.common.cuda import is_cuda_available
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -25,7 +25,7 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
     def __init__(self):
         super().__init__()
         built_with_cuda = True
-        if built_with_cuda and has_cuda_gpu():
+        if built_with_cuda and is_cuda_available():
             default_device_type = 'gpu'
             default_memory_type = 'global'
         else:
