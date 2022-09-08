@@ -86,7 +86,10 @@ __global__ void init_transform(int* indices,
  * a and b, which are based on min_dist and spread
  * parameters.
  */
-void find_ab(UMAPParams* params, cudaStream_t stream) { Optimize::find_params_ab(params, stream); }
+inline void find_ab(UMAPParams* params, cudaStream_t stream)
+{
+  Optimize::find_params_ab(params, stream);
+}
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _get_graph(const raft::handle_t& handle,
