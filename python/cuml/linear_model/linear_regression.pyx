@@ -100,16 +100,16 @@ class LinearRegression(Base,
         0   1.0
         1   2.0
         dtype: float32
-        >>> print(reg.intercept_)
-        3.0...
+        >>> print(reg.intercept_) # doctest: +SKIP
+        3.0
 
         >>> X_new = cudf.DataFrame()
         >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
         >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
         >>> preds = lr.predict(X_new)
-        >>> print(preds)
-        0   15.999...
-        1   14.999...
+        >>> print(preds) # doctest: +SKIP
+        0   16.0
+        1   15.0
         dtype: float32
 
 
