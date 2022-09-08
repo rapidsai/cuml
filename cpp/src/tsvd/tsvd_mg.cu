@@ -310,6 +310,8 @@ void inverse_transform_impl(raft::handle_t& handle,
  */
 template <typename T>
 void fit_transform_impl(raft::handle_t& handle,
+                        cudaStream_t* streams,
+                        size_t n_streams,
                         std::vector<Matrix::Data<T>*>& input_data,
                         Matrix::PartDescriptor& input_desc,
                         std::vector<Matrix::Data<T>*>& trans_data,
@@ -321,16 +323,6 @@ void fit_transform_impl(raft::handle_t& handle,
                         paramsTSVDMG& prms,
                         bool verbose)
 {
-  int rank = handle.get_comms().get_rank();
-
-  // TODO: These streams should come from raft::handle_t
-  auto n_streams = input_desc.blocksOwnedBy(rank).size();
-  ;
-  cudaStream_t streams[n_streams];
-  for (std::size_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
-  }
-
   fit_impl(
     handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
 
@@ -371,13 +363,6 @@ void fit_transform_impl(raft::handle_t& handle,
 
   raft::linalg::scalarMultiply(
     explained_var_ratio, explained_var, scalar, prms.n_components, streams[0]);
-
-  for (std::size_t i = 0; i < n_streams; i++) {
-    handle.sync_stream(streams[i]);
-  }
-  for (std::size_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
-  }
 }
 
 void fit(raft::handle_t& handle,
@@ -416,7 +401,16 @@ void fit_transform(raft::handle_t& handle,
                    paramsTSVDMG& prms,
                    bool verbose)
 {
+  // TODO: These streams should come from raft::handle_t
+  int rank         = handle.get_comms().get_rank();
+  size_t n_streams = input_desc.blocksOwnedBy(rank).size();
+  cudaStream_t streams[n_streams];
+  for (std::size_t i = 0; i < n_streams; i++) {
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
+  }
   fit_transform_impl(handle,
+                     streams,
+                     n_streams,
                      input_data,
                      input_desc,
                      trans_data,
@@ -427,6 +421,12 @@ void fit_transform(raft::handle_t& handle,
                      singular_vals,
                      prms,
                      verbose);
+  for (std::size_t i = 0; i < n_streams; i++) {
+    handle.sync_stream(streams[i]);
+  }
+  for (std::size_t i = 0; i < n_streams; i++) {
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
+  }
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -441,7 +441,16 @@ void fit_transform(raft::handle_t& handle,
                    paramsTSVDMG& prms,
                    bool verbose)
 {
+  // TODO: These streams should come from raft::handle_t
+  int rank         = handle.get_comms().get_rank();
+  size_t n_streams = input_desc.blocksOwnedBy(rank).size();
+  cudaStream_t streams[n_streams];
+  for (std::size_t i = 0; i < n_streams; i++) {
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
+  }
   fit_transform_impl(handle,
+                     streams,
+                     n_streams,
                      input_data,
                      input_desc,
                      trans_data,
@@ -452,6 +461,12 @@ void fit_transform(raft::handle_t& handle,
                      singular_vals,
                      prms,
                      verbose);
+  for (std::size_t i = 0; i < n_streams; i++) {
+    handle.sync_stream(streams[i]);
+  }
+  for (std::size_t i = 0; i < n_streams; i++) {
+    RAFT_CUDA_TRY(cudaStreamDestroy(streams[i]));
+  }
 }
 
 void transform(raft::handle_t& handle,

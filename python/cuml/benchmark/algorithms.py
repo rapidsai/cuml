@@ -245,7 +245,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.neighbors.NearestNeighbors,
             cuml.neighbors.NearestNeighbors,
-            shared_args=dict(n_neighbors=1024),
+            shared_args=dict(n_neighbors=64),
             cpu_args=dict(algorithm="brute", n_jobs=-1),
             cuml_args={},
             name="NearestNeighbors",
@@ -619,7 +619,7 @@ def all_algorithms():
         AlgorithmPair(
             None,
             cuml.dask.neighbors.NearestNeighbors,
-            shared_args=dict(n_neighbors=1024),
+            shared_args=dict(n_neighbors=64),
             cpu_args=dict(algorithm="brute", n_jobs=-1),
             cuml_args={},
             name="MNMG.NearestNeighbors",

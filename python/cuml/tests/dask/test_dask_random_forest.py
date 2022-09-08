@@ -93,7 +93,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
             train_test_split(X, y, test_size=n_workers * 300, random_state=123)
 
         cu_rf_params = {
-            'n_estimators': 25,
+            'n_estimators': n_workers*8,
             'max_depth': 16,
             'n_bins': 256,
             'random_state': 10,
@@ -115,7 +115,7 @@ def test_rf_classification_multi_class(partitions_per_worker, cluster):
         # Refer to issue : https://github.com/rapidsai/cuml/issues/2806 for
         # more information on the threshold value.
 
-        assert acc_score_gpu >= 0.55
+        assert acc_score_gpu >= 0.52
 
     finally:
         c.close()
@@ -603,8 +603,10 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
     X_train_df, y_train_df = _prep_training_data(client, X_train, y_train, 1)
     X_test_dask_array = from_array(X_test)
 
+    n_estimators = n_workers*8
+
     if model_type == 'classification':
-        cuml_mod = cuRFC_mg(n_estimators=10, max_depth=8, n_bins=16,
+        cuml_mod = cuRFC_mg(n_estimators=n_estimators, max_depth=8, n_bins=16,
                             ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
         cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
@@ -613,10 +615,10 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-        assert acc_score >= 0.70
+        assert acc_score >= 0.68
 
     else:
-        cuml_mod = cuRFR_mg(n_estimators=10, max_depth=8, n_bins=16,
+        cuml_mod = cuRFR_mg(n_estimators=n_estimators, max_depth=8, n_bins=16,
                             ignore_empty_partitions=True)
         cuml_mod.fit(X_train_df, y_train_df, broadcast_data=fit_broadcast)
         cuml_mod_predict = cuml_mod.predict(X_test_dask_array,
