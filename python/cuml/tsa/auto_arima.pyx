@@ -37,9 +37,11 @@ from raft.common.handle cimport handle_t
 from raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.input_utils import determine_array_dtype
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
+import warnings
 
 
 # TODO:
@@ -145,6 +147,9 @@ class AutoARIMA(Base):
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+    convert_dtype : boolean
+        When set to True, the model will automatically convert the inputs to
+        np.float64.
 
     Notes
     -----
@@ -186,7 +191,8 @@ class AutoARIMA(Base):
                  handle=None,
                  simple_differencing=True,
                  verbose=False,
-                 output_type=None):
+                 output_type=None,
+                 convert_dtype=True):
         # Initialize base class
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -195,7 +201,9 @@ class AutoARIMA(Base):
 
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(endog, check_dtype=np.float64)
+            = input_to_cuml_array(
+                endog, check_dtype=np.float64,
+                convert_to_dtype=(np.float64 if convert_dtype else None))
 
         self.simple_differencing = simple_differencing
 
