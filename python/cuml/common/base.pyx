@@ -37,9 +37,12 @@ class Base(TagsMixin,
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
     from this class.
+
     Typical estimator design using Base requires three main things:
+
     1. Call the base __init__ method explicitly from inheriting estimators in
         their __init__.
+
     2. Attributes that users will want to access, and are array-like should
         use cuml.common.Array, and have a preceding underscore `_` before
         the name the user expects. That way the __getattr__ of Base will
@@ -52,33 +55,47 @@ class Base(TagsMixin,
         create the attributes in the constructor assigned to None, and
         add a note for users that might look into the code to see what
         attributes the class might have. For example, in KMeans:
+
     .. code-block:: python
+
         def __init__(...)
             super(KMeans, self).__init__(handle, verbose, output_type)
+
             # initialize numeric variables
+
             # internal array attributes
             self._labels_ = None # accessed via estimator.labels_
             self._cluster_centers_ = None # accessed via estimator.cluster_centers_  # noqa
+
     3. To appropriately work for outputs mirroring the format of inputs of the
         user when appropriate, the code in the inheriting estimator must call
         the following methods, with input being the data sent by the user:
+
     - `self._set_output_type(input)` in `fit` methods that modify internal
         structures. This will allow users to receive the correct format when
         accessing internal attributes of the class (eg. labels_ in KMeans).:
+
     .. code-block:: python
+
         def fit(self, X):
             self._set_output_type(X)
             # rest of the fit code
+
     - `out_type = self._get_output_type(input)` in `predict`/`transform` style
         methods, that don't modify class attributes. out_type then can be used
         to return the correct format to the user. For example, in KMeans:
+
     .. code-block:: python
+
         def transform(self, X, convert_dtype=False):
             out_type = self._get_output_type(X)
             X_m, n_rows, n_cols, dtype = input_to_cuml_array(X ...)
             preds = CumlArray.zeros(...)
+
             # method code and call to C++ and whatever else is needed
+
             return preds.to_output(out_type)
+
     Parameters
     ----------
     handle : cuml.Handle
@@ -96,31 +113,42 @@ class Base(TagsMixin,
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+
     Examples
     --------
+
     .. code-block:: python
+
         from cuml import Base
+
         # assuming this ML algo has separate 'fit' and 'predict' methods
         class MyAlgo(Base):
             def __init__(self, ...):
                 super(MyAlgo, self).__init__(...)
                 # other setup logic
+
             def fit(self, data, ...):
                 # check output format
                 self._check_output_type(data)
                 # train logic goes here
+
             def predict(self, data, ...):
                 # check output format
                 self._check_output_type(data)
                 # inference logic goes here
+
             def get_param_names(self):
                 # return a list of hyperparam names supported by this algo
+
         # stream and handle example:
+
         stream = cuml.cuda.Stream()
         handle = cuml.Handle(stream=stream)
+
         algo = MyAlgo(handle=handle)
         algo.fit(...)
         result = algo.predict(...)
+
         # final sync of all gpu-work launched inside this object
         # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
         # the default stream inside the `cumlHandle` is being used
@@ -134,6 +162,7 @@ class Base(TagsMixin,
                  output_type=None):
         """
         Constructor. All children must call init method of this base class.
+
         """
         self.handle = raft.common.handle.Handle() if handle is None \
             else handle
@@ -247,6 +276,7 @@ class Base(TagsMixin,
         Method to set the base class attributes - output type,
         target dtype and n_features. It combines the three different
         function calls. It's called in fit function from estimators.
+
         Parameters
         --------
         output_type : DataFrame (default = None)
@@ -258,13 +288,18 @@ class Base(TagsMixin,
         n_features: int or DataFrame (default=None)
             If an int is passed, we set it to the number passed
             If dataframe, we set it based on the passed df.
+
         Examples
         --------
+
         .. code-block:: python
+
                 # To set output_type and n_features based on X
                 self._set_base_attributes(output_type=X, n_features=X)
+
                 # To set output_type on X and n_features to 10
                 self._set_base_attributes(output_type=X, n_features=10)
+
                 # To only set target_dtype
                 self._set_base_attributes(output_type=X, target_dtype=y)
         """
