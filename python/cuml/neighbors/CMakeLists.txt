@@ -31,7 +31,7 @@ endif()
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES $<IF:$<BOOL:${SINGLE_GPU}>,${cuml_sg_libraries},${cuml_mg_libraries}>
+  LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
   MODULE_PREFIX neighbors_
 )
 
@@ -39,6 +39,6 @@ foreach(target IN LISTS targets_using_numpy)
   target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
 endforeach()
 
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
 endforeach()

@@ -28,11 +28,6 @@ rapids_cuda_init_architectures(CUML)
 
 project(CUML VERSION 22.10.00 LANGUAGES CXX CUDA)
 
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
-# have different values for the `Threads::Threads` target. Setting this flag ensures
-# `Threads::Threads` is the same value in first run and subsequent runs.
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
 
@@ -70,8 +65,13 @@ option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
 option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
+option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
+option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
+option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
+option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
+option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target" OFF)
 
 message(VERBOSE "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -105,6 +105,13 @@ set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
 message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
+if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+  # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+  # have different values for the `Threads::Threads` target. Setting this flag ensures
+  # `Threads::Threads` is the same value in first run and subsequent runs.
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+endif()
+
 ##############################################################################
 # - Target names -------------------------------------------------------------
 
@@ -131,17 +138,9 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
-set(_ctk_static_suffix "")
+set(_ctk_static_suffix_cufft "")
 if(CUDA_STATIC_RUNTIME)
-  # If we're statically linking CTK cuBLAS,
-  # we also want to statically link BLAS
-  set(BLA_STATIC ON)
-  set(_ctk_static_suffix "_static")
   set(_ctk_static_suffix_cufft "_static_nocallback")
-  # Control legacy FindCUDA.cmake behavior too
-  # Remove this after we push it into rapids-cmake:
-  # https://github.com/rapidsai/rapids-cmake/pull/259
-  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
 endif()
 
 if (NOT DISABLE_OPENMP)
@@ -213,8 +212,11 @@ endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
+rapids_cmake_install_lib_dir(lib_dir)
 
-find_package(Threads)
+if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+  find_package(Threads)
+endif()
 
 include(cmake/thirdparty/get_raft.cmake)
 
@@ -534,19 +536,73 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<INSTALL_INTERFACE:include>
   )
 
+  set(_cuml_cpp_public_libs)
+  set(_cuml_cpp_private_libs)
+
+  if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
+    get_target_property(_includes raft::raft INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
+
+    if(CUML_USE_RAFT_NN AND (TARGET faiss::faiss))
+      get_target_property(_includes faiss::faiss INTERFACE_INCLUDE_DIRECTORIES)
+      target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
+    endif()
+
+    if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
+      list(APPEND _cuml_cpp_private_libs cuco::cuco)
+    endif()
+
+    unset(_includes)
+  endif()
+
+  if(CUML_USE_TREELITE_STATIC AND (TARGET treelite::treelite_static))
+    # `treelite` and `treelite_runtime` have duplicate symbols, so
+    # we can only link to one of them if we're linking statically.
+    set(TREELITE_LIBS treelite::treelite_static)
+    get_target_property(_includes treelite::treelite_static INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
+    unset(_includes)
+  elseif(CUML_EXPORT_TREELITE_LINKAGE)
+    list(APPEND _cuml_cpp_public_libs ${TREELITE_LIBS})
+  endif()
+
+  if(CUML_USE_CUMLPRIMS_MG_STATIC AND (TARGET cumlprims_mg::cumlprims_mg))
+    get_target_property(_includes cumlprims_mg::cumlprims_mg INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
+    unset(_includes)
+  endif()
+
+  # These are always private:
+  list(APPEND _cuml_cpp_private_libs
+    $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
+    ${TREELITE_LIBS}
+    ${OpenMP_CXX_LIB_NAMES}
+    $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
+    $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
+  )
+
+  set(_cuml_cpp_libs_var_name "_cuml_cpp_public_libs")
+  if(CUDA_STATIC_RUNTIME)
+    set(_cuml_cpp_libs_var_name "_cuml_cpp_private_libs")
+    # Add CTK include paths because we're going to make our CTK library links private below
+    target_include_directories(${CUML_CPP_TARGET} SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
+  endif()
+
+  # The visibility of these depend on whether we're linking the CTK statically,
+  # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
+  # INTERFACE target.
+  list(APPEND ${_cuml_cpp_libs_var_name}
+    raft::raft
+    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
+    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
+    $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
+  )
+
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC
-      raft::raft
-      $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
-      $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
-    PRIVATE
-      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
-      ${TREELITE_LIBS}
-      $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
-      ${OpenMP_CXX_LIB_NAMES}
-      $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
-      $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
-      $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>
+    PUBLIC  rmm::rmm
+            ${_cuml_cpp_public_libs}
+    PRIVATE ${_cuml_cpp_private_libs}
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
@@ -556,7 +612,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(${CUML_CPP_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-
 endif()
 
 #############################################################################
@@ -611,7 +666,6 @@ endif()
 
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
-rapids_cmake_install_lib_dir( lib_dir )
 include(CPack)
 
 set(CUML_TARGETS ${CUML_CPP_TARGET})

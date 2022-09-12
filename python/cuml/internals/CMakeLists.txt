@@ -21,12 +21,12 @@ set(cython_sources
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${cuml_sg_libraries}"
+  LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
   MODULE_PREFIX internals_
 )
 
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
 endforeach()
 
 # We need to include for callbacks_implements.h in the internals folder

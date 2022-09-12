@@ -28,8 +28,6 @@ from setuputils import get_cli_option
 import versioneer
 from skbuild import setup
 
-install_requires = ['numba', 'cython']
-
 ##############################################################################
 # - Print of build options used by setup.py  --------------------------------
 
@@ -94,6 +92,9 @@ if not libcuml_path:
 
 cmdclass = versioneer.get_cmdclass()
 
+def exclude_libcxx_symlink(cmake_manifest):
+    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
+
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
@@ -107,13 +108,26 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
           "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
-      url="https://github.com/rapidsai/cudf",
-      setup_requires=['Cython>=0.29,<0.30'],
+      url="https://github.com/rapidsai/cuml",
+      cmake_process_manifest_hook=exclude_libcxx_symlink,
+      setup_requires=[
+        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+      ],
+      install_requires=[
+        "numba",
+        "scipy",
+        "joblib",
+        "treelite==2.4.0",
+        "treelite_runtime==2.4.0",
+        f"cudf{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"raft-dask{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+      ],
       packages=find_packages(include=['cuml', 'cuml.*']),
       package_data={
           key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
       },
-      install_requires=install_requires,
       license="Apache",
       cmdclass=cmdclass,
       zip_safe=False)

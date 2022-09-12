@@ -29,12 +29,12 @@ endif()
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES $<IF:$<BOOL:${SINGLE_GPU}>,${cuml_sg_libraries},${cuml_mg_libraries}>
+  LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
   MODULE_PREFIX common_
 )
 
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
 endforeach()
 
 # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality
