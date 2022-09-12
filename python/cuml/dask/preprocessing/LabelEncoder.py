@@ -51,6 +51,9 @@ class LabelEncoder(BaseEstimator,
         >>> import dask_cudf
         >>> from cuml.dask.preprocessing import LabelEncoder
 
+        >>> import pandas as pd
+        >>> pd.set_option('display.max_colwidth', 2000)
+
         >>> cluster = LocalCUDACluster(threads_per_worker=1)
         >>> client = Client(cluster)
         >>> df = cudf.DataFrame({'num_col':[10, 20, 30, 30, 30],

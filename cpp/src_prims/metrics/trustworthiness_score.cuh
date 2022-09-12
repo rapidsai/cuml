@@ -15,14 +15,12 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/specializations.hpp>
-#include <raft/spatial/knn/knn.hpp>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/distance/specializations.cuh>
+#include <raft/spatial/knn/knn.cuh>
+#include <raft/spatial/knn/specializations.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
-
-#define N_THREADS 512
 
 namespace MLCommon {
 namespace Score {
@@ -138,6 +136,7 @@ double trustworthiness_score(const raft::handle_t& h,
                              int n_neighbors,
                              int batchSize = 512)
 {
+  const int N_THREADS = 512;
   cudaStream_t stream = h.get_stream();
 
   const int KNN_ALLOC = n * (n_neighbors + 1);

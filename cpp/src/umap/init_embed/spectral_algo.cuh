@@ -16,15 +16,18 @@
 
 #pragma once
 
+#include <cuml/cluster/spectral.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/sparse/coo.hpp>
 
-#include <raft/linalg/transpose.hpp>
-#include <raft/random/rng.hpp>
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
 
-#include <cuml/cluster/spectral.hpp>
 #include <iostream>
 
 namespace UMAPAlgo {

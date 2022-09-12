@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -30,7 +30,12 @@
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
+#include "detail/soft_clustering.cuh"
 #include <cuml/cluster/hdbscan.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+#include <thrust/transform.h>
 
 namespace ML {
 namespace HDBSCAN {
@@ -112,6 +117,7 @@ struct FixConnectivitiesRedOp {
  * @param[in] n number of columns
  * @param[in] metric distance metric to use
  * @param[in] params hyper parameters
+ * @param[in] core_dists buffer for storing core distances (size m)
  * @param[out] out output container object
  */
 template <typename value_idx = int64_t, typename value_t = float>
@@ -121,6 +127,7 @@ void build_linkage(const raft::handle_t& handle,
                    size_t n,
                    raft::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
+                   value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
   auto stream = handle.get_stream();
@@ -129,18 +136,21 @@ void build_linkage(const raft::handle_t& handle,
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
-  rmm::device_uvector<value_t> core_dists(m, stream);
+  // Note that (min_samples+1) is parsed while allocating space for the COO matrix and to the
+  // mutual_reachability_graph function. This was done to account for self-loops in the knn graph
+  // and be consistent with Scikit learn Contrib.
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream,
+                                                                (params.min_samples + 1) * m * 2);
 
   detail::Reachability::mutual_reachability_graph(handle,
                                                   X,
                                                   (size_t)m,
                                                   (size_t)n,
                                                   metric,
-                                                  params.min_samples,
+                                                  params.min_samples + 1,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
-                                                  core_dists.data(),
+                                                  core_dists,
                                                   mutual_reachability_coo);
 
   /**
@@ -148,7 +158,7 @@ void build_linkage(const raft::handle_t& handle,
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists, m);
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(handle,
                                             X,
@@ -188,6 +198,9 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   size_t n,
                   raft::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
+                  value_idx* labels,
+                  value_idx* label_map,
+                  value_t* core_dists,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
@@ -195,7 +208,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
 
   int min_cluster_size = params.min_cluster_size;
 
-  build_linkage(handle, X, m, n, metric, params, out);
+  build_linkage(handle, X, m, n, metric, params, core_dists, out);
 
   /**
    * Condense branches of tree according to min cluster size
@@ -215,17 +228,15 @@ void _fit_hdbscan(const raft::handle_t& handle,
   rmm::device_uvector<value_t> tree_stabilities(out.get_condensed_tree().get_n_clusters(),
                                                 handle.get_stream());
 
-  rmm::device_uvector<value_idx> label_map(m, stream);
-
   std::vector<value_idx> label_set;
   value_idx n_selected_clusters =
     detail::Extract::extract_clusters(handle,
                                       out.get_condensed_tree(),
                                       m,
-                                      out.get_labels(),
+                                      labels,
                                       tree_stabilities.data(),
                                       out.get_probabilities(),
-                                      label_map.data(),
+                                      label_map,
                                       params.cluster_selection_method,
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
@@ -238,28 +249,24 @@ void _fit_hdbscan(const raft::handle_t& handle,
     exec_policy, lambdas_ptr, lambdas_ptr + out.get_condensed_tree().get_n_edges()));
 
   detail::Stability::get_stability_scores(handle,
-                                          out.get_labels(),
+                                          labels,
                                           tree_stabilities.data(),
                                           out.get_condensed_tree().get_n_clusters(),
                                           max_lambda,
                                           m,
                                           out.get_stabilities(),
-                                          label_map.data());
+                                          label_map);
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
 
-  value_idx* label_map_ptr = label_map.data();
-  thrust::transform(exec_policy,
-                    out.get_labels(),
-                    out.get_labels() + m,
-                    out.get_labels(),
-                    [=] __device__(value_idx label) {
-                      if (label != -1) return label_map_ptr[label];
-                      return -1;
-                    });
+  thrust::transform(
+    exec_policy, labels, labels + m, out.get_labels(), [=] __device__(value_idx label) {
+      if (label != -1) return label_map[label];
+      return -1;
+    });
 }
 
 };  // end namespace HDBSCAN

@@ -17,8 +17,8 @@
 #include <cub/cub.cuh>
 
 #include <raft/common/device_loads_stores.cuh>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 // Anonymous namespace for internal auxiliary functions
 namespace {

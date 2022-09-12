@@ -47,7 +47,7 @@ The examples in the documentation are checked through doctest. To skip the check
 Examples subject to numerical imprecision, or that can't be reproduced consistently should be skipped.
 
 ## Testing and Unit Testing
-We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/test`.
+We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/tests`.
 
 ## Device and Host memory allocations
 TODO: talk about enabling RMM here when it is ready

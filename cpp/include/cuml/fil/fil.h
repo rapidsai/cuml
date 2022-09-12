@@ -20,6 +20,8 @@
 
 #include <stddef.h>
 
+#include <variant>  // for std::get<>, std::variant<>
+
 #include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
@@ -29,10 +31,8 @@ class handle_t;
 namespace ML {
 namespace fil {
 
-/** @note FIL only supports inference with single precision.
- *  TODO(canonizer): parameterize the functions and structures by the data type
- *  and the threshold/weight type.
- */
+/** @note FIL supports inference with both single and double precision. However,
+    the floating-point type used in the data and model must be the same. */
 
 /** Inference algorithm to use. */
 enum algo_t {
@@ -69,12 +69,31 @@ enum storage_type_t {
 };
 static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
+/** precision_t defines the precision of the FIL model imported from a treelite model */
+enum precision_t {
+  /** use the native precision of the treelite model, i.e. float64 if it has weights or
+      thresholds of type float64, otherwise float32 */
+  PRECISION_NATIVE,
+  /** always create a float32 FIL model; this may lead to loss of precision if the
+      treelite model contains float64 parameters */
+  PRECISION_FLOAT32,
+  /** always create a float64 FIL model */
+  PRECISION_FLOAT64
+};
+
 template <typename real_t>
 struct forest;
 
 /** forest_t is the predictor handle */
 template <typename real_t>
 using forest_t = forest<real_t>*;
+
+/** forest32_t and forest64_t are definitions required in Cython */
+using forest32_t = forest<float>*;
+using forest64_t = forest<double>*;
+
+/** forest_variant is used to get a forest represented with either float or double. */
+using forest_variant = std::variant<forest_t<float>, forest_t<double>>;
 
 /** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
 constexpr int MAX_N_ITEMS = 4;
@@ -106,6 +125,8 @@ struct treelite_params_t {
   // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
   // contains forest shape
   char** pforest_shape_str;
+  // precision in which to load the treelite model
+  precision_t precision;
 };
 
 /** from_treelite uses a treelite model to initialize the forest
@@ -114,9 +135,8 @@ struct treelite_params_t {
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
-// TODO (canonizer): use std::variant<forest_t<float> forest_t<double>>* for pforest
 void from_treelite(const raft::handle_t& handle,
-                   forest_t<float>* pforest,
+                   forest_variant* pforest,
                    ModelHandle model,
                    const treelite_params_t* tl_params);
 

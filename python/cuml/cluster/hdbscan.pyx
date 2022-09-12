@@ -70,6 +70,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_leaves()
         int get_n_clusters()
         float *get_stabilities()
+        int *get_labels()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
@@ -80,8 +81,16 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         float cluster_selection_epsilon,
 
         bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method
+        CLUSTER_SELECTION_METHOD cluster_selection_method,
+        bool prediction_data
 
+    cdef cppclass PredictionData[int, float]:
+        PredictionData(const handle_t &handle,
+                       int m,
+                       int n)
+
+        size_t n_rows
+        size_t n_cols
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
@@ -91,6 +100,22 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output)
+
+    void hdbscan(const handle_t & handle,
+                 const float* X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams& params,
+                 hdbscan_output & output,
+                 PredictionData & prediction_data_)
+
+    void hdbscan(const handle_t & handle,
+                 const float* X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams& params,
+                 hdbscan_output & output,
+                 PredictionData & prediction_data_)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -370,6 +395,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    prediction_data : bool, optinal (default=False)
+        Whether to generate extra cached data for predicting labels or
+        membership vectors few new unseen points later. If you wish to
+        persist the clustering object for later re-use you probably want
+        to set this to True.
 
     Attributes
     ----------
@@ -435,7 +465,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  handle=None,
                  verbose=False,
                  connectivity='knn',
-                 output_type=None):
+                 output_type=None,
+                 prediction_data=False):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -464,6 +495,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.connectivity = connectivity
 
         self.fit_called_ = False
+        self.prediction_data = prediction_data
 
         self.n_clusters_ = None
         self.n_leaves_ = None
@@ -572,6 +604,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
+        if self.prediction_data:
+            self.X_m = X_m
+            self.n_rows = n_rows
+            self.n_cols = n_cols
+
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -638,14 +675,28 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
+        cdef PredictionData[int, float] *prediction_data_ = new PredictionData(
+            handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn':
-            hdbscan(handle_[0],
-                    <float*>input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <DistanceType> metric,
-                    params,
-                    deref(linkage_output))
+            if self.prediction_data:
+                self.prediction_data_ptr = <size_t>prediction_data_
+                hdbscan(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output),
+                        deref(prediction_data_))
+
+            else:
+                hdbscan(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
@@ -738,4 +789,5 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "connectivity",
             "alpha",
             "gen_min_span_tree",
+            "prediction_data"
         ]

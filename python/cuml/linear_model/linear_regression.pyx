@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 import warnings
 
@@ -108,7 +107,7 @@ class LinearRegression(Base,
         >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
         >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
         >>> preds = lr.predict(X_new)
-        >>> print(preds)
+        >>> print(preds) # doctest: +SKIP
         0   15.999...
         1   14.999...
         dtype: float32

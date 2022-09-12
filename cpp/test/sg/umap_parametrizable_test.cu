@@ -24,17 +24,17 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <test_utils.h>
 
 #include <datasets/digits.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
+#include <raft/distance/distance.cuh>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
@@ -169,9 +169,19 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     handle.sync_stream(stream);
 
+    auto graph = raft::sparse::COO<float, int>(stream);
+
     if (test_params.supervised) {
-      ML::UMAP::fit(
-        handle, X, y, n_samples, n_features, knn_indices, knn_dists, &umap_params, model_embedding);
+      ML::UMAP::fit(handle,
+                    X,
+                    y,
+                    n_samples,
+                    n_features,
+                    knn_indices,
+                    knn_dists,
+                    &umap_params,
+                    model_embedding,
+                    &graph);
     } else {
       ML::UMAP::fit(handle,
                     X,
@@ -181,18 +191,20 @@ class UMAPParametrizableTest : public ::testing::Test {
                     knn_indices,
                     knn_dists,
                     &umap_params,
-                    model_embedding);
+                    model_embedding,
+                    &graph);
     }
 
     if (test_params.refine) {
       std::cout << "using refine";
       if (test_params.supervised) {
-        auto cgraph_coo = ML::UMAP::get_graph(handle, X, y, n_samples, n_features, &umap_params);
+        auto cgraph_coo =
+          ML::UMAP::get_graph(handle, X, y, n_samples, n_features, nullptr, nullptr, &umap_params);
         ML::UMAP::refine(
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       } else {
-        auto cgraph_coo =
-          ML::UMAP::get_graph(handle, X, nullptr, n_samples, n_features, &umap_params);
+        auto cgraph_coo = ML::UMAP::get_graph(
+          handle, X, nullptr, n_samples, n_features, nullptr, nullptr, &umap_params);
         ML::UMAP::refine(
           handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }
