@@ -41,7 +41,7 @@
 
 /** check for treelite runtime API errors and assert accordingly */
 
-#define TREELITE_CHECK(call)                                                                     \
+#define TREELITE_CHECK_RET(call)                                                                     \
   do {                                                                                           \
     int status = call;                                                                           \
     ASSERT(status >= 0, "TREELITE FAIL: call='%s'. Reason:%s\n", #call, TreeliteGetLastError()); \
