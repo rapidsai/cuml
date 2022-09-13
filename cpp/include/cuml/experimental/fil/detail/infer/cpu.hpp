@@ -8,10 +8,10 @@
 #include <cuml/experimental/fil/detail/infer_kernel/cpu.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/specializations/infer_macros.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 namespace herring {
 namespace detail {
 namespace inference {

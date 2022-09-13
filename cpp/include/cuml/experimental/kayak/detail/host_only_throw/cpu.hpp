@@ -1,6 +1,6 @@
 #pragma once
-#include <kayak/detail/host_only_throw/base.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/detail/host_only_throw/base.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 namespace detail {

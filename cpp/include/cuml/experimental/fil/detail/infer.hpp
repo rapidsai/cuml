@@ -10,13 +10,13 @@
 #endif
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 namespace herring {
 namespace detail {
 
-template<kayak::device_type D, typename forest_t>
+template<cuml/experimental/kayak::device_type D, typename forest_t>
 void infer(
   forest_t const& forest,
   postprocessor<typename forest_t::io_type> const& postproc,

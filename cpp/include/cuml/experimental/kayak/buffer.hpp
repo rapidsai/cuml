@@ -5,15 +5,15 @@
 #include <memory>
 #include <utility>
 #include <variant>
-#include <kayak/detail/const_agnostic.hpp>
-#include <kayak/detail/copy.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/detail/non_owning_buffer.hpp>
-#include <kayak/detail/owning_buffer.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/exceptions.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/detail/const_agnostic.hpp>
+#include <cuml/experimental/kayak/detail/copy.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/detail/non_owning_buffer.hpp>
+#include <cuml/experimental/kayak/detail/owning_buffer.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/exceptions.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 /**

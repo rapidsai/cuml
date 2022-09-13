@@ -11,11 +11,11 @@
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/forest_model.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <kayak/tree_layout.hpp>
+#include <cuml/experimental/kayak/tree_layout.hpp>
 
 namespace herring {
 
-template <kayak::tree_layout layout, typename T>
+template <cuml/experimental/kayak::tree_layout layout, typename T>
 struct traversal_container {
   using backing_container_t = std::conditional_t<
     layout == kayak::tree_layout::depth_first,
@@ -70,7 +70,7 @@ namespace detail {
   };
 }
 
-template<kayak::tree_layout layout>
+template<cuml/experimental/kayak::tree_layout layout>
 struct treelite_importer {
   template<typename tl_threshold_t, typename tl_output_t>
   struct treelite_node {

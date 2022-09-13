@@ -3,8 +3,8 @@
 #ifndef __CUDACC__
 #include <math.h>
 #endif
-#include <kayak/bitset.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/bitset.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 namespace herring {
 namespace detail {
 

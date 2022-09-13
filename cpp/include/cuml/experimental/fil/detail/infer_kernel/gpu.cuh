@@ -6,8 +6,8 @@
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/shared_memory_buffer.cuh>
-#include <kayak/ceildiv.hpp>
-#include <kayak/padding.hpp>
+#include <cuml/experimental/kayak/ceildiv.hpp>
+#include <cuml/experimental/kayak/padding.hpp>
 
 namespace herring {
 namespace detail {

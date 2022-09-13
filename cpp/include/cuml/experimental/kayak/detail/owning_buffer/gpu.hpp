@@ -1,9 +1,9 @@
 #pragma once
 #include <cuda_runtime_api.h>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/device_setter.hpp>
-#include <kayak/detail/owning_buffer/base.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_setter.hpp>
+#include <cuml/experimental/kayak/detail/owning_buffer/base.hpp>
 #include <rmm/device_buffer.hpp>
 #include <type_traits>
 

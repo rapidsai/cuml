@@ -7,8 +7,8 @@
 #include <stddef.h>
 #include <type_traits>
 #include <variant>
-#include <kayak/device_type.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 template<typename index_t=size_t, typename storage_t=std::byte>

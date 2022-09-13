@@ -11,11 +11,11 @@
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <kayak/buffer.hpp>
-#include <kayak/bitset.hpp>
-#include <kayak/ceildiv.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/buffer.hpp>
+#include <cuml/experimental/kayak/bitset.hpp>
+#include <cuml/experimental/kayak/ceildiv.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 namespace herring {
 namespace detail {
@@ -192,7 +192,7 @@ struct decision_forest_builder {
       max_num_categories_ != 0,
       vector_output_.size() == 0 ?
         std::nullopt :
-        std::make_optional<kayak::buffer<typename node_type::threshold_type>>(
+        std::make_optional<cuml/experimental/kayak::buffer<typename node_type::threshold_type>>(
           kayak::buffer{vector_output_.data(), vector_output_.size()},
           mem_type,
           device,
@@ -200,7 +200,7 @@ struct decision_forest_builder {
         ),
       categorical_storage_.size() == 0 ?
         std::nullopt :
-        std::make_optional<kayak::buffer<typename node_type::index_type>>(
+        std::make_optional<cuml/experimental/kayak::buffer<typename node_type::index_type>>(
           kayak::buffer{categorical_storage_.data(), categorical_storage_.size()},
           mem_type,
           device,

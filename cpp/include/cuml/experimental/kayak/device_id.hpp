@@ -1,11 +1,11 @@
 #pragma once
 
-#include <kayak/detail/device_id/base.hpp>
-#include <kayak/detail/device_id/cpu.hpp>
+#include <cuml/experimental/kayak/detail/device_id/base.hpp>
+#include <cuml/experimental/kayak/detail/device_id/cpu.hpp>
 #ifdef ENABLE_GPU
-#include <kayak/detail/device_id/gpu.hpp>
+#include <cuml/experimental/kayak/detail/device_id/gpu.hpp>
 #endif
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 #include <variant>
 
 namespace kayak {

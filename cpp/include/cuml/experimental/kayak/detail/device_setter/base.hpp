@@ -1,6 +1,6 @@
 #pragma once
-#include <kayak/device_type.hpp>
-#include <kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
 
 namespace kayak {
 namespace detail {

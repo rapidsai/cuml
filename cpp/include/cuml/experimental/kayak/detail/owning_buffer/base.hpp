@@ -1,7 +1,7 @@
 #pragma once
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 #include <type_traits>
 
 namespace kayak {

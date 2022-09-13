@@ -1,8 +1,8 @@
 #pragma once
 #include <cuda_runtime_api.h>
-#include <kayak/detail/cuda_check/base.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/exceptions.hpp>
+#include <cuml/experimental/kayak/detail/cuda_check/base.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/exceptions.hpp>
 namespace kayak {
 namespace detail {
 

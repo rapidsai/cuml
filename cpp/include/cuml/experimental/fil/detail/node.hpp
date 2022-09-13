@@ -2,8 +2,8 @@
 #include <iostream>
 #include <type_traits>
 #include <cuml/experimental/fil/detail/index_type.hpp>
-#include <kayak/gpu_support.hpp>
-#include <kayak/tree_layout.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/tree_layout.hpp>
 
 namespace herring {
 
@@ -76,7 +76,7 @@ auto constexpr get_node_alignment() {
  * this node to its most distant child. This type must be large enough to store
  * the largest such offset in the forest model.
  */
-template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <cuml/experimental/kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct alignas(8) node {
   /// @brief An alias for layout_v
   auto constexpr static const layout = layout_v;

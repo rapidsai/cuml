@@ -6,16 +6,16 @@
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/specializations/device_initialization_macros.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_setter.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_setter.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 namespace herring {
 namespace detail {
 namespace device_initialization {
 
 template<typename forest_t, kayak::device_type D>
-std::enable_if_t<kayak::GPU_ENABLED && D==kayak::device_type::gpu, void> initialize_device(kayak::device_id<D> device) {
+std::enable_if_t<cuml/experimental/kayak::GPU_ENABLED && D==kayak::device_type::gpu, void> initialize_device(kayak::device_id<D> device) {
   auto device_context = kayak::device_setter(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
   kayak::cuda_check(

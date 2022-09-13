@@ -1,5 +1,5 @@
 #pragma once
-#include <kayak/detail/index_type.hpp>
+#include <cuml/experimental/kayak/detail/index_type.hpp>
 
 namespace kayak {
 namespace detail {

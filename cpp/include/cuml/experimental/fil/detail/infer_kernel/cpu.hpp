@@ -8,7 +8,7 @@
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <kayak/ceildiv.hpp>
+#include <cuml/experimental/kayak/ceildiv.hpp>
 
 namespace herring {
 namespace detail {

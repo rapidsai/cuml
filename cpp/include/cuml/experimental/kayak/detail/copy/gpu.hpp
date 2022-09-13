@@ -1,9 +1,9 @@
 #pragma once
 #include <cuda_runtime_api.h>
 #include <stdint.h>
-#include <kayak/cuda_check.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/cuda_check.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 #include <type_traits>
 
 namespace kayak {

@@ -1,9 +1,9 @@
 #pragma once
-#include <kayak/detail/device_setter/base.hpp>
+#include <cuml/experimental/kayak/detail/device_setter/base.hpp>
 #ifdef ENABLE_GPU
-#include <kayak/detail/device_setter/gpu.hpp>
+#include <cuml/experimental/kayak/detail/device_setter/gpu.hpp>
 #endif
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 namespace kayak {
 

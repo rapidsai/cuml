@@ -1,8 +1,8 @@
 #pragma once
 #include <type_traits>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 namespace herring {
 namespace detail {
 namespace device_initialization {

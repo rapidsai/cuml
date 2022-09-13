@@ -1,11 +1,11 @@
 #pragma once
 #include <stdint.h>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/detail/copy/cpu.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/detail/copy/cpu.hpp>
 #ifdef ENABLE_GPU
-#include <kayak/detail/copy/gpu.hpp>
+#include <cuml/experimental/kayak/detail/copy/gpu.hpp>
 #endif
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 namespace kayak {
 template<device_type dst_type, device_type src_type, typename T>

@@ -1,9 +1,9 @@
 #pragma once
-#include <kayak/detail/stream_pool/base.hpp>
+#include <cuml/experimental/kayak/detail/stream_pool/base.hpp>
 #ifdef ENABLE_GPU
-#include <kayak/detail/stream_pool/gpu.hpp>
+#include <cuml/experimental/kayak/detail/stream_pool/gpu.hpp>
 #endif
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 namespace kayak {
 template<device_type D>

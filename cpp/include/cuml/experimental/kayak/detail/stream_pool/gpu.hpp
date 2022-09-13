@@ -1,10 +1,10 @@
 #pragma once
 #include <cstddef>
 #include <memory>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/detail/stream_pool/base.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/exceptions.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/detail/stream_pool/base.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/exceptions.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/detail/error.hpp>
 

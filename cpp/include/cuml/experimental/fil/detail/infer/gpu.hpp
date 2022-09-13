@@ -3,9 +3,9 @@
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 namespace herring {
 namespace detail {

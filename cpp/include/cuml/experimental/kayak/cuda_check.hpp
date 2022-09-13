@@ -1,10 +1,10 @@
 #pragma once
-#include <kayak/detail/cuda_check/base.hpp>
+#include <cuml/experimental/kayak/detail/cuda_check/base.hpp>
 #ifdef ENABLE_GPU
-#include <kayak/detail/cuda_check/gpu.hpp>
+#include <cuml/experimental/kayak/detail/cuda_check/gpu.hpp>
 #endif
-#include <kayak/device_type.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 template <typename error_t>

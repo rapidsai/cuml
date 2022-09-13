@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <algorithm>
 #include <cstring>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_type.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 namespace detail {

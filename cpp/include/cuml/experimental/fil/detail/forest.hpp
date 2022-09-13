@@ -1,6 +1,6 @@
 #pragma once
 #include <stddef.h>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/node.hpp>
 
@@ -8,7 +8,7 @@ namespace herring {
 
 /** A collection of trees which together form a forest model
  */
-template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <cuml/experimental/kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct forest {
   using node_type = node<layout_v, threshold_t, index_t, metadata_storage_t, offset_t>;
   using io_type = threshold_t;

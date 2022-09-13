@@ -1,5 +1,5 @@
 #pragma once
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 namespace detail {

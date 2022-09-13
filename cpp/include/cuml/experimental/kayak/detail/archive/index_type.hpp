@@ -4,9 +4,9 @@
 #include <stddef.h>
 
 #include <exception>
-#include <kayak/detail/host_only_throw.hpp>
-#include <kayak/detail/universal_cmp.hpp>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/detail/host_only_throw.hpp>
+#include <cuml/experimental/kayak/detail/universal_cmp.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 #include <type_traits>
 
 namespace kayak {

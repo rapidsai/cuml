@@ -1,5 +1,5 @@
 #pragma once
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 namespace kayak {
 namespace detail {

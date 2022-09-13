@@ -1,6 +1,6 @@
 #pragma once
 #include <cstddef>
-#include <kayak/gpu_support.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 
 namespace kayak {
 template<typename T, std::size_t N>
