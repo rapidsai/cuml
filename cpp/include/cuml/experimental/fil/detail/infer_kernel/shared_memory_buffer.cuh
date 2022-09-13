@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <stddef.h>
 #include <type_traits>
-#include <herring3/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
 
 namespace herring {
 

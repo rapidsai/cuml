@@ -1,11 +1,11 @@
 #pragma once
 #include <type_traits>
 #include <cuda_runtime_api.h>
-#include <herring3/constants.hpp>
-#include <herring3/detail/gpu_introspection.hpp>
-#include <herring3/detail/infer_kernel/gpu.cuh>
-#include <herring3/detail/forest.hpp>
-#include <herring3/specializations/device_initialization_macros.hpp>
+#include <cuml/experimental/fil/constants.hpp>
+#include <cuml/experimental/fil/detail/gpu_introspection.hpp>
+#include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
+#include <cuml/experimental/fil/detail/forest.hpp>
+#include <cuml/experimental/fil/specializations/device_initialization_macros.hpp>
 #include <kayak/device_id.hpp>
 #include <kayak/device_setter.hpp>
 #include <kayak/device_type.hpp>

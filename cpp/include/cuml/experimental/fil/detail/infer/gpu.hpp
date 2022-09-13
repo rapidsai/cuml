@@ -1,8 +1,8 @@
 #include <cstddef>
 #include <optional>
-#include <herring3/detail/forest.hpp>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/detail/postprocessor.hpp>
+#include <cuml/experimental/fil/detail/forest.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <kayak/cuda_stream.hpp>
 #include <kayak/device_id.hpp>
 #include <kayak/device_type.hpp>

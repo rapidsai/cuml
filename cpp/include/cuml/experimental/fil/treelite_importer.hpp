@@ -5,12 +5,12 @@
 #include <stack>
 #include <treelite/tree.h>
 #include <treelite/typeinfo.h>
-#include <herring3/decision_forest.hpp>
-#include <herring3/detail/decision_forest_builder.hpp>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/exceptions.hpp>
-#include <herring3/forest_model.hpp>
-#include <herring3/postproc_ops.hpp>
+#include <cuml/experimental/fil/decision_forest.hpp>
+#include <cuml/experimental/fil/detail/decision_forest_builder.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/exceptions.hpp>
+#include <cuml/experimental/fil/forest_model.hpp>
+#include <cuml/experimental/fil/postproc_ops.hpp>
 #include <kayak/tree_layout.hpp>
 
 namespace herring {

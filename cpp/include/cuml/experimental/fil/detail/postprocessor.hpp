@@ -5,8 +5,8 @@
 #include <stddef.h>
 #include <limits>
 #include <type_traits>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/postproc_ops.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/postproc_ops.hpp>
 #include <kayak/gpu_support.hpp>
 
 namespace herring {

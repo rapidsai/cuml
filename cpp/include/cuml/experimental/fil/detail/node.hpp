@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 #include <type_traits>
-#include <herring3/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
 #include <kayak/gpu_support.hpp>
 #include <kayak/tree_layout.hpp>
 

@@ -1,11 +1,11 @@
 #pragma once
 #include <cstddef>
 #include <stddef.h>
-#include <herring3/detail/evaluate_tree.hpp>
-#include <herring3/detail/gpu_introspection.hpp>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/detail/postprocessor.hpp>
-#include <herring3/detail/infer_kernel/shared_memory_buffer.cuh>
+#include <cuml/experimental/fil/detail/evaluate_tree.hpp>
+#include <cuml/experimental/fil/detail/gpu_introspection.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/postprocessor.hpp>
+#include <cuml/experimental/fil/detail/infer_kernel/shared_memory_buffer.cuh>
 #include <kayak/ceildiv.hpp>
 #include <kayak/padding.hpp>
 

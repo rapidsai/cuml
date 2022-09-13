@@ -1,6 +1,6 @@
 #pragma once
 #include <cuda_runtime_api.h>
-#include <herring3/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
 #include <kayak/cuda_check.hpp>
 #include <kayak/device_id.hpp>
 #include <kayak/device_type.hpp>

@@ -3,13 +3,13 @@
 #include <iostream>
 #include <optional>
 #include <type_traits>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/detail/infer/cpu.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/infer/cpu.hpp>
 #ifdef ENABLE_GPU
-#include <herring3/detail/infer/gpu.hpp>
+#include <cuml/experimental/fil/detail/infer/gpu.hpp>
 #endif
-#include <herring3/detail/postprocessor.hpp>
-#include <herring3/exceptions.hpp>
+#include <cuml/experimental/fil/detail/postprocessor.hpp>
+#include <cuml/experimental/fil/exceptions.hpp>
 #include <kayak/cuda_stream.hpp>
 #include <kayak/device_id.hpp>
 #include <kayak/device_type.hpp>

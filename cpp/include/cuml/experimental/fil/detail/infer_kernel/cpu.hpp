@@ -4,10 +4,10 @@
 #include <new>
 #include <numeric>
 #include <vector>
-#include <herring3/detail/cpu_introspection.hpp>
-#include <herring3/detail/evaluate_tree.hpp>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/detail/postprocessor.hpp>
+#include <cuml/experimental/fil/detail/cpu_introspection.hpp>
+#include <cuml/experimental/fil/detail/evaluate_tree.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <kayak/ceildiv.hpp>
 
 namespace herring {

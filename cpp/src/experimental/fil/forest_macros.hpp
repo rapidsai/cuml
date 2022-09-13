@@ -1,8 +1,8 @@
 #pragma once
 #include <variant>
-#include <herring3/constants.hpp>
-#include <herring3/detail/specialization_types.hpp>
-#include <herring3/detail/forest.hpp>
+#include <cuml/experimental/fil/constants.hpp>
+#include <cuml/experimental/fil/detail/specialization_types.hpp>
+#include <cuml/experimental/fil/detail/forest.hpp>
 
 #define HERRING_SPEC(variant_index) typename std::variant_alternative_t<variant_index, herring::detail::specialization_variant>
 

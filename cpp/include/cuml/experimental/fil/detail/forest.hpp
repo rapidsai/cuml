@@ -1,8 +1,8 @@
 #pragma once
 #include <stddef.h>
 #include <kayak/gpu_support.hpp>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/detail/node.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/node.hpp>
 
 namespace herring {
 

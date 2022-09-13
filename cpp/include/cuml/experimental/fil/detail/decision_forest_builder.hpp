@@ -7,10 +7,10 @@
 #include <numeric>
 #include <optional>
 #include <vector>
-#include <herring3/postproc_ops.hpp>
-#include <herring3/detail/forest.hpp>
-#include <herring3/detail/index_type.hpp>
-#include <herring3/exceptions.hpp>
+#include <cuml/experimental/fil/postproc_ops.hpp>
+#include <cuml/experimental/fil/detail/forest.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/exceptions.hpp>
 #include <kayak/buffer.hpp>
 #include <kayak/bitset.hpp>
 #include <kayak/ceildiv.hpp>

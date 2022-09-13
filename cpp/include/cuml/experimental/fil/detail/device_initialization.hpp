@@ -1,9 +1,9 @@
 #pragma once
 
 #include <variant>
-#include <herring3/detail/device_initialization/cpu.hpp>
+#include <cuml/experimental/fil/detail/device_initialization/cpu.hpp>
 #ifdef ENABLE_GPU
-#include <herring3/detail/device_initialization/gpu.hpp>
+#include <cuml/experimental/fil/detail/device_initialization/gpu.hpp>
 #endif
 
 namespace herring {

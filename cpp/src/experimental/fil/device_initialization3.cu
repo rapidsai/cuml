@@ -1,5 +1,5 @@
-#include <herring3/detail/device_initialization/gpu.cuh>
-#include <herring3/specializations/device_initialization_macros.hpp>
+#include <cuml/experimental/fil/detail/device_initialization/gpu.cuh>
+#include <cuml/experimental/fil/specializations/device_initialization_macros.hpp>
 
 namespace herring {
 namespace detail {
