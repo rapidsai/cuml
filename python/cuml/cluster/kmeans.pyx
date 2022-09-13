@@ -34,7 +34,7 @@ from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 

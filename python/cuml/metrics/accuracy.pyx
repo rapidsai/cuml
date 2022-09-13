@@ -24,8 +24,8 @@ from libc.stdint cimport uintptr_t
 import cuml.internals
 
 from cuml.common.input_utils import input_to_cuml_array
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
