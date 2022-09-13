@@ -341,6 +341,16 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/fil/fil.cu
         src/fil/infer.cu
         src/fil/treelite_import.cu)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/experimental/fil/infer0.cpp
+        src/experimental/fil/infer0.cu
+        src/experimental/fil/infer1.cpp
+        src/experimental/fil/infer1.cu
+        src/experimental/fil/infer2.cpp
+        src/experimental/fil/infer2.cu
+        src/experimental/fil/infer3.cpp
+        src/experimental/fil/infer3.cu)
   endif()
 
   # todo: organize linear models better

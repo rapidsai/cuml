@@ -6,10 +6,10 @@
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/specialization_types.hpp>
-#include <cuml/experimental/fil/specializations/forest_macros.hpp>
-#include <kayak/cuda_stream.hpp>
-#include <kayak/device_id.hpp>
-#include <kayak/device_type.hpp>
+#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
+#include <cuml/experimental/kayak/cuda_stream.hpp>
+#include <cuml/experimental/kayak/device_id.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 #define HERRING_SCALAR_LOCAL_ARGS(dev, variant_index)(\
   HERRING_FOREST(variant_index) const&,\

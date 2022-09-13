@@ -7,7 +7,7 @@
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/specializations/infer_macros.hpp>
+#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/kayak/ceildiv.hpp>
 #include <cuml/experimental/kayak/cuda_stream.hpp>

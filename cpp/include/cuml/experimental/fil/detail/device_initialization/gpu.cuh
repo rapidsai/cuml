@@ -5,7 +5,7 @@
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
 #include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/fil/specializations/device_initialization_macros.hpp>
+#include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_setter.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>

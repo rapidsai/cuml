@@ -7,7 +7,7 @@
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/cpu.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/specializations/infer_macros.hpp>
+#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 #include <cuml/experimental/kayak/cuda_stream.hpp>
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
