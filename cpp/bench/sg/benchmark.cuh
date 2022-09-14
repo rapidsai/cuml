@@ -22,8 +22,8 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Bench {

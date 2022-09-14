@@ -19,7 +19,7 @@
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
 #include <metrics/mutual_info_score.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <random>
 
 namespace MLCommon {

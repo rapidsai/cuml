@@ -20,9 +20,9 @@
 #include <math.h>
 
 #include <linalg/init.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
 
 namespace MLCommon {
 namespace Label {

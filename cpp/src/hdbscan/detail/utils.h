@@ -18,16 +18,16 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/norm.hpp>
+#include <raft/label/classlabels.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/norm.cuh>
 
 #include <algorithm>
 

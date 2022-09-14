@@ -22,6 +22,16 @@ from cuml.common.exceptions import NotFittedError
 import warnings
 
 
+def get_stat_func(stat):
+    def func(ds):
+        if hasattr(ds, stat):
+            return getattr(ds, stat)()
+        else:
+            # implement stat
+            raise ValueError(f'{stat} function is not implemented.')
+    return func
+
+
 class TargetEncoder:
     """
     A cudf based implementation of target encoding [1]_, which converts
@@ -52,8 +62,9 @@ class TargetEncoder:
         in `fit()` or `fit_transform()` functions.
     output_type : {'cupy', 'numpy', 'auto'}, default = 'auto'
         The data type of output. If 'auto', it matches input data.
-    stat : {'mean','var'}, default = 'mean'
-        The statistic used in encoding, mean or variance of the target.
+    stat : {'mean','var','median'}, default = 'mean'
+        The statistic used in encoding, mean, variance or median of the
+        target.
 
     References
     ----------
@@ -93,8 +104,8 @@ class TargetEncoder:
                    " or 'numpy' or 'auto', "
                    "got {0}.".format(output_type))
             raise ValueError(msg)
-        if stat not in {'mean', 'var'}:
-            msg = ("stat should be either 'mean' or 'var'."
+        if stat not in {'mean', 'var', 'median'}:
+            msg = ("stat should be 'mean', 'var' or 'median'."
                    f"got {stat}.")
             raise ValueError(msg)
 
@@ -232,15 +243,15 @@ class TargetEncoder:
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
-        self.mean = train[self.y_col].mean()
+        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
+        if self.stat in ['median']:
+            return self._fit_transform_for_loop(train, x_cols)
 
+        self.mean = train[self.y_col].mean()
         if self.stat == 'var':
             y_cols = [self.y_col, self.y_col2]
             train[self.y_col2] = self._make_y_column(y*y)
             self.mean2 = train[self.y_col2].mean()
-            var = self.mean2 - self.mean**2
-            n = train.shape[0]
-            self.var = var * n / (n-1)
         else:
             y_cols = [self.y_col]
 
@@ -276,6 +287,23 @@ class TargetEncoder:
         train = train.merge(encode_each_fold, on=cols, how='left')
         del encode_each_fold
         return self._impute_and_sort(train), train
+
+    def _fit_transform_for_loop(self, train, x_cols):
+
+        def _rename_col(df, col):
+            df.columns = [col]
+            return df.reset_index()
+
+        res = []
+        for f in train[self.fold_col].unique().values_host:
+            mask = train[self.fold_col] == f
+            dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})
+            dg = _rename_col(dg, self.out_col)
+            res.append(train.loc[mask].merge(dg, on=x_cols, how='left'))
+        res = cudf.concat(res, axis=0)
+        self.encode_all = train.groupby(x_cols).agg({self.y_col: self.stat})
+        self.encode_all = _rename_col(self.encode_all, self.out_col)
+        return self._impute_and_sort(res), train
 
     def _make_y_column(self, y):
         """
@@ -387,9 +415,8 @@ class TargetEncoder:
         """
         Impute and sort the result encoding in the same row order as input
         """
-        impute_val = self.var if self.stat == 'var' else self.mean
         df[self.out_col] = df[self.out_col].nans_to_nulls()
-        df[self.out_col] = df[self.out_col].fillna(impute_val)
+        df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
         if self.output_type == 'numpy':

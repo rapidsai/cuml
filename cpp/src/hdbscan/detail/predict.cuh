@@ -19,8 +19,8 @@
 #include "kernels/predict.cuh"
 #include "reachability.cuh"
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

@@ -19,9 +19,9 @@
 #include <cuml/cluster/spectral.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/sparse/coo.hpp>
 
 #include <thrust/device_ptr.h>

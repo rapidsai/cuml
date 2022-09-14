@@ -16,8 +16,8 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/jones_transform.cuh>

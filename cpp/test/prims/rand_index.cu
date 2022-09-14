@@ -18,7 +18,7 @@
 
 #include <metrics/rand_index.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 

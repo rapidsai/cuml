@@ -15,7 +15,7 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <raft/random/make_blobs.hpp>
+#include <raft/random/make_blobs.cuh>
 
 namespace MLCommon {
 namespace Bench {
