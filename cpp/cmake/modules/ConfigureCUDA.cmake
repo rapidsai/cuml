@@ -32,7 +32,7 @@ list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-decla
 
 if(DISABLE_DEPRECATION_WARNING)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations)
-    list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
+    list(APPEND CUML_CUDA_FLAGS -Wno-deprecated-declarations -Xcompiler=-Wno-deprecated-declarations)
 endif()
 
 # make sure we produce smallest binary size
