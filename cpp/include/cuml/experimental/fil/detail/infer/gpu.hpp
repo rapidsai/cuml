@@ -7,7 +7,9 @@
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 namespace inference {
 
@@ -33,6 +35,8 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   kayak::cuda_stream stream=kayak::cuda_stream{}
 );
 
+}
+}
 }
 }
 }

@@ -13,9 +13,11 @@
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/kayak/tree_layout.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 
-template <cuml/experimental/kayak::tree_layout layout, typename T>
+template <kayak::tree_layout layout, typename T>
 struct traversal_container {
   using backing_container_t = std::conditional_t<
     layout == kayak::tree_layout::depth_first,
@@ -70,7 +72,7 @@ namespace detail {
   };
 }
 
-template<cuml/experimental/kayak::tree_layout layout>
+template<kayak::tree_layout layout>
 struct treelite_importer {
   template<typename tl_threshold_t, typename tl_output_t>
   struct treelite_node {
@@ -600,4 +602,6 @@ struct treelite_importer {
   }
 };
 
+}
+}
 }

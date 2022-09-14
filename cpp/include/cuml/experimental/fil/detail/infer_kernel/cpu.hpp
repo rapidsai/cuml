@@ -10,7 +10,9 @@
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/kayak/ceildiv.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 
 template<
@@ -131,5 +133,7 @@ void infer_kernel_cpu(
   }
 }
 
+}
+}
 }
 }

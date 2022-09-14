@@ -4,10 +4,12 @@
 #include <cuml/experimental/kayak/cuda_check.hpp>
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 
-inline auto get_max_shared_mem_per_block(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_max_shared_mem_per_block(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -19,7 +21,7 @@ inline auto get_max_shared_mem_per_block(kayak::device_id<cuml/experimental/kaya
   return index_type(result);
 }
 
-inline auto get_sm_count(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_sm_count(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -31,7 +33,7 @@ inline auto get_sm_count(kayak::device_id<cuml/experimental/kayak::device_type::
   return index_type(result);
 }
 
-inline auto get_max_threads_per_block(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_max_threads_per_block(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -43,7 +45,7 @@ inline auto get_max_threads_per_block(kayak::device_id<cuml/experimental/kayak::
   return index_type(result);
 }
 
-inline auto get_max_threads_per_sm(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_max_threads_per_sm(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -55,7 +57,7 @@ inline auto get_max_threads_per_sm(kayak::device_id<cuml/experimental/kayak::dev
   return index_type(result);
 }
 
-inline auto get_max_shared_mem_per_sm(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_max_shared_mem_per_sm(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -67,7 +69,7 @@ inline auto get_max_shared_mem_per_sm(kayak::device_id<cuml/experimental/kayak::
   return index_type(result);
 }
 
-inline auto get_mem_clock_rate(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_mem_clock_rate(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -79,7 +81,7 @@ inline auto get_mem_clock_rate(kayak::device_id<cuml/experimental/kayak::device_
   return index_type(result);
 }
 
-inline auto get_core_clock_rate(kayak::device_id<cuml/experimental/kayak::device_type::gpu> device_id) {
+inline auto get_core_clock_rate(kayak::device_id<kayak::device_type::gpu> device_id) {
   auto result = int{};
   kayak::cuda_check(
     cudaDeviceGetAttribute(
@@ -108,5 +110,7 @@ auto constexpr static const MAX_READ_CHUNK = index_type{128};
 auto constexpr static const MAX_BLOCKS = index_type{65536};
 auto constexpr static const WARP_SIZE = index_type{32};
 
+}
+}
 }
 }

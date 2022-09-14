@@ -2,7 +2,9 @@
 #include <exception>
 #include <string>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 
 struct unusable_model_exception : std::exception {
   unusable_model_exception () : msg_{"Model is not compatible with Herring"}
@@ -37,4 +39,6 @@ struct type_error : std::exception {
   char const* msg_;
 };
 
+}
+}
 }

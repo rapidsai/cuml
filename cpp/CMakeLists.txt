@@ -43,6 +43,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
@@ -280,6 +281,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   # common components
   add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
+  if (ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_TARGET} PUBLIC ENABLE_GPU)
+  endif()
 
   if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}

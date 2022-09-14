@@ -6,7 +6,9 @@
 #include <cuml/experimental/fil/detail/device_initialization/gpu.hpp>
 #endif
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 template<typename forest_t, kayak::device_type D>
 void initialize_device(kayak::device_id<D> device) {
@@ -18,6 +20,8 @@ void initialize_device(kayak::device_id_variant device) {
   std::visit([](auto&& concrete_device) {
     device_initialization::initialize_device<forest_t>(concrete_device);
   }, device);
+}
+}
 }
 }
 }

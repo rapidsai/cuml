@@ -9,7 +9,9 @@
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/kayak/gpu_support.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 
   HOST DEVICE inline auto constexpr ops_to_val(row_op row_wise, element_op elem_wise) {
     return (
@@ -31,8 +33,11 @@ namespace herring {
     io_t bias=io_t{0},
     io_t constant=io_t{1}
   ) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
     auto max_index = index_type{};
     auto max_value = std::numeric_limits<io_t>::lowest();
+#pragma GCC diagnostic pop
     for (auto i=index_type{}; i < class_count; ++i) {
       val[i] = val[i] / average_factor + bias;
       if constexpr (elem_wise_v == element_op::signed_square) {
@@ -182,4 +187,6 @@ namespace herring {
     row_op row_wise_;
     element_op elem_wise_;
   };
+}
+}
 }

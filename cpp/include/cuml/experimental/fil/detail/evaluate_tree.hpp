@@ -5,7 +5,9 @@
 #endif
 #include <cuml/experimental/kayak/bitset.hpp>
 #include <cuml/experimental/kayak/gpu_support.hpp>
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 
 template<
@@ -84,5 +86,7 @@ HOST DEVICE auto evaluate_tree(
   return cur_node.template output<has_vector_leaves>();
 }
 
+}
+}
 }
 }

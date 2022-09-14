@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <type_traits>
 #include <variant>
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 
 template <bool double_precision, bool large_trees>
@@ -29,5 +31,7 @@ using specialization_variant = std::variant<
   specialization_types<true, true>
 >;
 
+}
+}
 }
 }

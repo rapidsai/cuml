@@ -12,7 +12,9 @@
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
 #include <cuml/experimental/kayak/gpu_support.hpp>
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 namespace inference {
 
@@ -65,3 +67,5 @@ HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 3)
 }
 }
 
+}
+}

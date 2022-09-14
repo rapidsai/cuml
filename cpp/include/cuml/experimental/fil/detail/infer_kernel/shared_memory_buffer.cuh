@@ -4,7 +4,9 @@
 #include <type_traits>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 
 struct shared_memory_buffer {
   __device__ shared_memory_buffer(std::byte* buffer=nullptr, index_type size=index_type{}) :
@@ -108,4 +110,6 @@ struct shared_memory_buffer {
   bool requires_sync;
 };
 
+}
+}
 }

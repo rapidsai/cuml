@@ -9,7 +9,9 @@
 #include <cuml/experimental/kayak/ceildiv.hpp>
 #include <cuml/experimental/kayak/padding.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 
 template<
@@ -193,5 +195,7 @@ __global__ void infer_kernel(
   }
 }
 
+}
+}
 }
 }

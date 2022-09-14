@@ -20,9 +20,11 @@
 #include <optional>
 #include <variant>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 
-template <cuml/experimental/kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct decision_forest {
 
   auto constexpr static const layout = layout_v;
@@ -60,8 +62,8 @@ struct decision_forest {
     index_type num_feature,
     index_type num_class=index_type{2},
     bool has_categorical_nodes = false,
-    std::optional<cuml/experimental/kayak::buffer<io_type>>&& vector_output=std::nullopt,
-    std::optional<cuml/experimental/kayak::buffer<typename node_type::index_type>>&& categorical_storage=std::nullopt,
+    std::optional<kayak::buffer<io_type>>&& vector_output=std::nullopt,
+    std::optional<kayak::buffer<typename node_type::index_type>>&& categorical_storage=std::nullopt,
     index_type leaf_size=index_type{1},
     row_op row_postproc=row_op::disable,
     element_op elem_postproc=element_op::disable,
@@ -130,7 +132,7 @@ struct decision_forest {
     );
     switch(nodes_.device().index()) {
       case 0:
-        herring::detail::infer(
+        fil::detail::infer(
           obj(),
           get_postprocessor(),
           output.data(),
@@ -147,7 +149,7 @@ struct decision_forest {
         );
         break;
       case 1:
-        herring::detail::infer(
+        fil::detail::infer(
           obj(),
           get_postprocessor(),
           output.data(),
@@ -172,9 +174,9 @@ struct decision_forest {
   /** The index of the root node for each tree in the forest */
   kayak::buffer<index_type> root_node_indexes_;
   /** Buffer of outputs for all leaves in vector-leaf models */
-  std::optional<cuml/experimental/kayak::buffer<io_type>> vector_output_;
+  std::optional<kayak::buffer<io_type>> vector_output_;
   /** Buffer of outputs for all leaves in vector-leaf models */
-  std::optional<cuml/experimental/kayak::buffer<categorical_storage_type>> categorical_storage_;
+  std::optional<kayak::buffer<categorical_storage_type>> categorical_storage_;
 
   // Metadata
   index_type num_feature_;
@@ -271,5 +273,7 @@ inline auto get_forest_variant_index(
     (index_type{double_precision} << index_type{1})
     + index_type{large_trees}
   );
+}
+}
 }
 }

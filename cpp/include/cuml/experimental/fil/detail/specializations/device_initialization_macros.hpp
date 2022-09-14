@@ -5,4 +5,4 @@
 #define HERRING_INITIALIZE_DEVICE(template_type, variant_index) template_type void initialize_device<\
   HERRING_FOREST(variant_index),\
   kayak::device_type::gpu\
->(kayak::device_id<cuml/experimental/kayak::device_type::gpu>);
+>(kayak::device_id<kayak::device_type::gpu>);

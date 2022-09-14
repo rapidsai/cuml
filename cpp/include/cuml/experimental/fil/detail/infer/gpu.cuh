@@ -16,7 +16,9 @@
 #include <cuml/experimental/kayak/gpu_support.hpp>
 #include <cuml/experimental/kayak/padding.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 namespace inference {
 
@@ -286,6 +288,8 @@ HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 1)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 2)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 3)
 
+}
+}
 }
 }
 }

@@ -17,7 +17,9 @@
 #include <cuml/experimental/kayak/cuda_stream.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
 
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 namespace detail {
 
 struct model_builder_error : std::exception {
@@ -192,7 +194,7 @@ struct decision_forest_builder {
       max_num_categories_ != 0,
       vector_output_.size() == 0 ?
         std::nullopt :
-        std::make_optional<cuml/experimental/kayak::buffer<typename node_type::threshold_type>>(
+        std::make_optional<kayak::buffer<typename node_type::threshold_type>>(
           kayak::buffer{vector_output_.data(), vector_output_.size()},
           mem_type,
           device,
@@ -200,7 +202,7 @@ struct decision_forest_builder {
         ),
       categorical_storage_.size() == 0 ?
         std::nullopt :
-        std::make_optional<cuml/experimental/kayak::buffer<typename node_type::index_type>>(
+        std::make_optional<kayak::buffer<typename node_type::index_type>>(
           kayak::buffer{categorical_storage_.data(), categorical_storage_.size()},
           mem_type,
           device,
@@ -235,5 +237,7 @@ struct decision_forest_builder {
   std::vector<typename node_type::index_type> categorical_storage_;
 };
 
+}
+}
 }
 }

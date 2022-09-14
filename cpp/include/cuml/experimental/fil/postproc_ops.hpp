@@ -1,5 +1,7 @@
 #pragma once
-namespace herring {
+namespace ML {
+namespace experimental {
+namespace fil {
 
 /* Enum representing possible row-wise operations on output */
 enum struct row_op : unsigned char {
@@ -18,4 +20,6 @@ enum struct element_op : unsigned char {
   logarithm_one_plus_exp=0b00010000
 };
 
+}
+}
 }
