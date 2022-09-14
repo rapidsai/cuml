@@ -125,6 +125,7 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
         f"raft-dask{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
       ],
       packages=find_packages(include=['cuml', 'cuml.*']),
+      include_package_data=True,
       package_data={
           key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
       },
