@@ -69,7 +69,6 @@ class CumlArrayDescriptor():
             self.name, CumlArrayDescriptorMeta(input_type=None, values={}))
 
     def _to_output(self, instance, to_output_type, to_output_dtype=None):
-
         existing = self._get_meta(instance, throw_on_missing=True)
 
         # Handle input_type==None which means we have a non-array object stored

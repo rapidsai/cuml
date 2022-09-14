@@ -290,6 +290,8 @@ class Base(TagsMixin,
             # call the method from the sklearn model
             res = getattr(self.sk_model_, func_name)(*args, **kwargs)
             if func_name == 'fit':
+                # need to do this to mirror input type
+                self._set_output_type(args[0])
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
                 for attribute in self.get_attributes_names():
