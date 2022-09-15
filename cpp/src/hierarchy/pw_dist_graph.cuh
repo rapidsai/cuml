@@ -29,7 +29,7 @@
 // TODO: Not a good strategy for pluggability but will be
 // removed once our dense pairwise distance API is in RAFT
 #include <raft/cluster/detail/connectivities.cuh>
-#include <raft/cluster/single_linkage_types.hpp>
+#include <raft/sparse/hierarchy/common.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -140,5 +140,5 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, value_idx, 
 };
 
 };  // namespace detail
-};  // namespace cluster
+};  // end namespace cluster
 };  // end namespace raft
