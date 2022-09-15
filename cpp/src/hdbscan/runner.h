@@ -23,9 +23,9 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/sparse/coo.hpp>
 #include <raft/cluster/detail/agglomerative.cuh>
 #include <raft/cluster/detail/mst.cuh>
+#include <raft/sparse/coo.hpp>
 
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
@@ -161,20 +161,20 @@ void build_linkage(const raft::handle_t& handle,
   FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists, m);
   // during knn graph connection
   raft::cluster::detail::build_sorted_mst(handle,
-                                            X,
-                                            mutual_reachability_indptr.data(),
-                                            mutual_reachability_coo.cols(),
-                                            mutual_reachability_coo.vals(),
-                                            m,
-                                            n,
-                                            out.get_mst_src(),
-                                            out.get_mst_dst(),
-                                            out.get_mst_weights(),
-                                            color.data(),
-                                            mutual_reachability_coo.nnz,
-                                            red_op,
-                                            metric,
-                                            (size_t)10);
+                                          X,
+                                          mutual_reachability_indptr.data(),
+                                          mutual_reachability_coo.cols(),
+                                          mutual_reachability_coo.vals(),
+                                          m,
+                                          n,
+                                          out.get_mst_src(),
+                                          out.get_mst_dst(),
+                                          out.get_mst_weights(),
+                                          color.data(),
+                                          mutual_reachability_coo.nnz,
+                                          red_op,
+                                          metric,
+                                          (size_t)10);
 
   /**
    * Perform hierarchical labeling
@@ -182,13 +182,13 @@ void build_linkage(const raft::handle_t& handle,
   size_t n_edges = m - 1;
 
   raft::cluster::detail::build_dendrogram_host(handle,
-                                                 out.get_mst_src(),
-                                                 out.get_mst_dst(),
-                                                 out.get_mst_weights(),
-                                                 n_edges,
-                                                 out.get_children(),
-                                                 out.get_deltas(),
-                                                 out.get_sizes());
+                                               out.get_mst_src(),
+                                               out.get_mst_dst(),
+                                               out.get_mst_weights(),
+                                               n_edges,
+                                               out.get_children(),
+                                               out.get_deltas(),
+                                               out.get_sizes());
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
