@@ -27,7 +27,7 @@ jobs:
       private-deply-keys: "${{ secrets.CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY }}"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
-      skbuild-configure-options: "--log-level=DEBUG -DCUML_CUMLPRIMS_MG_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
+      skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCUML_CUMLPRIMS_MG_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
       gpu-smoketest-before-amd64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       cibw-test-requires: "pytest sklearn"

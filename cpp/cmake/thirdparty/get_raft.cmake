@@ -15,14 +15,25 @@
 #=============================================================================
 
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+
+if(NOT DEFINED CUML_RAFT_VERSION)
+  set(CUML_RAFT_VERSION "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+endif()
+
+if(NOT DEFINED CUML_RAFT_BRANCH)
+  set(CUML_RAFT_BRANCH "branch-${CUML_RAFT_VERSION}")
+endif()
+
+if(NOT DEFINED CUML_RAFT_REPOSITORY)
+  set(CUML_RAFT_REPOSITORY "https://github.com/rapidsai/raft.git")
+endif()
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN NVTX)
+    set(oneValueArgs VERSION REPO PINNED_TAG EXCLUDE_FROM_ALL USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN NVTX)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
+    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_RAFT_VERSION}")
       message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
       set(CPM_DOWNLOAD_raft ON)
     elseif(PKG_USE_RAFT_STATIC AND (NOT CPM_raft_SOURCE))
@@ -60,7 +71,7 @@ function(find_and_configure_raft)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
-        GIT_REPOSITORY         https://github.com/${PKG_FORK}/raft.git
+        GIT_REPOSITORY         ${PKG_REPO}
         GIT_TAG                ${PKG_PINNED_TAG}
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
@@ -87,8 +98,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        REPO             ${CUML_RAFT_REPOSITORY}
+                        PINNED_TAG       ${CUML_RAFT_BRANCH}
                         EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
 
                         # When PINNED_TAG above doesn't match cuml,
