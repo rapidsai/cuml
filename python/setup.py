@@ -117,7 +117,6 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       install_requires=[
         "numba",
         "scipy",
-        "joblib",
         "treelite==2.4.0",
         "treelite_runtime==2.4.0",
         f"cudf{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
