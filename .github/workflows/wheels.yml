@@ -19,25 +19,18 @@ jobs:
   #   secrets: inherit
   cuml-wheel:
     # needs: libcuml-wheel
-    uses: trxcllnt/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-ptaylor
     with:
       package-name: cuml
       package-dir: python
       python-version: "3.8 3.9"
       private-deply-keys: "${{ secrets.CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY }}"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-environment: |
-        "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
-      skbuild-configure-options: |
-        "--log-level=DEBUG"
-        "-DCPM_DOWNLOAD_ALL=ON"
-        "-DCUML_BUILD_WHEELS=ON"
-        "-DDETECT_CONDA_ENV=OFF"
-        "-DDISABLE_FORCE_CLONE_RAFT=ON"
-        "-DCMAKE_CUDA_ARCHITECTURES=ALL"
+      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
+      skbuild-configure-options: "--log-level=DEBUG -DCUML_CUMLPRIMS_MG_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
       gpu-smoketest-before-amd64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-      cibw-test-requires: "pytest"
+      cibw-test-requires: "pytest sklearn"
       cibw-test-command: "pytest -v ./python/cuml/tests"
       gpu-smoketest: "import cudf; from cuml.cluster import DBSCAN; gdf_float = cudf.DataFrame(); gdf_float['0'] = [1.0, 2.0, 5.0]; gdf_float['1'] = [4.0, 2.0, 1.0]; gdf_float['2'] = [4.0, 2.0, 1.0]; dbscan_float = DBSCAN(eps=1.0, min_samples=1); dbscan_float.fit(gdf_float); print(dbscan_float.labels_)"
     secrets: inherit
