@@ -15,14 +15,25 @@
 #=============================================================================
 
 set(CUML_MIN_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+
+if(NOT DEFINED CUML_CUMLPRIMS_MG_VERSION)
+  set(CUML_CUMLPRIMS_MG_VERSION "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+endif()
+
+if(NOT DEFINED CUML_CUMLPRIMS_MG_BRANCH)
+  set(CUML_CUMLPRIMS_MG_BRANCH "branch-${CUML_CUMLPRIMS_MG_VERSION}")
+endif()
+
+if(NOT DEFINED CUML_CUMLPRIMS_MG_REPOSITORY)
+  set(CUML_CUMLPRIMS_MG_REPOSITORY "git@github.com:rapidsai/cumlprims_mg.git")
+endif()
 
 function(find_and_configure_cumlprims_mg)
 
-    set(oneValueArgs VERSION FORK PINNED_TAG BUILD_STATIC EXCLUDE_FROM_ALL CLONE_ON_PIN)
+    set(oneValueArgs VERSION REPO PINNED_TAG BUILD_STATIC EXCLUDE_FROM_ALL CLONE_ON_PIN)
     cmake_parse_arguments(PKG "" "${oneValueArgs}" "" ${ARGN})
 
-    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_cumlprims_mg}")
+    if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_CUMLPRIMS_MG_VERSION}")
       message(STATUS "Pinned tag found: ${PKG_PINNED_TAG}. Cloning cumlprims locally.")
       set(CPM_DOWNLOAD_cumlprims_mg ON)
     elseif(PKG_BUILD_STATIC AND (NOT CPM_cumlprims_mg_SOURCE))
@@ -41,7 +52,7 @@ function(find_and_configure_cumlprims_mg)
       INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
         SOURCE_SUBDIR    cpp
-        GIT_REPOSITORY   git@github.com:${PKG_FORK}/cumlprims_mg.git
+        GIT_REPOSITORY   ${PKG_REPO}
         GIT_TAG          ${PKG_PINNED_TAG}
         EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
@@ -63,8 +74,8 @@ endfunction()
 # `-D CPM_cumlprims_mg_SOURCE=/path/to/cumlprims_mg`
 ###
 find_and_configure_cumlprims_mg(VERSION          ${CUML_MIN_VERSION_cumlprims_mg}
-                                FORK             rapidsai
-                                PINNED_TAG       branch-${CUML_BRANCH_VERSION_cumlprims_mg}
+                                REPO             ${CUML_CUMLPRIMS_MG_REPOSITORY}
+                                PINNED_TAG       ${CUML_CUMLPRIMS_MG_BRANCH}
                                 BUILD_STATIC     ${CUML_USE_CUMLPRIMS_MG_STATIC}
                                 EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL}
                                 # When PINNED_TAG above doesn't match cuml,
