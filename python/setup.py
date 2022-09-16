@@ -92,24 +92,27 @@ if not libcuml_path:
 
 cmdclass = versioneer.get_cmdclass()
 
-def exclude_libcxx_symlink(cmake_manifest):
-    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
-
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
 setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
-      description="cuML - RAPIDS ML Algorithms",
       version=versioneer.get_version(),
+      description="cuML - RAPIDS ML Algorithms",
+      url="https://github.com/rapidsai/cuml",
+      author="NVIDIA Corporation",
+      license="Apache",
       classifiers=[
           "Intended Audience :: Developers",
           "Programming Language :: Python",
           "Programming Language :: Python :: 3.8",
           "Programming Language :: Python :: 3.9"
       ],
-      author="NVIDIA Corporation",
-      url="https://github.com/rapidsai/cuml",
-      cmake_process_manifest_hook=exclude_libcxx_symlink,
+      cmdclass=cmdclass,
+      include_package_data=True,
+      packages=find_packages(include=['cuml', 'cuml.*']),
+      package_data={
+          key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
+      },
       setup_requires=[
         f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
         f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
@@ -117,17 +120,25 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       install_requires=[
         "numba",
         "scipy",
+        "seaborn",
         "treelite==2.4.0",
         "treelite_runtime==2.4.0",
         f"cudf{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
         f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
         f"raft-dask{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
       ],
-      packages=find_packages(include=['cuml', 'cuml.*']),
-      include_package_data=True,
-      package_data={
-          key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
+      extras_require = {
+          "test": [
+              "pytest",
+              "hypothesis",
+              "pytest-xdist",
+              "pytest-benchmark",
+              "nltk",
+              "dask-ml",
+              "numpydoc",
+              "umap-learn",
+              "statsmodels",
+              "scikit-learn==0.24",
+          ]
       },
-      license="Apache",
-      cmdclass=cmdclass,
       zip_safe=False)
