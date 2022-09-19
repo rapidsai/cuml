@@ -464,7 +464,7 @@ def test_serialize(input_type):
     elif input_type == 'numba':
         assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
     else:
-        assert cp.all(inp == cp.asarray(ary2))
+        assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
 
     assert ary.__cuda_array_interface__['shape'] == \
         ary2.__cuda_array_interface__['shape']
@@ -509,7 +509,7 @@ def test_pickle(input_type, protocol):
     elif input_type == 'numba':
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
     else:
-        assert cp.all(inp == cp.asarray(b))
+        assert cp.all(cp.asarray(inp) == cp.asarray(b))
 
     assert ary.__cuda_array_interface__['shape'] == \
         b.__cuda_array_interface__['shape']
@@ -538,7 +538,7 @@ def test_deepcopy(input_type):
     elif input_type == 'numba':
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
     else:
-        assert cp.all(inp == cp.asarray(b))
+        assert cp.all(cp.asarray(inp) == cp.asarray(b))
 
     assert ary.ptr != b.ptr
 
