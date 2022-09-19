@@ -461,8 +461,6 @@ def test_serialize(input_type):
         assert np.all(inp == ary2.to_output('numpy'))
     elif input_type == 'series':
         assert np.all(inp == ary2.to_output('series'))
-    elif input_type == 'numba':
-        assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
 
@@ -506,8 +504,6 @@ def test_pickle(input_type, protocol):
         assert np.all(inp == b.to_output('numpy'))
     elif input_type == 'series':
         assert np.all(inp == b.to_output('series'))
-    elif input_type == 'numba':
-        assert cp.all(cp.asarray(inp) == cp.asarray(b))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
 
@@ -535,8 +531,6 @@ def test_deepcopy(input_type):
         assert np.all(inp == b.to_output('numpy'))
     elif input_type == 'series':
         assert np.all(inp == b.to_output('series'))
-    elif input_type == 'numba':
-        assert cp.all(cp.asarray(inp) == cp.asarray(b))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
 
