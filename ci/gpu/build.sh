@@ -202,7 +202,7 @@ else
     pip install "git+https://github.com/dask/distributed.git@2022.7.1" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask.git@2022.7.1" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
-    pip install "git+https://github.com/hdbscan/hdbscan.git@master" --upgrade --no-deps
+    pip install "git+https://github.com/scikit-learn-contrib/hdbscan.git@master" --upgrade --no-deps
     pip install sparse
 
     set +x
