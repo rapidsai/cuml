@@ -61,7 +61,7 @@ requirements:
     - ucx-proc=*=gpu
     - dask==2022.7.1
     - distributed==2022.7.1
-    - joblib >=0.11, <1.2.0
+    - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.5,<11.7.1
 
