@@ -50,7 +50,7 @@ requirements:
     - python x.x
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
-    - joblib<=1.2.0
+    - joblib<=1.1.0
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - pylibraft {{ minor_version }}
