@@ -196,6 +196,7 @@ cdef class ForestInference_impl():
             model_handle = tl_model
 
         cdef kayak_device_t dev_type
+        # TODO(wphicks): Update to handle all possible mem types
         if mem_type == 'cpu':
             dev_type = kayak_device_t.cpu
         else:
@@ -214,7 +215,6 @@ cdef class ForestInference_impl():
         return [np.float32, np.float64][model.is_double_precision()]
 
     def predict(self, X, *, preds=None, chunk_size=None):
-
         model_dtype = get_dtype()
         in_arr, n_rows, n_cols, dtype = input_to_cuml_array(
             X,
