@@ -17,9 +17,9 @@
 set(cython_sources
     agglomerative.pyx
     dbscan.pyx
-    hdbscan.pyx
+    hdbscan/hdbscan.pyx
+    hdbscan/prediction.pyx
     kmeans.pyx
-    prediction.pyx
 )
 
 if(NOT SINGLEGPU)
