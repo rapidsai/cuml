@@ -32,7 +32,7 @@ from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 

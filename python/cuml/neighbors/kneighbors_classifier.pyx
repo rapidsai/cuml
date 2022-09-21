@@ -34,7 +34,7 @@ import cupy as cp
 
 from cython.operator cimport dereference as deref
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool

@@ -24,7 +24,6 @@
 #include <raft/linalg/unary_op.cuh>
 
 #include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/hierarchy/detail/connectivities.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/selection/knn_graph.cuh>
 

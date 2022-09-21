@@ -17,7 +17,7 @@
 # distutils: language = c++
 
 from rmm._lib.memory_resource cimport get_current_device_resource
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.manifold.umap_utils cimport *
 from libcpp.utility cimport move
 import numpy as np
