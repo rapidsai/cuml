@@ -20,8 +20,8 @@ import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 import cupy as cp
 import numpy as np
 import pandas as pd

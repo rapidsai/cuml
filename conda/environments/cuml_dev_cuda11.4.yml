@@ -17,7 +17,8 @@ dependencies:
 - libraft-headers=22.10.*
 - libraft-distance=22.10.*
 - libraft-nn=22.10.*
-- pyraft=22.10.*
+- raft-dask=22.10.*
+- pylibraft=22.10.*
 - dask-cudf=22.10.*
 - dask-cuda=22.10.*
 - ucx>=1.13.0
@@ -33,13 +34,13 @@ dependencies:
 - treelite=2.4.0
 - statsmodels
 - seaborn
-- hdbscan
 - nltk
 - pip
 - pip:
     - git+https://github.com/dask/dask.git@2022.7.1
     - git+https://github.com/dask/distributed.git@2022.7.1
     - git+https://github.com/dask/dask-glm.git@main
+    - git+https://github.com/hdbscan/hdbscan.git@master
     - sparse
 
 # rapids-build-env, notebook-env and doc-env are defined in

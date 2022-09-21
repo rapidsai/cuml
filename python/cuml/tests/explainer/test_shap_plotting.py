@@ -87,6 +87,8 @@ def test_dependence_plot(explainer, exact_shap_regression_dataset):
     shap.dependence_plot(0, shap_values, data, show=show_plots)
 
 
+@pytest.mark.skip(reason="matplotlib has been updated. "
+                         "ref: https://github.com/rapidsai/cuml/issues/4893")
 def test_heatmap(explainer, exact_shap_regression_dataset):
     shap = pytest.importorskip("shap")
     shap_values, _ = get_shap_values(explainer=explainer,
