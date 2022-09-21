@@ -36,9 +36,6 @@ from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import logger
 from cuml.common.import_utils import has_hdbscan_plots
 
-from cuml.cluster.prediction import all_points_membership_vectors
-from cuml.cluster.prediction import approximate_predict
-
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
 

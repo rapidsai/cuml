@@ -12,8 +12,6 @@
 # the License.
 # =============================================================================
 
-
-
 set(cython_sources
     agglomerative.pyx
     dbscan.pyx
