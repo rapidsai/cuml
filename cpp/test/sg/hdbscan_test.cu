@@ -31,7 +31,7 @@
 
 #include <metrics/adjusted_rand_index.cuh>
 
-#include <raft/sparse/hierarchy/detail/agglomerative.cuh>
+#include <raft/cluster/detail/agglomerative.cuh>
 
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -177,14 +177,14 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     /**
      * Build dendrogram of MST
      */
-    raft::hierarchy::detail::build_dendrogram_host(handle,
-                                                   mst_src.data(),
-                                                   mst_dst.data(),
-                                                   mst_data.data(),
-                                                   params.n_row - 1,
-                                                   out_children.data(),
-                                                   out_delta.data(),
-                                                   out_size.data());
+    raft::cluster::detail::build_dendrogram_host(handle,
+                                                 mst_src.data(),
+                                                 mst_dst.data(),
+                                                 mst_data.data(),
+                                                 params.n_row - 1,
+                                                 out_children.data(),
+                                                 out_delta.data(),
+                                                 out_size.data());
 
     /**
      * Condense Hierarchy

@@ -40,7 +40,8 @@ requirements:
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - pyraft {{ minor_version }}
+    - pylibraft {{ minor_version }}
+    - raft-dask {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
@@ -51,7 +52,8 @@ requirements:
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - pyraft {{ minor_version }}
+    - pylibraft {{ minor_version }}
+    - raft-dask {{ minor_version }}
     - cupy>=7.8.0,<12.0.0a0
     - treelite=2.4.0
     - nccl>=2.9.9
