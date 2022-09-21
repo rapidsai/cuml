@@ -491,7 +491,7 @@ def using_output_type(output_type):
     >>> dbscan_float2.labels_
     array([0, 1, 2], dtype=int32)
     >>> type(dbscan_float2.labels_)
-    <class 'cupy._core.core.ndarray'>
+    <class 'cupy.ndarray'>
 
     """
     prev_output_type = cuml.global_settings.output_type
