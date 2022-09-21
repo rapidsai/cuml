@@ -3,8 +3,10 @@
 #include <iostream>
 #include <queue>
 #include <stack>
+#include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <treelite/typeinfo.h>
+#include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/decision_forest_builder.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -601,6 +603,24 @@ struct treelite_importer {
     )};
   }
 };
+
+auto import_from_treelite_handle(
+  ModelHandle tl_handle,
+  index_type align_bytes = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  kayak::device_type mem_type=kayak::device_type::cpu,
+  int device=0,
+  kayak::cuda_stream stream=kayak::cuda_stream{}
+) {
+  return treelite_importer<preferred_tree_layout>{}.import(
+    *static_cast<treelite::Model*>(tl_handle),
+    align_bytes,
+    use_double_precision,
+    mem_type,
+    device,
+    stream
+  );
+}
 
 }
 }

@@ -9,6 +9,7 @@
 namespace kayak {
 #ifdef ENABLE_GPU
 struct handle_t {
+  handle_t(raft::handle_t const* handle_ptr=nullptr) : raft_handle_{handle_ptr} {}
   handle_t(raft::handle_t const& raft_handle) : raft_handle_{&raft_handle} {}
   auto get_next_usable_stream() const {
     return kayak::cuda_stream{raft_handle_->get_next_usable_stream().value()};
@@ -24,6 +25,7 @@ struct handle_t {
     raft_handle_->sync_stream();
   }
  private:
+  // Have to store a pointer because handle is not movable
   raft::handle_t const* raft_handle_;
 };
 #else

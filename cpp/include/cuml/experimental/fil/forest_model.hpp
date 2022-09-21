@@ -38,6 +38,14 @@ struct forest_model {
     }, decision_forest_);
   }
 
+  auto is_double_precision() {
+    return std::visit([](auto&& concrete_forest) {
+      return std::is_same_v<
+        typename std::remove_reference_t<decltype(concrete_forest)>::io_type, double
+      >;
+    }, decision_forest_);
+  }
+
   template <typename io_t>
   void predict(
     kayak::buffer<io_t>& output,
