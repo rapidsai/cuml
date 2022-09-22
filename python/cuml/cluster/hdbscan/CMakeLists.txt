@@ -13,27 +13,16 @@
 # =============================================================================
 
 set(cython_sources
-    agglomerative.pyx
-    dbscan.pyx
-    kmeans.pyx
-)
-
-if(NOT SINGLEGPU)
-  list(APPEND cython_sources
-       dbscan_mg.pyx
-       kmeans_mg.pyx
-  )
-endif()
-
-add_subdirectory(hdbscan)
+        hdbscan.pyx
+        prediction.pyx)
 
 rapids_cython_create_modules(
-  CXX
-  SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES $<IF:$<BOOL:${SINGLE_GPU}>,${cuml_sg_libraries},${cuml_mg_libraries}>
-  MODULE_PREFIX cluster_
+        CXX
+        SOURCE_FILES "${cython_sources}"
+        LINKED_LIBRARIES ${cuml_sg_libraries}
+        MODULE_PREFIX cluster_hdbscan_
 )
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
 endforeach()
