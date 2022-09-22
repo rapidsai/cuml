@@ -6,30 +6,30 @@ on:
       - 'pull-request/[0-9]+'
 
 jobs:
-  # libcuml-wheel:
-  #   uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
-  #   with:
-  #     package-name: libcuml_cu11
-  #     package-dir: cpp
-  #     python-version: "3.8"
-  #     cibw-before-build: "pip install rmm-cu11 raft-cu11 libraft-cu11 libcumlprims-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-  #     skbuild-configure-options: '-DCMAKE_MESSAGE_LOG_LEVEL=DEBUG -DBUILD_CUML_C_LIBRARY=OFF -DBUILD_CUML_CPP_LIBRARY=ON -DBUILD_CUML_EXAMPLES=OFF -DBUILD_CUML_TESTS=OFF -DBUILD_PRIMS_TESTS=OFF -DBUILD_CUML_BENCH=OFF -DBUILD_CUML_PRIMS_BENCH=OFF'
-  #     auditwheel-skip-repair: "true"
-  #     wheel-pattern-override: "py3-none-linux"
-  #   secrets: inherit
   cuml-wheel:
-    # needs: libcuml-wheel
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-ptaylor
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-2
     with:
       package-name: cuml
       package-dir: python
       python-version: "3.8 3.9"
-      cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
+
+      manylinux-container-amd64: "rapidsai/manylinux2014"
+      manylinux-container-arm64: "rapidsai/manylinux_2_31"
+
+      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_17_x86_64 {wheel}"
+      auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_31_aarch64 {wheel}"
+
+      cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
+      cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
+
       skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCUML_CUMLPRIMS_MG_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
-      gpu-smoketest-before-amd64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-      gpu-smoketest-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-      cibw-test-extras:  "test"
-      cibw-test-command: "pytest -v ./python/cuml/tests"
-      gpu-smoketest: "import cudf; from cuml.cluster import DBSCAN; gdf_float = cudf.DataFrame(); gdf_float['0'] = [1.0, 2.0, 5.0]; gdf_float['1'] = [4.0, 2.0, 1.0]; gdf_float['2'] = [4.0, 2.0, 1.0]; dbscan_float = DBSCAN(eps=1.0, min_samples=1); dbscan_float.fit(gdf_float); print(dbscan_float.labels_)"
+
+      test-container-amd64: "rapidsai/manylinux_2_27"
+      test-container-arm64: "rapidsai/manylinux_2_27"
+      test-before-amd64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      test-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      test-extras:  "test"
+      test-unittest: "pytest -v ./python/cuml/tests"
+      test-smoketest: "import cudf; from cuml.cluster import DBSCAN; gdf_float = cudf.DataFrame(); gdf_float['0'] = [1.0, 2.0, 5.0]; gdf_float['1'] = [4.0, 2.0, 1.0]; gdf_float['2'] = [4.0, 2.0, 1.0]; dbscan_float = DBSCAN(eps=1.0, min_samples=1); dbscan_float.fit(gdf_float); print(dbscan_float.labels_)"
     secrets: inherit
