@@ -27,8 +27,8 @@ jobs:
 
       test-container-amd64: "rapidsai/manylinux_2_27"
       test-container-arm64: "rapidsai/manylinux_2_31"
-      test-before-amd64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-      test-before-arm64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 --index-url https://pypi.k8s.rapids.ai/simple && pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
+      test-before-amd64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 dask-cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      test-before-arm64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 dask-cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple && pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       test-extras:  "test"
       test-requires: "dask_cuda"
       test-unittest: "pytest -v ./python/cuml/tests"
