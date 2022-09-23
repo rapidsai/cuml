@@ -7,22 +7,22 @@ channels:
 dependencies:
 - cudatoolkit=11.5
 - cuda-python >=11.5,<11.7.1
-- rapids-build-env=22.10.*
-- rapids-notebook-env=22.10.*
-- rapids-doc-env=22.10.*
+- rapids-build-env=22.12.*
+- rapids-notebook-env=22.12.*
+- rapids-doc-env=22.12.*
 - scikit-build>=0.13.1
-- cudf=22.10.*
-- rmm=22.10.*
-- libcumlprims=22.10.*
-- libraft-headers=22.10.*
-- libraft-distance=22.10.*
-- libraft-nn=22.10.*
+- cudf=22.12.*
+- rmm=22.12.*
+- libcumlprims=22.12.*
+- libraft-headers=22.12.*
+- libraft-distance=22.12.*
+- libraft-nn=22.12.*
 - raft-dask=22.10.*
 - pylibraft=22.10.*
-- dask-cudf=22.10.*
-- dask-cuda=22.10.*
+- dask-cudf=22.12.*
+- dask-cuda=22.12.*
 - ucx>=1.13.0
-- ucx-py=0.28.*
+- ucx-py=0.29.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
