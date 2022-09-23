@@ -28,7 +28,7 @@ jobs:
       test-container-amd64: "rapidsai/manylinux_2_27"
       test-container-arm64: "rapidsai/manylinux_2_31"
       test-before-amd64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-      test-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      test-before-arm64: "pip install rmm-cu11 cudf-cu11 --index-url https://pypi.k8s.rapids.ai/simple && pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       test-extras:  "test"
       test-unittest: "pytest -v ./python/cuml/tests"
       test-smoketest: "import cudf; from cuml.cluster import DBSCAN; gdf_float = cudf.DataFrame(); gdf_float['0'] = [1.0, 2.0, 5.0]; gdf_float['1'] = [4.0, 2.0, 1.0]; gdf_float['2'] = [4.0, 2.0, 1.0]; dbscan_float = DBSCAN(eps=1.0, min_samples=1); dbscan_float.fit(gdf_float); print(dbscan_float.labels_)"
