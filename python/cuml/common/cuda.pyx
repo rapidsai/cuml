@@ -20,7 +20,10 @@
 from rmm._cuda.gpu import getDeviceCount
 
 
-def is_cuda_available():
+BUILT_WITH_CUDA = True
+
+
+def has_cuda_gpu():
     return getDeviceCount() >= 1
 
 

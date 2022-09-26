@@ -35,6 +35,7 @@ from cuml.common.array import CumlArray
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
+from cuml.common.device_selection import DeviceType
 
 
 class Base(TagsMixin,
@@ -213,26 +214,36 @@ class Base(TagsMixin,
                 if hasattr(state[key], "__str__"):
                     string += "{}={}, ".format(key, state[key])
         string = string.rstrip(', ')
-        return string + ')'
+        output = string + ')'
+
+        if hasattr(self, 'sk_model_'):
+            output += ' <sk_model_ attribute used>'
+        return output
 
     def dispatch_func(self, func_name, original_func, *args, **kwargs):
+        """
+        This function will dispatch calls to training and inference according
+        to the global configuration. It should work for all estimators
+        sufficiently close the scikit-learn implementation as it uses
+        it for training and inferences on host.
+        """
         # look for current device_type
         device_type = cuml.global_settings.device_type
-        if device_type == 'gpu':
+        if device_type == DeviceType.device:
             # call the original cuml method
             return original_func(*args, **kwargs)
-        elif device_type == 'cpu':
+        elif device_type == DeviceType.host:
             # check if the sklean model already set as attribute of the cuml
             # estimator its presence should signify that CPU execution was
             # used previously
             if not hasattr(self, 'sk_model_'):
                 # import model in sklearn
                 if hasattr(self, 'sk_import_path_'):
-                    # if importation path differs from the one of sklearn
+                    # if import path differs from the one of sklearn
                     # look for sk_import_path_
                     model_path = self.sk_import_path_
                 else:
-                    # importation from similar path to the current estimator
+                    # import from similar path to the current estimator
                     # class
                     model_path = 'sklearn' + self.__class__.__module__[4:]
                 model_name = self.__class__.__name__
@@ -269,6 +280,8 @@ class Base(TagsMixin,
                         else:
                             # transfer all other types of attributes directly
                             self.sk_model_.__dict__[attribute] = cu_attr
+                    else:
+                        raise ValueError('Attribute could not get transfered')
 
             # helper function to convert non-builtin as numpy arrays
             def to_host(data):

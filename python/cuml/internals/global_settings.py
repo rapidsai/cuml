@@ -15,7 +15,9 @@
 #
 
 import threading
-from cuml.common.cuda import is_cuda_available
+from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
+from cuml.common.device_selection import DeviceType
+from cuml.common.memory_utils import MemoryType
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -24,13 +26,12 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
 
     def __init__(self):
         super().__init__()
-        built_with_cuda = True
-        if built_with_cuda and is_cuda_available():
-            default_device_type = 'gpu'
-            default_memory_type = 'global'
+        if BUILT_WITH_CUDA and has_cuda_gpu():
+            default_device_type = DeviceType.device
+            default_memory_type = MemoryType.device
         else:
-            default_device_type = 'cpu'
-            default_memory_type = 'host'
+            default_device_type = DeviceType.host
+            default_memory_type = MemoryType.host
         self.shared_state = {
             '_output_type': None,
             '_device_type': default_device_type,

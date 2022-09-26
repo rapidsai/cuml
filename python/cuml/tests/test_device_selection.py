@@ -23,16 +23,18 @@ import cudf
 from sklearn.datasets import make_regression
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from cuml.linear_model import LinearRegression
-from cuml.common.device_selection import using_device_type, using_memory_type
 from cuml.testing.test_preproc_utils import to_output_type
+from cuml.common.device_selection import DeviceType, using_device_type
+from cuml.common.memory_utils import MemoryType, using_memory_type
 import pickle
 
 
-@pytest.mark.parametrize('device_type', ['cpu', 'gpu', None])
-def test_device_type(device_type):
+@pytest.mark.parametrize('input', [('cpu', DeviceType.host),
+                                   ('gpu', DeviceType.device)])
+def test_device_type(input):
     initial_device_type = cuml.global_settings.device_type
-    with using_device_type(device_type):
-        assert cuml.global_settings.device_type == device_type
+    with using_device_type(input[0]):
+        assert cuml.global_settings.device_type == input[1]
     assert cuml.global_settings.device_type == initial_device_type
 
 
@@ -42,12 +44,14 @@ def test_device_type_exception():
             assert True
 
 
-@pytest.mark.parametrize('memory_type', ['global', 'host', 'managed',
-                                         'mirror', None])
-def test_memory_type(memory_type):
+@pytest.mark.parametrize('input', [('device', MemoryType.device),
+                                   ('host', MemoryType.host),
+                                   ('managed', MemoryType.managed),
+                                   ('mirror', MemoryType.mirror)])
+def test_memory_type(input):
     initial_memory_type = cuml.global_settings.memory_type
-    with using_memory_type(memory_type):
-        assert cuml.global_settings.memory_type == memory_type
+    with using_memory_type(input[0]):
+        assert cuml.global_settings.memory_type == input[1]
     assert cuml.global_settings.memory_type == initial_memory_type
 
 

@@ -17,17 +17,29 @@
 
 import cuml
 import contextlib
+from enum import Enum, auto
+
+
+class DeviceType(Enum):
+    host = auto(),
+    device = auto()
+
+    @staticmethod
+    def from_str(device_type):
+        if isinstance(device_type, str):
+            device_type = device_type.lower()
+
+        if device_type in ['cpu', 'host']:
+            return DeviceType.host
+        elif device_type in ['gpu', 'device']:
+            return DeviceType.device
+        else:
+            raise ValueError('Parameter device_type must be one of "cpu" or '
+                             '"gpu"')
 
 
 def set_global_device_type(device_type):
-    if (isinstance(device_type, str)):
-        device_type = device_type.lower()
-
-    if device_type not in ['cpu', 'gpu']:
-        raise ValueError('Parameter device_type must be one of "cpu" or '
-                         '"gpu"')
-
-    cuml.global_settings.device_type = device_type
+    cuml.global_settings.device_type = DeviceType.from_str(device_type)
 
 
 @contextlib.contextmanager
@@ -38,24 +50,3 @@ def using_device_type(device_type):
         yield prev_device_type
     finally:
         cuml.global_settings.device_type = prev_device_type
-
-
-def set_global_memory_type(memory_type):
-    if (isinstance(memory_type, str)):
-        memory_type = memory_type.lower()
-
-    if memory_type not in ['global', 'host', 'managed', 'mirror']:
-        raise ValueError('Parameter memory_type must be one of "global", '
-                         '"host", "managed" or "mirror"')
-
-    cuml.global_settings.memory_type = memory_type
-
-
-@contextlib.contextmanager
-def using_memory_type(memory_type):
-    prev_memory_type = cuml.global_settings.memory_type
-    try:
-        set_global_memory_type(memory_type)
-        yield prev_memory_type
-    finally:
-        cuml.global_settings.memory_type = prev_memory_type
