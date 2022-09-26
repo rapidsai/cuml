@@ -18,6 +18,7 @@ import cupy as cp
 import numpy as np
 import operator
 import nvtx
+import pickle
 import rmm
 
 # Temporarily disabled due to CUDA 11.0 issue
@@ -36,7 +37,7 @@ from typing import Tuple
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
-class CumlArray(Buffer):
+class CumlArray():
 
     """
     Array represents an abstracted array allocation. It can be instantiated by
@@ -337,6 +338,45 @@ class CumlArray(Buffer):
         ]
         return header, frames
 
+    @classmethod
+    def host_deserialize(cls, header, frames):
+        frames = [
+            rmm.DeviceBuffer.to_device(f) if c else f
+            for c, f in zip(header["is-cuda"], map(memoryview, frames))
+        ]
+        obj = cls.device_deserialize(header, frames)
+        return obj
+
+    def device_serialize(self):
+        header, frames = self.serialize()
+        assert all(
+            isinstance(f, (CumlArray, memoryview))
+            for f in frames
+        )
+        header["type-serialized"] = pickle.dumps(type(self))
+        header["is-cuda"] = [
+            hasattr(f, "__cuda_array_interface__") for f in frames
+        ]
+        header["lengths"] = [f.nbytes for f in frames]
+        return header, frames
+
+    @classmethod
+    def device_deserialize(cls, header, frames):
+        typ = pickle.loads(header["type-serialized"])
+        frames = [
+            CumlArray(f) if c else memoryview(f)
+            for c, f in zip(header["is-cuda"], frames)
+        ]
+        assert all(
+            (isinstance(f._owner, rmm.DeviceBuffer))
+            if c
+            else (isinstance(f, memoryview))
+            for c, f in zip(header["is-cuda"], frames)
+        )
+        obj = typ.deserialize(header, frames)
+
+        return obj
+
     @nvtx.annotate(message="common.CumlArray.serialize", category="utils",
                    domain="cuml_python")
     def serialize(self) -> Tuple[dict, list]:
@@ -348,6 +388,27 @@ class CumlArray(Buffer):
         }
         frames = [CumlArray(f) for f in frames]
         return header, frames
+
+    @classmethod
+    def deserialize(cls, header: dict, frames: list):
+        assert (
+            header["frame_count"] == 1
+        ), "Only expecting to deserialize CumlArray with a single frame."
+        ary = cls(frames[0], **header["constructor-kwargs"])
+
+        if header["desc"]["shape"] != ary.__cuda_array_interface__["shape"]:
+            raise ValueError(
+                f"Received a `Buffer` with the wrong size."
+                f" Expected {header['desc']['shape']}, "
+                f"but got {ary.__cuda_array_interface__['shape']}"
+            )
+
+        return ary
+
+    def __reduce_ex__(self, protocol):
+        header, frames = self.host_serialize()
+        frames = [f.obj for f in frames]
+        return self.host_deserialize, (header, frames)
 
     @nvtx.annotate(message="common.CumlArray.copy", category="utils",
                    domain="cuml_python")
