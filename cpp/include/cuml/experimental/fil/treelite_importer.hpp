@@ -1,6 +1,5 @@
 #pragma once
 #include <cstddef>
-#include <iostream>
 #include <queue>
 #include <stack>
 #include <treelite/c_api.h>
@@ -587,7 +586,6 @@ struct treelite_importer {
       max_num_categories,
       num_leaf_vector_nodes
     );
-    std::cout << "VARIANT " << variant_index << "\n";
     auto num_class = get_num_class(tl_model);
     return forest_model{import_to_specific_variant<index_type{}>(
       variant_index,

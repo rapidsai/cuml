@@ -3,7 +3,6 @@
 #include <cmath>
 #include <cstddef>
 #include <stdint.h>
-#include <iostream>
 #include <numeric>
 #include <optional>
 #include <vector>
@@ -170,7 +169,6 @@ struct decision_forest_builder {
       kayak::cuda_stream stream=kayak::cuda_stream{}
   ) {
 
-    std::cout << "Max tree size: " << max_tree_size_ << "\n";
     // Allow narrowing for preprocessing constants. They are stored as doubles
     // for consistency in the builder but must be converted to the proper types
     // for the concrete forest model.

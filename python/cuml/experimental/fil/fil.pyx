@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import pathlib
 import treelite.sklearn
@@ -12,6 +13,7 @@ from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
 from cuml.experimental.kayak.device_type cimport device_type as kayak_device_t
 from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
 from cuml.experimental.kayak.optional cimport optional, nullopt
+from cuml.internals import set_api_output_dtype
 from raft.common.handle cimport handle_t as raft_handle_t
 
 cdef extern from "treelite/c_api.h":
@@ -220,7 +222,14 @@ cdef class ForestInference_impl():
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
 
-    def predict(self, X, *, preds=None, chunk_size=None):
+    def predict(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None,
+            output_dtype=None):
+        set_api_output_dtype(output_dtype)
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
@@ -253,8 +262,8 @@ cdef class ForestInference_impl():
         if model_dtype == np.float32:
             self.model.predict[float](
                 self.kayak_handle,
-                <float*> in_ptr,
                 <float*> out_ptr,
+                <float*> in_ptr,
                 n_rows,
                 kayak_device_t.gpu,
                 kayak_device_t.gpu,
@@ -263,8 +272,8 @@ cdef class ForestInference_impl():
         else:
             self.model.predict[double](
                 self.kayak_handle,
-                <double*> in_ptr,
                 <double*> out_ptr,
+                <double*> in_ptr,
                 n_rows,
                 kayak_device_t.gpu,
                 kayak_device_t.gpu,
@@ -360,5 +369,14 @@ class ForestInference(Base, CMajorInputTagMixin):
             device_id=device_id
         )
 
-    def predict(self, X, *, preds=None, chunk_size=None):
+    def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
         return self._impl.predict(X, preds=preds, chunk_size=chunk_size)
+
+    def predict(self, X, *, preds=None, chunk_size=None, threshold=None) -> CumlArray:
+        proba = self.predict_proba(X, preds=preds, chunk_size=chunk_size)
+        if len(proba.shape) < 2 or proba.shape[1] == 1:
+            if threshold is None:
+                threshold = 0.5
+            return proba.to_output(output_type='cupy') > threshold
+        else:
+            return cp.argmax(proba.to_output(output_type='cupy'), axis=1)
