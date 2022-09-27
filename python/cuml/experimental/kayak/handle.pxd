@@ -29,3 +29,4 @@ cdef extern from "cuml/experimental/kayak/handle.hpp" namespace "kayak" nogil:
         handle_t(const raft_handle_t* handle_ptr) except +
         handle_t(const raft_handle_t& handle) except +
         kayak_stream_t get_next_usable_stream() except +
+        void synchronize() except+

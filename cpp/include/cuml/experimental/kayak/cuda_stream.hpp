@@ -9,4 +9,9 @@ using cuda_stream = cudaStream_t;
 #else
 using cuda_stream = int;
 #endif
+inline void synchronize(cuda_stream stream) {
+#ifdef ENABLE_GPU
+  cudaStreamSynchronize(stream);
+#endif
+}
 }

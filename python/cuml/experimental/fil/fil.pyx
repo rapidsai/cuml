@@ -1,8 +1,11 @@
+import numpy as np
 import pathlib
 import treelite.sklearn
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
+from cuml.common import input_to_cuml_array
+from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
@@ -149,10 +152,13 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
             io_t*,
             io_t*,
             size_t,
+            kayak_device_t,
+            kayak_device_t,
             optional[uint32_t]
         )
 
         bool is_double_precision()
+        size_t num_outputs()
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
@@ -211,11 +217,13 @@ cdef class ForestInference_impl():
             self.kayak_handle.get_next_usable_stream()
         )
 
-    def get_dtype():
-        return [np.float32, np.float64][model.is_double_precision()]
+    def get_dtype(self):
+        return [np.float32, np.float64][self.model.is_double_precision()]
 
     def predict(self, X, *, preds=None, chunk_size=None):
-        model_dtype = get_dtype()
+        model_dtype = self.get_dtype()
+
+        cdef uintptr_t in_ptr
         in_arr, n_rows, n_cols, dtype = input_to_cuml_array(
             X,
             order='C',
@@ -224,6 +232,48 @@ cdef class ForestInference_impl():
         )
         in_ptr = in_arr.ptr
 
+        cdef uintptr_t out_ptr
+        if preds is None:
+            preds = CumlArray.empty(
+                shape=(n_rows, self.model.num_outputs()),
+                dtype=model_dtype,
+                order='C',
+                index=in_arr.index
+            )
+        else:
+            # TODO(wphicks): Handle incorrect dtype/device/layout in C++
+            preds.index = in_arr.index
+        out_ptr = preds.ptr
+        cdef optional[uint32_t] chunk_specification
+        if chunk_size is None:
+            chunk_specification = nullopt
+        else:
+            chunk_specification = <uint32_t> chunk_size
+
+        if model_dtype == np.float32:
+            self.model.predict[float](
+                self.kayak_handle,
+                <float*> in_ptr,
+                <float*> out_ptr,
+                n_rows,
+                kayak_device_t.gpu,
+                kayak_device_t.gpu,
+                chunk_specification
+            )
+        else:
+            self.model.predict[double](
+                self.kayak_handle,
+                <double*> in_ptr,
+                <double*> out_ptr,
+                n_rows,
+                kayak_device_t.gpu,
+                kayak_device_t.gpu,
+                chunk_specification
+            )
+
+        self.kayak_handle.synchronize()
+
+        return preds
 
 class ForestInference(Base, CMajorInputTagMixin):
     """

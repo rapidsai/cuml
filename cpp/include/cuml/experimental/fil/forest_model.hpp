@@ -1,8 +1,11 @@
 #pragma once
+#include <cstddef>
 #include <type_traits>
 #include <variant>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/kayak/buffer.hpp>
+#include <cuml/experimental/kayak/gpu_support.hpp>
 #include <cuml/experimental/kayak/handle.hpp>
 
 namespace ML {
@@ -21,9 +24,9 @@ struct forest_model {
   }
 
   auto num_outputs() {
-    return std::visit([](auto&& concrete_forest) {
+    return std::size_t{std::visit([](auto&& concrete_forest) {
       return concrete_forest.num_outputs();
-    }, decision_forest_);
+    }, decision_forest_)};
   }
 
   auto memory_type() {
@@ -98,7 +101,7 @@ struct forest_model {
                 rows_in_this_partition * num_feature(),
                 memory_type()
               };
-              kayak::copy(
+              kayak::copy<kayak::DEBUG_ENABLED>(
                 partition_in,
                 input,
                 0,
@@ -133,7 +136,7 @@ struct forest_model {
               specified_chunk_size
             );
             if (output.memory_type() != memory_type()) {
-              kayak::copy(
+              kayak::copy<kayak::DEBUG_ENABLED>(
                 output,
                 partition_out,
                 i * partition_size * num_outputs(),
@@ -160,15 +163,16 @@ struct forest_model {
     kayak::device_type out_mem_type,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
+    // TODO(wphicks): Make sure buffer lands on same device as model
     auto out_buffer = kayak::buffer{
       output,
-      out_mem_type,
-      num_rows * num_outputs()
+      num_rows * num_outputs(),
+      out_mem_type
     };
     auto in_buffer = kayak::buffer{
       input,
-      in_mem_type,
-      num_rows * num_feature()
+      num_rows * num_feature(),
+      in_mem_type
     };
     predict(handle, out_buffer, in_buffer, specified_chunk_size);
   }
