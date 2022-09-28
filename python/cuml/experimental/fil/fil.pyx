@@ -334,6 +334,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             else:
                 model_type = 'treelite_checkpoint'
         tl_model = TreeliteModel.from_filename(path, model_type)
+        print(type(tl_model))
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -358,7 +359,10 @@ class ForestInference(Base, CMajorInputTagMixin):
             precision='single',
             mem_type='gpu',
             device_id=0):
-        tl_model = treelite.sklearn.import_model(skl_model)
+        tl_frontend_model = treelite.sklearn.import_model(skl_model)
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            tl_frontend_model.handle.value
+        )
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -373,11 +377,19 @@ class ForestInference(Base, CMajorInputTagMixin):
     def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
         return self._impl.predict(X, preds=preds, chunk_size=chunk_size)
 
-    def predict(self, X, *, preds=None, chunk_size=None, threshold=None) -> CumlArray:
+    def predict(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None,
+            threshold=None) -> CumlArray:
         proba = self.predict_proba(X, preds=preds, chunk_size=chunk_size)
         if len(proba.shape) < 2 or proba.shape[1] == 1:
             if threshold is None:
                 threshold = 0.5
-            return proba.to_output(output_type='cupy') > threshold
+            return (
+                proba.to_output(output_type='cupy') > threshold
+            ).astype('int')
         else:
             return cp.argmax(proba.to_output(output_type='cupy'), axis=1)
