@@ -301,6 +301,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             precision='single',
             mem_type='gpu',
             device_id=0):
+        # TODO(wphicks) Handle precision
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
