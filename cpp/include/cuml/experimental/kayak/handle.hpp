@@ -18,7 +18,7 @@ struct handle_t {
     return raft_handle_->get_stream_pool_size();
   }
   auto get_usable_stream_count() const {
-    return std::min(get_stream_pool_size(), std::size_t{1});
+    return std::max(get_stream_pool_size(), std::size_t{1});
   }
   void synchronize() const {
     raft_handle_->sync_stream_pool();
@@ -37,7 +37,7 @@ struct handle_t {
     return std::size_t{};
   }
   auto get_usable_stream_count() const {
-    return std::min(get_stream_pool_size(), std::size_t{1});
+    return std::max(get_stream_pool_size(), std::size_t{1});
   }
   void synchronize() const {
   }

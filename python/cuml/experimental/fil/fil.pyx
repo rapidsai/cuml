@@ -305,8 +305,16 @@ class ForestInference(Base, CMajorInputTagMixin):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
+        if align_bytes is None:
+            align_bytes=0
         if treelite_model is not None:
-            self._impl = ForestInference_impl(self.handle, treelite_model)
+            self._impl = ForestInference_impl(
+                self.handle,
+                treelite_model,
+                align_bytes=align_bytes,
+                mem_type=mem_type,
+                device_id=device_id
+            )
         else:
             self._impl = None
 
