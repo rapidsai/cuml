@@ -229,7 +229,7 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit_(self, X, y, convert_dtype=True,
+    def _fit(self, X, y, convert_dtype=True,
              sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
@@ -317,7 +317,7 @@ class LinearRegression(Base,
 
         return self
 
-    def predict_(self, X, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.n_cols = self.coef_.shape[0]
         # Adding Base here skips it in the Method Resolution Order (MRO)

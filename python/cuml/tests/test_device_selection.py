@@ -25,7 +25,7 @@ from sklearn.linear_model import LinearRegression as skLinearRegression
 from cuml.linear_model import LinearRegression
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.common.memory_utils import MemoryType, using_memory_type
+from cuml.common.device_selection import MemoryType, using_memory_type
 import pickle
 
 
@@ -164,17 +164,19 @@ def test_train_gpu_infer_gpu(lr_data):
 @pytest.mark.parametrize('fit_intercept', [False, True])
 @pytest.mark.parametrize('normalize', [False, True])
 def test_pickle_interop(fit_intercept, normalize):
+    pickle_filepath = '/tmp/model.pickle'
+
     model = LinearRegression(fit_intercept=fit_intercept,
                              normalize=normalize)
     with using_device_type('gpu'):
         model.fit(X_train, y_train)
 
-    with open('model.pickle', 'wb') as pf:
+    with open(pickle_filepath, 'wb') as pf:
         pickle.dump(model, pf)
 
     del model
 
-    with open('model.pickle', 'rb') as pf:
+    with open(pickle_filepath, 'rb') as pf:
         pickled_model = pickle.load(pf)
 
     with using_device_type('cpu'):

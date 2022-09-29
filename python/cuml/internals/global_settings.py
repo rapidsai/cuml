@@ -16,8 +16,8 @@
 
 import threading
 from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
-from cuml.common.device_selection import DeviceType
-from cuml.common.memory_utils import MemoryType
+from cuml.common.device_selection import DeviceType, MemoryType
+from cuml.common.logger import warn
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -30,6 +30,7 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
             default_device_type = DeviceType.device
             default_memory_type = MemoryType.device
         else:
+            warn('GPU will not be used')
             default_device_type = DeviceType.host
             default_memory_type = MemoryType.host
         self.shared_state = {
