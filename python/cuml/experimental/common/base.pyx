@@ -27,7 +27,7 @@ import cuml.common
 import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
-import raft.common.handle
+import pylibraft.common.handle
 import cuml.common.input_utils
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
@@ -171,7 +171,7 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = raft.common.handle.Handle() if handle is None \
+        self.handle = pylibraft.common.handle.Handle() if handle is None \
             else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
@@ -220,18 +220,34 @@ class Base(TagsMixin,
             output += ' <sk_model_ attribute used>'
         return output
 
-    def dispatch_func(self, func_name, original_func, *args, **kwargs):
+    def dispatch_func(self, func_name, *args, **kwargs):
         """
         This function will dispatch calls to training and inference according
         to the global configuration. It should work for all estimators
         sufficiently close the scikit-learn implementation as it uses
         it for training and inferences on host.
+
+        Parameters
+        ----------
+        func_name : string
+            name of the function to be dispatched
+        args : arguments
+            arguments to be passed to the function for the call
+        kwargs : keyword arguments
+            keyword arguments to be passed to the function for the call
         """
         # look for current device_type
         device_type = cuml.global_settings.device_type
         if device_type == DeviceType.device:
             # call the original cuml method
-            return original_func(*args, **kwargs)
+            cuml_func_name = '_' + func_name
+            if hasattr(self, cuml_func_name):
+                cuml_func = getattr(self, cuml_func_name)
+                return cuml_func(*args, **kwargs)
+            else:
+                raise ValueError('Function "{}" could not be found in'
+                                 ' the cuML estimator'.format(cuml_func_name))
+
         elif device_type == DeviceType.host:
             # check if the sklean model already set as attribute of the cuml
             # estimator its presence should signify that CPU execution was
@@ -255,11 +271,11 @@ class Base(TagsMixin,
                     self.sk_model_.__dict__[param] = self.__dict__[param]
 
                 # transfer attributes trained with cuml
-                for attribute in self.get_attributes_names():
+                for attr in self.get_attributes_names():
                     # check presence of attribute
-                    if hasattr(self, attribute):
+                    if hasattr(self, attr):
                         # get the cuml attribute
-                        cu_attr = self.__dict__[attribute]
+                        cu_attr = self.__dict__[attr]
                         # if the cuml attribute is a CumlArrayDescriptorMeta
                         if hasattr(cu_attr, 'get_input_value'):
                             # extract the actual value from the
@@ -270,38 +286,29 @@ class Base(TagsMixin,
                                 if cu_attr.input_type == 'cuml':
                                     # transform cumlArray to numpy and set it
                                     # as an attribute in the sklearn model
-                                    self.sk_model_.__dict__[attribute] = \
+                                    self.sk_model_.__dict__[attr] = \
                                         cu_attr_value.to_output('numpy')
                                 else:
                                     # transfer all other types of attributes
                                     # directly
-                                    self.sk_model_.__dict__[attribute] = \
+                                    self.sk_model_.__dict__[attr] = \
                                         cu_attr_value
                         else:
                             # transfer all other types of attributes directly
-                            self.sk_model_.__dict__[attribute] = cu_attr
+                            self.sk_model_.__dict__[attr] = cu_attr
                     else:
-                        raise ValueError('Attribute could not get transfered')
-
-            # helper function to convert non-builtin as numpy arrays
-            def to_host(data):
-                if isinstance(data, (int, float, complex, bool, str,
-                              type(None), dict, set, list, tuple)):
-                    return data
-                else:
-                    try:
-                        return input_to_host_array(data)[0]
-                    except Exception as e:
-                        return data
+                        raise ValueError('Attribute "{}" could not be found in'
+                                         ' the cuML estimator'.format(attr))
 
             # converts all the args
-            args = tuple(to_host(arg) for arg in args)
+            args = tuple(input_to_host_array(arg)[0] for arg in args)
             # converts all the kwarg
             for key, kwarg in kwargs.items():
-                kwargs[key] = to_host(kwarg)
+                kwargs[key] = input_to_host_array(kwarg)[0]
 
             # call the method from the sklearn model
-            res = getattr(self.sk_model_, func_name)(*args, **kwargs)
+            sk_func = getattr(self.sk_model_, func_name)
+            res = sk_func(*args, **kwargs)
             if func_name == 'fit':
                 # need to do this to mirror input type
                 self._set_output_type(args[0])
@@ -324,10 +331,10 @@ class Base(TagsMixin,
                 return res
 
     def fit(self, X, y, **kwargs):
-        return self.dispatch_func('fit', self.fit_, X, y, **kwargs)
+        return self.dispatch_func('fit', X, y, **kwargs)
 
     def predict(self, X, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict', self.predict_, X, **kwargs)
+        return self.dispatch_func('predict', X, **kwargs)
 
     def get_param_names(self):
         """
