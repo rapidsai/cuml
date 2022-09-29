@@ -96,7 +96,8 @@ cmdclass = versioneer.get_cmdclass()
 # - Python package generation ------------------------------------------------
 
 setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
-      version=versioneer.get_version(),
+      version=os.getenv("RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE",
+                        default=versioneer.get_version()),
       description="cuML - RAPIDS ML Algorithms",
       url="https://github.com/rapidsai/cuml",
       author="NVIDIA Corporation",
