@@ -52,7 +52,8 @@ def test_onehot_inverse_transform(client, drop):
     enc = OneHotEncoder(drop=drop)
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
-    assert_frame_equal(inv.compute().to_pandas(), df.to_pandas())
+    assert_frame_equal(inv.compute().to_pandas().reset_index(drop=True),
+                       df.to_pandas())
 
 
 @pytest.mark.mg
@@ -158,7 +159,8 @@ def test_onehot_drop_idx_first(client):
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe.compute(), ref)
     inv = enc.inverse_transform(ohe)
-    assert_frame_equal(inv.compute().to_pandas(), X.to_pandas())
+    assert_frame_equal(inv.compute().to_pandas().reset_index(drop=True),
+                       X.to_pandas())
 
 
 @pytest.mark.mg
@@ -175,7 +177,8 @@ def test_onehot_drop_one_of_each(client):
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe.compute(), ref)
     inv = enc.inverse_transform(ohe)
-    assert_frame_equal(inv.compute().to_pandas(), X.to_pandas())
+    assert_frame_equal(inv.compute().to_pandas().reset_index(drop=True),
+                       X.to_pandas())
 
 
 @pytest.mark.mg
