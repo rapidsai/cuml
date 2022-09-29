@@ -35,8 +35,8 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common.input_utils import input_to_cuml_array

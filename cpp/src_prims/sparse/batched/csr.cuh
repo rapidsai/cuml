@@ -29,8 +29,8 @@
 #include <cuml/common/utils.hpp>
 
 #include <linalg/batched/matrix.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/matrix/matrix.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>

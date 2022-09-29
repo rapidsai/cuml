@@ -16,14 +16,14 @@
 
 #include "detail/utils.h"
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/matrix/math.hpp>
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <algorithm>
 #include <cmath>

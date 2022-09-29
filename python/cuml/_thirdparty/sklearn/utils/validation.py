@@ -148,7 +148,6 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
 
 def check_random_state(seed):
     """Turn seed into a np.random.RandomState instance
-
     Parameters
     ----------
     seed : None | int | instance of RandomState

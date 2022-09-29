@@ -23,9 +23,9 @@
 
 #include <cuml/neighbors/knn.hpp>
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 
 #include <faiss/gpu/GpuDistance.h>

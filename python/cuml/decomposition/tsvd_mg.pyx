@@ -26,7 +26,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 import cuml.internals
 import cuml.common.opg_data_utils_mg as opg

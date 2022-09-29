@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-decla
 
 if(DISABLE_DEPRECATION_WARNING)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations)
-    list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
+    list(APPEND CUML_CUDA_FLAGS -Wno-deprecated-declarations -Xcompiler=-Wno-deprecated-declarations)
 endif()
 
 # make sure we produce smallest binary size

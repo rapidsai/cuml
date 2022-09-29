@@ -36,12 +36,12 @@ function(ConfigureTest)
   PRIVATE
     ${CUML_CPP_TARGET}
     $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
-    CUDA::cublas
-    CUDA::curand
-    CUDA::cusolver
-    CUDA::cudart
-    CUDA::cusparse
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
+    CUDA::cublas${_ctk_static_suffix}
+    CUDA::curand${_ctk_static_suffix}
+    CUDA::cusolver${_ctk_static_suffix}
+    CUDA::cudart${_ctk_static_suffix}
+    CUDA::cusparse${_ctk_static_suffix}
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
     raft::raft
     $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>

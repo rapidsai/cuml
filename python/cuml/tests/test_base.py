@@ -19,7 +19,7 @@ import cuml
 import pytest
 import numpydoc.docscrape
 
-from raft.common.cuda import Stream
+from pylibraft.common.cuda import Stream
 
 from cuml.testing.utils import \
     get_classes_from_package, \

@@ -17,7 +17,7 @@
 
 #include <cuml/linear_model/qn.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace GLM {

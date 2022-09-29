@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+from rmm._lib.memory_resource cimport DeviceMemoryResource
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 from libcpp.memory cimport unique_ptr
 
@@ -73,6 +74,7 @@ cdef extern from "raft/sparse/coo.hpp":
 
 cdef class GraphHolder:
     cdef unique_ptr[COO] c_graph
+    cdef DeviceMemoryResource mr
 
     @staticmethod
     cdef GraphHolder new_graph(cuda_stream_view stream)
