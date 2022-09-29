@@ -31,6 +31,6 @@ rapids_cython_create_modules(
   LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
 )
 
-foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../../")
 endforeach()
