@@ -16,9 +16,10 @@
 import pytest
 
 
-from cuml.cluster.hdbscan import HDBSCAN, condense_hierarchy
-from cuml.cluster.hdbscan.prediction import all_points_membership_vectors,\
+from cuml.cluster import HDBSCAN
+from cuml.cluster.prediction import all_points_membership_vectors,\
     approximate_predict
+from cuml.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score

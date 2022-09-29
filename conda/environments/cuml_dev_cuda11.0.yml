@@ -40,7 +40,7 @@ dependencies:
     - git+https://github.com/dask/dask.git@2022.7.1
     - git+https://github.com/dask/distributed.git@2022.7.1
     - git+https://github.com/dask/dask-glm@main
-    - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+    - git+https://github.com/hdbscan/hdbscan.git@master
     - sparse
 
 
