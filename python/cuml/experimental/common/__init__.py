@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
-project(dbscan_example LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-find_package(cuml REQUIRED)
-
-add_executable(dbscan_example dbscan_example.cpp)
-target_link_libraries(dbscan_example PRIVATE cuml::cuml++)
-
-# Need to set linker language to CUDA to link the CUDA Runtime
-set_target_properties(dbscan_example PROPERTIES LINKER_LANGUAGE "CUDA")
+from cuml.experimental.common.base import Base

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
 #
 
 import threading
+from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
+from cuml.common.device_selection import DeviceType, MemoryType
+from cuml.common.logger import warn
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -23,8 +26,17 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
 
     def __init__(self):
         super().__init__()
+        if BUILT_WITH_CUDA and has_cuda_gpu():
+            default_device_type = DeviceType.device
+            default_memory_type = MemoryType.device
+        else:
+            warn('GPU will not be used')
+            default_device_type = DeviceType.host
+            default_memory_type = MemoryType.host
         self.shared_state = {
             '_output_type': None,
+            '_device_type': default_device_type,
+            '_memory_type': default_memory_type,
             'root_cm': None
         }
 
@@ -59,6 +71,22 @@ class GlobalSettings:
 
     def __init__(self):
         self.__dict__ = _global_settings_data.shared_state
+
+    @property
+    def device_type(self):
+        return self._device_type  # pylint: disable=no-member
+
+    @device_type.setter
+    def device_type(self, value):
+        self._device_type = value
+
+    @property
+    def memory_type(self):
+        return self._memory_type  # pylint: disable=no-member
+
+    @memory_type.setter
+    def memory_type(self, value):
+        self._memory_type = value
 
     @property
     def output_type(self):
