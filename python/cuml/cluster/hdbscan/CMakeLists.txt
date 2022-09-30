@@ -24,5 +24,5 @@ rapids_cython_create_modules(
 )
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../../")
 endforeach()
