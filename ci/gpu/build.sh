@@ -125,8 +125,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.9.1" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.9.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.9.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.9.2" --upgrade --no-deps
     pip install "git+https://github.com/hdbscan/hdbscan.git@master" --force-reinstall --upgrade --no-deps
     set +x
 
@@ -199,8 +199,8 @@ else
     gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
 
-    pip install "git+https://github.com/dask/distributed.git@2022.9.1" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.9.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2022.9.2" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2022.9.2" --upgrade --no-deps
     pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
     pip install "git+https://github.com/scikit-learn-contrib/hdbscan.git@master" --force-reinstall --upgrade --no-deps
     pip install sparse
