@@ -17,10 +17,8 @@
 # distutils: language = c++
 
 
+from cuml.common.device_support import BUILT_WITH_CUDA
 from rmm._cuda.gpu import getDeviceCount
-
-
-BUILT_WITH_CUDA = True
 
 
 def has_cuda_gpu():
