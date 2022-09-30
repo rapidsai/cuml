@@ -63,10 +63,21 @@ namespace fil {
     if constexpr (row_wise_v == row_op::max_index) {
       *out = max_index;
     } else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+      auto softmax_normalization = io_t{};
+#pragma GCC diagnostic pop
+      if constexpr (row_wise_v == row_op::softmax) {
+        for (auto workspace_index=index_type{}; workspace_index < class_count * stride; workspace_index += stride) {
+          val[workspace_index] = exp(val[workspace_index] - max_value);
+          softmax_normalization += val[workspace_index];
+        }
+      }
+
       for (auto class_index=index_type{}; class_index < class_count; ++class_index) {
         auto workspace_index = class_index * stride;
         if constexpr (row_wise_v == row_op::softmax) {
-          out[class_index] = exp(val[workspace_index] - max_value);
+          out[class_index] = val[workspace_index] / softmax_normalization;
         } else {
           out[class_index] = val[workspace_index];
         }

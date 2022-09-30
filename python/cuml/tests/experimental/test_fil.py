@@ -141,7 +141,7 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
         xgb_preds_int = xgb_preds.argmax(axis=1)
     xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
-    fm = ForestInference.from_file(model_path)
+    fm = ForestInference.from_file(model_path, output_class=True)
     fil_preds = np.reshape(np.asarray(
         fm.predict(X_validation, threshold=0.50),
         dtype=xgb_preds_int.dtype
@@ -196,7 +196,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     xgb_preds = bst.predict(dvalidation)
 
     xgb_mse = mean_squared_error(y_validation, xgb_preds)
-    fm = ForestInference.from_file(model_path)
+    fm = ForestInference.from_file(model_path, output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
     fil_mse = mean_squared_error(y_validation, fil_preds)
@@ -267,7 +267,11 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
 
     algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
-    fm = ForestInference.from_sklearn(skl_model, precision=precision)
+    fm = ForestInference.from_sklearn(
+        skl_model,
+        precision=precision,
+        output_class=True
+    )
     fil_preds = np.asarray(fm.predict(X_validation, threshold=0.50))
     fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
     fil_acc = accuracy_score(y_validation, fil_preds)
@@ -343,7 +347,7 @@ def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
 
     algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
-    fm = ForestInference.from_sklearn(skl_model)
+    fm = ForestInference.from_sklearn(skl_model, output_class=False)
     fil_preds = np.asarray(fm.predict(X_validation))
     fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
 
@@ -378,6 +382,7 @@ def test_precision_xgboost(precision, small_classifier_and_preds):
     fm = ForestInference.from_file(
         model_path,
         model_type=model_type,
+        output_class=True,
         precision=precision
     )
 
@@ -393,7 +398,7 @@ def test_precision_xgboost(precision, small_classifier_and_preds):
 def test_threads_per_tree(threads_per_tree,
                           small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.from_file(model_path, model_type=model_type)
+    fm = ForestInference.from_file(model_path, output_class=True, model_type=model_type)
 
     fil_preds = np.asarray(fm.predict(X, chunk_size=threads_per_tree))
     fil_proba = np.asarray(
@@ -412,10 +417,12 @@ def test_threads_per_tree(threads_per_tree,
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_output_args(small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.from_file(model_path,
-                              model_type=model_type)
+    fm = ForestInference.from_file(
+        model_path,
+        output_class=False,
+        model_type=model_type)
     X = np.asarray(X)
-    fil_preds = fm.predict_proba(X)
+    fil_preds = fm.predict(X)
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
 
     np.testing.assert_allclose(fil_preds, xgb_preds, atol=1e-3)
@@ -509,8 +516,11 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                  'num_class': 1}
         bst = lgb.train(param, train_data, num_round)
         bst.save_model(model_path)
-        fm = ForestInference.from_file(model_path,
-                                  model_type="lightgbm")
+        fm = ForestInference.from_file(
+            model_path,
+            output_class=True,
+            model_type="lightgbm"
+        )
         # binary classification
         gbm_proba = bst.predict(X_predict)
         fil_proba = fm.predict_proba(X_predict)[:, 1]
@@ -527,8 +537,10 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
         lgm_preds = lgm.predict(X_predict).astype(int)
-        fm = ForestInference.from_file(model_path,
-                                  model_type="lightgbm")
+        fm = ForestInference.from_file(
+            model_path,
+            output_class=True,
+            model_type="lightgbm")
         assert array_equal(lgm.booster_.predict(X_predict).argmax(axis=1),
                            lgm_preds)
         assert array_equal(lgm_preds, fm.predict(X_predict))

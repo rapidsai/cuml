@@ -297,6 +297,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=None,
             output_type=None,
             verbose=False,
+            output_class=True,
             align_bytes=None,
             precision='single',
             mem_type='gpu',
@@ -317,6 +318,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             )
         else:
             self._impl = None
+        self.is_classifier = output_class
 
     @classmethod
     def from_file(
@@ -326,6 +328,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=None,
             output_type=None,
             verbose=False,
+            output_class=True,
             model_type=None,
             align_bytes=None,
             precision='single',
@@ -348,6 +351,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            output_class=output_class,
             align_bytes=align_bytes,
             precision=precision,
             mem_type=mem_type,
@@ -362,6 +366,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=None,
             output_type=None,
             verbose=False,
+            output_class=True,
             model_type=None,
             align_bytes=None,
             precision='single',
@@ -376,6 +381,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=handle,
             output_type=output_type,
             verbose=verbose,
+            output_class=output_class,
             align_bytes=align_bytes,
             precision=precision,
             mem_type=mem_type,
@@ -383,6 +389,11 @@ class ForestInference(Base, CMajorInputTagMixin):
         )
 
     def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
+        if not self.is_classifier:
+            raise RuntimeError(
+                "predict_proba is not available for regression models. Load"
+                " with output_class=True if this is a classifier."
+            )
         return self._impl.predict(X, preds=preds, chunk_size=chunk_size)
 
     def predict(
@@ -392,12 +403,15 @@ class ForestInference(Base, CMajorInputTagMixin):
             preds=None,
             chunk_size=None,
             threshold=None) -> CumlArray:
-        proba = self.predict_proba(X, preds=preds, chunk_size=chunk_size)
-        if len(proba.shape) < 2 or proba.shape[1] == 1:
-            if threshold is None:
-                threshold = 0.5
-            return (
-                proba.to_output(output_type='cupy') > threshold
-            ).astype('int')
+        proba = self._impl.predict(X, preds=preds, chunk_size=chunk_size)
+        if self.is_classifier:
+            if len(proba.shape) < 2 or proba.shape[1] == 1:
+                if threshold is None:
+                    threshold = 0.5
+                return (
+                    proba.to_output(output_type='cupy') > threshold
+                ).astype('int')
+            else:
+                return cp.argmax(proba.to_output(output_type='cupy'), axis=1)
         else:
-            return cp.argmax(proba.to_output(output_type='cupy'), axis=1)
+            return proba
