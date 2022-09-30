@@ -187,7 +187,8 @@ __global__ void infer_kernel(
         postproc(
           output_workspace + row_index * num_outputs * num_grove,
           num_outputs, 
-          output + ((i + row_index) * num_outputs)
+          output + ((i + row_index) * num_outputs),
+          num_grove
         );
       }
     }

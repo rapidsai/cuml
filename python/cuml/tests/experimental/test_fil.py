@@ -281,7 +281,11 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
     if n_classes == 2:
         assert array_equal(fil_preds, skl_preds_int)
     fil_proba = np.asarray(fm.predict_proba(X_validation))
-    fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+    try:
+        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+    except ValueError:
+        skl_proba = skl_proba[:, 1]
+        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
     np.testing.assert_allclose(fil_proba, skl_proba,
                                atol=proba_atol[n_classes > 2])
 
@@ -395,6 +399,7 @@ def test_threads_per_tree(threads_per_tree,
     fil_proba = np.asarray(
         fm.predict_proba(X, chunk_size=threads_per_tree)
     )
+    fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
     np.testing.assert_allclose(fil_proba, xgb_preds,
                                atol=proba_atol[False])
@@ -410,10 +415,10 @@ def test_output_args(small_classifier_and_preds):
     fm = ForestInference.from_file(model_path,
                               model_type=model_type)
     X = np.asarray(X)
-    fil_preds = fm.predict(X)
+    fil_preds = fm.predict_proba(X)
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
 
-    assert array_equal(fil_preds, xgb_preds, 1e-3)
+    np.testing.assert_allclose(fil_preds, xgb_preds, atol=1e-3)
 
 
 def to_categorical(features, n_categorical, invalid_frac, random_state):

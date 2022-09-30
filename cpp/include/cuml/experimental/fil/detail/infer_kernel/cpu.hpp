@@ -128,7 +128,8 @@ void infer_kernel_cpu(
     postproc(
       output_workspace.data() + row_index * num_outputs * num_grove,
       num_outputs,
-      output + row_index * num_outputs
+      output + row_index * num_outputs,
+      num_grove
     );
   }
 }
