@@ -14,19 +14,17 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
 import operator
-import nvtx
 import pickle
-import rmm
 
 # Temporarily disabled due to CUDA 11.0 issue
 # https://github.com/rapidsai/cuml/issues/4332
-from rmm import DeviceBuffer
-from cudf import DataFrame
-from cudf import Series
-from cudf.core.buffer import Buffer
+from cuml.common.import_utils import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from
+)
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.memory_utils import _get_size_from_shape
 from cuml.common.memory_utils import _order_to_strides
@@ -34,6 +32,16 @@ from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import class_with_cupy_rmm
 from numba import cuda
 from typing import Tuple
+
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+nvtx = gpu_only_import('nvtx')
+rmm = gpu_only_import('rmm')
+
+DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
+DataFrame = gpu_only_import_from('cudf', 'DataFrame')
+Series = gpu_only_import_from('cudf', 'Series')
+Buffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
