@@ -28,7 +28,6 @@ from cuml.common.memory_utils import _get_size_from_shape
 from cuml.common.memory_utils import _order_to_strides
 from cuml.common.memory_utils import _strides_to_order
 from cuml.common.memory_utils import class_with_cupy_rmm
-from numba import cuda
 from typing import Tuple
 
 cp = gpu_only_import('cupy')
@@ -40,6 +39,7 @@ DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
 DataFrame = gpu_only_import_from('cudf', 'DataFrame')
 Series = gpu_only_import_from('cudf', 'Series')
 Buffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
+cuda = gpu_only_import_from('numba', 'cuda')
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])

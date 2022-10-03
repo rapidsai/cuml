@@ -22,11 +22,13 @@ from dataclasses import dataclass
 from functools import wraps
 
 import cuml
-import cupy as cp
-import numpy as np
-import rmm
+from cuml.common.device_support import BUILT_WITH_CUDA
 from cuml.common.import_utils import check_min_cupy_version
-from numba import cuda as nbcuda
+from cuml.common.import_utils import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from
+)
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator
@@ -35,6 +37,8 @@ except ImportError:
         from cupy.cuda.memory import using_allocator as cupy_using_allocator
     except ImportError:
         pass
+
+rmm = gpu_only_import('rmm')
 
 
 @dataclass(frozen=True)
@@ -45,13 +49,13 @@ class ArrayInfo:
     """
     shape: tuple
     order: str
-    dtype: np.dtype
+    dtype: cuml.global_settings.xpy.dtype
     strides: tuple
 
     @staticmethod
     def from_interface(interface: dict) -> "ArrayInfo":
         out_shape = interface['shape']
-        out_type = np.dtype(interface['typestr'])
+        out_type = cuml.global_settings.xpy.dtype(interface['typestr'])
         out_order = "C"
         out_strides = None
 
@@ -89,8 +93,10 @@ def with_cupy_rmm(func):
 
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
-            return func(*args, **kwargs)
+        if BUILT_WITH_CUDA:
+            with cupy_using_allocator(rmm.rmm_cupy_allocator):
+                return func(*args, **kwargs)
+        return func(*args, **kwargs)
 
     # Mark the function as already wrapped
     cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
@@ -193,33 +199,13 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
 
     # using_allocator was introduced in CuPy 7. Once 7+ is required,
     # this check can be removed alongside the else code path.
-    if check_min_cupy_version("7.0"):
+    if BUILT_WITH_CUDA:
         with cupy_using_allocator(rmm.rmm_cupy_allocator):
             result = cupy_fn(*args, **kwargs)
-
     else:
-        temp_res = cupy_fn(*args, **kwargs)
-        result = \
-            _rmm_cupy6_array_like(temp_res,
-                                  order=_strides_to_order(temp_res.strides,
-                                                          temp_res.dtype))
-        cp.copyto(result, temp_res)
+        result = cupy_fn(*args, **kwargs)
 
     return result
-
-
-def _rmm_cupy6_array_like(ary, order):
-    nbytes = np.ndarray(ary.shape,
-                        dtype=ary.dtype,
-                        strides=ary.strides,
-                        order=order).nbytes
-    memptr = rmm.rmm_cupy_allocator(nbytes)
-    arr = cp.ndarray(ary.shape,
-                     dtype=ary.dtype,
-                     memptr=memptr,
-                     strides=ary.strides,
-                     order=order)
-    return arr
 
 
 def _strides_to_order(strides, dtype):
@@ -235,7 +221,7 @@ def _strides_to_order(strides, dtype):
 
 
 def _order_to_strides(order, shape, dtype):
-    itemsize = cp.dtype(dtype).itemsize
+    itemsize = cuml.global_settings.xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         return (itemsize, )
 
@@ -266,7 +252,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = cp.dtype(dtype).itemsize
+    itemsize = cuml.global_settings.xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape, )
@@ -315,9 +301,9 @@ def _check_array_contiguity(ary):
 
         shape = ary_interface['shape']
         strides = ary_interface['strides']
-        dtype = cp.dtype(ary_interface['typestr'])
+        dtype = cuml.global_settings.xpy.dtype(ary_interface['typestr'])
         order = _strides_to_order(strides, dtype)
-        itemsize = cp.dtype(dtype).itemsize
+        itemsize = cuml.global_settings.xpy.dtype(dtype).itemsize
 
         # We check if the strides jump on the non contiguous dimension
         # does not correspond to the array dimension size, which indicates
@@ -500,20 +486,3 @@ def using_output_type(output_type):
         yield prev_output_type
     finally:
         cuml.global_settings.output_type = prev_output_type
-
-
-@with_cupy_rmm
-def numba_row_matrix(df):
-    """Compute the C (row major) version gpu matrix of df
-
-    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
-        If already on the device, its stream will be used to perform the
-        transpose (and to copy `row_major` to the device if necessary).
-
-    """
-
-    col_major = df.to_cupy()
-
-    row_major = cp.array(col_major, order='C')
-
-    return nbcuda.as_cuda_array(row_major)

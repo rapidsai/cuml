@@ -17,7 +17,11 @@
 import threading
 from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
 from cuml.common.device_selection import DeviceType, MemoryType
+from cuml.common.import_utils import cpu_only_import, gpu_only_import
 from cuml.common.logger import warn
+
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -96,3 +100,10 @@ class GlobalSettings:
     @output_type.setter
     def output_type(self, value):
         self._output_type = value
+
+    @property
+    def xpy(self):
+        if self.memory_type == MemoryType.host:
+            return np
+        else:
+            return cp
