@@ -16,7 +16,8 @@
 
 import threading
 from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
-from cuml.common.device_selection import DeviceType, MemoryType
+from cuml.common.device_selection import DeviceType
+from cuml.common.memory_utils import MemoryType
 from cuml.common.logger import warn
 
 
