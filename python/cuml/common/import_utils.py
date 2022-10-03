@@ -24,35 +24,166 @@ class UnavailableImportError(Exception):
     '''Error thrown if a symbol is unavailable due to an issue importing it'''
 
 
-class MissingImport:
-    '''A placeholder class for unimportable symbols
+class _MissingImportMeta(type):
+    '''A metaclass for generating placeholder objects for unimportable symbols
 
-    This class allows errors to be deferred from import time to the time
-    that a symbol is actually used in order to streamline the usage of
-    optional dependencies. This is particularly useful for attempted imports
-    of GPU-only modules which will only be invoked if GPU-only
-    functionality is specifically used.
+    This metaclass allows errors to be deferred from import time to the time
+    that a symbol is actually used in order to streamline the usage of optional
+    dependencies. This is particularly useful for attempted imports of GPU-only
+    modules which will only be invoked if GPU-only functionality is
+    specifically used.
 
-    Parameters
-    ----------
-    symbol: str
-        The name of the symbol to be used in constructing error messages.
-    msg: str or None
-        An error message to be displayed if this symbol is directly used.
+    If an attempt to import a symbol fails, this metaclass is used to generate
+    a class which stands in for that symbol. Any attempt to call the symbol
+    (instantiate the class) or access its attributes will throw an
+    UnavailableImportError exception. Furthermore, this class can be used in
+    e.g. isinstance checks, since it will (correctly) fail to match any
+    instance it is compared against.
+
+    In addition to calls and attribute access, a number of dunder methods are
+    implemented so that other common usages of imported symbols (e.g.
+    arithmetic) throw an UnavailableImportError, but this is not guaranteed for
+    all possible uses. In such cases, other exception types (typically
+    TypeErrors) will be thrown instead.
     '''
-    # TODO(wphicks): Handle isinstance for if symbol is a class
 
-    def __init__(self, symbol, msg=None):
-        if msg is None:
-            self._msg = f'{symbol} could not be imported'
-        else:
-            self._msg = msg
+    def __new__(meta, name, bases, dct):
+        if dct.get('_msg', None) is None:
+            dct['_msg'] = f'{name} could not be imported'
+        name = f'MISSING{name}'
+        return super(_MissingImportMeta, meta).__new__(meta, name, bases, dct)
 
-    def __getattr__(self, name):
-        raise UnavailableImportError(self._msg)
+    def __call__(cls, *args, **kwargs):
+        raise UnavailableImportError(cls._msg)
 
-    def __call__(self, *args, **kwargs):
-        raise UnavailableImportError(self._msg)
+    def __getattr__(cls, name):
+        raise UnavailableImportError(cls._msg)
+
+    def __eq__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __lt__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __gt__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __ne__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __abs__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __add__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __radd__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __iadd__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __floordiv__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rfloordiv__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __ifloordiv__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __lshift__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rlshift__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __mul__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rmul__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __imul__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __ilshift__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __pow__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rpow__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __ipow__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rshift__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rrshift__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __irshift__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __sub__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rsub__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __isub__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __truediv__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rtruediv__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __itruediv__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __divmod__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __rdivmod__(cls, other):
+        raise UnavailableImportError(cls._msg)
+
+    def __neg__(cls):
+        raise UnavailableImportError(cls._msg)
+
+    def __invert__(cls):
+        raise UnavailableImportError(cls._msg)
+
+    def __hash__(cls):
+        raise UnavailableImportError(cls._msg)
+
+    def __index__(cls):
+        raise UnavailableImportError(cls._msg)
+
+    def __iter__(cls):
+        raise UnavailableImportError(cls._msg)
+
+    def __delitem__(cls, name):
+        raise UnavailableImportError(cls._msg)
+
+    def __setitem__(cls, name, value):
+        raise UnavailableImportError(cls._msg)
+
+    def __enter__(cls, *args, **kwargs):
+        raise UnavailableImportError(cls._msg)
+
+    def __get__(cls, *args, **kwargs):
+        raise UnavailableImportError(cls._msg)
+
+    def __delete__(cls, *args, **kwargs):
+        raise UnavailableImportError(cls._msg)
+
+    def __len__(cls):
+        raise UnavailableImportError(cls._msg)
 
 
 def safe_import(module, msg=None):
@@ -78,7 +209,13 @@ def safe_import(module, msg=None):
     try:
         return importlib.import_module(module)
     except Exception:
-        return MissingImport(module, msg=msg)
+        if msg is None:
+            msg = f'{module} could not be imported'
+        return _MissingImportMeta(
+            module.rsplit('.')[-1],
+            (),
+            {'_msg': msg}
+        )
 
 
 def safe_import_from(module, symbol, msg=None):
@@ -108,7 +245,13 @@ def safe_import_from(module, symbol, msg=None):
         imported_module = importlib.import_module(module)
         return getattr(imported_module, symbol)
     except Exception:
-        return MissingImport(".".join((module, symbol)), msg=msg)
+        if msg is None:
+            msg = f'{module}.{symbol} could not be imported'
+        return _MissingImportMeta(
+            symbol,
+            (),
+            {'_msg': msg}
+        )
 
 
 def gpu_only_import(self, module):
