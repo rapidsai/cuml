@@ -108,9 +108,15 @@ Other preprocessing methods (Single-GPU)
     :members:
 .. autoclass:: cuml.preprocessing.KBinsDiscretizer
     :members:
+.. autoclass:: cuml.preprocessing.KernelCenterer
+    :members:
 .. autoclass:: cuml.preprocessing.MissingIndicator
     :members:
 .. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.PowerTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.QuantileTransformer
     :members:
 .. autoclass:: cuml.preprocessing.SimpleImputer
     :members:
@@ -229,6 +235,9 @@ Metrics (clustering and manifold learning)
   .. automodule:: cuml.metrics.cluster.mutual_info_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.v_measure_score
+    :members:
+
 Benchmarking
 -------------
 
@@ -306,6 +315,9 @@ Naive Bayes
     :members:
 
 .. autoclass:: cuml.naive_bayes.BernoulliNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.ComplementNB
     :members:
 
 .. autoclass:: cuml.naive_bayes.GaussianNB

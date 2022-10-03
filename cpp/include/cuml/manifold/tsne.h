@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <raft/distance/distance_type.hpp>
 
 namespace raft {
 class handle_t;
@@ -100,6 +101,12 @@ struct TSNEParams {
   // the knn graph is passed in explicitly. This is to better match the
   // behavior of Scikit-learn's T-SNE.
   bool square_distances = true;
+
+  // Distance metric to use.
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
+
+  // Value of p for Minkowski distance
+  float p = 2.0;
 
   // Which implementation algorithm to use.
   TSNE_ALGORITHM algorithm = TSNE_ALGORITHM::FFT;

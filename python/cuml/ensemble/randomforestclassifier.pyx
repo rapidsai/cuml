@@ -29,7 +29,7 @@ from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -46,8 +46,9 @@ from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
+from cuml.prims.label.classlabels import check_labels, invert_labels
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -431,6 +432,8 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
+        # Track the labels to see if update is necessary
+        self.update_labels = not check_labels(y_m, self.classes_)
         cdef uintptr_t X_ptr, y_ptr
 
         X_ptr = X_m.ptr
@@ -611,6 +614,9 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        if self.update_labels:
+            preds = preds.to_output().astype(self.classes_.dtype)
+            preds = invert_labels(preds, self.classes_)
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],

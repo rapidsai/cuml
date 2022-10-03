@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 import warnings
 
@@ -29,7 +28,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans

@@ -21,14 +21,19 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/distance/distance_type.hpp>
+<<<<<<< HEAD
 #include <raft/linalg/unary_op.hpp>
 #include <raft/sparse/selection/knn.hpp>
 #include <raft/spatial/knn/specializations.hpp>
+=======
+#include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/selection/knn.cuh>
+>>>>>>> branch-22.10
 #include <selection/knn.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 namespace UMAPAlgo {
 namespace kNNGraph {
@@ -49,19 +54,20 @@ void launcher(const raft::handle_t& handle,
 
 // Instantiation for dense inputs, int64_t indices
 template <>
-void launcher(const raft::handle_t& handle,
-              const ML::manifold_dense_inputs_t<float>& inputsA,
-              const ML::manifold_dense_inputs_t<float>& inputsB,
-              ML::knn_graph<int64_t, float>& out,
-              int n_neighbors,
-              const ML::UMAPParams* params,
-              cudaStream_t stream)
+inline void launcher(const raft::handle_t& handle,
+                     const ML::manifold_dense_inputs_t<float>& inputsA,
+                     const ML::manifold_dense_inputs_t<float>& inputsB,
+                     ML::knn_graph<int64_t, float>& out,
+                     int n_neighbors,
+                     const ML::UMAPParams* params,
+                     cudaStream_t stream)
 {
   std::vector<float*> ptrs(1);
   std::vector<int> sizes(1);
   ptrs[0]  = inputsA.X;
   sizes[0] = inputsA.n;
 
+<<<<<<< HEAD
   raft::spatial::knn::brute_force_knn<long, float, int>(handle,
                                                         ptrs,
                                                         sizes,
@@ -71,29 +77,42 @@ void launcher(const raft::handle_t& handle,
                                                         out.knn_indices,
                                                         out.knn_dists,
                                                         n_neighbors);
+=======
+  raft::spatial::knn::brute_force_knn(handle,
+                                      ptrs,
+                                      sizes,
+                                      inputsA.d,
+                                      inputsB.X,
+                                      inputsB.n,
+                                      out.knn_indices,
+                                      out.knn_dists,
+                                      n_neighbors,
+                                      params->metric,
+                                      params->p);
+>>>>>>> branch-22.10
 }
 
 // Instantiation for dense inputs, int indices
 template <>
-void launcher(const raft::handle_t& handle,
-              const ML::manifold_dense_inputs_t<float>& inputsA,
-              const ML::manifold_dense_inputs_t<float>& inputsB,
-              ML::knn_graph<int, float>& out,
-              int n_neighbors,
-              const ML::UMAPParams* params,
-              cudaStream_t stream)
+inline void launcher(const raft::handle_t& handle,
+                     const ML::manifold_dense_inputs_t<float>& inputsA,
+                     const ML::manifold_dense_inputs_t<float>& inputsB,
+                     ML::knn_graph<int, float>& out,
+                     int n_neighbors,
+                     const ML::UMAPParams* params,
+                     cudaStream_t stream)
 {
   throw raft::exception("Dense KNN doesn't yet support 32-bit integer indices");
 }
 
 template <>
-void launcher(const raft::handle_t& handle,
-              const ML::manifold_sparse_inputs_t<int, float>& inputsA,
-              const ML::manifold_sparse_inputs_t<int, float>& inputsB,
-              ML::knn_graph<int, float>& out,
-              int n_neighbors,
-              const ML::UMAPParams* params,
-              cudaStream_t stream)
+inline void launcher(const raft::handle_t& handle,
+                     const ML::manifold_sparse_inputs_t<int, float>& inputsA,
+                     const ML::manifold_sparse_inputs_t<int, float>& inputsB,
+                     ML::knn_graph<int, float>& out,
+                     int n_neighbors,
+                     const ML::UMAPParams* params,
+                     cudaStream_t stream)
 {
   raft::sparse::selection::brute_force_knn(inputsA.indptr,
                                            inputsA.indices,
@@ -113,29 +132,30 @@ void launcher(const raft::handle_t& handle,
                                            handle,
                                            ML::Sparse::DEFAULT_BATCH_SIZE,
                                            ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           raft::distance::DistanceType::L2Expanded);
+                                           params->metric,
+                                           params->p);
 }
 
 template <>
-void launcher(const raft::handle_t& handle,
-              const ML::manifold_sparse_inputs_t<int64_t, float>& inputsA,
-              const ML::manifold_sparse_inputs_t<int64_t, float>& inputsB,
-              ML::knn_graph<int64_t, float>& out,
-              int n_neighbors,
-              const ML::UMAPParams* params,
-              cudaStream_t stream)
+inline void launcher(const raft::handle_t& handle,
+                     const ML::manifold_sparse_inputs_t<int64_t, float>& inputsA,
+                     const ML::manifold_sparse_inputs_t<int64_t, float>& inputsB,
+                     ML::knn_graph<int64_t, float>& out,
+                     int n_neighbors,
+                     const ML::UMAPParams* params,
+                     cudaStream_t stream)
 {
   throw raft::exception("Sparse KNN doesn't support 64-bit integer indices");
 }
 
 template <>
-void launcher(const raft::handle_t& handle,
-              const ML::manifold_precomputed_knn_inputs_t<int64_t, float>& inputsA,
-              const ML::manifold_precomputed_knn_inputs_t<int64_t, float>& inputsB,
-              ML::knn_graph<int64_t, float>& out,
-              int n_neighbors,
-              const ML::UMAPParams* params,
-              cudaStream_t stream)
+inline void launcher(const raft::handle_t& handle,
+                     const ML::manifold_precomputed_knn_inputs_t<int64_t, float>& inputsA,
+                     const ML::manifold_precomputed_knn_inputs_t<int64_t, float>& inputsB,
+                     ML::knn_graph<int64_t, float>& out,
+                     int n_neighbors,
+                     const ML::UMAPParams* params,
+                     cudaStream_t stream)
 {
   out.knn_indices = inputsA.knn_graph.knn_indices;
   out.knn_dists   = inputsA.knn_graph.knn_dists;
@@ -143,13 +163,13 @@ void launcher(const raft::handle_t& handle,
 
 // Instantiation for precomputed inputs, int indices
 template <>
-void launcher(const raft::handle_t& handle,
-              const ML::manifold_precomputed_knn_inputs_t<int, float>& inputsA,
-              const ML::manifold_precomputed_knn_inputs_t<int, float>& inputsB,
-              ML::knn_graph<int, float>& out,
-              int n_neighbors,
-              const ML::UMAPParams* params,
-              cudaStream_t stream)
+inline void launcher(const raft::handle_t& handle,
+                     const ML::manifold_precomputed_knn_inputs_t<int, float>& inputsA,
+                     const ML::manifold_precomputed_knn_inputs_t<int, float>& inputsB,
+                     ML::knn_graph<int, float>& out,
+                     int n_neighbors,
+                     const ML::UMAPParams* params,
+                     cudaStream_t stream)
 {
   out.knn_indices = inputsA.knn_graph.knn_indices;
   out.knn_dists   = inputsA.knn_graph.knn_dists;

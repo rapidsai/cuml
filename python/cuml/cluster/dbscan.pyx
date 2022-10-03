@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 import cupy as cp
 
@@ -28,7 +27,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -147,10 +146,13 @@ class DBSCAN(Base,
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
-    metric: {'euclidean', 'precomputed'}, default = 'euclidean'
+    metric: {'euclidean', 'cosine', 'precomputed'}, default = 'euclidean'
         The metric to use when calculating distances between points.
         If metric is 'precomputed', X is assumed to be a distance matrix
         and must be square.
+        The input will be modified temporarily when cosine distance is used
+        and the restored input matrix might not match completely
+        due to numerical rounding.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -266,7 +268,8 @@ class DBSCAN(Base,
         metric_parsing = {
             "L2": DistanceType.L2SqrtUnexpanded,
             "euclidean": DistanceType.L2SqrtUnexpanded,
-            "precomputed": DistanceType.Precomputed,
+            "cosine": DistanceType.CosineExpanded,
+            "precomputed": DistanceType.Precomputed
         }
         if self.metric in metric_parsing:
             metric = metric_parsing[self.metric.lower()]

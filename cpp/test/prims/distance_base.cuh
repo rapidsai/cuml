@@ -17,9 +17,9 @@
 #include "test_utils.h"
 #include <distance/distance.cuh>
 #include <gtest/gtest.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
 namespace MLCommon {
 namespace Distance {

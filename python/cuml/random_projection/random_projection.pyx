@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import cudf
 import numpy as np
 
 from libc.stdint cimport uintptr_t
@@ -25,7 +24,7 @@ from libcpp cimport bool
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from raft.common.handle cimport *
+from pylibraft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 

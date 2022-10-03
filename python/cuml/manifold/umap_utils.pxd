@@ -16,13 +16,14 @@
 
 # distutils: language = c++
 
+from rmm._lib.memory_resource cimport DeviceMemoryResource
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 from libcpp.memory cimport unique_ptr
 
 from libc.stdint cimport uint64_t, uintptr_t, int64_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
-
+from cuml.metrics.distance_type cimport DistanceType
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 
@@ -58,6 +59,8 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float target_weight,
         uint64_t random_state,
         bool deterministic,
+        DistanceType metric,
+        float p,
         GraphBasedDimRedCallback * callback
 
 cdef extern from "raft/sparse/coo.hpp":
@@ -71,6 +74,7 @@ cdef extern from "raft/sparse/coo.hpp":
 
 cdef class GraphHolder:
     cdef unique_ptr[COO] c_graph
+    cdef DeviceMemoryResource mr
 
     @staticmethod
     cdef GraphHolder new_graph(cuda_stream_view stream)

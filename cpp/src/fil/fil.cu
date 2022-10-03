@@ -22,11 +22,11 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 
 #include <cuml/fil/fil.h>  // for algo_t,
 
-#include <raft/cudart_utils.h>     // for RAFT_CUDA_TRY, cudaStream_t,
-#include <raft/error.hpp>          // for ASSERT
-#include <raft/handle.hpp>         // for handle_t
-#include <rmm/device_uvector.hpp>  // for device_uvector
-#include <thrust/host_vector.h>    // for host_vector
+#include <raft/core/cudart_utils.hpp>  // for RAFT_CUDA_TRY, cudaStream_t,
+#include <raft/core/error.hpp>         // for ASSERT
+#include <raft/core/handle.hpp>        // for handle_t
+#include <rmm/device_uvector.hpp>      // for device_uvector
+#include <thrust/host_vector.h>        // for host_vector
 
 #include <cmath>    // for expf
 #include <cstddef>  // for size_t
@@ -581,7 +581,7 @@ void check_params(const forest_params_t* params, bool dense)
   ASSERT(params->blocks_per_sm >= 0, "blocks_per_sm must be nonnegative");
   ASSERT(params->n_items >= 0, "n_items must be non-negative");
   ASSERT(params->threads_per_tree > 0, "threads_per_tree must be positive");
-  ASSERT(thrust::detail::is_power_of_2(params->threads_per_tree),
+  ASSERT((params->threads_per_tree & (params->threads_per_tree - 1)) == 0,
          "threads_per_tree must be a power of 2");
   ASSERT(params->threads_per_tree <= FIL_TPB,
          "threads_per_tree must not "

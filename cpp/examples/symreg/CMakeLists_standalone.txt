@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,4 +30,4 @@ add_executable(symreg_example symreg_example.cpp)
 set_target_properties(symreg_example PROPERTIES LINKER_LANGUAGE "CUDA")
 
 # Link cuml and cudart
-target_link_libraries(symreg_example cuml::cuml++ CUDA::cudart)
+target_link_libraries(symreg_example cuml::cuml++)

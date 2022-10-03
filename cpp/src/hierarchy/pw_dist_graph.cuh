@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <cuml/metrics/metrics.hpp>
 
@@ -28,18 +28,23 @@
 
 // TODO: Not a good strategy for pluggability but will be
 // removed once our dense pairwise distance API is in RAFT
-#include <raft/sparse/hierarchy/common.h>
-#include <raft/sparse/hierarchy/detail/connectivities.cuh>
+#include <raft/cluster/detail/connectivities.cuh>
+#include <raft/cluster/single_linkage_types.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/scan.h>
+#include <thrust/sequence.h>
 #include <thrust/sort.h>
+#include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 #include <limits>
 
 namespace raft {
-namespace hierarchy {
+namespace cluster {
 namespace detail {
 
 template <typename value_idx>
@@ -112,7 +117,7 @@ void pairwise_distances(const raft::handle_t& handle,
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE, value_idx, value_t> {
+struct distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, value_idx, value_t> {
   void run(const raft::handle_t& handle,
            const value_t* X,
            size_t m,
@@ -135,5 +140,5 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE, value_idx
 };
 
 };  // namespace detail
-};  // end namespace hierarchy
+};  // namespace cluster
 };  // end namespace raft

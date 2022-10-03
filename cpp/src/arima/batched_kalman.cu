@@ -20,20 +20,21 @@
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <cub/cub.cuh>
+#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <linalg/batched/matrix.cuh>
 #include <linalg/block.cuh>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {

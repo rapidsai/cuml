@@ -229,7 +229,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Before
 
 ################################################################################
 # Configure for building all C++ targets
@@ -283,11 +282,16 @@ fi
 
 # Build and (optionally) install the cuml Python package
 if completeBuild || hasArg cuml || hasArg pydocs; then
+    # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
+        CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+    fi
+
     cd ${REPODIR}/python
+
+    python setup.py build_ext --inplace -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     fi
 
     if hasArg pydocs; then

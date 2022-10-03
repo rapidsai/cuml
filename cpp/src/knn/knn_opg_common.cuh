@@ -24,11 +24,16 @@
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
+<<<<<<< HEAD
 #include <raft/cudart_utils.h>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/spatial/knn/specializations.hpp>
+=======
+#include <raft/spatial/knn/knn.cuh>
+>>>>>>> branch-22.10
 
 #include <cstddef>
 #include <memory>

@@ -21,10 +21,10 @@
 #include "internal/hw_forecast.cuh"
 #include "internal/hw_optim.cuh"
 #include <cuml/tsa/holtwinters_params.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

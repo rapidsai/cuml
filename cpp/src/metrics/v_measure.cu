@@ -27,10 +27,16 @@ double v_measure(const raft::handle_t& handle,
                  const int* y_hat,
                  const int n,
                  const int lower_class_range,
-                 const int upper_class_range)
+                 const int upper_class_range,
+                 double beta)
 {
+<<<<<<< HEAD
   return raft::stats::v_measure(
     y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
+=======
+  return MLCommon::Metrics::v_measure(
+    y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream(), beta);
+>>>>>>> branch-22.10
 }
 }  // namespace Metrics
 }  // namespace ML

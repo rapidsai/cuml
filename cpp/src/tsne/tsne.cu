@@ -16,7 +16,11 @@
 
 #include "tsne_runner.cuh"
 #include <cuml/manifold/tsne.h>
+<<<<<<< HEAD
 #include <raft/spatial/knn/specializations.hpp>
+=======
+#include <raft/distance/distance_type.hpp>
+>>>>>>> branch-22.10
 
 namespace ML {
 

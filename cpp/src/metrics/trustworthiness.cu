@@ -18,11 +18,16 @@
 
 #include <cuml/metrics/metrics.hpp>
 
+<<<<<<< HEAD
 #include <raft/distance/distance.hpp>
 #include <raft/distance/specializations.hpp>
 #include <raft/spatial/knn/specializations.hpp>
+=======
+#include <raft/distance/distance.cuh>
+#include <raft/distance/specializations.cuh>
+>>>>>>> branch-22.10
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Metrics {

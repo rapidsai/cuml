@@ -21,7 +21,6 @@ import typing
 import numpy as np
 import cupy as cp
 import cupyx
-import cudf
 import ctypes
 import warnings
 import math
@@ -42,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 
@@ -362,7 +361,7 @@ class NearestNeighbors(Base,
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
-            value_metric_str = "_SPARSE"
+            valid_metric_str = "_SPARSE"
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]

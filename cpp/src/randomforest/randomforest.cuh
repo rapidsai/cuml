@@ -16,18 +16,25 @@
 
 #pragma once
 
-#include <raft/common/nvtx.hpp>
-
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 
+<<<<<<< HEAD
 #include <raft/random/permute.hpp>
+=======
+#include <metrics/scores.cuh>
+
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/random/permute.cuh>
+>>>>>>> branch-22.10
 #include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.hpp>
 #include <raft/stats/regression_metrics.hpp>
 
-#include <raft/cudart_utils.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sequence.h>
 
 #ifdef _OPENMP
 #include <omp.h>

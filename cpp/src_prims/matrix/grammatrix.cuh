@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <raft/distance/distance.hpp>
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
+#include <raft/distance/distance.cuh>
 
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/gemm.hpp>
+#include <raft/linalg/gemm.cuh>
 
 namespace MLCommon {
 namespace Matrix {
