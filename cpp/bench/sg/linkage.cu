@@ -73,7 +73,7 @@ class Linkage : public BlobsFixture<D> {
  private:
   int* labels;
   int* out_children;
-  raft::hierarchy::linkage_output<int, D> out_arrs;
+  raft::hierarchy::linkage_output<int> out_arrs;
 };
 
 std::vector<Params> getInputs()
