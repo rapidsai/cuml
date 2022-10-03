@@ -27,6 +27,9 @@ from cuml.internals.safe_imports import (
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
     """Thread-local storage class with per-thread initialization of default
