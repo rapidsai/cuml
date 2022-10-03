@@ -18,6 +18,7 @@ import functools
 import operator
 import re
 from functools import wraps
+from enum import Enum, auto
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED

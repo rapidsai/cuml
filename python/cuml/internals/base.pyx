@@ -157,7 +157,7 @@ class Base(TagsMixin,
         # stream and handle example:
 
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle(stream=stream)
+        handle = pylibraft.common.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -165,7 +165,7 @@ class Base(TagsMixin,
 
         # final sync of all gpu-work launched inside this object
         # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
-        # the default stream inside the `cumlHandle` is being used
+        # the default stream inside the `raft::handle_t` is being used
         base.handle.sync()
         del base  # optional!
     """
