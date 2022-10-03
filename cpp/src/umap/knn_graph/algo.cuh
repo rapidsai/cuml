@@ -39,7 +39,7 @@ namespace UMAPAlgo {
 namespace kNNGraph {
 namespace Algo {
 
-/**
+  /**
  * Initial implementation calls out to FAISS to do its work.
  */
 
@@ -177,4 +177,5 @@ inline void launcher(const raft::handle_t& handle,
 
 }  // namespace Algo
 }  // namespace kNNGraph
-};  // namespace UMAPAlgo
+}
+;  // namespace UMAPAlgo

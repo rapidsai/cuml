@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/distance/specializations.cuh>
 #include <raft/distance/distance.cuh>
+#include <raft/distance/specializations.cuh>
 
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
