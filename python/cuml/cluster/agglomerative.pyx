@@ -34,7 +34,7 @@ from cuml.metrics.distance_type cimport DistanceType
 
 cdef extern from "raft/sparse/hierarchy/common.h" namespace "raft::hierarchy":
 
-    cdef cppclass linkage_output_int_float:
+    cdef cppclass linkage_output_int:
         int m
         int n_clusters
         int n_leaves
@@ -49,7 +49,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int_float *out,
+        linkage_output_int *out,
         DistanceType metric,
         int n_clusters
     ) except +
@@ -59,7 +59,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int_float *out,
+        linkage_output_int *out,
         DistanceType metric,
         int c,
         int n_clusters
