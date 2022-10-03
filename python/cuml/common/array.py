@@ -17,8 +17,6 @@
 import operator
 import pickle
 
-# Temporarily disabled due to CUDA 11.0 issue
-# https://github.com/rapidsai/cuml/issues/4332
 from cuml.common.import_utils import (
     cpu_only_import,
     cpu_only_import_from,

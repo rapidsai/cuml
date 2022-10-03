@@ -40,6 +40,8 @@ class MissingImport:
     msg: str or None
         An error message to be displayed if this symbol is directly used.
     '''
+    # TODO(wphicks): Handle isinstance for if symbol is a class
+
     def __init__(self, symbol, msg=None):
         if msg is None:
             self._msg = f'{symbol} could not be imported'
