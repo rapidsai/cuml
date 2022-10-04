@@ -28,7 +28,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             raft::cluster::linkage_output<int, float>* out,
+                             raft::cluster::linkage_output<int>* out,
                              raft::distance::DistanceType metric,
                              int n_clusters)
 {
@@ -40,7 +40,7 @@ void single_linkage_neighbors(const raft::handle_t& handle,
                               const float* X,
                               size_t m,
                               size_t n,
-                              raft::cluster::linkage_output<int, float>* out,
+                              raft::cluster::linkage_output<int>* out,
                               raft::distance::DistanceType metric,
                               int c,
                               int n_clusters)
