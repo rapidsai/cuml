@@ -67,7 +67,7 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
   rmm::device_scalar<DataT> d_KLDVal(stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 
-  raft::linalg::mapThenSumReduce<DataT, KLDOp<DataT>, size_t, 256, const DataT*>(
+  raft::linalg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(
     d_KLDVal.data(), (size_t)size, KLDOp<DataT>(), stream, modelPDF, candidatePDF);
 
   DataT h_KLDVal;
