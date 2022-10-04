@@ -22,22 +22,17 @@ from dataclasses import dataclass
 from functools import wraps
 
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.device_support import BUILT_WITH_CUDA
-from cuml.common.import_utils import check_min_cupy_version
-from cuml.common.import_utils import (
+from cuml.internals.device_support import GPU_ENABLED
+from cuml.internals.safe_imports import (
     gpu_only_import,
-    gpu_only_import_from
+    gpu_only_import_from,
+    NullContext
 )
 
-try:
-    from cupy.cuda import using_allocator as cupy_using_allocator
-except ImportError:
-    try:
-        from cupy.cuda.memory import using_allocator as cupy_using_allocator
-    except ImportError:
-        pass
-
-rmm = gpu_only_import('rmm')
+cupy_using_allocator = gpu_only_import_from(
+    'cupy.cuda', 'using_allocator', alt=NullContext
+)
+rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 global_settings = GlobalSettings()
 
@@ -94,8 +89,8 @@ def with_cupy_rmm(func):
 
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
-        if BUILT_WITH_CUDA:
-            with cupy_using_allocator(rmm.rmm_cupy_allocator):
+        if GPU_ENABLED:
+            with cupy_using_allocator(rmm_cupy_allocator):
                 return func(*args, **kwargs)
         return func(*args, **kwargs)
 
@@ -198,10 +193,8 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
 
     """
 
-    # using_allocator was introduced in CuPy 7. Once 7+ is required,
-    # this check can be removed alongside the else code path.
-    if BUILT_WITH_CUDA:
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
+    if GPU_ENABLED:
+        with cupy_using_allocator(rmm_cupy_allocator):
             result = cupy_fn(*args, **kwargs)
     else:
         result = cupy_fn(*args, **kwargs)

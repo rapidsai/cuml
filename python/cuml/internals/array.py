@@ -17,17 +17,16 @@
 import operator
 import pickle
 
-from cuml.common.import_utils import (
+from cuml.internals.safe_imports import (
     cpu_only_import,
-    cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from
 )
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common.memory_utils import _get_size_from_shape
-from cuml.common.memory_utils import _order_to_strides
-from cuml.common.memory_utils import _strides_to_order
-from cuml.common.memory_utils import class_with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import _get_size_from_shape
+from cuml.internals.memory_utils import _order_to_strides
+from cuml.internals.memory_utils import _strides_to_order
+from cuml.internals.memory_utils import class_with_cupy_rmm
 from typing import Tuple
 
 cp = gpu_only_import('cupy')
