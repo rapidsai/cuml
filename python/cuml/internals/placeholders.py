@@ -14,4 +14,9 @@
 # limitations under the License.
 #
 
-BUILT_WITH_CUDA = True
+'''cuml.internals.placeholders
+
+cuML offers a number of installation configurations with different
+dependencies and functionality. To more seamlessly handle functionality
+available in one configuration but not another, it is sometimes useful to
+have generic placeholder objects that will either throw an exception
