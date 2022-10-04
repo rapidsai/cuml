@@ -41,7 +41,7 @@ from cuml.internals.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.import_utils import has_sklearn
 from cuml.common.mixins import FMajorInputTagMixin
 
 if has_sklearn():

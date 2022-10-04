@@ -24,7 +24,7 @@ from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.import_utils import has_scipy
+from cuml.internals.import_utils import has_scipy
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
 from cuml.prims.label import invert_labels
@@ -175,7 +175,7 @@ class _BaseNB(Base, ClassifierMixin):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
+            from cuml.internals.import_utils import dummy_function_always_false \
                 as scipy_sparse_isspmatrix
 
         # todo: use a sparse CumlArray style approach when ready
@@ -218,7 +218,7 @@ class _BaseNB(Base, ClassifierMixin):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
+            from cuml.internals.import_utils import dummy_function_always_false \
                 as scipy_sparse_isspmatrix
 
         # todo: use a sparse CumlArray style approach when ready
@@ -369,7 +369,7 @@ class GaussianNB(_BaseNB):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
+            from cuml.internals.import_utils import dummy_function_always_false \
                 as scipy_sparse_isspmatrix
 
         if getattr(self, 'classes_') is None and _classes is None:
@@ -754,7 +754,7 @@ class _BaseDiscreteNB(_BaseNB):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
+            from cuml.internals.import_utils import dummy_function_always_false \
                 as scipy_sparse_isspmatrix
 
         # TODO: use SparseCumlArray

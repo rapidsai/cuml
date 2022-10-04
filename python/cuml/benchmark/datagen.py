@@ -49,7 +49,7 @@ from urllib.request import urlretrieve
 from cuml.common import input_utils
 from numba import cuda
 
-from cuml.common.import_utils import has_scipy
+from cuml.internals.import_utils import has_scipy
 
 
 def _gen_data_regression(n_samples, n_features, random_state=42,

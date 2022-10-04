@@ -34,7 +34,7 @@ from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import logger
-from cuml.common.import_utils import has_hdbscan_plots
+from cuml.internals.import_utils import has_hdbscan_plots
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType

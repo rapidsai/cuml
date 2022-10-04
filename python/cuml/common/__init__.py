@@ -19,10 +19,10 @@ from cuml.internals.array_sparse import SparseCumlArray
 
 # utils
 
-from cuml.common.import_utils import has_cupy
-from cuml.common.import_utils import has_dask
-from cuml.common.import_utils import check_min_numba_version
-from cuml.common.import_utils import check_min_cupy_version, has_scipy
+from cuml.internals.import_utils import has_cupy
+from cuml.internals.import_utils import has_dask
+from cuml.internals.import_utils import check_min_numba_version
+from cuml.internals.import_utils import check_min_cupy_version, has_scipy
 
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array

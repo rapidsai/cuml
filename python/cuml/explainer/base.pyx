@@ -21,7 +21,7 @@ import numpy as np
 import pandas
 
 import cuml.common.logger as logger
-from cuml.common.import_utils import has_shap
+from cuml.internals.import_utils import has_shap
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.input_utils import input_to_host_array
 from cuml.common.logger import debug

@@ -32,7 +32,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.import_utils import has_scipy
+from cuml.internals.import_utils import has_scipy
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array

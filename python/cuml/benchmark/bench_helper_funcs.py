@@ -108,7 +108,7 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
-    from cuml.common.import_utils import has_xgboost
+    from cuml.internals.import_utils import has_xgboost
     if has_xgboost():
         import xgboost as xgb
     else:
@@ -191,7 +191,7 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
 
 def _build_treelite_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.common.import_utils import has_xgboost
+    from cuml.internals.import_utils import has_xgboost
     import treelite
     import treelite_runtime
     if has_xgboost():

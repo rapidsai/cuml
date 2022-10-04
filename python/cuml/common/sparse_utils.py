@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.common.import_utils import has_scipy
+from cuml.internals.import_utils import has_scipy
 import cupyx
 
 if has_scipy():

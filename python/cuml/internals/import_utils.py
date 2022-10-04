@@ -15,7 +15,6 @@
 #
 
 
-import importlib
 from cuml.internals.safe_import import gpu_only_import, UnavailableError
 from distutils.version import LooseVersion
 

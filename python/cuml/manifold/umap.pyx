@@ -44,7 +44,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common import logger
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.memory_utils import using_output_type
-from cuml.common.import_utils import has_scipy
+from cuml.internals.import_utils import has_scipy
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.mixins import CMajorInputTagMixin

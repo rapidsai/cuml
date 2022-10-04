@@ -28,7 +28,7 @@ import cuml.internals
 import cuml.internals.array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_scipy, has_dask_cudf
+from cuml.internals.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
 from cuml.internals.memory_utils import ArrayInfo
 from cuml.internals.memory_utils import _check_array_contiguity
