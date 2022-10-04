@@ -26,7 +26,7 @@ import cuml.common
 import cuml.internals.array
 import cuml.internals.array_sparse
 import cuml.internals.input_utils
-from cuml.common.type_utils import _DecoratorType, wraps_typed
+from cuml.internals.type_utils import _DecoratorType, wraps_typed
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
 from cuml.internals.api_context_managers import BaseReturnGenericCM
@@ -39,8 +39,11 @@ from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.memory_utils import using_output_type
 
 CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
+global_settings = GlobalSettings()
 
 
 class DecoratorMetaClass(type):
@@ -685,21 +688,21 @@ def api_ignore(func: _DecoratorType) -> _DecoratorType:
 @contextlib.contextmanager
 def exit_internal_api():
 
-    assert (cuml.global_settings.root_cm is not None)
+    assert (global_settings.root_cm is not None)
 
     try:
-        old_root_cm = cuml.global_settings.root_cm
+        old_root_cm = global_settings.root_cm
 
-        cuml.global_settings.root_cm = None
+        global_settings.root_cm = None
 
         # Set the global output type to the previous value to pretend we never
         # entered the API
-        with cuml.using_output_type(old_root_cm.prev_output_type):
+        with using_output_type(old_root_cm.prev_output_type):
 
             yield
 
     finally:
-        cuml.global_settings.root_cm = old_root_cm
+        global_settings.root_cm = old_root_cm
 
 
 def mirror_args(

@@ -22,7 +22,7 @@ from functools import partial
 import cupy as cp
 import numbers
 import cudf
-from cuml.common.type_utils import CUPY_SPARSE_DTYPES
+from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
 from cudf.utils.dtypes import min_signed_type
 import cuml.common.logger as logger
 import pandas as pd
