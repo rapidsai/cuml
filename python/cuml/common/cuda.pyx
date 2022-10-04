@@ -17,7 +17,7 @@
 # distutils: language = c++
 
 
-from cuml.common.device_support import BUILT_WITH_CUDA
+from cuml.internals.device_support import BUILT_WITH_CUDA
 from rmm._cuda.gpu import getDeviceCount
 
 

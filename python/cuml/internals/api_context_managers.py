@@ -23,15 +23,13 @@ import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
 import cuml.common.input_utils
-import rmm
 
-try:
-    from cupy.cuda import using_allocator as cupy_using_allocator
-except ImportError:
-    try:
-        from cupy.cuda.memory import using_allocator as cupy_using_allocator
-    except ImportError:
-        pass
+from cuml.internals.safe_import import gpu_only_import_from, NullContext
+
+cupy_using_allocator = gpu_only_import_from(
+    'cupy.cuda', 'using_allocator', alt=NullContext
+)
+rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
 @contextlib.contextmanager
@@ -98,7 +96,7 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.callback(cleanup)
 
-        self.enter_context(cupy_using_allocator(rmm.rmm_cupy_allocator))
+        self.enter_context(cupy_using_allocator(rmm_cupy_allocator))
         self.prev_output_type = self.enter_context(_using_mirror_output_type())
 
         self._output_type = None

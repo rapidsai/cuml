@@ -21,11 +21,10 @@ import re
 from dataclasses import dataclass
 from functools import wraps
 
-import cuml
-from cuml.common.device_support import BUILT_WITH_CUDA
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.device_support import BUILT_WITH_CUDA
 from cuml.common.import_utils import check_min_cupy_version
 from cuml.common.import_utils import (
-    cpu_only_import,
     gpu_only_import,
     gpu_only_import_from
 )
@@ -40,6 +39,8 @@ except ImportError:
 
 rmm = gpu_only_import('rmm')
 
+global_settings = GlobalSettings()
+
 
 @dataclass(frozen=True)
 class ArrayInfo:
@@ -49,13 +50,13 @@ class ArrayInfo:
     """
     shape: tuple
     order: str
-    dtype: cuml.global_settings.xpy.dtype
+    dtype: global_settings.xpy.dtype
     strides: tuple
 
     @staticmethod
     def from_interface(interface: dict) -> "ArrayInfo":
         out_shape = interface['shape']
-        out_type = cuml.global_settings.xpy.dtype(interface['typestr'])
+        out_type = global_settings.xpy.dtype(interface['typestr'])
         out_order = "C"
         out_strides = None
 
@@ -221,7 +222,7 @@ def _strides_to_order(strides, dtype):
 
 
 def _order_to_strides(order, shape, dtype):
-    itemsize = cuml.global_settings.xpy.dtype(dtype).itemsize
+    itemsize = global_settings.xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         return (itemsize, )
 
@@ -252,7 +253,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = cuml.global_settings.xpy.dtype(dtype).itemsize
+    itemsize = global_settings.xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape, )
@@ -301,9 +302,9 @@ def _check_array_contiguity(ary):
 
         shape = ary_interface['shape']
         strides = ary_interface['strides']
-        dtype = cuml.global_settings.xpy.dtype(ary_interface['typestr'])
+        dtype = global_settings.xpy.dtype(ary_interface['typestr'])
         order = _strides_to_order(strides, dtype)
-        itemsize = cuml.global_settings.xpy.dtype(dtype).itemsize
+        itemsize = global_settings.xpy.dtype(dtype).itemsize
 
         # We check if the strides jump on the non contiguous dimension
         # does not correspond to the array dimension size, which indicates
@@ -402,7 +403,7 @@ def set_global_output_type(output_type):
         raise ValueError('Parameter output_type must be one of "numpy", '
                          '"cupy", cudf", "numba", "input" or None')
 
-    cuml.global_settings.output_type = output_type
+    global_settings.output_type = output_type
 
 
 @contextlib.contextmanager
@@ -480,9 +481,9 @@ def using_output_type(output_type):
     <class 'cupy.ndarray'>
 
     """
-    prev_output_type = cuml.global_settings.output_type
+    prev_output_type = global_settings.output_type
     try:
         set_global_output_type(output_type)
         yield prev_output_type
     finally:
-        cuml.global_settings.output_type = prev_output_type
+        global_settings.output_type = prev_output_type

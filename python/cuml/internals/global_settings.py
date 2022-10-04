@@ -17,7 +17,7 @@
 import threading
 from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
 from cuml.common.device_selection import DeviceType, MemoryType
-from cuml.common.import_utils import cpu_only_import, gpu_only_import
+from cuml.internals.safe_import import cpu_only_import, gpu_only_import
 from cuml.common.logger import warn
 
 cp = gpu_only_import('cupy')
