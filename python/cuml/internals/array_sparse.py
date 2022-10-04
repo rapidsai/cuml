@@ -17,7 +17,7 @@ import cupyx as cpx
 import numpy as np
 import nvtx
 from cuml.common.import_utils import has_scipy
-from cuml.common.memory_utils import class_with_cupy_rmm
+from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.common.logger import debug
 
 import cuml.common
