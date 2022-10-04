@@ -31,7 +31,7 @@ import cuml.internals
 from cuml.common import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.internals import _deprecate_pos_args
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle

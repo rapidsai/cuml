@@ -33,7 +33,7 @@ from cython.operator cimport dereference as deref
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle

@@ -21,7 +21,7 @@ import cupy as cp
 import cupyx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy

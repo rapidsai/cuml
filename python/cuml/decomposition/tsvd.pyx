@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *

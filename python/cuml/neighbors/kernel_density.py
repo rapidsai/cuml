@@ -20,7 +20,7 @@ import math
 from numba import cuda
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.metrics import pairwise_distances
 from cuml.common.import_utils import has_scipy
 from cuml.common.exceptions import NotFittedError

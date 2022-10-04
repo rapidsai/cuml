@@ -29,7 +29,7 @@ from typing import List, Tuple, Dict, Mapping, Optional, Union
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger

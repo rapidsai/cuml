@@ -21,7 +21,7 @@ import cupy as cp
 import inspect
 import numpy as np
 
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.testing.utils import ClassEnumerator
 from sklearn.datasets import make_classification
 

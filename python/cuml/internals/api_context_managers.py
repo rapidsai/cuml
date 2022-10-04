@@ -18,50 +18,51 @@ import contextlib
 import typing
 from collections import deque
 
-import cuml
-import cuml.common
 import cuml.common.array
 import cuml.common.array_sparse
 import cuml.common.input_utils
 
+from cuml.internals.base import Base
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_import import gpu_only_import_from, NullContext
 
 cupy_using_allocator = gpu_only_import_from(
     'cupy.cuda', 'using_allocator', alt=NullContext
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
+global_settings = GlobalSettings()
 
 
 @contextlib.contextmanager
 def _using_mirror_output_type():
     """
-    Sets cuml.global_settings.output_type to "mirror" for internal API
+    Sets global_settings.output_type to "mirror" for internal API
     handling. We need a separate function since `cuml.using_output_type()`
     doesn't accept "mirror"
 
     Yields
     -------
     string
-        Returns the previous value in cuml.global_settings.output_type
+        Returns the previous value in global_settings.output_type
     """
-    prev_output_type = cuml.global_settings.output_type
+    prev_output_type = global_settings.output_type
     try:
-        cuml.global_settings.output_type = "mirror"
+        global_settings.output_type = "mirror"
         yield prev_output_type
     finally:
-        cuml.global_settings.output_type = prev_output_type
+        global_settings.output_type = prev_output_type
 
 
 def in_internal_api():
-    return cuml.global_settings.root_cm is not None
+    return global_settings.root_cm is not None
 
 
 def set_api_output_type(output_type: str):
-    assert (cuml.global_settings.root_cm is not None)
+    assert (global_settings.root_cm is not None)
 
     # Quick exit
     if (isinstance(output_type, str)):
-        cuml.global_settings.root_cm.output_type = output_type
+        global_settings.root_cm.output_type = output_type
         return
 
     # Try to convert any array objects to their type
@@ -70,11 +71,11 @@ def set_api_output_type(output_type: str):
     # Ensure that this is an array-like object
     assert output_type is None or array_type is not None
 
-    cuml.global_settings.root_cm.output_type = array_type
+    global_settings.root_cm.output_type = array_type
 
 
 def set_api_output_dtype(output_dtype):
-    assert (cuml.global_settings.root_cm is not None)
+    assert (global_settings.root_cm is not None)
 
     # Try to convert any array objects to their type
     if (output_dtype is not None
@@ -84,7 +85,7 @@ def set_api_output_dtype(output_dtype):
 
         assert (output_dtype is not None)
 
-    cuml.global_settings.root_cm.output_dtype = output_dtype
+    global_settings.root_cm.output_dtype = output_dtype
 
 
 class InternalAPIContext(contextlib.ExitStack):
@@ -92,7 +93,7 @@ class InternalAPIContext(contextlib.ExitStack):
         super().__init__()
 
         def cleanup():
-            cuml.global_settings.root_cm = None
+            global_settings.root_cm = None
 
         self.callback(cleanup)
 
@@ -111,7 +112,7 @@ class InternalAPIContext(contextlib.ExitStack):
 
         self.call_stack = {}
 
-        cuml.global_settings.root_cm = self
+        global_settings.root_cm = self
 
     @property
     def output_type(self):
@@ -163,10 +164,10 @@ def get_internal_context() -> InternalAPIContext:
     for external API calls and minimize unnecessary internal output
     conversions"""
 
-    if (cuml.global_settings.root_cm is None):
-        cuml.global_settings.root_cm = InternalAPIContext()
+    if (global_settings.root_cm is None):
+        global_settings.root_cm = InternalAPIContext()
 
-    return cuml.global_settings.root_cm
+    return global_settings.root_cm
 
 
 class ProcessEnter(object):
@@ -264,7 +265,7 @@ class ProcessEnterBaseMixin(ProcessEnter):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
-        self.base_obj: cuml.Base = self._context._args[0]
+        self.base_obj: Base = self._context._args[0]
 
 
 class ProcessEnterReturnAny(ProcessEnter):
@@ -329,7 +330,7 @@ class ProcessReturnArray(ProcessReturn):
         self._process_return_cbs.append(self.convert_to_cumlarray)
 
         if (self._context.is_root
-                or cuml.global_settings.output_type != "mirror"):
+                or global_settings.output_type != "mirror"):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
@@ -351,7 +352,7 @@ class ProcessReturnArray(ProcessReturn):
 
     def convert_to_outputtype(self, ret_val):
 
-        output_type = cuml.global_settings.output_type
+        output_type = global_settings.output_type
 
         if (output_type is None or output_type == "mirror"
                 or output_type == "input"):

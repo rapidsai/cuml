@@ -15,6 +15,7 @@
 
 
 set(cython_sources
+    base.pyx
     internals.pyx
 )
 

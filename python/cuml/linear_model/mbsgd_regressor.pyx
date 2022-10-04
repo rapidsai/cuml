@@ -18,7 +18,7 @@
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import FMajorInputTagMixin

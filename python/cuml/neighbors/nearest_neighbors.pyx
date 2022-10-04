@@ -26,7 +26,7 @@ import warnings
 import math
 
 import cuml.internals
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray

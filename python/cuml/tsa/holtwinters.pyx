@@ -24,7 +24,7 @@ import cuml.internals
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from pylibraft.common.handle cimport handle_t

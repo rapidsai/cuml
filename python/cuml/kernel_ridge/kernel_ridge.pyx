@@ -22,7 +22,7 @@ from cupy import linalg
 import cupy as cp
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array

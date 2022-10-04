@@ -22,7 +22,7 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray

@@ -19,7 +19,7 @@
 from inspect import signature
 
 from cuml.solvers import CD, QN
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array import CumlArray

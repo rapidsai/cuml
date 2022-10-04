@@ -66,7 +66,7 @@ def get_handle_from_cuml_model_func(func, create_new=False):
     """
     owner = getattr(func, '__self__', None)
 
-    if owner is not None and isinstance(owner, cuml.common.base.Base):
+    if owner is not None and isinstance(owner, cuml.internals.base.Base):
         if owner.handle is not None:
             return owner.handle
 

@@ -34,7 +34,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError

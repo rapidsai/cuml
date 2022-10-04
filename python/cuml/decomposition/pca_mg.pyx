@@ -34,7 +34,7 @@ import cuml.internals
 
 from pylibraft.common.handle cimport handle_t
 
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver

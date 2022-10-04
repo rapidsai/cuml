@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.handle import Handle
 import cuml.common.cuda as cuda
 

@@ -38,7 +38,7 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
 
 import cuml.internals
 from cuml.common import using_output_type
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import logger
