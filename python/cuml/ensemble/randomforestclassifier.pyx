@@ -24,7 +24,7 @@ import warnings
 import cuml.common.logger as logger
 
 from cuml import ForestInference
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring

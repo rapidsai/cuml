@@ -23,7 +23,7 @@ from cuml import Base
 from cuml.common import input_to_cuml_array
 from cuml.common.input_utils import input_to_cupy_array
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.decomposition import PCA
 
 

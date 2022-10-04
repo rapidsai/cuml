@@ -22,10 +22,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array

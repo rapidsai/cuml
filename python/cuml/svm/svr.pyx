@@ -24,7 +24,7 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring

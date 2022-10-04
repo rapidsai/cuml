@@ -45,8 +45,8 @@ from cuml.common import logger
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.internals.memory_utils import using_output_type
 from cuml.common.import_utils import has_scipy
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
@@ -57,7 +57,7 @@ from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
 if has_scipy(True):
     import scipy.sparse
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_descriptor import CumlArrayDescriptor
 
 import rmm
 

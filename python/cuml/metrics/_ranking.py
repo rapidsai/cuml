@@ -18,7 +18,7 @@ import typing
 import cupy as cp
 import numpy as np
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.input_utils import input_to_cupy_array
 import math
 

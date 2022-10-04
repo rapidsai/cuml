@@ -19,7 +19,7 @@ import cupy as cp
 import cupyx
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml import Base
 
 

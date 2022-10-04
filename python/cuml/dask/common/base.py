@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from cuml.dask.common.utils import get_client
 
 from cuml import Base
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler

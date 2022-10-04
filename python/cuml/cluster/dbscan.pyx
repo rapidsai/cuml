@@ -24,13 +24,13 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.metrics.distance_type cimport DistanceType

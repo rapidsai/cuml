@@ -15,7 +15,7 @@
 
 import cuml.internals
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.import_utils import has_sklearn
 from cuml.common.mixins import ClassifierMixin

@@ -27,7 +27,7 @@ import operator
 from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.memory_utils import _get_size_from_shape
 from cuml.internals.memory_utils import _strides_to_order
 # Temporarily disabled due to CUDA 11.0 issue

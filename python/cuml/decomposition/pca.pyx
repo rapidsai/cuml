@@ -32,7 +32,7 @@ from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
@@ -41,7 +41,7 @@ import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp

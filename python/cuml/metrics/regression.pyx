@@ -22,7 +22,7 @@ import cupy as cp
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from pylibraft.common.handle import Handle
 from pylibraft.common.handle cimport handle_t
 from cuml.metrics cimport regression

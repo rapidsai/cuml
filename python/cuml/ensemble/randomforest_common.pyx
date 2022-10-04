@@ -25,7 +25,7 @@ from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
 from cuml.internals.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
 
@@ -35,7 +35,7 @@ from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 

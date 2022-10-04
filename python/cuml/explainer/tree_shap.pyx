@@ -15,7 +15,7 @@
 #
 
 from cuml.common import input_to_cuml_array
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.import_utils import has_sklearn
 from cuml.common.input_utils import determine_array_type
 from cuml.fil.fil import TreeliteModel

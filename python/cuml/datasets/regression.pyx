@@ -22,7 +22,7 @@ import nvtx
 import numpy as np
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 

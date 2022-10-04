@@ -20,7 +20,7 @@ import numpy as np
 import time
 
 from cudf import DataFrame as cu_df
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr

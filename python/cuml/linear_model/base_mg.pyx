@@ -26,7 +26,7 @@ from cython.operator cimport dereference as deref
 
 import cuml.internals
 from cuml.internals.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.input_utils import input_to_cuml_array

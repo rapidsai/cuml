@@ -31,7 +31,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger

@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 
 # utils
 

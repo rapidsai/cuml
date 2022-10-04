@@ -9,7 +9,7 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from ....common.base import Base
 from ..utils.validation import check_X_y
 from ....thirdparty_adapters import check_array

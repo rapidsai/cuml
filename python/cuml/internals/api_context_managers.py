@@ -18,8 +18,8 @@ import contextlib
 import typing
 from collections import deque
 
-import cuml.common.array
-import cuml.common.array_sparse
+import cuml.internals.array
+import cuml.internals.array_sparse
 import cuml.common.input_utils
 
 from cuml.internals.base import Base
@@ -342,7 +342,7 @@ class ProcessReturnArray(ProcessReturn):
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             if is_sparse:
-                ret_val = cuml.common.array_sparse.SparseCumlArray(
+                ret_val = cuml.internals.array_sparse.SparseCumlArray(
                     ret_val, convert_index=False)
             else:
                 ret_val = cuml.common.input_utils.input_to_cuml_array(
@@ -380,7 +380,7 @@ class ProcessReturnSparseArray(ProcessReturnArray):
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             if is_sparse:
-                ret_val = cuml.common.array_sparse.SparseCumlArray(
+                ret_val = cuml.internals.array_sparse.SparseCumlArray(
                     ret_val, convert_index=False)
             else:
                 ret_val = cuml.common.input_utils.input_to_cuml_array(

@@ -28,7 +28,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
 

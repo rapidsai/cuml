@@ -31,7 +31,7 @@ import pylibraft.common.handle
 import cuml.common.input_utils
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin

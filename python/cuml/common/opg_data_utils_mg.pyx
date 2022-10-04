@@ -21,7 +21,7 @@ from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cuml.common import input_to_cuml_array
 from cython.operator cimport dereference as deref
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 
 
 def build_data_t(arys):

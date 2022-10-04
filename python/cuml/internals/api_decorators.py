@@ -23,8 +23,8 @@ import warnings
 
 import cuml
 import cuml.common
-import cuml.common.array
-import cuml.common.array_sparse
+import cuml.internals.array
+import cuml.internals.array_sparse
 import cuml.common.input_utils
 from cuml.common.type_utils import _DecoratorType, wraps_typed
 from cuml.internals.api_context_managers import BaseReturnAnyCM

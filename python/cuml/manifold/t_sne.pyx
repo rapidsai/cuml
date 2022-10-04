@@ -26,13 +26,13 @@ import warnings
 import cupy
 
 import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 import cuml.common.logger as logger
 
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
