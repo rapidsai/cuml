@@ -19,6 +19,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/svd.cuh>
@@ -196,7 +197,7 @@ void ridgeFit(const raft::handle_t& handle,
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
@@ -218,7 +219,7 @@ void ridgeFit(const raft::handle_t& handle,
   if (sample_weight != nullptr) {
     raft::matrix::matrixVectorBinaryDivSkipZero(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },
