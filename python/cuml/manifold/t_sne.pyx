@@ -28,7 +28,7 @@ from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
 
 import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 import cuml.internals.logger as logger

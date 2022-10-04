@@ -25,9 +25,9 @@ import numba.cuda
 import numpy as np
 import pandas as pd
 import cuml.internals
-import cuml.common.array
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+import cuml.internals.array
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
 from cuml.internals.memory_utils import ArrayInfo
