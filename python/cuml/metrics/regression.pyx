@@ -26,7 +26,7 @@ from cuml.internals.array import CumlArray
 from pylibraft.common.handle import Handle
 from pylibraft.common.handle cimport handle_t
 from cuml.metrics cimport regression
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 
 
 @cuml.internals.api_return_any()

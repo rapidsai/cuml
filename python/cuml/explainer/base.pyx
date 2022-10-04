@@ -22,8 +22,8 @@ import pandas
 
 import cuml.common.logger as logger
 from cuml.common.import_utils import has_shap
-from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.input_utils import input_to_host_array
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_host_array
 from cuml.common.logger import debug
 from cuml.common.logger import warn
 from cuml.explainer.common import get_dtype_from_model_func

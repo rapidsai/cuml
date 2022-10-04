@@ -22,9 +22,9 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_host_array
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import has_cupy
-from cuml.common.input_utils import convert_dtype
+from cuml.internals.input_utils import convert_dtype
 from cuml.internals.memory_utils import _check_array_contiguity
 from numba import cuda as nbcuda
 from pandas import DataFrame as pdDF

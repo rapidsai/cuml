@@ -22,7 +22,7 @@ import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.internals.array import CumlArray
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
 

@@ -19,7 +19,7 @@ import pytest
 import numpy as np
 
 from cuml.tsa import auto_arima
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 
 
 ###############################################################################

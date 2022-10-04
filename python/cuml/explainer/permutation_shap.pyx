@@ -21,7 +21,7 @@ import time
 
 from cudf import DataFrame as cu_df
 from cuml.internals.array import CumlArray
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr
 from cuml.explainer.common import get_dtype_from_model_func

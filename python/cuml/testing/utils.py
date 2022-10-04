@@ -33,7 +33,7 @@ from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
-from cuml.common.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 import pytest
 
 

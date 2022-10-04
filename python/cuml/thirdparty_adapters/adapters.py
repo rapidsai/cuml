@@ -16,7 +16,7 @@
 
 import numpy as np
 import cupy as cp
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix

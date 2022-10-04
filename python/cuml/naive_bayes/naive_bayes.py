@@ -30,7 +30,7 @@ from cuml.prims.label import check_labels
 from cuml.prims.label import invert_labels
 from cuml.prims.array import binarize
 
-from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.common.kernel_utils import cuda_kernel_factory
 
 

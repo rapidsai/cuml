@@ -29,7 +29,7 @@ from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
 

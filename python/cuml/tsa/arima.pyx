@@ -34,9 +34,9 @@ from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
 from cuml.common import has_scipy
-from cuml.common.input_utils import determine_array_dtype
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_host_array
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_host_array
 from cuml.internals import _deprecate_pos_args
 import warnings
 

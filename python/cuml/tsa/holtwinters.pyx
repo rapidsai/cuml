@@ -21,7 +21,7 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
 from cuml.internals.base import Base

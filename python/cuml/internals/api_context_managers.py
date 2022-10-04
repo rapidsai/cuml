@@ -20,7 +20,7 @@ from collections import deque
 
 import cuml.internals.array
 import cuml.internals.array_sparse
-import cuml.common.input_utils
+import cuml.internals.input_utils
 
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
@@ -66,7 +66,7 @@ def set_api_output_type(output_type: str):
         return
 
     # Try to convert any array objects to their type
-    array_type = cuml.common.input_utils.determine_array_type(output_type)
+    array_type = cuml.internals.input_utils.determine_array_type(output_type)
 
     # Ensure that this is an array-like object
     assert output_type is None or array_type is not None
@@ -79,8 +79,8 @@ def set_api_output_dtype(output_dtype):
 
     # Try to convert any array objects to their type
     if (output_dtype is not None
-            and cuml.common.input_utils.is_array_like(output_dtype)):
-        output_dtype = cuml.common.input_utils.determine_array_dtype(
+            and cuml.internals.input_utils.is_array_like(output_dtype)):
+        output_dtype = cuml.internals.input_utils.determine_array_dtype(
             output_dtype)
 
         assert (output_dtype is not None)
@@ -337,7 +337,7 @@ class ProcessReturnArray(ProcessReturn):
 
         # Get the output type
         ret_val_type_str, is_sparse = \
-            cuml.common.input_utils.determine_array_type_full(ret_val)
+            cuml.internals.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
@@ -345,7 +345,7 @@ class ProcessReturnArray(ProcessReturn):
                 ret_val = cuml.internals.array_sparse.SparseCumlArray(
                     ret_val, convert_index=False)
             else:
-                ret_val = cuml.common.input_utils.input_to_cuml_array(
+                ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val, order="K").array
 
         return ret_val
@@ -375,7 +375,7 @@ class ProcessReturnSparseArray(ProcessReturnArray):
 
         # Get the output type
         ret_val_type_str, is_sparse = \
-            cuml.common.input_utils.determine_array_type_full(ret_val)
+            cuml.internals.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
@@ -383,7 +383,7 @@ class ProcessReturnSparseArray(ProcessReturnArray):
                 ret_val = cuml.internals.array_sparse.SparseCumlArray(
                     ret_val, convert_index=False)
             else:
-                ret_val = cuml.common.input_utils.input_to_cuml_array(
+                ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val, order="K").array
 
         return ret_val
@@ -436,7 +436,7 @@ class ProcessReturnGeneric(ProcessReturnArray):
 
     def process_generic(self, ret_val):
 
-        if (cuml.common.input_utils.is_array_like(ret_val)):
+        if (cuml.internals.input_utils.is_array_like(ret_val)):
             return self.process_single(ret_val)
 
         if (isinstance(ret_val, tuple)):

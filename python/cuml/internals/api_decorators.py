@@ -25,7 +25,7 @@ import cuml
 import cuml.common
 import cuml.internals.array
 import cuml.internals.array_sparse
-import cuml.common.input_utils
+import cuml.internals.input_utils
 from cuml.common.type_utils import _DecoratorType, wraps_typed
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
@@ -324,13 +324,13 @@ class HasGettersDecoratorMixin(object):
             assert input_val is not None, \
                 "`get_output_type` is False but no input_arg detected"
             set_api_output_type(
-                cuml.common.input_utils.determine_array_type(input_val))
+                cuml.internals.input_utils.determine_array_type(input_val))
 
         if (self.get_output_dtype):
             assert target_val is not None, \
                 "`get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
-                cuml.common.input_utils.determine_array_dtype(target_val))
+                cuml.internals.input_utils.determine_array_dtype(target_val))
 
     def has_getters_input(self):
         return self.get_output_type

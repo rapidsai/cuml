@@ -20,7 +20,7 @@ import numpy as np
 import time
 
 from cuml.common.import_utils import has_sklearn
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr
 from cuml.explainer.common import model_func_call

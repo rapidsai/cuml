@@ -22,10 +22,10 @@ import numpy as np
 import pytest
 from cuml.internals.array import CumlArray
 from cuml.internals.array_descriptor import CumlArrayDescriptor
-from cuml.common.input_utils import determine_array_dtype
-from cuml.common.input_utils import determine_array_type
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import unsupported_cudf_dtypes
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.internals.input_utils import determine_array_type
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import unsupported_cudf_dtypes
 
 test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
 

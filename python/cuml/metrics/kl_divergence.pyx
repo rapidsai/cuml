@@ -17,7 +17,7 @@
 import cupy as cp
 import numpy as np
 import cuml.internals
-from cuml.common.input_utils import determine_array_type
+from cuml.internals.input_utils import determine_array_type
 from cuml.common import (input_to_cuml_array, CumlArray, logger)
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t

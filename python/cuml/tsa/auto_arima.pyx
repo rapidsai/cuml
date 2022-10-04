@@ -37,7 +37,7 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.input_utils import determine_array_dtype
+from cuml.internals.input_utils import determine_array_dtype
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test

@@ -18,7 +18,7 @@ import cuml
 import cupy as cp
 from pylibraft.common.handle import Handle
 
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 
 
 def get_tag_from_model_func(func, tag, default=None):

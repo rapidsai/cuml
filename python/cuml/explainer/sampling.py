@@ -17,7 +17,7 @@ from scipy.sparse import issparse
 
 import cuml
 from cuml import KMeans
-from cuml.common.input_utils import (determine_array_type,
+from cuml.internals.input_utils import (determine_array_type,
                                      get_supported_input_type)
 from cuml.preprocessing import SimpleImputer
 
