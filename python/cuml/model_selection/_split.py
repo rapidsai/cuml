@@ -18,7 +18,7 @@ import cupy as cp
 import cupyx
 import numpy as np
 
-from cuml.common.memory_utils import _strides_to_order
+from cuml.internals.memory_utils import _strides_to_order
 from cuml.common import input_to_cuml_array
 from numba import cuda
 from typing import Union

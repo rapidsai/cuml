@@ -30,8 +30,8 @@ from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
-from cuml.common.memory_utils import ArrayInfo
-from cuml.common.memory_utils import _check_array_contiguity
+from cuml.internals.memory_utils import ArrayInfo
+from cuml.internals.memory_utils import _check_array_contiguity
 
 if has_scipy():
     import scipy.sparse

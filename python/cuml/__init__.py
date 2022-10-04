@@ -91,7 +91,7 @@ from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
-from cuml.common.memory_utils import set_global_output_type, using_output_type
+from cuml.internals.memory_utils import set_global_output_type, using_output_type
 
 # Import verion. Remove at end of file
 from ._version import get_versions

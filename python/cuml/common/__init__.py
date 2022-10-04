@@ -31,10 +31,10 @@ from cuml.common.input_utils import inp_array
 from cuml.common.device_selection import using_device_type
 from cuml.common.device_selection import using_memory_type
 
-from cuml.common.memory_utils import rmm_cupy_ary
-from cuml.common.memory_utils import set_global_output_type
-from cuml.common.memory_utils import using_output_type
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import rmm_cupy_ary
+from cuml.internals.memory_utils import set_global_output_type
+from cuml.internals.memory_utils import using_output_type
+from cuml.internals.memory_utils import with_cupy_rmm
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
 

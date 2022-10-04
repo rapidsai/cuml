@@ -21,7 +21,7 @@ import cudf
 import dask
 import dask.dataframe as dd
 
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
 
 from cuml.dask.common.dask_df_utils import to_dask_cudf as df_to_dask_cudf
 from dask.distributed import default_client
