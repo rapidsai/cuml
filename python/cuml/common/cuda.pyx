@@ -16,15 +16,6 @@
 
 # distutils: language = c++
 
-
-from cuml.internals.device_support import BUILT_WITH_CUDA
-from rmm._cuda.gpu import getDeviceCount
-
-
-def has_cuda_gpu():
-    return getDeviceCount() >= 1
-
-
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
         cdef _Error e = cudaGetLastError()
