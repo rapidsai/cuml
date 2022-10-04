@@ -538,7 +538,7 @@ def _check_output_type_str(output_str):
 def _determine_stateless_output_type(output_type, input_obj):
     """
     This function determines the output type using the same steps that are
-    performed in `cuml.common.base.Base`. This can be used to mimic the
+    performed in `cuml.internals.base.Base`. This can be used to mimic the
     functionality in `Base` for stateless functions or objects that do not
     derive from `Base`.
     """
