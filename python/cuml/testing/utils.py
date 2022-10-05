@@ -34,6 +34,8 @@ from sklearn.model_selection import train_test_split
 import cudf
 import cuml
 from cuml.common.input_utils import input_to_cuml_array, is_array_like
+from cuml.common.base import Base
+from cuml.experimental.common.base import Base as experimentalBase
 import pytest
 
 
@@ -311,7 +313,8 @@ class ClassEnumerator:
             name: cls
             for name,
             cls in classes
-            if cls not in self.exclude_classes and issubclass(cls, cuml.Base)
+            if cls not in self.exclude_classes and
+            issubclass(cls, (Base, experimentalBase))
         }
         models.update(self.custom_constructors)
         return models
