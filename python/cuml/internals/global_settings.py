@@ -103,7 +103,4 @@ class GlobalSettings:
 
     @property
     def xpy(self):
-        if self.memory_type == MemoryType.host:
-            return np
-        else:
-            return cp
+        return self.memory_type.xpy()

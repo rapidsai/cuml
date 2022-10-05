@@ -29,6 +29,15 @@ def return_false(*args, **kwargs):
     return False
 
 
+def null_decorator(*args, **kwargs):
+    if len(kwargs) == 0 and len(args) == 1 and callable(args[0]):
+        return args[0]
+    else:
+        def inner(func):
+            return func
+        return inner
+
+
 class UnavailableMeta(type):
     '''A metaclass for generating placeholder objects for unavailable symbols
 
@@ -189,6 +198,11 @@ class UnavailableMeta(type):
 
     def __len__(cls):
         raise UnavailableError(cls._msg)
+
+
+def is_unavailable(obj):
+    '''Helper to check if given symbol is actually a placeholder'''
+    return type(is_unavailable) == UnavailableMeta
 
 
 class NullContext:
