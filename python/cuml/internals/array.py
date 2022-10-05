@@ -17,28 +17,36 @@
 import operator
 import pickle
 
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from
-)
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.internals.memory_utils import _get_size_from_shape
 from cuml.internals.memory_utils import _order_to_strides
 from cuml.internals.memory_utils import _strides_to_order
 from cuml.internals.memory_utils import class_with_cupy_rmm
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
 from typing import Tuple
 
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
-nvtx = gpu_only_import('nvtx')
 rmm = gpu_only_import('rmm')
 
 DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
 DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-Series = gpu_only_import_from('cudf', 'Series')
-Buffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
+nvtx_annotate = gpu_only_import_from(
+    'nvtx',
+    'annotate',
+    alt=null_decorator
+)
+CudfSeries = gpu_only_import_from('cudf', 'Series')
+CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 cuda = gpu_only_import_from('numba', 'cuda')
+global_settings = GlobalSettings()
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -104,7 +112,7 @@ class CumlArray():
 
     """
 
-    @nvtx.annotate(message="common.CumlArray.__init__", category="utils",
+    @nvtx_annotate(message="common.CumlArray.__init__", category="utils",
                    domain="cuml_python")
     def __init__(self,
                  data=None,
@@ -112,19 +120,132 @@ class CumlArray():
                  owner=None,
                  dtype=None,
                  shape=None,
-                 order=None):
+                 order=None,
+                 strides=None,
+                 mem_type=None):
+
+        if mem_type is None:
+            xpy = global_settings.xpy
+        else:
+            xpy = mem_type.xpy()
+
+        if dtype is not None:
+            dtype = xpy.dtype(dtype)
+
+        # Coerce data into an array interface and determine mem_type and owner
+        # if necessary
+        try:
+            self._array_interface = data.__cuda_array_interface__
+            if mem_type == MemoryType.host:
+                raise MemoryTypeError(
+                    'Attempted to create host array from device object'
+                )
+            elif mem_type in (None, MemoryType.mirror):
+                mem_type = MemoryType.device
+            self._owner = data
+        except AttributeError:  # Not a Cuda array object
+            try:
+                self._array_interface = data.__array_interface__
+                if mem_type not in (
+                        MemoryType.host, None, MemoryType.mirror):
+                    raise MemoryTypeError(
+                        'Attempted to create device array from host object'
+                    )
+                mem_type = MemoryType.host
+                self._owner = data
+            except AttributeError:  # Must construct array interface
+
+                if dtype is None:
+                    raise ValueError(
+                        'Must specify dtype when data is passed as a'
+                        ' {}'.format(type(data))
+                    )
+                if mem_type is None:
+                    if isinstance(data, (CudfBuffer, DeviceBuffer)):
+                        mem_type = MemoryType.device
+                    else:
+                        raise ValueError(
+                            'Must specify dtype when data is passed as a'
+                            ' {}'.format(type(data))
+                        )
+
+                try:
+                    data = data.ptr
+                    if shape is None:
+                        shape = (data.size,)
+                    self._owner = data
+                except AttributeError:  # Not a buffer object
+                    pass
+                if isinstance(data, int):
+                    self._owner = owner
+                else:
+                    # Assume integers are pointers. For everything else,
+                    # convert it to an array and retry
+                    return self.__init__(
+                        data=xpy.asarray(data, dtype=dtype),
+                        index=index,
+                        owner=owner,
+                        dtype=dtype,
+                        shape=shape,
+                        order=order,
+                        mem_type=mem_type
+                    )
+
+                if shape is None:
+                    raise ValueError(
+                        'shape must be specified when data is passed as a'
+                        ' pointer'
+                    )
+                if strides is None:
+                    try:
+                        if len(shape) == 0:
+                            strides = None
+                        elif len(shape) == 1:
+                            strides == (dtype.itemsize,)
+                    except TypeError:  # Shape given as integer
+                        strides = (dtype.itemsize,)
+                if strides is None:
+                    if order == 'C':
+                        strides = xpy.cumprod(shape[:0:-1])[::-1].append(
+                            1
+                        ) * dtype.itemsize
+                    elif order == 'F':
+                        strides = (xpy.cumprod(
+                            (1, *shape[:-1])
+                        ) * dtype.itemsize)
+                    else:
+                        raise ValueError(
+                            'Must specify strides or order, and order must'
+                            ' be one of "C" or "F"'
+                        )
+
+                self._array_interface = {
+                    'shape': shape,
+                    'strides': strides,
+                    'typestr': dtype.str,
+                    'data': (data, False),
+                    'version': 2
+                }
 
         # Checks of parameters
         memview_construction = False
         if data is None:
-            raise TypeError("To create an empty Array, use the class method" +
+            raise TypeError("To create an empty Array, use the class method"
                             " Array.empty().")
         elif isinstance(data, memoryview):
+            if mem_type not in (
+                None, MemoryType.host, MemoryType.mirror
+            ):
+                raise MemoryTypeError(
+                    'Attempted to create non-host array from memoryview on'
+                    ' host'
+                )
+            self.mem_type = MemoryType.host
             data = np.asarray(data)
             memview_construction = True
 
         if dtype is not None:
-            dtype = np.dtype(dtype)
+            dtype = global_settings.xpy.dtype(dtype)
 
         if _check_low_level_type(data):
             if dtype is None or shape is None or order is None:
@@ -148,12 +269,12 @@ class CumlArray():
         size, shape = _get_size_from_shape(shape, dtype)
 
         if not memview_construction and not detailed_construction:
-            cupy_data = cp.asarray(data)
+            arr_data = global_settings.xpy.asarray(data)
 
             # Size for Buffer is not the same as for cupy. Use nbytes
-            size = cupy_data.nbytes
-            owner = cupy_data if cupy_data.flags.owndata else data
-            data = cupy_data
+            size = arr_data.nbytes
+            owner = arr_data if arr_data.flags.owndata else data
+            data = arr_data
 
         self._index = index
 
@@ -162,7 +283,6 @@ class CumlArray():
         elif hasattr(data, "__cuda_array_interface__"):
             ary_interface = data.__cuda_array_interface__
 
-        # We no longer call the super init due to the refactor
         if isinstance(data, int):
             if size is None:
                 raise ValueError(
@@ -174,7 +294,7 @@ class CumlArray():
             self._size = size
             self._owner = owner
 
-        elif isinstance(data, DeviceBuffer) or isinstance(data, Buffer):
+        elif isinstance(data, DeviceBuffer) or isinstance(data, CudfBuffer):
             self._ptr = data.ptr
             self._size = data.size
             self._owner = data
@@ -194,7 +314,7 @@ class CumlArray():
 
         elif ary_interface:
             self.shape = ary_interface['shape']
-            self.dtype = np.dtype(ary_interface['typestr'])
+            self.dtype = global_settings.xpy.dtype(ary_interface['typestr'])
             if ary_interface.get('strides', None) is None:
                 self.order = 'C'
                 self.strides = _order_to_strides(self.order, self.shape,
@@ -218,7 +338,9 @@ class CumlArray():
 
     @with_cupy_rmm
     def __getitem__(self, slice):
-        return CumlArray(data=cp.asarray(self).__getitem__(slice))
+        return CumlArray(
+            data=cp.asarray(self).__getitem__(slice)
+        )
 
     def __setitem__(self, slice, value):
         cp.asarray(self).__setitem__(slice, value)
@@ -249,7 +371,7 @@ class CumlArray():
     def item(self):
         return cp.asarray(self).item()
 
-    @nvtx.annotate(message="common.CumlArray.to_output", category="utils",
+    @nvtx_annotate(message="common.CumlArray.to_output", category="utils",
                    domain="cuml_python")
     def to_output(self, output_type='cupy', output_dtype=None):
         """
@@ -299,8 +421,8 @@ class CumlArray():
             )
 
         elif output_type == 'dataframe':
-            if self.dtype not in [np.uint8, np.uint16, np.uint32,
-                                  np.uint64, np.float16]:
+            if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
+                                  global_settings.xpy.uint64, global_settings.xpy.float16]:
                 mat = cp.asarray(self, dtype=output_dtype)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
@@ -313,9 +435,9 @@ class CumlArray():
             # check needed in case output_type was passed as 'series'
             # directly instead of as 'cudf'
             if len(self.shape) == 1:
-                if self.dtype not in [np.uint8, np.uint16, np.uint32,
-                                      np.uint64, np.float16]:
-                    return Series(self,
+                if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
+                                      global_settings.xpy.uint64, global_settings.xpy.float16]:
+                    return CudfSeries(self,
                                   dtype=output_dtype,
                                   index=self.index)
                 else:
@@ -324,15 +446,15 @@ class CumlArray():
                 raise ValueError('Only single dimensional arrays can be '
                                  'transformed to cuDF Series. ')
             else:
-                if self.dtype not in [np.uint8, np.uint16, np.uint32,
-                                      np.uint64, np.float16]:
-                    return Series(self, dtype=output_dtype)
+                if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
+                                      global_settings.xpy.uint64, global_settings.xpy.float16]:
+                    return CudfSeries(self, dtype=output_dtype)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
 
         return self
 
-    @nvtx.annotate(message="common.CumlArray.host_serialize", category="utils",
+    @nvtx_annotate(message="common.CumlArray.host_serialize", category="utils",
                    domain="cuml_python")
     def host_serialize(self):
         header, frames = self.device_serialize()
@@ -382,7 +504,7 @@ class CumlArray():
 
         return obj
 
-    @nvtx.annotate(message="common.CumlArray.serialize", category="utils",
+    @nvtx_annotate(message="common.CumlArray.serialize", category="utils",
                    domain="cuml_python")
     def serialize(self) -> Tuple[dict, list]:
         header, frames = super().serialize()
@@ -415,20 +537,20 @@ class CumlArray():
         frames = [f.obj for f in frames]
         return self.host_deserialize, (header, frames)
 
-    @nvtx.annotate(message="common.CumlArray.copy", category="utils",
+    @nvtx_annotate(message="common.CumlArray.copy", category="utils",
                    domain="cuml_python")
-    def copy(self) -> Buffer:
+    def copy(self) -> CudfBuffer:
         """
         Create a new Buffer containing a copy of the data contained
         in this Buffer.
         """
         from rmm._lib.device_buffer import copy_device_to_ptr
 
-        out = Buffer.empty(size=self.size)
+        out = CudfBuffer.empty(size=self.size)
         copy_device_to_ptr(self.ptr, out.ptr, self.size)
         return out
 
-    @nvtx.annotate(message="common.CumlArray.to_host_array", category="utils",
+    @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
                    domain="cuml_python")
     def to_host_array(self):
         data = np.empty((self.size,), "u1")
@@ -436,7 +558,7 @@ class CumlArray():
         return data
 
     @classmethod
-    @nvtx.annotate(message="common.CumlArray.empty", category="utils",
+    @nvtx_annotate(message="common.CumlArray.empty", category="utils",
                    domain="cuml_python")
     def empty(cls,
               shape,
@@ -459,7 +581,7 @@ class CumlArray():
         return CumlArray(cp.empty(shape, dtype, order), index=index)
 
     @classmethod
-    @nvtx.annotate(message="common.CumlArray.full", category="utils",
+    @nvtx_annotate(message="common.CumlArray.full", category="utils",
                    domain="cuml_python")
     def full(cls,
              shape,
@@ -483,7 +605,7 @@ class CumlArray():
         return CumlArray(cp.full(shape, value, dtype, order), index=index)
 
     @classmethod
-    @nvtx.annotate(message="common.CumlArray.zeros", category="utils",
+    @nvtx_annotate(message="common.CumlArray.zeros", category="utils",
                    domain="cuml_python")
     def zeros(cls,
               shape,
@@ -506,7 +628,7 @@ class CumlArray():
                               index=index)
 
     @classmethod
-    @nvtx.annotate(message="common.CumlArray.ones", category="utils",
+    @nvtx_annotate(message="common.CumlArray.ones", category="utils",
                    domain="cuml_python")
     def ones(cls,
              shape,
@@ -535,10 +657,7 @@ def _check_low_level_type(data):
     if not (
         hasattr(data, "__array_interface__")
         or hasattr(data, "__cuda_array_interface__")
-        # Temporarily disabled due to CUDA 11.0 issue
-        # https://github.com/rapidsai/cuml/issues/4332
-        # ) or isinstance(data, (DeviceBuffer, Buffer)):
-    ) or isinstance(data, Buffer):
+    ) or isinstance(data, (DeviceBuffer, CudfBuffer)):
         return True
     else:
         return False
