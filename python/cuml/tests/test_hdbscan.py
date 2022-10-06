@@ -203,7 +203,9 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
            np.sort(cuml_agg.cluster_persistence_), rtol=0.01, atol=0.01)
 
-@pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020, "Test failing on driver 11.2")
+
+@pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020,
+                    "Test failing on driver 11.2")
 @pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
 @pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 150, 0),
@@ -623,7 +625,8 @@ def test_all_points_membership_vectors_moons(nrows,
         sk_membership_vectors)
 
 
-@pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020, "Test failing on driver 11.2")
+@pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020,
+                    "Test failing on driver 11.2")
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('n_points_to_predict', [200, 500])
 @pytest.mark.parametrize('ncols', [10, 25])
