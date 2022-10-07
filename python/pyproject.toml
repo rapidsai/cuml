@@ -21,6 +21,6 @@ requires = [
     "scikit-build>=0.13.1",
     "cmake>=3.23.1",
     "ninja",
-    "treelite==2.4.0",
-    "treelite_runtime==2.4.0",
+    "treelite==3.0.0",
+    "treelite_runtime==3.0.0",
 ]
