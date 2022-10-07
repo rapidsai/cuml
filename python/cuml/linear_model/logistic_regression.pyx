@@ -515,3 +515,19 @@ class LogisticRegression(Base,
         super().__init__(handle=None,
                          verbose=state["verbose"])
         self.__dict__.update(state)
+
+    def get_hyperparam_names(self):
+        return [
+            'penalty',
+            'tol',
+            'C',
+            'fit_intercept',
+            'class_weight',
+            'max_iter',
+            'linesearch_max_iter',
+            'l1_ratio',
+            'solver'
+        ]
+
+    def get_attr_names(self):
+        return []

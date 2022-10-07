@@ -32,6 +32,8 @@ from cuml.common.memory_utils import MemoryType, using_memory_type
 
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from cuml.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression as skLogisticRegression
+from cuml.linear_model import LogisticRegression
 from umap import UMAP as refUMAP
 from cuml.manifold import UMAP
 
@@ -153,6 +155,46 @@ def linreg_test_data(request):
 @pytest_fixture_plus(**fixture_generation_helper({
                     'input_type': ['numpy', 'dataframe', 'cupy',
                                    'cudf', 'numba'],
+                    'penalty': ['none', 'l2'],
+                    'fit_intercept': [False, True]
+                }))
+def logreg_test_data(request):
+    kwargs = {
+        'penalty': request.param['penalty'],
+        'fit_intercept': request.param['fit_intercept']
+    }
+
+    above_average = y_train_reg > np.median(y_train_reg)
+    modified_y_train = y_train_reg
+    modified_y_train[above_average] = 1
+    modified_y_train[~above_average] = 0
+
+    sk_model = skLogisticRegression(**kwargs)
+    sk_model.fit(X_train_reg, modified_y_train)
+
+    input_type = request.param['input_type']
+
+    if input_type == 'dataframe':
+        modified_y_train = pd.Series(modified_y_train)
+    elif input_type == 'cudf':
+        modified_y_train = cudf.Series(modified_y_train)
+    else:
+        modified_y_train = to_output_type(modified_y_train, input_type)
+
+    return {
+        'cuEstimator': LogisticRegression,
+        'kwargs': kwargs,
+        'infer_func': 'predict',
+        'assert_func': check_allclose,
+        'X_train': to_output_type(X_train_reg, input_type),
+        'y_train': modified_y_train,
+        'X_test': to_output_type(X_test_reg, input_type),
+        'ref_y_test': sk_model.predict(X_test_reg)
+    }
+
+
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['cupy'],
                     'n_components': [2, 16],
                     'init': ['spectral', 'random']
                 }))
@@ -188,7 +230,9 @@ def umap_test_data(request):
     }
 
 
-fixture_union('test_data', ['linreg_test_data', 'umap_test_data'])
+fixture_union('test_data', ['linreg_test_data',
+                            'logreg_test_data',
+                            'umap_test_data'])
 
 
 def test_train_cpu_infer_cpu(test_data):
