@@ -235,8 +235,8 @@ class Base(TagsMixin,
         string = string.rstrip(', ')
         output = string + ')'
 
-        if hasattr(self, 'sk_model_'):
-            output += ' <sk_model_ attribute used>'
+        if hasattr(self, 'cpu_model_'):
+            output += ' <cpu_model_ attribute used>'
         return output
 
     def dispatch_func(self, func_name, *args, **kwargs):
@@ -271,26 +271,28 @@ class Base(TagsMixin,
             # check if the sklean model already set as attribute of the cuml
             # estimator its presence should signify that CPU execution was
             # used previously
-            if not hasattr(self, 'sk_model_'):
+            if not hasattr(self, 'cpu_model_'):
                 # import model in sklearn
-                if hasattr(self, 'sk_import_path_'):
+                if hasattr(self, 'cpu_estimator_import_path_'):
                     # if import path differs from the one of sklearn
-                    # look for sk_import_path_
-                    model_path = self.sk_import_path_
+                    # look for cpu_estimator_import_path_
+                    model_path = self.cpu_estimator_import_path_
                 else:
                     # import from similar path to the current estimator
                     # class
                     model_path = 'sklearn' + self.__class__.__module__[4:]
                 model_name = self.__class__.__name__
-                sk_model = getattr(import_module(model_path), model_name)
+                cpu_model = getattr(import_module(model_path), model_name)
+
+                # collect params set during cuml estimator initialization
+                init_kwargs = {}
+                for param in self.get_hyperparam_names():
+                    init_kwargs[param] = self.__dict__[param]
                 # initialize model
-                self.sk_model_ = sk_model()
-                # transfer params set during cuml estimator initialization
-                for param in self.get_param_names():
-                    self.sk_model_.__dict__[param] = self.__dict__[param]
+                self.cpu_model_ = cpu_model(**init_kwargs)
 
                 # transfer attributes trained with cuml
-                for attr in self.get_attributes_names():
+                for attr in self.get_attr_names():
                     # check presence of attribute
                     if hasattr(self, attr):
                         # get the cuml attribute
@@ -305,19 +307,16 @@ class Base(TagsMixin,
                                 if cu_attr.input_type == 'cuml':
                                     # transform cumlArray to numpy and set it
                                     # as an attribute in the sklearn model
-                                    self.sk_model_.__dict__[attr] = \
+                                    self.cpu_model_.__dict__[attr] = \
                                         cu_attr_value.to_output('numpy')
                                 else:
                                     # transfer all other types of attributes
                                     # directly
-                                    self.sk_model_.__dict__[attr] = \
+                                    self.cpu_model_.__dict__[attr] = \
                                         cu_attr_value
                         else:
                             # transfer all other types of attributes directly
-                            self.sk_model_.__dict__[attr] = cu_attr
-                    else:
-                        raise ValueError('Attribute "{}" could not be found in'
-                                         ' the cuML estimator'.format(attr))
+                            self.cpu_model_.__dict__[attr] = cu_attr
 
             # converts all the args
             args = tuple(input_to_host_array(arg)[0] for arg in args)
@@ -326,35 +325,42 @@ class Base(TagsMixin,
                 kwargs[key] = input_to_host_array(kwarg)[0]
 
             # call the method from the sklearn model
-            sk_func = getattr(self.sk_model_, func_name)
-            res = sk_func(*args, **kwargs)
+            cpu_func = getattr(self.cpu_model_, func_name)
+            res = cpu_func(*args, **kwargs)
+
             if func_name == 'fit':
                 # need to do this to mirror input type
                 self._set_output_type(args[0])
                 self._set_output_mem_type(args[0])
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
-                for attribute in self.get_attributes_names():
-                    sk_attr = self.sk_model_.__dict__[attribute]
+                for attr in self.get_attr_names():
+                    cpu_attr = self.cpu_model_.__dict__[attr]
                     # if the sklearn attribute is an array
                     if isinstance(sk_attr, np_ndarray):
                         # transfer array to gpu and set it as a cuml
                         # attribute
-                        cuml_array = input_to_cuml_array(sk_attr)[0]
-                        setattr(self, attribute, cuml_array)
+                        cuml_array = input_to_cuml_array(cpu_attr)[0]
+                        setattr(self, attr, cuml_array)
                     else:
                         # transfer all other types of attributes directly
-                        setattr(self, attribute, sk_attr)
+                        setattr(self, attr, cpu_attr)
                 return self
             else:
                 # return method result
                 return res
 
-    def fit(self, X, y, **kwargs):
-        return self.dispatch_func('fit', X, y, **kwargs)
+    def fit(self, X, *args, **kwargs):
+        return self.dispatch_func('fit', X, *args, **kwargs)
 
-    def predict(self, X, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict', X, **kwargs)
+    def predict(self, X, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict', X, *args, **kwargs)
+
+    def transform(self, X, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('transform', X, *args, **kwargs)
+
+    def fit_transform(self, X, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('fit_transform', X, *args, **kwargs)
 
     def get_param_names(self):
         """
