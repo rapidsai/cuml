@@ -134,7 +134,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
             if model.type is None:
                 wait_and_raise_from_futures([model])
 
-            if not issubclass(model.type, Base):
+            if not issubclass(model.type, (Base, experimentalBase)):
                 raise ValueError("Dask Future expected to contain cuml.Base "
                                  "but found %s instead." % model.type)
 
