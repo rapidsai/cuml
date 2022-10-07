@@ -27,6 +27,7 @@ from cuml.testing.test_preproc_utils import to_output_type
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.common.memory_utils import MemoryType, using_memory_type
 import pickle
+from pytest_cases import fixture_union, pytest_fixture_plus
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
@@ -80,15 +81,19 @@ def fixture_generation_helper(params):
     }
 
 
-@pytest.fixture(**fixture_generation_helper({
+@pytest_fixture_plus(**fixture_generation_helper({
                     'input_type': ['numpy', 'dataframe', 'cupy',
                                    'cudf', 'numba'],
                     'fit_intercept': [False, True],
                     'normalize': [False, True]
                 }))
-def lr_data(request):
-    sk_model = skLinearRegression(fit_intercept=request.param['fit_intercept'],
-                                  normalize=request.param['normalize'])
+def lr_test_data(request):
+    kwargs = {
+        'fit_intercept': request.param['fit_intercept'],
+        'normalize': request.param['normalize'],
+    }
+
+    sk_model = skLinearRegression(**kwargs)
     sk_model.fit(X_train, y_train)
 
     input_type = request.param['input_type']
@@ -101,8 +106,8 @@ def lr_data(request):
         modified_y_train = to_output_type(y_train, input_type)
 
     return {
-        'fit_intercept': request.param['fit_intercept'],
-        'normalize': request.param['normalize'],
+        'cuEstimator': LinearRegression,
+        'kwargs': kwargs,
         'X_train': to_output_type(X_train, input_type),
         'y_train': modified_y_train,
         'X_test': to_output_type(X_test, input_type),
@@ -110,66 +115,96 @@ def lr_data(request):
     }
 
 
-def test_train_cpu_infer_cpu(lr_data):
-    model = LinearRegression(fit_intercept=lr_data['fit_intercept'],
-                             normalize=lr_data['normalize'])
-    with using_device_type('cpu'):
-        model.fit(lr_data['X_train'], lr_data['y_train'])
-        cu_pred = model.predict(lr_data['X_test'])
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['numpy', 'dataframe', 'cupy',
+                                   'cudf', 'numba'],
+                    'fit_intercept': [False, True],
+                    'normalize': [False, True]
+                }))
+def umap_test_data(request):
+    kwargs = {
+        'fit_intercept': request.param['fit_intercept'],
+        'normalize': request.param['normalize']
+    }
 
-    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
-    np.testing.assert_allclose(lr_data['ref_y_test'], cu_pred)
-
-
-def test_train_gpu_infer_cpu(lr_data):
-    model = LinearRegression(fit_intercept=lr_data['fit_intercept'],
-                             normalize=lr_data['normalize'])
-    with using_device_type('gpu'):
-        model.fit(lr_data['X_train'], lr_data['y_train'])
-    with using_device_type('cpu'):
-        cu_pred = model.predict(lr_data['X_test'])
-
-    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
-    np.testing.assert_allclose(lr_data['ref_y_test'], cu_pred)
-
-
-def test_train_cpu_infer_gpu(lr_data):
-    model = LinearRegression(fit_intercept=lr_data['fit_intercept'],
-                             normalize=lr_data['normalize'])
-    with using_device_type('cpu'):
-        model.fit(lr_data['X_train'], lr_data['y_train'])
-    with using_device_type('gpu'):
-        cu_pred = model.predict(lr_data['X_test'])
-
-    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
-    np.testing.assert_allclose(lr_data['ref_y_test'], cu_pred)
-
-
-def test_train_gpu_infer_gpu(lr_data):
-    model = LinearRegression(fit_intercept=lr_data['fit_intercept'],
-                             normalize=lr_data['normalize'])
-    with using_device_type('gpu'):
-        model.fit(lr_data['X_train'], lr_data['y_train'])
-        cu_pred = model.predict(lr_data['X_test'])
-
-    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
-    np.testing.assert_allclose(lr_data['ref_y_test'], cu_pred)
-    sk_model = skLinearRegression(fit_intercept=lr_data['fit_intercept'],
-                                  normalize=lr_data['normalize'])
+    sk_model = skLinearRegression(**kwargs)
     sk_model.fit(X_train, y_train)
-    sk_pred = sk_model.predict(X_test)
-    np.testing.assert_allclose(sk_pred, cu_pred)
+
+    input_type = request.param['input_type']
+
+    if input_type == 'dataframe':
+        modified_y_train = pd.Series(y_train)
+    elif input_type == 'cudf':
+        modified_y_train = cudf.Series(y_train)
+    else:
+        modified_y_train = to_output_type(y_train, input_type)
+
+    return {
+        'cuEstimator': LinearRegression,
+        'kwargs': kwargs,
+        'X_train': to_output_type(X_train, input_type),
+        'y_train': modified_y_train,
+        'X_test': to_output_type(X_test, input_type),
+        'ref_y_test': sk_model.predict(X_test)
+    }
 
 
-@pytest.mark.parametrize('fit_intercept', [False, True])
-@pytest.mark.parametrize('normalize', [False, True])
-def test_pickle_interop(fit_intercept, normalize):
+fixture_union('test_data', ['lr_test_data', 'umap_test_data'])
+
+
+def test_train_cpu_infer_cpu(test_data):
+    cuEstimator = test_data['cuEstimator']
+    model = cuEstimator(**test_data['kwargs'])
+    with using_device_type('cpu'):
+        model.fit(test_data['X_train'], test_data['y_train'])
+        cu_pred = model.predict(test_data['X_test'])
+
+    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
+    np.testing.assert_allclose(test_data['ref_y_test'], cu_pred)
+
+
+def test_train_gpu_infer_cpu(test_data):
+    cuEstimator = test_data['cuEstimator']
+    model = cuEstimator(**test_data['kwargs'])
+    with using_device_type('gpu'):
+        model.fit(test_data['X_train'], test_data['y_train'])
+    with using_device_type('cpu'):
+        cu_pred = model.predict(test_data['X_test'])
+
+    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
+    np.testing.assert_allclose(test_data['ref_y_test'], cu_pred)
+
+
+def test_train_cpu_infer_gpu(test_data):
+    cuEstimator = test_data['cuEstimator']
+    model = cuEstimator(**test_data['kwargs'])
+    with using_device_type('cpu'):
+        model.fit(test_data['X_train'], test_data['y_train'])
+    with using_device_type('gpu'):
+        cu_pred = model.predict(test_data['X_test'])
+
+    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
+    np.testing.assert_allclose(test_data['ref_y_test'], cu_pred)
+
+
+def test_train_gpu_infer_gpu(test_data):
+    cuEstimator = test_data['cuEstimator']
+    model = cuEstimator(**test_data['kwargs'])
+    with using_device_type('gpu'):
+        model.fit(test_data['X_train'], test_data['y_train'])
+        cu_pred = model.predict(test_data['X_test'])
+
+    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
+    np.testing.assert_allclose(test_data['ref_y_test'], cu_pred)
+
+
+def test_pickle_interop(test_data):
     pickle_filepath = '/tmp/model.pickle'
 
-    model = LinearRegression(fit_intercept=fit_intercept,
-                             normalize=normalize)
+    cuEstimator = test_data['cuEstimator']
+    model = cuEstimator(**test_data['kwargs'])
     with using_device_type('gpu'):
-        model.fit(X_train, y_train)
+        model.fit(test_data['X_train'], test_data['y_train'])
 
     with open(pickle_filepath, 'wb') as pf:
         pickle.dump(model, pf)
@@ -180,10 +215,7 @@ def test_pickle_interop(fit_intercept, normalize):
         pickled_model = pickle.load(pf)
 
     with using_device_type('cpu'):
-        cu_pred = pickled_model.predict(X_test)
+        cu_pred = pickled_model.predict(test_data['X_test'])
 
-        sk_model = skLinearRegression(fit_intercept=fit_intercept,
-                                      normalize=normalize)
-    sk_model.fit(X_train, y_train)
-    sk_pred = sk_model.predict(X_test)
-    np.testing.assert_allclose(sk_pred, cu_pred)
+    cu_pred = to_output_type(cu_pred, 'numpy').flatten()
+    np.testing.assert_allclose(test_data['ref_y_test'], cu_pred)
