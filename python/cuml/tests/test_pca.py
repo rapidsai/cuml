@@ -232,6 +232,8 @@ def test_pca_inverse_transform(datatype, input_type,
                        5e-5, with_sign=True)
 
 
+@pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020,
+                    reason="Test failing on driver 11.2")
 @pytest.mark.parametrize('nrows', [4000, 8000])
 @pytest.mark.parametrize('ncols', [5000, stress_param(20000)])
 @pytest.mark.parametrize('whiten', [True, False])
