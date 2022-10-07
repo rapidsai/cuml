@@ -158,7 +158,7 @@ struct GLMBase : GLMDims {
         y.data,
         Z.data,
         sample_weights);
-      raft::linalg::map(
+      raft::linalg::map_k(
         Z.data,
         y.len,
         [dlz_copy] __device__(const T y, const T z, const T weight) {
