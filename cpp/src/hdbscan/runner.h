@@ -262,11 +262,14 @@ void _fit_hdbscan(const raft::handle_t& handle,
    * starting at 0 even in the presence of noise (-1)
    */
 
-  thrust::transform(
-    exec_policy, labels, labels + m, out.get_labels(), [=] __device__(value_idx label) {
-      if (label != -1) return label_map[label];
-      return -1;
-    });
+  thrust::transform(exec_policy,
+                    out.get_labels(),
+                    out.get_labels() + m,
+                    out.get_labels(),
+                    [=] __device__(value_idx label) {
+                      if (label != -1) return label_map[label];
+                      return -1;
+                    });
 }
 
 };  // end namespace HDBSCAN

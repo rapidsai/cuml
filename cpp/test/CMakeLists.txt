@@ -122,10 +122,9 @@ if(BUILD_CUML_TESTS)
     ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST PATH sg/genetic/param_test.cu OPTIONAL ML_INCLUDE)
   endif()
 
-# Testing hdbscan pytests
-#  if(all_algo OR hdbscan_algo)
-#    ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
-#  endif()
+  if(all_algo OR hdbscan_algo)
+    ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
+  endif()
 
   if(all_algo OR holtwinters_algo)
     ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST PATH sg/holtwinters_test.cu OPTIONAL ML_INCLUDE)
