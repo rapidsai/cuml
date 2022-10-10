@@ -28,8 +28,8 @@ namespace GLM {
 
 void olsFit(const raft::handle_t& handle,
             float* input,
-            int n_rows,
-            int n_cols,
+            size_t n_rows,
+            size_t n_cols,
             float* labels,
             float* coef,
             float* intercept,
@@ -47,15 +47,14 @@ void olsFit(const raft::handle_t& handle,
          intercept,
          fit_intercept,
          normalize,
-         handle.get_stream(),
          algo,
          sample_weight);
 }
 
 void olsFit(const raft::handle_t& handle,
             double* input,
-            int n_rows,
-            int n_cols,
+            size_t n_rows,
+            size_t n_cols,
             double* labels,
             double* coef,
             double* intercept,
@@ -73,37 +72,36 @@ void olsFit(const raft::handle_t& handle,
          intercept,
          fit_intercept,
          normalize,
-         handle.get_stream(),
          algo,
          sample_weight);
 }
 
 void gemmPredict(const raft::handle_t& handle,
                  const float* input,
-                 int n_rows,
-                 int n_cols,
+                 size_t n_rows,
+                 size_t n_cols,
                  const float* coef,
                  float intercept,
                  float* preds)
 {
-  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds, handle.get_stream());
+  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds);
 }
 
 void gemmPredict(const raft::handle_t& handle,
                  const double* input,
-                 int n_rows,
-                 int n_cols,
+                 size_t n_rows,
+                 size_t n_cols,
                  const double* coef,
                  double intercept,
                  double* preds)
 {
-  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds, handle.get_stream());
+  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds);
 }
 
 void ridgeFit(const raft::handle_t& handle,
               float* input,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               float* labels,
               float* alpha,
               int n_alpha,
@@ -125,15 +123,14 @@ void ridgeFit(const raft::handle_t& handle,
            intercept,
            fit_intercept,
            normalize,
-           handle.get_stream(),
            algo,
            sample_weight);
 }
 
 void ridgeFit(const raft::handle_t& handle,
               double* input,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               double* labels,
               double* alpha,
               int n_alpha,
@@ -155,7 +152,6 @@ void ridgeFit(const raft::handle_t& handle,
            intercept,
            fit_intercept,
            normalize,
-           handle.get_stream(),
            algo,
            sample_weight);
 }
