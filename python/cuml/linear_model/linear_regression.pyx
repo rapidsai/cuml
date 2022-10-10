@@ -69,8 +69,6 @@ class LinearRegression(Base,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
-    sk_import_path_ = 'sklearn.linear_model'
-
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -191,6 +189,7 @@ class LinearRegression(Base,
 
     """
 
+    sk_import_path_ = 'sklearn.linear_model'
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
