@@ -122,13 +122,9 @@ if(BUILD_CUML_TESTS)
     ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST PATH sg/genetic/param_test.cu OPTIONAL ML_INCLUDE)
   endif()
 
-  if("${CMAKE_CUDA_COMPILER_VERSION}" VERSION_LESS_EQUAL "11.2")
-      # An HDBSCAN gtest is failing w/ CUDA 11.2 for some reason.
-      if(all_algo OR hdbscan_algo)
-        ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
-      endif()
+  if(all_algo OR hdbscan_algo)
+    ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
   endif()
-
 
   if(all_algo OR holtwinters_algo)
     ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST PATH sg/holtwinters_test.cu OPTIONAL ML_INCLUDE)
