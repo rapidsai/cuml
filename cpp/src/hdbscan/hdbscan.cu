@@ -33,11 +33,12 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out)
 {
-  rmm::device_uvector<int> labels(m, handle.get_stream());
+  // label_map and core_dists are created and used for temporary workspaces
+  // but not returned in this overload.
   rmm::device_uvector<int> label_map(m, handle.get_stream());
   rmm::device_uvector<float> core_dists(m, handle.get_stream());
   HDBSCAN::_fit_hdbscan(
-    handle, X, m, n, metric, params, labels.data(), label_map.data(), core_dists.data(), out);
+    handle, X, m, n, metric, params, label_map.data(), core_dists.data(), out);
 }
 
 void hdbscan(const raft::handle_t& handle,
@@ -49,7 +50,8 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::hdbscan_output<int, float>& out,
              HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
 {
-  rmm::device_uvector<int> labels(m, handle.get_stream());
+  // label_map is created and used for temporary workspaces but not
+  // returned in this overload.
   rmm::device_uvector<int> label_map(m, handle.get_stream());
   HDBSCAN::_fit_hdbscan(handle,
                         X,
@@ -57,14 +59,13 @@ void hdbscan(const raft::handle_t& handle,
                         n,
                         metric,
                         params,
-                        labels.data(),
                         label_map.data(),
                         prediction_data_.get_core_dists(),
                         out);
 
   HDBSCAN::Common::build_prediction_data(handle,
                                          out.get_condensed_tree(),
-                                         labels.data(),
+                                         out.get_labels(),
                                          label_map.data(),
                                          out.get_n_clusters(),
                                          prediction_data_);
