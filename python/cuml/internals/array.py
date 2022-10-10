@@ -16,13 +16,16 @@
 
 import operator
 import pickle
+import warnings
+try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache
+    cache = lru_cache(maxsize=None)
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.memory_utils import _get_size_from_shape
-from cuml.internals.memory_utils import _order_to_strides
-from cuml.internals.memory_utils import _strides_to_order
 from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -112,7 +115,7 @@ class CumlArray():
 
     """
 
-    @nvtx_annotate(message="common.CumlArray.__init__", category="utils",
+    @nvtx_annotate(message="internals.CumlArray.__init__", category="utils",
                    domain="cuml_python")
     def __init__(self,
                  data=None,
@@ -132,26 +135,20 @@ class CumlArray():
         if dtype is not None:
             dtype = xpy.dtype(dtype)
 
+        self._index = index
+        self._mem_type = mem_type
+
         # Coerce data into an array interface and determine mem_type and owner
         # if necessary
         try:
             self._array_interface = data.__cuda_array_interface__
-            if mem_type == MemoryType.host:
-                raise MemoryTypeError(
-                    'Attempted to create host array from device object'
-                )
-            elif mem_type in (None, MemoryType.mirror):
-                mem_type = MemoryType.device
+            if mem_type in (None, MemoryType.mirror):
+                self._mem_type = MemoryType.device
             self._owner = data
         except AttributeError:  # Not a Cuda array object
             try:
                 self._array_interface = data.__array_interface__
-                if mem_type not in (
-                        MemoryType.host, None, MemoryType.mirror):
-                    raise MemoryTypeError(
-                        'Attempted to create device array from host object'
-                    )
-                mem_type = MemoryType.host
+                self.mem_type = MemoryType.host
                 self._owner = data
             except AttributeError:  # Must construct array interface
 
@@ -160,14 +157,13 @@ class CumlArray():
                         'Must specify dtype when data is passed as a'
                         ' {}'.format(type(data))
                     )
-                if mem_type is None:
-                    if isinstance(data, (CudfBuffer, DeviceBuffer)):
-                        mem_type = MemoryType.device
-                    else:
-                        raise ValueError(
-                            'Must specify dtype when data is passed as a'
-                            ' {}'.format(type(data))
-                        )
+                if isinstance(data, (CudfBuffer, DeviceBuffer)):
+                    self._mem_type = MemoryType.device
+                elif mem_type is None:
+                    raise ValueError(
+                        'Must specify mem_type when data is passed as a'
+                        ' {}'.format(type(data))
+                    )
 
                 try:
                     data = data.ptr
@@ -224,107 +220,94 @@ class CumlArray():
                     'strides': strides,
                     'typestr': dtype.str,
                     'data': (data, False),
-                    'version': 2
+                    'version': 3
                 }
-
-        # Checks of parameters
-        memview_construction = False
-        if data is None:
-            raise TypeError("To create an empty Array, use the class method"
-                            " Array.empty().")
-        elif isinstance(data, memoryview):
-            if mem_type not in (
-                None, MemoryType.host, MemoryType.mirror
-            ):
-                raise MemoryTypeError(
-                    'Attempted to create non-host array from memoryview on'
-                    ' host'
-                )
-            self.mem_type = MemoryType.host
-            data = np.asarray(data)
-            memview_construction = True
-
-        if dtype is not None:
-            dtype = global_settings.xpy.dtype(dtype)
-
-        if _check_low_level_type(data):
-            if dtype is None or shape is None or order is None:
-                raise TypeError("Need to specify dtype, shape and order when" +
-                                " creating an Array from {}."
-                                .format(type(data)))
-            detailed_construction = True
-        elif dtype is not None and shape is not None and order is not None:
-            detailed_construction = True
-        else:
-            # Catch a likely developer error if CumlArray is created
-            # incorrectly
-            assert dtype is None and shape is None and order is None, \
-                ("Creating array from array-like object. The arguments "
-                 "`dtype`, `shape` and `order` should be `None`.")
-
-            detailed_construction = False
-
-        ary_interface = False
-
-        size, shape = _get_size_from_shape(shape, dtype)
-
-        if not memview_construction and not detailed_construction:
-            arr_data = global_settings.xpy.asarray(data)
-
-            # Size for Buffer is not the same as for cupy. Use nbytes
-            size = arr_data.nbytes
-            owner = arr_data if arr_data.flags.owndata else data
-            data = arr_data
-
-        self._index = index
-
-        if hasattr(data, "__array_interface__"):
-            ary_interface = data.__array_interface__
-        elif hasattr(data, "__cuda_array_interface__"):
-            ary_interface = data.__cuda_array_interface__
-
-        if isinstance(data, int):
-            if size is None:
+        # Derive any information required for attributes that has not
+        # already been derived
+        if mem_type in (None, MemoryType.mirror):
+            if self._mem_type in (None, MemoryType.mirror):
                 raise ValueError(
-                    "size must be specified when `data` is an integer"
+                    'Could not infer memory type from input data. Pass'
+                    ' mem_type explicitly.'
                 )
-            if size < 0:
-                raise ValueError("size cannot be negative")
-            self._ptr = data
-            self._size = size
-            self._owner = owner
+            mem_type = self._mem_type
 
-        elif isinstance(data, DeviceBuffer) or isinstance(data, CudfBuffer):
-            self._ptr = data.ptr
-            self._size = data.size
-            self._owner = data
-
-        elif ary_interface:
-            ptr = ary_interface["data"][0] or 0
-            self._ptr = ptr
-            self._size = size
-            self._owner = data
-
-        # Post processing of meta data
-        if detailed_construction:
-            self.shape = shape
-            self.dtype = dtype
-            self.order = order
-            self.strides = _order_to_strides(order, shape, dtype)
-
-        elif ary_interface:
-            self.shape = ary_interface['shape']
-            self.dtype = global_settings.xpy.dtype(ary_interface['typestr'])
-            if ary_interface.get('strides', None) is None:
-                self.order = 'C'
-                self.strides = _order_to_strides(self.order, self.shape,
-                                                 self.dtype)
-            else:
-                self.strides = ary_interface['strides']
-                self.order = _strides_to_order(self.strides, self.dtype)
-
+        if (
+            self._array_interface['strides'] is None or
+            len(self._array_interface['strides']) == 1 or
+            xpy.all(
+                self._array_interface['strides'][1:]
+                >= self._array_interface['strides'][:-1]
+            )
+        ):
+            self._order = 'C'
+        elif xpy.all(
+            self._array_interface['strides'][1:]
+            <= self._array_interface['strides'][:-1]
+        ):
+            self._order = 'F'
         else:
-            raise TypeError("Unrecognized data type: %s" % str(type(data)))
+            self._order = None
+
+        # Validate final data against input arguments
+        if mem_type != self._mem_type:
+            raise MemoryTypeError(
+                'Requested mem_type inconsistent with input data object'
+            )
+        if (
+            dtype is not None and dtype.str !=
+            self._array_interface['typestr']
+        ):
+            raise ValueError(
+                'Requested dtype inconsistent with input data object'
+            )
+        if owner is not None and self._owner is not owner:
+            raise ValueError(
+                'Specified owner object does not seem to match data'
+            )
+        if shape is not None and not xpy.array_equal(
+                self._array_interface['shape'], shape):
+            raise ValueError(
+                'Specified shape inconsistent with input data object'
+            )
+        if shape is not None and not xpy.array_equal(
+                self._array_interface['shape'], shape):
+            raise ValueError(
+                'Specified shape inconsistent with input data object'
+            )
+        if strides is not None and not xpy.array_equal(
+                self._array_interface['strides'], strides):
+            raise ValueError(
+                'Specified strides inconsistent with input data object'
+            )
+        if order is not None and self._order != order:
+            raise ValueError(
+                'Specified order inconsistent with array stride'
+            )
+
+    @property
+    def ptr(self):
+        return self._array_interface['data'][0]
+
+    @property
+    @cache
+    def size(self):
+        xpy = self._mem_type.xpy()
+        return xpy.product(
+            self._array_interface['shape']
+        ) * xpy.dtype(self._array_interface['typestr'])
+
+    @property
+    def order(self):
+        return self._order
+
+    @property
+    def strides(self):
+        return self._array_interface['strides']
+
+    @property
+    def shape(self):
+        return self._array_interface['shape']
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed
@@ -336,19 +319,36 @@ class CumlArray():
     def index(self, index):
         self._index = index
 
+    @property
+    def __cuda_array_interface__(self):
+        if self._mem_type == MemoryType.host:
+            raise AttributeError(
+                'Host-only array does not have __cuda_array_interface__'
+            )
+        return self._array_interface
+
+    @property
+    def __array_interface__(self):
+        if self._mem_type == MemoryType.device:
+            raise AttributeError(
+                'Device-only array does not have __array_interface__'
+            )
+        return self._array_interface
+
     @with_cupy_rmm
     def __getitem__(self, slice):
         return CumlArray(
-            data=cp.asarray(self).__getitem__(slice)
+            data=self._mem_type.xpy().asarray(self).__getitem__(slice)
         )
 
     def __setitem__(self, slice, value):
-        cp.asarray(self).__setitem__(slice, value)
+        self._mem_type.xpy().asarray(self).__setitem__(slice, value)
 
     def __len__(self):
         return self.shape[0]
 
     def _operator_overload(self, other, fn):
+        # TODO(wphicks)
         return CumlArray(fn(self.to_output('cupy'), other))
 
     def __add__(self, other):
@@ -357,19 +357,8 @@ class CumlArray():
     def __sub__(self, other):
         return self._operator_overload(other, operator.sub)
 
-    @property
-    def __cuda_array_interface__(self):
-        output = {
-            "shape": self.shape,
-            "strides": self.strides,
-            "typestr": self.dtype.str,
-            "data": (self.ptr, False),
-            "version": 2,
-        }
-        return output
-
     def item(self):
-        return cp.asarray(self).item()
+        return self._mem_type.xpy().asarray(self).item()
 
     @nvtx_annotate(message="common.CumlArray.to_output", category="utils",
                    domain="cuml_python")
@@ -421,6 +410,13 @@ class CumlArray():
             )
 
         elif output_type == 'dataframe':
+            warnings.warn(
+                'In a future version of cuML, the "dataframe" output type'
+                ' will be used to refer to _either_ Pandas or cuDF'
+                ' dataframes depending on the selected memory type.'
+                ' To request a cuDF dataframe specifically, use type'
+                ' cudf_dataframe.', DeprecationWarning
+            )
             if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
                                   global_settings.xpy.uint64, global_settings.xpy.float16]:
                 mat = cp.asarray(self, dtype=output_dtype)
