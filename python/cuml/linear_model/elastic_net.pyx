@@ -24,7 +24,7 @@ from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_descriptor import CumlArrayDescriptor
-from cuml.common.logger import warn
+from cuml.internals.logger import warn
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
@@ -129,7 +129,7 @@ class ElasticNet(Base,
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

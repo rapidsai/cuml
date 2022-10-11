@@ -18,7 +18,7 @@
 
 import typing
 from cuml.internals.array import CumlArray
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.internals import api_base_return_generic_skipall
 
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG

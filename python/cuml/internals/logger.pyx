@@ -23,7 +23,7 @@ from libcpp.string cimport string
 from libcpp cimport bool
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+cdef extern from "cuml.internals.logger.hpp" namespace "ML" nogil:
     cdef cppclass Logger:
         @staticmethod
         Logger& get()
@@ -37,7 +37,7 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         void flush()
 
 
-cdef extern from "cuml/common/logger.hpp" nogil:
+cdef extern from "cuml.internals.logger.hpp" nogil:
     void CUML_LOG_TRACE(const char* fmt, ...)
     void CUML_LOG_DEBUG(const char* fmt, ...)
     void CUML_LOG_INFO(const char* fmt, ...)
@@ -131,7 +131,7 @@ def set_level(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+        Logging level to be set. It must be one of cuml.internals.logger.LEVEL_*
 
     Returns
     -------
@@ -168,9 +168,9 @@ def set_pattern(pattern):
     --------
 
     >>> # regular usage of setting a logging pattern for all subsequent logs
-    >>> import cuml.common.logger as logger
+    >>> import cuml.internals.logger as logger
     >>> logger.set_pattern("--> [%H-%M-%S] %v")
-    <cuml.common.logger.PatternSetter object at 0x...>
+    <cuml.internals.logger.PatternSetter object at 0x...>
     >>> # in case one wants to temporarily set the pattern for a code block
     >>> with logger.set_pattern("--> [%H-%M-%S] %v") as _:
     ...     logger.info("Hello world!")
@@ -213,7 +213,7 @@ def should_log_for(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.common.logger.level_*
+        Logging level to be set. It must be one of cuml.internals.logger.level_*
     """
     return Logger.get().shouldLogFor(<int>level)
 

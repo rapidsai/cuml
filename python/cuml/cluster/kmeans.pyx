@@ -173,7 +173,7 @@ class KMeans(Base,
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a

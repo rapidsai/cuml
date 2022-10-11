@@ -32,7 +32,7 @@ from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.common import has_scipy
 from cuml.internals.input_utils import determine_array_dtype
 from cuml.internals.input_utils import input_to_cuml_array
@@ -204,7 +204,7 @@ class ARIMA(Base):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

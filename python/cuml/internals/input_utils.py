@@ -29,7 +29,7 @@ import cuml.internals.array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.import_utils import has_scipy, has_dask_cudf
-from cuml.common.logger import debug
+from cuml.internals.logger import debug
 from cuml.internals.memory_utils import ArrayInfo
 from cuml.internals.memory_utils import _check_array_contiguity
 
@@ -40,10 +40,6 @@ if has_dask_cudf():
     import dask_cudf
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
-
-# inp_array is deprecated and will be dropped once cuml array is adopted
-# in all algos. Github issue #1716
-inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
 
 unsupported_cudf_dtypes = [
     np.uint8, np.uint16, np.uint32, np.uint64, np.float16

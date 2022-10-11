@@ -77,7 +77,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     C : {LinearSVM_defaults.C.__class__.__name__ \
             } (default = {LinearSVM_defaults.C})
