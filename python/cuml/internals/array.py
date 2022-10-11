@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+# TODO(wphicks): Handle serialization
+
 import operator
 import pickle
 try:
@@ -553,6 +555,7 @@ class CumlArray():
         in this Buffer.
         """
         from rmm._lib.device_buffer import copy_device_to_ptr
+        # TODO(wphicks): Generalize this for host/device
 
         out = CudfBuffer.empty(size=self.size)
         copy_device_to_ptr(self.ptr, out.ptr, self.size)
@@ -561,6 +564,7 @@ class CumlArray():
     @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
                    domain="cuml_python")
     def to_host_array(self):
+        # TODO(wphicks): Streamline this and generalize
         data = np.empty((self.size,), "u1")
         rmm._lib.device_buffer.copy_ptr_to_host(self.ptr, data)
         return data
@@ -572,7 +576,8 @@ class CumlArray():
               shape,
               dtype,
               order='F',
-              index=None):
+              index=None,
+              mem_type=None):
         """
         Create an empty Array with an allocated but uninitialized DeviceBuffer
 
@@ -585,8 +590,12 @@ class CumlArray():
         order: string, optional
             Whether to create a F-major or C-major array.
         """
+        if mem_type is None:
+            mem_type = global_settings.memory_type
 
-        return CumlArray(cp.empty(shape, dtype, order), index=index)
+        return CumlArray(
+            mem_type.xpy.empty(shape, dtype, order), index=index
+        )
 
     @classmethod
     @nvtx_annotate(message="common.CumlArray.full", category="utils",
@@ -596,7 +605,8 @@ class CumlArray():
              value,
              dtype,
              order='F',
-             index=None):
+             index=None,
+             mem_type=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to value.
 
@@ -610,7 +620,11 @@ class CumlArray():
             Whether to create a F-major or C-major array.
         """
 
-        return CumlArray(cp.full(shape, value, dtype, order), index=index)
+        if mem_type is None:
+            mem_type = global_settings.memory_type
+        return CumlArray(
+            mem_type.xpy.full(shape, value, dtype, order), index=index
+        )
 
     @classmethod
     @nvtx_annotate(message="common.CumlArray.zeros", category="utils",
@@ -619,7 +633,8 @@ class CumlArray():
               shape,
               dtype='float32',
               order='F',
-              index=None):
+              index=None,
+              mem_type=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -633,7 +648,7 @@ class CumlArray():
             Whether to create a F-major or C-major array.
         """
         return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order,
-                              index=index)
+                              index=index, mem_type=mem_type)
 
     @classmethod
     @nvtx_annotate(message="common.CumlArray.ones", category="utils",
@@ -642,7 +657,8 @@ class CumlArray():
              shape,
              dtype='float32',
              order='F',
-             index=None):
+             index=None,
+             mem_type=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -656,4 +672,4 @@ class CumlArray():
             Whether to create a F-major or C-major array.
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order,
-                              index=index)
+                              index=index, mem_type=mem_type)
