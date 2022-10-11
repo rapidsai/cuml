@@ -41,16 +41,15 @@ cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 rmm = gpu_only_import('rmm')
 
+cuda = gpu_only_import_from('numba', 'cuda')
+CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
-DataFrame = gpu_only_import_from('cudf', 'DataFrame')
+global_settings = GlobalSettings()
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
     'annotate',
     alt=null_decorator
 )
-CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
-cuda = gpu_only_import_from('numba', 'cuda')
-global_settings = GlobalSettings()
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -349,8 +348,7 @@ class CumlArray():
         return self.shape[0]
 
     def _operator_overload(self, other, fn):
-        # TODO(wphicks)
-        return CumlArray(fn(self.to_output('cupy'), other))
+        return CumlArray(fn(self.to_output('array'), other))
 
     def __add__(self, other):
         return self._operator_overload(other, operator.add)
@@ -388,6 +386,30 @@ class CumlArray():
             a copy if necessary.
 
         """
+        if output_type == 'cupy':
+            warnings.warn(
+                '"cupy" is a deprecated output type for CumlArray. Use'
+                ' output_type "array" with output_mem_type "device" instead.',
+                DeprecationWarning
+            )
+            output_type = 'array'
+            output_mem_type = MemoryType.device
+        elif output_type == 'numpy':
+            warnings.warn(
+                '"numpy" is a deprecated output type for CumlArray. Use'
+                ' output_type "array" with output_mem_type "host" instead.',
+                DeprecationWarning
+            )
+            output_type = 'array'
+            output_mem_type = MemoryType.host
+        elif output_type == 'cudf':
+            warnings.warn(
+                '"cudf" is a deprecated output type for CumlArray. Use'
+                ' output_type "df_obj" with output_mem_type "device" instead.',
+                DeprecationWarning
+            )
+            output_type = 'df_obj'
+            output_mem_type = MemoryType.device
         if output_dtype is None:
             output_dtype = self.dtype
 
