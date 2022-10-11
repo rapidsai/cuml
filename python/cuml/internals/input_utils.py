@@ -16,14 +16,7 @@
 
 import copy
 from collections import namedtuple
-import nvtx
 
-import cudf
-import cupy as cp
-import cupyx
-import numba.cuda
-import numpy as np
-import pandas as pd
 import cuml.internals
 import cuml.internals.array
 from cuml.internals.array import CumlArray
@@ -32,12 +25,34 @@ from cuml.internals.import_utils import has_scipy, has_dask_cudf
 from cuml.internals.logger import debug
 from cuml.internals.memory_utils import ArrayInfo
 from cuml.internals.memory_utils import _check_array_contiguity
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    safe_import,
+    null_decorator
+)
 
-if has_scipy():
-    import scipy.sparse
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+dask_cudf = safe_import(
+    'dask_cudf',
+    msg='Optional dependency dask_cudf is not installed'
+)
+numba_cuda = gpu_only_import('numba.cuda')
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+scipy_sparse = safe_import(
+    'scipy.sparse',
+    msg='Optional dependency scipy is not installed'
+)
 
-if has_dask_cudf():
-    import dask_cudf
+nvtx_annotate = gpu_only_import_from(
+    'nvtx',
+    'annotate',
+    alt=null_decorator
+)
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -65,10 +80,10 @@ _sparse_types = [
 
 if has_scipy():
     _input_type_to_str.update({
-        scipy.sparse.spmatrix: "numpy",
+        scipy_sparse.spmatrix: "numpy",
     })
 
-    _sparse_types.append(scipy.sparse.spmatrix)
+    _sparse_types.append(scipy_sparse.spmatrix)
 
 
 def get_supported_input_type(X):
@@ -135,8 +150,8 @@ def get_supported_input_type(X):
         return cupyx.scipy.sparse.spmatrix
 
     if has_scipy():
-        if (scipy.sparse.isspmatrix(X)):
-            return scipy.sparse.spmatrix
+        if (scipy_sparse.isspmatrix(X)):
+            return scipy_sparse.spmatrix
 
     # Return None if this type isnt supported
     return None
@@ -200,7 +215,7 @@ def is_array_like(X):
     return determine_array_type(X) is not None
 
 
-@nvtx.annotate(message="common.input_utils.input_to_cuml_array",
+@nvtx_annotate(message="common.input_utils.input_to_cuml_array",
                category="utils", domain="cuml_python")
 @cuml.internals.api_return_any()
 def input_to_cuml_array(X,
@@ -419,7 +434,7 @@ def input_to_cuml_array(X,
                       dtype=X_m.dtype)
 
 
-@nvtx.annotate(message="common.input_utils.input_to_cupy_array",
+@nvtx_annotate(message="common.input_utils.input_to_cupy_array",
                category="utils", domain="cuml_python")
 def input_to_cupy_array(X,
                         order='F',
@@ -457,7 +472,7 @@ def input_to_cupy_array(X,
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
-@nvtx.annotate(message="common.input_utils.input_to_host_array",
+@nvtx_annotate(message="common.input_utils.input_to_host_array",
                category="utils", domain="cuml_python")
 def input_to_host_array(X,
                         order='F',
