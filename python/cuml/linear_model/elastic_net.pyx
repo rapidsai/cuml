@@ -243,12 +243,13 @@ class ElasticNet(Base,
         self.solver_model.fit(X, y, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
+            coefs = self.solver_model.coef_
             self.coef_ = CumlArray(
-                data=self.solver_model.coef_,
-                index=self.solver_model.coef_._index,
-                dtype=self.solver_model.coef_.dtype,
-                order=self.solver_model.coef_.order,
-                shape=(self.solver_model.coef_.shape[0],)
+                data=coefs,
+                index=coefs._index,
+                dtype=coefs.dtype,
+                order=coefs.order,
+                shape=(coefs.shape[1],)
             )
             self.intercept_ = self.solver_model.intercept_.item()
 

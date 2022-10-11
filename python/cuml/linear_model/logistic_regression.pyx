@@ -22,7 +22,7 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
@@ -123,8 +123,6 @@ class LogisticRegression(Base,
     fit_intercept : boolean (default = True)
         If True, the model tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    class_weight : None
-        Custom class weighs are currently not supported.
     class_weight : dict or 'balanced', default=None
         By default all classes have a weight one. However, a dictionary
         can be provided with weights associated with classes
@@ -183,8 +181,9 @@ class LogisticRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
+    cpu_estimator_import_path_ = 'sklearn.linear_model'
     classes_ = CumlArrayDescriptor()
-    class_weight_ = CumlArrayDescriptor()
+    class_weight = CumlArrayDescriptor()
     expl_spec_weights_ = CumlArrayDescriptor()
 
     def __init__(
@@ -240,7 +239,7 @@ class LogisticRegression(Base,
         if class_weight is not None:
             self._build_class_weights(class_weight)
         else:
-            self.class_weight_ = None
+            self.class_weight = None
 
         self.solver_model = QN(
             loss=loss,
@@ -263,8 +262,8 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, sample_weight=None,
-            convert_dtype=True) -> "LogisticRegression":
+    def _fit(self, X, y, sample_weight=None,
+             convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -281,7 +280,7 @@ class LogisticRegression(Base,
                 raise ValueError("Only values of 0 and 1 are"
                                  " supported for binary classification.")
 
-        if sample_weight is not None or self.class_weight_ is not None:
+        if sample_weight is not None or self.class_weight is not None:
             if sample_weight is None:
                 sample_weight = cp.ones(n_rows)
 
@@ -300,22 +299,22 @@ class LogisticRegression(Base,
                             msg = "Class label {} not present.".format(c)
                             raise ValueError(msg)
 
-            if self.class_weight_ is not None:
-                if self.class_weight_ == 'balanced':
+            if self.class_weight is not None:
+                if self.class_weight == 'balanced':
                     class_weight = n_rows / \
                                    (self._num_classes *
                                     cp.bincount(y_m.to_output('cupy')))
                     class_weight = CumlArray(class_weight)
                 else:
                     check_expl_spec_weights()
-                    n_explicit = self.class_weight_.shape[0]
+                    n_explicit = self.class_weight.shape[0]
                     if n_explicit != self._num_classes:
                         class_weight = cp.ones(self._num_classes)
-                        class_weight[:n_explicit] = self.class_weight_
+                        class_weight[:n_explicit] = self.class_weight
                         class_weight = CumlArray(class_weight)
-                        self.class_weight_ = class_weight
+                        self.class_weight = class_weight
                     else:
-                        class_weight = self.class_weight_
+                        class_weight = self.class_weight
                 out = y_m.to_output('cupy')
                 sample_weight *= class_weight[out].to_output('cupy')
                 sample_weight = CumlArray(sample_weight)
@@ -376,7 +375,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -461,14 +460,14 @@ class LogisticRegression(Base,
 
     def _build_class_weights(self, class_weight):
         if class_weight == 'balanced':
-            self.class_weight_ = 'balanced'
+            self.class_weight = 'balanced'
         else:
             classes = list(class_weight.keys())
             weights = list(class_weight.values())
             max_class = sorted(classes)[-1]
             class_weight = cp.ones(max_class + 1)
             class_weight[classes] = weights
-            self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
+            self.class_weight, _, _, _ = input_to_cuml_array(class_weight)
             self.expl_spec_weights_, _, _, _ = \
                 input_to_cuml_array(np.array(classes))
 
@@ -493,6 +492,24 @@ class LogisticRegression(Base,
         # Update solver
         self.solver_model.set_params(**params)
         return self
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def coef_(self):
+        return self.solver_model.coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        self.solver_model.coef_ = value
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def intercept_(self):
+        return self.solver_model.intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self.solver_model.intercept_ = value
 
     def get_param_names(self):
         return super().get_param_names() + [
@@ -524,10 +541,8 @@ class LogisticRegression(Base,
             'fit_intercept',
             'class_weight',
             'max_iter',
-            'linesearch_max_iter',
-            'l1_ratio',
-            'solver'
+            'l1_ratio'
         ]
 
     def get_attr_names(self):
-        return []
+        return ['classes_', 'intercept_', 'coef_']

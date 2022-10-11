@@ -71,7 +71,8 @@ def test_memory_type_exception():
 
 
 def make_reg_dataset():
-    X, y = make_regression(n_samples=2000, n_features=20, n_informative=15)
+    X, y = make_regression(n_samples=2000, n_features=20,
+                           n_informative=18, random_state=0)
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
     return X_train, y_train, X_test

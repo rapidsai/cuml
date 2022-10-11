@@ -268,16 +268,20 @@ class Base(TagsMixin,
                 # collect params set during cuml estimator initialization
                 init_kwargs = {}
                 for param in self.get_hyperparam_names():
-                    init_kwargs[param] = self.__dict__[param]
+                    init_kwargs[param] = getattr(self, param)
                 # initialize model
                 self.cpu_model_ = cpu_model(**init_kwargs)
 
                 # transfer attributes trained with cuml
                 for attr in self.get_attr_names():
                     # check presence of attribute
-                    if hasattr(self, attr):
+                    if hasattr(self, attr) or \
+                       isinstance(getattr(type(self), attr, None), property):
                         # get the cuml attribute
-                        cu_attr = self.__dict__[attr]
+                        if hasattr(self, attr):
+                            cu_attr = getattr(self, attr)
+                        else:
+                            cu_attr = getattr(type(self), attr).fget(self)
                         # if the cuml attribute is a CumlArrayDescriptorMeta
                         if hasattr(cu_attr, 'get_input_value'):
                             # extract the actual value from the
@@ -288,16 +292,21 @@ class Base(TagsMixin,
                                 if cu_attr.input_type == 'cuml':
                                     # transform cumlArray to numpy and set it
                                     # as an attribute in the sklearn model
-                                    self.cpu_model_.__dict__[attr] = \
-                                        cu_attr_value.to_output('numpy')
+                                    setattr(self.cpu_model_, attr,
+                                            cu_attr_value.to_output('numpy'))
                                 else:
                                     # transfer all other types of attributes
                                     # directly
-                                    self.cpu_model_.__dict__[attr] = \
-                                        cu_attr_value
+                                    setattr(self.cpu_model_, attr,
+                                            cu_attr_value)
+                        elif isinstance(cu_attr, CumlArray):
+                            # transform cumlArray to numpy and set it
+                            # as an attribute in the sklearn model
+                            setattr(self.cpu_model_, attr,
+                                    cu_attr.to_output('numpy'))
                         else:
                             # transfer all other types of attributes directly
-                            self.cpu_model_.__dict__[attr] = cu_attr
+                            setattr(self.cpu_model_, attr, cu_attr)
 
             # converts all the args
             args = tuple(input_to_host_array(arg)[0] for arg in args)
@@ -315,7 +324,7 @@ class Base(TagsMixin,
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
                 for attr in self.get_attr_names():
-                    cpu_attr = self.cpu_model_.__dict__[attr]
+                    cpu_attr = getattr(self.cpu_model_, attr)
                     # if the sklearn attribute is an array
                     if isinstance(cpu_attr, np.ndarray):
                         # transfer array to gpu and set it as a cuml
