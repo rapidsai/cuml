@@ -322,7 +322,7 @@ class CumlArray():
 
     @property
     def __cuda_array_interface__(self):
-        if self._mem_type == MemoryType.host:
+        if not self._mem_type.is_device_accessible:
             raise AttributeError(
                 'Host-only array does not have __cuda_array_interface__'
             )
@@ -330,7 +330,7 @@ class CumlArray():
 
     @property
     def __array_interface__(self):
-        if self._mem_type == MemoryType.device:
+        if not self._mem_type.is_host_accessible:
             raise AttributeError(
                 'Device-only array does not have __array_interface__'
             )
