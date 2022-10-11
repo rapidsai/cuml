@@ -16,7 +16,6 @@
 
 import operator
 import pickle
-import warnings
 try:
     from functools import cache
 except ImportError:
@@ -35,6 +34,7 @@ from cuml.internals.safe_imports import (
 )
 from typing import Tuple
 
+cudf = gpu_only_import('cudf')
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 rmm = gpu_only_import('rmm')
@@ -46,7 +46,6 @@ nvtx_annotate = gpu_only_import_from(
     'annotate',
     alt=null_decorator
 )
-CudfSeries = gpu_only_import_from('cudf', 'Series')
 CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 cuda = gpu_only_import_from('numba', 'cuda')
 global_settings = GlobalSettings()
@@ -130,7 +129,7 @@ class CumlArray():
         if mem_type is None:
             xpy = global_settings.xpy
         else:
-            xpy = mem_type.xpy()
+            xpy = mem_type.xpy
 
         if dtype is not None:
             dtype = xpy.dtype(dtype)
@@ -292,7 +291,7 @@ class CumlArray():
     @property
     @cache
     def size(self):
-        xpy = self._mem_type.xpy()
+        xpy = self._mem_type.xpy
         return xpy.product(
             self._array_interface['shape']
         ) * xpy.dtype(self._array_interface['typestr'])
@@ -338,11 +337,11 @@ class CumlArray():
     @with_cupy_rmm
     def __getitem__(self, slice):
         return CumlArray(
-            data=self._mem_type.xpy().asarray(self).__getitem__(slice)
+            data=self._mem_type.xpy.asarray(self).__getitem__(slice)
         )
 
     def __setitem__(self, slice, value):
-        self._mem_type.xpy().asarray(self).__setitem__(slice, value)
+        self._mem_type.xpy.asarray(self).__setitem__(slice, value)
 
     def __len__(self):
         return self.shape[0]
@@ -358,11 +357,15 @@ class CumlArray():
         return self._operator_overload(other, operator.sub)
 
     def item(self):
-        return self._mem_type.xpy().asarray(self).item()
+        return self._mem_type.xpy.asarray(self).item()
 
     @nvtx_annotate(message="common.CumlArray.to_output", category="utils",
                    domain="cuml_python")
-    def to_output(self, output_type='cupy', output_dtype=None):
+    def to_output(
+            self,
+            output_type='array',
+            output_dtype=None,
+            output_mem_type=None):
         """
         Convert array to output format
 
@@ -371,13 +374,12 @@ class CumlArray():
         output_type : string
             Format to convert the array to. Acceptable formats are:
 
-            - 'cupy' - to cupy array
-            - 'numpy' - to numpy (host) array
+            - 'array' - to cupy/numpy array depending on memory type
             - 'numba' - to numba device array
-            - 'dataframe' - to cuDF DataFrame
-            - 'series' - to cuDF Series
-            - 'cudf' - to cuDF Series if array is single dimensional, to
-               DataFrame otherwise
+            - 'dataframe' - to cuDF/Pandas DataFrame depending on memory type
+            - 'series' - to cuDF/Pandas Series depending on memory type
+            - 'df_obj' - to cuDF/Pandas Series if array is single
+              dimensional, to cuDF/Pandas Dataframe otherwise
 
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
@@ -387,8 +389,14 @@ class CumlArray():
         if output_dtype is None:
             output_dtype = self.dtype
 
-        # check to translate cudf to actual type converted
-        if output_type == 'cudf':
+        if output_mem_type is None:
+            output_mem_type = self._mem_type
+        else:
+            output_mem_type = MemoryType.from_str(output_mem_type)
+            if output_mem_type == MemoryType.mirror:
+                output_mem_type = self._mem_type
+
+        if output_type == 'df_obj':
             if len(self.shape) == 1:
                 output_type = 'series'
             elif self.shape[1] == 1:
@@ -396,57 +404,61 @@ class CumlArray():
             else:
                 output_type = 'dataframe'
 
-        assert output_type != "mirror"
-
-        if output_type == 'cupy':
-            return cp.asarray(self, dtype=output_dtype)
+        if output_type == 'array':
+            if output_mem_type == MemoryType.host:
+                if self._mem_type == MemoryType.host:
+                    return np.asarray(self, dtype=output_dtype)
+                return cp.asnumpy(
+                    cp.asarray(self, dtype=output_dtype, order=self.order)
+                )
+            return output_mem_type.xpy.asarray(
+                self, dtype=output_dtype
+            )
 
         elif output_type == 'numba':
             return cuda.as_cuda_array(cp.asarray(self, dtype=output_dtype))
-
-        elif output_type == 'numpy':
-            return cp.asnumpy(
-                cp.asarray(self, dtype=output_dtype), order=self.order
-            )
-
-        elif output_type == 'dataframe':
-            warnings.warn(
-                'In a future version of cuML, the "dataframe" output type'
-                ' will be used to refer to _either_ Pandas or cuDF'
-                ' dataframes depending on the selected memory type.'
-                ' To request a cuDF dataframe specifically, use type'
-                ' cudf_dataframe.', DeprecationWarning
-            )
-            if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
-                                  global_settings.xpy.uint64, global_settings.xpy.float16]:
-                mat = cp.asarray(self, dtype=output_dtype)
-                if len(mat.shape) == 1:
-                    mat = mat.reshape(mat.shape[0], 1)
-                return DataFrame(mat,
-                                 index=self.index)
-            else:
-                raise ValueError('cuDF unsupported Array dtype')
-
         elif output_type == 'series':
-            # check needed in case output_type was passed as 'series'
-            # directly instead of as 'cudf'
-            if len(self.shape) == 1:
-                if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
-                                      global_settings.xpy.uint64, global_settings.xpy.float16]:
-                    return CudfSeries(self,
-                                  dtype=output_dtype,
-                                  index=self.index)
-                else:
-                    raise ValueError('cuDF unsupported Array dtype')
-            elif self.shape[1] > 1:
-                raise ValueError('Only single dimensional arrays can be '
-                                 'transformed to cuDF Series. ')
+            if (
+                len(self.shape) == 1 or
+                (len(self.shape) == 2 and self.shape[1] == 1)
+            ):
+                try:
+                    if (
+                        output_mem_type == MemoryType.host
+                        and self._mem_type != MemoryType.host
+                    ):
+                        return cudf.Series(
+                            self,
+                            dtype=output_dtype,
+                            index=self.index
+                        )
+                    else:
+                        return output_mem_type.xdf.Series(
+                            self,
+                            dtype=output_dtype,
+                            index=self.index
+                        )
+                except TypeError:
+                    raise ValueError('Unsupported dtype for Series')
             else:
-                if self.dtype not in [global_settings.xpy.uint8, global_settings.xpy.uint16, global_settings.xpy.uint32,
-                                      global_settings.xpy.uint64, global_settings.xpy.float16]:
-                    return CudfSeries(self, dtype=output_dtype)
-                else:
-                    raise ValueError('cuDF unsupported Array dtype')
+                raise ValueError(
+                    'Only single dimensional arrays can be transformed to'
+                    ' Series.'
+                )
+        elif output_type == 'dataframe':
+            arr = self.to_output(
+                output_type='array',
+                output_dtype=output_dtype,
+                output_mem_type=output_mem_type
+            )
+            if len(arr.shape) == 1:
+                arr = arr.reshape(arr.shape[0], 1)
+            try:
+                return output_mem_type.xdf.DataFrame(
+                    arr, index=self.index
+                )
+            except TypeError:
+                raise ValueError('Unsupported dtype for Series')
 
         return self
 
@@ -645,15 +657,3 @@ class CumlArray():
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order,
                               index=index)
-
-
-def _check_low_level_type(data):
-    if isinstance(data, CumlArray):
-        return False
-    if not (
-        hasattr(data, "__array_interface__")
-        or hasattr(data, "__cuda_array_interface__")
-    ) or isinstance(data, (DeviceBuffer, CudfBuffer)):
-        return True
-    else:
-        return False

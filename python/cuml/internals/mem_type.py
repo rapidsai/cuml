@@ -22,8 +22,10 @@ from cuml.internals.safe_imports import (
     gpu_only_import
 )
 
+cudf = gpu_only_import('cudf')
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
+pandas = cpu_only_import('pandas')
 
 
 class MemoryTypeError(Exception):
@@ -40,6 +42,8 @@ class MemoryType(Enum):
     def from_str(memory_type):
         if isinstance(memory_type, str):
             memory_type = memory_type.lower()
+        elif isinstance(memory_type, MemoryType):
+            return memory_type
 
         try:
             return MemoryType[memory_type]
@@ -47,6 +51,7 @@ class MemoryType(Enum):
             raise ValueError('Parameter memory_type must be one of "device", '
                              '"host", "managed" or "mirror"')
 
+    @property
     def xpy(self):
         if (
             self == MemoryType.host
@@ -55,3 +60,21 @@ class MemoryType(Enum):
             return np
         else:
             return cp
+
+    @property
+    def xdf(self):
+        if (
+            self == MemoryType.host
+            or (self == MemoryType.mirror and not GPU_ENABLED)
+        ):
+            return pandas
+        else:
+            return cudf
+
+    @property
+    def is_device_accessible(self):
+        return self in (MemoryType.device, MemoryType.managed)
+
+    @property
+    def is_host_accessible(self):
+        return self in (MemoryType.host, MemoryType.managed)

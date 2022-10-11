@@ -103,4 +103,4 @@ class GlobalSettings:
 
     @property
     def xpy(self):
-        return self.memory_type.xpy()
+        return self.memory_type.xpy
