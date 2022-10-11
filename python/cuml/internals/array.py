@@ -18,6 +18,7 @@
 
 import operator
 import pickle
+import warnings
 try:
     from functools import cache
 except ImportError:

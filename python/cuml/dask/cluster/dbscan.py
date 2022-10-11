@@ -40,7 +40,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     client : dask.distributed.Client
         Dask client to use
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be

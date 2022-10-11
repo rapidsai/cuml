@@ -23,7 +23,7 @@ from libcpp.string cimport string
 from libcpp cimport bool
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+cdef extern from "cuml.internals.logger.hpp" namespace "ML" nogil:
     cdef cppclass Logger:
         @staticmethod
         Logger& get()
@@ -37,7 +37,7 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         void flush()
 
 
-cdef extern from "cuml/common/logger.hpp" nogil:
+cdef extern from "cuml.internals.logger.hpp" nogil:
     void CUML_LOG_TRACE(const char* fmt, ...)
     void CUML_LOG_DEBUG(const char* fmt, ...)
     void CUML_LOG_INFO(const char* fmt, ...)

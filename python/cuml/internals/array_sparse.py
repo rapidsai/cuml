@@ -13,17 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupyx as cpx
-import numpy as np
-import nvtx
-from cuml.internals.import_utils import has_scipy
+try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache
+    cache = lru_cache(maxsize=None)
+
 from cuml.internals.memory_utils import class_with_cupy_rmm
-from cuml.common.logger import debug
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    null_decorator,
+    gpu_only_import,
+    gpu_only_import_from,
+    safe_import,
+    UnavailableError
+)
+from cuml.internals.logger import debug
 
 import cuml.common
 
-if has_scipy():
-    import scipy.sparse
+cpx = gpu_only_import('cupyx')
+np = cpu_only_import('numpy')
+scipy_sparse = safe_import(
+    'scipy.sparse',
+    msg='Scipy (an optional dependency) is not currently installed'
+)
+nvtx_annotate = gpu_only_import_from(
+    'nvtx',
+    'annotate',
+    alt=null_decorator
+)
+
+
+@cache
+def valid_csr_classes():
+    csr_classes = []
+    try:
+        csr_classes.append(cpx.scipy.sparse.csr_matrix)
+    except UnavailableError:
+        pass
+    try:
+        csr_classes.append(scipy_sparse.csr_matrix)
+    except UnavailableError:
+        pass
+    return tuple(csr_classes)
 
 
 @class_with_cupy_rmm()
@@ -70,22 +103,25 @@ class SparseCumlArray():
         Number of nonzeros in underlying arrays
     """
 
-    @nvtx.annotate(message="common.SparseCumlArray.__init__", category="utils",
+    @nvtx_annotate(message="common.SparseCumlArray.__init__", category="utils",
                    domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
                  convert_index=np.int32,
                  convert_format=True):
-        if not cpx.scipy.sparse.isspmatrix(data) and \
-                not (has_scipy() and scipy.sparse.isspmatrix(data)):
+        is_sparse = False
+        try:
+            is_sparse = cpx.scipy.sparse.isspmatrix(data)
+        except UnavailableError:
+            try:
+                is_sparse = scipy_sparse.isspmatrix(data)
+            except UnavailableError:
+                pass
+        if not is_sparse:
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
 
-        check_classes = [cpx.scipy.sparse.csr_matrix]
-        if has_scipy():
-            check_classes.append(scipy.sparse.csr_matrix)
-
-        if not isinstance(data, tuple(check_classes)):
+        if not isinstance(data, valid_csr_classes()):
             if convert_format:
                 debug('Received sparse matrix in %s format but CSR is '
                       'expected. Data will be converted to CSR, but this '
@@ -121,7 +157,7 @@ class SparseCumlArray():
         self.nnz = data.nnz
         self.index = None
 
-    @nvtx.annotate(message="common.SparseCumlArray.to_output",
+    @nvtx_annotate(message="common.SparseCumlArray.to_output",
                    category="utils", domain="cuml_python")
     def to_output(self, output_type='cupy',
                   output_format=None,
@@ -144,6 +180,7 @@ class SparseCumlArray():
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
         """
+        # TODO(wphicks): Update all for CPU/GPU
         # Treat numpy and scipy as the same
         if (output_type == "numpy"):
             output_type = "scipy"
@@ -165,8 +202,8 @@ class SparseCumlArray():
 
         if output_type == 'cupy':
             constructor = cpx.scipy.sparse.csr_matrix
-        elif output_type == 'scipy' and has_scipy(raise_if_unavailable=True):
-            constructor = scipy.sparse.csr_matrix
+        elif output_type == 'scipy':
+            constructor = scipy_sparse.csr_matrix
         else:
             raise ValueError("Unsupported output_type: %s" % output_type)
 
