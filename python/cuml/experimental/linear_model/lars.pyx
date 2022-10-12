@@ -25,7 +25,7 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 import warnings
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 import cuml.internals
 
 from collections import defaultdict
@@ -117,7 +117,7 @@ class Lars(Base, RegressorMixin):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None

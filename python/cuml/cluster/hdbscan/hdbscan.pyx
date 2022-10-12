@@ -355,7 +355,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         A distance scaling parameter as used in robust single linkage.
 
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     min_cluster_size : int, optional (default = 5)

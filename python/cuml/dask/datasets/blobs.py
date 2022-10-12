@@ -15,7 +15,7 @@
 #
 
 
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 import dask.array as da
 
 from cuml.datasets.blobs import _get_centers
