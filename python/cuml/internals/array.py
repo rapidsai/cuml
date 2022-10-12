@@ -280,7 +280,7 @@ class CumlArray():
             raise ValueError(
                 'Specified strides inconsistent with input data object'
             )
-        if order is not None and self._order != order:
+        if order is not None and order != 'K' and self._order != order:
             raise ValueError(
                 'Specified order inconsistent with array stride'
             )
@@ -288,6 +288,10 @@ class CumlArray():
     @property
     def ptr(self):
         return self._array_interface['data'][0]
+
+    @property
+    def mem_type(self):
+        return self._mem_type
 
     @property
     @cache
@@ -308,6 +312,11 @@ class CumlArray():
     @property
     def shape(self):
         return self._array_interface['shape']
+
+    @property
+    @cache
+    def is_contiguous(self):
+        return self.to_output('array').data.contiguous
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed
