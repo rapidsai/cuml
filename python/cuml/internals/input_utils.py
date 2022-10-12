@@ -230,21 +230,19 @@ def determine_array_type_full(X):
 
 
 def is_array_like(X):
-    if isinstance(X, CumlArray):
-        # Redundant with below, but we try to short-circuit on CumlArray for
-        # speed
-        return True
     try:
         return (
             hasattr(X, '__cuda_array_interface__')
-            or hasattr(X, '__array_interface__')
-            or isinstance(X, (
+            or (
+                hasattr(X, '__array_interface__')
+                and not (
+                    isinstance(X, global_settings.xpy.generic)
+                    or isinstance(X, type)
+                )
+            ) or isinstance(X, (
                 SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
                 PandasDataFrame))
             or numba_cuda.devicearray.is_cuda_ndarray(X)
-        ) and not (
-            isinstance(X, global_settings.xpy.generic)
-            or isinstance(X, type)
         )
     except UnavailableError:
         return False
