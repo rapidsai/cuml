@@ -1,6 +1,46 @@
-# cuML 22.10.00 (Date TBD)
+# cuML 22.10.00 (12 Oct 2022)
 
-Please see https://github.com/rapidsai/cuml/releases/tag/v22.10.00a for the latest changes to this development branch.
+## 🐛 Bug Fixes
+
+- Skipping some hdbscan tests when cuda version is &lt;= 11.2. ([#4916](https://github.com/rapidsai/cuml/pull/4916)) [@cjnolet](https://github.com/cjnolet)
+- Fix HDBSCAN python namespace ([#4895](https://github.com/rapidsai/cuml/pull/4895)) [@cjnolet](https://github.com/cjnolet)
+- Cupy 11 fixes ([#4889](https://github.com/rapidsai/cuml/pull/4889)) [@dantegd](https://github.com/dantegd)
+- Fix small fp precision failure in linear regression doctest test ([#4884](https://github.com/rapidsai/cuml/pull/4884)) [@lowener](https://github.com/lowener)
+- Remove unused cuDF imports ([#4873](https://github.com/rapidsai/cuml/pull/4873)) [@beckernick](https://github.com/beckernick)
+- Update for thrust 1.17 and fixes to accommodate for cuDF Buffer refactor ([#4871](https://github.com/rapidsai/cuml/pull/4871)) [@dantegd](https://github.com/dantegd)
+- Use rapids-cmake 22.10 best practice for RAPIDS.cmake location ([#4862](https://github.com/rapidsai/cuml/pull/4862)) [@robertmaynard](https://github.com/robertmaynard)
+- Patch for nightly test&amp;bench ([#4840](https://github.com/rapidsai/cuml/pull/4840)) [@viclafargue](https://github.com/viclafargue)
+- Fixed Large memory requirements for SimpleImputer strategy median #4794 ([#4817](https://github.com/rapidsai/cuml/pull/4817)) [@erikrene](https://github.com/erikrene)
+- Transforms RandomForest estimators non-consecutive labels to consecutive labels where appropriate ([#4780](https://github.com/rapidsai/cuml/pull/4780)) [@VamsiTallam95](https://github.com/VamsiTallam95)
+
+## 📖 Documentation
+
+- Document that minimum required CMake version is now 3.23.1 ([#4899](https://github.com/rapidsai/cuml/pull/4899)) [@robertmaynard](https://github.com/robertmaynard)
+- Update KMeans notebook for clarity ([#4886](https://github.com/rapidsai/cuml/pull/4886)) [@beckernick](https://github.com/beckernick)
+
+## 🚀 New Features
+
+- Allow cupy 11 ([#4880](https://github.com/rapidsai/cuml/pull/4880)) [@galipremsagar](https://github.com/galipremsagar)
+- Add `sample_weight` to Coordinate Descent solver (Lasso and ElasticNet) ([#4867](https://github.com/rapidsai/cuml/pull/4867)) [@lowener](https://github.com/lowener)
+- Import treelite models into FIL in a different precision ([#4839](https://github.com/rapidsai/cuml/pull/4839)) [@canonizer](https://github.com/canonizer)
+- #4783 Added nan_euclidean distance metric to pairwise_distances ([#4797](https://github.com/rapidsai/cuml/pull/4797)) [@Sreekiran096](https://github.com/Sreekiran096)
+- `PowerTransformer`, `QuantileTransformer` and `KernelCenterer` ([#4755](https://github.com/rapidsai/cuml/pull/4755)) [@viclafargue](https://github.com/viclafargue)
+- Add &quot;median&quot; to TargetEncoder ([#4722](https://github.com/rapidsai/cuml/pull/4722)) [@daxiongshu](https://github.com/daxiongshu)
+- New Feature StratifiedKFold ([#3109](https://github.com/rapidsai/cuml/pull/3109)) [@daxiongshu](https://github.com/daxiongshu)
+
+## 🛠️ Improvements
+
+- Updating python to use pylibraft ([#4887](https://github.com/rapidsai/cuml/pull/4887)) [@cjnolet](https://github.com/cjnolet)
+- Upgrade Treelite to 3.0.0 ([#4885](https://github.com/rapidsai/cuml/pull/4885)) [@hcho3](https://github.com/hcho3)
+- Statically link all CUDA toolkit libraries ([#4881](https://github.com/rapidsai/cuml/pull/4881)) [@trxcllnt](https://github.com/trxcllnt)
+- approximate_predict function for HDBSCAN ([#4872](https://github.com/rapidsai/cuml/pull/4872)) [@tarang-jain](https://github.com/tarang-jain)
+- Pin `dask` and `distributed` for release ([#4859](https://github.com/rapidsai/cuml/pull/4859)) [@galipremsagar](https://github.com/galipremsagar)
+- Remove Raft deprecated headers ([#4858](https://github.com/rapidsai/cuml/pull/4858)) [@lowener](https://github.com/lowener)
+- Fix forward-merge conflicts ([#4857](https://github.com/rapidsai/cuml/pull/4857)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Update the NVTX bench helper for the new nsys utility ([#4826](https://github.com/rapidsai/cuml/pull/4826)) [@viclafargue](https://github.com/viclafargue)
+- All points membership vector for HDBSCAN ([#4800](https://github.com/rapidsai/cuml/pull/4800)) [@tarang-jain](https://github.com/tarang-jain)
+- TSNE and UMAP allow several distance types ([#4779](https://github.com/rapidsai/cuml/pull/4779)) [@tarang-jain](https://github.com/tarang-jain)
+- Convert fp32 datasets to fp64 in ARIMA and AutoARIMA + update notebook to avoid deprecation warnings with positional parameters ([#4195](https://github.com/rapidsai/cuml/pull/4195)) [@Nyrio](https://github.com/Nyrio)
 
 # cuML 22.08.00 (Date TBD)
 
