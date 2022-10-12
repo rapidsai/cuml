@@ -21,10 +21,9 @@ import cuml.internals
 import cuml.internals.array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.import_utils import has_scipy, has_dask_cudf
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
-from cuml.internals.memory_utils import ArrayInfo
-from cuml.internals.memory_utils import _check_array_contiguity
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -42,6 +41,7 @@ dask_cudf = safe_import(
     'dask_cudf',
     msg='Optional dependency dask_cudf is not installed'
 )
+global_settings = GlobalSettings()
 numba_cuda = gpu_only_import('numba.cuda')
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
@@ -55,6 +55,8 @@ CudfSeries = gpu_only_import_from('cudf', 'Series')
 CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
 DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
+DaskDataFrame = gpu_only_import_from('dask', 'DataFrame')
+DaskSeries = gpu_only_import_from('dask', 'Series')
 np_ndarray = cpu_only_import_from('numpy', 'ndarray')
 NumbaDeviceNDArrayBase = gpu_only_import_from(
     'numba.cuda.devicearray', 'DeviceNDArrayBase'
@@ -72,10 +74,6 @@ cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 # inp_array is deprecated and will be dropped once cuml array is adopted
 # in all algos. Github issue #1716
 inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
-
-unsupported_cudf_dtypes = [
-    np.uint8, np.uint16, np.uint32, np.uint64, np.float16
-]
 
 _input_type_to_str = {
     CumlArray: "cuml",
@@ -248,7 +246,7 @@ def input_to_cuml_array(X,
                         check_dtype=False,
                         convert_to_dtype=False,
                         check_mem_type=False,
-                        convert_to_mem_type=False,
+                        convert_to_mem_type=None,
                         safe_dtype_conversion=True,
                         check_cols=False,
                         check_rows=False,
@@ -323,121 +321,107 @@ def input_to_cuml_array(X,
         A new CumlArray and associated data.
 
     """
-    def check_order(arr_order):
-        if order != 'K' and arr_order != order:
-            if fail_on_order:
-                raise ValueError("Expected " + order_to_str(order) +
-                                 " major order, but got the opposite.")
-            else:
-                debug("Expected " + order_to_str(order) + " major order, "
-                      "but got the opposite. Converting data, this will "
-                      "result in additional memory utilization.")
-                return True
-        return False
+    if convert_to_mem_type is None:
+        convert_to_mem_type = global_settings.memory_type
 
-    # dtype conversion
-
-    # force_contiguous set to True always for now
-    # upcoming CumlArray improvements will affect this
-    # https://github.com/rapidsai/cuml/issues/2412
-    force_contiguous = True
-
-    if convert_to_dtype:
-        X = convert_dtype(X,
-                          to_dtype=convert_to_dtype,
-                          safe_dtype=safe_dtype_conversion)
-        check_dtype = False
-
-    index = getattr(X, 'index', None)
-
-    # format conversion
-
-    if isinstance(X, (DaskCudfSeries, DaskCudfDataFrame)):
+    if isinstance(
+        X,
+        (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
+
+    index = getattr(X, 'index', None)
 
     if (isinstance(X, CudfSeries)):
         if X.null_count != 0:
             raise ValueError("Error: cuDF Series has missing/null values, "
                              "which are not supported by cuML.")
 
-    # converting pandas to numpy before sending it to CumlArray
-    if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
-        # pandas doesn't support custom order in to_numpy
-        X = cp.asarray(X.to_numpy(copy=False), order=order)
+    if isinstance(X, (PandasSeries, PandasDataFrame)):
+        X = X.to_numpy(copy=False)
+    if isinstance(X, (CudfSeries, CudfDataFrame)):
+        X = X.to_cupy(copy=False)
 
-    if isinstance(X, cudf.DataFrame):
-        if order == 'K':
-            X_m = CumlArray(data=X.to_cupy(), index=index)
-        else:
-            X_m = CumlArray(data=cp.array(X.to_cupy(), order=order),
-                            index=index)
+    arr = CumlArray(X, index=index)
+    if deepcopy:
+        arr = copy.deepcopy(arr)
 
-    elif isinstance(X, CumlArray):
-        X_m = X
+    if convert_to_mem_type == MemoryType.mirror:
+        convert_to_mem_type = arr.mem_type
 
-    elif hasattr(X, "__array_interface__") or \
-            hasattr(X, "__cuda_array_interface__"):
+    conversion_required = (
+        (convert_to_dtype and (convert_to_dtype != arr.dtype))
+        or (
+            convert_to_mem_type
+            and (convert_to_mem_type != arr.mem_type)
+        )
+    )
 
-        host_array = hasattr(X, "__array_interface__")
+    make_copy = False
+    if conversion_required:
+        convert_to_dtype = convert_to_dtype or None
+        convert_to_mem_type = convert_to_mem_type or None
+        if (
+            safe_dtype_conversion
+            and convert_to_dtype is not None
+            and not arr.mem_type.xpy.can_cast(
+                arr.dtype, convert_to_dtype, casting='safe'
+            )
+        ):
+            raise TypeError('Data type conversion would lose information.')
+        arr = CumlArray(
+            arr.to_output(
+                output_dtype=convert_to_dtype,
+                output_mem_type=convert_to_mem_type
+            )
+        )
 
-        # Since we create the array with the correct order here, do the order
-        # check now if necessary
-        interface = getattr(X, "__array_interface__", None) or getattr(
-            X, "__cuda_array_interface__", None)
+    make_copy = force_contiguous and not arr.is_contiguous
 
-        arr_info = ArrayInfo.from_interface(interface)
+    if (order != arr.order and order != 'K') or make_copy:
+        arr = CumlArray(arr.mem_type.xpy.array(
+            arr.to_output('array'),
+            order=order,
+            copy=make_copy
+        ))
 
-        check_order(arr_info.order)
+    n_rows = arr.shape[0]
 
-        make_copy = False
-
-        if force_contiguous or hasattr(X, "__array_interface__"):
-            if not _check_array_contiguity(X):
-                debug("Non contiguous array or view detected, a "
-                      "contiguous copy of the data will be done.")
-                make_copy = True
-
-        # If we have a host array, we copy it first before changing order
-        # to transpose using the GPU
-        if host_array:
-            X = cp.array(X)
-
-        cp_arr = cp.array(X, copy=make_copy, order=order)
-
-        X_m = CumlArray(data=cp_arr,
-                        index=index)
-
-        if deepcopy:
-            X_m = copy.deepcopy(X_m)
-
-    else:
-        msg = "X matrix format " + str(X.__class__) + " not supported"
-        raise TypeError(msg)
-
-    if check_dtype:
-        if not isinstance(check_dtype, list):
-            check_dtype = [check_dtype]
-
-        check_dtype = [np.dtype(dtype) for dtype in check_dtype]
-
-        if X_m.dtype not in check_dtype:
-            type_str = X_m.dtype
-            del X_m
-            raise TypeError("Expected input to be of type in " +
-                            str(check_dtype) + " but got " + str(type_str))
-
-    # Checks based on parameters
-
-    n_rows = X_m.shape[0]
-
-    if len(X_m.shape) > 1:
-        n_cols = X_m.shape[1]
+    if len(arr.shape) > 1:
+        n_cols = arr.shape[1]
     else:
         n_cols = 1
 
-    if n_cols == 1 or n_rows == 1:
+    if (n_cols == 1 or n_rows == 1) and len(arr.shape) == 2:
         order = 'K'
+
+    if order != 'K' and arr.order != order:
+        order_str = order_to_str(order)
+        if fail_on_order:
+            raise ValueError(
+                f"Expected {order_str} major order but got something else."
+            )
+        else:
+            debug(
+                f"Expected {order_str} major order but got something else."
+                " Converting data; this will result in additional memory"
+                " utilization."
+            )
+
+    if check_dtype:
+        try:
+            check_dtype = [
+                arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
+            ]
+        except TypeError:
+            check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
+
+        if arr.dtype not in check_dtype:
+            raise TypeError(
+                f"Expected input to be of type in {check_dtype} but got"
+                f" {arr.dtype}"
+            )
 
     if check_cols:
         if n_cols != check_cols:
@@ -449,15 +433,10 @@ def input_to_cuml_array(X,
             raise ValueError("Expected " + str(check_rows) + " rows but got " +
                              str(n_rows) + " rows.")
 
-    if (check_order(X_m.order)):
-        X_m = cp.array(X_m, copy=False, order=order)
-        X_m = CumlArray(data=X_m,
-                        index=index)
-
-    return cuml_array(array=X_m,
+    return cuml_array(array=arr,
                       n_rows=n_rows,
                       n_cols=n_cols,
-                      dtype=X_m.dtype)
+                      dtype=arr.dtype)
 
 
 @nvtx_annotate(message="common.input_utils.input_to_cupy_array",
@@ -477,7 +456,7 @@ def input_to_cupy_array(X,
     CumlArray
     """
     if not fail_on_null:
-        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+        if isinstance(X, (CudfDataFrame, CudfSeries)):
             try:
                 X = X.values
             except ValueError:
@@ -493,9 +472,10 @@ def input_to_cupy_array(X,
                                    check_cols=check_cols,
                                    check_rows=check_rows,
                                    fail_on_order=fail_on_order,
-                                   force_contiguous=force_contiguous)
+                                   force_contiguous=force_contiguous,
+                                   convert_to_mem_type=MemoryType.device)
 
-    return out_data._replace(array=out_data.array.to_output("cupy"))
+    return out_data._replace(array=out_data.array.to_output("array"))
 
 
 @nvtx_annotate(message="common.input_utils.input_to_host_array",
@@ -507,7 +487,9 @@ def input_to_host_array(X,
                         convert_to_dtype=False,
                         check_cols=False,
                         check_rows=False,
-                        fail_on_order=False):
+                        fail_on_order=False,
+                        force_contiguous=True,
+                        fail_on_null=True) -> cuml_array:
     """
     Convert input X to host array (NumPy) suitable for C++ methods that accept
     host arrays.
@@ -567,44 +549,27 @@ def input_to_host_array(X,
     `inp_array` is a new device array if the input was not a NumPy device
         array. It is a reference to the input X if it was a NumPy host array
     """
+    if not fail_on_null:
+        if isinstance(X, (CudfDataFrame, CudfSeries)):
+            try:
+                X = X.values
+            except ValueError:
+                X = X.astype('float64', copy=False)
+                X.fillna(cp.nan, inplace=True)
+                X = X.values
 
-    if isinstance(X, (int, float, complex, bool, str,
-                      type(None), dict, set, list, tuple)):
-        return X
+    out_data = input_to_cuml_array(X,
+                                   order=order,
+                                   deepcopy=deepcopy,
+                                   check_dtype=check_dtype,
+                                   convert_to_dtype=convert_to_dtype,
+                                   check_cols=check_cols,
+                                   check_rows=check_rows,
+                                   fail_on_order=fail_on_order,
+                                   force_contiguous=force_contiguous,
+                                   convert_to_mem_type=MemoryType.host)
 
-    if isinstance(X, np.ndarray):
-        if len(X.shape) > 1:
-            n_cols = X.shape[1]
-        else:
-            n_cols = 1
-        return inp_array(array=X,
-                         pointer=X.__array_interface__['data'][0],
-                         n_rows=X.shape[0],
-                         n_cols=n_cols,
-                         dtype=X.dtype)
-
-    ary_tuple = input_to_cuml_array(X,
-                                    order=order,
-                                    deepcopy=deepcopy,
-                                    check_dtype=check_dtype,
-                                    convert_to_dtype=convert_to_dtype,
-                                    check_cols=check_cols,
-                                    check_rows=check_rows,
-                                    fail_on_order=fail_on_order)
-
-    X_m = ary_tuple.array.to_output('numpy')
-
-    return inp_array(array=X_m,
-                     pointer=X_m.__array_interface__['data'][0],
-                     n_rows=ary_tuple.n_rows,
-                     n_cols=ary_tuple.n_cols,
-                     dtype=ary_tuple.dtype)
-
-
-@cuml.internals.api_return_any()
-def convert_mem_type(X, to_mem_type=None):
-    if to_mem_type is None:
-        to_mem_type = global_settings.memory_type
+    return out_data._replace(array=out_data.array.to_output("array"))
 
 
 @cuml.internals.api_return_any()
@@ -648,41 +613,6 @@ def convert_dtype(X,
         raise TypeError("Received unsupported input type: %s" % type(X))
 
     return X
-
-
-def _typecast_will_lose_information(X, target_dtype):
-    """
-    Returns True if typecast will cause information loss, else False.
-    Handles float/float, float/int, and int/int typecasts.
-    """
-    target_dtype = np.dtype(target_dtype).type
-
-    if target_dtype in (np.int8, np.int16, np.int32, np.int64):
-        target_dtype_range = np.iinfo(target_dtype)
-    else:
-        target_dtype_range = np.finfo(target_dtype)
-
-    if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
-        if X.dtype.type == target_dtype:
-            return False
-
-        # if we are casting to a bigger data type
-        if np.dtype(X.dtype) <= np.dtype(target_dtype):
-            return False
-
-        return ((X < target_dtype_range.min) |
-                (X > target_dtype_range.max)).any()
-
-    elif isinstance(X, (pd.DataFrame, cudf.DataFrame)):
-        X_m = X.values
-        return _typecast_will_lose_information(X_m, target_dtype)
-
-    elif numba.cuda.is_cuda_array(X):
-        X_m = cp.asarray(X)
-        return _typecast_will_lose_information(X_m, target_dtype)
-
-    else:
-        raise TypeError("Received unsupported input type: %s" % type(X))
 
 
 def order_to_str(order):

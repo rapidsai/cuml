@@ -26,7 +26,6 @@ from cuml.internals.import_utils import check_min_cupy_version, has_scipy
 
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.input_utils import inp_array
 
 from cuml.common.device_selection import using_device_type
 from cuml.common.device_selection import using_memory_type
@@ -54,7 +53,6 @@ __all__ = [
     "has_scipy",
     "input_to_cuml_array",
     "input_to_host_array",
-    "inp_array",
     "rmm_cupy_ary",
     "set_global_output_type",
     "using_device_type",
