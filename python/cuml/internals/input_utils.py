@@ -78,9 +78,19 @@ _input_type_to_str = {
     cp_ndarray: "cupy",
     CudfSeries: "cudf",
     CudfDataFrame: "cudf",
-    PandasSeries: "numpy",
-    PandasDataFrame: "numpy",
+    PandasSeries: "pandas",
+    PandasDataFrame: "pandas",
     NumbaDeviceNDArrayBase: "numba"
+}
+
+_input_type_to_mem_type = {
+    np_ndarray: MemoryType.host,
+    cp_ndarray: MemoryType.device,
+    CudfSeries: MemoryType.device,
+    CudfDataFrame: MemoryType.device,
+    PandasSeries: MemoryType.host,
+    PandasDataFrame: MemoryType.host,
+    NumbaDeviceNDArrayBase: MemoryType.device
 }
 
 _sparse_types = [SparseCumlArray]
@@ -183,7 +193,7 @@ def determine_array_type(X):
     # Get the generic type
     gen_type = get_supported_input_type(X)
 
-    return None if gen_type is None else _input_type_to_str[gen_type]
+    return _input_type_to_str.get(gen_type, None)
 
 
 def determine_array_dtype(X):
@@ -191,7 +201,7 @@ def determine_array_dtype(X):
     if (X is None):
         return None
 
-    if isinstance(X, (cudf.DataFrame, pd.DataFrame)):
+    if isinstance(X, (CudfDataFrame, PandasDataFrame)):
         # Assume single-label target
         dtype = X[X.columns[0]].dtype
     else:
@@ -201,6 +211,22 @@ def determine_array_dtype(X):
             dtype = None
 
     return dtype
+
+
+def determine_array_memtype(X):
+    try:
+        return X.mem_type
+    except AttributeError:
+        pass
+    if hasattr('__cuda_array_interface__'):
+        return MemoryType.device
+    if hasattr('__array_interface__'):
+        return MemoryType.host
+    if isinstance(X, (CudfDataFrame, CudfSeries)):
+        return MemoryType.device
+    if isinstance(X, (PandasDataFrame, PandasSeries)):
+        return MemoryType.device
+    return None
 
 
 def determine_array_type_full(X):
