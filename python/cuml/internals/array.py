@@ -396,29 +396,18 @@ class CumlArray():
 
         """
         if output_type == 'cupy':
-            warnings.warn(
-                '"cupy" is a deprecated output type for CumlArray. Use'
-                ' output_type "array" with output_mem_type "device" instead.',
-                DeprecationWarning
-            )
             output_type = 'array'
             output_mem_type = MemoryType.device
         elif output_type == 'numpy':
-            warnings.warn(
-                '"numpy" is a deprecated output type for CumlArray. Use'
-                ' output_type "array" with output_mem_type "host" instead.',
-                DeprecationWarning
-            )
             output_type = 'array'
             output_mem_type = MemoryType.host
         elif output_type == 'cudf':
-            warnings.warn(
-                '"cudf" is a deprecated output type for CumlArray. Use'
-                ' output_type "df_obj" with output_mem_type "device" instead.',
-                DeprecationWarning
-            )
             output_type = 'df_obj'
             output_mem_type = MemoryType.device
+        elif output_type == 'pandas':
+            output_type = 'df_obj'
+            output_mem_type = MemoryType.host
+
         if output_dtype is None:
             output_dtype = self.dtype
 
