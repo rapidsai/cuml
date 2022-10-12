@@ -15,7 +15,6 @@
 set(cython_sources
     cuda.pyx
     handle.pyx
-    logger.pyx
     pointer_utils.pyx
 )
 
