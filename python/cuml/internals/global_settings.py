@@ -18,7 +18,7 @@ import threading
 from cuml.internals.available_devices import is_cuda_available
 from cuml.common.device_selection import DeviceType, MemoryType
 from cuml.internals.safe_import import cpu_only_import, gpu_only_import
-from cuml.common.logger import warn
+from cuml.internals.logger import warn
 
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')

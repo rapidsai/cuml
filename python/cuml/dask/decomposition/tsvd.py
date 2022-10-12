@@ -84,7 +84,7 @@ class TruncatedSVD(BaseDecomposition,
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

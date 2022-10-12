@@ -20,12 +20,12 @@ import cupy as cp
 import numpy as np
 import pandas
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.internals.import_utils import has_shap
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.input_utils import input_to_host_array
-from cuml.common.logger import debug
-from cuml.common.logger import warn
+from cuml.internals.logger import debug
+from cuml.internals.logger import warn
 from cuml.explainer.common import get_dtype_from_model_func
 from cuml.explainer.common import get_handle_from_cuml_model_func
 from cuml.explainer.common import get_link_fn_from_str_or_fn

@@ -154,7 +154,7 @@ class DBSCAN(Base,
         and the restored input matrix might not match completely
         due to numerical rounding.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
