@@ -24,7 +24,7 @@ from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
 from sklearn.datasets import make_regression as skl_make_reg
 
-from raft.common.cuda import Stream
+from pylibraft.common.cuda import Stream
 
 from sklearn import datasets
 from sklearn.datasets import make_classification, make_regression

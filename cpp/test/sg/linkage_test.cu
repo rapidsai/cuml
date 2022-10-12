@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>
@@ -24,7 +24,7 @@
 #include <hierarchy/pw_dist_graph.cuh>
 
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -81,7 +81,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     handle.sync_stream(handle.get_stream());
 
-    raft::hierarchy::linkage_output<IdxT, T> out_arrs;
+    raft::hierarchy::linkage_output<IdxT> out_arrs;
     out_arrs.labels = labels.data();
 
     rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());

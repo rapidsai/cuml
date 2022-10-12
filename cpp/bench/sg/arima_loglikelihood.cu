@@ -20,12 +20,12 @@
 
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
-#include <raft/handle.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "benchmark.cuh"
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 namespace ML {
 namespace Bench {

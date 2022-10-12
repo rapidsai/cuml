@@ -15,7 +15,7 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce.cuh>
 
 namespace MLCommon {
 namespace Bench {

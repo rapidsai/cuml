@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

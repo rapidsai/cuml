@@ -23,13 +23,13 @@
 #include <math.h>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/reduce.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <rmm/device_scalar.hpp>
 

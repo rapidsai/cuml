@@ -23,7 +23,7 @@
 #include <sstream>
 #include <vector>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 

@@ -12,12 +12,9 @@
 # the License.
 # =============================================================================
 
-
-
 set(cython_sources
     agglomerative.pyx
     dbscan.pyx
-    hdbscan.pyx
     kmeans.pyx
 )
 
@@ -27,6 +24,8 @@ if(NOT SINGLEGPU)
        kmeans_mg.pyx
   )
 endif()
+
+add_subdirectory(hdbscan)
 
 rapids_cython_create_modules(
   CXX

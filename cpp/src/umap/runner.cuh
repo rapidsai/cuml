@@ -37,17 +37,17 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <raft/sparse/convert/csr.hpp>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/norm.hpp>
-#include <raft/sparse/op/filter.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <raft/cuda_utils.cuh>
 
 #include <common/nvtx.hpp>
 #include <cuda_runtime.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace UMAPAlgo {
 
@@ -86,7 +86,10 @@ __global__ void init_transform(int* indices,
  * a and b, which are based on min_dist and spread
  * parameters.
  */
-void find_ab(UMAPParams* params, cudaStream_t stream) { Optimize::find_params_ab(params, stream); }
+inline void find_ab(UMAPParams* params, cudaStream_t stream)
+{
+  Optimize::find_params_ab(params, stream);
+}
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _get_graph(const raft::handle_t& handle,

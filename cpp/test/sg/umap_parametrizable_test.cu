@@ -24,17 +24,17 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <test_utils.h>
 
 #include <datasets/digits.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
+#include <raft/distance/distance.cuh>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 

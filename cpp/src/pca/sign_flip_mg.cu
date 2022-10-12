@@ -18,11 +18,11 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_vector.h>

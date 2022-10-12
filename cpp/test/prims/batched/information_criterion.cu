@@ -18,7 +18,7 @@
 
 #include <metrics/batched/information_criterion.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>

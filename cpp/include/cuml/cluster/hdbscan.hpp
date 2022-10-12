@@ -18,7 +18,7 @@
 
 #include <raft/distance/distance_type.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -306,6 +306,89 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 
 template class CondensedHierarchy<int, float>;
 
+/**
+ * Container object for computing and storing intermediate information needed later for computing
+ * membership vectors and approximate predict. Users are only expected to create an instance of this
+ * object, the hdbscan method will do the rest.
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+class PredictionData {
+ public:
+  PredictionData(const raft::handle_t& handle_, value_idx m, value_idx n)
+    : handle(handle_),
+      exemplar_idx(0, handle.get_stream()),
+      exemplar_label_offsets(0, handle.get_stream()),
+      n_selected_clusters(0),
+      selected_clusters(0, handle.get_stream()),
+      deaths(0, handle.get_stream()),
+      core_dists(m, handle.get_stream()),
+      index_into_children(0, handle.get_stream()),
+      n_exemplars(0),
+      n_rows(m),
+      n_cols(n)
+  {
+  }
+  size_t n_rows;
+  size_t n_cols;
+
+  // Using getters here, making the members private and forcing
+  // consistent state with the constructor. This should make
+  // it much easier to use / debug.
+  value_idx get_n_exemplars() { return n_exemplars; }
+  value_idx get_n_selected_clusters() { return n_selected_clusters; }
+  value_idx* get_exemplar_idx() { return exemplar_idx.data(); }
+  value_idx* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
+  value_idx* get_selected_clusters() { return selected_clusters.data(); }
+  value_t* get_deaths() { return deaths.data(); }
+  value_t* get_core_dists() { return core_dists.data(); }
+  value_idx* get_index_into_children() { return index_into_children.data(); }
+
+  /**
+   * Resizes the buffers in the PredictionData object.
+   *
+   * @param[in] handle raft handle for resource reuse
+   * @param[in] n_exemplars_ number of exemplar points
+   * @param[in] n_selected_clusters_ number of selected clusters in the final clustering
+   * @param[in] n_edges_ number of edges in the condensed hierarchy
+   */
+  void allocate(const raft::handle_t& handle,
+                value_idx n_exemplars_,
+                value_idx n_selected_clusters_,
+                value_idx n_edges_);
+
+  /**
+   * Resize buffers for cluster deaths to n_clusters
+   * @param handle raft handle for ordering cuda operations
+   * @param n_clusters_ number of clusters
+   */
+  void set_n_clusters(const raft::handle_t& handle, value_idx n_clusters_)
+  {
+    deaths.resize(n_clusters_, handle.get_stream());
+  }
+
+ private:
+  const raft::handle_t& handle;
+  rmm::device_uvector<value_idx> exemplar_idx;
+  rmm::device_uvector<value_idx> exemplar_label_offsets;
+  value_idx n_exemplars;
+  value_idx n_selected_clusters;
+  rmm::device_uvector<value_idx> selected_clusters;
+  rmm::device_uvector<value_t> deaths;
+  rmm::device_uvector<value_t> core_dists;
+  rmm::device_uvector<value_idx> index_into_children;
+};
+
+template class PredictionData<int, float>;
+
+void build_prediction_data(const raft::handle_t& handle,
+                           CondensedHierarchy<int, float>& condensed_tree,
+                           int* labels,
+                           int* label_map,
+                           int n_selected_clusters,
+                           PredictionData<int, float>& prediction_data);
+
 };  // namespace Common
 };  // namespace HDBSCAN
 
@@ -338,6 +421,29 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out);
 
+/**
+ * Executes HDBSCAN clustering on an mxn-dimensional input array, X, then builds the PredictionData
+ * object which computes and stores information needed later for prediction algorithms.
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X array (size m, n) on device in row-major format
+ * @param m number of rows in X
+ * @param n number of columns in X
+ * @param metric distance metric to use
+ * @param params struct of configuration hyper-parameters
+ * @param out struct of output data and arrays on device
+ * @param prediction_data_ struct for storing computing and storing information to be used during
+ * prediction
+ */
+void hdbscan(const raft::handle_t& handle,
+             const float* X,
+             size_t m,
+             size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams& params,
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             HDBSCAN::Common::PredictionData<int, float>& prediction_data_);
+
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,
                                const float* delta,
@@ -359,4 +465,24 @@ void _extract_clusters(const raft::handle_t& handle,
                        bool allow_single_cluster,
                        int max_cluster_size,
                        float cluster_selection_epsilon);
+
+void compute_all_points_membership_vectors(
+  const raft::handle_t& handle,
+  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+  const float* X,
+  raft::distance::DistanceType metric,
+  float* membership_vec);
+
+void out_of_sample_predict(const raft::handle_t& handle,
+                           HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                           HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                           const float* X,
+                           int* labels,
+                           const float* points_to_predict,
+                           size_t n_prediction_points,
+                           raft::distance::DistanceType metric,
+                           int min_samples,
+                           int* out_labels,
+                           float* out_probabilities);
 }  // END namespace ML

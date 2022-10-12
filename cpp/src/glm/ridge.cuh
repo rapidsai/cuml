@@ -16,18 +16,19 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/norm.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/linalg/svd.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
-#include <raft/stats/stddev.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/svd.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
+#include <raft/stats/sum.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "preprocess.cuh"
@@ -196,7 +197,7 @@ void ridgeFit(const raft::handle_t& handle,
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
@@ -218,7 +219,7 @@ void ridgeFit(const raft::handle_t& handle,
   if (sample_weight != nullptr) {
     raft::matrix::matrixVectorBinaryDivSkipZero(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },

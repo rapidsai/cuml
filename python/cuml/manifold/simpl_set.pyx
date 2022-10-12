@@ -27,8 +27,8 @@ from cuml.common.base import Base
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.array import CumlArray
 
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free

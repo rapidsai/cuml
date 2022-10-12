@@ -21,7 +21,6 @@ import typing
 import numpy as np
 import cupy as cp
 import cupyx
-import cudf
 import ctypes
 import warnings
 import math
@@ -42,7 +41,7 @@ from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.neighbors.ann cimport *
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 from cython.operator cimport dereference as deref
 
