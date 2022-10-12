@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import dask.dataframe as dd
 
 from dask.distributed import default_client

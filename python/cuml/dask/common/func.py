@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import dask
 
 from cuml.dask.common.utils import get_client
