@@ -490,8 +490,8 @@ def using_output_type(output_type):
     >>> # cuML default output
     >>> dbscan_float2.labels_
     array([0, 1, 2], dtype=int32)
-    >>> type(dbscan_float2.labels_)
-    <class 'cupy.ndarray'>
+    >>> isinstance(dbscan_float2.labels_, cupy.ndarray)
+    True
 
     """
     prev_output_type = cuml.global_settings.output_type
