@@ -71,10 +71,6 @@ PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
-# inp_array is deprecated and will be dropped once cuml array is adopted
-# in all algos. Github issue #1716
-inp_array = namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
-
 _input_type_to_str = {
     CumlArray: "cuml",
     SparseCumlArray: "cuml",
@@ -234,7 +230,24 @@ def determine_array_type_full(X):
 
 
 def is_array_like(X):
-    return determine_array_type(X) is not None
+    if isinstance(X, CumlArray):
+        # Redundant with below, but we try to short-circuit on CumlArray for
+        # speed
+        return True
+    try:
+        return (
+            hasattr(X, '__cuda_array_interface__')
+            or hasattr(X, '__array_interface__')
+            or isinstance(X, (
+                SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
+                PandasDataFrame))
+            or numba_cuda.devicearray.is_cuda_ndarray(X)
+        ) and not (
+            isinstance(X, global_settings.xpy.generic)
+            or isinstance(X, type)
+        )
+    except UnavailableError:
+        return False
 
 
 @nvtx_annotate(message="common.input_utils.input_to_cuml_array",
@@ -491,63 +504,8 @@ def input_to_host_array(X,
                         force_contiguous=True,
                         fail_on_null=True) -> cuml_array:
     """
-    Convert input X to host array (NumPy) suitable for C++ methods that accept
-    host arrays.
-
-    Acceptable input formats:
-
-    * Numpy array - returns a pointer to the original input
-
-    * cuDF Dataframe - returns a deep copy always
-
-    * cuDF Series - returns by reference or a deep copy depending on `deepcopy`
-
-    * cuda array interface compliant array (like Cupy) - returns a \
-        reference unless deepcopy=True
-
-    * numba device array - returns a reference unless deepcopy=True
-
-    Parameters
-        ----------
-
-    X:
-        cuDF.DataFrame, cuDF.Series, numba array, NumPy array or any
-        cuda_array_interface compliant array like CuPy or pytorch.
-
-    order: string (default: 'F')
-        Whether to return a F-major or C-major array. Used to check the order
-        of the input. If fail_on_order=True method will raise ValueError,
-        otherwise it will convert X to be of order `order`.
-
-    deepcopy: boolean (default: False)
-        Set to True to always return a deep copy of X.
-
-    check_dtype: np.dtype (default: False)
-        Set to a np.dtype to throw an error if X is not of dtype `check_dtype`.
-
-    convert_to_dtype: np.dtype (default: False)
-        Set to a dtype if you want X to be converted to that dtype if it is
-        not that dtype already.
-
-    check_cols: int (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
-        (default) to not check at all.
-
-    check_rows: boolean (default: False)
-        Set to an int `i` to check that input X has `i` columns. Set to False
-        (default) to not check at all.
-
-    fail_on_order: boolean (default: False)
-        Set to True if you want the method to raise a ValueError if X is not
-        of order `order`.
-
-
-    Returns
-    -------
-    `inp_array`: namedtuple('inp_array', 'array pointer n_rows n_cols dtype')
-
-    `inp_array` is a new device array if the input was not a NumPy device
-        array. It is a reference to the input X if it was a NumPy host array
+    Identical to input_to_cuml_array but it returns a host (NumPy array instead
+    of CumlArray
     """
     if not fail_on_null:
         if isinstance(X, (CudfDataFrame, CudfSeries)):
