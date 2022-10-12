@@ -568,33 +568,25 @@ def convert_dtype(X,
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
+    cur_dtype = determine_array_dtype(X)
+
     if safe_dtype:
-        would_lose_info = _typecast_will_lose_information(X, to_dtype)
-        if would_lose_info:
+        if not global_settings.xpy.can_cast(cur_dtype, to_dtype):
             raise TypeError("Data type conversion would lose information.")
+    try:
+        if numba_cuda.is_cuda_array(X):
+            arr = cp.asarray(X, dtype=to_dtype)
+            if legacy:
+                return numba_cuda.as_cuda_array(arr)
+            else:
+                return CumlArray(data=arr)
+    except UnavailableError:
+        pass
 
-    if isinstance(X, np.ndarray):
-        dtype = X.dtype
-        if dtype != to_dtype:
-            X_m = X.astype(to_dtype)
-            return X_m
-
-    elif isinstance(X, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)):
+    try:
         return X.astype(to_dtype, copy=False)
-
-    elif numba.cuda.is_cuda_array(X):
-        X_m = cp.asarray(X)
-        X_m = X_m.astype(to_dtype, copy=False)
-
-        if legacy:
-            return numba.cuda.as_cuda_array(X_m)
-        else:
-            return CumlArray(data=X_m)
-
-    else:
+    except AttributeError:
         raise TypeError("Received unsupported input type: %s" % type(X))
-
-    return X
 
 
 def order_to_str(order):
