@@ -16,7 +16,7 @@ jobs:
       package-name: cuml
       package-dir: python
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "2"
+      python-package-build-tag: "3"
       python-version: "3.8 3.9"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
