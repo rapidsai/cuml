@@ -25,7 +25,7 @@ import nvtx
 import cuml
 import cuml.common
 import cuml.common.cuda
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 import cuml.internals
 import pylibraft.common.handle
 import cuml.internals.input_utils
@@ -113,7 +113,7 @@ class Base(TagsMixin,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

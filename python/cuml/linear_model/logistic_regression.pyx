@@ -27,7 +27,7 @@ from cuml.common.mixins import ClassifierMixin
 from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.mixins import FMajorInputTagMixin
@@ -140,7 +140,7 @@ class LogisticRegression(Base,
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     l1_ratio : float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`

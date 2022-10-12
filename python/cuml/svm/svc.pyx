@@ -33,7 +33,7 @@ from cuml.internals.base import Base
 from cuml.common.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array_descriptor import CumlArrayDescriptor
-from cuml.internals.logger import warn
+from cuml.common.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
@@ -192,7 +192,7 @@ class SVC(SVMBase,
         Currently this argument is not used and a waring will be printed if the
         user provides it.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

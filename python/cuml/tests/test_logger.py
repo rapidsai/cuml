@@ -15,7 +15,7 @@
 #
 
 from contextlib import redirect_stdout
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 from io import StringIO, TextIOWrapper, BytesIO
 
 

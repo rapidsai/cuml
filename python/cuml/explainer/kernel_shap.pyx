@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import time

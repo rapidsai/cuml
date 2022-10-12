@@ -21,7 +21,7 @@ from cudf import DataFrame as cudfDataFrame
 from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 
 from cuml.neighbors import NearestNeighbors
 

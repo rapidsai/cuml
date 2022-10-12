@@ -29,7 +29,7 @@ import cuml.internals
 from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
-import cuml.internals.logger as logger
+import cuml.common.logger as logger
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -160,7 +160,7 @@ class TSNE(Base,
     init : str 'random' (default 'random')
         Currently supports random intialization.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
         Setting this can make repeated runs look more similar. Note, however,

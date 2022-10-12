@@ -98,7 +98,7 @@ class PCA(BaseDecomposition,
         'jacobi': Iteratively compute SVD of the covariance matrix
         'auto': For compatiblity with Scikit-learn. Alias for 'jacobi'.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
