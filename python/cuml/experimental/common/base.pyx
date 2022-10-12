@@ -22,13 +22,12 @@ from importlib import import_module
 import numpy as np
 import nvtx
 
-import cuml
-import cuml.common
-import cuml.common.cuda
-import cuml.internals.logger as logger
 import cuml.internals
-import pylibraft.common.handle
+import cuml.internals.logger as logger
 import cuml.internals.input_utils
+import pylibraft.common.handle
+
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
 from cuml.internals.array import CumlArray
@@ -36,6 +35,8 @@ from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
 from cuml.common.device_selection import DeviceType
+
+global_settings = GlobalSettings()
 
 
 class Base(TagsMixin,
@@ -185,7 +186,7 @@ class Base(TagsMixin,
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(
-            cuml.global_settings.output_type
+            global_settings.output_type
             if output_type is None else output_type)
         self._input_type = None
         self.target_dtype = None
@@ -237,7 +238,7 @@ class Base(TagsMixin,
             keyword arguments to be passed to the function for the call
         """
         # look for current device_type
-        device_type = cuml.global_settings.device_type
+        device_type = global_settings.device_type
         if device_type == DeviceType.device:
             # call the original cuml method
             cuml_func_name = '_' + func_name
@@ -448,7 +449,7 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = cuml.global_settings.output_type
+        output_type = global_settings.output_type
 
         # If its None, default to our type
         if (output_type is None or output_type == "mirror"):
@@ -518,7 +519,7 @@ def _check_output_type_str(output_str):
         ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
          "to pass `output_type=self.output_type` to a child estimator? "
          "Currently `cuml.global_settings.output_type==`{}`"
-         ).format(cuml.global_settings.output_type)
+         ).format(global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -545,7 +546,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # Default to the global type if not specified, otherwise, check the
     # output_type string
-    temp_output = cuml.global_settings.output_type if output_type is None \
+    temp_output = global_settings.output_type if output_type is None \
         else _check_output_type_str(output_type)
 
     # If we are using 'input', determine the the type from the input object

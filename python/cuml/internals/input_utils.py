@@ -568,9 +568,8 @@ def convert_dtype(X,
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
-    cur_dtype = determine_array_dtype(X)
-
     if safe_dtype:
+        cur_dtype = determine_array_dtype(X)
         if not global_settings.xpy.can_cast(cur_dtype, to_dtype):
             raise TypeError("Data type conversion would lose information.")
     try:

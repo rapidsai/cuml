@@ -17,9 +17,10 @@
 from inspect import Parameter, signature
 import typing
 
-import cuml
 import cuml.internals
-import cuml.common
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import Base
 
 
 def _process_generic(gen_type):
@@ -27,11 +28,11 @@ def _process_generic(gen_type):
     # Check if the type is not a generic. If not, must return "generic" if
     # subtype is CumlArray otherwise None
     if (not isinstance(gen_type, typing._GenericAlias)):
-        if (issubclass(gen_type, cuml.common.CumlArray)):
+        if (issubclass(gen_type, CumlArray)):
             return "generic"
 
         # We don't handle SparseCumlArray at this time
-        if (issubclass(gen_type, cuml.common.SparseCumlArray)):
+        if (issubclass(gen_type, SparseCumlArray)):
             raise NotImplementedError(
                 "Generic return types with SparseCumlArray are not supported "
                 "at this time")
@@ -77,11 +78,11 @@ def _get_base_return_type(class_name, attr):
 
             if (is_generic):
                 return _process_generic(ret_type)
-            elif (issubclass(ret_type, cuml.common.CumlArray)):
+            elif (issubclass(ret_type, CumlArray)):
                 return "array"
-            elif (issubclass(ret_type, cuml.common.SparseCumlArray)):
+            elif (issubclass(ret_type, SparseCumlArray)):
                 return "sparsearray"
-            elif (issubclass(ret_type, cuml.Base)):
+            elif (issubclass(ret_type, Base)):
                 return "base"
             else:
                 return None

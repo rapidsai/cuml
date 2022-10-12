@@ -18,10 +18,9 @@ import contextlib
 import typing
 from collections import deque
 
-import cuml.internals.array
-import cuml.internals.array_sparse
 import cuml.internals.input_utils
 
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_import import gpu_only_import_from, NullContext
@@ -342,7 +341,7 @@ class ProcessReturnArray(ProcessReturn):
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             if is_sparse:
-                ret_val = cuml.internals.array_sparse.SparseCumlArray(
+                ret_val = SparseCumlArray(
                     ret_val, convert_index=False)
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
@@ -380,7 +379,7 @@ class ProcessReturnSparseArray(ProcessReturnArray):
         # If we are a supported array and not already cuml, convert to cuml
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             if is_sparse:
-                ret_val = cuml.internals.array_sparse.SparseCumlArray(
+                ret_val = SparseCumlArray(
                     ret_val, convert_index=False)
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
