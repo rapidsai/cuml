@@ -37,6 +37,8 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import kwargs_interop_processing
+
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -69,8 +71,6 @@ class LinearRegression(Base,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
-    cpu_estimator_import_path_ = 'sklearn.linear_model'
-
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -191,9 +191,11 @@ class LinearRegression(Base,
 
     """
 
+    cpu_estimator_import_path_ = 'sklearn.linear_model'
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
@@ -327,9 +329,6 @@ class LinearRegression(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
-
-    def get_hyperparam_names(self):
-        return ['fit_intercept', 'normalize']
 
     def get_attr_names(self):
         return ['coef_', 'intercept_']

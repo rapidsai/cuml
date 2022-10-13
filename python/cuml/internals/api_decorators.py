@@ -20,6 +20,7 @@ import inspect
 import typing
 from functools import wraps
 import warnings
+from importlib import import_module
 
 import cuml
 import cuml.common
@@ -39,6 +40,7 @@ from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
+from cuml.common import logger
 
 CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
 
@@ -797,3 +799,35 @@ class _deprecate_pos_args:
         inner_f.__dict__[_deprecate_pos_args.FLAG_NAME] = True
 
         return inner_f
+
+
+def kwargs_interop_processing(init_func):
+    def processor(self, *args, **kwargs):
+        # Save all kwargs
+        self.full_kwargs = kwargs
+
+        # Generate list of available cuML hyperparameters
+        cu_hyperparams = list(inspect.signature(init_func).parameters.keys())
+
+        if hasattr(self, 'cpu_estimator_import_path_'):
+            model_path = self.cpu_estimator_import_path_
+        else:
+            model_path = 'sklearn' + self.__class__.__module__[4:]
+        model_name = self.__class__.__name__
+        cpu_model = getattr(import_module(model_path), model_name)
+        # Save list of available CPU estimator hyperparameters
+        self.cpu_hyperparams = \
+            list(inspect.signature(cpu_model.__init__).parameters.keys())
+
+        # Filter provided parameters for cuML estimator initialization
+        filtered_kwargs = {}
+        for keyword, arg in kwargs.items():
+            if keyword in cu_hyperparams:
+                filtered_kwargs[keyword] = arg
+            else:
+                logger.warn("Unused keyword parameter: {} "
+                            "during cuML estimator "
+                            "initialization".format(keyword))
+
+        return init_func(self, *args, **filtered_kwargs)
+    return processor

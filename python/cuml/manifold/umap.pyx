@@ -58,6 +58,7 @@ if has_scipy(True):
     import scipy.sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 import rmm
 
@@ -303,6 +304,7 @@ class UMAP(Base,
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
@@ -813,30 +815,6 @@ class UMAP(Base,
             "callback",
             "metric",
             "metric_kwds"
-        ]
-
-    def get_hyperparam_names(self):
-        return [
-            'n_neighbors',
-            'n_components',
-            'n_epochs',
-            'learning_rate',
-            'min_dist',
-            'spread',
-            'set_op_mix_ratio',
-            'local_connectivity',
-            'repulsion_strength',
-            'negative_sample_rate',
-            'transform_queue_size',
-            'init',
-            'a',
-            'b',
-            'target_n_neighbors',
-            'target_weight',
-            'target_metric',
-            'random_state',
-            'metric',
-            'metric_kwds'
         ]
 
     def get_attr_names(self):

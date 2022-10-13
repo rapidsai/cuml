@@ -31,6 +31,7 @@ import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -186,6 +187,7 @@ class LogisticRegression(Base,
     class_weight = CumlArrayDescriptor()
     expl_spec_weights_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(
         self,
         *,
@@ -532,17 +534,6 @@ class LogisticRegression(Base,
         super().__init__(handle=None,
                          verbose=state["verbose"])
         self.__dict__.update(state)
-
-    def get_hyperparam_names(self):
-        return [
-            'penalty',
-            'tol',
-            'C',
-            'fit_intercept',
-            'class_weight',
-            'max_iter',
-            'l1_ratio'
-        ]
 
     def get_attr_names(self):
         return ['classes_', 'intercept_', 'coef_']

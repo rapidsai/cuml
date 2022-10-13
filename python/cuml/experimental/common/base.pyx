@@ -36,6 +36,7 @@ from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
 from cuml.common.device_selection import DeviceType
+from cuml.common import logger
 
 
 class Base(TagsMixin,
@@ -265,12 +266,17 @@ class Base(TagsMixin,
                 model_name = self.__class__.__name__
                 cpu_model = getattr(import_module(model_path), model_name)
 
-                # collect params set during cuml estimator initialization
-                init_kwargs = {}
-                for param in self.get_hyperparam_names():
-                    init_kwargs[param] = getattr(self, param)
+                filtered_kwargs = {}
+                for keyword, arg in self.full_kwargs.items():
+                    if keyword in self.cpu_hyperparams:
+                        filtered_kwargs[keyword] = arg
+                    else:
+                        logger.warn("Unused keyword parameter: {} "
+                                    "during CPU estimator "
+                                    "initialization".format(keyword))
+
                 # initialize model
-                self.cpu_model_ = cpu_model(**init_kwargs)
+                self.cpu_model_ = cpu_model(**filtered_kwargs)
 
                 # transfer attributes trained with cuml
                 for attr in self.get_attr_names():
