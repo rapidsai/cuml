@@ -19,6 +19,7 @@ import functools
 import inspect
 import typing
 import warnings
+from importlib import import_module
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
