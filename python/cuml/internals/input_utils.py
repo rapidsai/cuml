@@ -17,7 +17,6 @@
 import copy
 from collections import namedtuple
 
-import cuml.internals
 import cuml.internals.array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -37,10 +36,6 @@ from cuml.internals.safe_imports import (
 cudf = gpu_only_import('cudf')
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-dask_cudf = safe_import(
-    'dask_cudf',
-    msg='Optional dependency dask_cudf is not installed'
-)
 global_settings = GlobalSettings()
 numba_cuda = gpu_only_import('numba.cuda')
 np = cpu_only_import('numpy')
@@ -55,12 +50,13 @@ CudfSeries = gpu_only_import_from('cudf', 'Series')
 CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
 DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
-DaskDataFrame = gpu_only_import_from('dask', 'DataFrame')
-DaskSeries = gpu_only_import_from('dask', 'Series')
 np_ndarray = cpu_only_import_from('numpy', 'ndarray')
-NumbaDeviceNDArrayBase = gpu_only_import_from(
-    'numba.cuda.devicearray', 'DeviceNDArrayBase'
-)
+numba_devicearray = gpu_only_import_from('numba.cuda', 'devicearray')
+try:
+    NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
+except UnavailableError:
+    NumbaDeviceNDArrayBase = numba_devicearray
+
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
     'annotate',
@@ -97,7 +93,7 @@ _sparse_types = [SparseCumlArray]
 
 try:
     _input_type_to_str[cupyx.scipy.sparse.spmatrix] = 'cupy'
-    _sparse_types.append(cupyx.scipy.sparase.spmatrix)
+    _sparse_types.append(cupyx.scipy.sparse.spmatrix)
 except UnavailableError:
     pass
 
@@ -276,7 +272,6 @@ def is_array_like(X):
 
 @nvtx_annotate(message="common.input_utils.input_to_cuml_array",
                category="utils", domain="cuml_python")
-@cuml.internals.api_return_any()
 def input_to_cuml_array(X,
                         order='F',
                         deepcopy=False,
@@ -358,117 +353,31 @@ def input_to_cuml_array(X,
         A new CumlArray and associated data.
 
     """
-    if convert_to_mem_type is None:
-        convert_to_mem_type = global_settings.memory_type
-
-    if isinstance(
+    arr = CumlArray.from_input(
         X,
-        (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
-    ):
-        # TODO: Warn, but not when using dask_sql
-        X = X.compute()
-
-    index = getattr(X, 'index', None)
-
-    if (isinstance(X, CudfSeries)):
-        if X.null_count != 0:
-            raise ValueError("Error: cuDF Series has missing/null values, "
-                             "which are not supported by cuML.")
-
-    if isinstance(X, (PandasSeries, PandasDataFrame)):
-        X = X.to_numpy(copy=False)
-    if isinstance(X, (CudfSeries, CudfDataFrame)):
-        X = X.to_cupy(copy=False)
-
-    arr = CumlArray(X, index=index)
-    if deepcopy:
-        arr = copy.deepcopy(arr)
-
-    if convert_to_mem_type == MemoryType.mirror:
-        convert_to_mem_type = arr.mem_type
-
-    conversion_required = (
-        (convert_to_dtype and (convert_to_dtype != arr.dtype))
-        or (
-            convert_to_mem_type
-            and (convert_to_mem_type != arr.mem_type)
-        )
+        order=order,
+        deepcopy=deepcopy,
+        check_dtype=check_dtype,
+        convert_to_dtype=convert_to_dtype,
+        check_mem_type=check_mem_type,
+        convert_to_mem_type=convert_to_mem_type,
+        safe_dtype_conversion=safe_dtype_conversion,
+        check_cols=check_cols,
+        check_rows=check_rows,
+        fail_on_order=fail_on_order,
+        force_contiguous=force_contiguous
     )
+    try:
+        shape = arr.__cuda_array_interface__['shape']
+    except AttributeError:
+        shape = arr.__array_interface__['shape']
 
-    make_copy = False
-    if conversion_required:
-        convert_to_dtype = convert_to_dtype or None
-        convert_to_mem_type = convert_to_mem_type or None
-        if (
-            safe_dtype_conversion
-            and convert_to_dtype is not None
-            and not arr.mem_type.xpy.can_cast(
-                arr.dtype, convert_to_dtype, casting='safe'
-            )
-        ):
-            raise TypeError('Data type conversion would lose information.')
-        arr = CumlArray(
-            arr.to_output(
-                output_dtype=convert_to_dtype,
-                output_mem_type=convert_to_mem_type
-            )
-        )
+    n_rows = shape[0]
 
-    make_copy = force_contiguous and not arr.is_contiguous
-
-    if (order != arr.order and order != 'K') or make_copy:
-        arr = CumlArray(arr.mem_type.xpy.array(
-            arr.to_output('array'),
-            order=order,
-            copy=make_copy
-        ))
-
-    n_rows = arr.shape[0]
-
-    if len(arr.shape) > 1:
-        n_cols = arr.shape[1]
+    if len(shape) > 1:
+        n_cols = shape[1]
     else:
         n_cols = 1
-
-    if (n_cols == 1 or n_rows == 1) and len(arr.shape) == 2:
-        order = 'K'
-
-    if order != 'K' and arr.order != order:
-        order_str = order_to_str(order)
-        if fail_on_order:
-            raise ValueError(
-                f"Expected {order_str} major order but got something else."
-            )
-        else:
-            debug(
-                f"Expected {order_str} major order but got something else."
-                " Converting data; this will result in additional memory"
-                " utilization."
-            )
-
-    if check_dtype:
-        try:
-            check_dtype = [
-                arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
-            ]
-        except TypeError:
-            check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
-
-        if arr.dtype not in check_dtype:
-            raise TypeError(
-                f"Expected input to be of type in {check_dtype} but got"
-                f" {arr.dtype}"
-            )
-
-    if check_cols:
-        if n_cols != check_cols:
-            raise ValueError("Expected " + str(check_cols) +
-                             " columns but got " + str(n_cols) + " columns.")
-
-    if check_rows:
-        if n_rows != check_rows:
-            raise ValueError("Expected " + str(check_rows) + " rows but got " +
-                             str(n_rows) + " rows.")
 
     return cuml_array(array=arr,
                       n_rows=n_rows,
@@ -554,7 +463,6 @@ def input_to_host_array(X,
     return out_data._replace(array=out_data.array.to_output("array"))
 
 
-@cuml.internals.api_return_any()
 def convert_dtype(X,
                   to_dtype=np.float32,
                   legacy=True,
@@ -564,7 +472,7 @@ def convert_dtype(X,
     if the conversion would lose information.
     """
 
-    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if isinstance(X, (DaskCudfSeries, DaskCudfDataFrame)):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 

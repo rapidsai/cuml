@@ -16,6 +16,7 @@
 
 # TODO(wphicks): Handle serialization
 
+import copy
 import operator
 import pickle
 try:
@@ -25,11 +26,13 @@ except ImportError:
     cache = lru_cache(maxsize=None)
 
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.safe_imports import (
     cpu_only_import,
+    cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
     null_decorator
@@ -43,6 +46,12 @@ rmm = gpu_only_import('rmm')
 
 cuda = gpu_only_import_from('numba', 'cuda')
 CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+CudfSeries = gpu_only_import_from('cudf', 'Series')
+DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
+DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
+DaskDataFrame = gpu_only_import_from('dask.dataframe', 'DataFrame')
+DaskSeries = gpu_only_import_from('dask.dataframe', 'Series')
 DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
 global_settings = GlobalSettings()
 nvtx_annotate = gpu_only_import_from(
@@ -50,6 +59,8 @@ nvtx_annotate = gpu_only_import_from(
     'annotate',
     alt=null_decorator
 )
+PandasSeries = cpu_only_import_from('pandas', 'Series')
+PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -693,3 +704,213 @@ class CumlArray():
         """
         return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order,
                               index=index, mem_type=mem_type)
+
+    @classmethod
+    @nvtx_annotate(message="common.CumlArray.ones", category="utils",
+                   domain="cuml_python")
+    def from_input(
+        cls,
+        X,
+        order='F',
+        deepcopy=False,
+        check_dtype=False,
+        convert_to_dtype=False,
+        check_mem_type=False,
+        convert_to_mem_type=None,
+        safe_dtype_conversion=True,
+        check_cols=False,
+        check_rows=False,
+        fail_on_order=False,
+        force_contiguous=True
+    ):
+        """
+        Convert input X to CumlArray.
+
+        Acceptable input formats:
+
+        * cuDF Dataframe - returns a deep copy always.
+        * cuDF Series - returns by reference or a deep copy depending on
+            `deepcopy`.
+        * Numpy array - returns a copy in device always
+        * cuda array interface compliant array (like Cupy) - returns a
+            reference unless `deepcopy`=True.
+        * numba device array - returns a reference unless deepcopy=True
+
+        Parameters
+        ----------
+
+        X : cuDF.DataFrame, cuDF.Series, NumPy array, Pandas DataFrame, Pandas
+            Series or any cuda_array_interface (CAI) compliant array like CuPy,
+            Numba or pytorch.
+
+        order: 'F', 'C' or 'K' (default: 'F')
+            Whether to return a F-major ('F'),  C-major ('C') array or Keep
+            ('K') the order of X. Used to check the order of the input. If
+            fail_on_order=True, the method will raise ValueError, otherwise it
+            will convert X to be of order `order` if needed.
+
+        deepcopy: boolean (default: False)
+            Set to True to always return a deep copy of X.
+
+        check_dtype: np.dtype (default: False)
+            Set to a np.dtype to throw an error if X is not of dtype
+            `check_dtype`.
+
+        convert_to_dtype: np.dtype (default: False)
+            Set to a dtype if you want X to be converted to that dtype if it is
+            not that dtype already.
+
+        safe_convert_to_dtype: bool (default: True)
+            Set to True to check whether a typecasting performed when
+            convert_to_dtype is True will cause information loss. This has a
+            performance implication that might be significant for very fast
+            methods like FIL and linear models inference.
+
+        check_cols: int (default: False)
+            Set to an int `i` to check that input X has `i` columns. Set to
+            False (default) to not check at all.
+
+        check_rows: boolean (default: False)
+            Set to an int `i` to check that input X has `i` columns. Set to
+            False (default) to not check at all.
+
+        fail_on_order: boolean (default: False)
+            Set to True if you want the method to raise a ValueError if X is
+            not of order `order`.
+
+        force_contiguous: boolean (default: True)
+            Set to True to force CumlArray produced to be contiguous. If `X` is
+            non contiguous then a contiguous copy will be done.
+            If False, and `X` doesn't need to be converted and is not
+            contiguous, the underlying memory underneath the CumlArray will be
+            non contiguous.  Only affects CAI inputs. Only affects CuPy and
+            Numba device array views, all other input methods produce
+            contiguous CumlArrays.
+
+        Returns
+        -------
+        arr: CumlArray
+
+            A new CumlArray
+
+        """
+        if convert_to_mem_type is None:
+            convert_to_mem_type = global_settings.memory_type
+
+        if isinstance(
+            X,
+            (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
+        ):
+            # TODO: Warn, but not when using dask_sql
+            X = X.compute()
+
+        index = getattr(X, 'index', None)
+
+        if (isinstance(X, CudfSeries)):
+            if X.null_count != 0:
+                raise ValueError("Error: cuDF Series has missing/null values, "
+                                 "which are not supported by cuML.")
+
+        if isinstance(X, (PandasSeries, PandasDataFrame)):
+            X = X.to_numpy(copy=False)
+        if isinstance(X, (CudfSeries, CudfDataFrame)):
+            X = X.to_cupy(copy=False)
+
+        arr = cls(X, index=index)
+        if deepcopy:
+            arr = copy.deepcopy(arr)
+
+        if convert_to_mem_type == MemoryType.mirror:
+            convert_to_mem_type = arr.mem_type
+
+        conversion_required = (
+            (convert_to_dtype and (convert_to_dtype != arr.dtype))
+            or (
+                convert_to_mem_type
+                and (convert_to_mem_type != arr.mem_type)
+            )
+        )
+
+        make_copy = False
+        if conversion_required:
+            convert_to_dtype = convert_to_dtype or None
+            convert_to_mem_type = convert_to_mem_type or None
+            if (
+                safe_dtype_conversion
+                and convert_to_dtype is not None
+                and not arr.mem_type.xpy.can_cast(
+                    arr.dtype, convert_to_dtype, casting='safe'
+                )
+            ):
+                raise TypeError('Data type conversion would lose information.')
+            arr = cls(
+                arr.to_output(
+                    output_dtype=convert_to_dtype,
+                    output_mem_type=convert_to_mem_type
+                )
+            )
+
+        make_copy = force_contiguous and not arr.is_contiguous
+
+        if (order != arr.order and order != 'K') or make_copy:
+            arr = cls(arr.mem_type.xpy.array(
+                arr.to_output('array'),
+                order=order,
+                copy=make_copy
+            ))
+
+        n_rows = arr.shape[0]
+
+        if len(arr.shape) > 1:
+            n_cols = arr.shape[1]
+        else:
+            n_cols = 1
+
+        if (n_cols == 1 or n_rows == 1) and len(arr.shape) == 2:
+            order = 'K'
+
+        if order != 'K' and arr.order != order:
+            if order == 'F':
+                order_str = "column ('F')"
+            elif order == 'C':
+                order_str = "row ('C')"
+            else:
+                order_str = f"UNKNOWN ('{order}')"
+            if fail_on_order:
+                raise ValueError(
+                    f"Expected {order_str} major order but got something else."
+                )
+            else:
+                debug(
+                    f"Expected {order_str} major order but got something else."
+                    " Converting data; this will result in additional memory"
+                    " utilization."
+                )
+
+        if check_dtype:
+            try:
+                check_dtype = [
+                    arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
+                ]
+            except TypeError:
+                check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
+
+            if arr.dtype not in check_dtype:
+                raise TypeError(
+                    f"Expected input to be of type in {check_dtype} but got"
+                    f" {arr.dtype}"
+                )
+
+        if check_cols:
+            if n_cols != check_cols:
+                raise ValueError(
+                    f'Expected {check_cols} columns but got {n_cols}'
+                    ' columns.'
+                )
+
+        if check_rows:
+            if n_rows != check_rows:
+                raise ValueError(
+                    f'Expected {check_rows} rows but got {n_rows}'
+                    ' rows.'
+                )
