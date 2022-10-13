@@ -1,4 +1,4 @@
-name: cuml_dev
+name: cuml_dev2
 channels:
 - rapidsai
 - nvidia
@@ -17,8 +17,8 @@ dependencies:
 - libraft-headers=22.12.*
 - libraft-distance=22.12.*
 - libraft-nn=22.12.*
-- raft-dask=22.10.*
-- pylibraft=22.10.*
+- raft-dask=22.12.*
+- pylibraft=22.12.*
 - dask-cudf=22.12.*
 - dask-cuda=22.12.*
 - ucx>=1.13.0
