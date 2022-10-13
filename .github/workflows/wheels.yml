@@ -19,8 +19,6 @@ jobs:
       python-package-build-tag: "3"
       python-version: "3.8 3.9"
 
-      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
-
       skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/sevagh/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCUML_CUMLPRIMS_MG_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
 
       test-before-amd64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 dask-cudf-cu11 raft-dask-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple && pip install git+https://github.com/scikit-learn-contrib/hdbscan.git@master && pip install git+https://github.com/dask/dask-glm@main"
