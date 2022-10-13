@@ -17,7 +17,7 @@
 # distutils: language = c++
 
 
-from cuml.internals.safe_import import gpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
 from libc.stdint cimport uintptr_t
 
 from_cuda_array_interface = gpu_only_import_from(

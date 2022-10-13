@@ -24,8 +24,10 @@ from cuml.internals.safe_imports import (
 
 cudf = gpu_only_import('cudf')
 cp = gpu_only_import('cupy')
+cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
 np = cpu_only_import('numpy')
 pandas = cpu_only_import('pandas')
+scipy_sparse = cpu_only_import('scipy.sparse')
 
 
 class MemoryTypeError(Exception):
@@ -70,6 +72,16 @@ class MemoryType(Enum):
             return pandas
         else:
             return cudf
+
+    @property
+    def xsparse(self):
+        if (
+            self == MemoryType.host
+            or (self == MemoryType.mirror and not GPU_ENABLED)
+        ):
+            return scipy_sparse
+        else:
+            return cpx_sparse
 
     @property
     def is_device_accessible(self):

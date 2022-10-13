@@ -13,17 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupyx as cpx
-import numpy as np
-import nvtx
+from cuml.internals.global_settings import global_settings
 from cuml.internals.import_utils import has_scipy
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.logger import debug
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    null_decorator,
+    UnavailableError
+)
 
-import cuml.common
+cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
+nvtx_annotate = gpu_only_import_from(
+    'nvtx',
+    'annotate',
+    alt=null_decorator
+)
+scipy_sparse = cpu_only_import('scipy.sparse')
 
-if has_scipy():
-    import scipy.sparse
+sparse_matrix_classes = []
+try:
+    sparse_matrix_classes.append(cpx_sparse.csr_matrix)
+except UnavailableError:
+    pass
+try:
+    sparse_matrix_classes.append(scipy_sparse.csr_matrix)
+except UnavailableError:
+    pass
+sparse_matrix_classes = tuple(sparse_matrix_classes)
 
 
 @class_with_cupy_rmm()
@@ -70,36 +91,48 @@ class SparseCumlArray():
         Number of nonzeros in underlying arrays
     """
 
-    @nvtx.annotate(message="common.SparseCumlArray.__init__", category="utils",
+    @nvtx_annotate(message="common.SparseCumlArray.__init__", category="utils",
                    domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
-                 convert_index=np.int32,
+                 convert_to_mem_type=None,
+                 convert_index=global_settings.xpy.int32,
                  convert_format=True):
-        if not cpx.scipy.sparse.isspmatrix(data) and \
-                not (has_scipy() and scipy.sparse.isspmatrix(data)):
+        is_sparse = False
+        try:
+            is_sparse = cpx_sparse.isspmatrix(data)
+            from_mem_type = MemoryType.device
+        except UnavailableError:
+            pass
+        if not is_sparse:
+            try:
+                is_sparse = scipy_sparse.isspmatrix(data)
+                from_mem_type = MemoryType.host
+            except UnavailableError:
+                pass
+        if not is_sparse:
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
 
-        check_classes = [cpx.scipy.sparse.csr_matrix]
-        if has_scipy():
-            check_classes.append(scipy.sparse.csr_matrix)
-
-        if not isinstance(data, tuple(check_classes)):
+        if not isinstance(data, sparse_matrix_classes):
             if convert_format:
-                debug('Received sparse matrix in %s format but CSR is '
+                debug('Received sparse matrix in {} format but CSR is '
                       'expected. Data will be converted to CSR, but this '
                       'will require additional memory copies. If this '
                       'conversion is not desired, set '
                       'set_convert_format=False to raise an exception '
-                      'instead.' % type(data))
+                      'instead.'.format(type(data)))
                 data = data.tocsr()  # currently only CSR is supported
             else:
-                raise ValueError("Expected CSR matrix but received %s"
-                                 % type(data))
+                raise ValueError(
+                    "Expected CSR matrix but received {}".format(type(data))
+                )
 
         if not convert_to_dtype:
             convert_to_dtype = data.dtype
+
+        if not convert_to_mem_type:
+            convert_to_mem_type = from_mem_type
 
         if not convert_index:
             convert_index = data.indptr.dtype
@@ -107,21 +140,30 @@ class SparseCumlArray():
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
-        self.indptr, _, _, _ = cuml.common.input_to_cuml_array(
-            data.indptr, convert_to_dtype=convert_index)
+        self.indptr, _, _, _ = input_to_cuml_array(
+            data.indptr,
+            convert_to_dtype=convert_index,
+            convert_to_mem_type=convert_to_mem_type
+        )
 
-        self.indices, _, _, _ = cuml.common.input_to_cuml_array(
-            data.indices, convert_to_dtype=convert_index)
+        self.indices, _, _, _ = input_to_cuml_array(
+            data.indices,
+            convert_to_dtype=convert_index,
+            convert_to_mem_type=convert_to_mem_type
+        )
 
-        self.data, _, _, _ = cuml.common.input_to_cuml_array(
-            data.data, convert_to_dtype=convert_to_dtype)
+        self.data, _, _, _ = input_to_cuml_array(
+            data.data,
+            convert_to_dtype=convert_to_dtype,
+            convert_to_mem_type=convert_to_mem_type
+        )
 
         self.shape = data.shape
         self.dtype = self.data.dtype
         self.nnz = data.nnz
         self.index = None
 
-    @nvtx.annotate(message="common.SparseCumlArray.to_output",
+    @nvtx_annotate(message="common.SparseCumlArray.to_output",
                    category="utils", domain="cuml_python")
     def to_output(self, output_type='cupy',
                   output_format=None,
@@ -164,9 +206,9 @@ class SparseCumlArray():
         indptr = self.indptr.to_output(cuml_arr_output_type)
 
         if output_type == 'cupy':
-            constructor = cpx.scipy.sparse.csr_matrix
-        elif output_type == 'scipy' and has_scipy(raise_if_unavailable=True):
-            constructor = scipy.sparse.csr_matrix
+            constructor = cpx_sparse.csr_matrix
+        elif output_type == 'scipy':
+            constructor = scipy_sparse.csr_matrix
         else:
             raise ValueError("Unsupported output_type: %s" % output_type)
 

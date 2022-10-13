@@ -15,7 +15,7 @@
 #
 
 
-from cuml.internals.safe_import import gpu_only_import, UnavailableError
+from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 from distutils.version import LooseVersion
 
 
