@@ -19,24 +19,34 @@
 import os
 import inspect
 from importlib import import_module
-import numpy as np
-import nvtx
 
 import cuml.internals
 import cuml.internals.logger as logger
 import cuml.internals.input_utils
 import pylibraft.common.handle
 
+from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.array import CumlArray
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
 from cuml.common.device_selection import DeviceType
 
 global_settings = GlobalSettings()
+np_ndarray = cpu_only_import_from('numpy', 'ndarray')
+nvtx_annotate = gpu_only_import_from(
+    'nvtx',
+    'annotate',
+    alt=null_decorator
+)
 
 
 class Base(TagsMixin,
@@ -318,7 +328,7 @@ class Base(TagsMixin,
                 for attribute in self.get_attributes_names():
                     sk_attr = self.sk_model_.__dict__[attribute]
                     # if the sklearn attribute is an array
-                    if isinstance(sk_attr, np.ndarray):
+                    if isinstance(sk_attr, np_ndarray):
                         # transfer array to gpu and set it as a cuml
                         # attribute
                         cuml_array = input_to_cuml_array(sk_attr)[0]
@@ -505,7 +515,7 @@ class Base(TagsMixin,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
 
