@@ -136,3 +136,38 @@ class GlobalSettings:
     @property
     def xpy(self):
         return self.memory_type.xpy
+
+
+global_settings = GlobalSettings()
+
+
+def set_global_memory_type(memory_type):
+    global_settings.memory_type = MemoryType.from_str(memory_type)
+
+
+class using_memory_type:
+    def __init__(self, memory_type):
+        self.prev_memory_type = global_settings.memory_type
+        set_global_memory_type(memory_type)
+
+    def __enter__(self):
+        return self.prev_memory_type
+
+    def __exit__(self, type_, value, traceback):
+        set_global_memory_type(self.prev_memory_type)
+
+
+def set_global_device_type(device_type):
+    global_settings.device_type = DeviceType.from_str(device_type)
+
+
+class using_device_type:
+    def __init__(self, device_type):
+        self.prev_device_type = global_settings.device_type
+        set_global_device_type(device_type)
+
+    def __enter__(self):
+        return self.prev_device_type
+
+    def __exit__(self, type_, value, traceback):
+        set_global_device_type(self.prev_device_type)
