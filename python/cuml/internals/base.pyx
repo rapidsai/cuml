@@ -18,17 +18,28 @@
 
 import os
 import inspect
-import nvtx
 
-import cuml.common
-import cuml.common.cuda
-import cuml.internals.logger as logger
 import cuml.internals
-import pylibraft.common.handle
+import cuml.internals.logger as logger
 import cuml.internals.input_utils
+import pylibraft.common.handle
+
+from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.safe_imports import (
+    gpu_only_import_from,
+    null_decorator
+)
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
+
+global_settings = GlobalSettings()
+nvtx_annotate = gpu_only_import_from(
+    'nvtx',
+    'annotate',
+    alt=null_decorator
+)
 
 
 class Base(TagsMixin,
@@ -178,7 +189,7 @@ class Base(TagsMixin,
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(
-            cuml.global_settings.output_type
+            global_settings.output_type
             if output_type is None else output_type)
         self._input_type = None
         self.target_dtype = None
@@ -321,7 +332,7 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = cuml.global_settings.output_type
+        output_type = global_settings.output_type
 
         # If its None, default to our type
         if (output_type is None or output_type == "mirror"):
@@ -377,7 +388,7 @@ class Base(TagsMixin,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
 
@@ -391,7 +402,7 @@ def _check_output_type_str(output_str):
         ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
          "to pass `output_type=self.output_type` to a child estimator? "
          "Currently `cuml.global_settings.output_type==`{}`"
-         ).format(cuml.global_settings.output_type)
+         ).format(global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -418,7 +429,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # Default to the global type if not specified, otherwise, check the
     # output_type string
-    temp_output = cuml.global_settings.output_type if output_type is None \
+    temp_output = global_settings.output_type if output_type is None \
         else _check_output_type_str(output_type)
 
     # If we are using 'input', determine the the type from the input object
