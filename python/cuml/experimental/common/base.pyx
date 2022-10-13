@@ -31,6 +31,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
 from cuml.internals.safe_imports import (
     cpu_only_import,
+    cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
     null_decorator
@@ -38,7 +39,7 @@ from cuml.internals.safe_imports import (
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
-from cuml.common.device_selection import DeviceType
+from cuml.internals.device_type import DeviceType
 
 global_settings = GlobalSettings()
 np_ndarray = cpu_only_import_from('numpy', 'ndarray')

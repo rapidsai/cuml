@@ -27,9 +27,6 @@ from cuml.internals.import_utils import check_min_cupy_version, has_scipy
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
 
-from cuml.common.device_selection import using_device_type
-from cuml.common.device_selection import using_memory_type
-
 from cuml.internals.memory_utils import rmm_cupy_ary
 from cuml.internals.memory_utils import set_global_output_type
 from cuml.internals.memory_utils import using_output_type
