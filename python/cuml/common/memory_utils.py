@@ -490,7 +490,7 @@ def using_output_type(output_type):
     >>> # cuML default output
     >>> dbscan_float2.labels_
     array([0, 1, 2], dtype=int32)
-    >>> isinstance(dbscan_float2.labels_, cupy.ndarray)
+    >>> isinstance(dbscan_float2.labels_, cp.ndarray)
     True
 
     """
