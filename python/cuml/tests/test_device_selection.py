@@ -309,3 +309,11 @@ def test_pickle_interop(test_data):
     cuml_output = to_output_type(cuml_output, 'numpy').flatten()
     assert_func = test_data['assert_func']
     assert_func(cuml_output, test_data)
+
+
+@pytest.mark.parametrize('estimator', [LinearRegression,
+                                       LogisticRegression,
+                                       UMAP])
+def test_hyperparams_defaults(estimator):
+    model = estimator()
+    model.check_hyperparams_defaults()

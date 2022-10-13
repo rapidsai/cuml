@@ -802,6 +802,7 @@ class _deprecate_pos_args:
 
 
 def kwargs_interop_processing(init_func):
+    @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
         # Save all kwargs
         self.full_kwargs = kwargs

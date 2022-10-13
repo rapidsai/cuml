@@ -528,6 +528,34 @@ class Base(TagsMixin,
                 func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
+    def check_hyperparams_defaults(self):
+        cu_signature = inspect.signature(self.__init__).parameters
+
+        if hasattr(self, 'cpu_estimator_import_path_'):
+            model_path = self.cpu_estimator_import_path_
+        else:
+            model_path = 'sklearn' + self.__class__.__module__[4:]
+        model_name = self.__class__.__name__
+        cpu_model = getattr(import_module(model_path), model_name)
+        cpu_signature = inspect.signature(cpu_model.__init__).parameters
+
+        common_hyperparams = list(set(cu_signature.keys()) &
+                                  set(cpu_signature.keys()))
+        error_msg = 'Different default values for hyperparameters:\n'
+        similar = True
+        for hyperparam in common_hyperparams:
+            if cu_signature[hyperparam].default != \
+               cpu_signature[hyperparam].default:
+                similar = False
+                error_msg += "\t{} with cuML default :" \
+                             "'{}' and CPU default : '{}'" \
+                             "\n".format(hyperparam,
+                                       cu_signature[hyperparam].default,
+                                       cpu_signature[hyperparam].default)
+
+        if not similar:
+            raise ValueError(error_msg)
+
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
