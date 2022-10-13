@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import global_settings
 from cuml.internals.import_utils import has_scipy
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.logger import debug
@@ -140,19 +140,19 @@ class SparseCumlArray():
         # Note: Only 32-bit indexing is supported currently.
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
-        self.indptr, _, _, _ = input_to_cuml_array(
+        self.indptr, _, _, _ = CumlArray.from_input(
             data.indptr,
             convert_to_dtype=convert_index,
             convert_to_mem_type=convert_to_mem_type
         )
 
-        self.indices, _, _, _ = input_to_cuml_array(
+        self.indices, _, _, _ = CumlArray.from_input(
             data.indices,
             convert_to_dtype=convert_index,
             convert_to_mem_type=convert_to_mem_type
         )
 
-        self.data, _, _, _ = input_to_cuml_array(
+        self.data, _, _, _ = CumlArray.from_input(
             data.data,
             convert_to_dtype=convert_to_dtype,
             convert_to_mem_type=convert_to_mem_type
