@@ -304,6 +304,14 @@ class CumlArray():
         return self._mem_type
 
     @property
+    def is_device_accessible(self):
+        return self._mem_type.is_device_accessible
+
+    @property
+    def is_host_accessible(self):
+        return self._mem_type.is_host_accessible
+
+    @property
     @cache
     def size(self):
         xpy = self._mem_type.xpy
@@ -705,7 +713,7 @@ class CumlArray():
                               index=index, mem_type=mem_type)
 
     @classmethod
-    @nvtx_annotate(message="common.CumlArray.ones", category="utils",
+    @nvtx_annotate(message="common.CumlArray.from_input", category="utils",
                    domain="cuml_python")
     def from_input(
         cls,

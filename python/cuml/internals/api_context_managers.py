@@ -17,11 +17,16 @@
 import contextlib
 import typing
 from collections import deque
+try:
+    from typing import TYPE_CHECKING
+except ImportError:
+    TYPE_CHECKING = False
 
 import cuml.internals.input_utils
 
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+if TYPE_CHECKING:
+    from cuml.internals.base import Base
 from cuml.internals.global_settings import global_settings
 from cuml.internals.safe_imports import gpu_only_import_from, NullContext
 

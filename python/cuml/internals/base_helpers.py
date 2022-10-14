@@ -26,7 +26,7 @@ from cuml.internals.api_decorators import (
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base_return_types import _get_base_return_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 
 
@@ -64,44 +64,6 @@ def _process_generic(gen_type):
                 return inner_type
     else:
         raise NotImplementedError("Unknow generic type: {}".format(gen_type))
-
-    return None
-
-
-def _get_base_return_type(class_name, attr):
-
-    if (not hasattr(attr, "__annotations__")
-            or "return" not in attr.__annotations__):
-        return None
-
-    try:
-        type_hints = typing.get_type_hints(attr)
-
-        if ("return" in type_hints):
-
-            ret_type = type_hints["return"]
-
-            is_generic = isinstance(ret_type, typing._GenericAlias)
-
-            if (is_generic):
-                return _process_generic(ret_type)
-            elif (issubclass(ret_type, CumlArray)):
-                return "array"
-            elif (issubclass(ret_type, SparseCumlArray)):
-                return "sparsearray"
-            elif (issubclass(ret_type, Base)):
-                return "base"
-            else:
-                return None
-    except NameError:
-        # A NameError is raised if the return type is the same as the
-        # type being defined (which is incomplete). Check that here and
-        # return base if the name matches
-        if (attr.__annotations__["return"] == class_name):
-            return "base"
-    except Exception:
-        assert False, "Shouldnt get here"
-        return None
 
     return None
 
