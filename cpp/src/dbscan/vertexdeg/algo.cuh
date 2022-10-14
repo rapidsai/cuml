@@ -20,10 +20,10 @@
 #include <cuda_runtime.h>
 #include <math.h>
 #include <raft/device_atomics.cuh>
-#include <raft/linalg/coalesced_reduction.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/coalesced_reduction.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/spatial/knn/epsilon_neighborhood.hpp>
+#include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

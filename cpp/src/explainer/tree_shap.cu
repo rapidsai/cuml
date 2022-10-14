@@ -24,8 +24,8 @@
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <raft/error.hpp>
-#include <raft/span.hpp>
+#include <raft/core/error.hpp>
+#include <raft/core/span.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>

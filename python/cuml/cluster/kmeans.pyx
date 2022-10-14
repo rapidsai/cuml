@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 import rmm
 import warnings
@@ -37,7 +36,7 @@ from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
 

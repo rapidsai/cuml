@@ -108,9 +108,15 @@ Other preprocessing methods (Single-GPU)
     :members:
 .. autoclass:: cuml.preprocessing.KBinsDiscretizer
     :members:
+.. autoclass:: cuml.preprocessing.KernelCenterer
+    :members:
 .. autoclass:: cuml.preprocessing.MissingIndicator
     :members:
 .. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.PowerTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.QuantileTransformer
     :members:
 .. autoclass:: cuml.preprocessing.SimpleImputer
     :members:

@@ -23,7 +23,7 @@
 
 #include <cuda_runtime.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
 

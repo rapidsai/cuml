@@ -23,7 +23,7 @@ import numpy as np
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
@@ -34,7 +34,7 @@ from cuml.metrics.distance_type cimport DistanceType
 
 cdef extern from "raft/sparse/hierarchy/common.h" namespace "raft::hierarchy":
 
-    cdef cppclass linkage_output_int_float:
+    cdef cppclass linkage_output_int:
         int m
         int n_clusters
         int n_leaves
@@ -49,7 +49,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int_float *out,
+        linkage_output_int *out,
         DistanceType metric,
         int n_clusters
     ) except +
@@ -59,7 +59,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int_float *out,
+        linkage_output_int *out,
         DistanceType metric,
         int c,
         int n_clusters
@@ -202,7 +202,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
-        cdef linkage_output_int_float linkage_output
+        cdef linkage_output_int linkage_output
         linkage_output.children = <int*>children_ptr
         linkage_output.labels = <int*>labels_ptr
 
@@ -215,13 +215,13 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         if self.connectivity == 'knn':
             single_linkage_neighbors(
                 handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <linkage_output_int_float*> &linkage_output,
+                <int> n_cols, <linkage_output_int*> &linkage_output,
                 <DistanceType> metric, <int>self.n_neighbors,
                 <int> self.n_clusters)
         elif self.connectivity == 'pairwise':
             single_linkage_pairwise(
                 handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <linkage_output_int_float*> &linkage_output,
+                <int> n_cols, <linkage_output_int*> &linkage_output,
                 <DistanceType> metric, <int> self.n_clusters)
         else:
             raise ValueError("'connectivity' can only be one of "

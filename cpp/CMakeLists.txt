@@ -14,10 +14,10 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
-    ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+
+include(../fetch_rapids.cmake)
+
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-cuda)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 22.08.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.12.00 LANGUAGES CXX CUDA)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -62,46 +62,48 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
 option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 
-message(VERBOSE "CUML: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
-message(VERBOSE "CUML: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
-message(VERBOSE "CUML: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
-message(VERBOSE "CUML: Building cuML multigpu algorithm tests: ${BUILD_CUML_MG_TESTS}")
-message(VERBOSE "CUML: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
-message(VERBOSE "CUML: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
-message(VERBOSE "CUML: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
-message(VERBOSE "CUML: Building ml-prims C++ benchmark tests: ${BUILD_CUML_PRIMS_BENCH}")
-message(VERBOSE "CUML: Building the standard NCCL+UCX Communicator: ${BUILD_CUML_STD_COMMS}")
-message(VERBOSE "CUML: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}")
-message(VERBOSE "CUML: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
-message(VERBOSE "CUML: Disabling OpenMP: ${DISABLE_OPENMP}")
-message(VERBOSE "CUML: Enabling algorithms that use libcumlprims_mg: ${ENABLE_CUMLPRIMS_MG}")
-message(VERBOSE "CUML: Enabling kernel resource usage info: ${KERNEL_INFO}")
-message(VERBOSE "CUML: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
-message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
-message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
-message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
-message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
-message(VERBOSE "CUML: Build and statically link RAFT libraries: ${CUML_USE_RAFT_STATIC}")
-message(VERBOSE "CUML: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
-message(VERBOSE "CUML: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
+message(VERBOSE "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
+message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
+message(VERBOSE "CUML_CPP: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
+message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_MG_TESTS}")
+message(VERBOSE "CUML_CPP: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
+message(VERBOSE "CUML_CPP: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
+message(VERBOSE "CUML_CPP: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
+message(VERBOSE "CUML_CPP: Building ml-prims C++ benchmark tests: ${BUILD_CUML_PRIMS_BENCH}")
+message(VERBOSE "CUML_CPP: Building the standard NCCL+UCX Communicator: ${BUILD_CUML_STD_COMMS}")
+message(VERBOSE "CUML_CPP: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}")
+message(VERBOSE "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
+message(VERBOSE "CUML_CPP: Disabling OpenMP: ${DISABLE_OPENMP}")
+message(VERBOSE "CUML_CPP: Enabling algorithms that use libcumlprims_mg: ${ENABLE_CUMLPRIMS_MG}")
+message(VERBOSE "CUML_CPP: Enabling kernel resource usage info: ${KERNEL_INFO}")
+message(VERBOSE "CUML_CPP: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
+message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
+message(VERBOSE "CUML_CPP: Enabling nvtx markers: ${NVTX}")
+message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
+message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
+message(VERBOSE "CUML_CPP: Statically link the CUDA toolkit runtime and libraries: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "CUML_CPP: Build and statically link RAFT libraries: ${CUML_USE_RAFT_STATIC}")
+message(VERBOSE "CUML_CPP: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
+message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
-message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_ALGORITHMS}'.")
+message(VERBOSE "CUML_CPP: Building libcuml++ with algoriths: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
-message(VERBOSE "CUML: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
+message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
 ##############################################################################
 # - Target names -------------------------------------------------------------
@@ -121,7 +123,7 @@ set(PRIMS_BENCH_TARGET "prims_benchmark")
 if(DETECT_CONDA_ENV)
   rapids_cmake_support_conda_env( conda_env MODIFY_PREFIX_PATH )
   if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND DEFINED ENV{CONDA_PREFIX})
-      message(STATUS "CUML: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
+      message(STATUS "CUML_CPP: No CMAKE_INSTALL_PREFIX argument detected, setting to: $ENV{CONDA_PREFIX}")
       set(CMAKE_INSTALL_PREFIX "$ENV{CONDA_PREFIX}")
   endif()
 endif()
@@ -129,12 +131,28 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+set(_ctk_static_suffix "")
+if(CUDA_STATIC_RUNTIME)
+  # If we're statically linking CTK cuBLAS,
+  # we also want to statically link BLAS
+  set(BLA_STATIC ON)
+  set(_ctk_static_suffix "_static")
+  set(_ctk_static_suffix_cufft "_static_nocallback")
+  # Control legacy FindCUDA.cmake behavior too
+  # Remove this after we push it into rapids-cmake:
+  # https://github.com/rapidsai/rapids-cmake/pull/259
+  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+endif()
+
 if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
-    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+    message(STATUS "CUML_CPP: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
   endif()
 endif()
+
+# CUDA runtime
+rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -170,8 +188,8 @@ endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
 if(SINGLEGPU)
-  message(STATUS "Detected SINGLEGPU build option")
-  message(STATUS "Disabling Multi-GPU components and comms libraries")
+  message(STATUS "CUML_CPP: Detected SINGLEGPU build option")
+  message(STATUS "CUML_CPP: Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_STD_COMMS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
@@ -180,7 +198,7 @@ if(SINGLEGPU)
 endif()
 
 if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
-  message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
+  message(STATUS "CUML_CPP: Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
   set(BUILD_CUML_MPI_COMMS ON)
 endif()
 
@@ -333,7 +351,8 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/genetic/program.cu
         src/genetic/node.cu
         src/hdbscan/hdbscan.cu
-        src/hdbscan/condensed_hierarchy.cu)
+        src/hdbscan/condensed_hierarchy.cu
+        src/hdbscan/prediction_data.cu)
   endif()
 
   if(all_algo OR holtwinters_algo)
@@ -521,7 +540,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
       $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     PRIVATE
-      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft>
+      $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
       ${TREELITE_LIBS}
       $<$<BOOL:${treeshap_algo}>:GPUTreeShap::GPUTreeShap>
       ${OpenMP_CXX_LIB_NAMES}

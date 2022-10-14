@@ -20,9 +20,9 @@
 
 #include <cuml/fil/fil.h>
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 #include <test_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
@@ -891,6 +891,7 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
     params.threads_per_tree  = this->ps.threads_per_tree;
     params.n_items           = this->ps.n_items;
     params.pforest_shape_str = this->ps.print_forest_shape ? &forest_shape_str : nullptr;
+    params.precision         = fil::PRECISION_NATIVE;
     fil::forest_variant forest_variant;
     fil::from_treelite(this->handle, &forest_variant, (ModelHandle)model.get(), &params);
     *pforest = std::get<fil::forest_t<real_t>>(forest_variant);

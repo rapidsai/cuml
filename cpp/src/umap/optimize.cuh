@@ -19,14 +19,14 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/multiply.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/multiply.cuh>
 #include <raft/linalg/power.cuh>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/stats/mean.hpp>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>
@@ -169,7 +169,7 @@ void optimize_params(T* input,
   } while (tol_grads < 2 && num_iters < max_epochs);
 }
 
-void find_params_ab(UMAPParams* params, cudaStream_t stream)
+inline void find_params_ab(UMAPParams* params, cudaStream_t stream)
 {
   float spread   = params->spread;
   float min_dist = params->min_dist;

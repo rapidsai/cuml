@@ -3,24 +3,29 @@ channels:
 - rapidsai
 - nvidia
 - rapidsai-nightly
+- dask/label/dev
 - conda-forge
 dependencies:
 - cudatoolkit=11.5
 - cuda-python >=11.5,<11.7.1
-- rapids-build-env=22.08.*
-- rapids-notebook-env=22.08.*
-- rapids-doc-env=22.08.*
-- cudf=22.08.*
-- rmm=22.08.*
-- libcumlprims=22.08.*
-- libraft-headers=22.08.*
-- libraft-distance=22.08.*
-- libraft-nn=22.08.*
-- pyraft=22.08.*
-- dask-cudf=22.08.*
-- dask-cuda=22.08.*
-- ucx>=1.12.1
-- ucx-py=0.27.*
+- rapids-build-env=22.12.*
+- rapids-notebook-env=22.12.*
+- rapids-doc-env=22.12.*
+- scikit-build>=0.13.1
+- cudf=22.12.*
+- rmm=22.12.*
+- libcumlprims=22.12.*
+- libraft-headers=22.12.*
+- libraft-distance=22.12.*
+- libraft-nn=22.12.*
+- raft-dask=22.12.*
+- pylibraft=22.12.*
+- dask-cudf=22.12.*
+- dask-cuda=22.12.*
+- dask>=2022.9.2
+- distributed>=2022.9.2
+- ucx>=1.13.0
+- ucx-py=0.29.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
@@ -28,17 +33,15 @@ dependencies:
 - faiss-proc=*=cuda
 - umap-learn
 - scikit-learn=0.24
-- treelite=2.4.0
+- sphinx-markdown-tables
+- treelite=3.0.0
 - statsmodels
 - seaborn
-- hdbscan
 - nltk
 - pip
 - pip:
-    - sphinx_markdown_tables
-    - git+https://github.com/dask/dask.git@main
-    - git+https://github.com/dask/distributed.git@main
     - git+https://github.com/dask/dask-glm@main
+    - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
     - sparse
 
 # rapids-build-env, notebook-env and doc-env are defined in

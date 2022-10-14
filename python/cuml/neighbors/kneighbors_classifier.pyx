@@ -31,11 +31,10 @@ from cuml.common.mixins import FMajorInputTagMixin
 import numpy as np
 import cupy as cp
 
-import cudf
 
 from cython.operator cimport dereference as deref
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool

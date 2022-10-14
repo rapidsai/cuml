@@ -54,8 +54,8 @@
 
 #include <cub/cub.cuh>
 #include <math.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

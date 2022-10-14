@@ -20,7 +20,7 @@
 #include <iostream>
 #include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <random>
 
 namespace MLCommon {

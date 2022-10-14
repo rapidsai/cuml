@@ -19,8 +19,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 
 #include "treelite_util.h"
 #include <treelite/c_api.h>
@@ -32,7 +32,7 @@
 #include <locale>
 #include <map>
 #include <numeric>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <random>
 #include <vector>
 
@@ -41,7 +41,7 @@
 
 /** check for treelite runtime API errors and assert accordingly */
 
-#define TREELITE_CHECK(call)                                                                     \
+#define TREELITE_CHECK_RET(call)                                                                 \
   do {                                                                                           \
     int status = call;                                                                           \
     ASSERT(status >= 0, "TREELITE FAIL: call='%s'. Reason:%s\n", #call, TreeliteGetLastError()); \
