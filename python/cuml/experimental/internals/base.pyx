@@ -289,7 +289,7 @@ class Base(TagsMixin,
                     if keyword in self.cpu_hyperparams:
                         filtered_kwargs[keyword] = arg
                     else:
-                        logger.warn("Unused keyword parameter: {} "
+                        logger.info("Unused keyword parameter: {} "
                                     "during CPU estimator "
                                     "initialization".format(keyword))
 
