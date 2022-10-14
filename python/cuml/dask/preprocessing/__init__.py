@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,3 +17,9 @@
 from cuml.dask.preprocessing.label import LabelBinarizer
 from cuml.dask.preprocessing.encoders import OneHotEncoder
 from cuml.dask.preprocessing.LabelEncoder import LabelEncoder
+
+__all__ = [
+    "LabelBinarizer",
+    "OneHotEncoder",
+    "LabelEncoder",
+]

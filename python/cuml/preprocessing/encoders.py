@@ -462,6 +462,42 @@ class OneHotEncoder(Base):
                               "instead.")
         return result
 
+    def get_feature_names(self, input_features=None):
+        """Return feature names for output features.
+
+        Parameters
+        ----------
+        input_features : list of str of shape (n_features,)
+            String names for input features if available. By default,
+            "x0", "x1", ... "xn_features" is used.
+
+        Returns
+        -------
+        output_feature_names : ndarray of shape (n_output_features,)
+            Array of feature names.
+        """
+        self._check_is_fitted()
+        cats = self.categories_
+        if input_features is None:
+            input_features = ["x%d" % i for i in range(len(cats))]
+        elif len(input_features) != len(self.categories_):
+            raise ValueError(
+                "input_features should have length equal to number of "
+                "features ({}), got {}".format(
+                    len(self.categories_), len(input_features)
+                )
+            )
+
+        feature_names = []
+        for i in range(len(cats)):
+            names = [input_features[i] + "_" + str(t)
+                     for t in cats[i].values_host]
+            if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
+                names.pop(self.drop_idx_[i])
+            feature_names.extend(names)
+
+        return np.array(feature_names, dtype=object)
+
     def get_param_names(self):
         return super().get_param_names() + [
             "categories",

@@ -21,7 +21,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/specializations.cuh>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Metrics {

@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import cudf
 import numpy as np
 import warnings
 
@@ -25,8 +24,8 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.common.input_utils import input_to_cuml_array
-from raft.common.handle import Handle
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
 
 cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
 
@@ -70,12 +69,19 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        n_neighbors : int, optional (default: 5)
+        n_neighbors : int, optional (default=5)
             Number of neighbors considered
 
-        convert_dtype : bool, optional (default = False)
+        metric : str in ['euclidean'] (default='euclidean')
+            Metric used to compute the trustworthiness. For the moment only
+            'euclidean' is supported.
+
+        convert_dtype : bool, optional (default=False)
             When set to True, the trustworthiness method will automatically
             convert the inputs to np.float32.
+
+        batch_size : int (default=512)
+            The number of samples to use for each batch.
 
     Returns
     -------

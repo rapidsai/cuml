@@ -24,18 +24,13 @@
 
 #include <curand.h>
 #include <math.h>
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/system/cuda/execution_policy.h>
 
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 
-#include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "optimize_batch_kernel.cuh"
@@ -43,7 +38,8 @@
 
 #include <raft/sparse/op/filter.cuh>
 #include <thrust/iterator/discard_iterator.h>
-#pragma once
+#include <thrust/reduce.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {

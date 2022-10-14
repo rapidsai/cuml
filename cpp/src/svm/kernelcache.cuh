@@ -23,10 +23,10 @@
 #include <linalg/init.h>
 #include <matrix/grammatrix.cuh>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

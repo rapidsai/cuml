@@ -21,7 +21,7 @@
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 #include <cstddef>
 #include <cstdio>
@@ -250,6 +250,8 @@ void build_treelite_forest(ModelHandle* model_handle,
   ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
   // Determine number of outputs
+  ASSERT(forest->trees.size() == forest->rf_params.n_trees, "Inconsistent number of trees.");
+  ASSERT(forest->trees.size() > 0, "Empty forest.");
   int num_outputs = forest->trees.front()->num_outputs;
   ASSERT(num_outputs > 0, "Invalid forest");
   for (const auto& tree : forest->trees) {
@@ -339,11 +341,11 @@ void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
   size_t total_num_trees = 0;
   for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     size_t num_trees_each_forest;
-    TREELITE_CHECK(TreeliteQueryNumTree(treelite_handles[forest_idx], &num_trees_each_forest));
+    TREELITE_CHECK_RET(TreeliteQueryNumTree(treelite_handles[forest_idx], &num_trees_each_forest));
     total_num_trees = total_num_trees + num_trees_each_forest;
   }
 
-  TREELITE_CHECK(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
+  TREELITE_CHECK_RET(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
 
   ASSERT(concat_forest == total_num_trees,
          "Error! the number of trees in the concatenated forest and the sum "

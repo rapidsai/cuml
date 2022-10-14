@@ -17,8 +17,8 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <limits>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <selection/kselection.cuh>
 #include <stdlib.h>
 

@@ -20,8 +20,8 @@
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance_type.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

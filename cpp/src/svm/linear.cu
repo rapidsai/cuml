@@ -24,7 +24,7 @@
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <omp.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
@@ -36,8 +36,10 @@
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/tuple.h>
 
 #include <glm/ols.cuh>
 #include <glm/qn/qn.cuh>

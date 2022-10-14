@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
 #include <thrust/reduce.h>
 
 #include <cub/cub.cuh>

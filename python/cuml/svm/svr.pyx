@@ -16,7 +16,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import cupy
 import numpy as np
 
@@ -30,7 +29,7 @@ from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
@@ -145,8 +144,9 @@ class SVR(SVMBase, RegressorMixin):
         matrix elements (this can be signifficant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
-    max_iter : int (default = 100*n_samples)
-        Limit the number of outer iterations in the solver
+    max_iter : int (default = -1)
+        Limit the number of outer iterations in the solver.
+        If -1 (default) then ``max_iter=100*n_samples``
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -205,21 +205,17 @@ class SVR(SVMBase, RegressorMixin):
 
     Examples
     --------
-
     .. code-block:: python
 
-        import numpy as np
-        from cuml.svm import SVR
-        X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
-        y = np.array([1.1, 4, 5, 3.9, 1.], dtype = np.float32)
-        reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
-        reg.fit(X, y)
-        print("Predicted values:", reg.predict(X))
 
-    Output:
-
-    .. code-block:: python
-
+        >>> import cupy as cp
+        >>> from cuml.svm import SVR
+        >>> X = cp.array([[1], [2], [3], [4], [5]], dtype=cp.float32)
+        >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
+        >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
+        >>> reg.fit(X, y)
+        SVR()
+        >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """

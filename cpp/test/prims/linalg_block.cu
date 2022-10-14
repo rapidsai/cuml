@@ -19,10 +19,10 @@
 #include <random>
 #include <vector>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include "test_utils.h"
 

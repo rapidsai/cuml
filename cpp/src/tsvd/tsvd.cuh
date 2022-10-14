@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuml/decomposition/params.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -35,6 +35,8 @@
 #include <rmm/exec_policy.hpp>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace ML {
 

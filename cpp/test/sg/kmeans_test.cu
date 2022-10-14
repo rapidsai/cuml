@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>
@@ -26,7 +26,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/mr/device/allocator.hpp>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 
 namespace ML {

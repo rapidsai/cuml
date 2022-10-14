@@ -29,7 +29,7 @@ from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -46,8 +46,9 @@ from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
+from cuml.prims.label.classlabels import check_labels, invert_labels
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -125,27 +126,24 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     Examples
     --------
+
     .. code-block:: python
 
-        import numpy as np
-        from cuml.ensemble import RandomForestClassifier as cuRFC
+        >>> import cupy as cp
+        >>> from cuml.ensemble import RandomForestClassifier as cuRFC
 
-        X = np.random.normal(size=(10,4)).astype(np.float32)
-        y = np.asarray([0,1]*5, dtype=np.int32)
+        >>> X = cp.random.normal(size=(10,4)).astype(cp.float32)
+        >>> y = cp.asarray([0,1]*5, dtype=cp.int32)
 
-        cuml_model = cuRFC(max_features=1.0,
-                           n_bins=8,
-                           n_estimators=40)
-        cuml_model.fit(X,y)
-        cuml_predict = cuml_model.predict(X)
+        >>> cuml_model = cuRFC(max_features=1.0,
+        ...                    n_bins=8,
+        ...                    n_estimators=40)
+        >>> cuml_model.fit(X,y)
+        RandomForestClassifier()
+        >>> cuml_predict = cuml_model.predict(X)
 
-        print("Predicted labels : ", cuml_predict)
-
-    Output:
-
-    .. code-block:: none
-
-            Predicted labels :  [0 1 0 1 0 1 0 1 0 1]
+        >>> print("Predicted labels : ", cuml_predict)
+        Predicted labels :  [0. 1. 0. 1. 0. 1. 0. 1. 0. 1.]
 
     Parameters
     -----------
@@ -159,6 +157,7 @@ class RandomForestClassifier(BaseRandomForestModel,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+
         only ``0``/``'gini'`` and ``1``/``'entropy'`` valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
@@ -168,8 +167,9 @@ class RandomForestClassifier(BaseRandomForestModel,
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        If ``-1``. Unlimited depth is not supported.\n
+        Maximum tree depth. Must be greater than 0.
+        Unlimited depth (i.e, until leaves are pure)
+        is not supported.\n
         .. note:: This default differs from scikit-learn's
           random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)
@@ -202,8 +202,8 @@ class RandomForestClassifier(BaseRandomForestModel,
          * If type ``int``, then min_samples_split represents the minimum
            number.
          * If type ``float``, then ``min_samples_split`` represents a fraction
-           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
-           samples for each split.
+           and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
+           number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
@@ -432,6 +432,8 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
+        # Track the labels to see if update is necessary
+        self.update_labels = not check_labels(y_m, self.classes_)
         cdef uintptr_t X_ptr, y_ptr
 
         X_ptr = X_m.ptr
@@ -563,10 +565,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         X : {}
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for classification problems.
+            'GPU' to predict using the GPU, 'CPU' otherwise.
         algo : string (default = ``'auto'``)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -606,16 +605,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
-        elif self.dtype == np.float64:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
         else:
             preds = \
                 self._predict_model_on_gpu(X=X, output_class=True,
@@ -625,6 +614,9 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        if self.update_labels:
+            preds = preds.to_output().astype(self.classes_.dtype)
+            preds = invert_labels(preds, self.classes_)
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -634,8 +626,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                       fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
-        implementation of predict. Therefore, data with 'dtype = np.float32'
-        should be used with this function.
+        implementation of predict.
 
         Parameters
         ----------
@@ -672,14 +663,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         y : {}
         """
-        if self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,

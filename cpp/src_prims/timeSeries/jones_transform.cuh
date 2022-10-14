@@ -22,8 +22,8 @@
 #pragma once
 
 #include <math.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,20 +76,16 @@ class PorterStemmer:
 
     .. code-block:: python
 
-        import cudf
-        from cuml.preprocessing.text.stem import PorterStemmer
-        stemmer = PorterStemmer()
-        word_str_ser =  cudf.Series(['revival','singing','adjustable'])
-        print(stemmer.stem(word_str_ser))
-
-    Output:
-
-    .. code-block:: python
-
+        >>> import cudf
+        >>> from cuml.preprocessing.text.stem import PorterStemmer
+        >>> stemmer = PorterStemmer()
+        >>> word_str_ser =  cudf.Series(['revival','singing','adjustable'])
+        >>> print(stemmer.stem(word_str_ser))
         0     reviv
         1      sing
         2    adjust
         dtype: object
+
     """
 
     def __init__(self, mode="NLTK_EXTENSIONS"):
@@ -177,9 +173,7 @@ class PorterStemmer:
             )
 
             # update can replace mask
-            can_replace_mask = can_replace_mask & cudf.logical_not(
-                condition_mask
-            )
+            can_replace_mask &= ~condition_mask
 
         return apply_rule_list(
             word_str_ser,
@@ -245,18 +239,14 @@ class PorterStemmer:
             )
 
             # update can replace mask
-            can_replace_mask = can_replace_mask & cudf.logical_not(
-                condition_mask
-            )
+            can_replace_mask &= ~condition_mask
 
             condition_mask = suffix_mask
             valid_mask = can_replace_mask & condition_mask
             word_str_ser = replace_suffix(word_str_ser, "ied", "i", valid_mask)
 
             # update can replace mask
-            can_replace_mask = can_replace_mask & cudf.logical_not(
-                condition_mask
-            )
+            can_replace_mask &= ~condition_mask
 
         # (m>0) EED -> EE
         # if suffix ==eed we stop processing
@@ -273,7 +263,7 @@ class PorterStemmer:
 
         # to be consistent with nltk we dont replace
         # if word.endswith('eed') we stop proceesing
-        can_replace_mask = can_replace_mask & cudf.logical_not(suffix_mask)
+        can_replace_mask &= ~suffix_mask
 
         # rule 2
         #    (*v*) ED  ->   plastered ->  plaster
@@ -656,7 +646,7 @@ class PorterStemmer:
 
         # if measure==1 and not self._ends_cvc(stem):
         measure_eq_1_flag = measure_eq_n(stem, 1)
-        does_not_ends_with_cvc_flag = cudf.logical_not(ends_cvc(stem))
+        does_not_ends_with_cvc_flag = ~ends_cvc(stem)
         rule_2_flag = measure_eq_1_flag & does_not_ends_with_cvc_flag
 
         overall_rule_flag = (
@@ -722,7 +712,7 @@ def map_irregular_forms(word_str_ser, can_replace_mask):
             )
 
             word_str_ser = stem_ser.str.cat(replacement_ser)
-            can_replace_mask = can_replace_mask & cudf.logical_not(equal_flag)
+            can_replace_mask &= ~equal_flag
 
     return word_str_ser, can_replace_mask
 
@@ -765,7 +755,7 @@ def apply_rule(word_str_ser, rule, w_in_c_flag):
         word_str_ser = replace_suffix(
             word_str_ser, suffix, replacement, valid_mask
         )
-        w_in_c_flag = w_in_c_flag & cudf.logical_not(double_consonant_mask)
+        w_in_c_flag &= ~double_consonant_mask
 
     else:
 
@@ -782,7 +772,7 @@ def apply_rule(word_str_ser, rule, w_in_c_flag):
         )
 
         # we wont apply further rules if it has a matching suffix
-        w_in_c_flag = w_in_c_flag & cudf.logical_not(suffix_mask)
+        w_in_c_flag &= ~suffix_mask
 
     return word_str_ser, w_in_c_flag
 

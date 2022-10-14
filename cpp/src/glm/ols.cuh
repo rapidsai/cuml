@@ -19,11 +19,13 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/lstsq.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/power.cuh>
+#include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/state/weighted_mean.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
@@ -50,7 +52,7 @@ namespace GLM {
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
- * weights)
+ * weights) This vector is modified during the computation
  */
 template <typename math_t>
 void olsFit(const raft::handle_t& handle,
@@ -91,7 +93,6 @@ void olsFit(const raft::handle_t& handle,
                    norm2_input.data(),
                    fit_intercept,
                    normalize,
-                   stream,
                    sample_weight);
   }
 
@@ -99,7 +100,7 @@ void olsFit(const raft::handle_t& handle,
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
@@ -128,7 +129,7 @@ void olsFit(const raft::handle_t& handle,
   if (sample_weight != nullptr) {
     raft::matrix::matrixVectorBinaryDivSkipZero(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },
@@ -150,8 +151,7 @@ void olsFit(const raft::handle_t& handle,
                     mu_labels.data(),
                     norm2_input.data(),
                     fit_intercept,
-                    normalize,
-                    stream);
+                    normalize);
   } else {
     *intercept = math_t(0);
   }

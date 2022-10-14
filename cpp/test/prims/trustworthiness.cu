@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <metrics/trustworthiness_score.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 namespace MLCommon {

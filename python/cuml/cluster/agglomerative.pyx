@@ -23,7 +23,7 @@ import numpy as np
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
@@ -34,7 +34,7 @@ from cuml.metrics.distance_type cimport DistanceType
 
 cdef extern from "raft/sparse/hierarchy/common.h" namespace "raft::hierarchy":
 
-    cdef cppclass linkage_output_int_float:
+    cdef cppclass linkage_output_int:
         int m
         int n_clusters
         int n_leaves
@@ -49,7 +49,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int_float *out,
+        linkage_output_int *out,
         DistanceType metric,
         int n_clusters
     ) except +
@@ -59,7 +59,7 @@ cdef extern from "cuml/cluster/linkage.hpp" namespace "ML":
         const float *X,
         size_t m,
         size_t n,
-        linkage_output_int_float *out,
+        linkage_output_int *out,
         DistanceType metric,
         int c,
         int n_clusters
@@ -106,21 +106,24 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         Which linkage criterion to use. The linkage criterion determines
         which distance to use between sets of observations. The algorithm
         will merge the pairs of clusters that minimize this criterion.
-        - 'single' uses the minimum of the distances between all
-          observations of the two sets.
+
+         * 'single' uses the minimum of the distances between all
+           observations of the two sets.
+
     n_neighbors : int (default = 15)
         The number of neighbors to compute when connectivity = "knn"
     connectivity : {"pairwise", "knn"}, (default = "knn")
         The type of connectivity matrix to compute.
-        - 'pairwise' will compute the entire fully-connected graph of
-          pairwise distances between each set of points. This is the
-          fastest to compute and can be very fast for smaller datasets
-          but requires O(n^2) space.
-        - 'knn' will sparsify the fully-connected connectivity matrix to
-          save memory and enable much larger inputs. "n_neighbors" will
-          control the amount of memory used and the graph will be connected
-          automatically in the event "n_neighbors" was not large enough
-          to connect it.
+         * 'pairwise' will compute the entire fully-connected graph of
+           pairwise distances between each set of points. This is the
+           fastest to compute and can be very fast for smaller datasets
+           but requires O(n^2) space.
+         * 'knn' will sparsify the fully-connected connectivity matrix to
+           save memory and enable much larger inputs. "n_neighbors" will
+           control the amount of memory used and the graph will be connected
+           automatically in the event "n_neighbors" was not large enough
+           to connect it.
+
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
@@ -199,7 +202,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
-        cdef linkage_output_int_float linkage_output
+        cdef linkage_output_int linkage_output
         linkage_output.children = <int*>children_ptr
         linkage_output.labels = <int*>labels_ptr
 
@@ -212,13 +215,13 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         if self.connectivity == 'knn':
             single_linkage_neighbors(
                 handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <linkage_output_int_float*> &linkage_output,
+                <int> n_cols, <linkage_output_int*> &linkage_output,
                 <DistanceType> metric, <int>self.n_neighbors,
                 <int> self.n_clusters)
         elif self.connectivity == 'pairwise':
             single_linkage_pairwise(
                 handle_[0], <float*>input_ptr, <int> n_rows,
-                <int> n_cols, <linkage_output_int_float*> &linkage_output,
+                <int> n_cols, <linkage_output_int*> &linkage_output,
                 <DistanceType> metric, <int> self.n_clusters)
         else:
             raise ValueError("'connectivity' can only be one of "

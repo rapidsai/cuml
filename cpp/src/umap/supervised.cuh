@@ -25,10 +25,11 @@
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>

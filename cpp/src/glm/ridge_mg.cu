@@ -17,17 +17,17 @@
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 
-#include <opg/linalg/mv_aTb.hpp>
-#include <opg/linalg/svd.hpp>
-#include <opg/stats/mean.hpp>
+#include <cumlprims/opg/linalg/mv_aTb.hpp>
+#include <cumlprims/opg/linalg/svd.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/comms.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,25 +67,21 @@ def precision_recall_curve(
 
     Examples
     --------
-    .. code-block:: python
-
-            import numpy as np
-            from cuml.metrics import precision_recall_curve
-            y_true = np.array([0, 0, 1, 1])
-            y_scores = np.array([0.1, 0.4, 0.35, 0.8])
-            precision, recall, thresholds = precision_recall_curve(
-                y_true, y_scores)
-            print(precision)
-            print(recall)
-            print(thresholds)
-
-    Output:
 
     .. code-block:: python
 
-            array([0.66666667, 0.5       , 1.        , 1.        ])
-            array([1. , 0.5, 0.5, 0. ])
-            array([0.35, 0.4 , 0.8 ])
+        >>> import cupy as cp
+        >>> from cuml.metrics import precision_recall_curve
+        >>> y_true = cp.array([0, 0, 1, 1])
+        >>> y_scores = cp.array([0.1, 0.4, 0.35, 0.8])
+        >>> precision, recall, thresholds = precision_recall_curve(
+        ...     y_true, y_scores)
+        >>> print(precision)
+        [0.666... 0.5  1.  1. ]
+        >>> print(recall)
+        [1. 0.5 0.5 0. ]
+        >>> print(thresholds)
+        [0.35 0.4 0.8 ]
 
     """
     y_true, n_rows, n_cols, ytype = \

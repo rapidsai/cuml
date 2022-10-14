@@ -24,7 +24,7 @@
 #include <numeric>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map_then_reduce.cuh>

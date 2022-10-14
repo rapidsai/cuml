@@ -23,7 +23,7 @@ from inspect import signature
 import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.exceptions import NotFittedError
@@ -36,6 +36,7 @@ from cuml.ensemble.randomforest_shared import treelite_serialize, \
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 
 class BaseRandomForestModel(Base):
@@ -119,7 +120,7 @@ class BaseRandomForestModel(Base):
             verbose=verbose,
             output_type=output_type)
 
-        if max_depth < 0:
+        if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
 
         if (str(split_criterion) not in
@@ -216,20 +217,39 @@ class BaseRandomForestModel(Base):
                 self.treelite_serialized_model)
 
         else:
+            if self.dtype not in [np.float32, np.float64]:
+                raise ValueError("Unknown dtype.")
+
             if self.RF_type == CLASSIFICATION:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, int]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                    )
+                if self.dtype==np.float32:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[float, int]*>
+                        <uintptr_t> self.rf_forest,
+                        <int> self.n_cols
+                        )
+                elif self.dtype==np.float64:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[double, int]*>
+                        <uintptr_t> self.rf_forest64,
+                        <int> self.n_cols
+                        )
             else:
-                build_treelite_forest(
-                    &tl_handle,
-                    <RandomForestMetaData[float, float]*>
-                    <uintptr_t> self.rf_forest,
-                    <int> self.n_cols
-                    )
+                if self.dtype==np.float32:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[float, float]*>
+                        <uintptr_t> self.rf_forest,
+                        <int> self.n_cols
+                        )
+                elif self.dtype==np.float64:
+                    build_treelite_forest(
+                        &tl_handle,
+                        <RandomForestMetaData[double, double]*>
+                        <uintptr_t> self.rf_forest64,
+                        <int> self.n_cols
+                        )
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
@@ -264,11 +284,10 @@ class BaseRandomForestModel(Base):
                                 " `int32`")
             self.classes_ = cp.unique(y_m)
             self.num_classes = len(self.classes_)
-            for i in range(self.num_classes):
-                if i not in self.classes_:
-                    raise ValueError("The labels need "
-                                     "to be consecutive values from "
-                                     "0 to the number of unique label values")
+            self.use_monotonic = not check_labels(
+                y_m, cp.arange(self.num_classes, dtype=np.int32))
+            if self.use_monotonic:
+                y_m, _ = make_monotonic(y_m)
 
         else:
             y_m, _, _, y_dtype = \
@@ -279,8 +298,8 @@ class BaseRandomForestModel(Base):
                     check_rows=self.n_rows, check_cols=1)
 
         if self.dtype == np.float64:
-            warnings.warn("To use pickling or GPU-based prediction first "
-                          "train using float32 data to fit the estimator")
+            warnings.warn("To use pickling first train using float32 data "
+                          "to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
         if type(self.min_samples_leaf) == float:
@@ -288,7 +307,7 @@ class BaseRandomForestModel(Base):
                 math.ceil(self.min_samples_leaf * self.n_rows)
         if type(self.min_samples_split) == float:
             self.min_samples_split = \
-                math.ceil(self.min_samples_split * self.n_rows)
+                max(2, math.ceil(self.min_samples_split * self.n_rows))
         return X_m, y_m, max_feature_val
 
     def _tl_handle_from_bytes(self, treelite_serialized_model):
@@ -329,18 +348,7 @@ class BaseRandomForestModel(Base):
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
-
-        if dtype == np.float64 and not convert_dtype:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
-            return self._predict_model_on_cpu(X, convert_dtype=convert_dtype)
         treelite_handle = self._obtain_treelite_handle()
-
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,

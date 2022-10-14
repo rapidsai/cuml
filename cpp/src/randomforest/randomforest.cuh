@@ -16,19 +16,19 @@
 
 #pragma once
 
-#include <raft/common/nvtx.hpp>
-
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 
 #include <metrics/scores.cuh>
+
+#include <raft/core/nvtx.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/random/rng.cuh>
+#include <thrust/execution_policy.h>
+#include <thrust/sequence.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -162,7 +162,7 @@ class RandomForest {
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
-      auto s        = handle.get_stream_from_stream_pool(i);
+      auto s        = handle.get_stream_from_stream_pool(stream_id);
 
       this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 

@@ -18,9 +18,8 @@
 #include <cuda_runtime.h>
 #include <cuml/tsa/holtwinters_params.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 #define IDX(n, m, N) (n + (m) * (N))

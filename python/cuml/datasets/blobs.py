@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,19 +117,22 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     Examples
     --------
-    >>> from sklearn.datasets import make_blobs
-    >>> X, y = make_blobs(n_samples=10, centers=3, n_features=2,
-    ...                   random_state=0)
-    >>> print(X.shape)
-    (10, 2)
-    >>> y
-    array([0, 0, 1, 0, 2, 2, 2, 1, 1, 0])
-    >>> X, y = make_blobs(n_samples=[3, 3, 4], centers=None, n_features=2,
-    ...                   random_state=0)
-    >>> print(X.shape)
-    (10, 2)
-    >>> y
-    array([0, 1, 2, 0, 2, 2, 2, 1, 1, 0])
+
+    .. code-block:: python
+
+        >>> from sklearn.datasets import make_blobs
+        >>> X, y = make_blobs(n_samples=10, centers=3, n_features=2,
+        ...                   random_state=0)
+        >>> print(X.shape)
+        (10, 2)
+        >>> y
+        array([0, 0, 1, 0, 2, 2, 2, 1, 1, 0])
+        >>> X, y = make_blobs(n_samples=[3, 3, 4], centers=None, n_features=2,
+        ...                   random_state=0)
+        >>> print(X.shape)
+        (10, 2)
+        >>> y
+        array([0, 1, 2, 0, 2, 2, 2, 1, 1, 0])
 
     See also
     --------

@@ -25,9 +25,9 @@
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
+#include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
@@ -37,6 +37,9 @@
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>

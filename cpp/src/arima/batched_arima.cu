@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -31,11 +32,11 @@
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>

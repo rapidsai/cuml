@@ -16,8 +16,8 @@
  */
 
 #include "pairwise_distance_jensen_shannon.cuh"
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

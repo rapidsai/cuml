@@ -22,8 +22,8 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Bench {
@@ -36,7 +36,7 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(NumStreams);
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(numStreams());
     handle.reset(new raft::handle_t{rmm::cuda_stream_per_thread, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
   }
@@ -88,7 +88,7 @@ class Fixture : public MLCommon::Bench::Fixture {
   ///@todo: ideally, this should be determined at runtime based on the inputs
   ///       passed to the fixture. That will require a whole lot of plumbing of
   ///       interfaces. Thus, as a quick workaround, defining this static var.
-  static const int NumStreams = 16;
+  constexpr static std::int32_t numStreams() { return 16; }
 };  // end class Fixture
 
 /**

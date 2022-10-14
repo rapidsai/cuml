@@ -19,9 +19,8 @@
 
 #include <linalg/batched/matrix.cuh>
 
-#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 

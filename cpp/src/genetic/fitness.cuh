@@ -34,11 +34,13 @@
 #include <thrust/device_vector.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/permutation_iterator.h>
+#include <thrust/memory.h>
+#include <thrust/scan.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 namespace cuml {
 namespace genetic {

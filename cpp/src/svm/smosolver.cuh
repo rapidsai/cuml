@@ -29,11 +29,14 @@
 
 #include <iostream>
 #include <limits>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <string>
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <type_traits>
 
 #include "kernelcache.cuh"

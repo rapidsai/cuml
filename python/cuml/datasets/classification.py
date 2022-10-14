@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,35 +73,26 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     .. code-block:: python
 
-        from cuml.datasets.classification import make_classification
+        >>> from cuml.datasets.classification import make_classification
 
-        X, y = make_classification(n_samples=10, n_features=4,
-                                   n_informative=2, n_classes=2)
+        >>> X, y = make_classification(n_samples=10, n_features=4,
+        ...                            n_informative=2, n_classes=2,
+        ...                            random_state=10)
 
-        print("X:")
-        print(X)
+        >>> print(X) # doctest: +SKIP
+        [[-1.7974224   0.24425316  0.39062843 -0.38293394]
+        [ 0.6358963   1.4161923   0.06970507 -0.16085647]
+        [-0.22802866 -1.1827322   0.3525861   0.276615  ]
+        [ 1.7308872   0.43080002  0.05048406  0.29837844]
+        [-1.9465544   0.5704457  -0.8997551  -0.27898186]
+        [ 1.0575483  -0.9171263   0.09529338  0.01173469]
+        [ 0.7917619  -1.0638094  -0.17599393 -0.06420116]
+        [-0.6686142  -0.13951421 -0.6074711   0.21645583]
+        [-0.88968956 -0.914443    0.1302423   0.02924336]
+        [-0.8817671  -0.84549576  0.1845096   0.02556021]]
 
-        print("y:")
-        print(y)
-
-    Output:
-
-    .. code-block:: python
-
-        X:
-        [[-2.3249989  -0.8679415  -1.1511791   1.3525577 ]
-        [ 2.2933831   1.3743551   0.63128835 -0.84648645]
-        [ 1.6361488  -1.3233329   0.807027   -0.894092  ]
-        [-1.0093077  -0.9990691  -0.00808992  0.00950443]
-        [ 0.99803793  2.068382    0.49570698 -0.8462848 ]
-        [-1.2750955  -0.9725835  -0.2390058   0.28081596]
-        [-1.3635055  -0.9637669  -0.31582272  0.37106958]
-        [ 1.1893625   2.227583    0.48750278 -0.8737561 ]
-        [-0.05753583 -1.0939395   0.8188342  -0.9620734 ]
-        [ 0.47910076  0.7648213  -0.17165393  0.26144698]]
-
-        y:
-        [0 1 0 0 1 0 0 1 0 1]
+        >>> print(y)
+        [0 1 0 1 1 0 0 1 0 0]
 
     Parameters
     ----------

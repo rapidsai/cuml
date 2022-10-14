@@ -21,10 +21,9 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/mr/host/allocator.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

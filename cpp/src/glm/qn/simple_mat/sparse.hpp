@@ -19,16 +19,15 @@
 #include <vector>
 
 #include "base.hpp"
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/ternary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 

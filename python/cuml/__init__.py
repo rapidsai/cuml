@@ -39,6 +39,7 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
+from cuml.explainer.tree_shap import TreeExplainer
 
 from cuml.fil import fil
 
@@ -111,3 +112,64 @@ def __getattr__(name):
             return _global_settings_data.settings
 
     raise AttributeError(f"module {__name__} has no attribute {name}")
+
+
+__all__ = [
+    # Modules
+    "common",
+    "metrics",
+    "multiclass",
+    "naive_bayes",
+    "preprocessing",
+    "explainer",
+    # Classes
+    "AgglomerativeClustering",
+    "ARIMA",
+    "AutoARIMA",
+    "Base",
+    "CD",
+    "cuda",
+    "DBSCAN",
+    "ElasticNet",
+    "ExponentialSmoothing",
+    "ForestInference",
+    "GaussianRandomProjection",
+    "Handle",
+    "HDBSCAN",
+    "IncrementalPCA",
+    "KernelDensity",
+    "KernelExplainer",
+    "KernelRidge",
+    "KMeans",
+    "KNeighborsClassifier",
+    "KNeighborsRegressor",
+    "Lasso",
+    "LinearRegression",
+    "LinearSVC",
+    "LinearSVR",
+    "LogisticRegression",
+    "MBSGDClassifier",
+    "MBSGDRegressor",
+    "NearestNeighbors",
+    "PCA",
+    "PermutationExplainer",
+    "QN",
+    "RandomForestClassifier",
+    "RandomForestRegressor",
+    "Ridge",
+    "SGD",
+    "SparseRandomProjection",
+    "SVC",
+    "SVR",
+    "TruncatedSVD",
+    "TreeExplainer",
+    "TSNE",
+    "UMAP",
+    # Functions
+    "johnson_lindenstrauss_min_dim",
+    "make_arima",
+    "make_blobs",
+    "make_classification",
+    "make_regression",
+    "stationarity",
+]

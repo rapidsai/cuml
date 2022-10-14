@@ -15,7 +15,6 @@
  */
 
 #include "knn_test_helper.cuh"
-#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace KNN {

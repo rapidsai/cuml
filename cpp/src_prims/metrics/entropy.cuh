@@ -21,8 +21,8 @@
 
 #include <cub/cub.cuh>
 #include <math.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <rmm/device_scalar.hpp>

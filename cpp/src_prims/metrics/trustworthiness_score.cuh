@@ -22,8 +22,6 @@
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
 
-#define N_THREADS 512
-
 namespace MLCommon {
 namespace Score {
 
@@ -138,6 +136,7 @@ double trustworthiness_score(const raft::handle_t& h,
                              int n_neighbors,
                              int batchSize = 512)
 {
+  const int N_THREADS = 512;
   cudaStream_t stream = h.get_stream();
 
   const int KNN_ALLOC = n * (n_neighbors + 1);

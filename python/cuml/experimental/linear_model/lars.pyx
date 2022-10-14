@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 import ctypes
-import cudf
 import numpy as np
 import cupy as cp
 import warnings
@@ -39,7 +38,7 @@ from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
 
@@ -69,17 +68,20 @@ class Lars(Base, RegressorMixin):
        with all the predictors selected so far. The largest step is determined
        such that using this step a new predictor will have as much correlation
        with the residual as any of the currently active predictors.
-    4. Stop if max_iter reached or all the predictors are used, or if the
+    4. Stop if `max_iter` reached or all the predictors are used, or if the
        correlation between any unused predictor and the residual is lower than
        a tolerance.
 
     The solver is based on [1]_. The equations referred in the comments
     correspond to the equations in the paper.
 
-    Note: this algorithm assumes that the offset is removed from X and y, and
-    each feature is normalized:
+    .. note:: This algorithm assumes that the offset is removed from `X` and
+        `y`, and each feature is normalized:
 
-    :math:`sum_i y_i = 0, sum_i x_{i,j} = 0,sum_i x_{i,j}^2=1 for j=0..n_col-1`
+        .. math::
+
+            sum_i y_i = 0, sum_i x_{i,j} = 0,sum_i x_{i,j}^2=1 \
+            for j=0..n_{col}-1
 
     Parameters
     -----------
@@ -92,14 +94,15 @@ class Lars(Base, RegressorMixin):
         and dividing by it's variance. If False, then the solver expects that
         the data is already normalized.
     copy_X : boolean (default = True)
-        The solver permutes the columns of X. Set copy_X to True to prevent
+        The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
     fit_path : boolean (default = True)
         Whether to return all the coefficients along the reularization path
         in the `coef_path_` attribute.
-    precompute : bool, 'auto', or array-like with shape = (n_features,
-        n_features). Default 'auto'. Whether to precompute the Gram matrix. The
-        user can provide the Gram matrix as an argument.
+    precompute : bool, 'auto', or array-like with shape = (n_features, \
+            n_features). (default = 'auto')
+        Whether to precompute the Gram matrix. The user can provide the Gram
+        matrix as an argument.
     n_nonzero_coefs : int (default 500)
         The maximum number of coefficients to fit. This gives an upper limit of
         how many features we select for prediction. This number is also an
@@ -129,9 +132,9 @@ class Lars(Base, RegressorMixin):
     beta_ : array of floats or doubles [n_asphas]
         The active regression coefficients (same as `coef_` but zeros omitted).
     coef_path_ : array of floats or doubles, shape = [n_alphas, n_alphas + 1]
-        The coefficients along the regularization path. Stored only if fit_path
-        is True. Note that we only store coefficients for indices in the active
-        set (i.e. ``coef_path_[:,-1] == coef_[active_]``)
+        The coefficients along the regularization path. Stored only if
+        `fit_path` is True. Note that we only store coefficients for indices
+        in the active set (i.e. :py:`coef_path_[:,-1] == coef_[active_]`)
     coef_ : array, shape (n_features)
         The estimated coefficients for the regression model.
     intercept_ : scalar, float or double
@@ -140,7 +143,7 @@ class Lars(Base, RegressorMixin):
         The number of iterations taken by the solver.
 
     Notes
-    ------
+    -----
     For additional information, see `scikitlearn's OLS documentation
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lars.html>`__.
 

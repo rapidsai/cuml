@@ -16,16 +16,16 @@
 
 #include <cuml/linear_model/preprocess_mg.hpp>
 
-#include <opg/linalg/norm.hpp>
-#include <opg/matrix/math.hpp>
-#include <opg/stats/mean.hpp>
-#include <opg/stats/mean_center.hpp>
-#include <raft/comms/comms.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <cumlprims/opg/linalg/norm.hpp>
+#include <cumlprims/opg/matrix/math.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
+#include <raft/core/comms.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;

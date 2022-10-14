@@ -20,7 +20,7 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -30,7 +30,11 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/fill.h>
 #include <thrust/reduce.h>
 
 namespace ML {

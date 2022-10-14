@@ -23,8 +23,6 @@
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemv.cuh>
@@ -35,6 +33,8 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -136,8 +136,7 @@ void sgdFit(const raft::handle_t& handle,
                         mu_labels.data(),
                         norm2_input.data(),
                         fit_intercept,
-                        false,
-                        stream);
+                        false);
   }
 
   rmm::device_uvector<math_t> grads(n_cols, stream);
@@ -307,8 +306,7 @@ void sgdFit(const raft::handle_t& handle,
                          mu_labels.data(),
                          norm2_input.data(),
                          fit_intercept,
-                         false,
-                         stream);
+                         false);
   } else {
     *intercept = math_t(0);
   }

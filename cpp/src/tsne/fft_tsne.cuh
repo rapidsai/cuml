@@ -34,6 +34,12 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/functional.h>
+#include <thrust/reduce.h>
+#include <thrust/transform.h>
+
 namespace ML {
 namespace TSNE {
 

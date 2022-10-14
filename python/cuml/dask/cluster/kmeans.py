@@ -23,8 +23,8 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from raft.dask.common.comms import Comms
-from raft.dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import Comms
+from raft_dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -141,12 +141,14 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         X : Dask cuDF DataFrame or CuPy backed Dask Array
         Training data to cluster.
 
-        sample_weight : Dask cuDF DataFrame or CuPy backed Dask Array
-                        shape = (n_samples,), default=None # noqa
+        sample_weight : Dask cuDF DataFrame or CuPy backed Dask Array \
+                shape = (n_samples,), default=None # noqa
+
             The weights for each observation in X. If None, all observations
             are assigned equal weight.
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
+
         """
 
         sample_weight = self._check_normalize_sample_weight(sample_weight)

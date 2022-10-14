@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 from collections import defaultdict
 from numba import cuda
@@ -33,7 +32,7 @@ from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -50,7 +49,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        float *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo) except +
+                       int algo,
+                       float *sample_weight) except +
 
     cdef void ridgeFit(handle_t& handle,
                        double *input,
@@ -63,7 +63,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        double *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo) except +
+                       int algo,
+                       double *sample_weight) except +
 
 
 class Ridge(Base,
@@ -91,53 +92,36 @@ class Ridge(Base,
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
+        >>> import cupy as cp
+        >>> import cudf
 
-        # Both import methods supported
-        from cuml import Ridge
-        from cuml.linear_model import Ridge
+        >>> # Both import methods supported
+        >>> from cuml import Ridge
+        >>> from cuml.linear_model import Ridge
 
-        alpha = np.array([1e-5])
-        ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False,
-                      solver = "eig")
+        >>> alpha = cp.array([1e-5])
+        >>> ridge = Ridge(alpha=alpha, fit_intercept=True, normalize=False,
+        ...               solver="eig")
 
-        X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        >>> X = cudf.DataFrame()
+        >>> X['col1'] = cp.array([1,1,2,2], dtype = cp.float32)
+        >>> X['col2'] = cp.array([1,2,2,3], dtype = cp.float32)
 
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
 
-        result_ridge = ridge.fit(X, y)
-        print("Coefficients:")
-        print(result_ridge.coef_)
-        print("Intercept:")
-        print(result_ridge.intercept_)
-
-        X_new = cudf.DataFrame()
-        X_new['col1'] = np.array([3,2], dtype = np.float32)
-        X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_ridge.predict(X_new)
-
-        print("Predictions:")
-        print(preds)
-
-    Output:
-
-    .. code-block:: python
-
-        Coefficients:
-
-                    0 1.0000001
-                    1 1.9999998
-
-        Intercept:
-                    3.0
-
-        Preds:
-
-                    0 15.999999
-                    1 14.999999
+        >>> result_ridge = ridge.fit(X, y)
+        >>> print(result_ridge.coef_) # doctest: +SKIP
+        0 1.000...
+        1 1.999...
+        >>> print(result_ridge.intercept_)
+        3.0...
+        >>> X_new = cudf.DataFrame()
+        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
+        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
+        >>> preds = result_ridge.predict(X_new)
+        >>> print(preds) # doctest: +SKIP
+        0 15.999...
+        1 14.999...
 
     Parameters
     -----------
@@ -254,12 +238,12 @@ class Ridge(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True) -> "Ridge":
+    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr
+        cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
@@ -270,6 +254,16 @@ class Ridge(Base,
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
         y_ptr = y_m.ptr
+
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=(
+                                        self.dtype if convert_dtype else None),
+                                    check_rows=n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
+        else:
+            sample_weight_ptr = 0
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -309,7 +303,8 @@ class Ridge(Base,
                      <float*>&c_intercept1,
                      <bool>self.fit_intercept,
                      <bool>self.normalize,
-                     <int>self.algo)
+                     <int>self.algo,
+                     <float*>sample_weight_ptr)
 
             self.intercept_ = c_intercept1
         else:
@@ -326,7 +321,8 @@ class Ridge(Base,
                      <double*>&c_intercept2,
                      <bool>self.fit_intercept,
                      <bool>self.normalize,
-                     <int>self.algo)
+                     <int>self.algo,
+                     <double*>sample_weight_ptr)
 
             self.intercept_ = c_intercept2
 
@@ -334,6 +330,8 @@ class Ridge(Base,
 
         del X_m
         del y_m
+        if sample_weight is not None:
+            del sample_weight_m
 
         return self
 

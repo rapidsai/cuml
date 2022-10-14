@@ -19,8 +19,12 @@
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 
 namespace ML {
 namespace TSNE {

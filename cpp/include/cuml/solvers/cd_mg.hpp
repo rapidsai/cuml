@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuml/linear_model/glm.hpp>
-#include <opg/matrix/data.hpp>
-#include <opg/matrix/part_descriptor.hpp>
+#include <cumlprims/opg/matrix/data.hpp>
+#include <cumlprims/opg/matrix/part_descriptor.hpp>
 
 namespace ML {
 namespace CD {

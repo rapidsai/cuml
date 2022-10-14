@@ -17,7 +17,6 @@
 
 
 import ctypes
-import cudf
 import numpy as np
 from enum import IntEnum
 
@@ -31,16 +30,16 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
-
 import cuml.internals
+
+from pylibraft.common.handle cimport handle_t
+
 from cuml.common.base import Base
-from raft.common.handle cimport handle_t
-from cuml.decomposition.utils cimport *
 from cuml.common.opg_data_utils_mg cimport *
-
-
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
+from cuml.decomposition.utils cimport *
+from cuml.decomposition.utils_mg cimport *
 
 
 cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":

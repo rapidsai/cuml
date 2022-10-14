@@ -16,6 +16,7 @@
 
 #include "tsne_runner.cuh"
 #include <cuml/manifold/tsne.h>
+#include <raft/distance/distance_types.hpp>
 
 namespace ML {
 

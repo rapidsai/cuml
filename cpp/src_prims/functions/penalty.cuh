@@ -17,8 +17,8 @@
 #pragma once
 
 #include "sign.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/norm.cuh>

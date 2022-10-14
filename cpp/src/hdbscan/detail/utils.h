@@ -18,7 +18,7 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
@@ -26,16 +26,23 @@
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/norm.cuh>
 
 #include <algorithm>
 
 #include "../condensed_hierarchy.cu"
 
+#include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/tuple.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -181,6 +188,28 @@ void parent_csr(const raft::handle_t& handle,
     thrust_policy, sorted_parents, sorted_parents + n_edges, sorted_parents, index_op);
 
   raft::sparse::convert::sorted_coo_to_csr(sorted_parents, n_edges, indptr, n_clusters + 1, stream);
+}
+
+template <typename value_idx, typename value_t>
+void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
+{
+  rmm::device_uvector<value_t> sums(m, stream);
+
+  // Compute row sums
+  raft::linalg::rowNorm<value_t, size_t>(
+    sums.data(), data, (size_t)n, m, raft::linalg::L1Norm, true, stream);
+
+  // Divide vector by row sums (modify in place)
+  raft::linalg::matrixVectorOp(
+    data,
+    const_cast<value_t*>(data),
+    sums.data(),
+    n,
+    (value_idx)m,
+    true,
+    false,
+    [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
+    stream);
 }
 
 };  // namespace Utils
