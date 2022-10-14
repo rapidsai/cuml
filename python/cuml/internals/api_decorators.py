@@ -826,7 +826,7 @@ def kwargs_interop_processing(init_func):
             if keyword in cu_hyperparams:
                 filtered_kwargs[keyword] = arg
             else:
-                logger.warn("Unused keyword parameter: {} "
+                logger.info("Unused keyword parameter: {} "
                             "during cuML estimator "
                             "initialization".format(keyword))
 
