@@ -72,7 +72,7 @@ float get_kl_div(TSNEParams& params,
   auto get_emb_dist = [=] __device__(const int64_t i, const int64_t j) {
     return emb_dists[i * n + j];
   };
-  raft::linalg::map(Qs, total_nn, get_emb_dist, stream, input_matrix.rows(), input_matrix.cols());
+  raft::linalg::map_k(Qs, total_nn, get_emb_dist, stream, input_matrix.rows(), input_matrix.cols());
 
   const float dof      = fmaxf(params.dim - 1, 1);  // degree of freedom
   const float exponent = (dof + 1.0) / 2.0;

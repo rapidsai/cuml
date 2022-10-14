@@ -74,9 +74,8 @@ endif()
 if(BUILD_CUML_PRIMS_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(${PRIMS_BENCH_TARGET}
-          prims/gram_matrix.cu
-    prims/main.cpp
-          )
+    prims/gram_matrix.cu
+    prims/main.cpp)
 
   target_compile_options(${PRIMS_BENCH_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
