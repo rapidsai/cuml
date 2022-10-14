@@ -16,12 +16,16 @@
 
 #include <iostream>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 #include <cuml/svm/svc.hpp>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
+#include <raft/distance/kernels.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
 
 namespace ML {

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include "benchmark.cuh"
 #include <cmath>
 #include <cuml/matrix/kernelparams.h>

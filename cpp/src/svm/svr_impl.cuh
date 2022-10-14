@@ -29,7 +29,7 @@
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
+#include <raft/distance/kernels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <thrust/copy.h>

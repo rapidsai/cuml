@@ -16,26 +16,13 @@
 
 #pragma once
 
+#include <raft/distance/distance_types.hpp>
+
 namespace MLCommon {
 namespace Matrix {
 
-enum KernelType { LINEAR, POLYNOMIAL, RBF, TANH };
-
-/**
- * Parameters for kernel matrices.
- * The following kernels are implemented:
- * - LINEAR \f[ K(x_1,x_2) = <x_1,x_2>, \f] where \f$< , >\f$ is the dot product
- * - POLYNOMIAL \f[ K(x_1, x_2) = (\gamma <x_1,x_2> + \mathrm{coef0})^\mathrm{degree} \f]
- * - RBF \f[ K(x_1, x_2) = \exp(- \gamma |x_1-x_2|^2) \f]
- * - TANH \f[ K(x_1, x_2) = \tanh(\gamma <x_1,x_2> + \mathrm{coef0}) \f]
- */
-struct KernelParams {
-  // Kernel function parameters
-  KernelType kernel;  //!< Type of the kernel function
-  int degree;         //!< Degree of polynomial kernel (ignored by others)
-  double gamma;       //!< multiplier in the
-  double coef0;       //!< additive constant in poly and tanh kernels
-};
+    using raft::distance::KernelType;
+    using raft::distance::KernelParams;
 
 };  // end namespace Matrix
 };  // end namespace MLCommon

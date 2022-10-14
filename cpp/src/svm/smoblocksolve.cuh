@@ -20,7 +20,7 @@
 
 #include "smo_sets.cuh"
 #include <cuml/svm/svm_parameter.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <selection/kselection.cuh>
 #include <stdlib.h>
 

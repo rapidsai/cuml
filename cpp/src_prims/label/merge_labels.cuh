@@ -19,7 +19,7 @@
 #include <limits>
 #include <math.h>
 
-#include <linalg/init.h>
+#include <raft/linalg/init.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
@@ -125,7 +125,7 @@ void merge_labels(Index_* labels_a,
 
   // Initialize R. R defines the relabeling rules; after merging the input
   // arrays, label l will be reassigned as R[l-1]+1.
-  MLCommon::LinAlg::range(R, N, stream);
+  raft::linalg::range(R, N, stream);
 
   // We define the label equivalence graph: G = (V, E), where:
   //  - V is the set of unique values from labels_a and labels_b
