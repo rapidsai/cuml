@@ -38,7 +38,6 @@ cupy_using_allocator = gpu_only_import_from(
     'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
-global_settings = GlobalSettings()
 
 
 @contextlib.contextmanager
