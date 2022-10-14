@@ -21,6 +21,8 @@ import numpy as np
 import pandas as pd
 import cudf
 import pickle
+import inspect
+from importlib import import_module
 
 from pytest_cases import fixture_union, pytest_fixture_plus
 from sklearn.datasets import make_regression, make_blobs
@@ -316,4 +318,29 @@ def test_pickle_interop(test_data):
                                        UMAP])
 def test_hyperparams_defaults(estimator):
     model = estimator()
-    model.check_hyperparams_defaults()
+    cu_signature = inspect.signature(model.__init__).parameters
+
+    if hasattr(model, 'cpu_estimator_import_path_'):
+        model_path = model.cpu_estimator_import_path_
+    else:
+        model_path = 'sklearn' + model.__class__.__module__[4:]
+    model_name = model.__class__.__name__
+    cpu_model = getattr(import_module(model_path), model_name)
+    cpu_signature = inspect.signature(cpu_model.__init__).parameters
+
+    common_hyperparams = list(set(cu_signature.keys()) &
+                                set(cpu_signature.keys()))
+    error_msg = 'Different default values for hyperparameters:\n'
+    similar = True
+    for hyperparam in common_hyperparams:
+        if cu_signature[hyperparam].default != \
+            cpu_signature[hyperparam].default:
+            similar = False
+            error_msg += "\t{} with cuML default :" \
+                            "'{}' and CPU default : '{}'" \
+                            "\n".format(hyperparam,
+                                    cu_signature[hyperparam].default,
+                                    cpu_signature[hyperparam].default)
+
+    if not similar:
+        raise ValueError(error_msg)
