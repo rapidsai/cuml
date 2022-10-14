@@ -14,11 +14,14 @@
 # limitations under the License.
 #
 
-import cuml.internals
 import inspect
 
 from copy import deepcopy
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    api_base_return_any_skipall
+)
+from cuml.internals.base_helpers import _tags_class_and_instance
 
 
 ###############################################################################
@@ -57,7 +60,7 @@ _default_tags = {
 
 
 class TagsMixin:
-    @cuml.internals._tags_class_and_instance
+    @_tags_class_and_instance
     def _get_tags(cls):
         """
         Method that collects all the static tags associated to any
@@ -196,7 +199,7 @@ class RegressorMixin:
             'description': 'R^2 of self.predict(X) '
                            'wrt. y.'
         })
-    @cuml.internals.api_base_return_any_skipall
+    @api_base_return_any_skipall
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -237,7 +240,7 @@ class ClassifierMixin:
             'description': ('Accuracy of self.predict(X) wrt. y '
                             '(fraction where y == pred_y)')
         })
-    @cuml.internals.api_base_return_any_skipall
+    @api_base_return_any_skipall
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
