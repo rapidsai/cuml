@@ -22,14 +22,13 @@ import cuml.internals.input_utils
 
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.global_settings import global_settings
 from cuml.internals.safe_imports import gpu_only_import_from, NullContext
 
 cupy_using_allocator = gpu_only_import_from(
     'cupy.cuda', 'using_allocator', alt=NullContext
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
-global_settings = GlobalSettings()
 
 
 @contextlib.contextmanager

@@ -30,8 +30,8 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 from pylibraft.common.handle cimport handle_t

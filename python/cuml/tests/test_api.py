@@ -16,7 +16,7 @@
 
 import pytest
 import cuml
-import cuml.common.mixins as cumix
+import cuml.internals.mixins as cumix
 import cupy as cp
 import inspect
 import numpy as np

@@ -27,7 +27,7 @@ from cuml import ForestInference
 from cuml.internals.array import CumlArray
 import cuml.internals
 
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from pylibraft.common.handle import Handle

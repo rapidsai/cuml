@@ -20,12 +20,12 @@ from inspect import signature
 
 from cuml.solvers import CD, QN
 from cuml.internals.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 
 

@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
 __all__ = ['LinearSVR']

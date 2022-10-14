@@ -36,7 +36,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.metrics.distance_type cimport DistanceType
 import rmm

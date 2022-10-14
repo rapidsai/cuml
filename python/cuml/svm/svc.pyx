@@ -30,7 +30,7 @@ from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
@@ -42,7 +42,7 @@ from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier

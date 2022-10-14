@@ -28,7 +28,7 @@ from scipy import optimize
 from scipy.special import boxcox
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
+from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
                                StatelessTagMixin
 from ....thirdparty_adapters import check_array
 from ..utils.extmath import row_norms

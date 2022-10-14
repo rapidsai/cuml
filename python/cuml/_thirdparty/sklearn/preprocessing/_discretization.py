@@ -20,7 +20,7 @@ from cuml.preprocessing import OneHotEncoder
 from cuml.cluster import KMeans
 
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from cuml.common.mixins import SparseInputTagMixin
+from cuml.internals.mixins import SparseInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ....thirdparty_adapters import check_array

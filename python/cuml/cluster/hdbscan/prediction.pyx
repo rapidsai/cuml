@@ -30,8 +30,8 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.internals.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import logger
 from cuml.internals.import_utils import has_hdbscan_plots
 

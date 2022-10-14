@@ -19,9 +19,9 @@
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 

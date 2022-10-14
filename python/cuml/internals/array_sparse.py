@@ -15,7 +15,6 @@
 #
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import global_settings
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.logger import debug

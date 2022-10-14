@@ -23,7 +23,7 @@ from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_mean,
                                      _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
+from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
                                StringInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES

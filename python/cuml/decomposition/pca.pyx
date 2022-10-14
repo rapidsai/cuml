@@ -46,8 +46,8 @@ from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
-from cuml.common.mixins import FMajorInputTagMixin
-from cuml.common.mixins import SparseInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":

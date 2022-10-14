@@ -35,7 +35,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
 from rmm._lib.memory_resource cimport DeviceMemoryResource
 from rmm._lib.memory_resource cimport get_current_device_resource

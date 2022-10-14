@@ -38,7 +38,7 @@ from cuml.internals.safe_imports import (
 )
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import TagsMixin
+from cuml.internals.mixins import TagsMixin
 from cuml.internals.device_type import DeviceType
 
 global_settings = GlobalSettings()

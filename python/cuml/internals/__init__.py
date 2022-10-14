@@ -35,7 +35,6 @@ from cuml.internals.api_decorators import (
     api_return_array,
     api_return_generic,
     api_return_sparse_array,
-    CUML_WRAPPED_FLAG,
     exit_internal_api,
 )
 from cuml.internals.api_context_managers import (
@@ -44,3 +43,4 @@ from cuml.internals.api_context_managers import (
     set_api_output_type,
 )
 from cuml.internals.internals import GraphBasedDimRedCallback
+from cuml.internal.constants import CUML_WRAPPED_FLAG

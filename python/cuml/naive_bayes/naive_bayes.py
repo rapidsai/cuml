@@ -22,7 +22,7 @@ import cupyx
 from cuml.common import CumlArray
 from cuml.internals.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.import_utils import has_scipy
 from cuml.prims.label import make_monotonic

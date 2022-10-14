@@ -26,7 +26,7 @@ from libc.stdint cimport uintptr_t
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
 from pylibraft.common.handle cimport handle_t

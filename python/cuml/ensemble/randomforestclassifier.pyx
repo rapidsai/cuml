@@ -25,7 +25,7 @@ import cuml.internals.logger as logger
 
 from cuml import ForestInference
 from cuml.internals.array import CumlArray
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring

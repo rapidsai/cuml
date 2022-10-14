@@ -25,7 +25,7 @@ except ImportError:
     from functools import lru_cache
     cache = lru_cache(maxsize=None)
 
-from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.global_settings import global_settings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
@@ -53,7 +53,6 @@ DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
 DaskDataFrame = gpu_only_import_from('dask.dataframe', 'DataFrame')
 DaskSeries = gpu_only_import_from('dask.dataframe', 'Series')
 DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
-global_settings = GlobalSettings()
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
     'annotate',

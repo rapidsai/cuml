@@ -47,7 +47,7 @@ from cuml.internals.memory_utils import using_output_type
 from cuml.internals.import_utils import has_scipy
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
 
