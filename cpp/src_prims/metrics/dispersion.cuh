@@ -18,10 +18,10 @@
 
 #include <cub/cub.cuh>
 #include <memory>
-#include <raft/util/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

@@ -17,13 +17,13 @@
 #pragma once
 
 #include "sign.cuh"
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

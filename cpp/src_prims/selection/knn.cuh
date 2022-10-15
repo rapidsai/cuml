@@ -23,10 +23,10 @@
 
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>

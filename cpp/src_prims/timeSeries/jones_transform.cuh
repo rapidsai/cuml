@@ -22,9 +22,9 @@
 #pragma once
 
 #include <math.h>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace MLCommon {
 
