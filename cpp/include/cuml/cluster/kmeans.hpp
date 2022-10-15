@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/common/log_levels.hpp>
-#include <raft/cluster/kmeans_params.hpp>
+#include <raft/cluster/kmeans_types.hpp>
 
 namespace raft {
 class handle_t;
