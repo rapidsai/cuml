@@ -16,13 +16,14 @@
 
 #include <cuml/cluster/kmeans.hpp>
 #include <raft/cluster/kmeans.cuh>
+#include <raft/cluster/kmeans_types.hpp>
 
 namespace ML {
 namespace kmeans {
 
 // -------------------------- fit_predict --------------------------------//
 void fit_predict(const raft::handle_t& handle,
-                 const KMeansParams& params,
+                 const raft::cluster::KMeansParams& params,
                  const float* X,
                  int n_samples,
                  int n_features,
@@ -47,7 +48,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const KMeansParams& params,
+                 const raft::cluster::KMeansParams& params,
                  const double* X,
                  int n_samples,
                  int n_features,
@@ -74,7 +75,7 @@ void fit_predict(const raft::handle_t& handle,
 // ----------------------------- fit ---------------------------------//
 
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -96,7 +97,7 @@ void fit(const raft::handle_t& handle,
 }
 
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const double* X,
          int n_samples,
          int n_features,
@@ -120,7 +121,7 @@ void fit(const raft::handle_t& handle,
 // ----------------------------- predict ---------------------------------//
 
 void predict(const raft::handle_t& handle,
-             const KMeansParams& params,
+             const raft::cluster::KMeansParams& params,
              const float* centroids,
              const float* X,
              int n_samples,
@@ -143,7 +144,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const KMeansParams& params,
+             const raft::cluster::KMeansParams& params,
              const double* centroids,
              const double* X,
              int n_samples,
@@ -167,7 +168,7 @@ void predict(const raft::handle_t& handle,
 
 // ----------------------------- transform ---------------------------------//
 void transform(const raft::handle_t& handle,
-               const KMeansParams& params,
+               const raft::cluster::KMeansParams& params,
                const float* centroids,
                const float* X,
                int n_samples,
@@ -182,7 +183,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const KMeansParams& params,
+               const raft::cluster::KMeansParams& params,
                const double* centroids,
                const double* X,
                int n_samples,

@@ -17,6 +17,7 @@
 #pragma once
 #include <cuml/common/logger.hpp>
 #include <raft/cluster/kmeans.cuh>
+#include <raft/cluster/kmeans_types.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/mdarray.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -52,7 +53,7 @@ namespace impl {
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t& handle,
-                const KMeansParams& params,
+                const raft::cluster::KMeansParams& params,
                 const raft::device_matrix_view<const DataT, IndexT>& X,
                 const raft::device_matrix_view<DataT, IndexT>& centroids)
 {
@@ -124,7 +125,7 @@ void initRandom(const raft::handle_t& handle,
  */
 template <typename DataT, typename IndexT>
 void initKMeansPlusPlus(const raft::handle_t& handle,
-                        const KMeansParams& params,
+                        const raft::cluster::KMeansParams& params,
                         const raft::device_matrix_view<const DataT, IndexT>& X,
                         const raft::device_matrix_view<DataT, IndexT>& centroidsRawData,
                         rmm::device_uvector<char>& workspace)
@@ -382,7 +383,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 
     auto inertia = raft::make_host_scalar<DataT>(0);
     auto n_iter  = raft::make_host_scalar<IndexT>(0);
-    KMeansParams default_params;
+    raft::cluster::KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
     raft::cluster::kmeans_fit_main<DataT, IndexT>(handle,
@@ -406,8 +407,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
                     n_random_clusters);
 
     // generate `n_random_clusters` centroids
-    KMeansParams rand_params;
-    rand_params.init       = KMeansParams::InitMethod::Random;
+    raft::cluster::KMeansParams rand_params;
+    rand_params.init       = raft::cluster::KMeansParams::InitMethod::Random;
     rand_params.n_clusters = n_random_clusters;
     initRandom<DataT, IndexT>(handle, rand_params, X, centroidsRawData);
 
@@ -472,7 +473,7 @@ void checkWeights(const raft::handle_t& handle,
 
 template <typename DataT, typename IndexT>
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const raft::device_matrix_view<const DataT, IndexT>& X,
          const raft::device_vector_view<DataT, IndexT>& weight,
          const raft::device_matrix_view<DataT, IndexT>& centroids,
@@ -705,7 +706,7 @@ void fit(const raft::handle_t& handle,
 
 template <typename DataT, typename IndexT = int>
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const DataT* X,
          const IndexT n_local_samples,
          const IndexT n_features,
@@ -741,17 +742,17 @@ void fit(const raft::handle_t& handle,
   // check if weights sum up to n_samples
   checkWeights(handle, workspace, weight.view());
 
-  if (params.init == KMeansParams::InitMethod::Random) {
+  if (params.init == raft::cluster::KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset
     CUML_LOG_KMEANS(handle,
                     "KMeans.fit: initialize cluster centers by randomly choosing from the "
                     "input data.\n");
     initRandom<DataT, IndexT>(handle, params, data, centroidsRawData.view());
-  } else if (params.init == KMeansParams::InitMethod::KMeansPlusPlus) {
+  } else if (params.init == raft::cluster::KMeansParams::InitMethod::KMeansPlusPlus) {
     // default method to initialize is kmeans++
     CUML_LOG_KMEANS(handle, "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
     initKMeansPlusPlus<DataT, IndexT>(handle, params, data, centroidsRawData.view(), workspace);
-  } else if (params.init == KMeansParams::InitMethod::Array) {
+  } else if (params.init == raft::cluster::KMeansParams::InitMethod::Array) {
     CUML_LOG_KMEANS(handle,
                     "KMeans.fit: initialize cluster centers from the ndarray array input "
                     "passed to init arguement.\n");

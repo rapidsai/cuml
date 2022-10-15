@@ -16,6 +16,7 @@
 
 #include "kmeans_mg_impl.cuh"
 #include <cuml/cluster/kmeans_mg.hpp>
+#include <raft/cluster/kmeans_types.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -24,7 +25,7 @@ namespace opg {
 // ----------------------------- fit ---------------------------------//
 
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -40,7 +41,7 @@ void fit(const raft::handle_t& handle,
 }
 
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const double* X,
          int n_samples,
          int n_features,
