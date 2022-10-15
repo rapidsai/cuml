@@ -19,10 +19,10 @@
 #include <limits>
 #include <math.h>
 
-#include <raft/linalg/init.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/linalg/init.cuh>
 
 namespace MLCommon {
 namespace Label {

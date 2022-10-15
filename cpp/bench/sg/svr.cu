@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif
