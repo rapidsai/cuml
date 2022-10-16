@@ -21,8 +21,8 @@
 namespace MLCommon {
 namespace Matrix {
 
-using raft::distance::KernelParams;
-using raft::distance::KernelType;
+using raft::distance::kernels::KernelParams;
+using raft::distance::kernels::KernelType;
 
 };  // end namespace Matrix
 };  // end namespace MLCommon

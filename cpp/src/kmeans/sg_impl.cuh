@@ -18,7 +18,7 @@
 
 #include "common.cuh"
 #include <cuml/cluster/kmeans.hpp>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -176,7 +176,7 @@ void fit(const raft::handle_t& handle,
 
     // copy centroids[i] to newCentroids[i] when wtInCluster[i] is 0
     cub::ArgIndexInputIterator<DataT*> itr_wt(wtInCluster.data());
-    MLCommon::Matrix::gather_if(
+    raft::matrix::gather_if(
       centroids.data(),
       centroids.getSize(1),
       centroids.getSize(0),

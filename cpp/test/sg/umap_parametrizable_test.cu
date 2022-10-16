@@ -24,23 +24,21 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
-<<<<<<< HEAD
-#include <raft/cudart_utils.h>
+
+#if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
-=======
-#include <raft/core/cudart_utils.hpp>
->>>>>>> branch-22.10
+#endif
+
 #include <test_utils.h>
 
 #include <datasets/digits.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <selection/knn.cuh>
+#include <raft/spatial/knn/knn.cuh>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
-#include <selection/knn.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <umap/runner.cuh>
 
 #include <gtest/gtest.h>

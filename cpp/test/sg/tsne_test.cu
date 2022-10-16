@@ -26,12 +26,13 @@
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <iostream>
-<<<<<<< HEAD
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.h>
+
+#if defined RAFT_DISTANCE_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
-=======
-#include <raft/core/cudart_utils.hpp>
->>>>>>> branch-22.10
+#endif
+
+#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 #include <thrust/reduce.h>

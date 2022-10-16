@@ -53,7 +53,6 @@
 namespace ML {
 namespace SVM {
 using namespace raft::distance::kernels;
-using namespace Matrix;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>
@@ -699,7 +698,7 @@ class SmoSolverTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    LinAlg::range(sample_weights_dev.data(), 1, n_rows + 1, stream);
+    raft::linalg::range(sample_weights_dev.data(), 1, n_rows + 1, stream);
 
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     raft::update_device(ws_idx_dev.data(), ws_idx_host, n_ws, stream);

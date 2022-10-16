@@ -23,9 +23,9 @@
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
 #include <common/nvtx.hpp>
-#include <label/classlabels.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/sparse/csr.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -74,7 +74,7 @@ template <typename Index_ = int>
 void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream)
 {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  MLCommon::Label::make_monotonic(
+  raft::label::make_monotonic(
     db_cluster, db_cluster, N, stream, [MAX_LABEL] __device__(Index_ val) {
       return val == MAX_LABEL;
     });

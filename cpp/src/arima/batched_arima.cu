@@ -29,11 +29,13 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
+#include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/stats/information_criterion.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/common.hpp>
+#include <raft/stats/information_criterion.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -41,6 +43,7 @@
 #include <timeSeries/fillna.cuh>
 
 namespace ML {
+
 void pack(raft::handle_t& handle,
           const ARIMAParams<double>& params,
           const ARIMAOrder& order,

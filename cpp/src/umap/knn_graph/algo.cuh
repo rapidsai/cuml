@@ -21,17 +21,17 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/distance/distance_type.hpp>
-<<<<<<< HEAD
-#include <raft/linalg/unary_op.hpp>
-#include <raft/sparse/selection/knn.hpp>
-#include <raft/spatial/knn/specializations.hpp>
-=======
+
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.cuh>
->>>>>>> branch-22.10
-#include <selection/knn.cuh>
 
-#include <raft/core/cudart_utils.hpp>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
+#include <raft/spatial/knn/knn.cuh>
+
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/error.hpp>
 
@@ -39,7 +39,7 @@ namespace UMAPAlgo {
 namespace kNNGraph {
 namespace Algo {
 
-  /**
+/**
  * Initial implementation calls out to FAISS to do its work.
  */
 
@@ -67,17 +67,6 @@ inline void launcher(const raft::handle_t& handle,
   ptrs[0]  = inputsA.X;
   sizes[0] = inputsA.n;
 
-<<<<<<< HEAD
-  raft::spatial::knn::brute_force_knn<long, float, int>(handle,
-                                                        ptrs,
-                                                        sizes,
-                                                        inputsA.d,
-                                                        inputsB.X,
-                                                        inputsB.n,
-                                                        out.knn_indices,
-                                                        out.knn_dists,
-                                                        n_neighbors);
-=======
   raft::spatial::knn::brute_force_knn(handle,
                                       ptrs,
                                       sizes,
@@ -89,7 +78,6 @@ inline void launcher(const raft::handle_t& handle,
                                       n_neighbors,
                                       params->metric,
                                       params->p);
->>>>>>> branch-22.10
 }
 
 // Instantiation for dense inputs, int indices
@@ -177,5 +165,4 @@ inline void launcher(const raft::handle_t& handle,
 
 }  // namespace Algo
 }  // namespace kNNGraph
-}
-;  // namespace UMAPAlgo
+};  // namespace UMAPAlgo

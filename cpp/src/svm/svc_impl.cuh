@@ -75,7 +75,7 @@ void svcFit(const raft::handle_t& handle,
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 
   rmm::device_uvector<math_t> y(n_rows, stream);
-  MLCommon::Label::getOvrLabels(
+  raft::label::getOvrlabels(
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =

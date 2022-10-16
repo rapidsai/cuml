@@ -24,6 +24,7 @@
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 #include <cuml/svm/svc.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -32,6 +33,7 @@ namespace ML {
 namespace SVM {
 
 using namespace MLCommon;
+using namespace raft::distance::kernels;
 
 // Explicit instantiation for the library
 template void svcFit<float>(const raft::handle_t& handle,
@@ -40,7 +42,7 @@ template void svcFit<float>(const raft::handle_t& handle,
                             int n_cols,
                             float* labels,
                             const SvmParameter& param,
-                            MLCommon::Matrix::KernelParams& kernel_params,
+                            KernelParams& kernel_params,
                             SvmModel<float>& model,
                             const float* sample_weight);
 
@@ -50,7 +52,7 @@ template void svcFit<double>(const raft::handle_t& handle,
                              int n_cols,
                              double* labels,
                              const SvmParameter& param,
-                             MLCommon::Matrix::KernelParams& kernel_params,
+                             KernelParams& kernel_params,
                              SvmModel<double>& model,
                              const double* sample_weight);
 
@@ -58,7 +60,7 @@ template void svcPredict<float>(const raft::handle_t& handle,
                                 float* input,
                                 int n_rows,
                                 int n_cols,
-                                MLCommon::Matrix::KernelParams& kernel_params,
+                                KernelParams& kernel_params,
                                 const SvmModel<float>& model,
                                 float* preds,
                                 float buffer_size,
@@ -68,7 +70,7 @@ template void svcPredict<double>(const raft::handle_t& handle,
                                  double* input,
                                  int n_rows,
                                  int n_cols,
-                                 MLCommon::Matrix::KernelParams& kernel_params,
+                                 KernelParams& kernel_params,
                                  const SvmModel<double>& model,
                                  double* preds,
                                  double buffer_size,
@@ -82,7 +84,7 @@ template <typename math_t>
 SVC<math_t>::SVC(raft::handle_t& handle,
                  math_t C,
                  math_t tol,
-                 Matrix::KernelParams kernel_params,
+                 KernelParams kernel_params,
                  math_t cache_size,
                  int max_iter,
                  int nochange_steps,

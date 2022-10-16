@@ -46,7 +46,7 @@ void svrFit(const raft::handle_t& handle,
             int n_cols,
             math_t* y,
             const SvmParameter& param,
-            MLCommon::Matrix::KernelParams& kernel_params,
+            raft::distance::kernels::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -59,8 +59,9 @@ void svrFit(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  MLCommon::Matrix::GramMatrixBase<math_t>* kernel =
-    MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params, handle_impl.get_cublas_handle());
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel =
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
+                                                           handle_impl.get_cublas_handle());
 
   SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(X,

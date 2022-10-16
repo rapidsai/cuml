@@ -30,6 +30,8 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuml/common/logger.hpp>
+
 #include <cub/cub.cuh>
 
 #include <algorithm>
@@ -331,7 +333,7 @@ class KernelCache {
 
   const int TPB = 256;  //!< threads per block for kernels launched
 
-  raft::util::cache::Cache<math_t> cache;
+  raft::cache::Cache<math_t> cache;
 
   cudaStream_t stream;
   SvmType svmType;
