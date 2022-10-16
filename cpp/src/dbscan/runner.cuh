@@ -32,8 +32,6 @@
 
 #include <raft/core/nvtx.hpp>
 
-#include <label/classlabels.cuh>
-
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -43,8 +41,6 @@
 
 namespace ML {
 namespace Dbscan {
-
-using namespace MLCommon;
 
 static const int TPB = 256;
 
