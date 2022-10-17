@@ -14,11 +14,12 @@
 # limitations under the License.
 #
 
+import cuml.internals
 import typing
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+# from cuml.internals.base import Base
 
 
 def _get_base_return_type(class_name, attr):
@@ -42,7 +43,7 @@ def _get_base_return_type(class_name, attr):
                 return "array"
             elif (issubclass(ret_type, SparseCumlArray)):
                 return "sparsearray"
-            elif (issubclass(ret_type, Base)):
+            elif (issubclass(ret_type, cuml.internals.base.Base)):
                 return "base"
             else:
                 return None

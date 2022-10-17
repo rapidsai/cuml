@@ -22,6 +22,7 @@ from cuml.internals.api_decorators import (
     api_base_return_array,
     api_base_return_sparse_array,
     api_base_return_any,
+    api_return_any,
     _deprecate_pos_args
 )
 from cuml.internals.array import CumlArray

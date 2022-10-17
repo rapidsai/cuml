@@ -43,4 +43,4 @@ from cuml.internals.api_context_managers import (
     set_api_output_type,
 )
 from cuml.internals.internals import GraphBasedDimRedCallback
-from cuml.internal.constants import CUML_WRAPPED_FLAG
+from cuml.internals.constants import CUML_WRAPPED_FLAG
