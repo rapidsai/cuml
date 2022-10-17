@@ -3,6 +3,7 @@ channels:
 - rapidsai
 - nvidia
 - rapidsai-nightly
+- dask/label/dev
 - conda-forge
 dependencies:
 - cudatoolkit=11.0
@@ -21,6 +22,8 @@ dependencies:
 - pylibraft=22.12.*
 - dask-cudf=22.12.*
 - dask-cuda=22.12.*
+- dask>=2022.9.2
+- distributed>=2022.9.2
 - ucx>=1.13.0
 - ucx-py=0.29.*
 - ucx-proc=*=gpu
@@ -37,8 +40,6 @@ dependencies:
 - nltk
 - pip
 - pip:
-    - git+https://github.com/dask/dask.git@2022.9.2
-    - git+https://github.com/dask/distributed.git@2022.9.2
     - git+https://github.com/dask/dask-glm@main
     - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
     - sparse
