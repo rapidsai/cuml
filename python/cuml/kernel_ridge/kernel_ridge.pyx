@@ -21,7 +21,7 @@ import warnings
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 from cupyx import lapack, geterr, seterr
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
