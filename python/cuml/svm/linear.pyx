@@ -26,7 +26,7 @@ from rmm._lib.cuda_stream_view cimport cuda_stream_view
 from collections import OrderedDict
 from cython.operator cimport dereference as deref
 from cuml.internals.base_helpers import BaseMetaClass
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t

@@ -20,7 +20,7 @@ import nvtx
 import cupy as cp
 import cupyx
 from cuml.common import CumlArray
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring

@@ -23,7 +23,7 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin

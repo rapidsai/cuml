@@ -57,7 +57,7 @@ from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
 if has_scipy(True):
     import scipy.sparse
 
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 import rmm
 

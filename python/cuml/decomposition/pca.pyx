@@ -41,7 +41,7 @@ import cuml.internals.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.internals.input_utils import sparse_scipy_to_cp

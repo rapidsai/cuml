@@ -26,7 +26,7 @@ import warnings
 import cupy
 
 import cuml.internals
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 import cuml.internals.logger as logger

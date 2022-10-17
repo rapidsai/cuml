@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.array import CumlArray
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import ClusterMixin

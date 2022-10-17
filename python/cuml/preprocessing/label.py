@@ -19,7 +19,7 @@ import cupyx
 from cuml import Base
 import cuml.internals
 from cuml.common import CumlArray, has_scipy
-from cuml.internals.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
