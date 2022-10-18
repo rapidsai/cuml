@@ -130,5 +130,6 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
+add_subdirectory(cuml/experimental/common)
 add_subdirectory(cuml/experimental/linear_model)
 
