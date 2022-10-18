@@ -27,7 +27,7 @@ from cuml.datasets import make_blobs
 from sklearn.metrics import pairwise_distances
 from cuml.metrics import pairwise_distances as cuPW
 
-from cuml.common import logger
+from cuml.internals import logger
 
 import cupy as cp
 import cupyx

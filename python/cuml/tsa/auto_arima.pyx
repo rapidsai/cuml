@@ -28,7 +28,7 @@ import numpy as np
 import cupy as cp
 
 import cuml.internals
-from cuml.common import logger
+from cuml.internals import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
