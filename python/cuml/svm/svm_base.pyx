@@ -37,7 +37,8 @@ from cuml.common.mixins import FMajorInputTagMixin
 from libcpp cimport bool
 
 
-cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance::kernels":
+cdef extern from "raft/distance/distance_types.hpp" \
+        namespace "raft::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
