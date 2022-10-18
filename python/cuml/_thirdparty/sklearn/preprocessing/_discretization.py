@@ -24,9 +24,9 @@ from cuml.internals.mixins import SparseInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
 from ....thirdparty_adapters import check_array
-from ....common.array_sparse import SparseCumlArray
+from ....internals.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
-from ....common.memory_utils import using_output_type
+from ....internals.memory_utils import using_output_type
 from ....internals import _deprecate_pos_args
 
 

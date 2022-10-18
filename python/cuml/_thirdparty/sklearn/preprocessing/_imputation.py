@@ -27,7 +27,7 @@ from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
                                StringInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
-from ....common.array_sparse import SparseCumlArray
+from ....internals.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import _deprecate_pos_args
 

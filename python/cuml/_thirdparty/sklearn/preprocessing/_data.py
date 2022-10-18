@@ -44,13 +44,13 @@ from ....thirdparty_adapters.sparsefuncs_fast import \
     (inplace_csr_row_normalize_l1, inplace_csr_row_normalize_l2,
      csr_polynomial_expansion)
 
-from ....common.array import CumlArray
-from ....common.array_sparse import SparseCumlArray
+from ....internals.array import CumlArray
+from ....internals.array_sparse import SparseCumlArray
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import api_return_generic
 from ....internals import _deprecate_pos_args
 
-from ....common.memory_utils import using_output_type
+from ....internals.memory_utils import using_output_type
 
 BOUNDS_THRESHOLD = 1e-7
 

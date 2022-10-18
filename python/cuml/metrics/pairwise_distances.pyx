@@ -30,7 +30,8 @@ import scipy
 import cupyx
 import cuml.internals
 from cuml.internals.base import _determine_stateless_output_type
-from cuml.common import (input_to_cuml_array, CumlArray, logger)
+from cuml.common import (input_to_cuml_array, CumlArray)
+from cuml.internals import logger
 from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array_sparse import SparseCumlArray

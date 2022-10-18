@@ -10,7 +10,7 @@
 
 
 from cuml.internals.array_sparse import SparseCumlArray
-from ....common.base import Base
+from ....internals.base import Base
 from ..utils.validation import check_X_y
 from ....thirdparty_adapters import check_array
 
