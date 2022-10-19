@@ -35,7 +35,7 @@ gpu_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 cpu_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
 
 
-def to_output_type(array, output_type, order='F'):
+def to_output_type(array, output_type, order='K'):
     """Used to convert arrays while creating datasets
     for testing.
 
