@@ -36,6 +36,12 @@ from sklearn.linear_model import LinearRegression as skLinearRegression
 from cuml.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression as skLogisticRegression
 from cuml.linear_model import LogisticRegression
+from sklearn.linear_model import Lasso as skLasso
+from cuml.linear_model import Lasso
+from sklearn.linear_model import ElasticNet as skElasticNet
+from cuml.linear_model import ElasticNet
+from sklearn.linear_model import Ridge as skRidge
+from cuml.linear_model import Ridge
 from umap import UMAP as refUMAP
 from cuml.manifold import UMAP
 
@@ -88,7 +94,7 @@ def make_blob_dataset():
 
 
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
-X_train_blob, y_train_blob, X_test_blob = make_reg_dataset()
+X_train_blob, y_train_blob, X_test_blob = make_blob_dataset()
 
 
 def check_trustworthiness(cuml_output, test_data):
@@ -96,13 +102,13 @@ def check_trustworthiness(cuml_output, test_data):
     embeddings = to_output_type(cuml_output, 'numpy')
     n_neighbors = test_data['kwargs']['n_neighbors']
     trust = trustworthiness(input, embeddings, n_neighbors)
-    assert trust >= 0.5
+    assert trust >= 0.64
 
 
 def check_allclose(cuml_output, test_data):
     ref_output = to_output_type(test_data['ref_y_test'], 'numpy')
     cuml_output = to_output_type(cuml_output, 'numpy')
-    np.testing.assert_allclose(ref_output, cuml_output)
+    np.testing.assert_allclose(ref_output, cuml_output, rtol=0.15)
 
 
 def fixture_generation_helper(params):
@@ -164,11 +170,12 @@ def linreg_test_data(request):
 def logreg_test_data(request):
     kwargs = {
         'penalty': request.param['penalty'],
-        'fit_intercept': request.param['fit_intercept']
+        'fit_intercept': request.param['fit_intercept'],
+        'max_iter': 1000
     }
 
     above_average = y_train_reg > np.median(y_train_reg)
-    modified_y_train = y_train_reg
+    modified_y_train = y_train_reg.copy()
     modified_y_train[above_average] = 1
     modified_y_train[~above_average] = 0
 
@@ -186,6 +193,115 @@ def logreg_test_data(request):
 
     return {
         'cuEstimator': LogisticRegression,
+        'kwargs': kwargs,
+        'infer_func': 'predict',
+        'assert_func': check_allclose,
+        'X_train': to_output_type(X_train_reg, input_type),
+        'y_train': modified_y_train,
+        'X_test': to_output_type(X_test_reg, input_type),
+        'ref_y_test': sk_model.predict(X_test_reg)
+    }
+
+
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['numpy', 'dataframe', 'cupy',
+                                   'cudf', 'numba'],
+                    'fit_intercept': [False, True],
+                    'selection': ['cyclic', 'random']
+                }))
+def lasso_test_data(request):
+    kwargs = {
+        'fit_intercept': request.param['fit_intercept'],
+        'selection': request.param['selection'],
+        'tol': 0.0001
+    }
+
+    sk_model = skLasso(**kwargs)
+    sk_model.fit(X_train_reg, y_train_reg)
+
+    input_type = request.param['input_type']
+
+    if input_type == 'dataframe':
+        modified_y_train = pd.Series(y_train_reg)
+    elif input_type == 'cudf':
+        modified_y_train = cudf.Series(y_train_reg)
+    else:
+        modified_y_train = to_output_type(y_train_reg, input_type)
+
+    return {
+        'cuEstimator': Lasso,
+        'kwargs': kwargs,
+        'infer_func': 'predict',
+        'assert_func': check_allclose,
+        'X_train': to_output_type(X_train_reg, input_type),
+        'y_train': modified_y_train,
+        'X_test': to_output_type(X_test_reg, input_type),
+        'ref_y_test': sk_model.predict(X_test_reg)
+    }
+
+
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['numpy', 'dataframe', 'cupy',
+                                   'cudf', 'numba'],
+                    'fit_intercept': [False, True],
+                    'selection': ['cyclic', 'random']
+                }))
+def elasticnet_test_data(request):
+    kwargs = {
+        'fit_intercept': request.param['fit_intercept'],
+        'selection': request.param['selection'],
+        'tol': 0.0001
+    }
+
+    sk_model = skElasticNet(**kwargs)
+    sk_model.fit(X_train_reg, y_train_reg)
+
+    input_type = request.param['input_type']
+
+    if input_type == 'dataframe':
+        modified_y_train = pd.Series(y_train_reg)
+    elif input_type == 'cudf':
+        modified_y_train = cudf.Series(y_train_reg)
+    else:
+        modified_y_train = to_output_type(y_train_reg, input_type)
+
+    return {
+        'cuEstimator': ElasticNet,
+        'kwargs': kwargs,
+        'infer_func': 'predict',
+        'assert_func': check_allclose,
+        'X_train': to_output_type(X_train_reg, input_type),
+        'y_train': modified_y_train,
+        'X_test': to_output_type(X_test_reg, input_type),
+        'ref_y_test': sk_model.predict(X_test_reg)
+    }
+
+
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['numpy', 'dataframe', 'cupy',
+                                   'cudf', 'numba'],
+                    'fit_intercept': [False, True]
+                }))
+def ridge_test_data(request):
+    kwargs = {
+        'fit_intercept': request.param['fit_intercept'],
+        'solver': 'svd'
+    }
+
+    sk_model = skRidge(**kwargs)
+    sk_model.fit(X_train_reg, y_train_reg)
+
+    input_type = request.param['input_type']
+
+    if input_type == 'dataframe':
+        modified_y_train = pd.Series(y_train_reg)
+    elif input_type == 'cudf':
+        modified_y_train = cudf.Series(y_train_reg)
+    else:
+        modified_y_train = to_output_type(y_train_reg, input_type)
+
+    return {
+        'cuEstimator': Ridge,
         'kwargs': kwargs,
         'infer_func': 'predict',
         'assert_func': check_allclose,
@@ -235,6 +351,9 @@ def umap_test_data(request):
 
 fixture_union('test_data', ['linreg_test_data',
                             'logreg_test_data',
+                            'lasso_test_data',
+                            'elasticnet_test_data',
+                            'ridge_test_data',
                             'umap_test_data'])
 
 
@@ -315,6 +434,9 @@ def test_pickle_interop(test_data):
 
 @pytest.mark.parametrize('estimator', [LinearRegression,
                                        LogisticRegression,
+                                       Lasso,
+                                       ElasticNet,
+                                       Ridge,
                                        UMAP])
 def test_hyperparams_defaults(estimator):
     model = estimator()
@@ -329,18 +451,18 @@ def test_hyperparams_defaults(estimator):
     cpu_signature = inspect.signature(cpu_model.__init__).parameters
 
     common_hyperparams = list(set(cu_signature.keys()) &
-                                set(cpu_signature.keys()))
+                              set(cpu_signature.keys()))
     error_msg = 'Different default values for hyperparameters:\n'
     similar = True
     for hyperparam in common_hyperparams:
         if cu_signature[hyperparam].default != \
-            cpu_signature[hyperparam].default:
+           cpu_signature[hyperparam].default:
             similar = False
             error_msg += "\t{} with cuML default :" \
-                            "'{}' and CPU default : '{}'" \
-                            "\n".format(hyperparam,
-                                    cu_signature[hyperparam].default,
-                                    cpu_signature[hyperparam].default)
+                         "'{}' and CPU default : '{}'" \
+                         "\n".format(hyperparam,
+                                     cu_signature[hyperparam].default,
+                                     cpu_signature[hyperparam].default)
 
     if not similar:
         raise ValueError(error_msg)

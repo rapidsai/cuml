@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
@@ -35,6 +35,7 @@ from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -185,9 +186,11 @@ class Ridge(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
+    cpu_estimator_import_path_ = 'sklearn.linear_model'
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
@@ -238,7 +241,7 @@ class Ridge(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
+    def _fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
 
@@ -309,7 +312,6 @@ class Ridge(Base,
             self.intercept_ = c_intercept1
         else:
             c_alpha2 = self.alpha
-
             ridgeFit(handle_[0],
                      <double*>X_ptr,
                      <int>n_rows,
@@ -348,3 +350,6 @@ class Ridge(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
+
+    def get_attr_names(self):
+        return ['intercept_', 'coef_']

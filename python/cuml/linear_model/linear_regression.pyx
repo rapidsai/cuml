@@ -319,13 +319,6 @@ class LinearRegression(Base,
 
         return self
 
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
-        self.dtype = self.coef_.dtype
-        self.n_cols = self.coef_.shape[0]
-        # Adding Base here skips it in the Method Resolution Order (MRO)
-        # Since Base and LinearPredictMixin now both have a `predict` method
-        return super(Base, self).predict(X, convert_dtype=convert_dtype)
-
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']

@@ -19,7 +19,7 @@
 from inspect import signature
 
 from cuml.solvers import CD, QN
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array import CumlArray
@@ -27,6 +27,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 
 class ElasticNet(Base,
@@ -145,8 +146,10 @@ class ElasticNet(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
+    cpu_estimator_import_path_ = 'sklearn.linear_model'
     coef_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',
@@ -234,8 +237,8 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "ElasticNet":
+    def _fit(self, X, y, convert_dtype=True,
+             sample_weight=None) -> "ElasticNet":
         """
         Fit the model with X and y.
 
@@ -274,3 +277,6 @@ class ElasticNet(Base,
             "solver",
             "selection",
         ]
+
+    def get_attr_names(self):
+        return ['intercept_', 'coef_']

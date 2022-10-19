@@ -15,6 +15,7 @@
 #
 
 from cuml.linear_model.elastic_net import ElasticNet
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 
 class Lasso(ElasticNet):
@@ -127,6 +128,9 @@ class Lasso(ElasticNet):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
+    cpu_estimator_import_path_ = 'sklearn.linear_model'
+
+    @kwargs_interop_processing
     def __init__(self, *, alpha=1.0, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',

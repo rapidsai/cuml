@@ -61,11 +61,14 @@ class LinearPredictMixin:
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
         """
+        self.dtype = self.coef_.dtype
+        self.n_cols = self.coef_.shape[0]
+
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
