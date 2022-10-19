@@ -20,12 +20,13 @@
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 
-#include <metrics/scores.cuh>
+#include <raft/random/permute.hpp>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/stats/accuracy.hpp>
+#include <raft/stats/regression_metrics.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/sequence.h>
@@ -40,7 +41,6 @@
 #include <map>
 
 namespace ML {
-
 template <class T, class L>
 class RandomForest {
  protected:
@@ -196,7 +196,8 @@ class RandomForest {
   /**
    * @brief Predict target feature for input data
    * @param[in] user_handle: raft::handle_t.
-   * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+   * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU
+   * pointer.
    * @param[in] n_rows: number of  data samples.
    * @param[in] n_cols: number of features (excluding target feature).
    * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
@@ -260,7 +261,8 @@ class RandomForest {
   /**
    * @brief Predict target feature for input data and score against ref_labels.
    * @param[in] user_handle: raft::handle_t.
-   * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
+   * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU
+   * pointer.
    * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
    * @param[in] n_rows: number of  data samples.
    * @param[in] n_cols: number of features (excluding target feature).
@@ -279,7 +281,7 @@ class RandomForest {
     cudaStream_t stream = user_handle.get_stream();
     RF_metrics stats;
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
-      float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, stream);
+      float accuracy = raft::stats::accuracy(predictions, ref_labels, n_rows, stream);
       stats          = set_rf_metrics_classification(accuracy);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
@@ -288,13 +290,13 @@ class RandomForest {
         for each of these metrics */
     } else {  // regression task: get regression metrics
       double mean_abs_error, mean_squared_error, median_abs_error;
-      MLCommon::Score::regression_metrics(predictions,
-                                          ref_labels,
-                                          n_rows,
-                                          stream,
-                                          mean_abs_error,
-                                          mean_squared_error,
-                                          median_abs_error);
+      raft::stats::regression_metrics(predictions,
+                                      ref_labels,
+                                      n_rows,
+                                      stream,
+                                      mean_abs_error,
+                                      mean_squared_error,
+                                      median_abs_error);
       stats = set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
     }

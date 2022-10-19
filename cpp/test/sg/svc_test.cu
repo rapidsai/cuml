@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
@@ -23,14 +27,13 @@
 #include <cuml/svm/svr.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <matrix/grammatrix.cuh>
-#include <matrix/kernelmatrices.cuh>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/distance/kernels.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <string>
 #include <svm/smoblocksolve.cuh>
@@ -49,8 +52,7 @@
 
 namespace ML {
 namespace SVM {
-using namespace MLCommon;
-using namespace Matrix;
+using namespace raft::distance::kernels;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>
@@ -161,23 +163,23 @@ class KernelCacheTest : public ::testing::Test {
 
  protected:
   // Naive host side kernel implementation used for comparison
-  void ApplyNonlin(Matrix::KernelParams params)
+  void ApplyNonlin(KernelParams params)
   {
     switch (params.kernel) {
-      case Matrix::LINEAR: break;
-      case Matrix::POLYNOMIAL:
+      case LINEAR: break;
+      case POLYNOMIAL:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val            = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = pow(val, params.degree);
         }
         break;
-      case Matrix::TANH:
+      case TANH:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val            = params.gamma * tile_host_expected[z] + params.coef0;
           tile_host_expected[z] = tanh(val);
         }
         break;
-      case Matrix::RBF:
+      case RBF:
         for (int i = 0; i < n_ws; i++) {
           for (int j = 0; j < n_rows; j++) {
             math_t d = 0;
@@ -236,15 +238,15 @@ TYPED_TEST_CASE_P(KernelCacheTest);
 TYPED_TEST_P(KernelCacheTest, EvalTest)
 {
   auto stream = this->handle.get_stream();
-  std::vector<Matrix::KernelParams> param_vec{Matrix::KernelParams{Matrix::LINEAR, 3, 1, 0},
-                                              Matrix::KernelParams{Matrix::POLYNOMIAL, 2, 1.3, 1},
-                                              Matrix::KernelParams{Matrix::TANH, 2, 0.5, 2.4},
-                                              Matrix::KernelParams{Matrix::RBF, 2, 0.5, 0}};
+  std::vector<KernelParams> param_vec{KernelParams{LINEAR, 3, 1, 0},
+                                      KernelParams{POLYNOMIAL, 2, 1.3, 1},
+                                      KernelParams{TANH, 2, 0.5, 2.4},
+                                      KernelParams{RBF, 2, 0.5, 0}};
   float cache_size = 0;
 
   for (auto params : param_vec) {
-    Matrix::GramMatrixBase<TypeParam>* kernel =
-      Matrix::KernelFactory<TypeParam>::create(params, this->handle.get_cublas_handle());
+    GramMatrixBase<TypeParam>* kernel =
+      KernelFactory<TypeParam>::create(params, this->handle.get_cublas_handle());
     KernelCache<TypeParam> cache(this->handle,
                                  this->x_dev.data(),
                                  this->n_rows,
@@ -267,11 +269,11 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
 
 TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
 {
-  Matrix::KernelParams param{Matrix::LINEAR, 3, 1, 0};
+  KernelParams param{LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
-  Matrix::GramMatrixBase<TypeParam>* kernel =
-    Matrix::KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
+  GramMatrixBase<TypeParam>* kernel =
+    KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
   KernelCache<TypeParam> cache(this->handle,
                                this->x_dev.data(),
                                this->n_rows,
@@ -290,15 +292,15 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
 
 TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
 {
-  Matrix::KernelParams param{Matrix::LINEAR, 3, 1, 0};
+  KernelParams param{LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
   this->n_ws        = 6;
   int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
   raft::update_device(this->ws_idx_dev.data(), ws_idx_svr, 6, this->stream);
 
-  Matrix::GramMatrixBase<TypeParam>* kernel =
-    Matrix::KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
+  GramMatrixBase<TypeParam>* kernel =
+    KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
   KernelCache<TypeParam> cache(this->handle,
                                this->x_dev.data(),
                                this->n_rows,
@@ -696,7 +698,7 @@ class SmoSolverTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    LinAlg::range(sample_weights_dev.data(), 1, n_rows + 1, stream);
+    raft::linalg::range(sample_weights_dev.data(), 1, n_rows + 1, stream);
 
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     raft::update_device(ws_idx_dev.data(), ws_idx_host, n_ws, stream);
@@ -706,7 +708,7 @@ class SmoSolverTest : public ::testing::Test {
     raft::update_device(kernel_dev.data(), kernel_host, n_ws * n_rows, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha_dev.data(), 0, n_ws * sizeof(math_t), stream));
 
-    kernel = std::make_unique<Matrix::GramMatrixBase<math_t>>(cublas_handle);
+    kernel = std::make_unique<GramMatrixBase<math_t>>(cublas_handle);
   }
 
  public:
@@ -820,7 +822,7 @@ class SmoSolverTest : public ::testing::Test {
   cublasHandle_t cublas_handle;
   cudaStream_t stream = 0;
 
-  std::unique_ptr<Matrix::GramMatrixBase<math_t>> kernel;
+  std::unique_ptr<GramMatrixBase<math_t>> kernel;
   int n_rows       = 6;
   const int n_cols = 2;
   int n_ws         = 6;
