@@ -107,7 +107,7 @@ setup(name='cuml',
           "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
-      url="https://github.com/rapidsai/cudf",
+      url="https://github.com/rapidsai/cuml",
       setup_requires=['Cython>=0.29,<0.30'],
       packages=find_packages(include=['cuml', 'cuml.*']),
       package_data={
