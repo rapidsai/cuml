@@ -584,7 +584,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       }
     }
   } else {  // Or, as the owner of currently processed query batch,
-            // receive results from other workers for reduce
+    // receive results from other workers for reduce
     bool part_rank_is_idx = work.idxRanks.find(part_rank) != work.idxRanks.end();
     size_t idx_rank_size  = work.idxRanks.size();
 

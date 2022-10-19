@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 
-#include <label/classlabels.cuh>
+#include <raft/label/classlabels.cuh>
 
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>

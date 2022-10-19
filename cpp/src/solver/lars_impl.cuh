@@ -21,12 +21,12 @@
 #include <numeric>
 #include <vector>
 
-#include <cache/cache_util.cuh>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
+#include <raft/util/cache_util.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -1117,7 +1117,7 @@ void larsPredict(const raft::handle_t& handle,
     // We collect active columns of X to contiguous space
     X_active_cols.resize(n_active * ld_X, stream);
     const int TPB = 64;
-    MLCommon::Cache::get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
+    raft::cache::get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
       X, ld_X, active_idx, n_active, X_active_cols.data());
     RAFT_CUDA_TRY(cudaGetLastError());
     X = X_active_cols.data();

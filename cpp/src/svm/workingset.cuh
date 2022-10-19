@@ -22,7 +22,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/svm/svm_parameter.h>
 
-#include <linalg/init.h>
+#include <raft/linalg/init.cuh>
 
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
@@ -462,8 +462,8 @@ class WorkingSet {
 
   void Initialize()
   {
-    MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
-    MLCommon::LinAlg::range(idx.data(), n_ws, stream);
+    raft::linalg::range(f_idx.data(), n_train, stream);
+    raft::linalg::range(idx.data(), n_ws, stream);
   }
 
   /**

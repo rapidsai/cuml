@@ -17,15 +17,18 @@
 #include <random>
 #include <type_traits>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include <common/nvtx.hpp>
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
 #include <omp.h>
 #include <raft/core/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/distance/kernels.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/map.cuh>
@@ -33,6 +36,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

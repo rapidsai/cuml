@@ -26,6 +26,11 @@
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <iostream>
+
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
 #include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>

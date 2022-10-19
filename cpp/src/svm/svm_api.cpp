@@ -17,8 +17,8 @@
 #include <cuml/svm/svm_api.h>
 
 #include <common/cumlHandle.hpp>
-#include <cuml/matrix/kernelparams.h>
 #include <cuml/svm/svc.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <tuple>
 
 extern "C" {
@@ -54,8 +54,8 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   param.tol            = tol;
   param.verbosity      = verbosity;
 
-  MLCommon::Matrix::KernelParams kernel_param;
-  kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
+  raft::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
@@ -128,8 +128,8 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   param.tol            = tol;
   param.verbosity      = verbosity;
 
-  MLCommon::Matrix::KernelParams kernel_param;
-  kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
+  raft::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
@@ -189,8 +189,8 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
                              float buffer_size,
                              int predict_class)
 {
-  MLCommon::Matrix::KernelParams kernel_param;
-  kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
+  raft::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
@@ -243,8 +243,8 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
                              double buffer_size,
                              int predict_class)
 {
-  MLCommon::Matrix::KernelParams kernel_param;
-  kernel_param.kernel = (MLCommon::Matrix::KernelType)kernel;
+  raft::distance::kernels::KernelParams kernel_param;
+  kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;

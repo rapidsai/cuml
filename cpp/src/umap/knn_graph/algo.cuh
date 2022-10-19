@@ -23,9 +23,14 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.cuh>
-#include <selection/knn.cuh>
 
-#include <raft/core/cudart_utils.hpp>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
+#include <raft/spatial/knn/knn.cuh>
+
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/error.hpp>
 

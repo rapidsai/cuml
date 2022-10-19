@@ -24,18 +24,21 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
-#include <raft/core/cudart_utils.hpp>
+
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
 #include <test_utils.h>
 
 #include <datasets/digits.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <selection/knn.cuh>
+#include <raft/spatial/knn/knn.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
 #include <gtest/gtest.h>
@@ -141,15 +144,15 @@ class UMAPParametrizableTest : public ::testing::Test {
       ptrs[0]  = X;
       sizes[0] = n_samples;
 
-      raft::spatial::knn::brute_force_knn(handle,
-                                          ptrs,
-                                          sizes,
-                                          n_features,
-                                          X,
-                                          n_samples,
-                                          knn_indices,
-                                          knn_dists,
-                                          umap_params.n_neighbors);
+      raft::spatial::knn::brute_force_knn<long, float, int>(handle,
+                                                            ptrs,
+                                                            sizes,
+                                                            n_features,
+                                                            X,
+                                                            n_samples,
+                                                            knn_indices,
+                                                            knn_dists,
+                                                            umap_params.n_neighbors);
 
       handle.sync_stream(stream);
     }

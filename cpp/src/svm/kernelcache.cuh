@@ -18,10 +18,10 @@
 
 #include <cuml/svm/svm_parameter.h>
 
-#include <cache/cache.cuh>
-#include <cache/cache_util.cuh>
-#include <linalg/init.h>
-#include <matrix/grammatrix.cuh>
+#include <raft/distance/kernels.cuh>
+#include <raft/linalg/init.cuh>
+#include <raft/util/cache.cuh>
+#include <raft/util/cache_util.cuh>
 
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -29,6 +29,8 @@
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <cuml/common/logger.hpp>
 
 #include <cub/cub.cuh>
 
@@ -105,7 +107,7 @@ class KernelCache {
               int n_rows,
               int n_cols,
               int n_ws,
-              MLCommon::Matrix::GramMatrixBase<math_t>* kernel,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
               float cache_size = 200,
               SvmType svmType  = C_SVC)
     : cache(handle.get_stream(), n_rows, cache_size),
@@ -137,7 +139,7 @@ class KernelCache {
     x_ws.resize(x_ws_tile_size, handle.get_stream());
 
     // Default kernel_column_idx map for SVC
-    MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);
+    raft::linalg::range(k_col_idx.data(), n_ws, stream);
 
     // Init cub buffers
     std::size_t bytes1{};
@@ -325,13 +327,13 @@ class KernelCache {
 
   cublasHandle_t cublas_handle;
 
-  MLCommon::Matrix::GramMatrixBase<math_t>* kernel;
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel;
 
   const raft::handle_t handle;
 
   const int TPB = 256;  //!< threads per block for kernels launched
 
-  MLCommon::Cache::Cache<math_t> cache;
+  raft::cache::Cache<math_t> cache;
 
   cudaStream_t stream;
   SvmType svmType;

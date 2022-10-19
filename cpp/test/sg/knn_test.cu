@@ -26,6 +26,7 @@
 #include <cuml/datasets/make_blobs.hpp>
 
 #include <cuml/neighbors/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 namespace ML {
 
