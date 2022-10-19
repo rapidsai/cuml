@@ -31,7 +31,7 @@ double v_measure(const raft::handle_t& handle,
                  double beta)
 {
   return raft::stats::v_measure(
-    y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
+    y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream(), beta);
 }
 }  // namespace Metrics
 }  // namespace ML
