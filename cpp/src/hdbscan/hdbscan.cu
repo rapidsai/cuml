@@ -17,6 +17,7 @@
 #include "detail/condense.cuh"
 #include "detail/predict.cuh"
 #include <cuml/cluster/hdbscan.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
