@@ -44,6 +44,8 @@ from sklearn.linear_model import Ridge as skRidge
 from cuml.linear_model import Ridge
 from umap import UMAP as refUMAP
 from cuml.manifold import UMAP
+from cuml.decomposition import PCA
+from sklearn.decomposition import PCA as skPCA
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
@@ -108,6 +110,14 @@ def check_trustworthiness(cuml_output, test_data):
 def check_allclose(cuml_output, test_data):
     ref_output = to_output_type(test_data['ref_y_test'], 'numpy')
     cuml_output = to_output_type(cuml_output, 'numpy')
+    np.testing.assert_allclose(ref_output, cuml_output, rtol=0.15)
+
+
+def check_allclose_without_sign(cuml_output, test_data):
+    ref_output = to_output_type(test_data['ref_y_test'], 'numpy')
+    cuml_output = to_output_type(cuml_output, 'numpy')
+    assert ref_output.shape == cuml_output.shape
+    ref_output, cuml_output = np.abs(ref_output), np.abs(cuml_output)
     np.testing.assert_allclose(ref_output, cuml_output, rtol=0.15)
 
 
@@ -349,12 +359,50 @@ def umap_test_data(request):
     }
 
 
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['numpy', 'dataframe', 'cupy',
+                                   'cudf', 'numba'],
+                    'n_components': [2, 8]
+                }))
+def pca_test_data(request):
+    kwargs = {
+        'n_components': request.param['n_components'],
+        'svd_solver': 'full',
+        'tol': 1e-07,
+        'iterated_power': 15
+    }
+
+    sk_model = skPCA(**kwargs)
+    sk_model.fit(X_train_blob, y_train_blob)
+
+    input_type = request.param['input_type']
+
+    if input_type == 'dataframe':
+        modified_y_train = pd.Series(y_train_blob)
+    elif input_type == 'cudf':
+        modified_y_train = cudf.Series(y_train_blob)
+    else:
+        modified_y_train = to_output_type(y_train_blob, input_type)
+
+    return {
+        'cuEstimator': PCA,
+        'kwargs': kwargs,
+        'infer_func': 'transform',
+        'assert_func': check_allclose_without_sign,
+        'X_train': to_output_type(X_train_blob, input_type),
+        'y_train': modified_y_train,
+        'X_test': to_output_type(X_test_blob, input_type),
+        'ref_y_test': sk_model.transform(X_test_blob)
+    }
+
+
 fixture_union('test_data', ['linreg_test_data',
                             'logreg_test_data',
                             'lasso_test_data',
                             'elasticnet_test_data',
                             'ridge_test_data',
-                            'umap_test_data'])
+                            'umap_test_data',
+                            'pca_test_data'])
 
 
 def test_train_cpu_infer_cpu(test_data):
@@ -427,7 +475,7 @@ def test_pickle_interop(test_data):
         infer_func = getattr(pickled_model, test_data['infer_func'])
         cuml_output = infer_func(test_data['X_test'])
 
-    cuml_output = to_output_type(cuml_output, 'numpy').flatten()
+    cuml_output = to_output_type(cuml_output, 'numpy')
     assert_func = test_data['assert_func']
     assert_func(cuml_output, test_data)
 
@@ -437,7 +485,8 @@ def test_pickle_interop(test_data):
                                        Lasso,
                                        ElasticNet,
                                        Ridge,
-                                       UMAP])
+                                       UMAP,
+                                       PCA])
 def test_hyperparams_defaults(estimator):
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters

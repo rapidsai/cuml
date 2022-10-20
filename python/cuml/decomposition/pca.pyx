@@ -33,7 +33,7 @@ from cython.operator cimport dereference as deref
 
 import cuml.internals
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
@@ -48,6 +48,7 @@ from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common.mixins import SparseInputTagMixin
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -270,6 +271,7 @@ class PCA(Base,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
+    cpu_estimator_import_path_ = 'sklearn.decomposition'
     components_ = CumlArrayDescriptor()
     explained_variance_ = CumlArrayDescriptor()
     explained_variance_ratio_ = CumlArrayDescriptor()
@@ -278,6 +280,7 @@ class PCA(Base,
     noise_variance_ = CumlArrayDescriptor()
     trans_input_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
@@ -325,7 +328,7 @@ class PCA(Base,
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -374,22 +377,22 @@ class PCA(Base,
 
         self.components_ = cp.flip(self.components_, axis=1)
 
-        self.components_ = self.components_.T[:self._n_components, :]
+        self.components_ = self.components_.T[:self.n_components_, :]
 
         self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
             self.explained_variance_)
 
-        if self._n_components < min(self.n_rows, self.n_cols):
+        if self.n_components_ < min(self.n_rows, self.n_cols):
             self.noise_variance_ = \
-                self.explained_variance_[self._n_components:].mean()
+                self.explained_variance_[self.n_components_:].mean()
         else:
             self.noise_variance_ = cp.array([0.0])
 
         self.explained_variance_ = \
-            self.explained_variance_[:self._n_components]
+            self.explained_variance_[:self.n_components_]
 
         self.explained_variance_ratio_ = \
-            self.explained_variance_ratio_[:self._n_components]
+            self.explained_variance_ratio_[:self.n_components_]
 
         # Truncating negative explained variance values to 0
         self.singular_values_ = \
@@ -401,7 +404,7 @@ class PCA(Base,
         return self
 
     @generate_docstring(X='dense_sparse')
-    def fit(self, X, y=None) -> "PCA":
+    def _fit(self, X, y=None) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
@@ -414,9 +417,9 @@ class PCA(Base,
             )
             n_rows = X.shape[0]
             n_cols = X.shape[1]
-            self._n_components = min(n_rows, n_cols)
+            self.n_components_ = min(n_rows, n_cols)
         else:
-            self._n_components = self.n_components
+            self.n_components_ = self.n_components
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
@@ -570,7 +573,7 @@ class PCA(Base,
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
@@ -633,7 +636,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def _transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
@@ -641,6 +644,8 @@ class PCA(Base,
         from a training set.
 
         """
+        self.dtype = self.components_.dtype
+        self.n_cols = self.mean_.shape[0]
 
         self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
@@ -664,7 +669,7 @@ class PCA(Base,
 
         # todo: check dtype
         cpdef paramsPCA params
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -713,3 +718,8 @@ class PCA(Base,
             msg = ("This instance is not fitted yet. Call 'fit' "
                    "with appropriate arguments before using this estimator.")
             raise NotFittedError(msg)
+
+    def get_attr_names(self):
+        return ['components_', 'explained_variance_',
+                'explained_variance_ratio_', 'singular_values_',
+                'mean_', 'n_components_', 'noise_variance_']
