@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/map.cuh>
@@ -29,6 +28,7 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "preprocess.cuh"

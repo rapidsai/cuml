@@ -17,8 +17,8 @@
 #include "test_utils.h"
 #include <functions/hinge.cuh>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace MLCommon {
 namespace Functions {

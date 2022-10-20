@@ -27,14 +27,14 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml import Handle
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -69,7 +69,6 @@ class LinearRegression(Base,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
-
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -190,6 +189,7 @@ class LinearRegression(Base,
 
     """
 
+    sk_import_path_ = 'sklearn.linear_model'
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
@@ -228,8 +228,8 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "LinearRegression":
+    def _fit(self, X, y, convert_dtype=True,
+             sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -316,6 +316,16 @@ class LinearRegression(Base,
 
         return self
 
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
+        self.dtype = self.coef_.dtype
+        self.n_cols = self.coef_.shape[0]
+        # Adding Base here skips it in the Method Resolution Order (MRO)
+        # Since Base and LinearPredictMixin now both have a `predict` method
+        return super(Base, self).predict(X, convert_dtype=convert_dtype)
+
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
+
+    def get_attributes_names(self):
+        return ['coef_', 'intercept_']

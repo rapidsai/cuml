@@ -19,7 +19,7 @@
 #include <cusparse_v2.h>
 
 #include <cuml/neighbors/knn.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace raft {
 class handle_t;
