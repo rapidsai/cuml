@@ -21,11 +21,11 @@
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
 
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <algorithm>
 #include <numeric>

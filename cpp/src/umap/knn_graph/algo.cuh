@@ -20,8 +20,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
-#include <raft/distance/distance_type.hpp>
-
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.cuh>
 

@@ -25,9 +25,9 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

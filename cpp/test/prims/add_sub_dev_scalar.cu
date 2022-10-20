@@ -16,11 +16,11 @@
 
 #include "test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
