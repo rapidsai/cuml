@@ -27,13 +27,14 @@ from libc.stdint cimport uintptr_t
 
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import kwargs_interop_processing
 
 from cython.operator cimport dereference as deref
 
@@ -233,11 +234,13 @@ class TruncatedSVD(Base,
 
     """
 
+    cpu_estimator_import_path_ = 'sklearn.decomposition'
     components_ = CumlArrayDescriptor()
     explained_variance_ = CumlArrayDescriptor()
     explained_variance_ratio_ = CumlArrayDescriptor()
     singular_values_ = CumlArrayDescriptor()
 
+    @kwargs_interop_processing
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
@@ -295,7 +298,7 @@ class TruncatedSVD(Base,
                                                 dtype=self.dtype)
 
     @generate_docstring()
-    def fit(self, X, y=None) -> "TruncatedSVD":
+    def _fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit LSI model on training cudf DataFrame X. y is currently ignored.
 
@@ -421,11 +424,14 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def _transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 
         """
+        self.dtype = self.components_.dtype
+        self.n_cols = self.components_.shape[1]
+
         X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -469,3 +475,7 @@ class TruncatedSVD(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+
+    def get_attr_names(self):
+        return ['components_', 'explained_variance_',
+                'explained_variance_ratio_', 'singular_values_']
