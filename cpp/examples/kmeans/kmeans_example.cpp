@@ -23,9 +23,8 @@
 
 #include <cuda_runtime.h>
 
-#include <raft/core/handle.hpp>
-
 #include <cuml/cluster/kmeans.hpp>
+#include <raft/core/handle.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \

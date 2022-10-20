@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <raft/cluster/specializations.cuh>
+
 #include "kmeans_mg_impl.cuh"
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <raft/cluster/kmeans_types.hpp>

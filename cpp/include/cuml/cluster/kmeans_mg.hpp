@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cuml/cluster/kmeans.hpp>
+
 namespace raft {
 class handle_t;
 }
