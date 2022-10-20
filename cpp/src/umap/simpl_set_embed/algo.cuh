@@ -37,6 +37,7 @@
 #include <string>
 
 #include <raft/sparse/op/filter.cuh>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/system/cuda/execution_policy.h>

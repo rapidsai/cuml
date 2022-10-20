@@ -25,7 +25,6 @@
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -87,7 +86,7 @@ void launcher(const raft::handle_t& handle,
 
     eps2 = 2 * data.eps;
 
-    raft::neighbors::epsUnexpL2SqNeighborhood<value_t, index_t>(
+    raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
       data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
 
     /**
@@ -109,7 +108,7 @@ void launcher(const raft::handle_t& handle,
     // 1. The output matrix adj is now an n x m matrix (row-major order)
     // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
     // nullptr)
-    raft::neighbors::epsUnexpL2SqNeighborhood<value_t, index_t>(
+    raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
       data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
   }
 
