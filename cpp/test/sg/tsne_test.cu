@@ -16,7 +16,7 @@
 
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 
 #include <cuml/common/logger.hpp>

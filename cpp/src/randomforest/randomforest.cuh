@@ -24,8 +24,8 @@
 
 #include <raft/core/nvtx.hpp>
 #include <raft/random/rng.cuh>
-#include <raft/stats/accuracy.hpp>
-#include <raft/stats/regression_metrics.hpp>
+#include <raft/stats/accuracy.cuh>
+#include <raft/stats/regression_metrics.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>

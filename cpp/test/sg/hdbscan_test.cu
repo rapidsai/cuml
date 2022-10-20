@@ -17,8 +17,8 @@
 #include "hdbscan_inputs.hpp"
 
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/hdbscan.hpp>
@@ -34,7 +34,7 @@
 
 #include <raft/cluster/detail/agglomerative.cuh>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.cuh>

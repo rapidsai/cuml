@@ -24,7 +24,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 // TODO: Not a good strategy for pluggability but will be
 // removed once our dense pairwise distance API is in RAFT

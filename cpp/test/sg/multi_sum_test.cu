@@ -18,9 +18,9 @@
 
 #include <cuml/fil/multi_sum.cuh>
 
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
