@@ -19,7 +19,6 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/multiply.cuh>
@@ -27,6 +26,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>

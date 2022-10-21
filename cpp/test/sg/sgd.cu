@@ -15,8 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <solver/sgd.cuh>
 #include <test_utils.h>

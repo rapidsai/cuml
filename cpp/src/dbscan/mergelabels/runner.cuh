@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <label/merge_labels.cuh>
+#include <raft/label/merge_labels.cuh>
 
 #include <raft/core/handle.hpp>
 namespace ML {
@@ -44,7 +44,7 @@ void run(const raft::handle_t& handle,
          Index_ N,
          cudaStream_t stream)
 {
-  MLCommon::Label::merge_labels<Index_, TPB_X>(labels_a, labels_b, mask, work_buffer, m, N, stream);
+  raft::label::merge_labels<Index_, TPB_X>(labels_a, labels_b, mask, work_buffer, m, N, stream);
 }
 
 }  // namespace MergeLabels
