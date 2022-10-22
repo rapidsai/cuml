@@ -18,7 +18,7 @@
 
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>

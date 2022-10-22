@@ -48,7 +48,8 @@ if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
+cdef extern from "raft/distance/distance_types.hpp" \
+        namespace "raft::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,

@@ -1,3 +1,4 @@
+
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +25,7 @@ from cuml.dask.common.utils import get_client
 
 from cuml import Base
 from cuml.internals.array import CumlArray
+from cuml.experimental.internals.base import Base as experimentalBase
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -128,7 +130,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
             if model.type is None:
                 wait_and_raise_from_futures([model])
 
-            if not issubclass(model.type, Base):
+            if not issubclass(model.type, (Base, experimentalBase)):
                 raise ValueError("Dask Future expected to contain cuml.Base "
                                  "but found %s instead." % model.type)
 

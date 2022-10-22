@@ -31,7 +31,6 @@ from cuml.internals.memory_utils import rmm_cupy_ary
 from cuml.internals.memory_utils import set_global_output_type
 from cuml.internals.memory_utils import using_output_type
 from cuml.internals.memory_utils import with_cupy_rmm
-
 from cuml.common.pointer_utils import device_of_gpu_matrix
 
 # legacy to be removed after complete CumlAray migration

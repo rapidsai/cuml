@@ -25,7 +25,11 @@ from sklearn.linear_model import LinearRegression as skLinearRegression
 from cuml.linear_model import LinearRegression
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.common.device_selection import DeviceType, using_device_type
+<<<<<<< HEAD
 from cuml.common.device_selection import MemoryType, using_memory_type
+=======
+from cuml.common.memory_utils import MemoryType, using_memory_type
+>>>>>>> branch-22.12
 import pickle
 
 

@@ -15,15 +15,15 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>

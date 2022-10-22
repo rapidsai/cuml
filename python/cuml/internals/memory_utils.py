@@ -20,6 +20,7 @@ import operator
 import re
 from dataclasses import dataclass
 from functools import wraps
+from enum import Enum, auto
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED
@@ -35,6 +36,38 @@ cupy_using_allocator = gpu_only_import_from(
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 global_settings = GlobalSettings()
+
+
+class MemoryType(Enum):
+    device = auto(),
+    host = auto()
+    managed = auto()
+    mirror = auto()
+
+    @staticmethod
+    def from_str(memory_type):
+        if isinstance(memory_type, str):
+            memory_type = memory_type.lower()
+
+        try:
+            return MemoryType[memory_type]
+        except KeyError:
+            raise ValueError('Parameter memory_type must be one of "device", '
+                             '"host", "managed" or "mirror"')
+
+
+def set_global_memory_type(memory_type):
+    cuml.global_settings.memory_type = MemoryType.from_str(memory_type)
+
+
+@contextlib.contextmanager
+def using_memory_type(memory_type):
+    prev_memory_type = cuml.global_settings.memory_type
+    try:
+        set_global_memory_type(memory_type)
+        yield prev_memory_type
+    finally:
+        cuml.global_settings.memory_type = prev_memory_type
 
 
 @dataclass(frozen=True)

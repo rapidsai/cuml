@@ -24,19 +24,19 @@
 
 #include <common/tensor.hpp>
 
-#include <matrix/gather.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
+#include <raft/matrix/gather.cuh>
 #include <raft/random/permute.cuh>
 
 #include <raft/core/comms.hpp>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -241,7 +241,7 @@ Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
 
   Tensor<DataT, 2, IndexT> inRankCp({nPtsSampledInRank, n_features}, stream);
 
-  MLCommon::Matrix::gather(
+  raft::matrix::gather(
     X.data(),
     X.getSize(1),
     X.getSize(0),
@@ -601,13 +601,13 @@ void shuffleAndGather(const raft::handle_t& handle,
     raft::copy(indices.data(), ht_indices.data(), indices.numElements(), stream);
   }
 
-  MLCommon::Matrix::gather(in.data(),
-                           in.getSize(1),
-                           in.getSize(0),
-                           indices.data(),
-                           n_samples_to_gather,
-                           out.data(),
-                           stream);
+  raft::matrix::gather(in.data(),
+                       in.getSize(1),
+                       in.getSize(0),
+                       indices.data(),
+                       n_samples_to_gather,
+                       out.data(),
+                       stream);
 }
 
 template <typename DataT, typename IndexT>

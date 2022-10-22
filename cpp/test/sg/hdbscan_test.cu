@@ -17,8 +17,8 @@
 #include "hdbscan_inputs.hpp"
 
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/hdbscan.hpp>
@@ -29,11 +29,12 @@
 #include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
 
-#include <metrics/adjusted_rand_index.cuh>
+#include <raft/spatial/knn/specializations.hpp>
+#include <raft/stats/adjusted_rand_index.hpp>
 
 #include <raft/cluster/detail/agglomerative.cuh>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.cuh>
@@ -115,7 +116,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     handle.sync_stream(handle.get_stream());
 
-    score = MLCommon::Metrics::compute_adjusted_rand_index(
+    score = raft::stats::adjusted_rand_index(
       out.get_labels(), labels_ref.data(), params.n_row, handle.get_stream());
 
     if (score < 0.85) {
@@ -318,7 +319,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
     raft::update_device(labels_ref.data(), params.labels.data(), params.n_row, handle.get_stream());
-    score = MLCommon::Metrics::compute_adjusted_rand_index(
+    score = raft::stats::adjusted_rand_index(
       labels.data(), labels_ref.data(), params.n_row, handle.get_stream());
     handle.sync_stream(handle.get_stream());
   }

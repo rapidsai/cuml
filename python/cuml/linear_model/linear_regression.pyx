@@ -35,6 +35,7 @@ from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 
@@ -69,8 +70,6 @@ class LinearRegression(Base,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
-    sk_import_path_ = 'sklearn.linear_model'
-
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -191,6 +190,7 @@ class LinearRegression(Base,
 
     """
 
+    sk_import_path_ = 'sklearn.linear_model'
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 

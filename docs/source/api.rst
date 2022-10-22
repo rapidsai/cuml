@@ -420,8 +420,9 @@ Agglomerative Clustering
 HDBSCAN
 -------
 
-.. autoclass:: cuml.cluster.HDBSCAN
+.. automodule:: cuml.cluster.hdbscan
    :members:
+   :undoc-members:
 
 
 Dimensionality Reduction and Manifold Learning

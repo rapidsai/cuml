@@ -20,9 +20,9 @@
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <test_utils.h>
 #include <vector>
 

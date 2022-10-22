@@ -19,11 +19,13 @@
 #include "pack.h"
 #include <cuda_runtime.h>
 #include <math.h>
-#include <raft/device_atomics.cuh>
+#include <raft/neighbors/epsilon_neighborhood.cuh>
+
+#include "pack.h"
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/spatial/knn/epsilon_neighborhood.cuh>
+#include <raft/util/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -84,7 +86,7 @@ void launcher(const raft::handle_t& handle,
 
     eps2 = 2 * data.eps;
 
-    raft::spatial::knn::epsUnexpL2SqNeighborhood<value_t, index_t>(
+    raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
       data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
 
     /**
@@ -106,7 +108,7 @@ void launcher(const raft::handle_t& handle,
     // 1. The output matrix adj is now an n x m matrix (row-major order)
     // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
     // nullptr)
-    raft::spatial::knn::epsUnexpL2SqNeighborhood<value_t, index_t>(
+    raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
       data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
   }
 

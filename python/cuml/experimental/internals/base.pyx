@@ -19,36 +19,23 @@
 import os
 import inspect
 from importlib import import_module
+import numpy as np
+import nvtx
 
+import cuml
+import cuml.common
+import cuml.common.cuda
+import cuml.common.logger as logger
 import cuml.internals
-import cuml.internals.logger as logger
-import cuml.internals.input_utils
-
-from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator
-)
-
-rafthandle = gpu_only_import(pylibraft.common.handle)
+import pylibraft.common.handle
+import cuml.common.input_utils
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input_utils import input_to_host_array
+from cuml.common.array import CumlArray
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import TagsMixin
-from cuml.internals.device_type import DeviceType
-
-global_settings = GlobalSettings()
-np_ndarray = cpu_only_import_from('numpy', 'ndarray')
-nvtx_annotate = gpu_only_import_from(
-    'nvtx',
-    'annotate',
-    alt=null_decorator
-)
+from cuml.common.mixins import TagsMixin
+from cuml.common.device_selection import DeviceType
 
 
 class Base(TagsMixin,
@@ -126,7 +113,7 @@ class Base(TagsMixin,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
@@ -163,7 +150,7 @@ class Base(TagsMixin,
         # stream and handle example:
 
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle(stream=stream)
+        handle = pylibraft.common.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -171,7 +158,7 @@ class Base(TagsMixin,
 
         # final sync of all gpu-work launched inside this object
         # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
-        # the default stream inside the `cumlHandle` is being used
+        # the default stream inside the `raft::handle_t` is being used
         base.handle.sync()
         del base  # optional!
     """
@@ -198,7 +185,7 @@ class Base(TagsMixin,
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(
-            global_settings.output_type
+            cuml.global_settings.output_type
             if output_type is None else output_type)
         self._input_type = None
         self.target_dtype = None
@@ -250,7 +237,7 @@ class Base(TagsMixin,
             keyword arguments to be passed to the function for the call
         """
         # look for current device_type
-        device_type = global_settings.device_type
+        device_type = cuml.global_settings.device_type
         if device_type == DeviceType.device:
             # call the original cuml method
             cuml_func_name = '_' + func_name
@@ -330,7 +317,7 @@ class Base(TagsMixin,
                 for attribute in self.get_attributes_names():
                     sk_attr = self.sk_model_.__dict__[attribute]
                     # if the sklearn attribute is an array
-                    if isinstance(sk_attr, np_ndarray):
+                    if isinstance(sk_attr, np.ndarray):
                         # transfer array to gpu and set it as a cuml
                         # attribute
                         cuml_array = input_to_cuml_array(sk_attr)[0]
@@ -451,7 +438,7 @@ class Base(TagsMixin,
             self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
-        self._input_type = cuml.internals.input_utils.determine_array_type(inp)
+        self._input_type = cuml.common.input_utils.determine_array_type(inp)
 
     def _get_output_type(self, inp):
         """
@@ -461,7 +448,7 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = global_settings.output_type
+        output_type = cuml.global_settings.output_type
 
         # If its None, default to our type
         if (output_type is None or output_type == "mirror"):
@@ -469,12 +456,12 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.internals.input_utils.determine_array_type(inp)
+            output_type = cuml.common.input_utils.determine_array_type(inp)
 
         return output_type
 
     def _set_target_dtype(self, target):
-        self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
+        self.target_dtype = cuml.common.input_utils.determine_array_dtype(
             target)
 
     def _get_target_dtype(self):
@@ -517,7 +504,7 @@ class Base(TagsMixin,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
 
@@ -531,7 +518,7 @@ def _check_output_type_str(output_str):
         ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
          "to pass `output_type=self.output_type` to a child estimator? "
          "Currently `cuml.global_settings.output_type==`{}`"
-         ).format(global_settings.output_type)
+         ).format(cuml.global_settings.output_type)
 
     if isinstance(output_str, str):
         output_type = output_str.lower()
@@ -551,18 +538,18 @@ def _check_output_type_str(output_str):
 def _determine_stateless_output_type(output_type, input_obj):
     """
     This function determines the output type using the same steps that are
-    performed in `cuml.internals.base.Base`. This can be used to mimic the
+    performed in `cuml.common.base.Base`. This can be used to mimic the
     functionality in `Base` for stateless functions or objects that do not
     derive from `Base`.
     """
 
     # Default to the global type if not specified, otherwise, check the
     # output_type string
-    temp_output = global_settings.output_type if output_type is None \
+    temp_output = cuml.global_settings.output_type if output_type is None \
         else _check_output_type_str(output_type)
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = cuml.internals.input_utils.determine_array_type(input_obj)
+        temp_output = cuml.common.input_utils.determine_array_type(input_obj)
 
     return temp_output

@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
@@ -26,6 +25,7 @@
 #include <raft/stats/meanvar.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/weighted_mean.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
