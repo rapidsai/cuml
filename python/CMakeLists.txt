@@ -44,6 +44,7 @@ option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 
+
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
@@ -119,6 +120,13 @@ if(CUML_CPU)
   set(CUML_ALGORITHMS "linearregression")
 endif()
 
+if(CUML_CPU)
+  set(CUML_UNIVERSAL OFF)
+  set(SINGLEGPU ON)
+
+  set(CUML_ALGORITHMS "linearregression")
+endif()
+
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
@@ -155,7 +163,7 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
-add_subdirectory(cuml/experimental/common)
+add_subdirectory(cuml/experimental/internals)
 add_subdirectory(cuml/experimental/linear_model)
 
 if(DEFINED cython_lib_dir)
