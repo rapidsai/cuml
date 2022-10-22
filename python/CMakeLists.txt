@@ -30,15 +30,23 @@ project(
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
+option(CUML_UNIVERSAL "Build all cuML Python components." ON)
+option(CUML_CPU "Build only cuML CPU Python components." OFF)
+option(CUML_GPU "Build only cuML GPU Python components. Not supported yet, defaulting to CUML_UNIVERSAL" OFF)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
+message(VERBOSE "CUML_PY: Building cuML with algoriths: '${CUML_ALGORITHMS}'.")
+
 set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_SRC "../cpp")
 
 ################################################################################
 # - Process User Options  ------------------------------------------------------
@@ -97,15 +105,27 @@ if(NOT cuml_FOUND)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION cuml/library)
 endif()
 
+if(CUML_CPU)
+  set(CUML_UNIVERSAL OFF)
+  set(SINGLEGPU ON)
+
+  set(CUML_ALGORITHMS "linearregression")
+endif()
+
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 
 if(NOT SINGLEGPU)
-  include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
+  include("${CUML_CPP_SRC}"/cmake/thirdparty/get_cumlprims_mg.cmake)
   set(cuml_mg_libraries
     cuml::${CUML_CPP_TARGET}
     cumlprims_mg::cumlprims_mg
   )
 endif()
+
+include(${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake)
+
+################################################################################
+# - Build Cython artifacts -----------------------------------------------------
 
 include(rapids-cython)
 rapids_cython_init()
@@ -130,6 +150,6 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
-add_subdirectory(cuml/experimental/common)
+add_subdirectory(cuml/experimental/internals)
 add_subdirectory(cuml/experimental/linear_model)
 

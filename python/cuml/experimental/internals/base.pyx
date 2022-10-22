@@ -23,7 +23,6 @@ from importlib import import_module
 import cuml.internals
 import cuml.internals.logger as logger
 import cuml.internals.input_utils
-import pylibraft.common.handle
 
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
@@ -36,6 +35,8 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
     null_decorator
 )
+
+rafthandle = gpu_only_import(pylibraft.common.handle)
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import TagsMixin

@@ -13,15 +13,40 @@
 # =============================================================================
 
 
+# set(cython_sources
+#     base.pyx
+#     elastic_net.pyx
+#     linear_regression.pyx
+#     logistic_regression.pyx
+#     mbsgd_classifier.pyx
+#     mbsgd_regressor.pyx
+#     ridge.pyx
+# )
+
+function(add_cython_module FILES_LIST GROUP_FLAG INDIVIDUAL_FLAG FILENAME)
+    if(GROUP_FLAG OR INDIVIDUAL_FLAG)
+      list(APPEND FILES_LIST
+           FILENAME)
+      set (FILES_LIST  ${FILES_LIST} PARENT_SCOPE)
+    endif(GROUP_FLAG OR INDIVIDUAL_FLAG)
+endfunction()
+
+
+set(cython_sources
+    base.pyx)
+
+add_cython_module(cython_sources linear_model_algo linearregression_algo "linear_regression.pyx")
+
 set(cython_sources
     base.pyx
     elastic_net.pyx
-    linear_regression.pyx
     logistic_regression.pyx
     mbsgd_classifier.pyx
     mbsgd_regressor.pyx
     ridge.pyx
 )
+
+message("@@@DEBUG@@@ CUML_PY: cython_sources: '${cython_sources}'.")
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
