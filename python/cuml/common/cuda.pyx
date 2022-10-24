@@ -17,14 +17,22 @@
 # distutils: language = c++
 
 
-from rmm._cuda.gpu import getDeviceCount
+# from rmm._cuda.gpu import getDeviceCount
+cuda_gpu_present = gpu_only_import_from(
+    'rmm',
+    'getDeviceCount',
+)
 
 
 BUILT_WITH_CUDA = True
 
 
 def has_cuda_gpu():
-    return getDeviceCount() >= 1
+    try:
+       dc = cuda_gpu_present()
+       return dc >= 1
+    except UnavailableError:
+        return False
 
 
 class CudaRuntimeError(RuntimeError):

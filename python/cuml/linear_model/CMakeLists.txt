@@ -23,9 +23,6 @@ add_module_gpu_default("mbsgd_classifier.pyx" ${mbsgd_classifier_algo} ${linearr
 add_module_gpu_default("mbsgd_regressor.pyx" ${mbsgd_regressor_algo} ${linearregression_algo})
 add_module_gpu_default("ridge.pyx" ${ridge_algo} ${linearregression_algo})
 
-message(VERBOSE "@@@DEBUG - CUML_PY: cython_sources: ${cython_sources}")
-
-
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        base_mg.pyx
