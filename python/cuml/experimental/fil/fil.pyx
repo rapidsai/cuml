@@ -307,7 +307,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=handle, verbose=verbose, output_type=output_type
         )
         if align_bytes is None:
-            align_bytes=0
+            align_bytes = 0
         if treelite_model is not None:
             self._impl = ForestInference_impl(
                 self.handle,
@@ -345,7 +345,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             else:
                 model_type = 'treelite_checkpoint'
         tl_model = TreeliteModel.from_filename(path, model_type)
-        print(type(tl_model))
         return cls(
             treelite_model=tl_model,
             handle=handle,
