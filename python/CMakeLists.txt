@@ -115,20 +115,22 @@ endif()
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 
 if(NOT SINGLEGPU)
-  include("${CUML_CPP_SRC}"/cmake/thirdparty/get_cumlprims_mg.cmake)
+  include("${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake")
   set(cuml_mg_libraries
     cuml::${CUML_CPP_TARGET}
     cumlprims_mg::cumlprims_mg
   )
 endif()
 
-include(${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake)
+include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
 
 ################################################################################
 # - Build Cython artifacts -----------------------------------------------------
 
 include(rapids-cython)
 rapids_cython_init()
+
+include(cmake/ConfigureAlgorithmsHelpers.cmake)
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)
