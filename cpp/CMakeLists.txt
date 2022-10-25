@@ -243,7 +243,8 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
 endif()
 
 if(BUILD_CUML_BENCH)
-  include(cmake/thirdparty/get_gbench.cmake)
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench()
 endif()
 
 ##############################################################################
