@@ -140,7 +140,8 @@ def _build_fil_classifier(m, data, args, tmpdir):
         ('algo', 'fil_algo'),
         ('output_class', 'output_class'),
         ('threshold', 'threshold'),
-        ('storage_type', 'storage_type')
+        ('storage_type', 'storage_type'),
+        ('precision', 'precision')
     ):
         try:
             fil_kwargs[param] = args[input_name]
@@ -166,7 +167,7 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
 
     # remove keyword arguments not understood by SKLearn
     for param_name in ["fil_algo", "output_class", "threshold",
-                       "storage_type"]:
+                       "storage_type", "precision"]:
         params.pop(param_name, None)
 
     max_leaf_nodes = args["max_leaf_nodes"]
@@ -185,7 +186,8 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
         ('algo', 'fil_algo'),
         ('output_class', 'output_class'),
         ('threshold', 'threshold'),
-        ('storage_type', 'storage_type')
+        ('storage_type', 'storage_type'),
+        ('precision', 'precision')
     ):
         try:
             fil_kwargs[param] = args[input_name]

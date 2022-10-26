@@ -22,7 +22,7 @@ import json
 
 class Profiler:
     def __init__(self, tmp_path='/tmp/nsys_report'):
-        self.nsys_file = tmp_path + '/report.nsys-rep'
+        self.nsys_file = tmp_path + '/report.qdrep'
         self.json_file = tmp_path + '/report.json'
         self._execute(['rm', '-rf', tmp_path])
         self._execute(['mkdir', '-p', tmp_path])

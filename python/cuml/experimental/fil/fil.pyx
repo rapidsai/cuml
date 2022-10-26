@@ -356,17 +356,21 @@ class ForestInference(Base, CMajorInputTagMixin):
             precision='single',
             mem_type='gpu',
             device_id=0):
-        # TODO(wphicks) Handle precision
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
         if align_bytes is None:
             align_bytes = 0
+        if precision in ('native', None):
+            use_double_precision = None
+        else:
+            use_double_precision = (precision in ('double', 'float32'))
         if treelite_model is not None:
             self._impl = ForestInference_impl(
                 self.handle,
                 treelite_model,
                 align_bytes=align_bytes,
+                use_double_precision=use_double_precision,
                 mem_type=mem_type,
                 device_id=device_id
             )

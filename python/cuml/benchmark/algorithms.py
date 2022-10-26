@@ -406,6 +406,7 @@ def all_algorithms():
                 output_class=False,
                 threshold=0.5,
                 storage_type="auto",
+                precision='float32'
             ),
             name="FIL",
             accepts_labels=False,
@@ -424,6 +425,7 @@ def all_algorithms():
                 output_class=False,
                 threshold=0.5,
                 storage_type=True,
+                precision='float32'
             ),
             name="Sparse-FIL-SKL",
             accepts_labels=False,
