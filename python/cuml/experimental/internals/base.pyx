@@ -18,6 +18,7 @@
 
 import os
 import inspect
+import typing
 from importlib import import_module
 
 import cuml.internals
@@ -272,7 +273,7 @@ class Base(TagsMixin,
             # estimator its presence should signify that CPU execution was
             # used previously
             if not hasattr(self, 'cpu_model_'):
-                # import model in sklearn
+                # import the CPU model
                 if hasattr(self, 'cpu_estimator_import_path_'):
                     # if import path differs from the one of sklearn
                     # look for cpu_estimator_import_path_
@@ -372,6 +373,10 @@ class Base(TagsMixin,
 
     def transform(self, X, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('transform', X, *args, **kwargs)
+
+    def kneighbors(self, X, *args, **kwargs) \
+            -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
+        return self.dispatch_func('kneighbors', X, *args, **kwargs)
 
     def fit_transform(self, X, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('fit_transform', X, *args, **kwargs)
