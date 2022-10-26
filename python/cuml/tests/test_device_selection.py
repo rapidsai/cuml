@@ -48,6 +48,8 @@ from cuml.decomposition import PCA
 from sklearn.decomposition import PCA as skPCA
 from cuml.decomposition import TruncatedSVD
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from cuml.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
@@ -87,14 +89,14 @@ def make_reg_dataset():
                            n_informative=18, random_state=0)
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
-    return X_train, y_train, X_test
+    return X_train.astype(np.float32), y_train.astype(np.float32), X_test.astype(np.float32)
 
 
 def make_blob_dataset():
-    X, y = make_blobs(n_samples=2000, n_features=20, centers=20)
+    X, y = make_blobs(n_samples=2000, n_features=20, centers=20, random_state=0)
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
-    return X_train, y_train, X_test
+    return X_train.astype(np.float32), y_train.astype(np.float32), X_test.astype(np.float32)
 
 
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
@@ -121,6 +123,15 @@ def check_allclose_without_sign(cuml_output, test_data):
     assert ref_output.shape == cuml_output.shape
     ref_output, cuml_output = np.abs(ref_output), np.abs(cuml_output)
     np.testing.assert_allclose(ref_output, cuml_output, rtol=0.15)
+
+
+def check_nn(cuml_output, test_data):
+    ref_dists = to_output_type(test_data['ref_y_test'][0], 'numpy')
+    ref_indices = to_output_type(test_data['ref_y_test'][1], 'numpy')
+    cuml_dists = to_output_type(cuml_output[0], 'numpy')
+    cuml_indices = to_output_type(cuml_output[1], 'numpy')
+    np.testing.assert_allclose(ref_indices, cuml_indices)
+    np.testing.assert_allclose(ref_dists, cuml_dists, rtol=0.15)
 
 
 def fixture_generation_helper(params):
@@ -434,14 +445,47 @@ def tsvd_test_data(request):
     }
 
 
-fixture_union('test_data', ['tsvd_test_data'])
+@pytest_fixture_plus(**fixture_generation_helper({
+                    'input_type': ['numpy', 'dataframe', 'cupy',
+                                   'cudf', 'numba'],
+                    'metric': ['euclidean', 'cosine'],
+                    'n_neighbors': [3, 8]
+                }))
+def nn_test_data(request):
+    kwargs = {
+        'metric': request.param['metric'],
+        'n_neighbors': request.param['n_neighbors']
+    }
+
+    sk_model = skNearestNeighbors(**kwargs)
+    sk_model.fit(X_train_blob)
+
+    input_type = request.param['input_type']
+
+    return {
+        'cuEstimator': NearestNeighbors,
+        'kwargs': kwargs,
+        'infer_func': 'kneighbors',
+        'assert_func': check_nn,
+        'X_train': to_output_type(X_train_blob, input_type),
+        'X_test': to_output_type(X_test_blob, input_type),
+        'ref_y_test': sk_model.kneighbors(X_test_blob)
+    }
+
+
+fixture_union('test_data', [
+                            'tsvd_test_data',
+                            'nn_test_data'])
 
 
 def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data['cuEstimator']
     model = cuEstimator(**test_data['kwargs'])
     with using_device_type('cpu'):
-        model.fit(test_data['X_train'], test_data['y_train'])
+        if 'y_train' in test_data:
+            model.fit(test_data['X_train'], test_data['y_train'])
+        else:
+            model.fit(test_data['X_train'])
         infer_func = getattr(model, test_data['infer_func'])
         cuml_output = infer_func(test_data['X_test'])
 
@@ -453,7 +497,10 @@ def test_train_gpu_infer_cpu(test_data):
     cuEstimator = test_data['cuEstimator']
     model = cuEstimator(**test_data['kwargs'])
     with using_device_type('gpu'):
-        model.fit(test_data['X_train'], test_data['y_train'])
+        if 'y_train' in test_data:
+            model.fit(test_data['X_train'], test_data['y_train'])
+        else:
+            model.fit(test_data['X_train'])
     with using_device_type('cpu'):
         infer_func = getattr(model, test_data['infer_func'])
         cuml_output = infer_func(test_data['X_test'])
@@ -466,7 +513,10 @@ def test_train_cpu_infer_gpu(test_data):
     cuEstimator = test_data['cuEstimator']
     model = cuEstimator(**test_data['kwargs'])
     with using_device_type('cpu'):
-        model.fit(test_data['X_train'], test_data['y_train'])
+        if 'y_train' in test_data:
+            model.fit(test_data['X_train'], test_data['y_train'])
+        else:
+            model.fit(test_data['X_train'])
     with using_device_type('gpu'):
         infer_func = getattr(model, test_data['infer_func'])
         cuml_output = infer_func(test_data['X_test'])
@@ -479,7 +529,10 @@ def test_train_gpu_infer_gpu(test_data):
     cuEstimator = test_data['cuEstimator']
     model = cuEstimator(**test_data['kwargs'])
     with using_device_type('gpu'):
-        model.fit(test_data['X_train'], test_data['y_train'])
+        if 'y_train' in test_data:
+            model.fit(test_data['X_train'], test_data['y_train'])
+        else:
+            model.fit(test_data['X_train'])
         infer_func = getattr(model, test_data['infer_func'])
         cuml_output = infer_func(test_data['X_test'])
 
@@ -493,7 +546,10 @@ def test_pickle_interop(test_data):
     cuEstimator = test_data['cuEstimator']
     model = cuEstimator(**test_data['kwargs'])
     with using_device_type('gpu'):
-        model.fit(test_data['X_train'], test_data['y_train'])
+        if 'y_train' in test_data:
+            model.fit(test_data['X_train'], test_data['y_train'])
+        else:
+            model.fit(test_data['X_train'])
 
     with open(pickle_filepath, 'wb') as pf:
         pickle.dump(model, pf)
@@ -507,7 +563,6 @@ def test_pickle_interop(test_data):
         infer_func = getattr(pickled_model, test_data['infer_func'])
         cuml_output = infer_func(test_data['X_test'])
 
-    cuml_output = to_output_type(cuml_output, 'numpy')
     assert_func = test_data['assert_func']
     assert_func(cuml_output, test_data)
 
@@ -518,7 +573,9 @@ def test_pickle_interop(test_data):
                                        ElasticNet,
                                        Ridge,
                                        UMAP,
-                                       PCA])
+                                       PCA,
+                                       TruncatedSVD,
+                                       NearestNeighbors])
 def test_hyperparams_defaults(estimator):
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters

@@ -18,6 +18,7 @@
 
 import os
 import inspect
+import typing
 from importlib import import_module
 import numpy as np
 import nvtx
@@ -254,7 +255,7 @@ class Base(TagsMixin,
             # estimator its presence should signify that CPU execution was
             # used previously
             if not hasattr(self, 'cpu_model_'):
-                # import model in sklearn
+                # import the CPU model
                 if hasattr(self, 'cpu_estimator_import_path_'):
                     # if import path differs from the one of sklearn
                     # look for cpu_estimator_import_path_
@@ -330,16 +331,31 @@ class Base(TagsMixin,
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
                 for attr in self.get_attr_names():
-                    cpu_attr = getattr(self.cpu_model_, attr)
-                    # if the sklearn attribute is an array
-                    if isinstance(cpu_attr, np.ndarray):
-                        # transfer array to gpu and set it as a cuml
-                        # attribute
-                        cuml_array = input_to_cuml_array(cpu_attr)[0]
-                        setattr(self, attr, cuml_array)
-                    else:
-                        # transfer all other types of attributes directly
-                        setattr(self, attr, cpu_attr)
+                    # check presence of attribute
+                    if hasattr(self.cpu_model_, attr) or \
+                       isinstance(getattr(type(self.cpu_model_),
+                                          attr, None), property):
+                        # get the cpu attribute
+                        if hasattr(self.cpu_model_, attr):
+                            cpu_attr = getattr(self.cpu_model_, attr)
+                        else:
+                            cpu_attr = getattr(type(self.cpu_model_),
+                                               attr).fget(self.cpu_model_)
+                        # if the cpu attribute is an array
+                        if isinstance(cpu_attr, np.ndarray):
+                            # get data order wished for by CumlArrayDescriptor
+                            if hasattr(self, attr + '_order'):
+                                order = getattr(self, attr + '_order')
+                            else:
+                                order = 'K'
+                            # transfer array to gpu and set it as a cuml
+                            # attribute
+                            cuml_array = input_to_cuml_array(cpu_attr,
+                                                             order=order)[0]
+                            setattr(self, attr, cuml_array)
+                        else:
+                            # transfer all other types of attributes directly
+                            setattr(self, attr, cpu_attr)
                 return self
             else:
                 # return method result
@@ -353,6 +369,10 @@ class Base(TagsMixin,
 
     def transform(self, X, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('transform', X, *args, **kwargs)
+
+    def kneighbors(self, X, *args, **kwargs) \
+            -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
+        return self.dispatch_func('kneighbors', X, *args, **kwargs)
 
     def fit_transform(self, X, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('fit_transform', X, *args, **kwargs)

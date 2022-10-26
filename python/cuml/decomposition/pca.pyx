@@ -272,13 +272,13 @@ class PCA(Base,
     """
 
     cpu_estimator_import_path_ = 'sklearn.decomposition'
-    components_ = CumlArrayDescriptor()
-    explained_variance_ = CumlArrayDescriptor()
-    explained_variance_ratio_ = CumlArrayDescriptor()
-    singular_values_ = CumlArrayDescriptor()
-    mean_ = CumlArrayDescriptor()
-    noise_variance_ = CumlArrayDescriptor()
-    trans_input_ = CumlArrayDescriptor()
+    components_ = CumlArrayDescriptor(order='F')
+    explained_variance_ = CumlArrayDescriptor(order='F')
+    explained_variance_ratio_ = CumlArrayDescriptor(order='F')
+    singular_values_ = CumlArrayDescriptor(order='F')
+    mean_ = CumlArrayDescriptor(order='F')
+    noise_variance_ = CumlArrayDescriptor(order='F')
+    trans_input_ = CumlArrayDescriptor(order='F')
 
     @kwargs_interop_processing
     def __init__(self, *, copy=True, handle=None, iterated_power=15,

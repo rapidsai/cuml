@@ -533,7 +533,7 @@ def input_to_host_array(X,
 
     if isinstance(X, (int, float, complex, bool, str,
                       type(None), dict, set, list, tuple)):
-        return X
+        return (X,)
 
     if isinstance(X, np.ndarray):
         if len(X.shape) > 1:

@@ -235,10 +235,10 @@ class TruncatedSVD(Base,
     """
 
     cpu_estimator_import_path_ = 'sklearn.decomposition'
-    components_ = CumlArrayDescriptor()
-    explained_variance_ = CumlArrayDescriptor()
-    explained_variance_ratio_ = CumlArrayDescriptor()
-    singular_values_ = CumlArrayDescriptor()
+    components_ = CumlArrayDescriptor(order='F')
+    explained_variance_ = CumlArrayDescriptor(order='F')
+    explained_variance_ratio_ = CumlArrayDescriptor(order='F')
+    singular_values_ = CumlArrayDescriptor(order='F')
 
     @kwargs_interop_processing
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
