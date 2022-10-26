@@ -3,6 +3,7 @@ import numpy as np
 import nvtx
 import pathlib
 import treelite.sklearn
+import warnings
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
@@ -285,6 +286,58 @@ cdef class ForestInference_impl():
 
         return preds
 
+def _handle_legacy_args(
+        threshold=None,
+        algo=None,
+        storage_type=None,
+        blocks_per_sm=None,
+        threads_per_tree=None,
+        n_items=None,
+        compute_shape_str=None):
+    if threshold is not None:
+        raise DeprecationWarning(
+            'Parameter "threshold" has been deprecated.'
+            ' To use a threshold for binary classification, pass'
+            ' the "threshold" keyword directly to the predict method.'
+        )
+    if algo is not None:
+        warnings.warn(
+            'Parameter "algo" has been deprecated. Its use is no longer'
+            ' necessary to achieve optimal performance with FIL.',
+            DeprecationWarning
+        )
+    if storage_type is not None:
+        warnings.warn(
+            'Parameter "storage_type" has been deprecated. The correct'
+            ' storage type will be used automatically.',
+            DeprecationWarning
+        )
+    if blocks_per_sm is not None:
+        warnings.warn(
+            'Parameter "blocks_per_sm" has been deprecated. Its use is no'
+            ' longer necessary to achieve optimal performance with FIL.',
+            DeprecationWarning
+        )
+    if threads_per_tree is not None:
+        warnings.warn(
+            'Parameter "threads_per_tree" has been deprecated. Pass'
+            ' the "chunk_size" keyword argument to the predict method for'
+            ' equivalent functionality.',
+            DeprecationWarning
+        )
+    if n_items is not None:
+        warnings.warn(
+            'Parameter "n_items" has been deprecated. Its use is no'
+            ' longer necessary to achieve optimal performance with FIL.',
+            DeprecationWarning
+        )
+    if compute_shape_str is not None:
+        warnings.warn(
+            'Parameter "compute_shape_str" has been deprecated.',
+            DeprecationWarning
+        )
+
+
 class ForestInference(Base, CMajorInputTagMixin):
     """
     ForestInference provides accelerated inference for forest models on both
@@ -298,7 +351,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             handle=None,
             output_type=None,
             verbose=False,
-            output_class=True,
+            output_class=False,
             align_bytes=None,
             precision='single',
             mem_type='gpu',
@@ -326,15 +379,31 @@ class ForestInference(Base, CMajorInputTagMixin):
             cls,
             path,
             *,
-            handle=None,
+            output_class=False,
+            threshold=None,
+            algo=None,
+            storage_type=None,
+            blocks_per_sm=None,
+            threads_per_tree=None,
+            n_items=None,
+            compute_shape_str=None,
+            precision='single',
+            model_type=None,
             output_type=None,
             verbose=False,
-            output_class=True,
-            model_type=None,
             align_bytes=None,
-            precision='single',
             mem_type='gpu',
-            device_id=0):
+            device_id=0,
+            handle=None):
+        _handle_legacy_args(
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str
+        )
         if model_type is None:
             extension = pathlib.Path(path).suffix
             if extension == '.json':
@@ -363,18 +432,76 @@ class ForestInference(Base, CMajorInputTagMixin):
             cls,
             skl_model,
             *,
-            handle=None,
+            output_class=False,
+            threshold=None,
+            algo=None,
+            storage_type=None,
+            blocks_per_sm=None,
+            threads_per_tree=None,
+            n_items=None,
+            compute_shape_str=None,
+            precision='single',
+            model_type=None,
             output_type=None,
             verbose=False,
-            output_class=True,
-            model_type=None,
             align_bytes=None,
-            precision='single',
             mem_type='gpu',
-            device_id=0):
+            device_id=0,
+            handle=None):
+        _handle_legacy_args(
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str
+        )
         tl_frontend_model = treelite.sklearn.import_model(skl_model)
         tl_model = TreeliteModel.from_treelite_model_handle(
             tl_frontend_model.handle.value
+        )
+        return cls(
+            treelite_model=tl_model,
+            handle=handle,
+            output_type=output_type,
+            verbose=verbose,
+            output_class=output_class,
+            align_bytes=align_bytes,
+            precision=precision,
+            mem_type=mem_type,
+            device_id=device_id
+        )
+
+    @classmethod
+    def load_from_treelite_model(
+            cls,
+            tl_model,
+            *,
+            output_class=False,
+            threshold=None,
+            algo=None,
+            storage_type=None,
+            blocks_per_sm=None,
+            threads_per_tree=None,
+            n_items=None,
+            compute_shape_str=None,
+            precision='single',
+            model_type=None,
+            output_type=None,
+            verbose=False,
+            align_bytes=None,
+            mem_type='gpu',
+            device_id=0,
+            handle=None):
+        _handle_legacy_args(
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str
         )
         return cls(
             treelite_model=tl_model,
