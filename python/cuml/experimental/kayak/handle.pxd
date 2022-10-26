@@ -21,7 +21,7 @@
 
 
 from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
-from raft.common.handle cimport handle_t as raft_handle_t
+from pylibraft.common.handle cimport handle_t as raft_handle_t
 
 cdef extern from "cuml/experimental/kayak/handle.hpp" namespace "kayak" nogil:
     cdef cppclass handle_t:

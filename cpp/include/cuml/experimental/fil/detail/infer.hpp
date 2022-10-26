@@ -13,6 +13,7 @@
 #include <cuml/experimental/kayak/cuda_stream.hpp>
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
+#include <raft/core/nvtx.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -34,6 +35,7 @@ void infer(
   kayak::device_id<D> device=kayak::device_id<D>{},
   kayak::cuda_stream stream=kayak::cuda_stream{}
 ) {
+  auto nvtx_range = raft::common::nvtx::range{"fil::detail::infer"};
   if (vector_output == nullptr) {
     if (categorical_data == nullptr) {
       if (!has_categorical_nodes) {

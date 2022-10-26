@@ -15,6 +15,7 @@
 #include <cuml/experimental/kayak/device_type.hpp>
 #include <cuml/experimental/kayak/gpu_support.hpp>
 #include <cuml/experimental/kayak/padding.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace ML {
 namespace experimental {
@@ -55,6 +56,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   kayak::cuda_stream stream=kayak::cuda_stream{}
 ) {
 
+  auto nvtx_range = raft::common::nvtx::range{"fil::detail::inference::infer"};
   // std::cout << "Trees: " << forest.tree_count() << ", Rows: " << row_count << "\n";
   auto sm_count = get_sm_count(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
@@ -166,6 +168,9 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
     MAX_BLOCKS
   );
   if (rows_per_block_iteration <= 1) {
+    auto kernel_range = raft::common::nvtx::range{
+      "fil::detail::inference::infer_kernel"
+    };
     infer_kernel<has_categorical_nodes, 1><<<
       num_blocks,
       threads_per_block,
@@ -185,6 +190,9 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
       categorical_data
     );
   } else if (rows_per_block_iteration <= 2) {
+    auto kernel_range = raft::common::nvtx::range{
+      "fil::detail::inference::infer_kernel"
+    };
     infer_kernel<has_categorical_nodes, 2><<<
       num_blocks,
       threads_per_block,
@@ -204,6 +212,9 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
       categorical_data
     );
   } else if (rows_per_block_iteration <= 4) {
+    auto kernel_range = raft::common::nvtx::range{
+      "fil::detail::inference::infer_kernel"
+    };
     infer_kernel<has_categorical_nodes, 4><<<
       num_blocks,
       threads_per_block,
@@ -223,6 +234,9 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
       categorical_data
     );
   } else if (rows_per_block_iteration <= 8) {
+    auto kernel_range = raft::common::nvtx::range{
+      "fil::detail::inference::infer_kernel"
+    };
     infer_kernel<has_categorical_nodes, 8><<<
       num_blocks,
       threads_per_block,
@@ -242,6 +256,9 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
       categorical_data
     );
   } else if (rows_per_block_iteration <= 16) {
+    auto kernel_range = raft::common::nvtx::range{
+      "fil::detail::inference::infer_kernel"
+    };
     infer_kernel<has_categorical_nodes, 16><<<
       num_blocks,
       threads_per_block,
@@ -261,6 +278,9 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
       categorical_data
     );
   } else {
+    auto kernel_range = raft::common::nvtx::range{
+      "fil::detail::inference::infer_kernel"
+    };
     infer_kernel<has_categorical_nodes, 32><<<
       num_blocks,
       threads_per_block,

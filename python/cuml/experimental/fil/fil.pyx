@@ -1,5 +1,6 @@
 import cupy as cp
 import numpy as np
+import nvtx
 import pathlib
 import treelite.sklearn
 from libcpp cimport bool
@@ -14,7 +15,7 @@ from cuml.experimental.kayak.device_type cimport device_type as kayak_device_t
 from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
 from cuml.experimental.kayak.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
-from raft.common.handle cimport handle_t as raft_handle_t
+from pylibraft.common.handle cimport handle_t as raft_handle_t
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -321,7 +322,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         self.is_classifier = output_class
 
     @classmethod
-    def from_file(
+    def load(
             cls,
             path,
             *,
@@ -358,7 +359,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         )
 
     @classmethod
-    def from_sklearn(
+    def load_from_sklearn(
             cls,
             skl_model,
             *,
@@ -387,6 +388,10 @@ class ForestInference(Base, CMajorInputTagMixin):
             device_id=device_id
         )
 
+    @nvtx.annotate(
+        message='ForestInference.predict_proba',
+        domain='cuml_python'
+    )
     def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
         if not self.is_classifier:
             raise RuntimeError(
@@ -395,6 +400,10 @@ class ForestInference(Base, CMajorInputTagMixin):
             )
         return self._impl.predict(X, preds=preds, chunk_size=chunk_size)
 
+    @nvtx.annotate(
+        message='ForestInference.predict',
+        domain='cuml_python'
+    )
     def predict(
             self,
             X,
