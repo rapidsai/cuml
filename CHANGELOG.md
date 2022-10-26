@@ -1386,7 +1386,7 @@ Please see https://github.com/rapidsai/cuml/releases/tag/v23.02.00a for the late
 - PR #2335: Throw a warning if treelite cannot be imported and `load_from_sklearn` is used
 
 ## Bug Fixes
-- PR #1939: Fix syntax error in cuml.common.array
+- PR #1939: Fix syntax error in cuml.internals.array
 - PR #1941: Remove c++ cuda flag that was getting duplicated in CMake
 - PR #1971: python: Correctly honor --singlegpu option and CUML_BUILD_PATH env variable
 - PR #1969: Update libcumlprims to 0.14
