@@ -15,7 +15,7 @@
 #
 
 from cuml.internals.base import Base
-from cuml.common.cuda import has_cuda_gpu
+from cuml.internals.global_settings import has_cuda_gpu
 
 ## GPU only packages
 

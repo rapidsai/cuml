@@ -25,16 +25,16 @@ import nvtx
 import cuml
 import cuml.common
 import cuml.common.cuda
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import cuml.internals
 import pylibraft.common.handle
-import cuml.common.input_utils
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_host_array
-from cuml.common.array import CumlArray
+import cuml.internals.input_utils
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_host_array
+from cuml.internals.array import CumlArray
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import TagsMixin
+from cuml.internals.mixins import TagsMixin
 from cuml.common.device_selection import DeviceType
 
 
@@ -51,7 +51,7 @@ class Base(TagsMixin,
         their __init__.
 
     2. Attributes that users will want to access, and are array-like should
-        use cuml.common.Array, and have a preceding underscore `_` before
+        use cuml.internals.array, and have a preceding underscore `_` before
         the name the user expects. That way the __getattr__ of Base will
         convert it automatically to the appropriate output format for the
         user. For example, in DBSCAN the user expects to be able to access

@@ -240,7 +240,7 @@ So this needs to be taken into account for tag resolution, for the case above, t
 
 ### Estimator Array-Like Attributes
 
-Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array_descriptor.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
+Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
 
 The `CumlArrayDescriptor` behaves different when accessed internally (from within one of `cuml`'s functions) vs. externally (for user code outside the cuml module). Internally, it behaves exactly like a normal attribute and will return the previous value set. Externally, the array will get converted to the user's desired output type lazily and repeated conversion will be cached.
 
@@ -607,7 +607,7 @@ my_est.fit(cp.ones((10,)))
 
 # Access the CumlArrayDescriptorMeta value directly. No array conversion will occur
 print(my_est.__dict__["my_cuml_array_"])
-# Output: CumlArrayDescriptorMeta(input_type='cupy', values={'cuml': <cuml.common.array.CumlArray object at 0x7fd39174ae20>, 'numpy': array([ 0,  1,  1,  2,  2, -1, -1, ...
+# Output: CumlArrayDescriptorMeta(input_type='cupy', values={'cuml': <cuml.internals.array.CumlArray object at 0x7fd39174ae20>, 'numpy': array([ 0,  1,  1,  2,  2, -1, -1, ...
 
 # Values from CumlArrayDescriptorMeta can be specifically read
 print(my_est.__dict__["my_cuml_array_"].input_type)

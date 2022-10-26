@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml import Handle
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.common.base import Base
+from cuml.experimental.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
