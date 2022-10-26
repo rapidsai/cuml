@@ -4,33 +4,49 @@
 #include <cuml/experimental/kayak/cuda_check.hpp>
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
+#include <vector>
+
 namespace ML {
 namespace experimental {
 namespace fil {
 namespace detail {
 
 inline auto get_max_shared_mem_per_block(kayak::device_id<kayak::device_type::gpu> device_id) {
-  auto result = int{};
-  kayak::cuda_check(
-    cudaDeviceGetAttribute(
-      &result,
-      cudaDevAttrMaxSharedMemoryPerBlockOptin,
-      device_id.value()
-    )
-  );
-  return index_type(result);
+  auto static cache = std::vector<int>{};
+  if (cache.size() == 0) {
+    auto device_count = int{};
+    kayak::cuda_check(cudaGetDeviceCount(&device_count));
+    cache.resize(device_count);
+    for (auto dev=0; dev < device_count; ++dev) {
+      kayak::cuda_check(
+        cudaDeviceGetAttribute(
+          &(cache[dev]),
+          cudaDevAttrMaxSharedMemoryPerBlockOptin,
+          dev
+        )
+      );
+    }
+  }
+  return index_type(cache.at(device_id.value()));
 }
 
 inline auto get_sm_count(kayak::device_id<kayak::device_type::gpu> device_id) {
-  auto result = int{};
-  kayak::cuda_check(
-    cudaDeviceGetAttribute(
-      &result,
-      cudaDevAttrMultiProcessorCount,
-      device_id.value()
-    )
-  );
-  return index_type(result);
+  auto static cache = std::vector<int>{};
+  if (cache.size() == 0) {
+    auto device_count = int{};
+    kayak::cuda_check(cudaGetDeviceCount(&device_count));
+    cache.resize(device_count);
+    for (auto dev=0; dev < device_count; ++dev) {
+      kayak::cuda_check(
+        cudaDeviceGetAttribute(
+          &(cache[dev]),
+          cudaDevAttrMultiProcessorCount,
+          dev
+        )
+      );
+    }
+  }
+  return index_type(cache.at(device_id.value()));
 }
 
 inline auto get_max_threads_per_block(kayak::device_id<kayak::device_type::gpu> device_id) {
@@ -58,15 +74,22 @@ inline auto get_max_threads_per_sm(kayak::device_id<kayak::device_type::gpu> dev
 }
 
 inline auto get_max_shared_mem_per_sm(kayak::device_id<kayak::device_type::gpu> device_id) {
-  auto result = int{};
-  kayak::cuda_check(
-    cudaDeviceGetAttribute(
-      &result,
-      cudaDevAttrMaxSharedMemoryPerMultiprocessor,
-      device_id.value()
-    )
-  );
-  return index_type(result);
+  auto static cache = std::vector<int>{};
+  if (cache.size() == 0) {
+    auto device_count = int{};
+    kayak::cuda_check(cudaGetDeviceCount(&device_count));
+    cache.resize(device_count);
+    for (auto dev=0; dev < device_count; ++dev) {
+      kayak::cuda_check(
+        cudaDeviceGetAttribute(
+          &(cache[dev]),
+          cudaDevAttrMaxSharedMemoryPerMultiprocessor,
+          dev
+        )
+      );
+    }
+  }
+  return index_type(cache.at(device_id.value()));
 }
 
 inline auto get_mem_clock_rate(kayak::device_id<kayak::device_type::gpu> device_id) {

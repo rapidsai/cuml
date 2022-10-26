@@ -20,6 +20,8 @@ template<typename forest_t, kayak::device_type D>
 std::enable_if_t<kayak::GPU_ENABLED && D==kayak::device_type::gpu, void> initialize_device(kayak::device_id<D> device) {
   auto device_context = kayak::device_setter(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
+  // Run solely for side-effect of caching SM count
+  get_sm_count(device);
   kayak::cuda_check(
     cudaFuncSetAttribute(
       infer_kernel<false, 1, forest_t, std::nullptr_t, std::nullptr_t>,
