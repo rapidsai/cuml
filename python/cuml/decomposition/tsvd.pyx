@@ -318,14 +318,14 @@ class TruncatedSVD(Base,
         y is currently ignored.
 
         """
-        X_m, self.n_rows, self.n_cols, self.dtype = \
+        X_m, self.n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t> \
-            self._build_params(self.n_rows, self.n_cols)
+            self._build_params(self.n_rows, self.n_features_in_)
 
-        self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
+        self._initialize_arrays(self.n_components, self.n_rows, self.n_features_in_)
 
         cdef uintptr_t comp_ptr = self.components_.ptr
 
@@ -342,7 +342,7 @@ class TruncatedSVD(Base,
                                         dtype=self.dtype, index=X_m.index)
         cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
-        if self.n_components> self.n_cols:
+        if self.n_components> self.n_features_in_:
             raise ValueError(' n_components must be < n_features')
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -390,7 +390,7 @@ class TruncatedSVD(Base,
         cpdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
-        params.n_cols = self.n_cols
+        params.n_cols = self.n_features_in_
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
                                      dtype=self.dtype, index=X_m.index)
@@ -430,18 +430,18 @@ class TruncatedSVD(Base,
 
         """
         self.dtype = self.components_.dtype
-        self.n_cols = self.components_.shape[1]
+        self.n_features_in_ = self.components_.shape[1]
 
         X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_cols)
+                                check_cols=self.n_features_in_)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
-        params.n_cols = self.n_cols
+        params.n_cols = self.n_features_in_
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
@@ -478,4 +478,5 @@ class TruncatedSVD(Base,
 
     def get_attr_names(self):
         return ['components_', 'explained_variance_',
-                'explained_variance_ratio_', 'singular_values_']
+                'explained_variance_ratio_', 'singular_values_',
+                'n_features_in_', 'feature_names_in_']

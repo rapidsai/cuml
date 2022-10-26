@@ -357,8 +357,8 @@ class PCA(Base,
 
         self._sparse_model = True
 
-        self.n_rows = X.shape[0]
-        self.n_cols = X.shape[1]
+        self.n_samples_ = X.shape[0]
+        self.n_features_ = X.shape[1]
         self.dtype = X.dtype
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
@@ -382,7 +382,7 @@ class PCA(Base,
         self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
             self.explained_variance_)
 
-        if self.n_components_ < min(self.n_rows, self.n_cols):
+        if self.n_components_ < min(self.n_samples_, self.n_features_):
             self.noise_variance_ = \
                 self.explained_variance_[self.n_components_:].mean()
         else:
@@ -399,7 +399,7 @@ class PCA(Base,
             cp.where(self.explained_variance_ < 0, 0,
                      self.explained_variance_)
         self.singular_values_ = \
-            cp.sqrt(self.singular_values_ * (self.n_rows - 1))
+            cp.sqrt(self.singular_values_ * (self.n_samples_ - 1))
 
         return self
 
@@ -427,14 +427,16 @@ class PCA(Base,
             X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_fit(X)
 
-        X_m, self.n_rows, self.n_cols, self.dtype = \
+        X_m, self.n_samples_, self.n_features_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
+        self.n_features_in_ = self.n_features_
+        self.feature_names_in_ = X_m.index
 
         cdef paramsPCA *params = <paramsPCA*><size_t> \
-            self._build_params(self.n_rows, self.n_cols)
+            self._build_params(self.n_samples_, self.n_features_)
 
-        if params.n_components > self.n_cols:
+        if params.n_components > self.n_features_:
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
@@ -510,7 +512,7 @@ class PCA(Base,
 
         if self.whiten:
             cp.multiply(self.components_,
-                        (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
+                        (1 / cp.sqrt(self.n_samples_ - 1)), out=self.components_)
             cp.multiply(self.components_,
                         self.singular_values_.reshape((-1, 1)),
                         out=self.components_)
@@ -520,7 +522,7 @@ class PCA(Base,
 
         if self.whiten:
             self.components_ /= self.singular_values_.reshape((-1, 1))
-            self.components_ *= cp.sqrt(self.n_rows - 1)
+            self.components_ *= cp.sqrt(self.n_samples_ - 1)
 
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
@@ -575,7 +577,7 @@ class PCA(Base,
         cpdef paramsPCA params
         params.n_components = self.n_components_
         params.n_rows = n_rows
-        params.n_cols = self.n_cols
+        params.n_cols = self.n_features_
         params.whiten = self.whiten
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
@@ -619,7 +621,7 @@ class PCA(Base,
         with using_output_type("cupy"):
 
             if self.whiten:
-                self.components_ *= cp.sqrt(self.n_rows - 1)
+                self.components_ *= cp.sqrt(self.n_samples_ - 1)
                 self.components_ /= self.singular_values_.reshape((-1, 1))
 
             X = X - self.mean_
@@ -627,7 +629,7 @@ class PCA(Base,
 
             if self.whiten:
                 self.components_ *= self.singular_values_.reshape((-1, 1))
-                self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
+                self.components_ *= (1 / cp.sqrt(self.n_samples_ - 1))
 
         return X_transformed
 
@@ -645,7 +647,6 @@ class PCA(Base,
 
         """
         self.dtype = self.components_.dtype
-        self.n_cols = self.mean_.shape[0]
 
         self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
@@ -663,7 +664,7 @@ class PCA(Base,
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_cols)
+                                check_cols=self.n_features_)
 
         cdef uintptr_t input_ptr = X_m.ptr
 
@@ -722,4 +723,6 @@ class PCA(Base,
     def get_attr_names(self):
         return ['components_', 'explained_variance_',
                 'explained_variance_ratio_', 'singular_values_',
-                'mean_', 'n_components_', 'noise_variance_']
+                'mean_', 'n_components_', 'noise_variance_',
+                'n_samples_', 'n_features_', 'n_features_in_',
+                'feature_names_in_']

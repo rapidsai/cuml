@@ -89,14 +89,17 @@ def make_reg_dataset():
                            n_informative=18, random_state=0)
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
-    return X_train.astype(np.float32), y_train.astype(np.float32), X_test.astype(np.float32)
+    return X_train.astype(np.float32), y_train.astype(np.float32), \
+        X_test.astype(np.float32)
 
 
 def make_blob_dataset():
-    X, y = make_blobs(n_samples=2000, n_features=20, centers=20, random_state=0)
+    X, y = make_blobs(n_samples=2000, n_features=20,
+                      centers=20, random_state=0)
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
-    return X_train.astype(np.float32), y_train.astype(np.float32), X_test.astype(np.float32)
+    return X_train.astype(np.float32), y_train.astype(np.float32), \
+        X_test.astype(np.float32)
 
 
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
@@ -473,7 +476,13 @@ def nn_test_data(request):
     }
 
 
-fixture_union('test_data', [
+fixture_union('test_data', ['linreg_test_data',
+                            'logreg_test_data',
+                            'lasso_test_data',
+                            'elasticnet_test_data',
+                            'ridge_test_data',
+                            'umap_test_data',
+                            'pca_test_data',
                             'tsvd_test_data',
                             'nn_test_data'])
 

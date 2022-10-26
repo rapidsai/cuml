@@ -247,9 +247,10 @@ class Ridge(Base,
 
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
-        X_m, n_rows, self.n_cols, self.dtype = \
+        X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
+        self.feature_names_in_ = X_m.index
 
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
@@ -268,7 +269,7 @@ class Ridge(Base,
         else:
             sample_weight_ptr = 0
 
-        if self.n_cols < 1:
+        if self.n_features_in_ < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
@@ -276,7 +277,7 @@ class Ridge(Base,
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1 and self.algo != 0:
+        if self.n_features_in_ == 1 and self.algo != 0:
             warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
                           "solvers do not support training data with 1 " +
                           "column currently.", UserWarning)
@@ -284,7 +285,7 @@ class Ridge(Base,
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
@@ -298,7 +299,7 @@ class Ridge(Base,
             ridgeFit(handle_[0],
                      <float*>X_ptr,
                      <int>n_rows,
-                     <int>self.n_cols,
+                     <int>self.n_features_in_,
                      <float*>y_ptr,
                      <float*>&c_alpha1,
                      <int>self.n_alpha,
@@ -315,7 +316,7 @@ class Ridge(Base,
             ridgeFit(handle_[0],
                      <double*>X_ptr,
                      <int>n_rows,
-                     <int>self.n_cols,
+                     <int>self.n_features_in_,
                      <double*>y_ptr,
                      <double*>&c_alpha2,
                      <int>self.n_alpha,
@@ -352,4 +353,4 @@ class Ridge(Base,
             ['solver', 'fit_intercept', 'normalize', 'alpha']
 
     def get_attr_names(self):
-        return ['intercept_', 'coef_']
+        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']

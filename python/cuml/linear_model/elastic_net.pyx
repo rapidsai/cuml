@@ -243,6 +243,10 @@ class ElasticNet(Base,
         Fit the model with X and y.
 
         """
+        self.n_features_in_ = X.shape[1]
+        if hasattr(X, 'index'):
+            self.feature_names_in_ = X.index
+
         self.solver_model.fit(X, y, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
@@ -279,4 +283,4 @@ class ElasticNet(Base,
         ]
 
     def get_attr_names(self):
-        return ['intercept_', 'coef_']
+        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
