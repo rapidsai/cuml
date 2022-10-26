@@ -39,6 +39,21 @@ from cuml.experimental.common.base import Base as experimentalBase
 import pytest
 
 
+def array_difference(a, b, with_sign=True):
+    """
+    Utility function to compute the difference between 2 arrays.
+    """
+    a = to_nparray(a)
+    b = to_nparray(b)
+
+    if len(a) == 0 and len(b) == 0:
+        return 0
+
+    if not with_sign:
+        a, b = np.abs(a), np.abs(b)
+    return np.sum(np.abs(a - b))
+
+
 def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
     """
     Utility function to compare 2 numpy arrays. Two individual elements

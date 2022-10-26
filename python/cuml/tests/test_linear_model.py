@@ -16,13 +16,24 @@ from functools import lru_cache
 import cupy as cp
 import numpy as np
 import pytest
+from hypothesis import (
+    assume,
+    example,
+    given,
+    settings,
+    strategies as st,
+    target
+)
+from hypothesis.extra.numpy import floating_dtypes
 from distutils.version import LooseVersion
 import cudf
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
+from cuml.testing.strategies import split_datasets, regression_datasets
 from cuml.testing.utils import (
+    array_difference,
     array_equal,
     small_regression_dataset,
     small_classification_dataset,
@@ -193,10 +204,38 @@ def test_linear_regression_single_column():
         model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_linear_regression_model_default(datatype):
+@given(
+    split_datasets(
+        regression_datasets(
+            # Two assumptions required for cuml.LinearRegression:
+            n_samples=st.integers(
+                min_value=20, max_value=200
+            ),  # assuming min(train_size)=0.1
+            dtypes=floating_dtypes(sizes=(32, 64)),
+        )
+    )
+)
+@example(small_regression_dataset(np.float32))
+@example(small_regression_dataset(np.float64))
+@settings(
+    deadline=5000, max_examples=20
+)  # TODO: re-evaluate max_examples after benchmarking
+def test_linear_regression_model_default(dataset):
 
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+    X_train, X_test, y_train, y_test = dataset
+    n_rows, n_cols = X_train.shape
+
+    ## Required assumptions:
+    # sklinearRegression:
+    assume(n_cols >= 1)
+    assume((X_train > 0).any())
+    assume((y_train > 0).any())
+    assume(np.isfinite(X_train).all())
+    assume(np.isfinite(y_train).all())
+    # cuml.LinearRegression:
+    assume(n_rows >= 2)
+    # both:
+    assume(n_cols >= 1)
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression()
@@ -211,6 +250,7 @@ def test_linear_regression_model_default(datatype):
 
     skols_predict = skols.predict(X_test)
 
+    target(float(array_difference(skols_predict, cuols_predict)))
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
