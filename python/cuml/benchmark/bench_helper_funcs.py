@@ -135,10 +135,19 @@ def _build_fil_classifier(m, data, args, tmpdir):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
-    return m.load(model_path, algo=args["fil_algo"],
-                  output_class=args["output_class"],
-                  threshold=args["threshold"],
-                  storage_type=args["storage_type"])
+    fil_kwargs = {}
+    for param, input_name in (
+        ('algo', 'fil_algo'),
+        ('output_class', 'output_class'),
+        ('threshold', 'threshold'),
+        ('storage_type', 'storage_type')
+    ):
+        try:
+            fil_kwargs[param] = args[input_name]
+        except KeyError:
+            pass
+
+    return m.load(model_path, **fil_kwargs)
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
@@ -171,10 +180,19 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
     skl_model.fit(train_data, train_label)
     pickle.dump(skl_model, open(model_path, "wb"))
 
-    return m.load_from_sklearn(skl_model, algo=args["fil_algo"],
-                               output_class=args["output_class"],
-                               threshold=args["threshold"],
-                               storage_type=args["storage_type"])
+    fil_kwargs = {}
+    for param, input_name in (
+        ('algo', 'fil_algo'),
+        ('output_class', 'output_class'),
+        ('threshold', 'threshold'),
+        ('storage_type', 'storage_type')
+    ):
+        try:
+            fil_kwargs[param] = args[input_name]
+        except KeyError:
+            pass
+
+    return m.load_from_sklearn(skl_model, **fil_kwargs)
 
 
 def _build_cpu_skl_classifier(m, data, args, tmpdir):

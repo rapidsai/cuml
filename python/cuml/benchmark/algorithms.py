@@ -423,7 +423,7 @@ def all_algorithms():
                 fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
-                storage_type="SPARSE",
+                storage_type=True,
             ),
             name="Sparse-FIL-SKL",
             accepts_labels=False,
@@ -437,8 +437,7 @@ def all_algorithms():
             cuml.experimental.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                output_class=False,
-                threshold=0.5
+                output_class=False
             ),
             name="FILEX",
             accepts_labels=False,
@@ -453,10 +452,7 @@ def all_algorithms():
             cuml.experimental.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(
-                fil_algo="AUTO",
-                output_class=False,
-                threshold=0.5,
-                storage_type="SPARSE",
+                output_class=False
             ),
             name="Sparse-FILEX-SKL",
             accepts_labels=False,
