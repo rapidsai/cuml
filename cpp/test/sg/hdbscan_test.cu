@@ -205,6 +205,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     rmm::device_uvector<T> stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> out_label_map(0, handle.get_stream());
 
     HDBSCAN::detail::Extract::extract_clusters(handle,
                                                condensed_tree,
@@ -214,6 +215,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
                                                probabilities.data(),
                                                label_map.data(),
                                                HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM,
+                                               out_label_map,
                                                false);
 
     //    CUML_LOG_DEBUG("Evaluating results");
@@ -296,6 +298,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                                     condensed_sizes.data());
 
     rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> out_label_map(0, handle.get_stream());
 
     ML::HDBSCAN::detail::Extract::extract_clusters(handle,
                                                    condensed_tree,
@@ -305,6 +308,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
                                                    probabilities.data(),
                                                    label_map.data(),
                                                    params.cluster_selection_method,
+                                                   out_label_map,
                                                    params.allow_single_cluster,
                                                    0,
                                                    params.cluster_selection_epsilon);
@@ -339,6 +343,16 @@ TEST_P(ClusterSelectionTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 INSTANTIATE_TEST_CASE_P(ClusterSelectionTest,
                         ClusterSelectionTestF_Int,
                         ::testing::ValuesIn(cluster_selection_inputs));
+
+template <typename IdxT>
+void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map, IdxT m)
+{
+  thrust::transform(
+    handle.get_thrust_policy(), labels, labels + m, labels, [label_map] __device__(IdxT label) {
+      if (label != -1) return label_map[label];
+      return -1;
+    });
+}
 
 // This test was constructed in the following manner: The same condensed tree and set of selected
 // clusters need to be passed to the reference implementation and then compare the results from
@@ -410,6 +424,7 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     rmm::device_uvector<T> stabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> out_label_map(0, handle.get_stream());
 
     int n_selected_clusters =
       ML::HDBSCAN::detail::Extract::extract_clusters(handle,
@@ -420,6 +435,7 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
                                                      probabilities.data(),
                                                      label_map.data(),
                                                      params.cluster_selection_method,
+                                                     out_label_map,
                                                      params.allow_single_cluster,
                                                      0,
                                                      params.cluster_selection_epsilon);
@@ -429,10 +445,12 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
       handle, params.n_row, params.n_col);
 
+    transformLabels(handle, labels.data(), label_map.data(), params.n_row);
+
     ML::HDBSCAN::Common::build_prediction_data(handle,
                                                condensed_tree,
                                                labels.data(),
-                                               label_map.data(),
+                                               out_label_map.data(),
                                                n_selected_clusters,
                                                prediction_data_);
 
@@ -469,15 +487,6 @@ INSTANTIATE_TEST_CASE_P(SoftClusteringTest,
 template <typename T, typename IdxT>
 class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredictInputs<T, IdxT>> {
  public:
-  void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map, IdxT m)
-  {
-    thrust::transform(
-      handle.get_thrust_policy(), labels, labels + m, labels, [label_map] __device__(IdxT label) {
-        if (label != -1) return label_map[label];
-        return -1;
-      });
-  }
-
  protected:
   void basicTest()
   {
@@ -536,6 +545,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     rmm::device_uvector<T> stabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> out_label_map(0, handle.get_stream());
 
     int n_selected_clusters =
       ML::HDBSCAN::detail::Extract::extract_clusters(handle,
@@ -546,6 +556,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                                                      probabilities.data(),
                                                      label_map.data(),
                                                      params.cluster_selection_method,
+                                                     out_label_map,
                                                      params.allow_single_cluster,
                                                      0,
                                                      params.cluster_selection_epsilon);
@@ -569,14 +580,17 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
       pred_data.get_core_dists(),
       mutual_reachability_coo);
 
+    raft::print_device_vector("original labels", labels.data(), params.n_row, std::cout);
+    transformLabels(handle, labels.data(), label_map.data(), params.n_row);
+    raft::print_device_vector("final labels", labels.data(), params.n_row, std::cout);
+    raft::print_device_vector(
+      "out_label_map", out_label_map.data(), out_label_map.size(), std::cout);
     ML::HDBSCAN::Common::build_prediction_data(
-      handle, condensed_tree, labels.data(), label_map.data(), n_selected_clusters, pred_data);
+      handle, condensed_tree, labels.data(), out_label_map.data(), n_selected_clusters, pred_data);
 
     // outputs
     rmm::device_uvector<IdxT> out_labels(params.n_points_to_predict, handle.get_stream());
     rmm::device_uvector<T> out_probabilities(params.n_points_to_predict, handle.get_stream());
-
-    transformLabels(handle, labels.data(), label_map.data(), params.n_row);
 
     ML::out_of_sample_predict(handle,
                               condensed_tree,

@@ -191,8 +191,11 @@ void do_labelling_on_host(const raft::handle_t& handle,
  * @param[out] labels array of labels on device (size n_leaves)
  * @param[out] stabilities array of stabilities on device (size n_clusters)
  * @param[out] probabilities array of probabilities on device (size n_leaves)
- * @param[out] label_map array mapping condensed label ids to selected label ids (size n_leaves)
+ * @param[out] label_map array mapping condensed label ids to selected label ids (size
+ * n_condensed_trees)
  * @param[in] cluster_selection_method method to use for cluster selection
+ * @param[out] out_label_map array mapping final label ids to condensed label ids, used for
+ * prediction APIs (size n_clusters)
  * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
  * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before
  * it is split into multiple sub-clusters.
@@ -208,6 +211,7 @@ value_idx extract_clusters(const raft::handle_t& handle,
                            value_t* probabilities,
                            value_idx* label_map,
                            Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                           rmm::device_uvector<value_idx>& out_label_map,
                            bool allow_single_cluster         = false,
                            value_idx max_cluster_size        = 0,
                            value_t cluster_selection_epsilon = 0.0)
@@ -239,11 +243,20 @@ value_idx extract_clusters(const raft::handle_t& handle,
   }
 
   std::vector<value_idx> label_map_h(condensed_tree.get_n_clusters(), -1);
+  std::vector<value_idx> out_label_map_h(clusters.size(), -1);
   value_idx i = 0;
+  // creating forward and inverse index between
+  // original and final labels
   for (const value_idx cluster : clusters) {
     label_map_h[cluster - n_leaves] = i;
+    out_label_map_h[i]              = cluster - n_leaves;
     i++;
   }
+
+  // resizing is to n_clusters
+  out_label_map.resize(clusters.size(), stream);
+  raft::copy(out_label_map.data(), out_label_map_h.data(), out_label_map_h.size(), stream);
+  raft::print_device_vector("out_label_map", out_label_map.data(), out_label_map.size(), std::cout);
 
   raft::copy(label_map, label_map_h.data(), label_map_h.size(), stream);
   do_labelling_on_host<value_idx, value_t>(handle,

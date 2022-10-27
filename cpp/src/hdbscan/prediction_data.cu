@@ -95,9 +95,8 @@ void build_index_into_children(const raft::handle_t& handle,
  *
  * @param[in] handle raft handle for resource reuse
  * @param[in] condensed_tree a condensed hierarchy
- * @param[in] labels unconverted non-monotonic labels. These are intermediate outputs in the hdbscan
- * method
- * @param[in] label_map map of original labels to new final labels (size n_leaves)
+ * @param[in] labels Final normalized labels
+ * @param[in] label_map map of normalized labels to original labels (size n_clusters)
  * @param[in] n_selected_clusters number of clusters in the final clustering
  * @param[in] prediction_data PreditionData object
  */
@@ -190,27 +189,36 @@ void build_prediction_data(const raft::handle_t& handle,
   // use the exemplar labels to fetch the set of selected clusters from the condensed hierarchy
   rmm::device_uvector<int> exemplar_labels(n_exemplars, stream);
 
+  // this uses the original, pre-normalized label by
+  // using the label_map to lookup the original labels from final labels
   thrust::transform(exec_policy,
                     prediction_data.get_exemplar_idx(),
                     prediction_data.get_exemplar_idx() + n_exemplars,
                     exemplar_labels.data(),
-                    [labels] __device__(auto idx) { return labels[idx]; });
+                    [labels, label_map] __device__(auto idx) {
+                      auto label = labels[idx];
+                      if (label != -1) { return label_map[label]; }
+                      return -1;
+                    });
+  raft::print_device_vector(
+    "examplar labels", exemplar_labels.data(), exemplar_labels.size(), std::cout);
 
   thrust::sort_by_key(exec_policy,
                       exemplar_labels.data(),
                       exemplar_labels.data() + n_exemplars,
                       prediction_data.get_exemplar_idx());
 
+  // this uses the final, converted values of the labels
   rmm::device_uvector<int> converted_exemplar_labels(n_exemplars, stream);
   thrust::transform(exec_policy,
-                    exemplar_labels.begin(),
-                    exemplar_labels.end(),
+                    prediction_data.get_exemplar_idx(),
+                    prediction_data.get_exemplar_idx() + n_exemplars,
                     converted_exemplar_labels.data(),
-                    [label_map] __device__(auto label) {
-                      if (label != -1) return label_map[label];
-                      return -1;
-                    });
-
+                    [labels] __device__(auto idx) { return labels[idx]; });
+  raft::print_device_vector("converted exemplar labels",
+                            converted_exemplar_labels.data(),
+                            converted_exemplar_labels.size(),
+                            std::cout);
   if (n_exemplars > 0) {
     raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
                                              n_exemplars,

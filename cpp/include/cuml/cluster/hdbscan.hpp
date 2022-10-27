@@ -267,7 +267,8 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
         handle_, n_leaves_, labels_, children_, sizes_, deltas_, mst_src_, mst_dst_, mst_weights_),
       probabilities(probabilities_),
       stabilities(0, handle_.get_stream()),
-      condensed_tree(handle_, n_leaves_)
+      condensed_tree(handle_, n_leaves_),
+      label_map(0, handle_.get_stream())
   {
   }
 
@@ -276,6 +277,9 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   // it much easier to use / debug.
   value_t* get_probabilities() { return probabilities; }
   value_t* get_stabilities() { return stabilities.data(); }
+  value_idx* get_label_map() { return label_map.data(); }
+  // internal function
+  rmm::device_uvector<value_idx>& _get_label_map() { return label_map; }
 
   /**
    * Once n_clusters is known, the stabilities array
@@ -287,12 +291,17 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
     robust_single_linkage_output<value_idx, value_t>::set_n_clusters(n_clusters_);
     stabilities.resize(n_clusters_,
                        robust_single_linkage_output<value_idx, value_t>::get_handle().get_stream());
+    // label_map.resize(n_clusters_,
+    //               robust_single_linkage_output<value_idx, value_t>::get_handle().get_stream());
   }
 
   CondensedHierarchy<value_idx, value_t>& get_condensed_tree() { return condensed_tree; }
 
  private:
   value_t* probabilities;  // size n_leaves
+  // inversely maps normalized labels to pre-normalized labels
+  // used for out-of-sample prediction
+  rmm::device_uvector<value_idx> label_map;  // size n_clusters
 
   // Size not known ahead of time. Initialize
   // with `initialize_stabilities()` method.

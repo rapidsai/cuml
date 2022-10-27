@@ -35,10 +35,8 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::hdbscan_output<int, float>& out)
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
-  rmm::device_uvector<int> label_map(m, handle.get_stream());
   rmm::device_uvector<float> core_dists(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(
-    handle, X, m, n, metric, params, labels.data(), label_map.data(), core_dists.data(), out);
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), core_dists.data(), out);
 }
 
 void hdbscan(const raft::handle_t& handle,
@@ -51,22 +49,13 @@ void hdbscan(const raft::handle_t& handle,
              HDBSCAN::Common::PredictionData<int, float>& prediction_data_)
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
-  rmm::device_uvector<int> label_map(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle,
-                        X,
-                        m,
-                        n,
-                        metric,
-                        params,
-                        labels.data(),
-                        label_map.data(),
-                        prediction_data_.get_core_dists(),
-                        out);
+  HDBSCAN::_fit_hdbscan(
+    handle, X, m, n, metric, params, labels.data(), prediction_data_.get_core_dists(), out);
 
   HDBSCAN::Common::build_prediction_data(handle,
                                          out.get_condensed_tree(),
-                                         labels.data(),
-                                         label_map.data(),
+                                         out.get_labels(),
+                                         out.get_label_map(),
                                          out.get_n_clusters(),
                                          prediction_data_);
 }
@@ -101,7 +90,8 @@ void _extract_clusters(const raft::handle_t& handle,
     handle, n_leaves, n_edges, parents, children, lambdas, sizes);
 
   rmm::device_uvector<float> stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
-  rmm::device_uvector<int> label_map(n_leaves, handle.get_stream());
+  rmm::device_uvector<int> label_map(condensed_tree.get_n_clusters(), handle.get_stream());
+  rmm::device_uvector<int> out_label_map(0, handle.get_stream());
 
   HDBSCAN::detail::Extract::extract_clusters(handle,
                                              condensed_tree,
@@ -111,6 +101,7 @@ void _extract_clusters(const raft::handle_t& handle,
                                              probabilities,
                                              label_map.data(),
                                              cluster_selection_method,
+                                             out_label_map,
                                              allow_single_cluster,
                                              max_cluster_size,
                                              cluster_selection_epsilon);

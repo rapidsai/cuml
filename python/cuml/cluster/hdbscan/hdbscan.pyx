@@ -71,6 +71,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_clusters()
         float *get_stabilities()
         int *get_labels()
+        int *get_label_map()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
@@ -677,7 +678,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         cdef PredictionData[int, float] *prediction_data_ = new PredictionData(
             handle_[0], <int> n_rows, <int> n_cols)
-        if self.connectivity == 'knn':
+        if self.connectivity == 'knn' or self.connectivity == 'pairwise':
             if self.prediction_data:
                 self.prediction_data_ptr = <size_t>prediction_data_
                 hdbscan(handle_[0],
