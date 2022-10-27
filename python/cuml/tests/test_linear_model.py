@@ -217,9 +217,7 @@ def test_linear_regression_single_column():
 )
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
-@settings(
-    deadline=5000, max_examples=20
-)  # TODO: re-evaluate max_examples after benchmarking
+@settings(deadline=5000)
 def test_linear_regression_model_default(dataset):
 
     X_train, X_test, y_train, y_test = dataset
