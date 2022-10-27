@@ -242,17 +242,24 @@ class CumlArray():
             mem_type = self._mem_type
 
         if (
+            (
+                self._array_interface['strides'] is None
+                or len(self._array_interface['strides']) == 1
+            ) and order not in ('K', None)
+        ):
+            self._order = order
+        elif (
             self._array_interface['strides'] is None or
             len(self._array_interface['strides']) == 1 or
             self._mem_type.xpy.all(
                 self._array_interface['strides'][1:]
-                >= self._array_interface['strides'][:-1]
+                <= self._array_interface['strides'][:-1]
             )
         ):
             self._order = 'C'
         elif self._mem_type.xpy.all(
             self._array_interface['strides'][1:]
-            <= self._array_interface['strides'][:-1]
+            >= self._array_interface['strides'][:-1]
         ):
             self._order = 'F'
         else:
