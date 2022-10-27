@@ -15,8 +15,6 @@ jobs:
     with:
       package-name: cuml
       package-dir: python
-      python-package-versioneer-override: "22.10.00"
-      python-package-build-tag: "1"
 
       skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/sevagh/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCUML_CUMLPRIMS_MG_BRANCH=upkeep/cibuildwheel-support -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
 
