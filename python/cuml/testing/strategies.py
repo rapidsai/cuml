@@ -14,7 +14,7 @@
 #
 from hypothesis import assume
 from hypothesis.extra.numpy import arrays, floating_dtypes
-from hypothesis.strategies import booleans, composite, floats, integers
+from hypothesis.strategies import booleans, composite, floats, integers, sampled_from
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
@@ -49,7 +49,7 @@ def datasets(
     xs = draw(n_samples)
     ys = draw(n_features)
     X = arrays(dtype=dtypes, shape=(xs, ys))
-    y = arrays(dtype=dtypes, shape=(xs, 1))
+    y = arrays(dtype=dtypes, shape=(xs, draw(sampled_from((1, ys)))))
     return draw(X), draw(y)
 
 
