@@ -14,7 +14,8 @@
 #
 from hypothesis import assume
 from hypothesis.extra.numpy import arrays, floating_dtypes
-from hypothesis.strategies import booleans, composite, floats, integers, sampled_from
+from hypothesis.strategies import (booleans, composite, floats, integers,
+                                   sampled_from)
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
