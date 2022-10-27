@@ -188,12 +188,14 @@ class CumlArray():
                     # Assume integers are pointers. For everything else,
                     # convert it to an array and retry
                     try:
-                        new_data = xpy.asarray(data, dtype=dtype)
-                    except ValueError:
                         new_data = xpy.frombuffer(data, dtype=dtype)
+                    except TypeError:
+                        new_data = xpy.asarray(data, dtype=dtype)
                     if shape is not None:
                         new_order = order if order is not None else 'C'
-                        xpy.reshape(new_data, shape, order=new_order)
+                        new_data = xpy.reshape(
+                            new_data, shape, order=new_order
+                        )
                     return self.__init__(
                         data=new_data,
                         index=index,
@@ -291,16 +293,18 @@ class CumlArray():
                 raise ValueError(
                     'Specified owner object does not seem to match data'
                 )
-            try:
-                shape_arr = self._mem_type.xpy.array([val for val in shape])
-            except TypeError:
-                shape_arr = self._mem_type.xpy.array([shape])
-            if shape is not None and not self._mem_type.xpy.array_equal(
+            if shape is not None:
+                shape_arr = self._mem_type.xpy.array(shape)
+                if len(shape_arr.shape) == 0:
+                    shape_arr = self._mem_type.xpy.reshape(shape_arr, (1,))
+
+                if not self._mem_type.xpy.array_equal(
                     self._mem_type.xpy.array(self._array_interface['shape']),
-                    shape_arr):
-                raise ValueError(
-                    'Specified shape inconsistent with input data object'
-                )
+                    shape_arr
+                ):
+                    raise ValueError(
+                        'Specified shape inconsistent with input data object'
+                    )
             if strides is not None and not self._mem_type.xpy.array_equal(
                     self._mem_type.xpy.array(self._array_interface['strides']),
                     self._mem_type.xpy.array(strides)):
