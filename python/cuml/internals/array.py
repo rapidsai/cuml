@@ -137,13 +137,8 @@ class CumlArray():
                  strides=None,
                  mem_type=None):
 
-        if mem_type is None:
-            xpy = global_settings.xpy
-        else:
-            xpy = mem_type.xpy
-
         if dtype is not None:
-            dtype = xpy.dtype(dtype)
+            dtype = global_settings.xpy.dtype(dtype)
 
         self._index = index
         self._mem_type = mem_type
@@ -158,10 +153,9 @@ class CumlArray():
         except AttributeError:  # Not a Cuda array object
             try:
                 self._array_interface = data.__array_interface__
-                self.mem_type = MemoryType.host
+                self._mem_type = MemoryType.host
                 self._owner = data
             except AttributeError:  # Must construct array interface
-
                 if dtype is None:
                     raise ValueError(
                         'Must specify dtype when data is passed as a'
@@ -185,6 +179,11 @@ class CumlArray():
                 if isinstance(data, int):
                     self._owner = owner
                 else:
+
+                    if self._mem_type is None:
+                        xpy = global_settings.xpy
+                    else:
+                        xpy = self._mem_type.xpy
                     # Assume integers are pointers. For everything else,
                     # convert it to an array and retry
                     return self.__init__(
@@ -212,12 +211,12 @@ class CumlArray():
                         strides = (dtype.itemsize,)
                 if strides is None:
                     if order == 'C':
-                        strides = xpy.cumprod(shape[:0:-1])[::-1].append(
+                        strides = self._mem_type.xpy.cumprod(shape[:0:-1])[::-1].append(
                             1
                         ) * dtype.itemsize
                     elif order == 'F':
-                        strides = (xpy.cumprod(
-                            (1, *shape[:-1])
+                        strides = (self._mem_type.xpy.cumprod(
+                            self._mem_type.xpy.array(1, *shape[:-1])
                         ) * dtype.itemsize)
                     else:
                         raise ValueError(
@@ -245,13 +244,13 @@ class CumlArray():
         if (
             self._array_interface['strides'] is None or
             len(self._array_interface['strides']) == 1 or
-            xpy.all(
+            self._mem_type.xpy.all(
                 self._array_interface['strides'][1:]
                 >= self._array_interface['strides'][:-1]
             )
         ):
             self._order = 'C'
-        elif xpy.all(
+        elif self._mem_type.xpy.all(
             self._array_interface['strides'][1:]
             <= self._array_interface['strides'][:-1]
         ):
@@ -275,18 +274,15 @@ class CumlArray():
             raise ValueError(
                 'Specified owner object does not seem to match data'
             )
-        if shape is not None and not xpy.array_equal(
-                self._array_interface['shape'], shape):
+        if shape is not None and not self._mem_type.xpy.array_equal(
+                self._mem_type.xpy.array(self._array_interface['shape']),
+                self._mem_type.xpy.array(shape)):
             raise ValueError(
                 'Specified shape inconsistent with input data object'
             )
-        if shape is not None and not xpy.array_equal(
-                self._array_interface['shape'], shape):
-            raise ValueError(
-                'Specified shape inconsistent with input data object'
-            )
-        if strides is not None and not xpy.array_equal(
-                self._array_interface['strides'], strides):
+        if strides is not None and not self._mem_type.xpy.array_equal(
+                self._mem_type.xpy.array(self._array_interface['strides']),
+                self._mem_type.xpy.array(strides)):
             raise ValueError(
                 'Specified strides inconsistent with input data object'
             )
@@ -298,6 +294,10 @@ class CumlArray():
     @property
     def ptr(self):
         return self._array_interface['data'][0]
+
+    @property
+    def dtype(self):
+        return self._mem_type.xpy.dtype(self._array_interface['typestr'])
 
     @property
     def mem_type(self):
