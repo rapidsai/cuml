@@ -225,16 +225,16 @@ def test_linear_regression_model_default(dataset):
     X_train, X_test, y_train, y_test = dataset
     n_rows, n_cols = X_train.shape
 
-    ## Required assumptions:
-    # sklinearRegression:
+    # Required assumptions:
+    #  sklinearRegression:
     assume(n_cols >= 1)
     assume((X_train > 0).any())
     assume((y_train > 0).any())
     assume(np.isfinite(X_train).all())
     assume(np.isfinite(y_train).all())
-    # cuml.LinearRegression:
+    #  cuml.LinearRegression:
     assume(n_rows >= 2)
-    # both:
+    #  both:
     assume(n_cols >= 1)
 
     # Initialization of cuML's linear regression model
