@@ -135,7 +135,8 @@ class CumlArray():
                  shape=None,
                  order=None,
                  strides=None,
-                 mem_type=None):
+                 mem_type=None,
+                 validate=True):
 
         if dtype is not None:
             dtype = global_settings.xpy.dtype(dtype)
@@ -186,8 +187,15 @@ class CumlArray():
                         xpy = self._mem_type.xpy
                     # Assume integers are pointers. For everything else,
                     # convert it to an array and retry
+                    try:
+                        new_data = xpy.asarray(data, dtype=dtype)
+                    except ValueError:
+                        new_data = xpy.frombuffer(data, dtype=dtype)
+                    if shape is not None:
+                        new_order = order if order is not None else 'C'
+                        xpy.reshape(new_data, shape, order=new_order)
                     return self.__init__(
-                        data=xpy.asarray(data, dtype=dtype),
+                        data=new_data,
                         index=index,
                         owner=owner,
                         dtype=dtype,
@@ -216,7 +224,7 @@ class CumlArray():
                         ) * dtype.itemsize
                     elif order == 'F':
                         strides = (self._mem_type.xpy.cumprod(
-                            self._mem_type.xpy.array(1, *shape[:-1])
+                            self._mem_type.xpy.array([1, *shape[:-1]])
                         ) * dtype.itemsize)
                     else:
                         raise ValueError(
@@ -241,62 +249,68 @@ class CumlArray():
                 )
             mem_type = self._mem_type
 
+        array_strides = self._array_interface['strides']
+        if array_strides is not None:
+            array_strides = self._mem_type.xpy.array(array_strides)
         if (
             (
-                self._array_interface['strides'] is None
-                or len(self._array_interface['strides']) == 1
+                array_strides is None
+                or len(array_strides) == 1
             ) and order not in ('K', None)
         ):
             self._order = order
         elif (
-            self._array_interface['strides'] is None or
-            len(self._array_interface['strides']) == 1 or
+            array_strides is None or
+            len(array_strides) == 1 or
             self._mem_type.xpy.all(
-                self._array_interface['strides'][1:]
-                <= self._array_interface['strides'][:-1]
+                array_strides[1:] <= array_strides[:-1]
             )
         ):
             self._order = 'C'
         elif self._mem_type.xpy.all(
-            self._array_interface['strides'][1:]
-            >= self._array_interface['strides'][:-1]
+            array_strides[1:] >= array_strides[:-1]
         ):
             self._order = 'F'
         else:
             self._order = None
 
         # Validate final data against input arguments
-        if mem_type != self._mem_type:
-            raise MemoryTypeError(
-                'Requested mem_type inconsistent with input data object'
-            )
-        if (
-            dtype is not None and dtype.str !=
-            self._array_interface['typestr']
-        ):
-            raise ValueError(
-                'Requested dtype inconsistent with input data object'
-            )
-        if owner is not None and self._owner is not owner:
-            raise ValueError(
-                'Specified owner object does not seem to match data'
-            )
-        if shape is not None and not self._mem_type.xpy.array_equal(
-                self._mem_type.xpy.array(self._array_interface['shape']),
-                self._mem_type.xpy.array(shape)):
-            raise ValueError(
-                'Specified shape inconsistent with input data object'
-            )
-        if strides is not None and not self._mem_type.xpy.array_equal(
-                self._mem_type.xpy.array(self._array_interface['strides']),
-                self._mem_type.xpy.array(strides)):
-            raise ValueError(
-                'Specified strides inconsistent with input data object'
-            )
-        if order is not None and order != 'K' and self._order != order:
-            raise ValueError(
-                'Specified order inconsistent with array stride'
-            )
+        if validate:
+            if mem_type != self._mem_type:
+                raise MemoryTypeError(
+                    'Requested mem_type inconsistent with input data object'
+                )
+            if (
+                dtype is not None and dtype.str !=
+                self._array_interface['typestr']
+            ):
+                raise ValueError(
+                    'Requested dtype inconsistent with input data object'
+                )
+            if owner is not None and self._owner is not owner:
+                raise ValueError(
+                    'Specified owner object does not seem to match data'
+                )
+            try:
+                shape_arr = self._mem_type.xpy.array([val for val in shape])
+            except TypeError:
+                shape_arr = self._mem_type.xpy.array([shape])
+            if shape is not None and not self._mem_type.xpy.array_equal(
+                    self._mem_type.xpy.array(self._array_interface['shape']),
+                    shape_arr):
+                raise ValueError(
+                    'Specified shape inconsistent with input data object'
+                )
+            if strides is not None and not self._mem_type.xpy.array_equal(
+                    self._mem_type.xpy.array(self._array_interface['strides']),
+                    self._mem_type.xpy.array(strides)):
+                raise ValueError(
+                    'Specified strides inconsistent with input data object'
+                )
+            if order is not None and order != 'K' and self._order != order:
+                raise ValueError(
+                    'Specified order inconsistent with array stride'
+                )
 
     @property
     def ptr(self):
