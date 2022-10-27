@@ -184,14 +184,16 @@ def helper_test_ownership(ary, inp, garbage_collect):
 @pytest.mark.parametrize('dtype', test_dtypes_all)
 @pytest.mark.parametrize('shape', test_shapes)
 @pytest.mark.parametrize('order', ['F', 'C'])
-def test_array_init_from_bytes(data_type, dtype, shape, order):
+@pytest.mark.parametrize('mem_type', [MemoryType.host, MemoryType.device])
+def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     dtype = np.dtype(dtype)
     bts = bytes(_get_size_from_shape(shape, dtype)[0])
 
     if data_type != bytes:
         bts = data_type(bts)
 
-    ary = CumlArray(bts, dtype=dtype, shape=shape, order=order)
+    ary = CumlArray(bts, dtype=dtype, shape=shape, order=order,
+                    mem_type=mem_type)
 
     if shape == (10, 5):
         assert ary.order == order
