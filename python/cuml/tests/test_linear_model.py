@@ -227,15 +227,15 @@ def test_linear_regression_model_default(dataset):
 
     # Required assumptions:
     #  sklinearRegression:
-    assume(n_cols >= 1)
     assume((X_train > 0).any())
     assume((y_train > 0).any())
-    assume(np.isfinite(X_train).all())
     assume(np.isfinite(y_train).all())
     #  cuml.LinearRegression:
     assume(n_rows >= 2)
     #  both:
     assume(n_cols >= 1)
+    #    w/o the next assumption sklearn complains and cuml hangs(!):
+    assume(np.isfinite(X_train).all())
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression()
