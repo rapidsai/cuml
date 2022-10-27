@@ -46,7 +46,7 @@ import cuml.datasets
 import sklearn.model_selection
 
 from urllib.request import urlretrieve
-from cuml.common import input_utils
+from cuml.internals import input_utils
 from numba import cuda
 
 from cuml.internals.import_utils import has_scipy

@@ -15,7 +15,7 @@
 #
 import os
 import cuml
-from cuml.common import input_utils
+from cuml.internals import input_utils
 import numpy as np
 import pandas as pd
 import pickle as pickle

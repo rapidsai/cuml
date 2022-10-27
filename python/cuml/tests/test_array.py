@@ -28,6 +28,7 @@ from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.internals.array import CumlArray
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import _get_size_from_shape
 from cuml.internals.memory_utils import _strides_to_order
 # Temporarily disabled due to CUDA 11.0 issue
@@ -104,7 +105,7 @@ def test_array_init(input_type, dtype, shape, order):
     assert ary.dtype == np.dtype(dtype)
 
     if (input_type == "numpy"):
-        assert isinstance(ary._owner, cp.ndarray)
+        assert isinstance(ary._owner, np.ndarray)
 
         truth = cp.asnumpy(inp)
         del inp
@@ -139,7 +140,7 @@ def create_ary_init_tests(ary_type, dtype, shape, order):
         inp = create_input('cupy', dtype, shape, order)
         ptr = inp.__cuda_array_interface__['data'][0]
         ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
-                        order=order)
+                        order=order, mem_type=MemoryType.device)
 
     return (inp, ary, ptr)
 

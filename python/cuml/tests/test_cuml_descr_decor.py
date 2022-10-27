@@ -25,7 +25,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.input_utils import determine_array_dtype
 from cuml.internals.input_utils import determine_array_type
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import unsupported_cudf_dtypes
 
 test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
 
@@ -36,6 +35,10 @@ test_dtypes_short = [
     np.float16,
     np.int32,
     np.float64,
+]
+
+unsupported_cudf_dtypes = [
+    np.uint8, np.uint16, np.uint32, np.uint64, np.float16
 ]
 
 test_shapes = [10, (10, 1), (10, 5), (1, 10)]
