@@ -254,16 +254,6 @@ def test_array_init_bad(input_type, dtype, shape, order):
     with pytest.raises(ValueError):
         CumlArray(inp, shape=(*cuml_ary.shape, 1))
 
-
-    try:
-        test_order = len([x for x in shape if x != 1]) > 1
-    except TypeError:
-        test_order = False
-    if test_order:
-        with pytest.raises(ValueError):
-            bad_order = 'C' if cuml_ary.order != 'C' else 'F'
-            CumlArray(inp, order=bad_order)
-
     assert cp.all(cp.asarray(inp) == cp.asarray(cuml_ary))
 
 
@@ -363,7 +353,15 @@ def test_output(output_type, dtype, output_dtype, order, shape, mem_type):
             mem_type
         )
     except ValueError as exc:
-        if output_type == 'cudf' and output_dtype == mem_type.xpy.float16:
+        if (
+            output_dtype == mem_type.xpy.float16 and (
+                output_type == 'cudf'
+                or (
+                    mem_type.is_device_accessible
+                    and output_type in ('series', 'dataframe', 'df_obj')
+                )
+            )
+        ):
             # CUDF does not currently support half-precision floats
             return
         try:
@@ -443,7 +441,11 @@ def test_output(output_type, dtype, output_dtype, order, shape, mem_type):
     except AttributeError:
         res_dtype = res.values.dtype
 
-    assert res_dtype == output_dtype
+    if not (
+        output_dtype == mem_type.xpy.float16
+        and isinstance(res, (CudfSeries, CudfDataFrame))
+    ):
+        assert res_dtype == output_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
@@ -458,11 +460,17 @@ def test_cuda_array_interface(dtype, shape, order):
     else:
         assert ary.__cuda_array_interface__['shape'] == (shape,)
 
-    assert ary.__cuda_array_interface__['strides'] == inp.strides
+    # numba sometimes reports None in its __cuda_array_interface__ when the
+    # actual array attribute `.strides` is not None. We go by the array
+    # interface as our source of truth, so we check this directly
+    assert (
+        ary.__cuda_array_interface__['strides'] ==
+        inp.__cuda_array_interface__['strides']
+    )
     assert ary.__cuda_array_interface__['typestr'] == inp.dtype.str
     assert ary.__cuda_array_interface__['data'] == \
         (inp.device_ctypes_pointer.value, False)
-    assert ary.__cuda_array_interface__['version'] == 2
+    assert ary.__cuda_array_interface__['version'] == 3
 
     # since our test array is small, its faster to transfer it to numpy to
     # square rather than a numba cuda kernel

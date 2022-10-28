@@ -142,7 +142,6 @@ class CumlArray():
             dtype = global_settings.xpy.dtype(dtype)
 
         self._index = index
-        print(f'SETTING INDEX TO {index}')
         self._mem_type = mem_type
 
         # Coerce data into an array interface and determine mem_type and owner
@@ -200,7 +199,6 @@ class CumlArray():
                     if index is None:
                         try:
                             self._index = data.index
-                            print(f'SETTING INDEX TO {index}')
                         except AttributeError:
                             pass
                     return self.__init__(
@@ -228,7 +226,10 @@ class CumlArray():
                         strides = (dtype.itemsize,)
                 if strides is None:
                     if order == 'C':
-                        strides = self._mem_type.xpy.cumprod(shape[:0:-1])[::-1].append(
+                        strides = self._mem_type.xpy.append(
+                            self._mem_type.xpy.cumprod(
+                                self._mem_type.xpy.array(shape[:0:-1])
+                            )[::-1],
                             1
                         ) * dtype.itemsize
                     elif order == 'F':
@@ -265,6 +266,9 @@ class CumlArray():
             (
                 array_strides is None
                 or len(array_strides) == 1
+                or self._mem_type.xpy.all(
+                    array_strides[1:] == array_strides[:-1]
+                )
             ) and order not in ('K', None)
         ):
             self._order = order
@@ -376,7 +380,6 @@ class CumlArray():
 
     @index.setter
     def index(self, index):
-        print(f'SETTING INDEX TO {index}')
         self._index = index
 
     @property
@@ -498,36 +501,31 @@ class CumlArray():
                 len(self.shape) == 1 or
                 (len(self.shape) == 2 and self.shape[1] == 1)
             ):
+                arr = self.to_output(
+                    'array',
+                    output_dtype,
+                    output_mem_type
+                )
+                arr = output_mem_type.xpy.reshape(
+                    arr,
+                    self.shape[0]
+                )
                 try:
                     if (
                         output_mem_type == MemoryType.host
                         and self._mem_type != MemoryType.host
                     ):
                         result = cudf.Series(
-                            self,
+                            arr,
                             dtype=output_dtype,
                             index=self.index
                         ).to_pandas()
                     else:
-                        if output_mem_type.is_device_accessible:
-                            return output_mem_type.xdf.Series(
-                                self,
-                                dtype=output_dtype,
-                                index=self.index
-                            )
-                        else:
-                            # Pandas does not handle index
-                            # correctly when we use CumlArray directly, so we
-                            # go through numpy
-                            return output_mem_type.xdf.Series(
-                                self.to_output(
-                                    'array',
-                                    output_dtype,
-                                    output_mem_type
-                                ),
-                                dtype=output_dtype,
-                                index=self.index
-                            )
+                        return output_mem_type.xdf.Series(
+                            arr,
+                            dtype=output_dtype,
+                            index=self.index
+                        )
                 except TypeError:
                     raise ValueError('Unsupported dtype for Series')
             else:
