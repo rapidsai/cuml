@@ -614,6 +614,23 @@ def test_hyperparams_defaults(estimator):
 
 @pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
 @pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_linreg_methods(train_device, infer_device):
+    ref_model = skLinearRegression()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.score(X_train_reg, y_train_reg)
+
+    model = LinearRegression()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.score(X_train_reg, y_train_reg)
+
+    tol = 0.01
+    assert ref_output - tol <= output <= ref_output + tol
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
 @pytest.mark.parametrize('infer_func_name', ['decision_function',
                                              'predict_proba',
                                              'predict_log_proba',

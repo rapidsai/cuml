@@ -211,7 +211,7 @@ class RegressorMixin:
         else:
             handle = None
 
-        preds = self.predict(X, **kwargs)
+        preds = self._predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
     @staticmethod
@@ -250,7 +250,7 @@ class ClassifierMixin:
         else:
             handle = None
 
-        preds = self.predict(X, **kwargs)
+        preds = self._predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
 
     @staticmethod
