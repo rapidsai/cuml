@@ -57,7 +57,7 @@ def datasets(
 @composite
 def split_datasets(
     draw,
-    datasets=datasets(),
+    datasets=datasets(n_samples=integers(min_value=10, max_value=200)),
     train_sizes=floats(min_value=0.1, max_value=1.0, exclude_max=True),
 ):
     """
