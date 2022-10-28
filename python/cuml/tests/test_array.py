@@ -19,14 +19,9 @@ import gc
 
 import pytest
 
-import cupy as cp
-import cudf
-import numpy as np
 import operator
 
 from copy import deepcopy
-from numba import cuda
-from cudf.core.buffer import Buffer
 from cuml.internals.array import CumlArray
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import _get_size_from_shape
@@ -34,6 +29,26 @@ from cuml.internals.memory_utils import _strides_to_order
 # Temporarily disabled due to CUDA 11.0 issue
 # https://github.com/rapidsai/cuml/issues/4332
 # from rmm import DeviceBuffer
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from
+)
+cp = gpu_only_import('cupy')
+cudf = gpu_only_import('cudf')
+np = cpu_only_import('numpy')
+
+cuda = gpu_only_import_from('numba', 'cuda')
+Buffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+CudfSeries = gpu_only_import_from('cudf', 'Series')
+PandasSeries = cpu_only_import_from('pandas', 'Series')
+PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+cp_array = gpu_only_import_from('cupy', 'ndarray')
+np_array = gpu_only_import_from('numpy', 'ndarray')
+numba_array = gpu_only_import_from('numba.cuda.cudadrv.devicearray',
+                                   'DeviceNDArray')
 
 if sys.version_info < (3, 8):
     try:
@@ -48,14 +63,17 @@ test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
 ]
 
-test_output_types = {
-    'numpy': np.ndarray,
-    'cupy': cp.ndarray,
-    'numba': None,
-    'series': cudf.Series,
-    'dataframe': cudf.DataFrame,
-    'cudf': None
-}
+test_output_types = (
+    'cupy',
+    'numpy',
+    'cudf',
+    'pandas',
+    'array',
+    'numba',
+    'dataframe',
+    'series',
+    'df_obj'
+)
 
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
@@ -229,15 +247,22 @@ def test_array_init_bad(input_type, dtype, shape, order):
     # Ensure the array is creatable
     cuml_ary = CumlArray(inp)
 
-    with pytest.raises(AssertionError):
-        CumlArray(inp, dtype=cuml_ary.dtype)
+    with pytest.raises(ValueError):
+        bad_dtype = np.float16 if dtype != np.float16 else np.float32
+        CumlArray(inp, dtype=bad_dtype)
 
-    with pytest.raises(AssertionError):
-        CumlArray(inp, shape=cuml_ary.shape)
+    with pytest.raises(ValueError):
+        CumlArray(inp, shape=(*cuml_ary.shape, 1))
 
-    with pytest.raises(AssertionError):
-        CumlArray(inp,
-                  order=_strides_to_order(cuml_ary.strides, cuml_ary.dtype))
+
+    try:
+        test_order = len([x for x in shape if x != 1]) > 1
+    except TypeError:
+        test_order = False
+    if test_order:
+        with pytest.raises(ValueError):
+            bad_order = 'C' if cuml_ary.order != 'C' else 'F'
+            CumlArray(inp, order=bad_order)
 
     assert cp.all(cp.asarray(inp) == cp.asarray(cuml_ary))
 
@@ -323,62 +348,94 @@ def test_create_full(shape, dtype, order):
 
 @pytest.mark.parametrize('output_type', test_output_types)
 @pytest.mark.parametrize('dtype', test_dtypes_output)
-@pytest.mark.parametrize('out_dtype', test_dtypes_output)
+@pytest.mark.parametrize('output_dtype', test_dtypes_output)
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('shape', test_shapes)
-def test_output(output_type, dtype, out_dtype, order, shape):
+@pytest.mark.parametrize('mem_type', [MemoryType.host, MemoryType.device])
+def test_output(output_type, dtype, output_dtype, order, shape, mem_type):
     inp = create_input('numpy', dtype, shape, order)
     ary = CumlArray(inp)
 
-    if dtype in unsupported_cudf_dtypes and \
-            output_type in ['series', 'dataframe', 'cudf']:
-        with pytest.raises(ValueError):
-            res = ary.to_output(output_type)
-    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
-        with pytest.raises(ValueError):
-            res = ary.to_output(output_type)
-    else:
-        res = ary.to_output(output_type)
-
-        # using correct numba ndarray check
-        if output_type == 'numba':
-            assert cuda.devicearray.is_cuda_ndarray(res)
-        elif output_type == 'cudf':
-            if shape in [(10, 5), (1, 10)]:
-                assert isinstance(res, cudf.DataFrame)
+    try:
+        res = ary.to_output(
+            output_type,
+            output_dtype,
+            mem_type
+        )
+    except ValueError as exc:
+        if output_type == 'cudf' and output_dtype == mem_type.xpy.float16:
+            return
+        try:
+            if (
+                output_type == 'series'
+                and len(shape) > 1
+                and shape[1] != 1
+            ):
+                return
             else:
-                assert isinstance(res, cudf.Series)
-        else:
-            assert isinstance(res, test_output_types[output_type])
+                raise
+        except TypeError:
+            raise exc
 
-        if output_type == 'numpy':
-            assert np.all(inp == ary.to_output('numpy'))
+    if output_type in ('cupy', 'cudf'):
+        mem_type = MemoryType.device
+    elif output_type in ('numpy', 'pandas'):
+        mem_type = MemoryType.host
 
-        elif output_type == 'cupy':
-            assert cp.all(cp.asarray(inp) == ary.to_output('cupy'))
+    if output_type in ('cupy', 'numpy'):
+        output_type = 'array'
+    elif output_type in ('cudf', 'pandas'):
+        output_type = 'df_obj'
 
-        elif output_type == 'numba':
-            assert cp.all(cp.asarray(cuda.to_device(inp)) == cp.asarray(res))
+    if mem_type == MemoryType.device:
+        assert isinstance(
+            res,
+            (CudfDataFrame, CudfSeries, cp_array, numba_array)
+        )
+    elif mem_type == MemoryType.host:
+        assert isinstance(
+            res,
+            (PandasDataFrame, PandasSeries, np_array)
+        )
+    if output_type == 'array':
+        assert isinstance(
+            res,
+            (cp_array, np_array)
+        )
+        mem_type.xpy.all(
+            mem_type.xpy.asarray(inp) == res
+        )
+    elif output_type == 'df_obj':
+        assert isinstance(
+            res,
+            (CudfDataFrame, CudfSeries, PandasDataFrame, PandasSeries)
+        )
+    elif output_type == 'series':
+        assert isinstance(
+            res,
+            (CudfSeries, PandasSeries)
+        )
+    elif output_type == 'dataframe':
+        assert isinstance(
+            res,
+            (CudfDataFrame, PandasDataFrame)
+        )
+    elif output_type == 'numba':
+        assert isinstance(res, numba_array)
+        assert cp.all(
+            cp.asarray(cuda.to_device(inp)) == cp.asarray(res)
+        )
 
-        elif output_type == 'series':
-            comp = cudf.Series(np.ravel(inp)) == res
-            assert np.all(comp.to_numpy())
-
-        elif output_type == 'dataframe':
-            if len(inp.shape) == 1:
-                inp = inp.reshape(inp.shape[0], 1)
-            comp = cudf.DataFrame(inp)
-            comp = comp == res
-            assert np.all(comp.to_numpy())
-
-        # check for e2e cartesian product:
-        if output_type not in ['dataframe', 'cudf']:
-            res2 = CumlArray(res)
-            res2 = res2.to_output('numpy')
-            if output_type == 'series' and shape == (10, 1):
-                assert np.all(inp.reshape((1, 10)) == res2)
-            else:
-                assert np.all(inp == res2)
+    if isinstance(res, (CudfSeries, PandasSeries)):
+        orig = mem_type.xdf.Series(mem_type.xpy.ravel(
+            mem_type.xpy.asarray(inp)
+        ))
+        assert (orig == res).all()
+    if isinstance(res, (CudfDataFrame, PandasDataFrame)):
+        if len(inp.shape) == 1:
+            inp = inp.reshape(inp.shape[0], 1)
+        orig = mem_type.xdf.DataFrame(inp)
+        assert (orig == res).all().all()
 
 
 @pytest.mark.parametrize('output_type', test_output_types)
