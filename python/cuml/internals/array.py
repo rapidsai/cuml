@@ -464,7 +464,10 @@ class CumlArray():
         if output_type == 'df_obj':
             if len(self.shape) == 1:
                 output_type = 'series'
-            elif self.shape[1] == 1:
+            elif len(self.shape) == 2 and self.shape[1] == 1:
+                # It is convenient to coerce 2D arrays with second
+                # dimension 1 to series, but we will not extend this to higher
+                # dimensions
                 output_type = 'series'
             else:
                 output_type = 'dataframe'
@@ -496,7 +499,7 @@ class CumlArray():
                             self,
                             dtype=output_dtype,
                             index=self.index
-                        )
+                        ).to_pandas()
                     else:
                         return output_mem_type.xdf.Series(
                             self,
