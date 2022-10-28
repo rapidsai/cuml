@@ -273,18 +273,6 @@ class Base(TagsMixin,
             # estimator its presence should signify that CPU execution was
             # used previously
             if not hasattr(self, 'cpu_model_'):
-                # import the CPU model
-                if hasattr(self, 'cpu_estimator_import_path_'):
-                    # if import path differs from the one of sklearn
-                    # look for cpu_estimator_import_path_
-                    model_path = self.cpu_estimator_import_path_
-                else:
-                    # import from similar path to the current estimator
-                    # class
-                    model_path = 'sklearn' + self.__class__.__module__[4:]
-                model_name = self.__class__.__name__
-                cpu_model = getattr(import_module(model_path), model_name)
-
                 filtered_kwargs = {}
                 for keyword, arg in self.full_kwargs.items():
                     if keyword in self.cpu_hyperparams:
@@ -295,7 +283,7 @@ class Base(TagsMixin,
                                     "initialization".format(keyword))
 
                 # initialize model
-                self.cpu_model_ = cpu_model(**filtered_kwargs)
+                self.cpu_model_ = self.cpu_model_class(**filtered_kwargs)
 
                 # transfer attributes trained with cuml
                 for attr in self.get_attr_names():
@@ -450,15 +438,28 @@ class Base(TagsMixin,
         self.__dict__.update(d)
 
     def __getattr__(self, attr):
-        """
-        Redirects to `solver_model` if the attribute exists.
-        """
+        # Attempts to redirect calls to CPU estimator
+        if hasattr(self.cpu_model_class, attr):
+            if callable(getattr(self.cpu_model_class, attr)):
+                return self._cpu_redirection(attr)
+
+        # Redirects to `solver_model` if the attribute exists.
         if attr == "solver_model":
             return self.__dict__['solver_model']
         if "solver_model" in self.__dict__.keys():
             return getattr(self.solver_model, attr)
-        else:
-            raise AttributeError(attr)
+
+        raise AttributeError(attr)
+
+    def _cpu_redirection(self, method_name):
+        def redirection(*args, **kwargs):
+            with using_device_type('cpu'):
+                res = self.dispatch_func(method_name, *args, **kwargs)
+                if isinstance(res, self.cpu_model_class):
+                    return self
+                else:
+                    return res
+        return redirection
 
     def _set_base_attributes(self,
                              output_type=None,
