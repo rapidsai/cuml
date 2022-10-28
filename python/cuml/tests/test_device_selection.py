@@ -663,3 +663,54 @@ def test_logreg_methods(train_device, infer_device, infer_func_name):
         assert np.isfinite(ref_output).all()
         assert np.isfinite(output).all()
         np.testing.assert_allclose(ref_output, output, atol=0.01, rtol=0.15)
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_lasso_methods(train_device, infer_device):
+    ref_model = skLasso()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.score(X_train_reg, y_train_reg)
+
+    model = Lasso()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.score(X_train_reg, y_train_reg)
+
+    tol = 0.01
+    assert ref_output - tol <= output <= ref_output + tol
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_elasticnet_methods(train_device, infer_device):
+    ref_model = skElasticNet()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.score(X_train_reg, y_train_reg)
+
+    model = ElasticNet()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.score(X_train_reg, y_train_reg)
+
+    tol = 0.01
+    assert ref_output - tol <= output <= ref_output + tol
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_ridge_methods(train_device, infer_device):
+    ref_model = skRidge()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.score(X_train_reg, y_train_reg)
+
+    model = Ridge()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.score(X_train_reg, y_train_reg)
+
+    tol = 0.01
+    assert ref_output - tol <= output <= ref_output + tol
