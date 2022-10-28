@@ -142,6 +142,7 @@ class CumlArray():
             dtype = global_settings.xpy.dtype(dtype)
 
         self._index = index
+        print(f'SETTING INDEX TO {index}')
         self._mem_type = mem_type
 
         # Coerce data into an array interface and determine mem_type and owner
@@ -196,9 +197,15 @@ class CumlArray():
                         new_data = xpy.reshape(
                             new_data, shape, order=new_order
                         )
+                    if index is None:
+                        try:
+                            self._index = data.index
+                            print(f'SETTING INDEX TO {index}')
+                        except AttributeError:
+                            pass
                     return self.__init__(
                         data=new_data,
-                        index=index,
+                        index=self._index,
                         owner=owner,
                         dtype=dtype,
                         shape=shape,
@@ -369,6 +376,7 @@ class CumlArray():
 
     @index.setter
     def index(self, index):
+        print(f'SETTING INDEX TO {index}')
         self._index = index
 
     @property
@@ -495,17 +503,31 @@ class CumlArray():
                         output_mem_type == MemoryType.host
                         and self._mem_type != MemoryType.host
                     ):
-                        return cudf.Series(
+                        result = cudf.Series(
                             self,
                             dtype=output_dtype,
                             index=self.index
                         ).to_pandas()
                     else:
-                        return output_mem_type.xdf.Series(
-                            self,
-                            dtype=output_dtype,
-                            index=self.index
-                        )
+                        if output_mem_type.is_device_accessible:
+                            return output_mem_type.xdf.Series(
+                                self,
+                                dtype=output_dtype,
+                                index=self.index
+                            )
+                        else:
+                            # Pandas does not handle index
+                            # correctly when we use CumlArray directly, so we
+                            # go through numpy
+                            return output_mem_type.xdf.Series(
+                                self.to_output(
+                                    'array',
+                                    output_dtype,
+                                    output_mem_type
+                                ),
+                                dtype=output_dtype,
+                                index=self.index
+                            )
                 except TypeError:
                     raise ValueError('Unsupported dtype for Series')
             else:
@@ -522,9 +544,10 @@ class CumlArray():
             if len(arr.shape) == 1:
                 arr = arr.reshape(arr.shape[0], 1)
             try:
-                return output_mem_type.xdf.DataFrame(
+                result = output_mem_type.xdf.DataFrame(
                     arr, index=self.index
                 )
+                return result
             except TypeError:
                 raise ValueError('Unsupported dtype for Series')
 

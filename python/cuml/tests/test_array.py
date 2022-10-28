@@ -364,6 +364,7 @@ def test_output(output_type, dtype, output_dtype, order, shape, mem_type):
         )
     except ValueError as exc:
         if output_type == 'cudf' and output_dtype == mem_type.xpy.float16:
+            # CUDF does not currently support half-precision floats
             return
         try:
             if (
@@ -377,7 +378,7 @@ def test_output(output_type, dtype, output_dtype, order, shape, mem_type):
         except TypeError:
             raise exc
 
-    if output_type in ('cupy', 'cudf'):
+    if output_type in ('cupy', 'cudf', 'numba'):
         mem_type = MemoryType.device
     elif output_type in ('numpy', 'pandas'):
         mem_type = MemoryType.host
@@ -431,48 +432,18 @@ def test_output(output_type, dtype, output_dtype, order, shape, mem_type):
             mem_type.xpy.asarray(inp)
         ))
         assert (orig == res).all()
-    if isinstance(res, (CudfDataFrame, PandasDataFrame)):
+    elif isinstance(res, (CudfDataFrame, PandasDataFrame)):
         if len(inp.shape) == 1:
             inp = inp.reshape(inp.shape[0], 1)
         orig = mem_type.xdf.DataFrame(inp)
         assert (orig == res).all().all()
 
+    try:
+        res_dtype = res.dtype
+    except AttributeError:
+        res_dtype = res.values.dtype
 
-@pytest.mark.parametrize('output_type', test_output_types)
-@pytest.mark.parametrize('dtype', [
-    np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-])
-@pytest.mark.parametrize('out_dtype', [
-    np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-])
-@pytest.mark.parametrize('shape', test_shapes)
-def test_output_dtype(output_type, dtype, out_dtype, shape):
-    inp = create_input('numpy', dtype, shape, order="F")
-    ary = CumlArray(inp)
-
-    if dtype in unsupported_cudf_dtypes and \
-            output_type in ['series', 'dataframe', 'cudf']:
-        with pytest.raises(ValueError):
-            res = ary.to_output(
-                output_type=output_type,
-                output_dtype=out_dtype
-            )
-
-    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
-        with pytest.raises(ValueError):
-            res = ary.to_output(
-                output_type=output_type,
-                output_dtype=out_dtype
-            )
-    else:
-        res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
-
-        if isinstance(res, cudf.DataFrame):
-            res.values.dtype == out_dtype
-        else:
-            res.dtype == out_dtype
+    assert res_dtype == output_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
