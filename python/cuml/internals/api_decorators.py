@@ -811,14 +811,20 @@ def kwargs_interop_processing(init_func):
         cu_hyperparams = list(inspect.signature(init_func).parameters.keys())
 
         if hasattr(self, 'cpu_estimator_import_path_'):
+            # if import path differs from the one of sklearn
+            # look for cpu_estimator_import_path_
             model_path = self.cpu_estimator_import_path_
         else:
+            # import from similar path to the current estimator
+            # class
             model_path = 'sklearn' + self.__class__.__module__[4:]
         model_name = self.__class__.__name__
-        cpu_model = getattr(import_module(model_path), model_name)
+        self.cpu_model_class = getattr(import_module(model_path), model_name)
+
         # Save list of available CPU estimator hyperparameters
-        self.cpu_hyperparams = \
-            list(inspect.signature(cpu_model.__init__).parameters.keys())
+        self.cpu_hyperparams = list(
+            inspect.signature(self.cpu_model_class.__init__).parameters.keys()
+        )
 
         # Filter provided parameters for cuML estimator initialization
         filtered_kwargs = {}
