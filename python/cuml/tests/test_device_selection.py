@@ -200,22 +200,19 @@ def logreg_test_data(request):
         'max_iter': 1000
     }
 
-    above_average = y_train_reg > np.median(y_train_reg)
-    modified_y_train = y_train_reg.copy()
-    modified_y_train[above_average] = 1
-    modified_y_train[~above_average] = 0
+    y_train_logreg = (y_train_reg > np.median(y_train_reg)).astype(np.int32)
 
     sk_model = skLogisticRegression(**kwargs)
-    sk_model.fit(X_train_reg, modified_y_train)
+    sk_model.fit(X_train_reg, y_train_logreg)
 
     input_type = request.param['input_type']
 
     if input_type == 'dataframe':
-        modified_y_train = pd.Series(modified_y_train)
+        y_train_logreg = pd.Series(y_train_logreg)
     elif input_type == 'cudf':
-        modified_y_train = cudf.Series(modified_y_train)
+        y_train_logreg = cudf.Series(y_train_logreg)
     else:
-        modified_y_train = to_output_type(modified_y_train, input_type)
+        y_train_logreg = to_output_type(y_train_logreg, input_type)
 
     return {
         'cuEstimator': LogisticRegression,
@@ -223,7 +220,7 @@ def logreg_test_data(request):
         'infer_func': 'predict',
         'assert_func': check_allclose,
         'X_train': to_output_type(X_train_reg, input_type),
-        'y_train': modified_y_train,
+        'y_train': y_train_logreg,
         'X_test': to_output_type(X_test_reg, input_type),
         'ref_y_test': sk_model.predict(X_test_reg)
     }
@@ -613,3 +610,39 @@ def test_hyperparams_defaults(estimator):
 
     if not similar:
         raise ValueError(error_msg)
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_func_name', ['decision_function',
+                                             'predict_proba',
+                                             'predict_log_proba',
+                                             'score'])
+def test_logreg_methods(train_device, infer_device, infer_func_name):
+    y_train_logreg = (y_train_reg > np.median(y_train_reg)).astype(np.int32)
+
+    ref_model = skLogisticRegression()
+    ref_model.fit(X_train_reg, y_train_logreg)
+    infer_func = getattr(ref_model, infer_func_name)
+    if infer_func_name == 'score':
+        ref_output = infer_func(X_train_reg, y_train_logreg)
+    else:
+        ref_output = infer_func(X_test_reg)
+
+    model = LogisticRegression()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_logreg)
+    with using_device_type(infer_device):
+        infer_func = getattr(model, infer_func_name)
+        if infer_func_name == 'score':
+            output = infer_func(X_train_reg, y_train_logreg)
+        else:
+            output = infer_func(X_test_reg)
+
+    if infer_func_name == 'score':
+        tol = 0.01
+        assert ref_output - tol <= output <= ref_output + tol
+    else:
+        assert np.isfinite(ref_output).all()
+        assert np.isfinite(output).all()
+        np.testing.assert_allclose(ref_output, output, atol=0.01, rtol=0.15)

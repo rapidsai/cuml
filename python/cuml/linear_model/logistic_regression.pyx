@@ -365,7 +365,7 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    def decision_function(self, X, convert_dtype=False) -> CumlArray:
+    def _decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -394,7 +394,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
+    def _predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
 
@@ -411,7 +411,7 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    def _predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
@@ -426,14 +426,16 @@ class LogisticRegression(Base,
                             X,
                             convert_dtype=False,
                             log_proba=False) -> CumlArray:
+        _num_classes = self.classes_.shape[0]
+
         scores = cp.asarray(
             self.decision_function(X, convert_dtype=convert_dtype), order="F"
         ).T
-        if self._num_classes == 2:
+        if _num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
             proba[:, 0] = 1 - proba[:, 1]
-        elif self._num_classes > 2:
+        elif _num_classes > 2:
             max_scores = cp.max(scores, axis=1).reshape((-1, 1))
             scores -= max_scores
             proba = cp.exp(scores)

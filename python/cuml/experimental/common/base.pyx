@@ -21,6 +21,7 @@ import inspect
 import typing
 from importlib import import_module
 import numpy as np
+import cupy as cp
 import nvtx
 
 import cuml
@@ -298,7 +299,7 @@ class Base(TagsMixin,
                             if cu_attr_value is not None:
                                 if cu_attr.input_type == 'cuml':
                                     # transform cumlArray to numpy and set it
-                                    # as an attribute in the sklearn model
+                                    # as an attribute in the CPU estimator
                                     setattr(self.cpu_model_, attr,
                                             cu_attr_value.to_output('numpy'))
                                 else:
@@ -308,9 +309,14 @@ class Base(TagsMixin,
                                             cu_attr_value)
                         elif isinstance(cu_attr, CumlArray):
                             # transform cumlArray to numpy and set it
-                            # as an attribute in the sklearn model
+                            # as an attribute in the CPU estimator
                             setattr(self.cpu_model_, attr,
                                     cu_attr.to_output('numpy'))
+                        elif isinstance(cu_attr, cp.ndarray):
+                            # transform cupy to numpy and set it
+                            # as an attribute in the CPU estimator
+                            setattr(self.cpu_model_, attr,
+                                    cp.asnumpy(cu_attr))
                         else:
                             # transfer all other types of attributes directly
                             setattr(self.cpu_model_, attr, cu_attr)
@@ -361,21 +367,36 @@ class Base(TagsMixin,
                 # return method result
                 return res
 
-    def fit(self, X, *args, **kwargs):
-        return self.dispatch_func('fit', X, *args, **kwargs)
+    def fit(self, *args, **kwargs):
+        return self.dispatch_func('fit', *args, **kwargs)
 
-    def predict(self, X, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict', X, *args, **kwargs)
+    def predict(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict', *args, **kwargs)
 
-    def transform(self, X, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('transform', X, *args, **kwargs)
+    def transform(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('transform', *args, **kwargs)
 
-    def kneighbors(self, X, *args, **kwargs) \
+    def kneighbors(self, *args, **kwargs) \
             -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
-        return self.dispatch_func('kneighbors', X, *args, **kwargs)
+        return self.dispatch_func('kneighbors', *args, **kwargs)
 
-    def fit_transform(self, X, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('fit_transform', X, *args, **kwargs)
+    def fit_transform(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('fit_transform', *args, **kwargs)
+
+    def fit_predict(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('fit_predict', *args, **kwargs)
+
+    def score(self, *args, **kwargs):
+        return self.dispatch_func('score', *args, **kwargs)
+
+    def decision_function(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('decision_function', *args, **kwargs)
+
+    def predict_proba(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict_proba', *args, **kwargs)
+
+    def predict_log_proba(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict_log_proba', *args, **kwargs)
 
     def get_param_names(self):
         """
