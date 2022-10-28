@@ -512,7 +512,8 @@ class PCA(Base,
 
         if self.whiten:
             cp.multiply(self.components_,
-                        (1 / cp.sqrt(self.n_samples_ - 1)), out=self.components_)
+                        (1 / cp.sqrt(self.n_samples_ - 1)),
+                        out=self.components_)
             cp.multiply(self.components_,
                         self.singular_values_.reshape((-1, 1)),
                         out=self.components_)

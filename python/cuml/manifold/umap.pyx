@@ -523,7 +523,7 @@ class UMAP(Base,
         if is_sparse(X):
 
             self._raw_data = SparseCumlArray(X, convert_to_dtype=cupy.float32,
-                                       convert_format=False)
+                                             convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
 

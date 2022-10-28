@@ -351,8 +351,8 @@ class NearestNeighbors(Base,
 
         if self.algorithm == "auto":
             if (self.n_features_in_ == 2 or self.n_features_in_ == 3) and \
-                not is_sparse(X) and \
-                self.effective_metric_ in cuml.neighbors.VALID_METRICS["rbc"] and \
+                    not is_sparse(X) and self.effective_metric_ in \
+                    cuml.neighbors.VALID_METRICS["rbc"] and \
                     math.sqrt(X.shape[0]) >= self.n_neighbors:
                 self._fit_method = "rbc"
             else:
@@ -366,7 +366,7 @@ class NearestNeighbors(Base,
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
             valid_metric_str = "_SPARSE"
             self._fit_X = SparseCumlArray(X, convert_to_dtype=cp.float32,
-                                       convert_format=False)
+                                          convert_format=False)
 
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
@@ -542,7 +542,8 @@ class NearestNeighbors(Base,
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        return self.__kneighbors(X, n_neighbors, return_distance, convert_dtype,
+        return self.__kneighbors(X, n_neighbors, return_distance,
+                                 convert_dtype,
                                  two_pass_precision=two_pass_precision)
 
     def __kneighbors(self, X=None, n_neighbors=None, return_distance=True,
@@ -624,7 +625,8 @@ class NearestNeighbors(Base,
             raise ValueError("Dimensions of X need to match dimensions of "
                              "indices (%d)" % self.n_features_in_)
 
-        if hasattr(self, '_fit_X') and isinstance(self._fit_X, SparseCumlArray):
+        if hasattr(self, '_fit_X') and isinstance(self._fit_X,
+                                                  SparseCumlArray):
             D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
         else:
             D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
@@ -872,15 +874,15 @@ class NearestNeighbors(Base,
 
         if mode == 'connectivity':
             indices = self.__kneighbors(X, n_neighbors,
-                                       return_distance=False,
-                                       _output_type="cupy")
+                                        return_distance=False,
+                                        _output_type="cupy")
 
             n_samples = indices.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
             distances, indices = self.__kneighbors(X, n_neighbors,
-                                                  _output_type="cupy")
+                                                   _output_type="cupy")
             distances = cp.ravel(distances)
 
         else:

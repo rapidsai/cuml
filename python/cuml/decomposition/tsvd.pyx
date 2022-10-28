@@ -325,7 +325,8 @@ class TruncatedSVD(Base,
         cdef paramsTSVD *params = <paramsTSVD*><size_t> \
             self._build_params(self.n_rows, self.n_features_in_)
 
-        self._initialize_arrays(self.n_components, self.n_rows, self.n_features_in_)
+        self._initialize_arrays(self.n_components, self.n_rows,
+                                self.n_features_in_)
 
         cdef uintptr_t comp_ptr = self.components_.ptr
 
