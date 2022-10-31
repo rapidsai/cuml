@@ -55,7 +55,7 @@ namespace impl {
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t& handle,
-                const raft::cluster::KMeansParams& params,
+                const raft::cluster::kmeans::KMeansParams& params,
                 raft::device_matrix_view<const DataT, IndexT> X,
                 raft::device_matrix_view<DataT, IndexT> centroids)
 {
@@ -94,7 +94,7 @@ void initRandom(const raft::handle_t& handle,
   auto centroidsSampledInRank =
     raft::make_device_matrix<DataT, IndexT>(handle, nCentroidsSampledInRank, n_features);
 
-  raft::cluster::shuffleAndGather<DataT, IndexT>(
+  raft::cluster::kmeans::shuffle_and_gather(
     handle, X, centroidsSampledInRank.view(), nCentroidsSampledInRank, params.rng_state.seed);
 
   std::vector<size_t> displs(n_ranks);
@@ -127,7 +127,7 @@ void initRandom(const raft::handle_t& handle,
  */
 template <typename DataT, typename IndexT>
 void initKMeansPlusPlus(const raft::handle_t& handle,
-                        const raft::cluster::KMeansParams& params,
+                        const raft::cluster::kmeans::KMeansParams& params,
                         raft::device_matrix_view<const DataT, IndexT> X,
                         raft::device_matrix_view<DataT, IndexT> centroidsRawData,
                         rmm::device_uvector<char>& workspace)
@@ -220,17 +220,17 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
   // <<< Step-2 >>>: psi <- phi_X (C)
   auto clusterCost = raft::make_device_scalar<DataT>(handle, 0);
 
-  raft::cluster::minClusterDistanceCompute<DataT, IndexT>(handle,
-                                                          params,
-                                                          X,
-                                                          potentialCentroids,
-                                                          minClusterDistance.view(),
-                                                          L2NormX.view(),
-                                                          L2NormBuf_OR_DistBuf,
-                                                          workspace);
+  raft::cluster::kmeans::min_cluster_distance(handle,
+                                              params,
+                                              X,
+                                              potentialCentroids,
+                                              minClusterDistance.view(),
+                                              L2NormX.view(),
+                                              L2NormBuf_OR_DistBuf,
+                                              workspace);
 
   // compute partial cluster cost from the samples in rank
-  raft::cluster::computeClusterCost(
+  raft::cluster::kmeans::cluster_cost(
     handle,
     minClusterDistance.view(),
     workspace,
@@ -269,16 +269,16 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
                     iter,
                     potentialCentroids.extent(0));
 
-    raft::cluster::minClusterDistanceCompute<DataT, IndexT>(handle,
-                                                            params,
-                                                            X,
-                                                            potentialCentroids,
-                                                            minClusterDistance.view(),
-                                                            L2NormX.view(),
-                                                            L2NormBuf_OR_DistBuf,
-                                                            workspace);
+    raft::cluster::kmeans::min_cluster_distance(handle,
+                                                params,
+                                                X,
+                                                potentialCentroids,
+                                                minClusterDistance.view(),
+                                                L2NormX.view(),
+                                                L2NormBuf_OR_DistBuf,
+                                                workspace);
 
-    raft::cluster::computeClusterCost(
+    raft::cluster::kmeans::cluster_cost(
       handle,
       minClusterDistance.view(),
       workspace,
@@ -295,20 +295,20 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     // potentialCentroids
     raft::random::uniform(
       handle, rng, uniformRands.data_handle(), uniformRands.extent(0), (DataT)0, (DataT)1);
-    raft::cluster::SamplingOp<DataT, IndexT> select_op(psi,
-                                                       params.oversampling_factor,
-                                                       n_clusters,
-                                                       uniformRands.data_handle(),
-                                                       isSampleCentroid.data_handle());
+    raft::cluster::kmeans::SamplingOp<DataT, IndexT> select_op(psi,
+                                                               params.oversampling_factor,
+                                                               n_clusters,
+                                                               uniformRands.data_handle(),
+                                                               isSampleCentroid.data_handle());
 
     rmm::device_uvector<DataT> inRankCp(0, stream);
-    raft::cluster::sampleCentroids(handle,
-                                   X,
-                                   minClusterDistance.view(),
-                                   isSampleCentroid.view(),
-                                   select_op,
-                                   inRankCp,
-                                   workspace);
+    raft::cluster::kmeans::sample_centroids(handle,
+                                            X,
+                                            minClusterDistance.view(),
+                                            isSampleCentroid.view(),
+                                            select_op,
+                                            inRankCp,
+                                            workspace);
     /// <<<< End of Step-4 >>>>
 
     int* nPtsSampledByRank;
@@ -365,7 +365,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 
     auto weight = raft::make_device_vector<DataT, IndexT>(handle, potentialCentroids.extent(0));
 
-    raft::cluster::countSamplesInCluster<DataT, IndexT>(
+    raft::cluster::kmeans::count_samples_in_cluster(
       handle, params, X, L2NormX.view(), potentialCentroids, workspace, weight.view());
 
     // merge the local histogram from all ranks
@@ -380,22 +380,26 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     // Step-8: Recluster the weighted points in C into k clusters
     // Note - reclustering step is duplicated across all ranks and with the same
     // seed they should generate the same potentialCentroids
-    raft::cluster::kmeansPlusPlus<DataT, IndexT>(
-      handle, params, potentialCentroids, centroidsRawData, workspace);
+    auto const_centroids = raft::make_device_matrix_view<const DataT, IndexT>(
+      potentialCentroids.data_handle(), potentialCentroids.extent(0), potentialCentroids.extent(1));
+    raft::cluster::kmeans::init_plus_plus(
+      handle, params, const_centroids, centroidsRawData, workspace);
 
     auto inertia = raft::make_host_scalar<DataT>(0);
     auto n_iter  = raft::make_host_scalar<IndexT>(0);
-    raft::cluster::KMeansParams default_params;
+    auto weight_view =
+      raft::make_device_vector_view<const DataT, IndexT>(weight.data_handle(), weight.extent(0));
+    raft::cluster::kmeans::KMeansParams default_params;
     default_params.n_clusters = params.n_clusters;
 
-    raft::cluster::kmeans_fit_main<DataT, IndexT>(handle,
-                                                  default_params,
-                                                  X,
-                                                  weight.view(),
-                                                  centroidsRawData,
-                                                  inertia.view(),
-                                                  n_iter.view(),
-                                                  workspace);
+    raft::cluster::kmeans::fit_main(handle,
+                                    default_params,
+                                    const_centroids,
+                                    weight_view,
+                                    centroidsRawData,
+                                    inertia.view(),
+                                    n_iter.view(),
+                                    workspace);
 
   } else if ((IndexT)potentialCentroids.extent(0) < (IndexT)n_clusters) {
     // supplement with random
@@ -409,10 +413,10 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
                     n_random_clusters);
 
     // generate `n_random_clusters` centroids
-    raft::cluster::KMeansParams rand_params;
-    rand_params.init       = raft::cluster::KMeansParams::InitMethod::Random;
+    raft::cluster::kmeans::KMeansParams rand_params;
+    rand_params.init       = raft::cluster::kmeans::KMeansParams::InitMethod::Random;
     rand_params.n_clusters = n_random_clusters;
-    initRandom<DataT, IndexT>(handle, rand_params, X, centroidsRawData);
+    initRandom(handle, rand_params, X, centroidsRawData);
 
     // copy centroids generated during kmeans|| iteration to the buffer
     raft::copy(centroidsRawData.data_handle() + n_random_clusters * n_features,
@@ -475,7 +479,7 @@ void checkWeights(const raft::handle_t& handle,
 
 template <typename DataT, typename IndexT>
 void fit(const raft::handle_t& handle,
-         const raft::cluster::KMeansParams& params,
+         const raft::cluster::kmeans::KMeansParams& params,
          raft::device_matrix_view<const DataT, IndexT> X,
          raft::device_vector_view<DataT, IndexT> weight,
          raft::device_matrix_view<DataT, IndexT> centroids,
@@ -535,21 +539,21 @@ void fit(const raft::handle_t& handle,
     //   'key' is index to an sample in 'centroids' (index of the nearest
     //   centroid) and 'value' is the distance between the sample 'X[i]' and the
     //   'centroid[key]'
-    raft::cluster::minClusterAndDistanceCompute<DataT, IndexT>(handle,
-                                                               params,
-                                                               X,
-                                                               const_centroids,
-                                                               minClusterAndDistance.view(),
-                                                               L2NormX.view(),
-                                                               L2NormBuf_OR_DistBuf,
-                                                               workspace);
+    raft::cluster::kmeans::min_cluster_and_distance(handle,
+                                                    params,
+                                                    X,
+                                                    const_centroids,
+                                                    minClusterAndDistance.view(),
+                                                    L2NormX.view(),
+                                                    L2NormBuf_OR_DistBuf,
+                                                    workspace);
 
     // Using TransformInputIteratorT to dereference an array of
     // cub::KeyValuePair and converting them to just return the Key to be used
     // in reduce_rows_by_key prims
-    raft::cluster::KeyValueIndexOp<IndexT, DataT> conversion_op;
+    raft::cluster::kmeans::KeyValueIndexOp<IndexT, DataT> conversion_op;
     cub::TransformInputIterator<IndexT,
-                                raft::cluster::KeyValueIndexOp<IndexT, DataT>,
+                                raft::cluster::kmeans::KeyValueIndexOp<IndexT, DataT>,
                                 raft::KeyValuePair<IndexT, DataT>*>
       itr(minClusterAndDistance.data_handle(), conversion_op);
 
@@ -660,17 +664,18 @@ void fit(const raft::handle_t& handle,
       rmm::device_scalar<raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
 
       // calculate cluster cost phi_x(C)
-      raft::cluster::computeClusterCost(handle,
-                                        minClusterAndDistance.view(),
-                                        workspace,
-                                        raft::make_device_scalar_view(clusterCostD.data()),
-                                        [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
-                                                      const raft::KeyValuePair<IndexT, DataT>& b) {
-                                          raft::KeyValuePair<IndexT, DataT> res;
-                                          res.key   = 0;
-                                          res.value = a.value + b.value;
-                                          return res;
-                                        });
+      raft::cluster::kmeans::cluster_cost(
+        handle,
+        minClusterAndDistance.view(),
+        workspace,
+        raft::make_device_scalar_view(clusterCostD.data()),
+        [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                      const raft::KeyValuePair<IndexT, DataT>& b) {
+          raft::KeyValuePair<IndexT, DataT> res;
+          res.key   = 0;
+          res.value = a.value + b.value;
+          return res;
+        });
 
       // Cluster cost phi_x(C) from all ranks
       comm.allreduce(&(clusterCostD.data()->value),
@@ -709,7 +714,7 @@ void fit(const raft::handle_t& handle,
 
 template <typename DataT, typename IndexT = int>
 void fit(const raft::handle_t& handle,
-         const raft::cluster::KMeansParams& params,
+         const raft::cluster::kmeans::KMeansParams& params,
          const DataT* X,
          const IndexT n_local_samples,
          const IndexT n_features,
@@ -745,17 +750,17 @@ void fit(const raft::handle_t& handle,
   // check if weights sum up to n_samples
   checkWeights(handle, workspace, weight.view());
 
-  if (params.init == raft::cluster::KMeansParams::InitMethod::Random) {
+  if (params.init == raft::cluster::kmeans::KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset
     CUML_LOG_KMEANS(handle,
                     "KMeans.fit: initialize cluster centers by randomly choosing from the "
                     "input data.\n");
     initRandom<DataT, IndexT>(handle, params, data, centroidsRawData.view());
-  } else if (params.init == raft::cluster::KMeansParams::InitMethod::KMeansPlusPlus) {
+  } else if (params.init == raft::cluster::kmeans::KMeansParams::InitMethod::KMeansPlusPlus) {
     // default method to initialize is kmeans++
     CUML_LOG_KMEANS(handle, "KMeans.fit: initialize cluster centers using k-means++ algorithm.\n");
     initKMeansPlusPlus<DataT, IndexT>(handle, params, data, centroidsRawData.view(), workspace);
-  } else if (params.init == raft::cluster::KMeansParams::InitMethod::Array) {
+  } else if (params.init == raft::cluster::kmeans::KMeansParams::InitMethod::Array) {
     CUML_LOG_KMEANS(handle,
                     "KMeans.fit: initialize cluster centers from the ndarray array input "
                     "passed to init arguement.\n");
