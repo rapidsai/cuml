@@ -206,6 +206,7 @@ class Base(TagsMixin,
         except ValueError:
             self.output_mem_type = cuml.global_settings.memory_type
         self._input_type = None
+        self._input_mem_type = None
         self.target_dtype = None
         self.n_features_in_ = None
 
@@ -461,7 +462,7 @@ class Base(TagsMixin,
         self._input_type = cuml.internals.input_utils.determine_array_type(inp)
 
     def _set_output_mem_type(self, inp):
-        self._input_mem_type = cuml.common.input_utils.determine_array_memtype(
+        self._input_mem_type = cuml.internals.input_utils.determine_array_memtype(
             inp
         )
 
@@ -502,8 +503,8 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.common.input_utils.determine_array_type(inp)
-            mem_type = cuml.common.input_utils.determine_array_memtype(
+            output_type = cuml.internals.input_utils.determine_array_type(inp)
+            mem_type = cuml.internals.input_utils.determine_array_memtype(
                 inp
             )
 

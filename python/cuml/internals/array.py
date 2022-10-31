@@ -19,11 +19,6 @@
 import copy
 import operator
 import pickle
-try:
-    from functools import cache
-except ImportError:
-    from functools import lru_cache
-    cache = lru_cache(maxsize=None)
 
 from cuml.internals.global_settings import global_settings
 from cuml.internals.logger import debug
@@ -35,7 +30,8 @@ from cuml.internals.safe_imports import (
     cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
+    safe_import_from
 )
 from typing import Tuple
 
@@ -45,6 +41,9 @@ np = cpu_only_import('numpy')
 rmm = gpu_only_import('rmm')
 
 cuda = gpu_only_import_from('numba', 'cuda')
+cached_property = safe_import_from(
+    'functools', 'cached_property', alt=null_decorator
+)
 CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 CudfSeries = gpu_only_import_from('cudf', 'Series')
@@ -347,8 +346,7 @@ class CumlArray():
     def is_host_accessible(self):
         return self._mem_type.is_host_accessible
 
-    @property
-    @cache
+    @cached_property
     def size(self):
         xpy = self._mem_type.xpy
         return xpy.product(
@@ -367,10 +365,15 @@ class CumlArray():
     def shape(self):
         return self._array_interface['shape']
 
-    @property
-    @cache
+    @cached_property
     def is_contiguous(self):
-        return self.to_output('array').data.contiguous
+        try:
+            return self.to_output('array').data.contiguous
+        except AttributeError:
+            return (
+                self.to_output('array').flags['C_CONTIGUOUS'] or
+                self.to_output('array').flags['F_CONTIGUOUS']
+            )
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed
@@ -418,6 +421,30 @@ class CumlArray():
 
     def __sub__(self, other):
         return self._operator_overload(other, operator.sub)
+
+    def __lt__(self, other):
+        return self._operator_overload(other, operator.lt)
+
+    def __le__(self, other):
+        return self._operator_overload(other, operator.lt)
+
+    def __gt__(self, other):
+        return self._operator_overload(other, operator.gt)
+
+    def __ge__(self, other):
+        return self._operator_overload(other, operator.ge)
+
+    def __eq__(self, other):
+        return self._operator_overload(other, operator.eq)
+
+    def __or__(self, other):
+        return self._operator_overload(other, operator.or_)
+
+    def any(self):
+        return self.to_output('array').any()
+
+    def all(self):
+        return self.to_output('array').all()
 
     def item(self):
         return self._mem_type.xpy.asarray(self).item()
@@ -878,6 +905,8 @@ class CumlArray():
 
         if convert_to_mem_type == MemoryType.mirror:
             convert_to_mem_type = arr.mem_type
+        if convert_to_dtype:
+            convert_to_dtype = arr.mem_type.xpy.dtype(convert_to_dtype)
 
         conversion_required = (
             (convert_to_dtype and (convert_to_dtype != arr.dtype))
@@ -898,7 +927,22 @@ class CumlArray():
                     arr.dtype, convert_to_dtype, casting='safe'
                 )
             ):
-                raise TypeError('Data type conversion would lose information.')
+                try:
+                    target_dtype_range = arr.mem_type.xpy.iinfo(
+                        convert_to_dtype
+                    )
+                except ValueError:
+                    target_dtype_range = arr.mem_type.xpy.finfo(
+                        convert_to_dtype
+                    )
+                if (
+                    (X < target_dtype_range.min) |
+                    (X > target_dtype_range.max)
+                ).any():
+                    raise TypeError(
+                        'Data type conversion on values outside'
+                        ' representable range of target dtype'
+                    )
             arr = cls(
                 arr.to_output(
                     output_dtype=convert_to_dtype,
@@ -970,3 +1014,4 @@ class CumlArray():
                     f'Expected {check_rows} rows but got {n_rows}'
                     ' rows.'
                 )
+        return arr

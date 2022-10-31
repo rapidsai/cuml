@@ -211,9 +211,9 @@ def determine_array_memtype(X):
         return X.mem_type
     except AttributeError:
         pass
-    if hasattr('__cuda_array_interface__'):
+    if hasattr(X, '__cuda_array_interface__'):
         return MemoryType.device
-    if hasattr('__array_interface__'):
+    if hasattr(X, '__array_interface__'):
         return MemoryType.host
     if isinstance(X, (CudfDataFrame, CudfSeries)):
         return MemoryType.device

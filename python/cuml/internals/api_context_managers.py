@@ -104,7 +104,7 @@ def set_api_memory_type(mem_type):
             mem_type
         )
     except ValueError:
-        mem_type = cuml.internals.input_utils.determine_array_mem_type(
+        mem_type = cuml.internals.input_utils.determine_array_memtype(
             mem_type
         )
 
