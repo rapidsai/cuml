@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
-import copy
 from collections import namedtuple
 
-import cuml.internals.array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
     cpu_only_import,

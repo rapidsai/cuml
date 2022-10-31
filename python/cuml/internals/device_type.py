@@ -15,9 +15,8 @@
 #
 
 
-import cuml
-import contextlib
 from enum import Enum, auto
+from cuml.internals.mem_type import MemoryType
 
 
 class DeviceType(Enum):
@@ -28,13 +27,24 @@ class DeviceType(Enum):
     def from_str(device_type):
         if isinstance(device_type, str):
             device_type = device_type.lower()
-        elif isinstance(device_type, DeviceType):
-            return device_type
 
-        if device_type in ('cpu', 'host'):
+        if device_type in ('cpu', 'host', DeviceType.host):
             return DeviceType.host
-        elif device_type in ('gpu', 'device'):
+        elif device_type in ('gpu', 'device', DeviceType.device):
             return DeviceType.device
         else:
             raise ValueError('Parameter device_type must be one of "cpu" or '
                              '"gpu"')
+
+    def is_compatible(self, mem_type):
+        if self == DeviceType.device:
+            return mem_type.is_device_accessible
+        else:
+            return mem_type.is_host_accessible
+
+    @property
+    def default_mem_type(self):
+        if self == DeviceType.device:
+            return MemoryType.device
+        else:
+            return MemoryType.host

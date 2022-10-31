@@ -28,6 +28,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 if TYPE_CHECKING:
     from cuml.internals.base import Base
 from cuml.internals.global_settings import global_settings
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import gpu_only_import_from, NullContext
 
 cupy_using_allocator = gpu_only_import_from(
@@ -77,6 +78,21 @@ def set_api_output_type(output_type: str):
     global_settings.root_cm.output_type = array_type
 
 
+def set_api_memory_type(mem_type):
+    assert (global_settings.root_cm is not None)
+
+    try:
+        mem_type = MemoryType.from_str(
+            mem_type
+        )
+    except ValueError:
+        mem_type = cuml.internals.input_utils.determine_array_mem_type(
+            mem_type
+        )
+
+    global_settings.root_cm.memory_type = mem_type
+
+
 def set_api_output_dtype(output_dtype):
     assert (global_settings.root_cm is not None)
 
@@ -104,6 +120,7 @@ class InternalAPIContext(contextlib.ExitStack):
         self.prev_output_type = self.enter_context(_using_mirror_output_type())
 
         self._output_type = None
+        self._memory_type = None
         self.output_dtype = None
 
         # Set the output type to the prev_output_type. If "input", set to None
@@ -124,6 +141,14 @@ class InternalAPIContext(contextlib.ExitStack):
     @output_type.setter
     def output_type(self, value: str):
         self._output_type = value
+
+    @property
+    def memory_type(self):
+        return self._memory_type
+
+    @memory_type.setter
+    def memory_type(self, value):
+        self._memory_type = MemoryType.from_str(value)
 
     def pop_all(self):
         """Preserve the context stack by transferring it to a new instance."""
@@ -305,17 +330,23 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
 
         def set_output_type():
             output_type = root_cm.output_type
+            mem_type = root_cm.memory_type
 
             # Check if output_type is None, can happen if no output type has
             # been set by estimator
             if (output_type is None):
                 output_type = self.base_obj.output_type
+            if mem_type is None:
+                mem_type = self.base_obj.output_mem_type
 
             if (output_type == "input"):
                 output_type = self.base_obj._input_type
+                mem_type = self.base_obj._input_type
 
             if (output_type != root_cm.output_type):
                 set_api_output_type(output_type)
+            if (mem_type != root_cm.memory_type):
+                set_api_memory_type(output_type)
 
             assert (output_type != "mirror")
 
@@ -349,7 +380,10 @@ class ProcessReturnArray(ProcessReturn):
                     ret_val, convert_index=False)
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
-                    ret_val, order="K").array
+                    ret_val,
+                    convert_to_mem_type=global_settings.memory_type,
+                    order="K"
+                ).array
 
         return ret_val
 
@@ -361,6 +395,9 @@ class ProcessReturnArray(ProcessReturn):
                 or output_type == "input"):
             output_type = self._context.root_cm.output_type
 
+        if global_settings.memory_type in (None, MemoryType.mirror):
+            memory_type = self._context.root_cm.memory_type
+
         assert (output_type is not None
                 and output_type != "mirror"
                 and output_type != "input"), \
@@ -369,7 +406,9 @@ class ProcessReturnArray(ProcessReturn):
 
         return ret_val.to_output(
             output_type=output_type,
-            output_dtype=self._context.root_cm.output_dtype)
+            output_dtype=self._context.root_cm.output_dtype,
+            output_mem_type=memory_type
+        )
 
 
 class ProcessReturnSparseArray(ProcessReturnArray):
@@ -387,7 +426,10 @@ class ProcessReturnSparseArray(ProcessReturnArray):
                     ret_val, convert_index=False)
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
-                    ret_val, order="K").array
+                    ret_val,
+                    convert_to_mem_type=global_settings.memory_type,
+                    order="K"
+                ).array
 
         return ret_val
 
