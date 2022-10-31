@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-set(CUML_VERSION 22.10.00)
+set(CUML_VERSION 22.12.00)
 
 project(
   cuml-python
@@ -130,5 +130,6 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
+add_subdirectory(cuml/experimental/common)
 add_subdirectory(cuml/experimental/linear_model)
 

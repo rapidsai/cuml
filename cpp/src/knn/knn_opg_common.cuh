@@ -25,9 +25,9 @@
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 
 #include <raft/core/comms.hpp>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/spatial/knn/knn.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cstddef>
 #include <memory>
@@ -584,7 +584,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       }
     }
   } else {  // Or, as the owner of currently processed query batch,
-            // receive results from other workers for reduce
+    // receive results from other workers for reduce
     bool part_rank_is_idx = work.idxRanks.find(part_rank) != work.idxRanks.end();
     size_t idx_rank_size  = work.idxRanks.size();
 

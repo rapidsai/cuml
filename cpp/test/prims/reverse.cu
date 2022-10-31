@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <matrix/reverse.cuh>
 #include <memory>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

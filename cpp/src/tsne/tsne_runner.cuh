@@ -21,7 +21,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/transform.h>

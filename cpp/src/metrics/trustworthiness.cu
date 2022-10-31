@@ -14,12 +14,19 @@
  * limitations under the License.
  */
 
-#include <metrics/trustworthiness_score.cuh>
+#include <raft/stats/trustworthiness_score.hpp>
 
 #include <cuml/metrics/metrics.hpp>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.hpp>
+#endif
+
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
 #include <raft/distance/distance.cuh>
-#include <raft/distance/specializations.cuh>
 
 #include <raft/core/handle.hpp>
 
@@ -50,7 +57,7 @@ double trustworthiness_score(const raft::handle_t& h,
                              int n_neighbors,
                              int batchSize)
 {
-  return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
+  return raft::stats::trustworthiness_score<math_t, distance_type>(
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
 

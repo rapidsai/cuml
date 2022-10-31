@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/kl_divergence.cuh>
+#include <raft/stats/kl_divergence.hpp>
 
 namespace ML {
 
@@ -24,12 +24,12 @@ namespace Metrics {
 
 double kl_divergence(const raft::handle_t& handle, const double* y, const double* y_hat, int n)
 {
-  return MLCommon::Metrics::kl_divergence(y, y_hat, n, handle.get_stream());
+  return raft::stats::kl_divergence(y, y_hat, n, handle.get_stream());
 }
 
 float kl_divergence(const raft::handle_t& handle, const float* y, const float* y_hat, int n)
 {
-  return MLCommon::Metrics::kl_divergence(y, y_hat, n, handle.get_stream());
+  return raft::stats::kl_divergence(y, y_hat, n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML
