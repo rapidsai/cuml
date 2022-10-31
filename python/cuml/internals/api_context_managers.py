@@ -96,6 +96,21 @@ def set_api_memory_type(mem_type):
     GlobalSettings().root_cm.memory_type = mem_type
 
 
+def set_api_memory_type(mem_type):
+    assert (global_settings.root_cm is not None)
+
+    try:
+        mem_type = MemoryType.from_str(
+            mem_type
+        )
+    except ValueError:
+        mem_type = cuml.internals.input_utils.determine_array_mem_type(
+            mem_type
+        )
+
+    global_settings.root_cm.memory_type = mem_type
+
+
 def set_api_output_dtype(output_dtype):
     assert (GlobalSettings().root_cm is not None)
 
