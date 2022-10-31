@@ -196,7 +196,8 @@ if __name__ == "__main__":
         year, month = full_version.split('.')[:2]
         version = float(year + '.' + month)
         if version < 2021.4:
-            raise Exception('The nsys utility needs to be updated')
+            raise Exception('This script requires nsys 2021.4 '
+                            'or later version of the tool.')
 
     check_version()
     profiler = Profiler()
