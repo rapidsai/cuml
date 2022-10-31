@@ -39,6 +39,7 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
 import cuml.internals
 from cuml.common import using_output_type
 from cuml.experimental.common.base import Base
+from cuml.experimental.common.mixins import CMajorInputTagMixin
 from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import logger
@@ -47,7 +48,6 @@ from cuml.common.memory_utils import using_output_type
 from cuml.common.import_utils import has_scipy
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
 

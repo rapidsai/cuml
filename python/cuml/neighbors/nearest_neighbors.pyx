@@ -27,13 +27,13 @@ import math
 
 import cuml.internals
 from cuml.experimental.common.base import Base
+from cuml.experimental.common.mixins import CMajorInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common.import_utils import has_scipy
-from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse

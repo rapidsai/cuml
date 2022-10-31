@@ -23,14 +23,14 @@ import pprint
 import cuml.internals
 from cuml.solvers import QN
 from cuml.experimental.common.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.experimental.common.mixins import ClassifierMixin, \
+    FMajorInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import kwargs_interop_processing
 
 
@@ -86,9 +86,8 @@ class LogisticRegression(Base,
         >>> reg.fit(X,y)
         LogisticRegression()
         >>> print(reg.coef_)
-        0    0.698...
-        1    0.570...
-        dtype: float32
+                 0         1
+        0  0.69861  0.570058
         >>> print(reg.intercept_)
         0   -2.188...
         dtype: float32
@@ -270,13 +269,13 @@ class LogisticRegression(Base,
         Fit the model with X and y.
 
         """
-        # Converting y to device array here to use `unique` function
-        # since calling input_to_cuml_array again in QN has no cost
-        # Not needed to check dtype since qn class checks it already
-        self.n_features_in_ = X.shape[1]
+        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 
+        # Converting y to device array here to use `unique` function
+        # since calling input_to_cuml_array again in QN has no cost
+        # Not needed to check dtype since qn class checks it already
         y_m, n_rows, _, _ = input_to_cuml_array(y)
         self.classes_ = cp.unique(y_m)
         self._num_classes = len(self.classes_)

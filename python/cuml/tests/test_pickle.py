@@ -92,6 +92,7 @@ unfit_clone_xfail = [
     'OneVsOneClassifier',
     'OneVsRestClassifier',
     "SparseRandomProjection",
+    "UMAP"
 ]
 
 all_models = get_classes_from_package(cuml, import_sub_packages=True)
@@ -468,7 +469,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
         assert array_equal(result["neighbors"], D_after)
         state = pickled_model.__dict__
         assert state["n_indices"] == 1
-        assert "X_m" in state
+        assert "_fit_X" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -495,13 +496,13 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
     def assert_model(loaded_model, X):
         state = loaded_model.__dict__
         assert state["n_indices"] == 0
-        assert "X_m" not in state
+        assert "_fit_X" not in state
         loaded_model.fit(X[0])
 
         state = loaded_model.__dict__
 
         assert state["n_indices"] == 1
-        assert "X_m" in state
+        assert "_fit_X" in state
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

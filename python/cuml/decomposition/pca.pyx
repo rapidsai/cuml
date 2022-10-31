@@ -34,6 +34,8 @@ from cython.operator cimport dereference as deref
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.experimental.common.base import Base
+from cuml.experimental.common.mixins import FMajorInputTagMixin, \
+    SparseInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
@@ -46,8 +48,6 @@ from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
-from cuml.common.mixins import FMajorInputTagMixin
-from cuml.common.mixins import SparseInputTagMixin
 from cuml.internals.api_decorators import kwargs_interop_processing
 
 
@@ -358,7 +358,8 @@ class PCA(Base,
         self._sparse_model = True
 
         self.n_samples_ = X.shape[0]
-        self.n_features_ = X.shape[1]
+        self.n_features_ = X.shape[1] if X.ndim == 2 else 1
+        self.n_features_in_ = self.n_features_
         self.dtype = X.dtype
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
@@ -647,9 +648,9 @@ class PCA(Base,
         from a training set.
 
         """
+        self._check_is_fitted('components_')
         self.dtype = self.components_.dtype
 
-        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):

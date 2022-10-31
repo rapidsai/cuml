@@ -28,13 +28,12 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.experimental.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.experimental.common.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import kwargs_interop_processing
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":

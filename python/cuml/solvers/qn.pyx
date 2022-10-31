@@ -690,8 +690,11 @@ class QN(Base,
                 order='K'
             )
 
-        scores = CumlArray.zeros(shape=(_num_classes_dim, n_rows),
-                                 dtype=dtype, order='F')
+        if _num_classes_dim > 1:
+            shape = (_num_classes_dim, n_rows)
+        else:
+            shape = (n_rows,)
+        scores = CumlArray.zeros(shape=shape, dtype=dtype, order='F')
 
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
@@ -773,7 +776,7 @@ class QN(Base,
 
         del X_m
 
-        return scores.to_output('cupy').T.squeeze()
+        return scores
 
     @generate_docstring(
         X='dense_sparse',

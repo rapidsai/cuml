@@ -20,12 +20,11 @@ from inspect import signature
 
 from cuml.solvers import CD, QN
 from cuml.experimental.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.experimental.common.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
-from cuml.common.mixins import FMajorInputTagMixin
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import kwargs_interop_processing
 
@@ -243,7 +242,7 @@ class ElasticNet(Base,
         Fit the model with X and y.
 
         """
-        self.n_features_in_ = X.shape[1]
+        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 

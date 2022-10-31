@@ -364,9 +364,9 @@ class Base(TagsMixin,
     def transform(self, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('transform', *args, **kwargs)
 
-    def kneighbors(self, *args, **kwargs) \
+    def kneighbors(self, X, *args, **kwargs) \
             -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
-        return self.dispatch_func('kneighbors', *args, **kwargs)
+        return self.dispatch_func('kneighbors', X, *args, **kwargs)
 
     def fit_transform(self, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('fit_transform', *args, **kwargs)
