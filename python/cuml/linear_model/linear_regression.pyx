@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml import Handle
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
@@ -66,7 +66,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      double *sample_weight) except +
 
 
-class LinearRegression(Base,
+class LinearRegression(UniversalBase,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
@@ -320,9 +320,9 @@ class LinearRegression(Base,
     def _predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.n_cols = self.coef_.shape[0]
-        # Adding Base here skips it in the Method Resolution Order (MRO)
-        # Since Base and LinearPredictMixin now both have a `predict` method
-        return super(Base, self).predict(X, convert_dtype=convert_dtype)
+        # Adding UniversalBase here skips it in the Method Resolution Order (MRO)
+        # Since UniversalBase and LinearPredictMixin now both have a `predict` method
+        return super(UniversalBase, self).predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \

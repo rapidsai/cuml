@@ -86,7 +86,7 @@ def set_api_memory_type(mem_type):
             mem_type
         )
     except ValueError:
-        mem_type = cuml.internals.input_utils.determine_array_mem_type(
+        mem_type = cuml.internals.input_utils.determine_array_memtype(
             mem_type
         )
 
@@ -341,12 +341,12 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
 
             if (output_type == "input"):
                 output_type = self.base_obj._input_type
-                mem_type = self.base_obj._input_type
+                mem_type = self.base_obj._input_mem_type
 
             if (output_type != root_cm.output_type):
                 set_api_output_type(output_type)
             if (mem_type != root_cm.memory_type):
-                set_api_memory_type(output_type)
+                set_api_memory_type(mem_type)
 
             assert (output_type != "mirror")
 
@@ -390,6 +390,7 @@ class ProcessReturnArray(ProcessReturn):
     def convert_to_outputtype(self, ret_val):
 
         output_type = global_settings.output_type
+        memory_type = global_settings.memory_type
 
         if (output_type is None or output_type == "mirror"
                 or output_type == "input"):

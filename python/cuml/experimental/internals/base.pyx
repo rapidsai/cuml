@@ -194,6 +194,7 @@ class Base(TagsMixin,
         except ValueError:
             self.output_mem_type = cuml.global_settings.memory_type
         self._input_type = None
+        self._input_mem_type = None
         self.target_dtype = None
         self.n_features_in_ = None
 
@@ -446,10 +447,10 @@ class Base(TagsMixin,
             self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
-        self._input_type = cuml.common.input_utils.determine_array_type(inp)
+        self._input_type = cuml.internals.input_utils.determine_array_type(inp)
 
     def _set_output_mem_type(self, inp):
-        self._input_mem_type = cuml.common.input_utils.determine_array_memtype(
+        self._input_mem_type = cuml.internals.input_utils.determine_array_memtype(
             inp
         )
 
@@ -469,7 +470,7 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.common.input_utils.determine_array_type(inp)
+            output_type = cuml.internals.input_utils.determine_array_type(inp)
 
         return output_type
 
@@ -490,15 +491,15 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.common.input_utils.determine_array_type(inp)
-            mem_type = cuml.common.input_utils.determine_array_memtype(
+            output_type = cuml.internals.input_utils.determine_array_type(inp)
+            mem_type = cuml.internals.input_utils.determine_array_memtype(
                 inp
             )
 
         return output_type
 
     def _set_target_dtype(self, target):
-        self.target_dtype = cuml.common.input_utils.determine_array_dtype(
+        self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
             target)
 
     def _get_target_dtype(self):
@@ -587,6 +588,6 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = cuml.common.input_utils.determine_array_type(input_obj)
+        temp_output = cuml.internals.input_utils.determine_array_type(input_obj)
 
     return temp_output

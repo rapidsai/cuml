@@ -19,6 +19,10 @@ from enum import Enum, auto
 from cuml.internals.mem_type import MemoryType
 
 
+class DeviceTypeError(Exception):
+    '''An exception thrown to indicate bad device type selection'''
+
+
 class DeviceType(Enum):
     host = auto(),
     device = auto()
