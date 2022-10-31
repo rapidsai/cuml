@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -214,7 +214,7 @@ class RegressorMixin:
         else:
             handle = None
 
-        preds = self._predict(X, **kwargs)
+        preds = self.predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
     @staticmethod
@@ -254,7 +254,7 @@ class ClassifierMixin:
         else:
             handle = None
 
-        preds = self._predict(X, **kwargs)
+        preds = self.predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
 
     @staticmethod

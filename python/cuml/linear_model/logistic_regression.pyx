@@ -282,6 +282,9 @@ class LogisticRegression(UniversalBase,
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 
+        # Converting y to device array here to use `unique` function
+        # since calling input_to_cuml_array again in QN has no cost
+        # Not needed to check dtype since qn class checks it already
         y_m, n_rows, _, _ = input_to_cuml_array(y)
         self.classes_ = cp.unique(y_m)
         self._num_classes = len(self.classes_)

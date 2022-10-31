@@ -768,7 +768,7 @@ class QN(Base,
 
         del X_m
 
-        return scores.to_output('cupy').T.squeeze()
+        return scores
 
     @generate_docstring(
         X='dense_sparse',
