@@ -349,6 +349,15 @@ class CumlArray(Buffer):
         frames = [CumlArray(f) for f in frames]
         return header, frames
 
+    @classmethod
+    @nvtx.annotate(message="common.CumlArray.deserialize", category="utils",
+                   domain="cuml_python")
+    def deserialize(cls, header, frames):
+        assert (
+            header["frame_count"] == 1
+        ), "Only expecting to deserialize Buffer with a single frame."
+        return cls(frames[0], **header["constructor-kwargs"])
+
     @nvtx.annotate(message="common.CumlArray.copy", category="utils",
                    domain="cuml_python")
     def copy(self) -> Buffer:
