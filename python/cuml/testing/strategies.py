@@ -14,8 +14,7 @@
 #
 from hypothesis import assume
 from hypothesis.extra.numpy import arrays, floating_dtypes
-from hypothesis.strategies import (booleans, composite, floats, integers,
-                                   sampled_from)
+from hypothesis.strategies import booleans, composite, floats, integers, just
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
@@ -26,18 +25,23 @@ def datasets(
     dtypes=floating_dtypes(),
     n_samples=integers(min_value=0, max_value=200),
     n_features=integers(min_value=0, max_value=200),
+    n_targets=just(1),
 ):
     """
     Generic datasets that can serve as an input to an estimator.
 
     Parameters
     ----------
-    dtypes: SearchStrategy[np.dtype]
+    dtypes: SearchStrategy[np.dtype], default=floating_dtypes()
         Returned arrays will have a dtype drawn from these types.
-    n_samples: SearchStrategy[int]
+    n_samples: SearchStrategy[int],\
+        default=integers(min_value=0, max_value=200)
         Returned arrays will have number of rows drawn from these values.
-    n_features: SearchStrategy[int]
+    n_features: SearchStrategy[int],\
+        default=integers(min_value=0, max_values=200)
         Returned arrays will have number of columns drawn from these values.
+    n_targets: SearchStrategy[int], default=just(1)
+        Determines the number of targets returned datasets may contain.
 
     Returns
     -------
@@ -50,7 +54,7 @@ def datasets(
     xs = draw(n_samples)
     ys = draw(n_features)
     X = arrays(dtype=dtypes, shape=(xs, ys))
-    y = arrays(dtype=dtypes, shape=(xs, draw(sampled_from((1, ys)))))
+    y = arrays(dtype=dtypes, shape=(xs, draw(n_targets)))
     return draw(X), draw(y)
 
 
