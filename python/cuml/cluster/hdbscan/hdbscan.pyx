@@ -71,7 +71,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_clusters()
         float *get_stabilities()
         int *get_labels()
-        int *get_label_map()
+        int *get_inverse_label_map()
+        float *get_core_dists()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
@@ -88,10 +89,19 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
                        int m,
-                       int n)
+                       int n,
+                       float *core_dists)
 
         size_t n_rows
         size_t n_cols
+
+    void generate_prediction_data(const handle_t& handle,
+                                  CondensedHierarchy[int, float]&
+                                  condensed_tree,
+                                  int* labels,
+                                  int* label_map,
+                                  int n_selected_clusters,
+                                  PredictionData[int, float]& prediction_data)
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
@@ -101,22 +111,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output)
-
-    void hdbscan(const handle_t & handle,
-                 const float* X,
-                 size_t m, size_t n,
-                 DistanceType metric,
-                 HDBSCANParams& params,
-                 hdbscan_output & output,
-                 PredictionData & prediction_data_)
-
-    void hdbscan(const handle_t & handle,
-                 const float* X,
-                 size_t m, size_t n,
-                 DistanceType metric,
-                 HDBSCANParams& params,
-                 hdbscan_output & output,
-                 PredictionData & prediction_data_)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -504,6 +498,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.condensed_tree_obj = None
         self.single_linkage_tree_obj = None
         self.minimum_spanning_tree_ = None
+        self.prediction_data_obj = None
 
         self.gen_min_span_tree_ = gen_min_span_tree
 
@@ -553,6 +548,36 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                 self.minimum_spanning_tree_ = \
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))
         return self.minimum_spanning_tree_
+
+    def generate_prediction_data(self):
+        """
+        Create data that caches intermediate results used for predicting
+        the label of new/unseen points. This data is only useful if you
+        are intending to use functions from hdbscan.prediction.
+        """
+
+        if not self.fit_called_:
+            raise AttributeError(
+                'The model is not trained yet (call fit() first).')
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        cdef hdbscan_output *hdbscan_output_ = \
+            <hdbscan_output*><size_t>self.hdbscan_output_
+
+        cdef PredictionData[int, float] *prediction_data_ = new PredictionData(
+            handle_[0], <int> self.n_rows, <int> self.n_cols,
+            hdbscan_output_.get_core_dists())
+        self.prediction_data_ptr = <size_t>prediction_data_
+
+        generate_prediction_data(handle_[0],
+                                 hdbscan_output_.get_condensed_tree(),
+                                 hdbscan_output_.get_labels(),
+                                 hdbscan_output_.get_inverse_label_map(),
+                                 hdbscan_output_.get_n_clusters(),
+                                 deref(prediction_data_))
+
+        self.handle.sync()
 
     def __dealloc__(self):
         delete_hdbscan_output(self)
@@ -607,8 +632,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         if self.prediction_data:
             self.X_m = X_m
-            self.n_rows = n_rows
-            self.n_cols = n_cols
+        self.n_rows = n_rows
+        self.n_cols = n_cols
 
         cdef uintptr_t input_ptr = X_m.ptr
 
@@ -661,6 +686,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         params.max_cluster_size = self.max_cluster_size
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
         params.allow_single_cluster = self.allow_single_cluster
+        params.prediction_data = self.prediction_data
 
         if self.cluster_selection_method == 'eom':
             params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
@@ -676,35 +702,24 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
-        cdef PredictionData[int, float] *prediction_data_ = new PredictionData(
-            handle_[0], <int> n_rows, <int> n_cols)
         if self.connectivity == 'knn' or self.connectivity == 'pairwise':
-            if self.prediction_data:
-                self.prediction_data_ptr = <size_t>prediction_data_
-                hdbscan(handle_[0],
-                        <float*>input_ptr,
-                        <int> n_rows,
-                        <int> n_cols,
-                        <DistanceType> metric,
-                        params,
-                        deref(linkage_output),
-                        deref(prediction_data_))
-
-            else:
-                hdbscan(handle_[0],
-                        <float*>input_ptr,
-                        <int> n_rows,
-                        <int> n_cols,
-                        <DistanceType> metric,
-                        params,
-                        deref(linkage_output))
+            hdbscan(handle_[0],
+                    <float*>input_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <DistanceType> metric,
+                    params,
+                    deref(linkage_output))
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
 
-        self.handle.sync()
-
         self.fit_called_ = True
+
+        if self.prediction_data:
+            self.generate_prediction_data()
+
+        self.handle.sync()
 
         self._construct_output_attributes()
 

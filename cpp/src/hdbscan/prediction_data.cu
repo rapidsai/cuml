@@ -100,12 +100,12 @@ void build_index_into_children(const raft::handle_t& handle,
  * @param[in] n_selected_clusters number of clusters in the final clustering
  * @param[in] prediction_data PreditionData object
  */
-void build_prediction_data(const raft::handle_t& handle,
-                           CondensedHierarchy<int, float>& condensed_tree,
-                           int* labels,
-                           int* label_map,
-                           int n_selected_clusters,
-                           PredictionData<int, float>& prediction_data)
+void generate_prediction_data(const raft::handle_t& handle,
+                              CondensedHierarchy<int, float>& condensed_tree,
+                              int* labels,
+                              int* label_map,
+                              int n_selected_clusters,
+                              PredictionData<int, float>& prediction_data)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -200,8 +200,6 @@ void build_prediction_data(const raft::handle_t& handle,
                       if (label != -1) { return label_map[label]; }
                       return -1;
                     });
-  raft::print_device_vector(
-    "examplar labels", exemplar_labels.data(), exemplar_labels.size(), std::cout);
 
   thrust::sort_by_key(exec_policy,
                       exemplar_labels.data(),
@@ -215,10 +213,7 @@ void build_prediction_data(const raft::handle_t& handle,
                     prediction_data.get_exemplar_idx() + n_exemplars,
                     converted_exemplar_labels.data(),
                     [labels] __device__(auto idx) { return labels[idx]; });
-  raft::print_device_vector("converted exemplar labels",
-                            converted_exemplar_labels.data(),
-                            converted_exemplar_labels.size(),
-                            std::cout);
+
   if (n_exemplars > 0) {
     raft::sparse::convert::sorted_coo_to_csr(converted_exemplar_labels.data(),
                                              n_exemplars,

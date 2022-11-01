@@ -169,9 +169,6 @@ void get_stability_scores(const raft::handle_t& handle,
     if (v > -1) atomicAdd(sizes + v, 1);
   });
 
-  // std::cout << "n_condensed_clusters: " << n_condensed_clusters << std::endl;
-  // raft::print_device_vector("cluster_sizes", sizes, n_condensed_clusters, std::cout);
-
   /**
    * Compute stability scores
    */

@@ -66,13 +66,15 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_clusters()
         float *get_stabilities()
         int *get_labels()
-        int *get_label_map()
+        int *get_inverse_label_map()
+        float *get_core_dists()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
                        int m,
-                       int n)
+                       int n,
+                       float *core_dists)
 
         size_t n_rows
         size_t n_cols

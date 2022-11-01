@@ -152,6 +152,7 @@ class RobustSingleLinkageParams {
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
+  bool prediction_data                              = false;
 };
 
 /**
@@ -262,13 +263,15 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
                  value_t* deltas_,
                  value_idx* mst_src_,
                  value_idx* mst_dst_,
-                 value_t* mst_weights_)
+                 value_t* mst_weights_,
+                 bool prediction_data_ = false)
     : robust_single_linkage_output<value_idx, value_t>(
         handle_, n_leaves_, labels_, children_, sizes_, deltas_, mst_src_, mst_dst_, mst_weights_),
       probabilities(probabilities_),
       stabilities(0, handle_.get_stream()),
       condensed_tree(handle_, n_leaves_),
-      label_map(0, handle_.get_stream())
+      inverse_label_map(0, handle_.get_stream()),
+      core_dists(0, handle_.get_stream())
   {
   }
 
@@ -277,9 +280,16 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   // it much easier to use / debug.
   value_t* get_probabilities() { return probabilities; }
   value_t* get_stabilities() { return stabilities.data(); }
-  value_idx* get_label_map() { return label_map.data(); }
+  value_idx* get_inverse_label_map() { return inverse_label_map.data(); }
   // internal function
-  rmm::device_uvector<value_idx>& _get_label_map() { return label_map; }
+  rmm::device_uvector<value_idx>& _get_inverse_label_map() { return inverse_label_map; }
+
+  // setters and getters for core_dists which is used by PredictionData
+  void set_core_dists(rmm::device_uvector<value_t>&& core_dists_)
+  {
+    core_dists = std::move(core_dists_);
+  }
+  value_t* get_core_dists() { return core_dists.data(); }
 
   /**
    * Once n_clusters is known, the stabilities array
@@ -301,11 +311,16 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   value_t* probabilities;  // size n_leaves
   // inversely maps normalized labels to pre-normalized labels
   // used for out-of-sample prediction
-  rmm::device_uvector<value_idx> label_map;  // size n_clusters
+  rmm::device_uvector<value_idx> inverse_label_map;  // size n_clusters
 
   // Size not known ahead of time. Initialize
   // with `initialize_stabilities()` method.
   rmm::device_uvector<value_t> stabilities;
+
+  // Used for the prediction API
+  // where core_dists needs to be stored on the
+  // PredictionData object
+  rmm::device_uvector<value_t> core_dists;
 
   // Use condensed hierarchy to wrap
   // condensed tree outputs since we do not
@@ -325,14 +340,14 @@ template class CondensedHierarchy<int, float>;
 template <typename value_idx, typename value_t>
 class PredictionData {
  public:
-  PredictionData(const raft::handle_t& handle_, value_idx m, value_idx n)
+  PredictionData(const raft::handle_t& handle_, value_idx m, value_idx n, value_t* core_dists_)
     : handle(handle_),
       exemplar_idx(0, handle.get_stream()),
       exemplar_label_offsets(0, handle.get_stream()),
       n_selected_clusters(0),
       selected_clusters(0, handle.get_stream()),
       deaths(0, handle.get_stream()),
-      core_dists(m, handle.get_stream()),
+      core_dists(core_dists_),
       index_into_children(0, handle.get_stream()),
       n_exemplars(0),
       n_rows(m),
@@ -351,7 +366,7 @@ class PredictionData {
   value_idx* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
   value_idx* get_selected_clusters() { return selected_clusters.data(); }
   value_t* get_deaths() { return deaths.data(); }
-  value_t* get_core_dists() { return core_dists.data(); }
+  value_t* get_core_dists() { return core_dists; }
   value_idx* get_index_into_children() { return index_into_children.data(); }
 
   /**
@@ -385,18 +400,18 @@ class PredictionData {
   value_idx n_selected_clusters;
   rmm::device_uvector<value_idx> selected_clusters;
   rmm::device_uvector<value_t> deaths;
-  rmm::device_uvector<value_t> core_dists;
+  value_t* core_dists;
   rmm::device_uvector<value_idx> index_into_children;
 };
 
 template class PredictionData<int, float>;
 
-void build_prediction_data(const raft::handle_t& handle,
-                           CondensedHierarchy<int, float>& condensed_tree,
-                           int* labels,
-                           int* label_map,
-                           int n_selected_clusters,
-                           PredictionData<int, float>& prediction_data);
+void generate_prediction_data(const raft::handle_t& handle,
+                              CondensedHierarchy<int, float>& condensed_tree,
+                              int* labels,
+                              int* label_map,
+                              int n_selected_clusters,
+                              PredictionData<int, float>& prediction_data);
 
 };  // namespace Common
 };  // namespace HDBSCAN
@@ -429,29 +444,6 @@ void hdbscan(const raft::handle_t& handle,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
              HDBSCAN::Common::hdbscan_output<int, float>& out);
-
-/**
- * Executes HDBSCAN clustering on an mxn-dimensional input array, X, then builds the PredictionData
- * object which computes and stores information needed later for prediction algorithms.
- *
- * @param[in] handle raft handle for resource reuse
- * @param[in] X array (size m, n) on device in row-major format
- * @param m number of rows in X
- * @param n number of columns in X
- * @param metric distance metric to use
- * @param params struct of configuration hyper-parameters
- * @param out struct of output data and arrays on device
- * @param prediction_data_ struct for storing computing and storing information to be used during
- * prediction
- */
-void hdbscan(const raft::handle_t& handle,
-             const float* X,
-             size_t m,
-             size_t n,
-             raft::distance::DistanceType metric,
-             HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out,
-             HDBSCAN::Common::PredictionData<int, float>& prediction_data_);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,

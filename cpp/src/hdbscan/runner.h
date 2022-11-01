@@ -239,7 +239,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                       out.get_probabilities(),
                                       label_map.data(),
                                       params.cluster_selection_method,
-                                      out._get_label_map(),
+                                      out._get_inverse_label_map(),
                                       params.allow_single_cluster,
                                       params.max_cluster_size,
                                       params.cluster_selection_epsilon);
