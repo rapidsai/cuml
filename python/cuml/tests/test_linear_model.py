@@ -222,14 +222,14 @@ def test_linear_regression_single_column():
 @settings(deadline=5000)
 def test_linear_regression_model_default(dataset):
 
-    X_train, X_test, y_train, y_test = dataset
+    X_train, X_test, y_train, _ = dataset
     n_rows, n_cols = X_train.shape
 
     # Required assumptions:
     #  sklinearRegression:
     assume((X_train > 0).any())
     assume((y_train > 0).any())
-    assume(all(np.isfinite(x).all() for x in (y_train, X_test, y_test)))
+    assume(all(np.isfinite(x).all() for x in (y_train, X_test)))
     #  cuml.LinearRegression:
     assume(n_rows >= 2)
     assume(not any(_typecast_will_lose_information(x, np.float32)
