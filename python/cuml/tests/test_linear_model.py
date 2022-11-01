@@ -205,6 +205,7 @@ def test_linear_regression_single_column():
         model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
 @given(
     split_datasets(
         regression_datasets(
