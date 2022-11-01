@@ -37,6 +37,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.global_settings import global_settings
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle

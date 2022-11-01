@@ -127,5 +127,6 @@ class LinearPredictMixin:
                         <double*>preds_ptr)
 
         self.handle.sync()
+        print(preds.to_output('array'))
 
         return preds
