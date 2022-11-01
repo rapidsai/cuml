@@ -435,7 +435,10 @@ class CumlArray():
         return self._operator_overload(other, operator.ge)
 
     def __eq__(self, other):
-        return self._operator_overload(other, operator.eq)
+        try:
+            return self._operator_overload(other, operator.eq)
+        except TypeError:
+            return False
 
     def __or__(self, other):
         return self._operator_overload(other, operator.or_)
