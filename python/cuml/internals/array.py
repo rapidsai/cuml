@@ -31,6 +31,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
     null_decorator,
+    safe_import,
     safe_import_from
 )
 from typing import Tuple
@@ -39,6 +40,7 @@ cudf = gpu_only_import('cudf')
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 rmm = gpu_only_import('rmm')
+host_xpy = safe_import('numpy', alt=cp)
 
 cuda = gpu_only_import_from('numba', 'cuda')
 cached_property = safe_import_from(
@@ -181,18 +183,18 @@ class CumlArray():
                 else:
 
                     if self._mem_type is None:
-                        xpy = global_settings.xpy
+                        cur_xpy = global_settings.xpy
                     else:
-                        xpy = self._mem_type.xpy
+                        cur_xpy = self._mem_type.xpy
                     # Assume integers are pointers. For everything else,
                     # convert it to an array and retry
                     try:
-                        new_data = xpy.frombuffer(data, dtype=dtype)
+                        new_data = cur_xpy.frombuffer(data, dtype=dtype)
                     except TypeError:
-                        new_data = xpy.asarray(data, dtype=dtype)
+                        new_data = cur_xpy.asarray(data, dtype=dtype)
                     if shape is not None:
                         new_order = order if order is not None else 'C'
-                        new_data = xpy.reshape(
+                        new_data = cur_xpy.reshape(
                             new_data, shape, order=new_order
                         )
                     if index is None:
@@ -225,15 +227,15 @@ class CumlArray():
                         strides = (dtype.itemsize,)
                 if strides is None:
                     if order == 'C':
-                        strides = self._mem_type.xpy.append(
-                            self._mem_type.xpy.cumprod(
-                                self._mem_type.xpy.array(shape[:0:-1])
+                        strides = host_xpy.append(
+                            host_xpy.cumprod(
+                                host_xpy.array(shape[:0:-1])
                             )[::-1],
                             1
                         ) * dtype.itemsize
                     elif order == 'F':
-                        strides = (self._mem_type.xpy.cumprod(
-                            self._mem_type.xpy.array([1, *shape[:-1]])
+                        strides = (host_xpy.cumprod(
+                            host_xpy.array([1, *shape[:-1]])
                         ) * dtype.itemsize)
                     else:
                         raise ValueError(
@@ -260,12 +262,12 @@ class CumlArray():
 
         array_strides = self._array_interface['strides']
         if array_strides is not None:
-            array_strides = self._mem_type.xpy.array(array_strides)
+            array_strides = host_xpy.array(array_strides)
         if (
             (
                 array_strides is None
                 or len(array_strides) == 1
-                or self._mem_type.xpy.all(
+                or host_xpy.all(
                     array_strides[1:] == array_strides[:-1]
                 )
             ) and order not in ('K', None)
@@ -274,12 +276,12 @@ class CumlArray():
         elif (
             array_strides is None or
             len(array_strides) == 1 or
-            self._mem_type.xpy.all(
+            host_xpy.all(
                 array_strides[1:] <= array_strides[:-1]
             )
         ):
             self._order = 'C'
-        elif self._mem_type.xpy.all(
+        elif host_xpy.all(
             array_strides[1:] >= array_strides[:-1]
         ):
             self._order = 'F'
@@ -294,7 +296,6 @@ class CumlArray():
                 dtype is not None and shape is not None and order is not None
             )
         ):
-            print(type(data))
             self._array_interface['shape'] = shape
         else:
             if validate is None:
@@ -317,20 +318,20 @@ class CumlArray():
                     'Specified owner object does not seem to match data'
                 )
             if shape is not None:
-                shape_arr = self._mem_type.xpy.array(shape)
+                shape_arr = host_xpy.array(shape)
                 if len(shape_arr.shape) == 0:
-                    shape_arr = self._mem_type.xpy.reshape(shape_arr, (1,))
+                    shape_arr = host_xpy.reshape(shape_arr, (1,))
 
-                if not self._mem_type.xpy.array_equal(
-                    self._mem_type.xpy.array(self._array_interface['shape']),
+                if not host_xpy.array_equal(
+                    host_xpy.array(self._array_interface['shape']),
                     shape_arr
                 ):
                     raise ValueError(
                         'Specified shape inconsistent with input data object'
                     )
-            if strides is not None and not self._mem_type.xpy.array_equal(
-                    self._mem_type.xpy.array(self._array_interface['strides']),
-                    self._mem_type.xpy.array(strides)):
+            if strides is not None and not host_xpy.array_equal(
+                    host_xpy.array(self._array_interface['strides']),
+                    host_xpy.array(strides)):
                 raise ValueError(
                     'Specified strides inconsistent with input data object'
                 )
@@ -361,10 +362,9 @@ class CumlArray():
 
     @cached_property
     def size(self):
-        xpy = self._mem_type.xpy
-        return xpy.product(
+        return host_xpy.product(
             self._array_interface['shape']
-        ) * xpy.dtype(self._array_interface['typestr'])
+        ) * host_xpy.dtype(self._array_interface['typestr'])
 
     @property
     def order(self):
@@ -915,7 +915,7 @@ class CumlArray():
         if isinstance(X, (CudfSeries, CudfDataFrame)):
             X = X.to_cupy(copy=False)
 
-        arr = cls(X, index=index)
+        arr = cls(X, index=index, order=order, validate=False)
         if deepcopy:
             arr = copy.deepcopy(arr)
 
@@ -963,7 +963,10 @@ class CumlArray():
                 arr.to_output(
                     output_dtype=convert_to_dtype,
                     output_mem_type=convert_to_mem_type
-                )
+                ),
+                order=order,
+                index=index,
+                validate=False
             )
 
         make_copy = force_contiguous and not arr.is_contiguous
