@@ -47,7 +47,7 @@ class DeviceType(Enum):
             return mem_type.is_host_accessible
 
     @property
-    def default_mem_type(self):
+    def default_memory_type(self):
         if self == DeviceType.device:
             return MemoryType.device
         else:

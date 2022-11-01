@@ -29,6 +29,7 @@ import cuml.internals.logger as logger
 import cuml.internals
 import pylibraft.common.handle
 import cuml.internals.input_utils
+from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
@@ -580,7 +581,13 @@ class UniversalBase(Base):
                     if isinstance(sk_attr, np.ndarray):
                         # transfer array to gpu and set it as a cuml
                         # attribute
-                        cuml_array = input_to_cuml_array(sk_attr)[0]
+                        cuml_array = input_to_cuml_array(
+                            sk_attr,
+                            convert_to_mem_type=(
+                                MemoryType.host,
+                                MemoryType.device
+                            )[is_cuda_available()]
+                        )[0]
                         setattr(self, attribute, cuml_array)
                     else:
                         # transfer all other types of attributes directly

@@ -29,7 +29,7 @@ class using_device_type:
         self.prev_device_type = None
 
     def __enter__(self):
-        self.prev_device_type = cuml.global_settings.device_type
+        self.prev_device_type = global_settings.device_type
         set_global_device_type(self.device_type)
 
     def __exit__(self, *_):

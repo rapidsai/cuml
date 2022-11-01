@@ -24,6 +24,7 @@ from enum import Enum, auto
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
@@ -38,36 +39,21 @@ rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 global_settings = GlobalSettings()
 
 
-class MemoryType(Enum):
-    device = auto(),
-    host = auto()
-    managed = auto()
-    mirror = auto()
-
-    @staticmethod
-    def from_str(memory_type):
-        if isinstance(memory_type, str):
-            memory_type = memory_type.lower()
-
-        try:
-            return MemoryType[memory_type]
-        except KeyError:
-            raise ValueError('Parameter memory_type must be one of "device", '
-                             '"host", "managed" or "mirror"')
-
-
 def set_global_memory_type(memory_type):
-    cuml.global_settings.memory_type = MemoryType.from_str(memory_type)
+    global_settings.memory_type = MemoryType.from_str(memory_type)
 
 
-@contextlib.contextmanager
-def using_memory_type(memory_type):
-    prev_memory_type = cuml.global_settings.memory_type
-    try:
-        set_global_memory_type(memory_type)
-        yield prev_memory_type
-    finally:
-        cuml.global_settings.memory_type = prev_memory_type
+class using_memory_type:
+    def __init__(self, mem_type):
+        self.mem_type = mem_type
+        self.prev_mem_type = None
+
+    def __enter__(self):
+        self.prev_mem_type = global_settings.memory_type
+        set_global_memory_type(self.mem_type)
+
+    def __exit__(self, *_):
+        set_global_memory_type(self.prev_mem_type)
 
 
 @dataclass(frozen=True)
