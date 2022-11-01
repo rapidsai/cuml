@@ -135,7 +135,7 @@ class CumlArray():
                  order=None,
                  strides=None,
                  mem_type=None,
-                 validate=True):
+                 validate=None):
 
         if dtype is not None:
             dtype = global_settings.xpy.dtype(dtype)
@@ -286,6 +286,19 @@ class CumlArray():
         else:
             self._order = None
 
+        if (
+            (isinstance(data, CumlArray) or not (
+                hasattr(data, '__array_interface__')
+                or hasattr(data, '__cuda_array_interface__')
+            )) and (
+                dtype is not None and shape is not None and order is not None
+            )
+        ):
+            print(type(data))
+            self._array_interface['shape'] = shape
+        else:
+            if validate is None:
+                validate = True
         # Validate final data against input arguments
         if validate:
             if mem_type != self._mem_type:
