@@ -377,7 +377,10 @@ class ProcessReturnArray(ProcessReturn):
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             if is_sparse:
                 ret_val = SparseCumlArray(
-                    ret_val, convert_index=False)
+                    ret_val,
+                    convert_to_mem_type=global_settings.memory_type,
+                    convert_index=False
+                )
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val,
@@ -424,7 +427,10 @@ class ProcessReturnSparseArray(ProcessReturnArray):
         if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
             if is_sparse:
                 ret_val = SparseCumlArray(
-                    ret_val, convert_index=False)
+                    ret_val,
+                    convert_to_mem_type=global_settings.memory_type,
+                    convert_index=False
+                )
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val,

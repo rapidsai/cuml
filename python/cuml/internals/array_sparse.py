@@ -94,7 +94,7 @@ class SparseCumlArray():
                    domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
-                 convert_to_mem_type=None,
+                 convert_to_mem_type=global_settings.memory_type,
                  convert_index=global_settings.xpy.int32,
                  convert_format=True):
         is_sparse = False
