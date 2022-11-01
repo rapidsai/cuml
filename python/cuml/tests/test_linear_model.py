@@ -31,6 +31,7 @@ from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
+from cuml.common.input_utils import _typecast_will_lose_information
 from cuml.testing.strategies import split_datasets, regression_datasets
 from cuml.testing.utils import (
     array_difference,
@@ -227,12 +228,14 @@ def test_linear_regression_model_default(dataset):
     #  sklinearRegression:
     assume((X_train > 0).any())
     assume((y_train > 0).any())
-    assume(np.isfinite(y_train).all())
+    assume(all(np.isfinite(x).all() for x in (y_train, X_test, y_test)))
     #  cuml.LinearRegression:
     assume(n_rows >= 2)
+    assume(not any(_typecast_will_lose_information(x, np.float32)
+           for x in (X_train, y_train, X_test)))
     #  both:
     assume(n_cols >= 1)
-    #    w/o the next assumption sklearn complains and cuml hangs(!):
+    #    w/o the next assumption sklearn complains and cuml hangs (#4962):
     assume(np.isfinite(X_train).all())
 
     # Initialization of cuML's linear regression model
