@@ -540,23 +540,16 @@ class CumlArray():
         elif output_type == 'numba':
             return cuda.as_cuda_array(cp.asarray(self, dtype=output_dtype))
         elif output_type == 'series':
-            if (
-                len(self.shape) == 1 or
-                (len(self.shape) == 2 and self.shape[1] == 1)
-            ):
-                arr = self.to_output(
-                    'array',
-                    output_dtype,
-                    output_mem_type
-                )
-                arr = output_mem_type.xpy.reshape(
-                    arr,
-                    self.shape[0]
-                )
+            if len(self.shape) == 2 and self.shape[1] == 1:
+                arr = CumlArray(self, shape=(self.shape[0],))
+            else:
+                arr = self
+
+            if len(arr.shape) == 1:
                 try:
                     if (
                         output_mem_type == MemoryType.host
-                        and self._mem_type != MemoryType.host
+                        and arr._mem_type != MemoryType.host
                     ):
                         result = cudf.Series(
                             arr,
