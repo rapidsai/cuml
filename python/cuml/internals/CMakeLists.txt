@@ -24,5 +24,7 @@ rapids_cython_create_modules(
   ASSOCIATED_TARGETS cuml
 )
 
+if(${CUML_UNIVERSAL} OR ${CUML_GPU})
 # We need to include for callbacks_implements.h in the internals folder
-target_include_directories(internals_internals PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+  target_include_directories(internals_internals PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+endif()
