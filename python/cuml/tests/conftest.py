@@ -38,14 +38,21 @@ pytest_plugins = ("cuml.testing.plugins.quick_run_plugin")
 # Configure hypothesis profiles
 
 hypothesis.settings.register_profile(
-    name="quality",
+    name="unit",
     parent=hypothesis.settings.get_profile("default"),
+    max_examples=20,
+)
+
+hypothesis.settings.register_profile(
+    name="quality",
+    parent=hypothesis.settings.get_profile("unit"),
+    max_examples=100,
 )
 
 hypothesis.settings.register_profile(
     name="stress",
     parent=hypothesis.settings.get_profile("quality"),
-    max_examples=1000
+    max_examples=200
 )
 
 
@@ -124,6 +131,8 @@ def pytest_configure(config):
         hypothesis.settings.load_profile("stress")
     elif config.getoption("--run_quality"):
         hypothesis.settings.load_profile("quality")
+    else:
+        hypothesis.settings.load_profile("unit")
 
 
 @pytest.fixture(scope="module")
