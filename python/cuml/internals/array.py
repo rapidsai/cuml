@@ -344,7 +344,7 @@ class CumlArray():
     def ptr(self):
         return self._array_interface['data'][0]
 
-    @property
+    @cached_property
     def dtype(self):
         return self._mem_type.xpy.dtype(self._array_interface['typestr'])
 
