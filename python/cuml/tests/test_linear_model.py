@@ -103,6 +103,26 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
     return X_train, X_test, y_train, y_test
 
 
+def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
+    return (
+        X_train.shape[1] >= 1
+        and (X_train > 0).any()
+        and (y_train > 0).any()
+        and all(np.isfinite(x).all()
+                for x in (X_train, X_test, y_train) if x is not None)
+    )
+
+
+def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
+    return (
+        X_train.shape[0] >= 2
+        and X_train.shape[1] >= 1
+        and np.isfinite(X_train).all()
+        and not any(_typecast_will_lose_information(x, np.float32)
+                    for x in (X_train, X_test, y_train) if x is not None)
+    )
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
@@ -223,21 +243,10 @@ def test_linear_regression_single_column():
 def test_linear_regression_model_default(dataset):
 
     X_train, X_test, y_train, _ = dataset
-    n_rows, n_cols = X_train.shape
 
-    # Required assumptions:
-    #  sklinearRegression:
-    assume((X_train > 0).any())
-    assume((y_train > 0).any())
-    assume(all(np.isfinite(x).all() for x in (y_train, X_test)))
-    #  cuml.LinearRegression:
-    assume(n_rows >= 2)
-    assume(not any(_typecast_will_lose_information(x, np.float32)
-           for x in (X_train, y_train, X_test)))
-    #  both:
-    assume(n_cols >= 1)
-    #    w/o the next assumption sklearn complains and cuml hangs (#4962):
-    assume(np.isfinite(X_train).all())
+    # Filter datasets based on required assumptions
+    assume(sklearn_compatible_dataset(X_train, X_test, y_train))
+    assume(cuml_compatible_dataset(X_train, X_test, y_train))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression()
