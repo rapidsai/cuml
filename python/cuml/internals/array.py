@@ -420,6 +420,11 @@ class CumlArray():
             data=self._mem_type.xpy.asarray(self).__getitem__(slice)
         )
 
+    @with_cupy_rmm
+    def __iter__(self):
+        arr = self._mem_type.xpy.asarray(self)
+        yield from arr
+
     def __setitem__(self, slice, value):
         self._mem_type.xpy.asarray(self).__setitem__(slice, value)
 
