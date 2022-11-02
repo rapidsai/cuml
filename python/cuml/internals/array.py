@@ -895,6 +895,32 @@ class CumlArray():
         """
         if convert_to_mem_type is None:
             convert_to_mem_type = global_settings.memory_type
+        else:
+            convert_to_mem_type = MemoryType.from_str(
+                convert_to_mem_type
+            )
+        if convert_to_dtype:
+            convert_to_dtype = host_xpy.dtype(convert_to_dtype)
+        # Provide fast-path for CumlArray input
+        if (
+            isinstance(X, CumlArray)
+            and (
+                not convert_to_mem_type
+                or convert_to_mem_type == MemoryType.mirror
+                or convert_to_mem_type == X.mem_type
+            ) and (
+                not convert_to_dtype
+                or convert_to_dtype == X.dtype
+            ) and (
+                not force_contiguous
+                or X.is_contiguous
+            )
+        ):
+            if deepcopy:
+                return copy.deepcopy(X)
+            else:
+                return X
+            
 
         if isinstance(
             X,
@@ -910,9 +936,9 @@ class CumlArray():
                 raise ValueError("Error: cuDF Series has missing/null values, "
                                  "which are not supported by cuML.")
 
-        if isinstance(X, (PandasSeries, PandasDataFrame)):
+        if isinstance(X, (PandasDataFrame, PandasSeries)):
             X = X.to_numpy(copy=False)
-        if isinstance(X, (CudfSeries, CudfDataFrame)):
+        if isinstance(X, CudfDataFrame):
             X = X.to_cupy(copy=False)
 
         arr = cls(X, index=index, order=order, validate=False)
