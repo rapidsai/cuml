@@ -548,8 +548,9 @@ class PCA(Base,
         In other words, return an input X_original whose transform would be X.
 
         """
-
         self._check_is_fitted('components_')
+        dtype = self.components_.dtype
+
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
@@ -568,8 +569,8 @@ class PCA(Base,
                                                   sparse_tol=sparse_tol)
 
         X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
                                                   else None)
                                 )
 
@@ -649,7 +650,7 @@ class PCA(Base,
 
         """
         self._check_is_fitted('components_')
-        self.dtype = self.components_.dtype
+        dtype = self.components_.dtype
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_transform(X)
@@ -663,8 +664,8 @@ class PCA(Base,
             return self._sparse_transform(X)
 
         X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_features_)
 

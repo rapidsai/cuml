@@ -301,7 +301,6 @@ class UMAP(Base,
     """
     cpu_estimator_import_path_ = 'umap'
 
-    X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
     @kwargs_interop_processing
@@ -391,7 +390,6 @@ class UMAP(Base,
             raise Exception("Invalid target metric: {}" % target_metric)
 
         self.callback = callback  # prevent callback destruction
-        self.X_m = None
         self.embedding_ = None
 
         self.validate_hyperparams()

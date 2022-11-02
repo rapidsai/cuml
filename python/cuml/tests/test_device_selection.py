@@ -26,7 +26,7 @@ from importlib import import_module
 
 from pytest_cases import fixture_union, pytest_fixture_plus
 from sklearn.datasets import make_regression, make_blobs
-from sklearn.manifold import trustworthiness
+from cuml.metrics import trustworthiness
 
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.common.device_selection import DeviceType, using_device_type
@@ -106,12 +106,13 @@ X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
 X_train_blob, y_train_blob, X_test_blob = make_blob_dataset()
 
 
-def check_trustworthiness(cuml_output, test_data):
-    input = to_output_type(test_data['X_test'], 'numpy')
-    embeddings = to_output_type(cuml_output, 'numpy')
-    n_neighbors = test_data['kwargs']['n_neighbors']
-    trust = trustworthiness(input, embeddings, n_neighbors)
-    assert trust >= 0.64
+def check_trustworthiness(cuml_embedding, test_data):
+    X_test = to_output_type(test_data['X_test'], 'numpy')
+    cuml_embedding = to_output_type(cuml_embedding, 'numpy')
+    trust = trustworthiness(X_test, cuml_embedding, n_neighbors=10)
+    ref_trust = test_data['ref_trust']
+    tol = 0.02
+    assert ref_trust - tol <= trust <= ref_trust + tol
 
 
 def check_allclose(cuml_output, test_data):
@@ -350,6 +351,8 @@ def umap_test_data(request):
 
     ref_model = refUMAP(**kwargs)
     ref_model.fit(X_train_blob, y_train_blob)
+    ref_embedding = ref_model.transform(X_test_blob)
+    ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
 
     input_type = request.param['input_type']
 
@@ -368,7 +371,7 @@ def umap_test_data(request):
         'X_train': to_output_type(X_train_blob, input_type),
         'y_train': modified_y_train,
         'X_test': to_output_type(X_test_blob, input_type),
-        'ref_y_test': ref_model.transform(X_test_blob)
+        'ref_trust': ref_trust
     }
 
 
@@ -714,3 +717,68 @@ def test_ridge_methods(train_device, infer_device):
 
     tol = 0.01
     assert ref_output - tol <= output <= ref_output + tol
+
+
+@pytest.mark.parametrize('device', ['cpu', 'gpu'])
+def test_umap_methods(device):
+    ref_model = refUMAP(n_neighbors=12)
+    ref_embedding = ref_model.fit_transform(X_train_blob, y_train_blob)
+    ref_trust = trustworthiness(X_train_blob, ref_embedding, n_neighbors=12)
+
+    model = UMAP(n_neighbors=12)
+    with using_device_type(device):
+        embedding = model.fit_transform(X_train_blob, y_train_blob)
+    trust = trustworthiness(X_train_blob, embedding, n_neighbors=12)
+
+    tol = 0.02
+    assert ref_trust - tol <= trust <= ref_trust + tol
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_pca_methods(train_device, infer_device):
+    n, p = 500, 5
+    rng = np.random.RandomState(0)
+    X = rng.randn(n, p) * .1 + np.array([3, 4, 2, 3, 5])
+
+    model = PCA(n_components=3)
+    with using_device_type(train_device):
+        transformation = model.fit_transform(X)
+    with using_device_type(infer_device):
+        output = model.inverse_transform(transformation)
+
+    np.testing.assert_allclose(X, output, rtol=0.15)
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_tsvd_methods(train_device, infer_device):
+    n, p = 500, 5
+    rng = np.random.RandomState(0)
+    X = rng.randn(n, p) * .1 + np.array([3, 4, 2, 3, 5])
+
+    model = TruncatedSVD(n_components=3)
+    with using_device_type(train_device):
+        transformation = model.fit_transform(X)
+    with using_device_type(infer_device):
+        output = model.inverse_transform(transformation)
+
+    np.testing.assert_allclose(X, output, rtol=0.15)
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_nn_methods(train_device, infer_device):
+    ref_model = skNearestNeighbors()
+    ref_model.fit(X_train_blob)
+    ref_output = ref_model.kneighbors_graph(X_train_blob)
+
+    model = NearestNeighbors()
+    with using_device_type(train_device):
+        model.fit(X_train_blob)
+    with using_device_type(infer_device):
+        output = model.kneighbors_graph(X_train_blob)
+
+    ref_output = ref_output.todense()
+    output = output.todense()
+    np.testing.assert_allclose(ref_output, output, rtol=0.15)

@@ -382,10 +382,10 @@ class TruncatedSVD(Base,
         Returns X_original whose transform would be X.
 
         """
-
+        dtype = self.components_.dtype
         X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
                                                   else None))
 
         cpdef paramsTSVD params
@@ -394,7 +394,7 @@ class TruncatedSVD(Base,
         params.n_cols = self.n_features_in_
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=self.dtype, index=X_m.index)
+                                     dtype=dtype, index=X_m.index)
 
         cdef uintptr_t trans_input_ptr = X_m.ptr
         cdef uintptr_t input_ptr = input_data.ptr
@@ -430,12 +430,12 @@ class TruncatedSVD(Base,
         Perform dimensionality reduction on X.
 
         """
-        self.dtype = self.components_.dtype
+        dtype = self.components_.dtype
         self.n_features_in_ = self.components_.shape[1]
 
         X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_features_in_)
 
@@ -446,7 +446,7 @@ class TruncatedSVD(Base,
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=self.dtype, index=X_m.index)
+                            dtype=dtype, index=X_m.index)
 
         cdef uintptr_t input_ptr = X_m.ptr
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
