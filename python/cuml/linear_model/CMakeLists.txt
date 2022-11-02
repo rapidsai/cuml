@@ -13,9 +13,7 @@
 # =============================================================================
 
 
-set(cython_sources
-    base.pyx)
-
+add_module_gpu_default("base.pyx", ${linearregression_algo} ${elastic_net_algo} ${ridge_algo} ${linear_model_algo})
 add_module_gpu_default("linear_regression.pyx" ${linearregression_algo} ${linear_model_algo})
 add_module_gpu_default("elastic_net.pyx" ${elastic_net_algo} ${linear_model_algo})
 add_module_gpu_default("logistic_regression.pyx" ${logistic_regression_algo} ${linear_model_algo})

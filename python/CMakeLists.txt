@@ -42,6 +42,7 @@ message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before d
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_SRC "../cpp")
 
 ################################################################################
 # - Process User Options  ------------------------------------------------------
