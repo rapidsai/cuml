@@ -34,7 +34,7 @@ from cython.operator cimport dereference as deref
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.experimental.common.base import Base
-from cuml.experimental.common.mixins import FMajorInputTagMixin, \
+from cuml.common.mixins import FMajorInputTagMixin, \
     SparseInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t

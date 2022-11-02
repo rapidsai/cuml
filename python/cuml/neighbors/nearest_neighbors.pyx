@@ -27,7 +27,7 @@ import math
 
 import cuml.internals
 from cuml.experimental.common.base import Base
-from cuml.experimental.common.mixins import CMajorInputTagMixin
+from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray

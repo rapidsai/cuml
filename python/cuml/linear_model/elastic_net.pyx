@@ -20,7 +20,7 @@ from inspect import signature
 
 from cuml.solvers import CD, QN
 from cuml.experimental.common.base import Base
-from cuml.experimental.common.mixins import RegressorMixin, FMajorInputTagMixin
+from cuml.common.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor

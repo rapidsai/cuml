@@ -112,7 +112,7 @@ def check_trustworthiness(cuml_embedding, test_data):
     trust = trustworthiness(X_test, cuml_embedding, n_neighbors=10)
     ref_trust = test_data['ref_trust']
     tol = 0.02
-    assert ref_trust - tol <= trust <= ref_trust + tol
+    assert trust >= ref_trust - tol
 
 
 def check_allclose(cuml_output, test_data):
