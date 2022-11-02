@@ -88,11 +88,12 @@ def combined_datasets_strategy(* datasets, name=None, doc=None):
         draw,
         dtypes=floating_dtypes(),
         n_samples=integers(min_value=0, max_value=200),
-        n_features=integers(min_value=0, max_value=200)
+        n_features=integers(min_value=0, max_value=200),
+        **kwargs,
     ):
         """Datasets strategy composed of multiple datasets strategies."""
         datasets_strategies = (
-            dataset(dtypes, n_samples, n_features) for dataset in datasets)
+            dataset(dtypes, n_samples, n_features, **kwargs) for dataset in datasets)
         return draw(one_of(datasets_strategies))
 
     strategy.__name__ = "datasets" if name is None else name

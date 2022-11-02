@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import lru_cache
+from functools import lru_cache, partial
 import cupy as cp
 import numpy as np
 import pytest
@@ -34,9 +34,11 @@ from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
 from cuml.common.input_utils import _typecast_will_lose_information
 from cuml.testing.strategies import (
+    combined_datasets_strategy,
+    standard_regression_datasets,
     regression_datasets,
     split_datasets,
-    standard_regression_datasets,
+    standard_datasets,
 )
 from cuml.testing.utils import (
     array_difference,
@@ -179,38 +181,33 @@ def test_linear_regression_model(data, algorithm, n_samples, n_features):
         assert equal
 
 
-@pytest.mark.parametrize("ntargets", [1, 2])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
-@pytest.mark.parametrize(
-    "fit_intercept, normalize, distribution", [
-        (True, True, "lognormal"),
-        (True, True, "exponential"),
-        (True, False, "uniform"),
-        (True, False, "exponential"),
-        (False, True, "lognormal"),
-        (False, False, "uniform"),
-    ]
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
+@given(
+    datasets=split_datasets(
+        combined_datasets_strategy(
+            standard_datasets,
+            partial(standard_regression_datasets, noise=st.just(20)),
+        )(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+            n_targets=st.sampled_from((1, 2)),
+        )
+    ),
+    algorithm=st.sampled_from(("eig", "svd", "qr", "svd-qr")),
+    fit_intercept=st.booleans(),
+    normalize=st.booleans(),
+    distribution=st.sampled_from(("lognormal", "exponential", "uniform")),
 )
-def test_weighted_linear_regression(
-    ntargets, datatype, algorithm, fit_intercept, normalize, distribution
-):
-    nrows, ncols, n_info = 1000, 20, 10
-    max_weight = 10
-    noise = 20
+@settings(deadline=5000)
+def test_weighted_linear_regression(datasets, algorithm, fit_intercept,
+                                    normalize, distribution):
 
-    if 1 < ntargets and normalize:
-        pytest.skip("The multi-target fit does not support normalization.")
-    if 1 < ntargets and algorithm != "svd":
-        pytest.skip("The multi-target fit only supports using the svd solver.")
-
-    X_train, X_test, y_train, y_test = make_regression_dataset(
-        datatype, nrows, ncols, n_info, noise=noise, n_targets=ntargets
-    )
+    assume(cuml_compatible_dataset(* datasets))
+    assume(sklearn_compatible_dataset(* datasets))
+    X_train, X_test, y_train, _ = datasets
 
     # set weight per sample to be from 1 to max_weight
     if distribution == "uniform":
-        wt = np.random.randint(1, high=max_weight, size=len(X_train))
+        wt = np.random.randint(1, high=10, size=len(X_train))
     elif distribution == "exponential":
         wt = np.random.exponential(size=len(X_train))
     else:
@@ -232,7 +229,10 @@ def test_weighted_linear_regression(
 
     skols_predict = skols.predict(X_test)
 
-    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+    equal = array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+    note(equal)
+    target(float(np.abs(equal.compute_difference())))
+    assert equal
 
 
 @pytest.mark.skipif(
