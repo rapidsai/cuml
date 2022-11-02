@@ -12,10 +12,10 @@
 # the License.
 # =============================================================================
 
-set(cython_sources
-    arima.pyx
-    regression.pyx
-)
+
+set(cython_sources "")
+add_module_gpu_default("arima.pyx" ${arima_algo} ${datasets_algo})
+add_module_gpu_default("regression.pyx" ${regression_algo} ${datasets_algo})
 
 rapids_cython_create_modules(
   CXX

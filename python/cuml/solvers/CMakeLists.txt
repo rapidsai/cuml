@@ -13,12 +13,11 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    cd.pyx
-    qn.pyx
-    sgd.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("cd.pyx" ${cd_algo} ${elastic_net_algo} ${lasso_algo} ${solvers_algo})
+add_module_gpu_default("qn.pyx" ${qn_algo} ${elastic_net_algo} ${logisticregression_algo} ${solvers_algo})
+# Note: add sgd regressor and classifier flags to SGD if CPU support is added
+add_module_gpu_default("sgd.pyx" ${sgd_algo} ${solvers_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources

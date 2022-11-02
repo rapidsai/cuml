@@ -14,14 +14,15 @@
 
 set(cython_sources
     base.pyx
-    cuda.pyx
     logger.pyx
 )
+
+add_module_gpu_default("cuda.pyx")
+add_module_gpu_default("pointer_utils.pyx")
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        opg_data_utils_mg.pyx
-       pointer_utils.pyx
   )
 endif()
 
@@ -33,7 +34,9 @@ rapids_cython_create_modules(
   ASSOCIATED_TARGETS cuml
 )
 
+if(${CUML_GPU} OR ${CUML_UNIVERSAL})
 # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality
 # moved to another file, pointer_utils.pyx needs it
 # https://github.com/rapidsai/cuml/issues/4841
-target_include_directories(common_pointer_utils PRIVATE "../../../cpp/src/")
+  target_include_directories(common_pointer_utils PRIVATE "../../../cpp/src/")
+endif()

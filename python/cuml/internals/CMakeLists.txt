@@ -13,10 +13,8 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    internals.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("internals.pyx")
 
 rapids_cython_create_modules(
   CXX

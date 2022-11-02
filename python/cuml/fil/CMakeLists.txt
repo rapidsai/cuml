@@ -13,10 +13,8 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    fil.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("fil.pyx" ${fil_algo} ${randomforestclassifier_algo} ${randomforestregressor_algo})
 
 rapids_cython_create_modules(
   CXX

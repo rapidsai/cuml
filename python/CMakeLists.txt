@@ -38,6 +38,9 @@ option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
+message(VERBOSE "CUML_PY: Build all cuML Python components:${CUML_UNIVERSAL}")
+message(VERBOSE "CUML_PY: Build only cuML CPU Python components:${CUML_CPU}" )
+message(VERBOSE "CUML_PY: Build only cuML GPU Python components:${CUML_GPU}" )
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
@@ -108,9 +111,10 @@ if(CUML_CPU)
   set(SINGLEGPU ON)
 
   set(CUML_ALGORITHMS "linearregression")
+  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+else()
+  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 endif()
-
-set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 
 if(NOT SINGLEGPU)
   include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)

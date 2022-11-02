@@ -13,6 +13,7 @@
 # =============================================================================
 
 
+set(cython_sources "")
 add_module_gpu_default("base.pyx" ${linearregression_algo} ${elastic_net_algo} ${ridge_algo} ${linear_model_algo})
 add_module_gpu_default("linear_regression.pyx" ${linearregression_algo} ${linear_model_algo})
 add_module_gpu_default("elastic_net.pyx" ${elastic_net_algo} ${linear_model_algo})
@@ -40,6 +41,9 @@ rapids_cython_create_modules(
 
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   if(${CUML_UNIVERSAL} OR ${CUML_GPU})
+    message(STATUS "@@@ debug: ${cython_module}")
     target_compile_definitions(${cython_module} PUBLIC ENABLE_GPU)
+  # else()
+  #   target_compile_definitions(${cython_module} PUBLIC ENABLE_GPU=0)
   endif()
 endforeach()

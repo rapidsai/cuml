@@ -13,13 +13,11 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    base.pyx
-    kernel_shap.pyx
-    permutation_shap.pyx
-    tree_shap.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("base.pyx" ${kernel_shap_algo} ${permutation_shap_algo} ${explainer_algo})
+add_module_gpu_default("kernel_shap.pyx" ${kernel_shap_algo} ${explainer_algo})
+add_module_gpu_default("permutation_shap.pyx" ${permutation_shap_algo} ${explainer_algo})
+add_module_gpu_default("tree_shap.pyx" ${tree_shap_algo} ${explainer_algo})
 
 rapids_cython_create_modules(
   CXX

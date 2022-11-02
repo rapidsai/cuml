@@ -13,13 +13,11 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    linear.pyx
-    svc.pyx
-    svm_base.pyx
-    svr.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("linear.pyx" ${linear_svm_algo} ${svm_algo})
+add_module_gpu_default("svc.pyx" ${svc_algo} ${svm_algo})
+add_module_gpu_default("svm_base.pyx" ${linear_svm_algo} ${svc_algo} ${svr_algo} ${svm_algo})
+add_module_gpu_default("svr.pyx" ${svr_algo} ${svm_algo})
 
 rapids_cython_create_modules(
   CXX

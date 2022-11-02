@@ -13,10 +13,8 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    lars.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("lars.pyx" ${lars_algo} ${linear_model_algo})
 
 rapids_cython_create_modules(
   CXX

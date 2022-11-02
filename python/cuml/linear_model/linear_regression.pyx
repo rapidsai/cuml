@@ -39,6 +39,32 @@ from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+    """
+    #ifdef ENABLE_GPU
+    void olsFit(const raft::handle_t& handle,
+            float* input,
+            int n_rows,
+            int n_cols,
+            float* labels,
+            float* coef,
+            float* intercept,
+            bool fit_intercept,
+            bool normalize,
+            int algo             = 0,
+            float* sample_weight = nullptr){}
+    void olsFit(const raft::handle_t& handle,
+            double* input,
+            int n_rows,
+            int n_cols,
+            double* labels,
+            double* coef,
+            double* intercept,
+            bool fit_intercept,
+            bool normalize,
+            int algo              = 0,
+            double* sample_weight = nullptr){}
+    #endif
+    """
 
     cdef void olsFit(handle_t& handle,
                      float *input,

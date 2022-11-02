@@ -13,10 +13,8 @@
 # =============================================================================
 
 
-
-set(cython_sources
-    kernel_ridge.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("kernel_ridge.pyx" ${kernel_ridge_algo})
 
 rapids_cython_create_modules(
   CXX
