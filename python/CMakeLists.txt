@@ -30,6 +30,9 @@ project(
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
+option(CUML_UNIVERSAL "Build all cuML Python components." ON)
+option(CUML_CPU "Build only cuML CPU Python components." OFF)
+option(CUML_GPU "Build only cuML GPU Python components. Not supported yet, defaulting to CUML_UNIVERSAL" OFF)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 
@@ -99,6 +102,13 @@ if(NOT cuml_FOUND)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
+if(CUML_CPU)
+  set(CUML_UNIVERSAL OFF)
+  set(SINGLEGPU ON)
+
+  set(CUML_ALGORITHMS "linearregression")
+endif()
+
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 
 if(NOT SINGLEGPU)
@@ -109,7 +119,13 @@ if(NOT SINGLEGPU)
   )
 endif()
 
+################################################################################
+# - Build Cython artifacts -----------------------------------------------------
+
 rapids_cython_init()
+
+include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
+include(cmake/ConfigureCythonAlgorithms.cmake)
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)
