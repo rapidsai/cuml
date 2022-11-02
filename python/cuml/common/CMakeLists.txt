@@ -15,14 +15,13 @@
 set(cython_sources
     base.pyx
     cuda.pyx
-    handle.pyx
     logger.pyx
-    pointer_utils.pyx
 )
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
        opg_data_utils_mg.pyx
+       pointer_utils.pyx
   )
 endif()
 

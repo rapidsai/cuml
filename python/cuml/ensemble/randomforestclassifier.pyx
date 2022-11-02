@@ -21,8 +21,6 @@ import nvtx
 import rmm
 import warnings
 
-import cuml.common.logger as logger
-
 from cuml import ForestInference
 from cuml.common.array import CumlArray
 from cuml.common.mixins import ClassifierMixin
