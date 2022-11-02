@@ -68,12 +68,11 @@ class CumlArray():
 
     """
     Array represents an abstracted array allocation. It can be instantiated by
-    itself, creating an rmm.DeviceBuffer underneath, or can be instantiated by
-    ``__cuda_array_interface__`` or ``__array_interface__`` compliant arrays,
-    in which case it'll keep a reference to that data underneath. Also can be
-    created from a pointer, specifying the characteristics of the array, in
-    that case the owner of the data referred to by the pointer should be
-    specified explicitly.
+    itself or can be instantiated by ``__cuda_array_interface__`` or
+    ``__array_interface__`` compliant arrays, in which case it'll keep a
+    reference to that data underneath. Also can be created from a pointer,
+    specifying the characteristics of the array, in that case the owner of the
+    data referred to by the pointer should be specified explicitly.
 
     Parameters
     ----------
@@ -92,6 +91,13 @@ class CumlArray():
         Shape of created array.
     order: string, optional
         Whether to create a F-major or C-major array.
+    mem_type: {'host', 'device'}, optional
+        Whether data are on host or device.
+    validate: bool, default=None
+        Whether or not to check final array attributes against input options.
+        If None, validation will occur only for CumlArray input and input that
+        does not implement the array interface protocol and for which
+        additional options were explicitly specified.
 
     Attributes
     ----------
@@ -108,8 +114,14 @@ class CumlArray():
         'F' or 'C' to indicate Fortran-major or C-major order of the array
     strides : tuple of ints
         Strides of the data
+    mem_type : MemoryType
+        Memory type for how data are stored
+    __array_interface__ : dictionary
+        ``__array_interface__`` to interop with other libraries. This
+        attribute is only present if data are host-accessible.
     __cuda_array_interface__ : dictionary
-        ``__cuda_array_interface__`` to interop with other libraries.
+        ``__cuda_array_interface__`` to interop with other libraries. This
+        attribute is only present if data are device-accessible.
 
     Notes
     -----
@@ -143,7 +155,10 @@ class CumlArray():
             dtype = global_settings.xpy.dtype(dtype)
 
         self._index = index
-        self._mem_type = mem_type
+        if mem_type is not None:
+            self._mem_type = MemoryType.from_str(mem_type)
+        else:
+            self._mem_type = mem_type
 
         # Coerce data into an array interface and determine mem_type and owner
         # if necessary
@@ -491,6 +506,16 @@ class CumlArray():
             - 'series' - to cuDF/Pandas Series depending on memory type
             - 'df_obj' - to cuDF/Pandas Series if array is single
               dimensional, to cuDF/Pandas Dataframe otherwise
+            - 'cupy' - to cupy array
+            - 'numpy' - to numpy array
+            - 'cudf' - to cuDF Series/DataFrame depending on shape of data
+            - 'pandas' - to Pandas Series/DataFrame depending on shape of data
+
+        output_mem_type : {'host, 'device'}, optional
+            Optionally convert array to given memory type. If `output_type`
+            already indicates a specific memory type, `output_type` takes
+            precedence. If the memory type is not otherwise indicated, the data
+            are kept on their current device.
 
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
@@ -856,6 +881,16 @@ class CumlArray():
         convert_to_dtype: np.dtype (default: False)
             Set to a dtype if you want X to be converted to that dtype if it is
             not that dtype already.
+
+        check_mem_type: {'host', 'device'} (default: False)
+            Set to a value to throw an error if X is not of memory type
+            `check_mem_type`.
+
+        convert_to_mem_type: {'host', 'device'} (default: None)
+            Set to a value if you want X to be converted to that memory type if
+            it is not that memory type already. Set to False if you do not want
+            any memory conversion. Set to None to use
+            `cuml.global_settings.memory_type`.
 
         safe_convert_to_dtype: bool (default: True)
             Set to True to check whether a typecasting performed when
