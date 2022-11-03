@@ -81,6 +81,7 @@ else()
   set(cuml_FOUND OFF)
 endif()
 
+include(rapids-cython)
 
 if(NOT cuml_FOUND)
   # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
@@ -102,7 +103,8 @@ if(NOT cuml_FOUND)
   message(STATUS "installing packages")
   add_subdirectory(../cpp cuml-cpp)
 
-  install(TARGETS ${CUML_CPP_TARGET} DESTINATION cuml/library)
+  set(cython_lib_dir cuml)
+  install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
 if(CUML_CPU)
@@ -122,12 +124,6 @@ if(NOT SINGLEGPU)
   )
 endif()
 
-include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
-
-################################################################################
-# - Build Cython artifacts -----------------------------------------------------
-
-include(rapids-cython)
 rapids_cython_init()
 
 include(cmake/ConfigureAlgorithmsHelpers.cmake)
@@ -155,3 +151,6 @@ add_subdirectory(cuml/tsa)
 add_subdirectory(cuml/experimental/internals)
 add_subdirectory(cuml/experimental/linear_model)
 
+if(DEFINED cython_lib_dir)
+  rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")
+endif()

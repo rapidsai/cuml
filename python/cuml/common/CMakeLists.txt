@@ -29,11 +29,8 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES $<IF:$<BOOL:${SINGLE_GPU}>,${cuml_sg_libraries},${cuml_mg_libraries}>
   MODULE_PREFIX common_
+  ASSOCIATED_TARGETS cuml
 )
-
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
-endforeach()
 
 # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality
 # moved to another file, pointer_utils.pyx needs it
