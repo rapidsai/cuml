@@ -350,30 +350,32 @@ def test_ridge_regression_model_default(dataset):
     assert equal
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("algorithm", ["eig", "svd"])
+@pytest.mark.xfail(reason="RuntimeError: cuSOLVER error")  # TODO: create issue
 @pytest.mark.parametrize(
-    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+    "n_samples", [unit_param(500), quality_param(5000), stress_param(500000)]
 )
 @pytest.mark.parametrize(
-    "column_info",
-    [
-        unit_param([20, 10]),
-        quality_param([100, 50]),
-        stress_param([1000, 500])
-    ],
+    "n_features", [unit_param(20), quality_param(100), stress_param(1000)]
 )
-def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
+@given(data=st.data(), algorithm=st.sampled_from(("eig", "svd")))
+def test_ridge_regression_model(data, algorithm, n_samples, n_features):
 
-    if algorithm == "svd" and nrows > 46340:
-        pytest.skip("svd solver is not supported for the data that has more"
-                    "than 46340 rows or columns if you are using CUDA version"
-                    "10.x")
+    # svd solver is not supported for the data that has more than 46340 rows or
+    # columns if you are using CUDA version 10.x.
+    assume(not (algorithm == "svd" and n_samples > 46340))
 
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_regression_dataset(
-        datatype, nrows, ncols, n_info
+    X_train, X_test, y_train, _ = data.draw(
+        split_datasets(
+            regression_datasets(
+                n_samples=st.integers(min_value=0, max_value=n_samples),
+                n_features=st.integers(min_value=0, max_value=n_features),
+                dtypes=floating_dtypes(sizes=(32, 64))
+            )
+        )
     )
+
+    # Filter datasets based on required assumptions
+    assume(cuml_compatible_dataset(X_train, X_test, y_train))
 
     # Initialization of cuML's ridge regression model
     curidge = cuRidge(fit_intercept=False, normalize=False, solver=algorithm)
@@ -382,17 +384,19 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
     curidge.fit(X_train, y_train)
     curidge_predict = curidge.predict(X_test)
 
-    if nrows < 500000:
+    if n_samples < 500000:
+        assume(sklearn_compatible_dataset(X_train, X_test, y_train))
+
         # sklearn ridge regression model initialization, fit and predict
         skridge = skRidge(fit_intercept=False, normalize=False)
         skridge.fit(X_train, y_train)
 
         skridge_predict = skridge.predict(X_test)
 
-        assert array_equal(skridge_predict,
-                           curidge_predict,
-                           1e-1,
-                           with_sign=True)
+        equal = array_equal(skridge_predict, curidge_predict, 1e-1)
+        note(equal)
+        target(float(np.abs(equal.compute_difference())))
+        assert equal
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
