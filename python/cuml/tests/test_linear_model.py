@@ -252,6 +252,7 @@ def test_linear_regression_single_column():
         standard_regression_datasets(
             dtypes=floating_dtypes(sizes=(32, 64)),
             n_samples=st.just(1000),
+            n_targets=st.integers(1, 10),
         ),
         test_sizes=st.just(0.2)
     )
@@ -316,10 +317,21 @@ def test_linear_regression_model_default_generalized(dataset):
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_ridge_regression_model_default(datatype):
+@given(
+    split_datasets(
+        standard_regression_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+        ),
+    ),
+)
+@example(small_regression_dataset(np.float32))
+@example(small_regression_dataset(np.float64))
+@settings(deadline=5000)
+def test_ridge_regression_model_default(dataset):
 
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+    assume(sklearn_compatible_dataset(* dataset))
+    assume(cuml_compatible_dataset(* dataset))
+    X_train, X_test, y_train, _ = dataset
 
     curidge = cuRidge()
 
@@ -332,7 +344,10 @@ def test_ridge_regression_model_default(datatype):
     skridge.fit(X_train, y_train)
     skridge_predict = skridge.predict(X_test)
 
-    assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+    equal = array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+    note(equal)
+    target(float(np.abs(equal.compute_difference())))
+    assert equal
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
