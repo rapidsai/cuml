@@ -17,6 +17,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from textwrap import indent
 
 from numba import cuda
 from numbers import Number
@@ -39,25 +40,57 @@ from cuml.experimental.common.base import Base as experimentalBase
 import pytest
 
 
-def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+def array_difference(a, b, with_sign=True):
     """
-    Utility function to compare 2 numpy arrays. Two individual elements
-    are assumed equal if they are within `unit_tol` of each other, and two
-    arrays are considered equal if less than `total_tol` percentage of
-    elements are different.
-
+    Utility function to compute the difference between 2 arrays.
     """
-
     a = to_nparray(a)
     b = to_nparray(b)
 
     if len(a) == 0 and len(b) == 0:
-        return True
+        return 0
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a - b) > unit_tol)) / a.size < total_tol
-    return res
+    return np.sum(np.abs(a - b))
+
+
+class array_equal:
+    """
+    Utility functor to compare 2 numpy arrays and optionally show a meaningful
+    error message in case they are not. Two individual elements are assumed
+    equal if they are within `unit_tol` of each other, and two arrays are
+    considered equal if less than `total_tol` percentage of elements are
+    different.
+
+    """
+
+    def __init__(self, a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+        self.a = to_nparray(a)
+        self.b = to_nparray(b)
+        self.unit_tol = unit_tol
+        self.total_tol = total_tol
+        self.with_sign = with_sign
+
+    def compute_difference(self):
+        return array_difference(self.a, self.b, with_sign=self.with_sign)
+
+    def __bool__(self):
+        diff = self.compute_difference()
+        return bool((diff > self.unit_tol) / self.a.size < self.total_tol)
+
+    def __repr__(self):
+        name = self.__class__.__name__
+
+        return f"{name}(" + indent("\n".join([
+            "",
+            np.array_repr(self.a),
+            np.array_repr(self.b),
+            f"unit_tol={self.unit_tol}",
+            f"total_tol={self.total_tol}",
+            f"with_sign={self.with_sign}",
+            "",
+        ]), "    ") + ")"
 
 
 def get_pattern(name, n_samples):
