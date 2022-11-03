@@ -16,7 +16,9 @@
 
 
 import importlib
+import traceback
 from cuml.internals.device_support import CPU_ENABLED, GPU_ENABLED
+from cuml.internals import logger
 from distutils.version import LooseVersion
 
 
@@ -212,6 +214,7 @@ class NullContext:
     UnavailableError if used in any way, but the context manager itself can be
     safely invoked.
     '''
+
     def __init__(self, *args, **kwargs):
         pass
 
@@ -255,17 +258,26 @@ def safe_import(module, msg=None, alt=None):
     '''
     try:
         return importlib.import_module(module)
+    except ImportError:
+        exception_text = traceback.format_exc()
+        logger.debug(
+            f'Import of {module} failed with: {exception_text}'
+        )
     except Exception:
-        if msg is None:
-            msg = f'{module} could not be imported'
-        if alt is None:
-            return UnavailableMeta(
-                module.rsplit('.')[-1],
-                (),
-                {'_msg': msg}
-            )
-        else:
-            return alt
+        exception_text = traceback.format_exc()
+        logger.info(
+            f'Import of {module} failed with: {exception_text}'
+        )
+    if msg is None:
+        msg = f'{module} could not be imported'
+    if alt is None:
+        return UnavailableMeta(
+            module.rsplit('.')[-1],
+            (),
+            {'_msg': msg}
+        )
+    else:
+        return alt
 
 
 def safe_import_from(module, symbol, msg=None, alt=None):
@@ -298,17 +310,31 @@ def safe_import_from(module, symbol, msg=None, alt=None):
     try:
         imported_module = importlib.import_module(module)
         return getattr(imported_module, symbol)
+    except ImportError:
+        exception_text = traceback.format_exc()
+        logger.debug(
+            f'Import of {module} failed with: {exception_text}'
+        )
+    except AttributeError:
+        exception_text = traceback.format_exc()
+        logger.debug(
+            f'Import of {symbol} from {module} failed with: {exception_text}'
+        )
     except Exception:
-        if msg is None:
-            msg = f'{module}.{symbol} could not be imported'
-        if alt is None:
-            return UnavailableMeta(
-                symbol,
-                (),
-                {'_msg': msg}
-            )
-        else:
-            return alt
+        exception_text = traceback.format_exc()
+        logger.info(
+            f'Import of {module}.{symbol} failed with: {exception_text}'
+        )
+    if msg is None:
+        msg = f'{module}.{symbol} could not be imported'
+    if alt is None:
+        return UnavailableMeta(
+            symbol,
+            (),
+            {'_msg': msg}
+        )
+    else:
+        return alt
 
 
 def gpu_only_import(module, alt=None):
