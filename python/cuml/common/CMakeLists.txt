@@ -15,6 +15,8 @@
 set(cython_sources
     base.pyx
     logger.pyx
+    # cuda.pyx
+    # pointer_utils.pyx
 )
 
 add_module_gpu_default("cuda.pyx")

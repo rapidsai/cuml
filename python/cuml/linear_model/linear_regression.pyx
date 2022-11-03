@@ -20,7 +20,7 @@ import ctypes
 import numpy as np
 import warnings
 
-from numba import cuda
+# from numba import cuda
 from collections import defaultdict
 
 from libcpp cimport bool
@@ -29,66 +29,42 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.common.base import Base
+from cuml.common.base import Base
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from pylibraft.common.handle cimport handle_t
-from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
-    """
-    #ifdef ENABLE_GPU
-    void olsFit(const raft::handle_t& handle,
-            float* input,
-            int n_rows,
-            int n_cols,
-            float* labels,
-            float* coef,
-            float* intercept,
-            bool fit_intercept,
-            bool normalize,
-            int algo             = 0,
-            float* sample_weight = nullptr){}
-    void olsFit(const raft::handle_t& handle,
-            double* input,
-            int n_rows,
-            int n_cols,
-            double* labels,
-            double* coef,
-            double* intercept,
-            bool fit_intercept,
-            bool normalize,
-            int algo              = 0,
-            double* sample_weight = nullptr){}
-    #endif
-    """
 
-    cdef void olsFit(handle_t& handle,
-                     float *input,
-                     int n_rows,
-                     int n_cols,
-                     float *labels,
-                     float *coef,
-                     float *intercept,
-                     bool fit_intercept,
-                     bool normalize,
-                     int algo,
-                     float *sample_weight) except +
+IF VIOLETHAMMER == 1:
+    from pylibraft.common.handle cimport handle_t
+    from pylibraft.common.handle import Handle
 
-    cdef void olsFit(handle_t& handle,
-                     double *input,
-                     int n_rows,
-                     int n_cols,
-                     double *labels,
-                     double *coef,
-                     double *intercept,
-                     bool fit_intercept,
-                     bool normalize,
-                     int algo,
-                     double *sample_weight) except +
+    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+        cdef void olsFit(handle_t& handle,
+                         float *input,
+                         int n_rows,
+                         int n_cols,
+                         float *labels,
+                         float *coef,
+                         float *intercept,
+                         bool fit_intercept,
+                         bool normalize,
+                         int algo,
+                         float *sample_weight) except +
+
+        cdef void olsFit(handle_t& handle,
+                         double *input,
+                         int n_rows,
+                         int n_cols,
+                         double *labels,
+                         double *coef,
+                         double *intercept,
+                         bool fit_intercept,
+                         bool normalize,
+                         int algo,
+                         double *sample_weight) except +
 
 
 class LinearRegression(Base,
@@ -221,10 +197,12 @@ class LinearRegression(Base,
 
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        if handle is None and algorithm == 'eig':
-            # if possible, create two streams, so that eigenvalue decomposition
-            # can benefit from running independent operations concurrently.
-            handle = Handle(n_streams=2)
+        IF VIOLETHAMMER == 1:
+            if handle is None and algorithm == 'eig':
+                # if possible, create two streams, so that eigenvalue
+                # decomposition
+                # can benefit from running independent operations concurrently.
+                handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -301,37 +279,38 @@ class LinearRegression(Base,
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        IF VIOLETHAMMER == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        if self.dtype == np.float32:
+            if self.dtype == np.float32:
 
-            olsFit(handle_[0],
-                   <float*>X_ptr,
-                   <int>n_rows,
-                   <int>self.n_cols,
-                   <float*>y_ptr,
-                   <float*>coef_ptr,
-                   <float*>&c_intercept1,
-                   <bool>self.fit_intercept,
-                   <bool>self.normalize,
-                   <int>self.algo,
-                   <float*>sample_weight_ptr)
+                olsFit(handle_[0],
+                       <float*>X_ptr,
+                       <int>n_rows,
+                       <int>self.n_cols,
+                       <float*>y_ptr,
+                       <float*>coef_ptr,
+                       <float*>&c_intercept1,
+                       <bool>self.fit_intercept,
+                       <bool>self.normalize,
+                       <int>self.algo,
+                       <float*>sample_weight_ptr)
 
-            self.intercept_ = c_intercept1
-        else:
-            olsFit(handle_[0],
-                   <double*>X_ptr,
-                   <int>n_rows,
-                   <int>self.n_cols,
-                   <double*>y_ptr,
-                   <double*>coef_ptr,
-                   <double*>&c_intercept2,
-                   <bool>self.fit_intercept,
-                   <bool>self.normalize,
-                   <int>self.algo,
-                   <double*>sample_weight_ptr)
+                self.intercept_ = c_intercept1
+            else:
+                olsFit(handle_[0],
+                       <double*>X_ptr,
+                       <int>n_rows,
+                       <int>self.n_cols,
+                       <double*>y_ptr,
+                       <double*>coef_ptr,
+                       <double*>&c_intercept2,
+                       <bool>self.fit_intercept,
+                       <bool>self.normalize,
+                       <int>self.algo,
+                       <double*>sample_weight_ptr)
 
-            self.intercept_ = c_intercept2
+                self.intercept_ = c_intercept2
 
         self.handle.sync()
 

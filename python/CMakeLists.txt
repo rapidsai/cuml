@@ -111,7 +111,9 @@ if(CUML_CPU)
   set(SINGLEGPU ON)
 
   set(CUML_ALGORITHMS "linearregression")
-  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+
+  # this won't be needed when we add CPU libcuml++ (FIL)
+  set(cuml_sg_libraries "")
 else()
   set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 endif()
@@ -131,6 +133,9 @@ rapids_cython_init()
 
 include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
 include(cmake/ConfigureCythonAlgorithms.cmake)
+
+list(APPEND CYTHON_FLAGS
+     "--compile-time-env VIOLETHAMMER=0")
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)
@@ -152,7 +157,7 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
-add_subdirectory(cuml/experimental/common)
+# add_subdirectory(cuml/experimental/common)
 add_subdirectory(cuml/experimental/linear_model)
 
 if(DEFINED cython_lib_dir)

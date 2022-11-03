@@ -24,11 +24,13 @@ import cuml.common
 import cuml.common.cuda
 import cuml.common.logger as logger
 import cuml.internals
-import pylibraft.common.handle
 import cuml.common.input_utils
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.mixins import TagsMixin
+
+IF VIOLETHAMMER:
+    import pylibraft.common.handle
 
 
 class Base(TagsMixin,
@@ -164,8 +166,11 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = pylibraft.common.handle.Handle() if handle is None \
-            else handle
+        IF VIOLETHAMMER:
+            self.handle = pylibraft.common.handle.Handle() if handle is None \
+                else handle
+        ELSE:
+            self.handle = None
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.

@@ -31,6 +31,8 @@ if(NOT SINGLEGPU)
 
 endif()
 
+
+
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
@@ -38,12 +40,3 @@ rapids_cython_create_modules(
   MODULE_PREFIX linear_model_
   ASSOCIATED_TARGETS cuml
 )
-
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-  if(${CUML_UNIVERSAL} OR ${CUML_GPU})
-    message(STATUS "@@@ debug: ${cython_module}")
-    target_compile_definitions(${cython_module} PUBLIC ENABLE_GPU)
-  # else()
-  #   target_compile_definitions(${cython_module} PUBLIC ENABLE_GPU=0)
-  endif()
-endforeach()
