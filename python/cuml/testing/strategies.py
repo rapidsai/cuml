@@ -170,7 +170,6 @@ def standard_regression_datasets(
     tail_strength=just(0.5),
     noise=just(0.0),
     shuffle=just(True),
-    coef=just(False),
     random_state=None,
 ):
     """
