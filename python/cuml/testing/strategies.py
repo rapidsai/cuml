@@ -14,8 +14,7 @@
 #
 from hypothesis import assume
 from hypothesis.extra.numpy import arrays, floating_dtypes
-from hypothesis.strategies import (composite, floats, integers, just, none,
-                                   one_of)
+from hypothesis.strategies import composite, integers, just, none, one_of
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
@@ -107,7 +106,7 @@ def combined_datasets_strategy(* datasets, name=None, doc=None):
 def split_datasets(
     draw,
     datasets,
-    test_sizes=floats(min_value=0.25, max_value=1.0, exclude_max=True),
+    test_sizes=None,
 ):
     """
     Split a generic search strategy for datasets into test and train subsets.
@@ -126,10 +125,11 @@ def split_datasets(
     ----------
     datasets: SearchStrategy[dataset]
         A search strategy for datasets.
-    test_sizes: SearchStrategy[float],
-        default=floats(min_value=0.25, max_value=0.1, exclude_max=True)
-        A search strategy for the test size. Must be provided as float and is
-        limited by valid inputs to sklearn's train_test_split() function.
+    test_sizes: SearchStrategy[float] | SearchStrategy[int], default=None
+        A search strategy for the test size. Must be provided as a search
+        strategy for integers or floats. Integers should be bound by one and
+        the sample size, floats should be between 0 and 1.0. Defaults to
+        a search strategy that will generate a valid unbiased split.
 
     Returns
     -------
@@ -138,9 +138,21 @@ def split_datasets(
         the provided datasets search strategy.
     """
     X, y = draw(datasets)
+    assume(len(X) > 1)
+
+    # Determine default value for test_sizes
+    if test_sizes is None:
+        test_sizes = integers(1, max(1, len(X) - 1))
+
     test_size = draw(test_sizes)
-    assume(int(len(X) * test_size) > 0)
-    assume(int(len(X) * (1.0 - test_size)) > 0)
+
+    # Check assumptions for test_size
+    if isinstance(test_size, float):
+        assume(int(len(X) * test_size) > 0)
+        assume(int(len(X) * (1.0 - test_size)) > 0)
+    elif isinstance(test_size, int):
+        assume(1 < test_size < len(X))
+
     return train_test_split(X, y, test_size=test_size)
 
 
