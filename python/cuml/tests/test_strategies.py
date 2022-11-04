@@ -33,6 +33,23 @@ def test_standard_datasets_default(dataset):
     assert (y.ndim == 0) or (y.ndim in (1, 2) and y.shape[0] <= 200)
 
 
+@given(
+    standard_datasets(
+        dtypes=floating_dtypes(sizes=(32,)),
+        n_samples=st.integers(10, 20),
+        n_features=st.integers(30, 40),
+    )
+)
+def test_standard_datasets(dataset):
+    X, y = dataset
+
+    assert X.ndim == 2
+    assert 10 <= X.shape[0] <= 20
+    assert 30 <= X.shape[1] <= 40
+    assert 10 <= y.shape[0] <= 20
+    assert y.shape[1] == 1
+
+
 @given(split_datasets(standard_datasets()))
 def test_split_datasets(split_dataset):
     X_train, X_test, y_train, y_test = split_dataset
