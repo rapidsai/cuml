@@ -439,9 +439,10 @@ class Base(TagsMixin,
 
     def __getattr__(self, attr):
         # Attempts to redirect calls to CPU estimator
-        if hasattr(self.cpu_model_class, attr):
-            if callable(getattr(self.cpu_model_class, attr)):
-                return self._cpu_redirection(attr)
+        if inspect.isclass(self):
+            if hasattr(self.cpu_model_class, attr):
+                if callable(getattr(self.cpu_model_class, attr)):
+                    return self._cpu_redirection(attr)
 
         # Redirects to `solver_model` if the attribute exists.
         if attr == "solver_model":
