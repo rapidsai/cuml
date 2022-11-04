@@ -177,10 +177,10 @@ def standard_regression_datasets(
         Returned arrays will have number of rows drawn from these values.
     n_features: SearchStrategy[int]
         Returned arrays will have number of columns drawn from these values.
-    n_informative: SearchStrategy[int], default=None
-        Defaults to value of n_features if None.
-        A search strategy for the number of informative features. This will
-        default to the value provided for n_features.
+    n_informative: SearchStrategy[int], default=none
+        A search strategy for the number of informative features. If none,
+        will use 10% of the actual number of features, but not less than 1
+        unless the number of features is zero.
     n_targets: SearchStrategy[int], default=just(1)
         A search strategy for the number of targets, that means the number of
         columns of the returned y output array.
@@ -208,10 +208,13 @@ def standard_regression_datasets(
         A search strategy for a tuple of two arrays subject to the
         provided parameters.
     """
+    n_samples_ = draw(n_samples)
+    if n_informative is None:
+        n_informative = just(max(min(n_samples_, 1), int(0.1 * n_samples_)))
     X, y = make_regression(
-        n_samples=draw(n_samples),
+        n_samples=n_samples_,
         n_features=draw(n_features),
-        n_informative=draw(n_informative or n_features),
+        n_informative=draw(n_informative),
         n_targets=draw(n_targets),
         bias=draw(bias),
         effective_rank=draw(effective_rank),
