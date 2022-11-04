@@ -31,7 +31,7 @@ from scipy.sparse import coo_matrix as cpu_coo_matrix
 from cuml.common import input_to_cuml_array
 
 
-def to_output_type(array, output_type, order='K'):
+def to_output_type(array, output_type, order='F'):
     """Used to convert arrays while creating datasets
     for testing.
 
