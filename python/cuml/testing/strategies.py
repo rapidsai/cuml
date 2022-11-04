@@ -160,8 +160,8 @@ def split_datasets(
 def standard_regression_datasets(
     draw,
     dtypes=floating_dtypes(),
-    n_samples=integers(min_value=0, max_value=100),
-    n_features=integers(min_value=0, max_value=100),
+    n_samples=integers(min_value=100, max_value=200),
+    n_features=integers(min_value=100, max_value=200),
     *,
     n_informative=None,
     n_targets=just(1),
