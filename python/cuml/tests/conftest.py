@@ -41,6 +41,9 @@ hypothesis.settings.register_profile(
     name="unit",
     parent=hypothesis.settings.get_profile("default"),
     max_examples=20,
+    suppress_health_check=[
+        hypothesis.HealthCheck.data_too_large,
+    ],
 )
 
 hypothesis.settings.register_profile(
