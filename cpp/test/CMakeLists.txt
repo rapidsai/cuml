@@ -197,7 +197,7 @@ endif()
 
 if(BUILD_CUML_MG_TESTS)
 
-  ConfigureTest(PREFIX MG NAME KMEANSMG_TEST PATH mg/kmeans_test.cu OPTIONAL NCCL CUMLPRIMS ML_INCLUDE)
+  ConfigureTest(PREFIX MG NAME KMEANS_TEST PATH mg/kmeans_test.cu OPTIONAL NCCL CUMLPRIMS ML_INCLUDE)
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
     ConfigureTest(PREFIX MG NAME KNN_TEST PATH mg/knn.cu OPTIONAL NCCL CUMLPRIMS MPI ML_INCLUDE)

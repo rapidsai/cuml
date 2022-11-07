@@ -221,12 +221,14 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
   auto clusterCost = raft::make_device_scalar<DataT>(handle, 0);
 
   raft::cluster::kmeans::min_cluster_distance(handle,
-                                              params,
                                               X,
                                               potentialCentroids,
                                               minClusterDistance.view(),
                                               L2NormX.view(),
                                               L2NormBuf_OR_DistBuf,
+                                              params.metric,
+                                              params.batch_samples,
+                                              params.batch_centroids,
                                               workspace);
 
   // compute partial cluster cost from the samples in rank
@@ -270,12 +272,14 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
                     potentialCentroids.extent(0));
 
     raft::cluster::kmeans::min_cluster_distance(handle,
-                                                params,
                                                 X,
                                                 potentialCentroids,
                                                 minClusterDistance.view(),
                                                 L2NormX.view(),
                                                 L2NormBuf_OR_DistBuf,
+                                                params.metric,
+                                                params.batch_samples,
+                                                params.batch_centroids,
                                                 workspace);
 
     raft::cluster::kmeans::cluster_cost(
@@ -540,12 +544,14 @@ void fit(const raft::handle_t& handle,
     //   centroid) and 'value' is the distance between the sample 'X[i]' and the
     //   'centroid[key]'
     raft::cluster::kmeans::min_cluster_and_distance(handle,
-                                                    params,
                                                     X,
                                                     const_centroids,
                                                     minClusterAndDistance.view(),
                                                     L2NormX.view(),
                                                     L2NormBuf_OR_DistBuf,
+                                                    params.metric,
+                                                    params.batch_samples,
+                                                    params.batch_centroids,
                                                     workspace);
 
     // Using TransformInputIteratorT to dereference an array of
