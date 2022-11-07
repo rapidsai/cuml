@@ -17,7 +17,6 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
-from textwrap import indent
 
 from numba import cuda
 from numbers import Number
@@ -76,21 +75,39 @@ class array_equal:
         return array_difference(self.a, self.b, with_sign=self.with_sign)
 
     def __bool__(self):
-        diff = self.compute_difference()
-        return bool((diff > self.unit_tol) / self.a.size < self.total_tol)
+        if len(self.a) == len(self.b) == 0:
+            return True
 
-    def __repr__(self):
+        if self.with_sign:
+            a, b = self.a, self.b
+        else:
+            a, b = np.abs(self.a), np.abs(self.b)
+
+        res = (np.sum(np.abs(a - b) > self.unit_tol)) / a.size < self.total_tol
+        return bool(res)
+
+    def __eq__(self, other):
+        if isinstance(other, bool):
+            return bool(self) == other
+        return super().__eq__(other)
+
+    def _repr(self, threshold=None):
         name = self.__class__.__name__
 
-        return f"{name}(" + indent("\n".join([
-            "",
-            np.array_repr(self.a),
-            np.array_repr(self.b),
-            f"unit_tol={self.unit_tol}",
-            f"total_tol={self.total_tol}",
-            f"with_sign={self.with_sign}",
-            "",
-        ]), "    ") + ")"
+        return [
+            f"{name}(",
+            f"{np.array2string(self.a, threshold=threshold)}, ",
+            f"{np.array2string(self.b, threshold=threshold)}, ",
+            f"unit_tol={self.unit_tol}, ",
+            f"total_tol={self.total_tol}, ",
+            f"with_sign={self.with_sign})",
+        ]
+
+    def __repr__(self):
+        return "".join(self._repr(threshold=10))
+
+    def __str__(self):
+        return "\n".join(self._repr(threshold=1000))
 
 
 def get_pattern(name, n_samples):

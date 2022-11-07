@@ -34,10 +34,12 @@ def test_array_equal_same_array(array, tol):
     if np.isfinite(difference):
         target(float(np.abs(difference)))
     assert equal
+    assert equal == True  # noqa: E712
+    assert bool(equal) is True
 
 
 @given(
-    array_shapes().flatmap(
+    arrays=array_shapes().flatmap(
         lambda shape:
             st.tuples(
                 arrays(
@@ -50,13 +52,36 @@ def test_array_equal_same_array(array, tol):
                 ),
             )
     ),
-    st.floats(1e-4, 1.0)
+    unit_tol=st.floats(1e-4, 1.0),
+    with_sign=st.booleans(),
 )
-def test_array_equal_two_arrays(arrays, tol):
+def test_array_equal_two_arrays(arrays, unit_tol, with_sign):
     array_a, array_b = arrays
-    equal = array_equal(array_a, array_b, tol)
+    equal = array_equal(array_a, array_b, unit_tol, with_sign=with_sign)
+    equal_flipped = array_equal(array_b, array_a, unit_tol, with_sign=with_sign)
     note(equal)
     difference = equal.compute_difference()
-    if np.isfinite(difference):
-        target(float(np.abs(difference)))
-    assert equal or np.abs(difference) != 0
+    a, b = (array_a, array_b) if with_sign else \
+        (np.abs(array_a), np.abs(array_b))
+    expect_equal = np.sum(np.abs(a - b) > unit_tol) / array_a.size < 1e-4
+    if expect_equal:
+        assert equal
+        assert bool(equal) is True
+        assert equal == True  # noqa: E712
+        assert True == equal  # noqa: E712
+        assert equal != False  # noqa: E712
+        assert False != equal  # noqa: E712
+        assert equal_flipped
+        assert bool(equal_flipped) is True
+        assert equal_flipped == True  # noqa: E712
+        assert True == equal_flipped  # noqa: E712
+        assert equal_flipped != False  # noqa: E712
+        assert False != equal_flipped  # noqa: E712
+    else:
+        assert not equal
+        assert bool(equal) is not True
+        assert equal != True  # noqa: E712
+        assert True != equal  # noqa: E712
+        assert equal == False  # noqa: E712
+        assert False == equal  # noqa: E712
+        assert difference != 0
