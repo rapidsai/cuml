@@ -8,14 +8,17 @@ from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
 from cuml.common import input_to_cuml_array
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
 from cuml.experimental.kayak.device_type cimport device_type as kayak_device_t
 from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
 from cuml.experimental.kayak.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
+from cuml.internals.base import UniversalBase
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import global_settings
+from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
 cdef extern from "treelite/c_api.h":
@@ -186,7 +189,7 @@ cdef class ForestInference_impl():
             *,
             align_bytes=0,
             use_double_precision=None,
-            mem_type='gpu',
+            mem_type=None,
             device_id=0):
         # Store reference to RAFT handle to control lifetime, since kayak
         # handle keeps a pointer to it
@@ -194,6 +197,11 @@ cdef class ForestInference_impl():
         self.kayak_handle = kayak_handle_t(
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
+        if mem_type is None:
+            mem_type = global_settings.memory_type
+        else:
+            mem_type = MemoryType.from_str(mem_type)
+
         cdef optional[bool] use_double_precision_c
         if use_double_precision is None:
             use_double_precision_c = nullopt
@@ -206,11 +214,10 @@ cdef class ForestInference_impl():
             model_handle = tl_model
 
         cdef kayak_device_t dev_type
-        # TODO(wphicks): Update to handle all possible mem types
-        if mem_type == 'cpu':
-            dev_type = kayak_device_t.cpu
-        else:
+        if mem_type.is_device_accessible:
             dev_type = kayak_device_t.gpu
+        else:
+            dev_type = kayak_device_t.cpu
 
         self.model = import_from_treelite_handle(
             <ModelHandle><uintptr_t>model_handle,
@@ -241,20 +248,40 @@ cdef class ForestInference_impl():
             convert_to_dtype=model_dtype,
             check_dtype=model_dtype
         )
+        cdef kayak_device_t in_dev
+        if (
+            global_settings.device_type == DeviceType.device
+            and in_arr.is_device_accessible
+        ):
+            in_dev = kayak_device_t.gpu
+        else:
+            in_dev = kayak_device_t.cpu
+
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
         if preds is None:
             preds = CumlArray.empty(
-                shape=(n_rows, self.model.num_outputs()),
-                dtype=model_dtype,
+                (n_rows, self.model.num_outputs()),
+                model_dtype,
                 order='C',
                 index=in_arr.index
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
             preds.index = in_arr.index
+        cdef kayak_device_t out_dev
+        print(type(in_arr), type(preds))
+        if (
+            global_settings.device_type == DeviceType.device
+            and preds.is_device_accessible
+        ):
+            out_dev = kayak_device_t.gpu
+        else:
+            out_dev = kayak_device_t.cpu
+
         out_ptr = preds.ptr
+
         cdef optional[uint32_t] chunk_specification
         if chunk_size is None:
             chunk_specification = nullopt
@@ -267,8 +294,8 @@ cdef class ForestInference_impl():
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
-                kayak_device_t.gpu,
-                kayak_device_t.gpu,
+                in_dev,
+                out_dev,
                 chunk_specification
             )
         else:
@@ -277,8 +304,8 @@ cdef class ForestInference_impl():
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
-                kayak_device_t.gpu,
-                kayak_device_t.gpu,
+                in_dev,
+                out_dev,
                 chunk_specification
             )
 
@@ -338,7 +365,7 @@ def _handle_legacy_args(
         )
 
 
-class ForestInference(Base, CMajorInputTagMixin):
+class ForestInference(UniversalBase, CMajorInputTagMixin):
     """
     ForestInference provides accelerated inference for forest models on both
     CPU and GPU.
@@ -354,29 +381,76 @@ class ForestInference(Base, CMajorInputTagMixin):
             output_class=False,
             align_bytes=None,
             precision='single',
-            mem_type='gpu',
+            mem_type=None,
             device_id=0):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
+        if mem_type is None:
+            mem_type = global_settings.memory_type
+        else:
+            mem_type = MemoryType.from_str(mem_type)
+
         if align_bytes is None:
-            align_bytes = 0
+            self.align_bytes = 0
+        else:
+            self.align_bytes = align_bytes
         if precision in ('native', None):
-            use_double_precision = None
+            self.use_double_precision = None
         else:
-            use_double_precision = (precision in ('double', 'float32'))
-        if treelite_model is not None:
-            self._impl = ForestInference_impl(
-                self.handle,
-                treelite_model,
-                align_bytes=align_bytes,
-                use_double_precision=use_double_precision,
-                mem_type=mem_type,
-                device_id=device_id
-            )
-        else:
-            self._impl = None
+            self.use_double_precision = (precision in ('double', 'float32'))
+
         self.is_classifier = output_class
+
+        if treelite_model is not None:
+            self.treelite_model = treelite_model
+            self._load_to_fil(mem_type=mem_type, device_id=device_id)
+        else:
+            self.treelite_model = None
+
+    def _load_to_fil(self, mem_type=None, device_id=0):
+        if mem_type is None:
+            mem_type = global_settings.memory_type
+        else:
+            mem_type = MemoryType.from_str(mem_type)
+
+        impl = ForestInference_impl(
+            self.handle,
+            self.treelite_model,
+            align_bytes=self.align_bytes,
+            use_double_precision=self.use_double_precision,
+            mem_type=mem_type,
+            device_id=device_id
+        )
+
+        if mem_type.is_device_accessible:
+            self._gpu_forest = impl
+
+        if mem_type.is_host_accessible:
+            self._cpu_forest = impl
+
+    @property
+    def gpu_forest(self):
+        try:
+            return self._gpu_forest
+        except AttributeError:
+            self._load_to_fil(mem_type=MemoryType.device)
+            return self._gpu_forest
+
+    @property
+    def cpu_forest(self):
+        try:
+            return self._cpu_forest
+        except AttributeError:
+            self._load_to_fil(mem_type=MemoryType.host)
+            return self._cpu_forest
+
+    @property
+    def forest(self):
+        if global_settings.device_type == DeviceType.device:
+            return self.gpu_forest
+        else:
+            return self.cpu_forest
 
     @classmethod
     def load(
@@ -396,7 +470,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
-            mem_type='gpu',
+            mem_type=None,
             device_id=0,
             handle=None):
         _handle_legacy_args(
@@ -449,7 +523,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
-            mem_type='gpu',
+            mem_type=None,
             device_id=0,
             handle=None):
         _handle_legacy_args(
@@ -495,7 +569,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
-            mem_type='gpu',
+            mem_type=None,
             device_id=0,
             handle=None):
         _handle_legacy_args(
@@ -529,7 +603,7 @@ class ForestInference(Base, CMajorInputTagMixin):
                 "predict_proba is not available for regression models. Load"
                 " with output_class=True if this is a classifier."
             )
-        return self._impl.predict(X, preds=preds, chunk_size=chunk_size)
+        return self.forest.predict(X, preds=preds, chunk_size=chunk_size)
 
     @nvtx.annotate(
         message='ForestInference.predict',
@@ -542,15 +616,17 @@ class ForestInference(Base, CMajorInputTagMixin):
             preds=None,
             chunk_size=None,
             threshold=None) -> CumlArray:
-        proba = self._impl.predict(X, preds=preds, chunk_size=chunk_size)
+        proba = self.forest.predict(X, preds=preds, chunk_size=chunk_size)
         if self.is_classifier:
             if len(proba.shape) < 2 or proba.shape[1] == 1:
                 if threshold is None:
                     threshold = 0.5
                 return (
-                    proba.to_output(output_type='cupy') > threshold
+                    proba.to_output(output_type='array') > threshold
                 ).astype('int')
             else:
-                return cp.argmax(proba.to_output(output_type='cupy'), axis=1)
+                return global_settings.xpy.argmax(
+                    proba.to_output(output_type='array'), axis=1
+                )
         else:
             return proba
