@@ -32,7 +32,10 @@ from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
 from cuml.common.input_utils import _typecast_will_lose_information
-from cuml.testing.strategies import split_datasets, regression_datasets
+from cuml.testing.strategies import (
+    split_datasets,
+    standard_regression_datasets,
+)
 from cuml.testing.utils import (
     array_difference,
     array_equal,
@@ -205,16 +208,13 @@ def test_linear_regression_single_column():
         model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
 @given(
     split_datasets(
-        regression_datasets(
-            # Two assumptions required for cuml.LinearRegression:
-            n_samples=st.integers(
-                min_value=20, max_value=200
-            ),  # assuming min(train_size)=0.1
+        standard_regression_datasets(
             dtypes=floating_dtypes(sizes=(32, 64)),
-        )
+            n_samples=st.just(1000),
+        ),
+        test_sizes=st.just(0.2)
     )
 )
 @example(small_regression_dataset(np.float32))
