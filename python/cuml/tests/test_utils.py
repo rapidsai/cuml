@@ -58,7 +58,8 @@ def test_array_equal_same_array(array, tol):
 def test_array_equal_two_arrays(arrays, unit_tol, with_sign):
     array_a, array_b = arrays
     equal = array_equal(array_a, array_b, unit_tol, with_sign=with_sign)
-    equal_flipped = array_equal(array_b, array_a, unit_tol, with_sign=with_sign)
+    equal_flipped = array_equal(
+        array_b, array_a, unit_tol, with_sign=with_sign)
     note(equal)
     difference = equal.compute_difference()
     a, b = (array_a, array_b) if with_sign else \
