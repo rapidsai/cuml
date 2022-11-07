@@ -219,12 +219,12 @@ def standard_regression_datasets(
         A search strategy for a tuple of two arrays subject to the
         provided parameters.
     """
-    n_samples_ = draw(n_samples)
+    n_features_ = draw(n_features)
     if n_informative is None:
-        n_informative = just(max(min(n_samples_, 1), int(0.1 * n_samples_)))
+        n_informative = just(max(min(n_features_, 1), int(0.1 * n_features_)))
     X, y = make_regression(
-        n_samples=n_samples_,
-        n_features=draw(n_features),
+        n_samples=draw(n_samples),
+        n_features=n_features_,
         n_informative=draw(n_informative),
         n_targets=draw(n_targets),
         bias=draw(bias),
