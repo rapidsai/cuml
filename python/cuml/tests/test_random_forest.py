@@ -17,6 +17,7 @@ import pytest
 
 import warnings
 import cudf
+import cupy as cp
 import numpy as np
 import random
 import json
@@ -438,7 +439,10 @@ def test_rf_regression(
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_rf_classification_seed(small_clf, datatype):
+@pytest.mark.parametrize("rs_class",
+                         [int, np.uint64, np.random.RandomState,
+                          cp.random.RandomState, np.random.default_rng])
+def test_rf_classification_seed(small_clf, datatype, rs_class):
 
     X, y = small_clf
     X = X.astype(datatype)
@@ -449,36 +453,79 @@ def test_rf_classification_seed(small_clf, datatype):
 
     for i in range(8):
         seed = random.randint(100, 1e5)
+        cu_class_seed = rs_class(seed)
+        cu_class2_seed = rs_class(seed)
         # Initialize, fit and predict using cuML's
         # random forest classification model
-        cu_class = curfc(random_state=seed, n_streams=1)
+        cu_class = curfc(random_state=cu_class_seed, n_streams=1)
         cu_class.fit(X_train, y_train)
 
         # predict using FIL
         fil_preds_orig = cu_class.predict(X_test, predict_model="GPU")
         cu_preds_orig = cu_class.predict(X_test, predict_model="CPU")
         cu_acc_orig = accuracy_score(y_test, cu_preds_orig)
-        fil_preds_orig = np.reshape(fil_preds_orig, np.shape(cu_preds_orig))
-
         fil_acc_orig = accuracy_score(y_test, fil_preds_orig)
 
         # Initialize, fit and predict using cuML's
         # random forest classification model
-        cu_class2 = curfc(random_state=seed, n_streams=1)
+        cu_class2 = curfc(random_state=cu_class2_seed, n_streams=1)
         cu_class2.fit(X_train, y_train)
 
         # predict using FIL
         fil_preds_rerun = cu_class2.predict(X_test, predict_model="GPU")
         cu_preds_rerun = cu_class2.predict(X_test, predict_model="CPU")
         cu_acc_rerun = accuracy_score(y_test, cu_preds_rerun)
-        fil_preds_rerun = np.reshape(fil_preds_rerun, np.shape(cu_preds_rerun))
-
         fil_acc_rerun = accuracy_score(y_test, fil_preds_rerun)
 
         assert fil_acc_orig == fil_acc_rerun
         assert cu_acc_orig == cu_acc_rerun
         assert (fil_preds_orig == fil_preds_rerun).all()
         assert (cu_preds_orig == cu_preds_rerun).all()
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("rs_class",
+                         [int, np.uint64, np.random.RandomState,
+                          cp.random.RandomState, np.random.default_rng])
+def test_rf_regression_seed(special_reg, datatype, rs_class):
+
+    X, y = special_reg
+    X = X.astype(datatype)
+    y = y.astype(datatype)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
+
+    for i in range(8):
+        seed = random.randint(100, 1e5)
+        cu_reg_seed = rs_class(seed)
+        cu_reg2_seed = rs_class(seed)
+        # Initialize, fit and predict using cuML's
+        # random forest classification model
+        cu_reg = curfr(random_state=cu_reg_seed, n_streams=1)
+        cu_reg.fit(X_train, y_train)
+
+        # predict using FIL
+        fil_preds_orig = cu_reg.predict(X_test, predict_model="GPU")
+        cu_preds_orig = cu_reg.predict(X_test, predict_model="CPU")
+
+        cu_r2_orig = r2_score(y_test, cu_preds_orig, convert_dtype=datatype)
+        fil_r2_orig = r2_score(y_test, fil_preds_orig, convert_dtype=datatype)
+
+        cu_reg2 = curfr(random_state=cu_reg2_seed, n_streams=1)
+        cu_reg2.fit(X_train, y_train)
+
+        # predict using FIL
+        fil_preds_rerun = cu_reg2.predict(X_test, predict_model="GPU")
+        cu_preds_rerun = cu_reg2.predict(X_test, predict_model="CPU")
+
+        cu_r2_rerun = r2_score(y_test, cu_preds_rerun,
+                               convert_dtype=datatype)
+        fil_r2_rerun = r2_score(y_test, fil_preds_rerun,
+                                convert_dtype=datatype)
+
+        assert abs(fil_r2_orig - fil_r2_rerun) <= 0.02
+        assert abs(cu_r2_orig - cu_r2_rerun) <= 0.02
 
 
 @pytest.mark.parametrize(

@@ -16,6 +16,8 @@
 #
 
 # distutils: language = c++
+
+import cupy as cp
 import numpy as np
 import nvtx
 import rmm
@@ -52,7 +54,6 @@ from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
-
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -209,7 +210,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         node to be spilt.
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
-    random_state : int (default = None)
+    random_state : int, RandomState instance or None, optional (default=None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results.
     handle : cuml.Handle
@@ -449,10 +450,7 @@ class RandomForestClassifier(BaseRandomForestModel,
             new RandomForestMetaData[double, int]()
         self.rf_forest64 = <uintptr_t> rf_forest64
 
-        if self.random_state is None:
-            seed_val = <uintptr_t>NULL
-        else:
-            seed_val = <uintptr_t>self.random_state
+        seed_val = self._obtain_seed()
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
@@ -827,3 +825,27 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def _obtain_seed(self):
+        "Converts random_state to allow numpy and cupy RandomState objects"
+        rs = self.random_state
+        if rs is None:
+            seed_val = <uint64_t>NULL
+        elif isinstance(rs, np.uint64):
+            seed_val = <uint64_t>rs
+        elif isinstance(rs, (np.random.RandomState, cp.random.RandomState)):
+            seed_val = <uint64_t>rs.randint(
+                low=0,
+                high=np.iinfo(np.uint64).max,
+                dtype=np.uintp)
+        elif isinstance(rs, np.random.Generator):
+            seed_val = <uint64_t>rs.integers(
+                low=0,
+                high=np.iinfo(np.uint64).max,
+                dtype=np.uint64)
+        else:
+            seed_val = <uintptr_t>np.random.default_rng(rs).integers(
+                low=0,
+                high=np.iinfo(np.uint64).max,
+                dtype=np.uint64)
+        return seed_val
