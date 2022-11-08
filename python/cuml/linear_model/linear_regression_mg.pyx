@@ -38,6 +38,7 @@ from cuml.decomposition.utils cimport *
 
 from cuml.linear_model import LinearRegression
 from cuml.linear_model.base_mg import MGFitMixin
+from cuml.internals.api_decorators import NotInteropMixin
 
 
 cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg":
@@ -65,7 +66,7 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg":
                   bool verbose) except +
 
 
-class LinearRegressionMG(MGFitMixin, LinearRegression):
+class LinearRegressionMG(MGFitMixin, LinearRegression, NotInteropMixin):
 
     def __init__(self, **kwargs):
         super(LinearRegressionMG, self).__init__(**kwargs)

@@ -38,6 +38,7 @@ from cuml.decomposition.utils cimport *
 
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
+from cuml.internals.api_decorators import NotInteropMixin
 
 cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 
@@ -68,7 +69,7 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
                   bool verbose) except +
 
 
-class RidgeMG(MGFitMixin, Ridge):
+class RidgeMG(MGFitMixin, Ridge, NotInteropMixin):
 
     def __init__(self, **kwargs):
         super(RidgeMG, self).__init__(**kwargs)

@@ -138,7 +138,8 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
                 raise ValueError("Dask Future expected to contain cuml.Base "
                                  "but found %s instead." % model.type)
 
-        elif model is not None and not isinstance(model, Base):
+        elif (model is not None and
+              not isinstance(model, (Base, experimentalBase))):
             raise ValueError("Expected model of type cuml.Base but found %s "
                              "instead." % type(model))
         return model
@@ -196,7 +197,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         # have it on the distributed model.
         internal_model = self._get_internal_model()
         if ret_attr is None and internal_model is not None:
-            if isinstance(internal_model, Base):
+            if isinstance(internal_model, (Base, experimentalBase)):
                 # If model is not distributed, just return the
                 # requested attribute
                 ret_attr = getattr(internal_model, attr)

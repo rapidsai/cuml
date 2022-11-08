@@ -40,6 +40,7 @@ from cuml.decomposition.utils_mg cimport *
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals.api_decorators import NotInteropMixin
 
 cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
 
@@ -68,7 +69,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
                             bool verbose) except +
 
 
-class TSVDMG(BaseDecompositionMG, TruncatedSVD):
+class TSVDMG(BaseDecompositionMG, TruncatedSVD, NotInteropMixin):
 
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)

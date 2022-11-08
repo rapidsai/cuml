@@ -336,7 +336,7 @@ class Base(TagsMixin,
             cpu_func = getattr(self.cpu_model_, func_name)
             res = cpu_func(*args, **kwargs)
 
-            if func_name == 'fit':
+            if func_name in ['fit', 'fit_transform', 'fit_predict']:
                 # need to do this to mirror input type
                 self._set_output_type(args[0])
                 self._set_output_mem_type(args[0])
@@ -376,6 +376,9 @@ class Base(TagsMixin,
 
     def fit_predict(self, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('fit_predict', *args, **kwargs)
+
+    def inverse_transform(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('inverse_transform', *args, **kwargs)
 
     def score(self, *args, **kwargs):
         return self.dispatch_func('score', *args, **kwargs)

@@ -56,7 +56,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
     ) except +
 
 
-class NearestNeighborsMG(NearestNeighbors):
+class NearestNeighborsMG(NearestNeighbors, NotInteropMixin):
     """
     Multi-node multi-GPU Nearest Neighbors kneighbors query.
 
