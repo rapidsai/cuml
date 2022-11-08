@@ -27,7 +27,7 @@ from sklearn.datasets import fetch_california_housing
 from sklearn.datasets import make_classification as skl_make_clas
 from sklearn.datasets import make_regression as skl_make_reg
 from sklearn.feature_extraction.text import CountVectorizer
-from cuml.testing.utils import array_equal, create_synthetic_dataset
+from cuml.testing.utils import create_synthetic_dataset
 
 
 # Add the import here for any plugins that should be loaded EVERY TIME
@@ -203,15 +203,3 @@ def get_gpu_memory():
     max_gpu_memory = ceil(gpus_memory[-1] / 1024)
 
     return max_gpu_memory
-
-
-def pytest_assertrepr_compare(config, op, left, right):
-    if isinstance(left, array_equal):
-        ret = str(left).splitlines()
-        ret[-1] += f" {op} {right}"
-        return ret
-    elif isinstance(right, array_equal):
-        ret = str(right).splitlines()
-        ret[0] = f"{left} {op} {ret[0]}"
-        return ret
-    return None
