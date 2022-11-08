@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import inspect
+from textwrap import dedent, indent
 
 import cupy as cp
 import numpy as np
@@ -113,6 +114,39 @@ class array_equal:
             f"{'    ' if 0 < n < len(tokens) - 1 else ''}{token}"
             for n, token in enumerate(tokens)
         )
+
+
+def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+    """
+    Raises an AssertionError if arrays are not considered equal.
+
+    Uses the same arguments as array_equal(), but raises an AssertionError in
+    case that the test considers the arrays to not be equal.
+
+    This function will generate a nicer error message in the context of pytest
+    compared to a plain `assert array_equal(...)`.
+    """
+    # Determine array equality.
+    equal = array_equal(
+        a, b, unit_tol=unit_tol, total_tol=total_tol, with_sign=with_sign)
+    if not equal:
+        # Generate indented array string representation ...
+        str_a = indent(np.array2string(a), "   ").splitlines()
+        str_b = indent(np.array2string(b), "   ").splitlines()
+        # ... and add labels
+        str_a[0] = f"a: {str_a[0][3:]}"
+        str_b[0] = f"b: {str_b[0][3:]}"
+
+        # Create assertion error message and raise exception.
+        assertion_error_msg = dedent(f"""
+        Arrays are not equal
+
+        unit_tol:  {unit_tol}
+        total_tol: {total_tol}
+        with_sign: {with_sign}
+
+        """) + "\n".join(str_a + str_b)
+        raise AssertionError(assertion_error_msg)
 
 
 def get_pattern(name, n_samples):

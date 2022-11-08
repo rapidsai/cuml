@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
 import numpy as np
-from cuml.testing.utils import array_equal
+from cuml.testing.utils import array_equal, assert_array_equal
 from hypothesis import given, note
 from hypothesis import strategies as st
 from hypothesis import target
@@ -36,6 +37,7 @@ def test_array_equal_same_array(array, tol):
     assert equal
     assert equal == True  # noqa: E712
     assert bool(equal) is True
+    assert_array_equal(array, array, tol)
 
 
 @given(
@@ -66,6 +68,7 @@ def test_array_equal_two_arrays(arrays, unit_tol, with_sign):
         (np.abs(array_a), np.abs(array_b))
     expect_equal = np.sum(np.abs(a - b) > unit_tol) / array_a.size < 1e-4
     if expect_equal:
+        assert_array_equal(array_a, array_b, unit_tol, with_sign=with_sign)
         assert equal
         assert bool(equal) is True
         assert equal == True  # noqa: E712
@@ -79,6 +82,8 @@ def test_array_equal_two_arrays(arrays, unit_tol, with_sign):
         assert equal_flipped != False  # noqa: E712
         assert False != equal_flipped  # noqa: E712
     else:
+        with pytest.raises(AssertionError):
+            assert_array_equal(array_a, array_b, unit_tol, with_sign=with_sign)
         assert not equal
         assert bool(equal) is not True
         assert equal != True  # noqa: E712
