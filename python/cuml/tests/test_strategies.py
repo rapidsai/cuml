@@ -18,7 +18,7 @@ from cuml.testing.strategies import (
     split_datasets,
     standard_datasets,
 )
-from hypothesis import given
+from hypothesis import given, settings, HealthCheck
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import floating_dtypes
 
@@ -51,6 +51,7 @@ def test_standard_datasets(dataset):
 
 
 @given(split_datasets(standard_datasets()))
+@settings(suppress_health_check=[HealthCheck.too_slow])
 def test_split_datasets(split_dataset):
     X_train, X_test, y_train, y_test = split_dataset
 
