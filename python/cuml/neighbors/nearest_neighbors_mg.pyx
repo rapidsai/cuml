@@ -21,6 +21,7 @@ from cudf import DataFrame as cudfDataFrame
 from cuml.common.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
+from cuml.internals.api_decorators import NotInteropMixin
 import cuml.common.logger as logger
 
 from cuml.neighbors import NearestNeighbors
@@ -55,7 +56,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
     ) except +
 
 
-class NearestNeighborsMG(NearestNeighbors):
+class NearestNeighborsMG(NearestNeighbors, NotInteropMixin):
     """
     Multi-node multi-GPU Nearest Neighbors kneighbors query.
 

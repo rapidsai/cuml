@@ -31,6 +31,7 @@ from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
+from cuml.internals.api_decorators import NotInteropMixin
 
 from pylibraft.common.handle cimport handle_t
 
@@ -69,7 +70,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg":
                   bool verbose) except +
 
 
-class PCAMG(BaseDecompositionMG, PCA):
+class PCAMG(BaseDecompositionMG, PCA, NotInteropMixin):
 
     def __init__(self, **kwargs):
         super(PCAMG, self).__init__(**kwargs)
@@ -90,13 +91,14 @@ class PCAMG(BaseDecompositionMG, PCA):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCAMG *params = new paramsPCAMG()
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))
+        self.n_features_ = n_cols
 
         return <size_t>params
 

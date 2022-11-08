@@ -801,9 +801,18 @@ class _deprecate_pos_args:
         return inner_f
 
 
+class NotInteropMixin():
+    pass
+
+
 def kwargs_interop_processing(init_func):
     @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
+        # if estimator should not implement
+        # the CPU/GPU interoperability features
+        if isinstance(self, NotInteropMixin):
+            return init_func(self, *args, **kwargs)
+
         # if child class (parent class already processed kwargs), skip
         if hasattr(self, 'cpu_model_class'):
             return init_func(self, *args, **kwargs)

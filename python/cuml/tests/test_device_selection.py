@@ -670,6 +670,7 @@ def test_logreg_methods(train_device, infer_device, infer_func_name):
         tol = 0.01
         assert ref_output - tol <= output <= ref_output + tol
     else:
+        output = to_output_type(output, 'numpy')
         mask = np.isfinite(output)
         np.testing.assert_allclose(ref_output[mask], output[mask],
                                    atol=0.1, rtol=0.15)
@@ -754,6 +755,7 @@ def test_pca_methods(train_device, infer_device):
     with using_device_type(infer_device):
         output = model.inverse_transform(transformation)
 
+    output = to_output_type(output, 'numpy')
     np.testing.assert_allclose(X, output, rtol=0.15)
 
 
@@ -770,6 +772,7 @@ def test_tsvd_methods(train_device, infer_device):
     with using_device_type(infer_device):
         output = model.inverse_transform(transformation)
 
+    output = to_output_type(output, 'numpy')
     np.testing.assert_allclose(X, output, rtol=0.15)
 
 
