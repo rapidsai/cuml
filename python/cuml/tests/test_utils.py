@@ -28,6 +28,7 @@ from hypothesis.extra.numpy import (array_shapes, arrays, floating_dtypes,
         shape=array_shapes(),
     ),
     st.floats(1e-4, 1.0))
+@pytest.mark.filterwarnings("ignore:invalid value encountered in subtract")
 def test_array_equal_same_array(array, tol):
     equal = array_equal(array, array, tol)
     note(equal)
@@ -57,6 +58,7 @@ def test_array_equal_same_array(array, tol):
     unit_tol=st.floats(1e-4, 1.0),
     with_sign=st.booleans(),
 )
+@pytest.mark.filterwarnings("ignore:invalid value encountered in subtract")
 def test_array_equal_two_arrays(arrays, unit_tol, with_sign):
     array_a, array_b = arrays
     equal = array_equal(array_a, array_b, unit_tol, with_sign=with_sign)
