@@ -94,20 +94,25 @@ class array_equal:
     def _repr(self, threshold=None):
         name = self.__class__.__name__
 
-        return [
-            f"{name}(",
-            f"{np.array2string(self.a, threshold=threshold)}, ",
-            f"{np.array2string(self.b, threshold=threshold)}, ",
-            f"unit_tol={self.unit_tol}, ",
-            f"total_tol={self.total_tol}, ",
-            f"with_sign={self.with_sign})",
-        ]
+        return [f"<{name}: "] \
+            + f"{np.array2string(self.a, threshold=threshold)} ".splitlines()\
+            + f"{np.array2string(self.b, threshold=threshold)} ".splitlines()\
+            + [
+                f"unit_tol={self.unit_tol} ",
+                f"total_tol={self.total_tol} ",
+                f"with_sign={self.with_sign}",
+                ">"
+            ]
 
     def __repr__(self):
-        return "".join(self._repr(threshold=10))
+        return "".join(self._repr(threshold=5))
 
     def __str__(self):
-        return "\n".join(self._repr(threshold=1000))
+        tokens = self._repr(threshold=1000)
+        return "\n".join(
+            f"{'    ' if 0 < n < len(tokens) - 1 else ''}{token}"
+            for n, token in enumerate(tokens)
+        )
 
 
 def get_pattern(name, n_samples):
