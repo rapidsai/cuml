@@ -35,10 +35,10 @@ def standard_datasets(
     ----------
     dtypes: SearchStrategy[np.dtype], default=floating_dtypes()
         Returned arrays will have a dtype drawn from these types.
-    n_samples: SearchStrategy[int],\
+    n_samples: SearchStrategy[int], \
         default=integers(min_value=0, max_value=200)
         Returned arrays will have number of rows drawn from these values.
-    n_features: SearchStrategy[int],\
+    n_features: SearchStrategy[int], \
         default=integers(min_value=0, max_values=200)
         Returned arrays will have number of columns drawn from these values.
     n_targets: SearchStrategy[int], default=just(1)
@@ -73,14 +73,14 @@ def combined_datasets_strategy(* datasets, name=None, doc=None):
         A list of functions that return a dataset search strategy when called
         with the shown arguments.
     name: The name of the returned search strategy, default="datasets"
-        Defaults to a combination of names of the provided dataset stratgegy
+        Defaults to a combination of names of the provided dataset strategy
         functions.
     doc: The doc-string of the returned search strategy, default=None
         Defaults to a generic doc-string.
 
     Returns
     -------
-    Datasets search strategy: SearchStrategy[array, array]
+    Datasets search strategy: SearchStrategy[array], SearchStrategy[array]
     """
 
     @composite
@@ -125,7 +125,7 @@ def split_datasets(
     ----------
     datasets: SearchStrategy[dataset]
         A search strategy for datasets.
-    test_sizes: SearchStrategy[float] | SearchStrategy[int], default=None
+    test_sizes: SearchStrategy[int | float], default=None
         A search strategy for the test size. Must be provided as a search
         strategy for integers or floats. Integers should be bound by one and
         the sample size, floats should be between 0 and 1.0. Defaults to
@@ -133,7 +133,7 @@ def split_datasets(
 
     Returns
     -------
-    (X_train, X_test, y_train, y_test): SearchStrategy[4 * array]
+    (X_train, X_test, y_train, y_test): tuple[SearchStrategy[array], ...]
         The train-test split of the input and output samples drawn from
         the provided datasets search strategy.
     """
@@ -215,9 +215,9 @@ def standard_regression_datasets(
 
     Returns
     -------
-    (X, y):  SearchStrategy[array, array]
-        A search strategy for a tuple of two arrays subject to the
-        provided parameters.
+    (X, y):  SearchStrategy[array], SearchStrategy[array]
+        A tuple of search strategies for arrays subject to the constraints of
+        the provided parameters.
     """
     n_features_ = draw(n_features)
     if n_informative is None:
