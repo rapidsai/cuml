@@ -46,6 +46,7 @@ from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
 import cuml.metrics
 import cuml.decomposition
+import cuml.experimental
 import cuml.naive_bayes
 from cuml.dask import neighbors, cluster, manifold, \
     decomposition, linear_model  # noqa: F401
