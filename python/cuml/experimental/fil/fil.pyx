@@ -7,7 +7,7 @@ import warnings
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
-from cuml.common import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
@@ -249,11 +249,14 @@ cdef class ForestInference_impl():
             check_dtype=model_dtype
         )
         cdef kayak_device_t in_dev
-        if (
-            global_settings.device_type == DeviceType.device
-            and in_arr.is_device_accessible
-        ):
-            in_dev = kayak_device_t.gpu
+        if in_arr.is_device_accessible:
+            if (
+                global_settings.device_type == DeviceType.host
+                and in_arr.is_host_accessible
+            ):
+                in_dev = kayak_device_t.cpu
+            else:
+                in_dev = kayak_device_t.gpu
         else:
             in_dev = kayak_device_t.cpu
 
@@ -271,12 +274,14 @@ cdef class ForestInference_impl():
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
             preds.index = in_arr.index
         cdef kayak_device_t out_dev
-        print(type(in_arr), type(preds))
-        if (
-            global_settings.device_type == DeviceType.device
-            and preds.is_device_accessible
-        ):
-            out_dev = kayak_device_t.gpu
+        if preds.is_device_accessible:
+            if (
+                global_settings.device_type == DeviceType.host
+                and preds.is_host_accessible
+            ):
+                out_dev = kayak_device_t.cpu
+            else:
+                out_dev = kayak_device_t.gpu
         else:
             out_dev = kayak_device_t.cpu
 
@@ -539,7 +544,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         tl_model = TreeliteModel.from_treelite_model_handle(
             tl_frontend_model.handle.value
         )
-        return cls(
+        result = cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
@@ -550,6 +555,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             mem_type=mem_type,
             device_id=device_id
         )
+        result._tl_frontend_model = tl_frontend_model
+        return result
 
     @classmethod
     def load_from_treelite_model(

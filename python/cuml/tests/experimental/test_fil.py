@@ -23,6 +23,7 @@ from cuml.experimental import ForestInference
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
 from cuml.common.import_utils import has_xgboost
+from cuml.common.device_selection import using_device_type
 # from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
@@ -96,6 +97,8 @@ def _build_and_save_xgboost(model_path,
     return bst
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.parametrize('n_rows', [unit_param(1000),
                                     quality_param(10000),
                                     stress_param(500000)])
@@ -108,56 +111,60 @@ def _build_and_save_xgboost(model_path,
                                         stress_param(90)])
 @pytest.mark.parametrize('n_classes', [2, 5, 25])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_classification(n_rows, n_columns, num_rounds,
-                            n_classes, tmp_path):
+def test_fil_classification(train_device, infer_device, n_rows, n_columns,
+                            num_rounds, n_classes, tmp_path):
+    with using_device_type(train_device):
     # settings
-    classification = True  # change this to false to use regression
-    random_state = np.random.RandomState(43210)
+        classification = True  # change this to false to use regression
+        random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_classes,
-                         random_state=random_state,
-                         classification=classification)
-    # identify shape and indices
-    n_rows, n_columns = X.shape
-    train_size = 0.80
+        X, y = simulate_data(n_rows, n_columns, n_classes,
+                             random_state=random_state,
+                             classification=classification)
+        # identify shape and indices
+        n_rows, n_columns = X.shape
+        train_size = 0.80
 
-    X_train, X_validation, y_train, y_validation = train_test_split(
-        X, y, train_size=train_size, random_state=0)
+        X_train, X_validation, y_train, y_validation = train_test_split(
+            X, y, train_size=train_size, random_state=0)
 
-    model_path = os.path.join(tmp_path, 'xgb_class.model')
+        model_path = os.path.join(tmp_path, 'xgb_class.model')
 
-    bst = _build_and_save_xgboost(model_path, X_train, y_train,
-                                  num_rounds=num_rounds,
-                                  classification=classification,
-                                  n_classes=n_classes)
+        bst = _build_and_save_xgboost(model_path, X_train, y_train,
+                                      num_rounds=num_rounds,
+                                      classification=classification,
+                                      n_classes=n_classes)
 
-    dvalidation = xgb.DMatrix(X_validation, label=y_validation)
+        dvalidation = xgb.DMatrix(X_validation, label=y_validation)
 
-    if n_classes == 2:
-        xgb_preds = bst.predict(dvalidation)
-        xgb_preds_int = np.around(xgb_preds)
-    else:
-        xgb_preds = bst.predict(dvalidation)
-        xgb_preds_int = xgb_preds.argmax(axis=1)
-    xgb_acc = accuracy_score(y_validation, xgb_preds_int)
+        if n_classes == 2:
+            xgb_preds = bst.predict(dvalidation)
+            xgb_preds_int = np.around(xgb_preds)
+        else:
+            xgb_preds = bst.predict(dvalidation)
+            xgb_preds_int = xgb_preds.argmax(axis=1)
+        xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
-    fm = ForestInference.load(model_path, output_class=True)
-    fil_preds = np.reshape(np.asarray(
-        fm.predict(X_validation, threshold=0.50),
-        dtype=xgb_preds_int.dtype
-    ), xgb_preds_int.shape)
-    fil_proba = np.reshape(
-        np.asarray(fm.predict_proba(X_validation)),
-        xgb_preds.shape
-    )
-    fil_acc = accuracy_score(y_validation, fil_preds)
+        fm = ForestInference.load(model_path, output_class=True)
+    with using_device_type(infer_device):
+        fil_preds = np.reshape(np.asarray(
+            fm.predict(X_validation, threshold=0.50),
+            dtype=xgb_preds_int.dtype
+        ), xgb_preds_int.shape)
+        fil_proba = np.reshape(
+            np.asarray(fm.predict_proba(X_validation)),
+            xgb_preds.shape
+        )
+        fil_acc = accuracy_score(y_validation, fil_preds)
 
-    assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
-    assert array_equal(fil_preds, xgb_preds_int)
-    np.testing.assert_allclose(fil_proba, xgb_preds,
-                               atol=proba_atol[n_classes > 2])
+        assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
+        assert array_equal(fil_preds, xgb_preds_int)
+        np.testing.assert_allclose(fil_proba, xgb_preds,
+                                   atol=proba_atol[n_classes > 2])
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.parametrize('n_rows', [unit_param(1000), quality_param(10000),
                          stress_param(500000)])
 @pytest.mark.parametrize('n_columns', [unit_param(20), quality_param(100),
@@ -168,43 +175,48 @@ def test_fil_classification(n_rows, n_columns, num_rounds,
                                        unit_param(7),
                                        stress_param(11)])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
-    # settings
-    classification = False  # change this to false to use regression
-    n_rows = n_rows  # we'll use 1 millions rows
-    n_columns = n_columns
-    random_state = np.random.RandomState(43210)
+def test_fil_regression(train_device, infer_device, n_rows, n_columns,
+                        num_rounds, tmp_path, max_depth):
+    with using_device_type(train_device):
+        # settings
+        classification = False  # change this to false to use regression
+        n_rows = n_rows  # we'll use 1 millions rows
+        n_columns = n_columns
+        random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns,
-                         random_state=random_state,
-                         classification=classification, bias=10.0)
-    # identify shape and indices
-    n_rows, n_columns = X.shape
-    train_size = 0.80
+        X, y = simulate_data(n_rows, n_columns,
+                             random_state=random_state,
+                             classification=classification, bias=10.0)
+        # identify shape and indices
+        n_rows, n_columns = X.shape
+        train_size = 0.80
 
-    X_train, X_validation, y_train, y_validation = train_test_split(
-        X, y, train_size=train_size, random_state=0)
+        X_train, X_validation, y_train, y_validation = train_test_split(
+            X, y, train_size=train_size, random_state=0)
 
-    model_path = os.path.join(tmp_path, 'xgb_reg.model')
-    bst = _build_and_save_xgboost(model_path, X_train,
-                                  y_train,
-                                  classification=classification,
-                                  num_rounds=num_rounds,
-                                  xgboost_params={'max_depth': max_depth})
+        model_path = os.path.join(tmp_path, 'xgb_reg.model')
+        bst = _build_and_save_xgboost(model_path, X_train,
+                                      y_train,
+                                      classification=classification,
+                                      num_rounds=num_rounds,
+                                      xgboost_params={'max_depth': max_depth})
 
-    dvalidation = xgb.DMatrix(X_validation, label=y_validation)
-    xgb_preds = bst.predict(dvalidation)
+        dvalidation = xgb.DMatrix(X_validation, label=y_validation)
+        xgb_preds = bst.predict(dvalidation)
 
-    xgb_mse = mean_squared_error(y_validation, xgb_preds)
-    fm = ForestInference.load(model_path, output_class=False)
-    fil_preds = np.asarray(fm.predict(X_validation))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
-    fil_mse = mean_squared_error(y_validation, fil_preds)
+        xgb_mse = mean_squared_error(y_validation, xgb_preds)
+        fm = ForestInference.load(model_path, output_class=False)
+    with using_device_type(infer_device):
+        fil_preds = np.asarray(fm.predict(X_validation))
+        fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
+        fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse == pytest.approx(xgb_mse, abs=0.01)
-    assert np.allclose(fil_preds, xgb_preds, 1e-3)
+        assert fil_mse == pytest.approx(xgb_mse, abs=0.01)
+        assert np.allclose(fil_preds, xgb_preds, 1e-3)
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.parametrize('n_rows', [1000])
 @pytest.mark.parametrize('n_columns', [30])
 # Skip depth 20 for dense tests
@@ -229,71 +241,75 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                           (2, RandomForestClassifier, 10, 'float64'),
                           (5, RandomForestClassifier, 10, 'float32'),
                           (5, RandomForestClassifier, 10, 'float64')])
-def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
+def test_fil_skl_classification(train_device, infer_device, n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, precision,
                                 model_class):
-    # settings
-    classification = True  # change this to false to use regression
-    random_state = np.random.RandomState(43210)
+    with using_device_type(train_device):
+        # settings
+        classification = True  # change this to false to use regression
+        random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_classes,
-                         random_state=random_state,
-                         classification=classification)
-    # identify shape and indices
-    train_size = 0.80
+        X, y = simulate_data(n_rows, n_columns, n_classes,
+                             random_state=random_state,
+                             classification=classification)
+        # identify shape and indices
+        train_size = 0.80
 
-    X_train, X_validation, y_train, y_validation = train_test_split(
-        X, y, train_size=train_size, random_state=0)
+        X_train, X_validation, y_train, y_validation = train_test_split(
+            X, y, train_size=train_size, random_state=0)
 
-    init_kwargs = {
-        'n_estimators': n_estimators,
-        'max_depth': max_depth,
-    }
-    if model_class in [RandomForestClassifier, ExtraTreesClassifier]:
-        init_kwargs['max_features'] = 0.3
-        init_kwargs['n_jobs'] = -1
-    else:
-        # model_class == GradientBoostingClassifier
-        init_kwargs['init'] = 'zero'
+        init_kwargs = {
+            'n_estimators': n_estimators,
+            'max_depth': max_depth,
+        }
+        if model_class in [RandomForestClassifier, ExtraTreesClassifier]:
+            init_kwargs['max_features'] = 0.3
+            init_kwargs['n_jobs'] = -1
+        else:
+            # model_class == GradientBoostingClassifier
+            init_kwargs['init'] = 'zero'
 
-    skl_model = model_class(**init_kwargs, random_state=random_state)
-    skl_model.fit(X_train, y_train)
+        skl_model = model_class(**init_kwargs, random_state=random_state)
+        skl_model.fit(X_train, y_train)
 
-    skl_preds = skl_model.predict(X_validation)
-    skl_preds_int = np.around(skl_preds)
-    skl_proba = skl_model.predict_proba(X_validation)
+        skl_preds = skl_model.predict(X_validation)
+        skl_preds_int = np.around(skl_preds)
+        skl_proba = skl_model.predict_proba(X_validation)
 
-    skl_acc = accuracy_score(y_validation, skl_preds_int)
+        skl_acc = accuracy_score(y_validation, skl_preds_int)
 
-    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
+        algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
-    fm = ForestInference.load_from_sklearn(
-        skl_model,
-        precision=precision,
-        output_class=True
-    )
-    fil_preds = np.asarray(fm.predict(X_validation, threshold=0.50))
-    fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
-    fil_acc = accuracy_score(y_validation, fil_preds)
-    # fil_acc is within p99 error bars of skl_acc (diff == 0.017 +- 0.012)
-    # however, some tests have a delta as big as 0.04.
-    # sklearn uses float64 thresholds, while FIL uses float32
-    # TODO(levsnv): once FIL supports float64 accuracy, revisit thresholds
-    threshold = 1e-5 if n_classes == 2 else 0.1
-    assert fil_acc == pytest.approx(skl_acc, abs=threshold)
+        fm = ForestInference.load_from_sklearn(
+            skl_model,
+            precision=precision,
+            output_class=True
+        )
+    with using_device_type(infer_device):
+        fil_preds = np.asarray(fm.predict(X_validation, threshold=0.50))
+        fil_preds = np.reshape(fil_preds, np.shape(skl_preds_int))
+        fil_acc = accuracy_score(y_validation, fil_preds)
+        # fil_acc is within p99 error bars of skl_acc (diff == 0.017 +- 0.012)
+        # however, some tests have a delta as big as 0.04.
+        # sklearn uses float64 thresholds, while FIL uses float32
+        # TODO(levsnv): once FIL supports float64 accuracy, revisit thresholds
+        threshold = 1e-5 if n_classes == 2 else 0.1
+        assert fil_acc == pytest.approx(skl_acc, abs=threshold)
 
-    if n_classes == 2:
-        assert array_equal(fil_preds, skl_preds_int)
-    fil_proba = np.asarray(fm.predict_proba(X_validation))
-    try:
-        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-    except ValueError:
-        skl_proba = skl_proba[:, 1]
-        fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
-    np.testing.assert_allclose(fil_proba, skl_proba,
-                               atol=proba_atol[n_classes > 2])
+        if n_classes == 2:
+            assert array_equal(fil_preds, skl_preds_int)
+        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        try:
+            fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+        except ValueError:
+            skl_proba = skl_proba[:, 1]
+            fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+        np.testing.assert_allclose(fil_proba, skl_proba,
+                                   atol=proba_atol[n_classes > 2])
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.parametrize('n_rows', [1000])
 @pytest.mark.parametrize('n_columns', [20])
 @pytest.mark.parametrize('n_classes,model_class,n_estimators',
@@ -308,53 +324,56 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                           (5, GradientBoostingRegressor, 10)])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', [False, True])
-def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
+def test_fil_skl_regression(train_device, infer_device, n_rows, n_columns, n_classes, model_class,
                             n_estimators, max_depth, storage_type):
 
-    # skip depth 20 for dense tests
-    if max_depth == 20 and not storage_type:
-        return
+    with using_device_type(train_device):
+        # skip depth 20 for dense tests
+        if max_depth == 20 and not storage_type:
+            return
 
-    # settings
-    random_state = np.random.RandomState(43210)
+        # settings
+        random_state = np.random.RandomState(43210)
 
-    X, y = simulate_data(n_rows, n_columns, n_classes,
-                         random_state=random_state,
-                         classification=False)
-    # identify shape and indices
-    train_size = 0.80
+        X, y = simulate_data(n_rows, n_columns, n_classes,
+                             random_state=random_state,
+                             classification=False)
+        # identify shape and indices
+        train_size = 0.80
 
-    X_train, X_validation, y_train, y_validation = train_test_split(
-        X, y, train_size=train_size, random_state=0)
+        X_train, X_validation, y_train, y_validation = train_test_split(
+            X, y, train_size=train_size, random_state=0)
 
-    init_kwargs = {
-        'n_estimators': n_estimators,
-        'max_depth': max_depth,
-    }
-    if model_class in [RandomForestRegressor, ExtraTreesRegressor]:
-        init_kwargs['max_features'] = 0.3
-        init_kwargs['n_jobs'] = -1
-    else:
-        # model_class == GradientBoostingRegressor
-        init_kwargs['init'] = 'zero'
+        init_kwargs = {
+            'n_estimators': n_estimators,
+            'max_depth': max_depth,
+        }
+        if model_class in [RandomForestRegressor, ExtraTreesRegressor]:
+            init_kwargs['max_features'] = 0.3
+            init_kwargs['n_jobs'] = -1
+        else:
+            # model_class == GradientBoostingRegressor
+            init_kwargs['init'] = 'zero'
 
-    skl_model = model_class(**init_kwargs)
-    skl_model.fit(X_train, y_train)
+        skl_model = model_class(**init_kwargs)
+        skl_model.fit(X_train, y_train)
 
-    skl_preds = skl_model.predict(X_validation)
+        skl_preds = skl_model.predict(X_validation)
 
-    skl_mse = mean_squared_error(y_validation, skl_preds)
+        skl_mse = mean_squared_error(y_validation, skl_preds)
 
-    algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
+        algo = 'NAIVE' if storage_type else 'BATCH_TREE_REORG'
 
-    fm = ForestInference.load_from_sklearn(skl_model, output_class=False)
-    fil_preds = np.asarray(fm.predict(X_validation))
-    fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
+        fm = ForestInference.load_from_sklearn(skl_model, output_class=False)
+    with using_device_type(infer_device):
+        fil_preds = np.asarray(fm.predict(X_validation))
+        fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
 
-    fil_mse = mean_squared_error(y_validation, fil_preds)
+        fil_mse = mean_squared_error(y_validation, fil_preds)
 
-    assert fil_mse <= skl_mse * (1. + 1e-6) + 1e-4
-    assert np.allclose(fil_preds, skl_preds, 1.2e-3)
+        assert fil_mse <= skl_mse * (1. + 1e-6) + 1e-4
+        np.testing.assert_allclose(fil_preds, skl_preds,
+                                   atol=1.2e-3)
 
 
 @pytest.fixture(scope="session", params=['binary', 'json'])
@@ -375,55 +394,68 @@ def small_classifier_and_preds(tmpdir_factory, request):
     return (model_path, model_type, X, xgb_preds)
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('precision', ['native', 'float32', 'float64'])
-def test_precision_xgboost(precision, small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        model_type=model_type,
-        output_class=True,
-        precision=precision
-    )
+def test_precision_xgboost(train_device, infer_device, precision, small_classifier_and_preds):
+    with using_device_type(train_device):
+        model_path, model_type, X, xgb_preds = small_classifier_and_preds
+        fm = ForestInference.load(
+            model_path,
+            model_type=model_type,
+            output_class=True,
+            precision=precision
+        )
 
-    xgb_preds_int = np.around(xgb_preds)
-    fil_preds = np.asarray(fm.predict(X, threshold=0.50))
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+    with using_device_type(infer_device):
+        xgb_preds_int = np.around(xgb_preds)
+        fil_preds = np.asarray(fm.predict(X, threshold=0.50))
+        fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
 
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+        assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize('threads_per_tree', [2, 4, 8, 16, 32])
-def test_threads_per_tree(threads_per_tree,
+def test_threads_per_tree(train_device, infer_device, threads_per_tree,
                           small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(model_path, output_class=True, model_type=model_type)
+    with using_device_type(train_device):
+        model_path, model_type, X, xgb_preds = small_classifier_and_preds
+        fm = ForestInference.load(model_path, output_class=True, model_type=model_type)
 
-    fil_preds = np.asarray(fm.predict(X, chunk_size=threads_per_tree))
-    fil_proba = np.asarray(
-        fm.predict_proba(X, chunk_size=threads_per_tree)
-    )
-    fil_proba = np.reshape(fil_proba, xgb_preds.shape)
+    with using_device_type(infer_device):
+        fil_preds = np.asarray(fm.predict(X, chunk_size=threads_per_tree))
+        fil_proba = np.asarray(
+            fm.predict_proba(X, chunk_size=threads_per_tree)
+        )
+        fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
-    np.testing.assert_allclose(fil_proba, xgb_preds,
-                               atol=proba_atol[False])
+        np.testing.assert_allclose(fil_proba, xgb_preds,
+                                   atol=proba_atol[False])
 
-    xgb_preds_int = np.around(xgb_preds)
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
-    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+        xgb_preds_int = np.around(xgb_preds)
+        fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+        assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-def test_output_args(small_classifier_and_preds):
-    model_path, model_type, X, xgb_preds = small_classifier_and_preds
-    fm = ForestInference.load(
-        model_path,
-        output_class=False,
-        model_type=model_type)
-    X = np.asarray(X)
-    fil_preds = fm.predict(X)
-    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
+def test_output_args(train_device,
+                     infer_device, small_classifier_and_preds):
+    with using_device_type(train_device):
+        model_path, model_type, X, xgb_preds = small_classifier_and_preds
+        fm = ForestInference.load(
+            model_path,
+            output_class=False,
+            model_type=model_type)
+    with using_device_type(infer_device):
+        X = np.asarray(X)
+        fil_preds = fm.predict(X)
+        fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
 
     np.testing.assert_allclose(fil_preds, xgb_preds, atol=1e-3)
 
@@ -475,12 +507,14 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
     return fit_df, predict_matrix
 
 
+@pytest.mark.parametrize('train_device', ('cpu', 'gpu'))
+@pytest.mark.parametrize('infer_device', ('cpu', 'gpu'))
 @pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.parametrize('n_categorical', [0, 5])
 @pytest.mark.skip(reason="Causing CI to hang.")
 # @pytest.mark.skipif(has_lightgbm() is False,
 #                     reason="need to install lightgbm")
-def test_lightgbm(tmp_path, num_classes, n_categorical):
+def test_lightgbm(train_device, infer_device, tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
 
     if n_categorical > 0:
@@ -516,16 +550,18 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                  'num_class': 1}
         bst = lgb.train(param, train_data, num_round)
         bst.save_model(model_path)
-        fm = ForestInference.load(
-            model_path,
-            output_class=True,
-            model_type="lightgbm"
-        )
+        with using_device_type(train_device):
+            fm = ForestInference.load(
+                model_path,
+                output_class=True,
+                model_type="lightgbm"
+            )
         # binary classification
         gbm_proba = bst.predict(X_predict)
-        fil_proba = fm.predict_proba(X_predict)[:, 1]
-        gbm_preds = (gbm_proba > 0.5).astype(float)
-        fil_preds = fm.predict(X_predict)
+        with using_device_type(infer_device):
+            fil_proba = fm.predict_proba(X_predict)[:, 1]
+            gbm_preds = (gbm_proba > 0.5).astype(float)
+            fil_preds = fm.predict(X_predict)
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(gbm_proba, fil_proba,
                                    atol=proba_atol[num_classes > 2])
@@ -537,14 +573,16 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
         lgm_preds = lgm.predict(X_predict).astype(int)
-        fm = ForestInference.load(
-            model_path,
-            output_class=True,
-            model_type="lightgbm")
+        with using_device_type(train_device):
+            fm = ForestInference.load(
+                model_path,
+                output_class=True,
+                model_type="lightgbm")
         assert array_equal(lgm.booster_.predict(X_predict).argmax(axis=1),
                            lgm_preds)
-        assert array_equal(lgm_preds, fm.predict(X_predict))
-        # lightgbm uses float64 thresholds, while FIL uses float32
-        np.testing.assert_allclose(lgm.predict_proba(X_predict),
-                                   fm.predict_proba(X_predict),
-                                   atol=proba_atol[num_classes > 2])
+        with using_device_type(infer_device):
+            assert array_equal(lgm_preds, fm.predict(X_predict))
+            # lightgbm uses float64 thresholds, while FIL uses float32
+            np.testing.assert_allclose(lgm.predict_proba(X_predict),
+                                       fm.predict_proba(X_predict),
+                                       atol=proba_atol[num_classes > 2])
