@@ -102,8 +102,8 @@ function install_dask {
     gpuci_logger "Install the conda-forge or nightly version of dask and distributed"
     set -x
     if [[ "${INSTALL_DASK_MAIN}" == 1 ]]; then
-        gpuci_logger "gpuci_mamba_retry update dask"
-        gpuci_mamba_retry update dask
+        gpuci_logger "gpuci_mamba_retry install -c dask/label/dev 'dask/label/dev::dask' 'dask/label/dev::distributed'"
+        gpuci_mamba_retry install -c dask/label/dev "dask/label/dev::dask" "dask/label/dev::distributed"
         conda list
     else
         gpuci_logger "gpuci_mamba_retry install conda-forge::dask=={$DASK_STABLE_VERSION} conda-forge::distributed=={$DASK_STABLE_VERSION} conda-forge::dask-core=={$DASK_STABLE_VERSION} --force-reinstall"
