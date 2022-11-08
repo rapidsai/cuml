@@ -306,7 +306,7 @@ class NearestNeighbors(Base,
 
     """
 
-    cpu_estimator_import_path_ = 'sklearn.neighbors'
+    cpu_estimator_import_path_ = 'sklearn.neighbors.NearestNeighbors'
     _fit_X = CumlArrayDescriptor(order='C')
 
     @kwargs_interop_processing

@@ -801,18 +801,9 @@ class _deprecate_pos_args:
         return inner_f
 
 
-class NotInteropMixin():
-    pass
-
-
 def kwargs_interop_processing(init_func):
     @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
-        # if estimator should not implement
-        # the CPU/GPU interoperability features
-        if isinstance(self, NotInteropMixin):
-            return init_func(self, *args, **kwargs)
-
         # if child class (parent class already processed kwargs), skip
         if hasattr(self, 'cpu_model_class'):
             return init_func(self, *args, **kwargs)
@@ -826,12 +817,14 @@ def kwargs_interop_processing(init_func):
         if hasattr(self, 'cpu_estimator_import_path_'):
             # if import path differs from the one of sklearn
             # look for cpu_estimator_import_path_
-            model_path = self.cpu_estimator_import_path_
+            estimator_path = self.cpu_estimator_import_path_.split('.')
+            model_path = '.'.join(estimator_path[:-1])
+            model_name = estimator_path[-1]
         else:
             # import from similar path to the current estimator
             # class
             model_path = 'sklearn' + self.__class__.__module__[4:]
-        model_name = self.__class__.__name__
+            model_name = self.__class__.__name__
         self.cpu_model_class = getattr(import_module(model_path), model_name)
 
         # Save list of available CPU estimator hyperparameters

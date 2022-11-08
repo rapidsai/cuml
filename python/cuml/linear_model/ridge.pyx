@@ -185,9 +185,9 @@ class Ridge(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model'
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    cpu_estimator_import_path_ = 'sklearn.linear_model.Ridge'
+    coef_ = CumlArrayDescriptor(order='F')
+    intercept_ = CumlArrayDescriptor(order='F')
 
     @kwargs_interop_processing
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,

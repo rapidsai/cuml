@@ -190,9 +190,9 @@ class LinearRegression(Base,
 
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model'
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    cpu_estimator_import_path_ = 'sklearn.linear_model.LinearRegression'
+    coef_ = CumlArrayDescriptor(order='F')
+    intercept_ = CumlArrayDescriptor(order='F')
 
     @kwargs_interop_processing
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,

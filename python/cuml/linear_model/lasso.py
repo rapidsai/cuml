@@ -128,7 +128,7 @@ class Lasso(ElasticNet):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model'
+    cpu_estimator_import_path_ = 'sklearn.linear_model.Lasso'
 
     @kwargs_interop_processing
     def __init__(self, *, alpha=1.0, fit_intercept=True,

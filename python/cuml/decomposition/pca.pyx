@@ -271,7 +271,7 @@ class PCA(Base,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.decomposition'
+    cpu_estimator_import_path_ = 'sklearn.decomposition.PCA'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
@@ -541,7 +541,7 @@ class PCA(Base,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
     def _inverse_transform(self, X, convert_dtype=False,
-                          return_sparse=False, sparse_tol=1e-10) -> CumlArray:
+                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
         Transform data back to its original space.
 

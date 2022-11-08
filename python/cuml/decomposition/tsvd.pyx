@@ -234,7 +234,7 @@ class TruncatedSVD(Base,
 
     """
 
-    cpu_estimator_import_path_ = 'sklearn.decomposition'
+    cpu_estimator_import_path_ = 'sklearn.decomposition.TruncatedSVD'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')

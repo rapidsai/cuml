@@ -181,10 +181,10 @@ class LogisticRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model'
-    classes_ = CumlArrayDescriptor()
-    class_weight = CumlArrayDescriptor()
-    expl_spec_weights_ = CumlArrayDescriptor()
+    cpu_estimator_import_path_ = 'sklearn.linear_model.LogisticRegression'
+    classes_ = CumlArrayDescriptor(order='F')
+    class_weight = CumlArrayDescriptor(order='F')
+    expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
     @kwargs_interop_processing
     def __init__(

@@ -299,9 +299,9 @@ class UMAP(Base,
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
     """
-    cpu_estimator_import_path_ = 'umap'
+    cpu_estimator_import_path_ = 'umap.UMAP'
 
-    embedding_ = CumlArrayDescriptor()
+    embedding_ = CumlArrayDescriptor(order='C')
 
     @kwargs_interop_processing
     def __init__(self, *,
