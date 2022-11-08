@@ -19,7 +19,8 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/matrix/gather.cuh>
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

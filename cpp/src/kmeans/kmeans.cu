@@ -16,7 +16,6 @@
 
 #include <raft/cluster/specializations.cuh>
 
-#include <cuml/cluster/kmeans.hpp>
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 
