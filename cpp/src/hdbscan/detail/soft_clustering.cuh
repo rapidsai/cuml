@@ -249,7 +249,8 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
 
   rmm::device_uvector<value_t> height_argmax(m, stream);
 
-  raft::matrix::argmax(merge_heights, n_selected_clusters, static_cast<int>(m), height_argmax.data(), stream);
+  raft::matrix::argmax(
+    merge_heights, n_selected_clusters, static_cast<int>(m), height_argmax.data(), stream);
 
   int n_blocks = raft::ceildiv((int)m, tpb);
   prob_in_some_cluster_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
