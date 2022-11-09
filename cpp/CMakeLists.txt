@@ -71,6 +71,7 @@ option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and librari
 option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
+option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 
 message(VERBOSE "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")

@@ -87,7 +87,7 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
                         # even if it's already installed.
-                        CLONE_ON_PIN     ON
+                        CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
                         USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
