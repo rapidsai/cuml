@@ -19,6 +19,7 @@
 import ctypes
 import cuml.internals
 import numpy as np
+import cupy as cp
 import warnings
 
 from numba import cuda
@@ -35,6 +36,7 @@ from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -66,6 +68,21 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
 
         """
+        coef_cp, n_feat, n_targets, _ = input_to_cupy_array(self.coef_)
+        if 1 < n_targets:
+            # Handle multi-target prediction in Python.
+            X_cp = input_to_cupy_array(
+                X,
+                check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                check_cols=self.n_cols
+            ).array
+            intercept_cp = input_to_cupy_array(self.intercept_).array
+            preds_cp = X_cp @ coef_cp + intercept_cp
+            preds = input_to_cuml_array(preds_cp).array
+            return preds
+
+        # Handle single-target prediction in C++
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
