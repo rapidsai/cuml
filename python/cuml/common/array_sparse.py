@@ -55,7 +55,6 @@ class SparseCumlArray():
 
     Attributes
     ----------
-
     indptr : CumlArray
         Compressed row index array
     indices : CumlArray

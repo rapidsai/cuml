@@ -19,7 +19,7 @@ dependencies:
 - pytest
 # required for building rapids project docs
 - sphinx
-- sphinx_rtd_theme
+- pydata-sphinx-theme
 - sphinx-markdown-tables
 - sphinxcontrib-websupport
 - nbsphinx

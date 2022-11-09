@@ -96,7 +96,7 @@ class PCA(BaseDecomposition,
     svd_solver : 'full', 'jacobi', 'auto'
         'full': Run exact full SVD and select the components by postprocessing
         'jacobi': Iteratively compute SVD of the covariance matrix
-        'auto': For compatiblity with Scikit-learn. Alias for 'jacobi'.
+        'auto': For compatibility with Scikit-learn. Alias for 'jacobi'.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -125,9 +125,9 @@ class PCA(BaseDecomposition,
         estimated covariance of X.
 
     Notes
-    ------
+    -----
     PCA considers linear combinations of features, specifically those that
-    maximise global variance structure. This means PCA is fantastic for global
+    maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
     T-SNE for a locally important embedding.
 
