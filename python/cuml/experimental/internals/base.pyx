@@ -16,8 +16,6 @@
 
 # distutils: language = c++
 
-import os
-import inspect
 import typing
 from importlib import import_module
 
@@ -51,9 +49,7 @@ nvtx_annotate = gpu_only_import_from(
     alt=null_decorator
 )
 
-
-class Base(TagsMixin,
-           metaclass=cuml.internals.BaseMetaClass):
+class Base(originalBase):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -272,10 +268,10 @@ class Base(TagsMixin,
             # check if the sklean model already set as attribute of the cuml
             # estimator its presence should signify that CPU execution was
             # used previously
-            if not hasattr(self, 'cpu_model_'):
+            if not hasattr(self, '_cpu_model'):
                 filtered_kwargs = {}
-                for keyword, arg in self.full_kwargs.items():
-                    if keyword in self.cpu_hyperparams:
+                for keyword, arg in self._full_kwargs.items():
+                    if keyword in self._cpu_hyperparams:
                         filtered_kwargs[keyword] = arg
                     else:
                         logger.info("Unused keyword parameter: {} "
@@ -283,7 +279,7 @@ class Base(TagsMixin,
                                     "initialization".format(keyword))
 
                 # initialize model
-                self.cpu_model_ = self.cpu_model_class(**filtered_kwargs)
+                self._cpu_model = self._cpu_model_class(**filtered_kwargs)
 
                 # transfer attributes trained with cuml
                 for attr in self.get_attr_names():
@@ -305,26 +301,26 @@ class Base(TagsMixin,
                                 if cu_attr.input_type == 'cuml':
                                     # transform cumlArray to numpy and set it
                                     # as an attribute in the CPU estimator
-                                    setattr(self.cpu_model_, attr,
+                                    setattr(self._cpu_model, attr,
                                             cu_attr_value.to_output('numpy'))
                                 else:
                                     # transfer all other types of attributes
                                     # directly
-                                    setattr(self.cpu_model_, attr,
+                                    setattr(self._cpu_model, attr,
                                             cu_attr_value)
                         elif isinstance(cu_attr, CumlArray):
                             # transform cumlArray to numpy and set it
                             # as an attribute in the CPU estimator
-                            setattr(self.cpu_model_, attr,
+                            setattr(self._cpu_model, attr,
                                     cu_attr.to_output('numpy'))
                         elif isinstance(cu_attr, cp.ndarray):
                             # transform cupy to numpy and set it
                             # as an attribute in the CPU estimator
-                            setattr(self.cpu_model_, attr,
+                            setattr(self._cpu_model, attr,
                                     cp.asnumpy(cu_attr))
                         else:
                             # transfer all other types of attributes directly
-                            setattr(self.cpu_model_, attr, cu_attr)
+                            setattr(self._cpu_model, attr, cu_attr)
 
             # converts all the args
             args = tuple(input_to_host_array(arg)[0] for arg in args)
@@ -333,7 +329,7 @@ class Base(TagsMixin,
                 kwargs[key] = input_to_host_array(kwarg)[0]
 
             # call the method from the sklearn model
-            cpu_func = getattr(self.cpu_model_, func_name)
+            cpu_func = getattr(self._cpu_model, func_name)
             res = cpu_func(*args, **kwargs)
 
             if func_name in ['fit', 'fit_transform', 'fit_predict']:

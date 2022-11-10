@@ -313,7 +313,6 @@ class UMAP(UniversalBase,
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
     """
-    cpu_estimator_import_path_ = 'umap.UMAP'
 
     _cpu_estimator_import_path = 'umap.UMAP'
     embedding_ = CumlArrayDescriptor(order='C')
