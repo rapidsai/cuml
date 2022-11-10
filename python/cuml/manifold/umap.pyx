@@ -58,7 +58,7 @@ if has_scipy(True):
     import scipy.sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 import rmm
 
@@ -299,11 +299,11 @@ class UMAP(Base,
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
     """
-    cpu_estimator_import_path_ = 'umap.UMAP'
 
+    _cpu_estimator_import_path = 'umap.UMAP'
     embedding_ = CumlArrayDescriptor(order='C')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,

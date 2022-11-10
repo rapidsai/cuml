@@ -34,7 +34,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -185,11 +185,11 @@ class Ridge(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model.Ridge'
+    _cpu_estimator_import_path = 'sklearn.linear_model.Ridge'
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):

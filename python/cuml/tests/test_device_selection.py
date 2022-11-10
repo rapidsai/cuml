@@ -595,8 +595,8 @@ def test_hyperparams_defaults(estimator):
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters
 
-    if hasattr(model, 'cpu_estimator_import_path_'):
-        model_path = model.cpu_estimator_import_path_
+    if hasattr(model, '_cpu_estimator_import_path'):
+        model_path = model._cpu_estimator_import_path
     else:
         model_path = 'sklearn' + model.__class__.__module__[4:]
     model_name = model.__class__.__name__

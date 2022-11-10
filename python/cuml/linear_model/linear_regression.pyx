@@ -36,7 +36,7 @@ from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -190,11 +190,11 @@ class LinearRegression(Base,
 
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model.LinearRegression'
+    _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':

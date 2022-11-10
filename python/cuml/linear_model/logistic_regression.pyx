@@ -31,7 +31,7 @@ from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -181,12 +181,12 @@ class LogisticRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model.LogisticRegression'
+    _cpu_estimator_import_path = 'sklearn.linear_model.LogisticRegression'
     classes_ = CumlArrayDescriptor(order='F')
     class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(
         self,
         *,

@@ -39,7 +39,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 from cuml.neighbors.ann cimport *
 from pylibraft.common.handle cimport handle_t
@@ -306,10 +306,10 @@ class NearestNeighbors(Base,
 
     """
 
-    cpu_estimator_import_path_ = 'sklearn.neighbors.NearestNeighbors'
+    _cpu_estimator_import_path = 'sklearn.neighbors.NearestNeighbors'
     _fit_X = CumlArrayDescriptor(order='C')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=5,
                  verbose=False,

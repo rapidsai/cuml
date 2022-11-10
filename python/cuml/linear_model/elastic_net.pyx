@@ -26,7 +26,7 @@ from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.logger import warn
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 
 class ElasticNet(Base,
@@ -145,10 +145,10 @@ class ElasticNet(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.linear_model.ElasticNet'
+    _cpu_estimator_import_path = 'sklearn.linear_model.ElasticNet'
     coef_ = CumlArrayDescriptor(order='F')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',

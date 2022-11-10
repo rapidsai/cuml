@@ -34,7 +34,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 from cython.operator cimport dereference as deref
 
@@ -234,13 +234,13 @@ class TruncatedSVD(Base,
 
     """
 
-    cpu_estimator_import_path_ = 'sklearn.decomposition.TruncatedSVD'
+    _cpu_estimator_import_path = 'sklearn.decomposition.TruncatedSVD'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):

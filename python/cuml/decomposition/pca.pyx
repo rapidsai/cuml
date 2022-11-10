@@ -48,7 +48,7 @@ from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.api_decorators import kwargs_interop_processing
+from cuml.internals.api_decorators import device_interop_preparation
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -271,7 +271,7 @@ class PCA(Base,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    cpu_estimator_import_path_ = 'sklearn.decomposition.PCA'
+    _cpu_estimator_import_path = 'sklearn.decomposition.PCA'
     components_ = CumlArrayDescriptor(order='F')
     explained_variance_ = CumlArrayDescriptor(order='F')
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
@@ -280,7 +280,7 @@ class PCA(Base,
     noise_variance_ = CumlArrayDescriptor(order='F')
     trans_input_ = CumlArrayDescriptor(order='F')
 
-    @kwargs_interop_processing
+    @device_interop_preparation
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
