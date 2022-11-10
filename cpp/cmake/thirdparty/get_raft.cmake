@@ -81,8 +81,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             cjnolet
-                        PINNED_TAG       bug-2212-revert_cusparse_changes
+                        FORK             wphicks
+                        PINNED_TAG       38c14f1c77588a239273c4dc0c864707969a2f9f
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
