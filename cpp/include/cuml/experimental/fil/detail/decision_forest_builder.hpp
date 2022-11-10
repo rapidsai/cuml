@@ -123,7 +123,6 @@ struct decision_forest_builder {
     typename node_type::offset_type offset = typename node_type::offset_type{},
     bool is_inclusive=false
   ) {
-    // TODO(wphicks): Construct categorical set and add node appropriately
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
