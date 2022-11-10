@@ -125,7 +125,8 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
 
 
 @pytest.mark.parametrize(
-    "ntargets", [unit_param(1), unit_param(2), quality_param(100), stress_param(1000)]
+    "ntargets",
+    [unit_param(1), unit_param(2), quality_param(100), stress_param(1000)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
@@ -140,8 +141,9 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
         stress_param([1000, 500])
     ],
 )
-def test_linear_regression_model(datatype, algorithm, nrows, column_info, ntargets):
-
+def test_linear_regression_model(
+    datatype, algorithm, nrows, column_info, ntargets
+):
     if algorithm == "svd" and nrows > 46340:
         pytest.skip("svd solver is not supported for the data that has more"
                     "than 46340 rows or columns if you are using CUDA version"
@@ -171,6 +173,7 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info, ntarge
         skols_predict = skols.predict(X_test)
 
         assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
 
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
