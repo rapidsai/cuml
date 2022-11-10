@@ -67,9 +67,9 @@ class BaseDecompositionMG(object):
         self._set_n_features_in(n_cols)
 
         if self.n_components is None:
-            self._n_components = min(total_rows, n_cols)
+            self.n_components_ = min(total_rows, n_cols)
         else:
-            self._n_components = self.n_components
+            self.n_components_ = self.n_components
 
         X_arys = []
         for i in range(len(X)):
@@ -102,11 +102,11 @@ class BaseDecompositionMG(object):
             trans_arg = opg.build_data_t(trans_arys)
 
             trans_part_desc = opg.build_part_descriptor(total_rows,
-                                                        self._n_components,
+                                                        self.n_components_,
                                                         rank_to_sizes,
                                                         rank)
 
-        self._initialize_arrays(self._n_components, total_rows, n_cols)
+        self._initialize_arrays(self.n_components_, total_rows, n_cols)
         decomp_params = self._build_params(total_rows, n_cols)
 
         if _transform:

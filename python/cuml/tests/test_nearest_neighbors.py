@@ -367,7 +367,7 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
     with cuml.using_output_type("numpy"):
         # Assert the cuml model was properly reverted
-        np.testing.assert_allclose(knn_cu.X_m, X_orig.get(),
+        np.testing.assert_allclose(knn_cu._fit_X, X_orig.get(),
                                    atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
@@ -408,7 +408,7 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     D_cuml, I_cuml = knn_cu.kneighbors(X=None, n_neighbors=k)
 
     # Assert the cuml model was properly reverted
-    cp.testing.assert_allclose(knn_cu.X_m, X_orig,
+    cp.testing.assert_allclose(knn_cu._fit_X, X_orig,
                                atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%

@@ -537,7 +537,7 @@ def test_logistic_regression_decision_function(
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = culog.coef_.T
+    sklog.coef_ = culog.coef_
     if fit_intercept:
         sklog.intercept_ = culog.intercept_
     else:
@@ -584,7 +584,7 @@ def test_logistic_regression_predict_proba(
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = culog.coef_.T
+    sklog.coef_ = culog.coef_
     if fit_intercept:
         sklog.intercept_ = culog.intercept_
     else:
@@ -723,7 +723,6 @@ def test_logistic_regression_weighting(regression_dataset,
         unit_tol = 0.04
         total_tol = 0.08
     elif regression_type.startswith('multiclass'):
-        skcoef = skcoef.T
         skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
         cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
         unit_tol = 0.2

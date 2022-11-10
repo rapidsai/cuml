@@ -431,10 +431,23 @@ class QN(Base,
     @property
     @cuml.internals.api_base_return_array_skipall
     def coef_(self):
+        if self._coef_ is None:
+            return None
         if self.fit_intercept:
-            return self._coef_[0:-1]
+            val = self._coef_[0:-1]
         else:
-            return self._coef_
+            val = self._coef_
+        val = val.to_output('cupy')
+        val = val.T
+        return val
+
+    @coef_.setter
+    def coef_(self, value):
+        value = value.to_output('cupy').T
+        if self.fit_intercept:
+            value = cp.vstack([value, self.intercept_])
+        value, _, _, _ = input_to_cuml_array(value)
+        self._coef_ = value
 
     @generate_docstring(X='dense_sparse')
     def fit(self, X, y, sample_weight=None, convert_dtype=False) -> "QN":
@@ -640,36 +653,72 @@ class QN(Base,
         y: array-like (device)
             Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
+        coefs = self.coef_
+        dtype = coefs.dtype
+        _num_classes_dim, n_cols = coefs.shape
+        solves_classification = self.loss in {
+            qn_loss_type.QN_LOSS_LOGISTIC,
+            qn_loss_type.QN_LOSS_SOFTMAX,
+            qn_loss_type.QN_LOSS_SVC_L1,
+            qn_loss_type.QN_LOSS_SVC_L2
+        }
+        solves_multiclass = self.loss in {
+            qn_loss_type.QN_LOSS_SOFTMAX
+        }
+        if solves_classification and not solves_multiclass:
+            _num_classes = _num_classes_dim + 1
+        else:
+            _num_classes = _num_classes_dim
+
         sparse_input = is_sparse(X)
         # Handle sparse inputs
         if sparse_input:
             X_m = SparseCumlArray(
                 X,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
+                convert_to_dtype=(dtype if convert_dtype else None),
                 convert_index=np.int32
             )
             n_rows, n_cols = X_m.shape
-            self.dtype = X_m.dtype
+            dtype = X_m.dtype
 
         # Handle dense inputs
         else:
-            X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
-                X, check_dtype=self.dtype,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols,
+            X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+                X, check_dtype=dtype,
+                convert_to_dtype=(dtype if convert_dtype else None),
+                check_cols=n_cols,
                 order='K'
             )
 
-        scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
-                                 dtype=self.dtype, order='F')
+        if _num_classes_dim > 1:
+            shape = (_num_classes_dim, n_rows)
+        else:
+            shape = (n_rows,)
+        scores = CumlArray.zeros(shape=shape, dtype=dtype, order='F')
 
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t scores_ptr = scores.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        if not hasattr(self, 'qnparams'):
+            self.qnparams = QNParams(
+                loss=self.loss,
+                penalty_l1=self.l1_strength,
+                penalty_l2=self.l2_strength,
+                grad_tol=self.tol,
+                change_tol=self.delta
+                if self.delta is not None else (self.tol * 0.01),
+                max_iter=self.max_iter,
+                linesearch_max_iter=self.linesearch_max_iter,
+                lbfgs_memory=self.lbfgs_memory,
+                verbose=self.verbose,
+                fit_intercept=self.fit_intercept,
+                penalty_normalized=self.penalty_normalized
+            )
+
         cdef qn_params qnpams = self.qnparams.params
-        if self.dtype == np.float32:
+        if dtype == np.float32:
             if sparse_input:
                 qnDecisionFunctionSparse[float, int](
                     handle_[0],
@@ -680,7 +729,7 @@ class QN(Base,
                     <int> X_m.nnz,
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <float*> coef_ptr,
                     <float*> scores_ptr)
             else:
@@ -691,7 +740,7 @@ class QN(Base,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <float*> coef_ptr,
                     <float*> scores_ptr)
 
@@ -706,7 +755,7 @@ class QN(Base,
                     <int> X_m.nnz,
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <double*> coef_ptr,
                     <double*> scores_ptr)
             else:
@@ -717,7 +766,7 @@ class QN(Base,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <double*> coef_ptr,
                     <double*> scores_ptr)
 
@@ -743,27 +792,33 @@ class QN(Base,
         Predicts the y for X.
 
         """
+        coefs = self.coef_
+        dtype = coefs.dtype
+        _num_classes, n_cols = coefs.shape
+        # binary case
+        if _num_classes == 1:
+            _num_classes = 2
         sparse_input = is_sparse(X)
+
         # Handle sparse inputs
         if sparse_input:
             X_m = SparseCumlArray(
                 X,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
+                convert_to_dtype=(dtype if convert_dtype else None),
                 convert_index=np.int32
             )
             n_rows, n_cols = X_m.shape
-            self.dtype = X_m.dtype
 
         # Handle dense inputs
         else:
-            X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
-                X, check_dtype=self.dtype,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols,
+            X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+                X, check_dtype=dtype,
+                convert_to_dtype=(dtype if convert_dtype else None),
+                check_cols=n_cols,
                 order='K'
             )
 
-        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype,
+        preds = CumlArray.zeros(shape=n_rows, dtype=dtype,
                                 index=X_m.index)
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
@@ -774,8 +829,23 @@ class QN(Base,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        self.qnparams = QNParams(
+            loss=self.loss,
+            penalty_l1=self.l1_strength,
+            penalty_l2=self.l2_strength,
+            grad_tol=self.tol,
+            change_tol=self.delta
+            if self.delta is not None else (self.tol * 0.01),
+            max_iter=self.max_iter,
+            linesearch_max_iter=self.linesearch_max_iter,
+            lbfgs_memory=self.lbfgs_memory,
+            verbose=self.verbose,
+            fit_intercept=self.fit_intercept,
+            penalty_normalized=self.penalty_normalized
+        )
+
         cdef qn_params qnpams = self.qnparams.params
-        if self.dtype == np.float32:
+        if dtype == np.float32:
             if sparse_input:
                 qnPredictSparse[float, int](
                     handle_[0],
@@ -786,7 +856,7 @@ class QN(Base,
                     <int> X_m.nnz,
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <float*> coef_ptr,
                     <float*> pred_ptr)
             else:
@@ -797,7 +867,7 @@ class QN(Base,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <float*> coef_ptr,
                     <float*> pred_ptr)
 
@@ -812,7 +882,7 @@ class QN(Base,
                     <int> X_m.nnz,
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <double*> coef_ptr,
                     <double*> pred_ptr)
             else:
@@ -823,7 +893,7 @@ class QN(Base,
                     <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
-                    <int> self._num_classes,
+                    <int> _num_classes,
                     <double*> coef_ptr,
                     <double*> pred_ptr)
 
@@ -845,7 +915,7 @@ class QN(Base,
         `coef_`
         """
 
-        if (self.fit_intercept):
+        if self.fit_intercept:
             self.intercept_ = self._coef_[-1]
         else:
             self.intercept_ = CumlArray.zeros(shape=1)

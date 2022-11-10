@@ -350,7 +350,7 @@ class IncrementalPCA(PCA):
         explained_variance = S ** 2 / (n_total_samples - 1)
         explained_variance_ratio = S ** 2 / cp.sum(col_var * n_total_samples)
 
-        self.n_rows = n_total_samples
+        self.n_samples_ = n_total_samples
         self.n_samples_seen_ = n_total_samples
         self.components_ = V[:self.n_components_]
         self.singular_values_ = S[:self.n_components_]
