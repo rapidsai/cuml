@@ -83,8 +83,15 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     assert X.ndim == 2
     assert y.ndim == 2
 
-    assert X.shape[1] > 0, "Number of columns cannot be less than one"
-    assert X.shape[0] > 1, "Number of rows cannot be less than two"
+    x_rows, x_cols = X.shape
+    if x_cols == 0:
+        raise ValueError(
+            "Number of columns cannot be less than one"
+        )
+    if x_rows < 2:
+        raise ValueError(
+            "Number of rows cannot be less than two"
+        )
 
     if fit_intercept:
         # Add column containg ones to fit intercept.
@@ -315,64 +322,12 @@ class LinearRegression(Base,
             self.algo = 0
 
         if 1 < y_cols:
-            # In the cuml C++ layer, there is no support yet for multi-target
-            # regression, i.e., a y vector with multiple columns.
-            # We implement the regression in Python here.
-
-            if self.algo != 0:
-                warnings.warn("Changing solver to 'svd' as this is the " +
-                              "only solver that support multiple targets " +
-                              "currently.", UserWarning)
-                self.algo = 0
-            if self.normalize:
-                raise ValueError(
-                    "The normalize option is not supported when `y` has "
-                    "multiple columns."
-                )
-
-            X_cupy = input_to_cupy_array(
-                X,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-            ).array
-            y_cupy = input_to_cupy_array(
-                y,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-            ).array
-            if sample_weight is None:
-                sample_weight_cupy = None
-            else:
-                sample_weight_cupy = input_to_cupy_array(
-                    sample_weight,
-                    convert_to_dtype=(self.dtype if convert_dtype else None),
-                ).array
-            coef, intercept = fit_multi_target(
-                X_cupy,
-                y_cupy,
-                fit_intercept=self.fit_intercept,
-                sample_weight=sample_weight_cupy
-            )
-            self.coef_, _, _, _ = input_to_cuml_array(
-                coef,
-                check_dtype=self.dtype,
-                check_rows=self.n_cols,
-                check_cols=y_cols
-            )
-            if self.fit_intercept:
-                self.intercept_, _, _, _ = input_to_cuml_array(
-                    intercept,
-                    check_dtype=self.dtype,
-                    check_rows=y_cols,
-                    check_cols=1
-                )
-            else:
-                self.intercept_ = CumlArray.zeros(y_cols, dtype=self.dtype)
-
             del X_m
             del y_m
             if sample_weight is not None:
                 del sample_weight_m
 
-            return self
+            return self._fit_multi_target(X, y, convert_dtype, sample_weight)
 
         self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
@@ -417,6 +372,61 @@ class LinearRegression(Base,
         del y_m
         if sample_weight is not None:
             del sample_weight_m
+
+        return self
+
+    def _fit_multi_target(self, X, y, convert_dtype=True, sample_weight=None):
+        # In the cuml C++ layer, there is no support yet for multi-target
+        # regression, i.e., a y vector with multiple columns.
+        # We implement the regression in Python here.
+
+        if self.algo != 0:
+            warnings.warn("Changing solver to 'svd' as this is the " +
+                          "only solver that support multiple targets " +
+                          "currently.", UserWarning)
+            self.algo = 0
+        if self.normalize:
+            raise ValueError(
+                "The normalize option is not supported when `y` has "
+                "multiple columns."
+            )
+
+        X_cupy = input_to_cupy_array(
+            X,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+        ).array
+        y_cupy, _, y_cols, _ = input_to_cupy_array(
+            y,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+        )
+        if sample_weight is None:
+            sample_weight_cupy = None
+        else:
+            sample_weight_cupy = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+            ).array
+        coef, intercept = fit_multi_target(
+            X_cupy,
+            y_cupy,
+            fit_intercept=self.fit_intercept,
+            sample_weight=sample_weight_cupy
+        )
+        self.coef_, _, _, _ = input_to_cuml_array(
+            coef,
+            check_dtype=self.dtype,
+            check_rows=self.n_cols,
+            check_cols=y_cols
+        )
+        if self.fit_intercept:
+            self.intercept_, _, _, _ = input_to_cuml_array(
+                intercept,
+                check_dtype=self.dtype,
+                check_rows=y_cols,
+                check_cols=1
+            )
+        else:
+            self.intercept_ = CumlArray.zeros(y_cols, dtype=self.dtype)
 
         return self
 

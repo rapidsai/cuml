@@ -125,7 +125,7 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
 
 
 @pytest.mark.parametrize(
-    "ntargets", [unit_param(2), quality_param(100), stress_param(1000)]
+    "ntargets", [unit_param(1), unit_param(2), quality_param(100), stress_param(1000)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
@@ -172,7 +172,7 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info, ntarge
 
         assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
-@pytest.mark.parametrize("ntargets", [unit_param(2)])
+@pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
 @pytest.mark.parametrize(
@@ -185,8 +185,9 @@ def test_linear_regression_model(datatype, algorithm, nrows, column_info, ntarge
         (False, False, "uniform"),
     ]
 )
-def test_weighted_linear_regression(ntargets, datatype, algorithm, fit_intercept,
-                                    normalize, distribution):
+def test_weighted_linear_regression(
+    ntargets, datatype, algorithm, fit_intercept, normalize, distribution
+):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
