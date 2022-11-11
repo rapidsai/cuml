@@ -119,6 +119,7 @@ def test_regression_datasets(dataset):
 
 
 @given(split_datasets(regression_datasets()))
+@settings(suppress_health_check=[HealthCheck.too_slow])
 def test_split_regression_datasets(split_dataset):
     X_train, X_test, y_train, y_test = split_dataset
 
