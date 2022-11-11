@@ -124,10 +124,7 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
     )
 
 
-@pytest.mark.parametrize(
-    "ntargets",
-    [unit_param(1), unit_param(2), quality_param(100), stress_param(1000)]
-)
+@pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
