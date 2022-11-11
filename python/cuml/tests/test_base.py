@@ -24,6 +24,7 @@ from pylibraft.common.cuda import Stream
 from cuml.testing.utils import \
     get_classes_from_package, \
     small_classification_dataset
+from cuml.experimental.common.base import Base as experimentalBase
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
     as sklBaseEstimator
 
