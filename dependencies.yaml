@@ -62,6 +62,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
+          - pre-commit
           - clang-tools==11.1.0
           - flake8
   common_build:

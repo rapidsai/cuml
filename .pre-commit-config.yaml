@@ -1,0 +1,33 @@
+---
+# Copyright (c) 2023, NVIDIA CORPORATION.
+
+repos:
+    - repo: https://github.com/PyCQA/isort
+      rev: 5.10.1
+      hooks:
+          - id: isort
+            # Use the config file specific to each subproject so that each
+            # project can specify its own first/third-party packages.
+            args: [--config-root=python/, --resolve-all-configs]
+            files: python/.*
+            types_or: [python, cython, pyi]
+    - repo: https://github.com/psf/black
+      rev: 22.10.0
+      hooks:
+          - id: black
+            files: python/.*
+            # Explicitly specify the pyproject.toml at the repo root, not per-project.
+            args: [--config, python/pyproject.toml]
+    - repo: https://github.com/PyCQA/flake8
+      rev: 5.0.4
+      hooks:
+          - id: flake8
+            args: [--config=python/setup.cfg]
+            files: python/.*$
+            types: [file]
+            types_or: [python, cython]
+            exclude: thirdparty
+            additional_dependencies: [flake8-force]
+
+default_language_version:
+    python: python3

@@ -1,31 +1,25 @@
 #!/bin/bash
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+#####################
+# cuML Style Tester #
+#####################
 
-set -euo pipefail
-
-rapids-logger "Create checks conda environment"
-. /opt/conda/etc/profile.d/conda.sh
-
-rapids-dependency-file-generator \
-  --output conda \
-  --file_key checks \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
-
-rapids-mamba-retry env create --force -f env.yaml -n checks
-conda activate checks
-
-# Run pre-commit checks
-pre-commit run --hook-stage manual --all-files --show-diff-on-failure
-
+# Ignore errors and set path
 set +e
+export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 
-FORMAT_FILE_URL=https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/cmake-format-rapids-cmake.json
-export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.json
-mkdir -p $(dirname ${RAPIDS_CMAKE_FORMAT_FILE})
-wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
+# Activate common conda env and install any dependencies needed
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
+cd "$WORKSPACE"
+
+export GIT_DESCRIBE_TAG=`git describe --tags`
+export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
+export UCX_PY_VERSION='0.30.*'
+mamba install "ucx-py=${UCX_PY_VERSION}" "ucx-proc=*=gpu"
 
 # Check for copyright headers in the files modified currently
-COPYRIGHT=$(python ci/checks/copyright.py --git-modified-only 2>&1)
+COPYRIGHT=`python ci/checks/copyright.py --git-modified-only 2>&1`
 CR_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$CR_RETVAL
@@ -42,7 +36,7 @@ fi
 
 # Check for a consistent #include syntax
 # TODO: keep adding more dirs as and when we update the syntax
-HASH_INCLUDE=$(python cpp/scripts/include_checker.py \
+HASH_INCLUDE=`python cpp/scripts/include_checker.py \
                      cpp/bench \
                      cpp/comms/mpi/include \
                      cpp/comms/mpi/src \
@@ -53,7 +47,7 @@ HASH_INCLUDE=$(python cpp/scripts/include_checker.py \
                      cpp/src \
                      cpp/src_prims \
                      cpp/test \
-                     2>&1)
+                     2>&1`
 HASH_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$HASH_RETVAL
@@ -69,7 +63,7 @@ else
 fi
 
 # Check for a consistent code format
-FORMAT=$(python cpp/scripts/run-clang-format.py 2>&1)
+FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
 FORMAT_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$FORMAT_RETVAL
@@ -104,7 +98,7 @@ function setup_and_run_clang_tidy() {
         python cpp/scripts/run-clang-tidy.py
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 }
-TIDY=$(setup_and_run_clang_tidy 2>&1)
+TIDY=`setup_and_run_clang_tidy 2>&1`
 TIDY_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$TIDY_RETVAL
@@ -119,5 +113,7 @@ else
   echo -e "\n\n>>>> PASSED: clang tidy check\n\n"
 fi
 
+# Run pre-commit checks
+pre-commit run --hook-stage manual --all-files
 
 exit $RETVAL
