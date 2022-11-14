@@ -28,6 +28,49 @@ repos:
             types_or: [python, cython]
             exclude: thirdparty
             additional_dependencies: [flake8-force]
+    - repo: local
+      hooks:
+          # - id: no-deprecationwarning
+          #   name: no-deprecationwarning
+          #   description: 'Enforce that DeprecationWarning is not introduced (use FutureWarning instead)'
+          #   entry: '(category=|\s)DeprecationWarning[,)]'
+          #   language: pygrep
+          #   types_or: [python, cython]
+          # - id: cmake-format
+          #   name: cmake-format
+          #   entry: ./cpp/scripts/run-cmake-format.sh cmake-format
+          #   language: python
+          #   types: [cmake]
+          #   exclude: .*/thirdparty/.*
+          #   # Note that pre-commit autoupdate does not update the versions
+          #   # of dependencies, so we'll have to update this manually.
+          #   additional_dependencies:
+          #     - cmakelang==0.6.13
+          #   verbose: true
+          #   require_serial: true
+          # - id: cmake-lint
+          #   name: cmake-lint
+          #   entry: ./cpp/scripts/run-cmake-format.sh cmake-lint
+          #   language: python
+          #   types: [cmake]
+          #   # Note that pre-commit autoupdate does not update the versions
+          #   # of dependencies, so we'll have to update this manually.
+          #   additional_dependencies:
+          #     - cmakelang==0.6.13
+          #   verbose: true
+          #   require_serial: true
+          #   exclude: .*/thirdparty/.*
+          - id: copyright-check
+            name: copyright-check
+            entry: python ./ci/checks/copyright.py --fix-in-place
+            language: python
+            pass_filenames: true
+            additional_dependencies: [gitpython]
+          # - id: include-check
+          #   name: include-check
+          #   entry: python ./cpp/scripts/include_checker.py cpp/bench cpp/include cpp/test
+          #   pass_filenames: false
+          #   language: python
 
 default_language_version:
     python: python3

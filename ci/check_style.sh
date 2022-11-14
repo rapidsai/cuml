@@ -24,22 +24,6 @@ export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.
 mkdir -p $(dirname ${RAPIDS_CMAKE_FORMAT_FILE})
 wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
 
-# Check for copyright headers in the files modified currently
-COPYRIGHT=$(python ci/checks/copyright.py --base-branch ${RAPIDS_BASE_BRANCH} 2>&1)
-CR_RETVAL=$?
-if [ "$RETVAL" = "0" ]; then
-  RETVAL=$CR_RETVAL
-fi
-
-# Output results if failure otherwise show pass
-if [ "$CR_RETVAL" != "0" ]; then
-  echo -e "\n\n>>>> FAILED: copyright check; begin output\n\n"
-  echo -e "$COPYRIGHT"
-  echo -e "\n\n>>>> FAILED: copyright check; end output\n\n"
-else
-  echo -e "\n\n>>>> PASSED: copyright check\n\n"
-fi
-
 # Check for a consistent #include syntax
 # TODO: keep adding more dirs as and when we update the syntax
 HASH_INCLUDE=$(python cpp/scripts/include_checker.py \
