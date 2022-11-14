@@ -31,10 +31,6 @@ from sklearn.feature_extraction.text import CountVectorizer
 from cuml.testing.utils import create_synthetic_dataset
 
 
-# Add the import here for any plugins that should be loaded EVERY TIME
-pytest_plugins = ("cuml.testing.plugins.quick_run_plugin")
-
-
 # Configure hypothesis profiles
 
 hypothesis.settings.register_profile(
