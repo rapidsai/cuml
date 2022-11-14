@@ -55,11 +55,11 @@ function(find_and_configure_raft)
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    cuml-exports
             INSTALL_EXPORT_SET  cuml-exports
+            COMPONENTS          ${RAFT_COMPONENTS}
             CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
-            FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
