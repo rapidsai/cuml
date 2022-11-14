@@ -99,7 +99,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
                     "the base arguments in constructors.")
 
     if issubclass(klass, experimentalBase):
-        pytest.skip("The CPU/GPU base class do not have "
+        pytest.skip("The CPU/GPU base class does not have "
                     "the base arguments in its constructor.")
 
     # To quickly find and replace all instances in the documentation, the below
