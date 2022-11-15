@@ -322,12 +322,10 @@ class LinearRegression(Base,
             self.algo = 0
 
         if 1 < y_cols:
-            del X_m
-            del y_m
-            if sample_weight is not None:
-                del sample_weight_m
+            if sample_weight is None:
+               sample_weight_m = None
 
-            return self._fit_multi_target(X, y, convert_dtype, sample_weight)
+            return self._fit_multi_target(X_m, y_m, convert_dtype, sample_weight_m)
 
         self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
@@ -443,3 +441,7 @@ class LinearRegression(Base,
 
     def get_attributes_names(self):
         return ['coef_', 'intercept_']
+
+    @staticmethod
+    def _more_static_tags():
+        return {"multioutput": True}

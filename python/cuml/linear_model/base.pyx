@@ -68,9 +68,14 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
 
         """
-        coef_cp, n_feat, n_targets, _ = input_to_cupy_array(self.coef_)
-        if 1 < n_targets:
+        if self.coef_ is None:
+            raise ValueError(
+                "LinearModel.predict() cannot be called before fit(). "
+                "Please fit the model first."
+            )
+        if len(self.coef_.shape) == 2 and self.coef_.shape[1] > 1:
             # Handle multi-target prediction in Python.
+            coef_cp = input_to_cupy_array(self.coef_).array
             X_cp = input_to_cupy_array(
                 X,
                 check_dtype=self.dtype,
@@ -79,8 +84,8 @@ class LinearPredictMixin:
             ).array
             intercept_cp = input_to_cupy_array(self.intercept_).array
             preds_cp = X_cp @ coef_cp + intercept_cp
-            preds = input_to_cuml_array(preds_cp).array
-            return preds
+            # preds = input_to_cuml_array(preds_cp).array # TODO:remove
+            return preds_cp
 
         # Handle single-target prediction in C++
         X_m, n_rows, n_cols, dtype = \
