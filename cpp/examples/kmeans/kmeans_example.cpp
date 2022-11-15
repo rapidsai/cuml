@@ -23,9 +23,8 @@
 
 #include <cuda_runtime.h>
 
-#include <raft/core/handle.hpp>
-
 #include <cuml/cluster/kmeans.hpp>
+#include <raft/core/handle.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -112,7 +111,7 @@ int main(int argc, char* argv[])
       params.max_iter   = 300;
       params.tol        = 0.05;
     }
-    params.metric = 1;
+    params.metric = raft::distance::DistanceType::L2SqrtExpanded;
     params.init   = ML::kmeans::KMeansParams::InitMethod::Random;
 
     // Inputs copied from kmeans_test.cu

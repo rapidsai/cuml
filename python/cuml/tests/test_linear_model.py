@@ -16,13 +16,29 @@ from functools import lru_cache
 import cupy as cp
 import numpy as np
 import pytest
+from hypothesis import (
+    assume,
+    example,
+    given,
+    settings,
+    strategies as st,
+    target
+)
+from hypothesis.extra.numpy import floating_dtypes
 from distutils.version import LooseVersion
 import cudf
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
+from cuml.common.input_utils import _typecast_will_lose_information
+from cuml.testing.strategies import (
+    regression_datasets,
+    split_datasets,
+    standard_regression_datasets,
+)
 from cuml.testing.utils import (
+    array_difference,
     array_equal,
     small_regression_dataset,
     small_classification_dataset,
@@ -86,6 +102,26 @@ def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
     )
 
     return X_train, X_test, y_train, y_test
+
+
+def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
+    return (
+        X_train.shape[1] >= 1
+        and (X_train > 0).any()
+        and (y_train > 0).any()
+        and all(np.isfinite(x).all()
+                for x in (X_train, X_test, y_train) if x is not None)
+    )
+
+
+def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
+    return (
+        X_train.shape[0] >= 2
+        and X_train.shape[1] >= 1
+        and np.isfinite(X_train).all()
+        and not any(_typecast_will_lose_information(x, np.float32)
+                    for x in (X_train, X_test, y_train) if x is not None)
+    )
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -193,10 +229,28 @@ def test_linear_regression_single_column():
         model.fit(cp.random.rand(46341), cp.random.rand(46341))
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_linear_regression_model_default(datatype):
+# The assumptions required to have this test pass are relatively strong.
+# It should be possible to relax assumptions once #4963 is resolved.
+# See also: test_linear_regression_model_default_generalized
+@given(
+    split_datasets(
+        standard_regression_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+            n_samples=st.just(1000),
+        ),
+        test_sizes=st.just(0.2)
+    )
+)
+@example(small_regression_dataset(np.float32))
+@example(small_regression_dataset(np.float64))
+@settings(deadline=5000)
+def test_linear_regression_model_default(dataset):
 
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+    X_train, X_test, y_train, _ = dataset
+
+    # Filter datasets based on required assumptions
+    assume(sklearn_compatible_dataset(X_train, X_test, y_train))
+    assume(cuml_compatible_dataset(X_train, X_test, y_train))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression()
@@ -211,6 +265,39 @@ def test_linear_regression_model_default(datatype):
 
     skols_predict = skols.predict(X_test)
 
+    target(float(array_difference(skols_predict, cuols_predict)))
+    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
+
+# TODO: Replace test_linear_regression_model_default with this test once #4963
+# is resolved.
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
+@given(
+    split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
+)
+@settings(deadline=5000)
+def test_linear_regression_model_default_generalized(dataset):
+
+    X_train, X_test, y_train, _ = dataset
+
+    # Filter datasets based on required assumptions
+    assume(sklearn_compatible_dataset(X_train, X_test, y_train))
+    assume(cuml_compatible_dataset(X_train, X_test, y_train))
+
+    # Initialization of cuML's linear regression model
+    cuols = cuLinearRegression()
+
+    # fit and predict cuml linear regression model
+    cuols.fit(X_train, y_train)
+    cuols_predict = cuols.predict(X_test)
+
+    # sklearn linear regression model initialization and fit
+    skols = skLinearRegression()
+    skols.fit(X_train, y_train)
+
+    skols_predict = skols.predict(X_test)
+
+    target(float(array_difference(skols_predict, cuols_predict)))
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
