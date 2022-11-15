@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-#include "sg_impl.cuh"
-#include <cuml/cluster/kmeans.hpp>
+#include <raft/cluster/specializations.cuh>
+
+#include <raft/cluster/kmeans.cuh>
+#include <raft/cluster/kmeans_types.hpp>
 
 namespace ML {
 namespace kmeans {
 
 // -------------------------- fit_predict --------------------------------//
 void fit_predict(const raft::handle_t& handle,
-                 const KMeansParams& params,
+                 const raft::cluster::KMeansParams& params,
                  const float* X,
                  int n_samples,
                  int n_features,
@@ -32,13 +34,22 @@ void fit_predict(const raft::handle_t& handle,
                  float& inertia,
                  int& n_iter)
 {
-  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
-  impl::predict(
-    handle, params, centroids, X, n_samples, n_features, sample_weight, true, labels, inertia);
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const float>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(raft::make_device_vector_view((sample_weight), n_samples));
+  auto centroids_opt =
+    std::make_optional(raft::make_device_matrix_view(centroids, params.n_clusters, n_features));
+  auto rLabels      = raft::make_device_vector_view(labels, n_samples);
+  auto inertia_view = raft::make_host_scalar_view(&inertia);
+  auto n_iter_view  = raft::make_host_scalar_view(&n_iter);
+
+  raft::cluster::kmeans_fit_predict<float, int>(
+    handle, params, X_view, sw, centroids_opt, rLabels, inertia_view, n_iter_view);
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const KMeansParams& params,
+                 const raft::cluster::KMeansParams& params,
                  const double* X,
                  int n_samples,
                  int n_features,
@@ -48,15 +59,24 @@ void fit_predict(const raft::handle_t& handle,
                  double& inertia,
                  int& n_iter)
 {
-  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
-  impl::predict(
-    handle, params, centroids, X, n_samples, n_features, sample_weight, true, labels, inertia);
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const double>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(raft::make_device_vector_view(sample_weight, n_samples));
+  auto centroids_opt =
+    std::make_optional(raft::make_device_matrix_view(centroids, params.n_clusters, n_features));
+  auto rLabels      = raft::make_device_vector_view(labels, n_samples);
+  auto inertia_view = raft::make_host_scalar_view(&inertia);
+  auto n_iter_view  = raft::make_host_scalar_view(&n_iter);
+
+  raft::cluster::kmeans_fit_predict<double, int>(
+    handle, params, X_view, sw, centroids_opt, rLabels, inertia_view, n_iter_view);
 }
 
 // ----------------------------- fit ---------------------------------//
 
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -65,11 +85,20 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int& n_iter)
 {
-  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const float>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(raft::make_device_vector_view((sample_weight), n_samples));
+  auto centroids_view = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto inertia_view   = raft::make_host_scalar_view(&inertia);
+  auto n_iter_view    = raft::make_host_scalar_view(&n_iter);
+
+  raft::cluster::kmeans_fit<float, int>(
+    handle, params, X_view, sw, centroids_view, inertia_view, n_iter_view);
 }
 
 void fit(const raft::handle_t& handle,
-         const KMeansParams& params,
+         const raft::cluster::KMeansParams& params,
          const double* X,
          int n_samples,
          int n_features,
@@ -78,13 +107,22 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int& n_iter)
 {
-  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const double>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(raft::make_device_vector_view(sample_weight, n_samples));
+  auto centroids_view = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto inertia_view   = raft::make_host_scalar_view(&inertia);
+  auto n_iter_view    = raft::make_host_scalar_view(&n_iter);
+
+  raft::cluster::kmeans_fit<double, int>(
+    handle, params, X_view, sw, centroids_view, inertia_view, n_iter_view);
 }
 
 // ----------------------------- predict ---------------------------------//
 
 void predict(const raft::handle_t& handle,
-             const KMeansParams& params,
+             const raft::cluster::KMeansParams& params,
              const float* centroids,
              const float* X,
              int n_samples,
@@ -94,20 +132,20 @@ void predict(const raft::handle_t& handle,
              int* labels,
              float& inertia)
 {
-  impl::predict(handle,
-                params,
-                centroids,
-                X,
-                n_samples,
-                n_features,
-                sample_weight,
-                normalize_weights,
-                labels,
-                inertia);
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const float>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(raft::make_device_vector_view(sample_weight, n_samples));
+  auto centroids_view = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto rLabels        = raft::make_device_vector_view(labels, n_samples);
+  auto inertia_view   = raft::make_host_scalar_view(&inertia);
+
+  raft::cluster::kmeans_predict<float, int>(
+    handle, params, X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
 }
 
 void predict(const raft::handle_t& handle,
-             const KMeansParams& params,
+             const raft::cluster::KMeansParams& params,
              const double* centroids,
              const double* X,
              int n_samples,
@@ -117,41 +155,47 @@ void predict(const raft::handle_t& handle,
              int* labels,
              double& inertia)
 {
-  impl::predict(handle,
-                params,
-                centroids,
-                X,
-                n_samples,
-                n_features,
-                sample_weight,
-                normalize_weights,
-                labels,
-                inertia);
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const double>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(raft::make_device_vector_view(sample_weight, n_samples));
+  auto centroids_view = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto rLabels        = raft::make_device_vector_view(labels, n_samples);
+  auto inertia_view   = raft::make_host_scalar_view(&inertia);
+
+  raft::cluster::kmeans_predict<double, int>(
+    handle, params, X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
 }
 
 // ----------------------------- transform ---------------------------------//
 void transform(const raft::handle_t& handle,
-               const KMeansParams& params,
+               const raft::cluster::KMeansParams& params,
                const float* centroids,
                const float* X,
                int n_samples,
                int n_features,
-               int metric,
                float* X_new)
 {
-  impl::transform(handle, params, centroids, X, n_samples, n_features, metric, X_new);
+  auto X_view         = raft::make_device_matrix_view(X, n_samples, n_features);
+  auto centroids_view = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto rX_new         = raft::make_device_matrix_view(X_new, n_samples, n_features);
+
+  raft::cluster::kmeans_transform<float, int>(handle, params, X_view, centroids_view, rX_new);
 }
 
 void transform(const raft::handle_t& handle,
-               const KMeansParams& params,
+               const raft::cluster::KMeansParams& params,
                const double* centroids,
                const double* X,
                int n_samples,
                int n_features,
-               int metric,
                double* X_new)
 {
-  impl::transform(handle, params, centroids, X, n_samples, n_features, metric, X_new);
+  auto X_view         = raft::make_device_matrix_view(X, n_samples, n_features);
+  auto centroids_view = raft::make_device_matrix_view(centroids, params.n_clusters, n_features);
+  auto rX_new         = raft::make_device_matrix_view(X_new, n_samples, n_features);
+
+  raft::cluster::kmeans_transform<double, int>(handle, params, X_view, centroids_view, rX_new);
 }
 
 };  // end namespace kmeans
