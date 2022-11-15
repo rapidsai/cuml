@@ -43,7 +43,6 @@ class Base(originalBase):
     Experimental base class to implement CPU/GPU interoperability.
     """
 
->>>>>>> cpu-gpu-interop-models:python/cuml/experimental/common/base.pyx
     def dispatch_func(self, func_name, *args, **kwargs):
         """
         This function will dispatch calls to training and inference according

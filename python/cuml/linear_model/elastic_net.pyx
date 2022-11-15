@@ -29,7 +29,7 @@ from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import device_interop_preparation
 
 
-class ElasticNet(Base,
+class ElasticNet(UniversalBase,
                  LinearPredictMixin,
                  RegressorMixin,
                  FMajorInputTagMixin):
