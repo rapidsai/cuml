@@ -22,6 +22,7 @@ import warnings
 
 import rmm
 
+from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -122,14 +123,15 @@ class KMeansMG(KMeans):
         cdef float inertiaf = 0
         cdef double inertiad = 0
 
-        cdef KMeansParams params = self._params
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
         cdef int n_iter = 0
 
         if self.dtype == np.float32:
             with nogil:
                 fit(
                     handle_[0],
-                    <KMeansParams> params,
+                    <KMeansParams> deref(params),
                     <const float*> input_ptr,
                     <size_t> n_rows,
                     <size_t> n_cols,
@@ -144,7 +146,7 @@ class KMeansMG(KMeans):
             with nogil:
                 fit(
                     handle_[0],
-                    <KMeansParams> params,
+                    <KMeansParams> deref(params),
                     <const double*> input_ptr,
                     <size_t> n_rows,
                     <size_t> n_cols,
@@ -163,5 +165,6 @@ class KMeansMG(KMeans):
         self.handle.sync()
 
         del(X_m)
+        free(params)
 
         return self

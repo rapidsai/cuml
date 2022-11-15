@@ -4,21 +4,21 @@
 
 To install cuML from source, ensure the following dependencies are met:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.8)
+1. [cuDF](https://github.com/rapidsai/cudf) (Same as cuML Version)
 2. zlib
-3. cmake (>= 3.14)
-4. CUDA (>= 9.2)
+3. cmake (>= 3.23.1)
+4. CUDA (>= 11+)
 5. Cython (>= 0.29)
-6. gcc (>=7.5.0)
+6. gcc (>= 9.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-8. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+8. clang-format (= 11.1.0) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
 It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example to create an environment named `cuml_dev` for CUDA 10.2 and Python 3.7, you can use the follow command:
 
 ```bash
-conda create -n cuml_dev python=3.7
+conda create -n cuml_dev python=3.8
 conda activate cuml_dev
 conda env update --file=conda/environments/cuml_dev_cuda11.2.yml
 ```
@@ -65,8 +65,6 @@ By default, Ninja is used as the cmake generator. To override this and use (e.g.
 ```bash
 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
-
-Note. If you are using GCC 7.5, make sure to read [RDN 0002: updates to from-source builds with conda for gcc '7.5.0'](https://docs.rapids.ai/notices/rdn0002/).
 
 To run the C++ unit tests (optional), from the repo root:
 
