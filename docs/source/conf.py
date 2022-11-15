@@ -50,6 +50,7 @@ extensions = [
     "nbsphinx",
     "recommonmark",
     "sphinx_markdown_tables",
+    "sphinx_copybutton"
 ]
 
 ipython_mplbackend = "str"
@@ -114,7 +115,7 @@ html_theme = 'pydata_sphinx_theme'
 # documentation.
 #
 html_theme_options = {
-        "external_links": [],
+    "external_links": [],
     "github_url": "https://github.com/rapidsai/cuml",
     "twitter_url": "https://twitter.com/rapidsai",
     "show_toc_level": 1,

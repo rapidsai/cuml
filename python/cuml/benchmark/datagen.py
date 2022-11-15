@@ -364,7 +364,7 @@ def gen_data(
     test_fraction : float
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
-    
+
     Returns
     -------
         (train_features, train_labels, test_features, test_labels) tuple
