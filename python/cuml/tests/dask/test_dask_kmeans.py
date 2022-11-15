@@ -93,6 +93,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
     assert 1.0 == score
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize('nrows', [500])
 @pytest.mark.parametrize('ncols', [5])
 @pytest.mark.parametrize('nclusters', [3, 10])

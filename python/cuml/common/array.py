@@ -349,18 +349,14 @@ class CumlArray(Buffer):
         frames = [CumlArray(f) for f in frames]
         return header, frames
 
-    @nvtx.annotate(message="common.CumlArray.copy", category="utils",
+    @classmethod
+    @nvtx.annotate(message="common.CumlArray.deserialize", category="utils",
                    domain="cuml_python")
-    def copy(self) -> Buffer:
-        """
-        Create a new Buffer containing a copy of the data contained
-        in this Buffer.
-        """
-        from rmm._lib.device_buffer import copy_device_to_ptr
-
-        out = Buffer.empty(size=self.size)
-        copy_device_to_ptr(self.ptr, out.ptr, self.size)
-        return out
+    def deserialize(cls, header, frames):
+        assert (
+            header["frame_count"] == 1
+        ), "Only expecting to deserialize Buffer with a single frame."
+        return cls(frames[0], **header["constructor-kwargs"])
 
     @nvtx.annotate(message="common.CumlArray.to_host_array", category="utils",
                    domain="cuml_python")

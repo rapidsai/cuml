@@ -56,7 +56,6 @@ option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
-option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
@@ -72,6 +71,7 @@ option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and librari
 option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
+option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 
 message(VERBOSE "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -80,7 +80,6 @@ message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_
 message(VERBOSE "CUML_CPP: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
 message(VERBOSE "CUML_CPP: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
 message(VERBOSE "CUML_CPP: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
-message(VERBOSE "CUML_CPP: Building ml-prims C++ benchmark tests: ${BUILD_CUML_PRIMS_BENCH}")
 message(VERBOSE "CUML_CPP: Building the standard NCCL+UCX Communicator: ${BUILD_CUML_STD_COMMS}")
 message(VERBOSE "CUML_CPP: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}")
 message(VERBOSE "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -244,8 +243,9 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
-  include(cmake/thirdparty/get_gbench.cmake)
+if(BUILD_CUML_BENCH)
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench()
 endif()
 
 ##############################################################################
@@ -692,7 +692,7 @@ rapids_export(BUILD cuml
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
 
-if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
+if(BUILD_CUML_BENCH)
   add_subdirectory(bench)
 endif()
 

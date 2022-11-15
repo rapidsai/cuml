@@ -38,6 +38,12 @@ export UCX_PY_VERSION='0.29.*'
 # configure numba threading library
 export NUMBA_THREADING_LAYER=workqueue
 
+# Whether to install dask nightly or stable packages
+export INSTALL_DASK_MAIN=1
+
+# Dask version to install when `INSTALL_DASK_MAIN=0`
+export DASK_STABLE_VERSION="2022.9.2"
+
 ################################################################################
 # SETUP - Check environment
 ################################################################################
@@ -67,7 +73,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${UCX_PY_VERSION}" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.6.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.6.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "shap>=0.37,<=0.39"
@@ -90,6 +96,21 @@ gpuci_logger "Check conda environment"
 conda info
 conda config --show-sources
 conda list --show-channel-urls
+
+function install_dask {
+    # Install the conda-forge or nightly version of dask and distributed
+    gpuci_logger "Install the conda-forge or nightly version of dask and distributed"
+    set -x
+    if [[ "${INSTALL_DASK_MAIN}" == 1 ]]; then
+        gpuci_logger "gpuci_mamba_retry install -c dask/label/dev 'dask/label/dev::dask' 'dask/label/dev::distributed'"
+        gpuci_mamba_retry install -c dask/label/dev "dask/label/dev::dask" "dask/label/dev::distributed"
+        conda list
+    else
+        gpuci_logger "gpuci_mamba_retry install conda-forge::dask=={$DASK_STABLE_VERSION} conda-forge::distributed=={$DASK_STABLE_VERSION} conda-forge::dask-core=={$DASK_STABLE_VERSION} --force-reinstall"
+        gpuci_mamba_retry install conda-forge::dask=={$DASK_STABLE_VERSION} conda-forge::distributed=={$DASK_STABLE_VERSION} conda-forge::dask-core=={$DASK_STABLE_VERSION} --force-reinstall
+    fi
+    set +x
+}
 
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Building doxygen C++ docs"
@@ -123,10 +144,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
     export LD_LIBRARY_PATH_CACHED=""
 
-    gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2022.9.2" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.9.2" --upgrade --no-deps
+    install_dask
     pip install "git+https://github.com/hdbscan/hdbscan.git@master" --force-reinstall --upgrade --no-deps
     set +x
 
@@ -196,11 +215,9 @@ else
     gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_ARTIFACT_PATH} --python=${PYTHON}
     gpuci_mamba_retry install cuml -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}"
 
-    gpuci_logger "Install the main version of dask, distributed, and dask-glm"
     set -x
 
-    pip install "git+https://github.com/dask/distributed.git@2022.9.2" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2022.9.2" --upgrade --no-deps
+    install_dask
     pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
     pip install "git+https://github.com/scikit-learn-contrib/hdbscan.git@master" --force-reinstall --upgrade --no-deps
     pip install sparse

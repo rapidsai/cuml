@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/scores.cuh>
+#include <raft/stats/accuracy.hpp>
 
 namespace ML {
 
@@ -27,7 +27,7 @@ float accuracy_score_py(const raft::handle_t& handle,
                         const int* ref_predictions,
                         int n)
 {
-  return MLCommon::Score::accuracy_score(predictions, ref_predictions, n, handle.get_stream());
+  return raft::stats::accuracy(predictions, ref_predictions, n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

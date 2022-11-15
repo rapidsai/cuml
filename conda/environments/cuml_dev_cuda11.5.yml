@@ -1,12 +1,13 @@
 name: cuml_dev
 channels:
 - rapidsai
-- nvidia
 - rapidsai-nightly
+- dask/label/dev
 - conda-forge
+- nvidia
 dependencies:
 - cudatoolkit=11.5
-- cuda-python >=11.5,<11.7.1
+- cuda-python >=11.7.1,<12.0
 - rapids-build-env=22.12.*
 - rapids-notebook-env=22.12.*
 - rapids-doc-env=22.12.*
@@ -17,10 +18,12 @@ dependencies:
 - libraft-headers=22.12.*
 - libraft-distance=22.12.*
 - libraft-nn=22.12.*
-- raft-dask=22.10.*
-- pylibraft=22.10.*
+- raft-dask=22.12.*
+- pylibraft=22.12.*
 - dask-cudf=22.12.*
 - dask-cuda=22.12.*
+- dask>=2022.9.2
+- distributed>=2022.9.2
 - ucx>=1.13.0
 - ucx-py=0.29.*
 - ucx-proc=*=gpu
@@ -37,8 +40,6 @@ dependencies:
 - nltk
 - pip
 - pip:
-    - git+https://github.com/dask/dask.git@2022.9.2
-    - git+https://github.com/dask/distributed.git@2022.9.2
     - git+https://github.com/dask/dask-glm@main
     - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
     - sparse

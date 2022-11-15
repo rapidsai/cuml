@@ -32,6 +32,7 @@ project(
 # - User Options  --------------------------------------------------------------
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
@@ -73,6 +74,7 @@ else()
   set(cuml_FOUND OFF)
 endif()
 
+include(rapids-cython)
 
 if(NOT cuml_FOUND)
   # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
@@ -94,7 +96,8 @@ if(NOT cuml_FOUND)
   message(STATUS "installing packages")
   add_subdirectory(../cpp cuml-cpp)
 
-  install(TARGETS ${CUML_CPP_TARGET} DESTINATION cuml/library)
+  set(cython_lib_dir cuml)
+  install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
@@ -107,7 +110,6 @@ if(NOT SINGLEGPU)
   )
 endif()
 
-include(rapids-cython)
 rapids_cython_init()
 
 add_subdirectory(cuml/common)
@@ -130,5 +132,9 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
+add_subdirectory(cuml/experimental/common)
 add_subdirectory(cuml/experimental/linear_model)
 
+if(DEFINED cython_lib_dir)
+  rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")
+endif()
