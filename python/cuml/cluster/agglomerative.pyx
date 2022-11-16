@@ -124,7 +124,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
            automatically in the event "n_neighbors" was not large enough
            to connect it.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.

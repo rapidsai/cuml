@@ -132,7 +132,7 @@ class KernelRidge(Base, RegressorMixin):
     kernel_params : mapping of str to any, default=None
         Additional parameters (keyword arguments) for kernel function passed
         as callable object.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.

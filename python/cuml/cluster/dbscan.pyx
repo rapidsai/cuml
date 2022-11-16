@@ -166,7 +166,7 @@ class DBSCAN(Base,
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.

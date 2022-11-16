@@ -295,7 +295,7 @@ class GaussianNB(_BaseNB):
     var_smoothing : float, default=1e-9
         Portion of the largest variance of all features that is added to
         variances for calculation stability.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
@@ -995,7 +995,7 @@ class MultinomialNB(_BaseDiscreteNB):
     class_prior : array-like, size (n_classes) (default=None)
         Prior probabilities of the classes. If specified, the priors are
         not adjusted according to the data.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
@@ -1133,7 +1133,7 @@ class BernoulliNB(_BaseDiscreteNB):
     class_prior : array-like of shape (n_classes,), default=None
         Prior probabilities of the classes. If specified the priors are not
         adjusted according to the data.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
@@ -1284,7 +1284,7 @@ class ComplementNB(_BaseDiscreteNB):
         The default behavior mirrors the implementation found in Mahout and
         Weka, which do not follow the full algorithm described in Table 9 of
         the paper.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
@@ -1430,7 +1430,7 @@ class CategoricalNB(_BaseDiscreteNB):
     class_prior : array-like of shape (n_classes,), default=None
         Prior probabilities of the classes. If specified the priors are not
         adjusted according to the data.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.

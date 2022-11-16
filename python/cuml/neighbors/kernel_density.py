@@ -164,7 +164,7 @@ class KernelDensity(Base):
     metric_params : dict, default=None
         Additional parameters to be passed to the tree for use with the
         metric.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.

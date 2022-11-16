@@ -152,7 +152,7 @@ class SVMBase(Base,
         epsilon parameter of the epsiron-SVR model. There is no penalty
         associated to points that are predicted within the epsilon-tube
         around the target values.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
