@@ -25,7 +25,6 @@ from cuml.internals.api_decorators import (
     api_base_return_any,
     api_base_return_array_skipall,
     api_base_return_array,
-    api_base_return_autoarray,
     api_base_return_generic_skipall,
     api_base_return_generic,
     api_base_return_sparse_array,

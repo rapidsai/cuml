@@ -524,7 +524,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @cuml.internals.api_base_return_autoarray(input_arg=None)
+    @cuml.internals.api_base_return_generic(input_arg=None)
     def get_fit_params(self) -> Dict[str, CumlArray]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -598,7 +598,7 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @cuml.internals.api_base_return_autoarray(input_arg=None)
+    @cuml.internals.api_base_return_generic(input_arg=None)
     def predict(
         self,
         start=0,

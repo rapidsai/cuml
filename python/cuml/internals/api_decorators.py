@@ -713,28 +713,6 @@ def mirror_args(
     return wraps(wrapped=wrapped, assigned=assigned, updated=updated)
 
 
-@mirror_args(BaseReturnArrayDecorator)
-def api_base_return_autoarray(*args, **kwargs):
-    def inner(func: _DecoratorType) -> _DecoratorType:
-        # Determine the array return type and choose
-        return_type = _get_base_return_type(None, func)
-
-        if (return_type == "generic"):
-            func = api_base_return_generic(*args, **kwargs)(func)
-        elif (return_type == "array"):
-            func = api_base_return_array(*args, **kwargs)(func)
-        elif (return_type == "sparsearray"):
-            func = api_base_return_sparse_array(*args, **kwargs)(func)
-        elif (return_type == "base"):
-            assert False, \
-                ("Must use api_base_return_autoarray decorator on function "
-                 "that returns some array")
-
-        return func
-
-    return inner
-
-
 class _deprecate_pos_args:
     """
     Decorator that issues a warning when using positional args that should be

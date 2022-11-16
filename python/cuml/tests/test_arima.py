@@ -481,14 +481,17 @@ def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
             ref_upper[:, i] = ci["mean_ci_upper"].to_numpy()
     # cuML
     if num_steps is None:
+        print('PREDICT')
         cuml_pred = cuml_model.predict(
             start, end,
             exog=None if data.n_exog == 0 or end <= data.n_train
             else exog_fut_cudf)
     elif level is not None:
+        print('FORECAST')
         cuml_pred, cuml_lower, cuml_upper = \
             cuml_model.forecast(num_steps, level, exog=exog_fut_cudf)
     else:
+        print('FORECAST2')
         cuml_pred = cuml_model.forecast(num_steps, exog=exog_fut_cudf)
 
     # Compare results
