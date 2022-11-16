@@ -318,7 +318,7 @@ class NearestNeighbors(Base,
                  metric="euclidean",
                  p=2,
                  algo_params=None,
-                 metric_params={},
+                 metric_params=None,
                  output_type=None,
                  **kwargs):
 
@@ -329,7 +329,7 @@ class NearestNeighbors(Base,
         self.n_neighbors = n_neighbors
         self.n_indices = 0
         self.effective_metric_ = metric
-        self.effective_metric_params_ = metric_params
+        self.effective_metric_params_ = metric_params if metric_params else {}
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
@@ -542,13 +542,13 @@ class NearestNeighbors(Base,
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        return self.__kneighbors(X, n_neighbors, return_distance,
-                                 convert_dtype,
-                                 two_pass_precision=two_pass_precision)
+        return self._kneighbors_internal(X, n_neighbors, return_distance,
+                                         convert_dtype,
+                                         two_pass_precision=two_pass_precision)
 
-    def __kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                     convert_dtype=True, _output_type=None,
-                     two_pass_precision=False):
+    def _kneighbors_internal(self, X=None, n_neighbors=None,
+                             return_distance=True, convert_dtype=True,
+                             _output_type=None, two_pass_precision=False):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -873,16 +873,16 @@ class NearestNeighbors(Base,
             n_neighbors = self.n_neighbors
 
         if mode == 'connectivity':
-            indices = self.__kneighbors(X, n_neighbors,
-                                        return_distance=False,
-                                        _output_type="cupy")
+            indices = self._kneighbors_internal(X, n_neighbors,
+                                                return_distance=False,
+                                                _output_type="cupy")
 
             n_samples = indices.shape[0]
             distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
 
         elif mode == 'distance':
-            distances, indices = self.__kneighbors(X, n_neighbors,
-                                                   _output_type="cupy")
+            distances, indices = self._kneighbors_internal(X, n_neighbors,
+                                                           _output_type="cupy")
             distances = cp.ravel(distances)
 
         else:

@@ -35,7 +35,6 @@ import cudf
 import cuml
 from cuml.common.input_utils import input_to_cuml_array, is_array_like
 from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
 import pytest
 
 
@@ -314,7 +313,7 @@ class ClassEnumerator:
             for name,
             cls in classes
             if cls not in self.exclude_classes and
-            issubclass(cls, (Base, experimentalBase))
+            issubclass(cls, Base)
         }
         models.update(self.custom_constructors)
         return models
