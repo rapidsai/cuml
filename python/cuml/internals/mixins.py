@@ -224,7 +224,7 @@ class RegressorMixin:
             'description': 'R^2 of self.predict(X) '
                            'wrt. y.'
         })
-    @cuml.internals.api_base_return_any_skipall
+    @api_base_return_any_skipall
     def _score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -291,7 +291,7 @@ class ClassifierMixin:
             'description': ('Accuracy of self.predict(X) wrt. y '
                             '(fraction where y == pred_y)')
         })
-    @cuml.internals.api_base_return_any_skipall
+    @api_base_return_any_skipall
     def _score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

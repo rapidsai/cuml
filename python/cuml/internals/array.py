@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-# TODO(wphicks): Handle serialization
 
 import copy
 import operator
@@ -156,9 +155,8 @@ class CumlArray():
 
         self._index = index
         if mem_type is not None:
-            self._mem_type = MemoryType.from_str(mem_type)
-        else:
-            self._mem_type = mem_type
+            mem_type = MemoryType.from_str(mem_type)
+        self._mem_type = mem_type
 
         # Coerce data into an array interface and determine mem_type and owner
         # if necessary
@@ -275,6 +273,12 @@ class CumlArray():
                 )
             mem_type = self._mem_type
 
+        if self._array_interface['strides'] is None:
+            try:
+                self._array_interface['strides'] = data.strides
+            except AttributeError:
+                self._array_interface['strides'] = strides
+
         array_strides = self._array_interface['strides']
         if array_strides is not None:
             array_strides = host_xpy.array(array_strides)
@@ -341,12 +345,19 @@ class CumlArray():
                     host_xpy.array(self._array_interface['shape']),
                     shape_arr
                 ):
+                    import pdb
+                    pdb.set_trace()
                     raise ValueError(
                         'Specified shape inconsistent with input data object'
                     )
-            if strides is not None and not host_xpy.array_equal(
+            if (
+                strides is not None and
+                self._array_interface['strides'] is not None
+                and not host_xpy.array_equal(
                     host_xpy.array(self._array_interface['strides']),
-                    host_xpy.array(strides)):
+                    host_xpy.array(strides)
+                )
+            ):
                 raise ValueError(
                     'Specified strides inconsistent with input data object'
                 )
@@ -379,7 +390,7 @@ class CumlArray():
     def size(self):
         return host_xpy.product(
             self._array_interface['shape']
-        ) * host_xpy.dtype(self._array_interface['typestr'])
+        ) * host_xpy.dtype(self._array_interface['typestr']).itemsize
 
     @property
     def order(self):
@@ -559,16 +570,21 @@ class CumlArray():
         if output_type == 'array':
             if output_mem_type == MemoryType.host:
                 if self._mem_type == MemoryType.host:
-                    return np.asarray(self, dtype=output_dtype)
+                    return np.asarray(
+                        self, dtype=output_dtype, order=self.order
+                    )
                 return cp.asnumpy(
-                    cp.asarray(self, dtype=output_dtype, order=self.order)
+                    cp.asarray(self, dtype=output_dtype, order=self.order),
+                    order=self.order
                 )
             return output_mem_type.xpy.asarray(
-                self, dtype=output_dtype
+                self, dtype=output_dtype, order=self.order
             )
 
         elif output_type == 'numba':
-            return cuda.as_cuda_array(cp.asarray(self, dtype=output_dtype))
+            return cuda.as_cuda_array(cp.asarray(
+                self, dtype=output_dtype, order=self.order)
+            )
         elif output_type == 'series':
             if len(self.shape) == 2 and self.shape[1] == 1:
                 arr = CumlArray(self, shape=(self.shape[0],))
@@ -620,63 +636,54 @@ class CumlArray():
     @nvtx_annotate(message="common.CumlArray.host_serialize", category="utils",
                    domain="cuml_python")
     def host_serialize(self):
-        header, frames = self.device_serialize()
-        header["writeable"] = len(frames) * (None,)
-        frames = [
-            f.to_host_array().data if c else memoryview(f)
-            for c, f in zip(header["is-cuda"], frames)
-        ]
-        return header, frames
+        mem_type = (
+            self.mem_type if self.mem_type.is_host_accessible else
+            MemoryType.host
+        )
+        return self.serialize(mem_type=mem_type)
 
     @classmethod
     def host_deserialize(cls, header, frames):
-        frames = [
-            rmm.DeviceBuffer.to_device(f) if c else f
-            for c, f in zip(header["is-cuda"], map(memoryview, frames))
-        ]
-        obj = cls.device_deserialize(header, frames)
+        typ = pickle.loads(header["type-serialized"])
+        assert all(not is_cuda for is_cuda in header['is-cuda'])
+        obj = typ.deserialize(header, frames)
         return obj
 
+    @nvtx_annotate(message="common.CumlArray.device_serialize", category="utils",
+                   domain="cuml_python")
     def device_serialize(self):
-        header, frames = self.serialize()
-        assert all(
-            isinstance(f, (CumlArray, memoryview))
-            for f in frames
+        mem_type = (
+            self.mem_type if self.mem_type.is_device_accessible else
+            MemoryType.device
         )
-        header["type-serialized"] = pickle.dumps(type(self))
-        header["is-cuda"] = [
-            hasattr(f, "__cuda_array_interface__") for f in frames
-        ]
-        header["lengths"] = [f.nbytes for f in frames]
-        return header, frames
+        return self.serialize(mem_type=mem_type)
 
     @classmethod
     def device_deserialize(cls, header, frames):
         typ = pickle.loads(header["type-serialized"])
-        frames = [
-            CumlArray(f) if c else memoryview(f)
-            for c, f in zip(header["is-cuda"], frames)
-        ]
-        assert all(
-            (isinstance(f._owner, rmm.DeviceBuffer))
-            if c
-            else (isinstance(f, memoryview))
-            for c, f in zip(header["is-cuda"], frames)
-        )
+        assert all(is_cuda for is_cuda in header['is-cuda'])
         obj = typ.deserialize(header, frames)
-
         return obj
 
     @nvtx_annotate(message="common.CumlArray.serialize", category="utils",
                    domain="cuml_python")
-    def serialize(self) -> Tuple[dict, list]:
-        header, frames = super().serialize()
-        header["constructor-kwargs"] = {
-            "dtype": self.dtype.str,
-            "shape": self.shape,
-            "order": self.order,
+    def serialize(self, mem_type=None) -> Tuple[dict, list]:
+        mem_type = self.mem_type if mem_type is None else mem_type
+        header = {
+            'type-serialized': pickle.dumps(type(self)),
+            'constructor-kwargs': {
+                'dtype': self.dtype.str,
+                'shape': self.shape,
+                'strides': self.strides,
+                'order': self.order,
+                'mem_type': mem_type.name
+            },
+            'desc': self._array_interface,
+            'frame_count': 1,
+            'is-cuda': [mem_type.is_device_accessible],
+            'lengths': [self.size]
         }
-        frames = [CumlArray(f) for f in frames]
+        frames = [self.to_output('array', output_mem_type=mem_type)]
         return header, frames
 
     @classmethod
@@ -684,43 +691,41 @@ class CumlArray():
         assert (
             header["frame_count"] == 1
         ), "Only expecting to deserialize CumlArray with a single frame."
-        ary = cls(frames[0], **header["constructor-kwargs"])
+        ary = cls(data=frames[0], **header["constructor-kwargs"])
 
-        if header["desc"]["shape"] != ary.__cuda_array_interface__["shape"]:
+        if header["desc"]["shape"] != ary._array_interface["shape"]:
             raise ValueError(
                 f"Received a `Buffer` with the wrong size."
                 f" Expected {header['desc']['shape']}, "
-                f"but got {ary.__cuda_array_interface__['shape']}"
+                f"but got {ary._array_interface['shape']}"
             )
 
         return ary
 
     def __reduce_ex__(self, protocol):
         header, frames = self.host_serialize()
-        frames = [f.obj for f in frames]
         return self.host_deserialize, (header, frames)
 
-    @nvtx_annotate(message="common.CumlArray.copy", category="utils",
+    @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
                    domain="cuml_python")
-    def copy(self) -> CudfBuffer:
-        """
-        Create a new Buffer containing a copy of the data contained
-        in this Buffer.
-        """
-        from rmm._lib.device_buffer import copy_device_to_ptr
-        # TODO(wphicks): Generalize this for host/device
-
-        out = CudfBuffer.empty(size=self.size)
-        copy_device_to_ptr(self.ptr, out.ptr, self.size)
-        return out
+    def to_mem_type(self, mem_type):
+        return self.__class__(
+            data=self.to_output('array', output_mem_type=mem_type),
+            index=self.index,
+            order=self.order,
+            mem_type=MemoryType.from_str(mem_type),
+            validate=False
+        )
 
     @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
                    domain="cuml_python")
     def to_host_array(self):
-        # TODO(wphicks): Streamline this and generalize
-        data = np.empty((self.size,), "u1")
-        rmm._lib.device_buffer.copy_ptr_to_host(self.ptr, data)
-        return data
+        return self.to_output('numpy')
+
+    @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
+                   domain="cuml_python")
+    def to_device_array(self):
+        return self.to_output('cupy')
 
     @classmethod
     @nvtx_annotate(message="common.CumlArray.empty", category="utils",
