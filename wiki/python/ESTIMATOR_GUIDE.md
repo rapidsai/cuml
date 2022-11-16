@@ -56,13 +56,13 @@ At a high level, all cuML Estimators must:
          super().__init__(handle=handle, verbose=verbose, output_type=output_type)
          ...
    ```
-4. Declare each array-like attribute the new Estimator will compute as a class variable for automatic array type conversion
+4. Declare each array-like attribute the new Estimator will compute as a class variable for automatic array type conversion. An order can be specified to serve as an indicator of the order the array should be in for the C++ algorithms to work.
    ```python
    from cuml.common.array_descriptor import CumlArrayDescriptor
 
    class MyEstimator(Base):
 
-      labels_ = CumlArrayDescriptor()
+      labels_ = CumlArrayDescriptor(order='C')
 
       def __init__(self):
          ...
@@ -248,7 +248,7 @@ Performing the arrray conversion lazily (i.e. converting the input array to the 
 
 #### Defining Array-Like Attributes
 
-To use the `CumlArrayDescriptor` in an estimator, any array-like attributes need to be specified by creating a `CumlArrayDescriptor` as a class variable.
+To use the `CumlArrayDescriptor` in an estimator, any array-like attributes need to be specified by creating a `CumlArrayDescriptor` as a class variable. An order can be specified to serve as an indicator of the order the array should be in for the C++ algorithms to work.
 
 ```python
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -256,7 +256,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 class TestEstimator(cuml.Base):
 
    # Class variables outside of any function
-   my_cuml_array_ = CumlArrayDescriptor()
+   my_cuml_array_ = CumlArrayDescriptor(order='C')
 
    def __init__(self, ...):
       ...

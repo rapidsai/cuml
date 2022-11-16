@@ -23,9 +23,8 @@ from collections.abc import Iterable
 
 from cuml.dask.common.utils import get_client
 
-from cuml import Base
+from cuml import Base, UniversalBase
 from cuml.internals.array import CumlArray
-from cuml.experimental.internals.base import Base as experimentalBase
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -130,12 +129,11 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
             if model.type is None:
                 wait_and_raise_from_futures([model])
 
-            if not issubclass(model.type, (Base, experimentalBase)):
+            if not issubclass(model.type, Base):
                 raise ValueError("Dask Future expected to contain cuml.Base "
                                  "but found %s instead." % model.type)
 
-        elif (model is not None and
-              not isinstance(model, (Base, experimentalBase))):
+        elif model is not None and not isinstance(model, Base):
             raise ValueError("Expected model of type cuml.Base but found %s "
                              "instead." % type(model))
         return model
@@ -193,7 +191,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         # have it on the distributed model.
         internal_model = self._get_internal_model()
         if ret_attr is None and internal_model is not None:
-            if isinstance(internal_model, (Base, experimentalBase)):
+            if isinstance(internal_model, Base):
                 # If model is not distributed, just return the
                 # requested attribute
                 ret_attr = getattr(internal_model, attr)

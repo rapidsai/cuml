@@ -656,19 +656,6 @@ class QN(Base,
         coefs = self.coef_
         dtype = coefs.dtype
         _num_classes_dim, n_cols = coefs.shape
-        solves_classification = self.loss in {
-            qn_loss_type.QN_LOSS_LOGISTIC,
-            qn_loss_type.QN_LOSS_SOFTMAX,
-            qn_loss_type.QN_LOSS_SVC_L1,
-            qn_loss_type.QN_LOSS_SVC_L2
-        }
-        solves_multiclass = self.loss in {
-            qn_loss_type.QN_LOSS_SOFTMAX
-        }
-        if solves_classification and not solves_multiclass:
-            _num_classes = _num_classes_dim + 1
-        else:
-            _num_classes = _num_classes_dim
 
         sparse_input = is_sparse(X)
         # Handle sparse inputs
@@ -717,6 +704,7 @@ class QN(Base,
                 penalty_normalized=self.penalty_normalized
             )
 
+        _num_classes = self.get_num_classes(_num_classes_dim)
         cdef qn_params qnpams = self.qnparams.params
         if dtype == np.float32:
             if sparse_input:
@@ -794,10 +782,8 @@ class QN(Base,
         """
         coefs = self.coef_
         dtype = coefs.dtype
-        _num_classes, n_cols = coefs.shape
-        # binary case
-        if _num_classes == 1:
-            _num_classes = 2
+        _num_classes_dim, n_cols = coefs.shape
+
         sparse_input = is_sparse(X)
 
         # Handle sparse inputs
@@ -829,21 +815,23 @@ class QN(Base,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.qnparams = QNParams(
-            loss=self.loss,
-            penalty_l1=self.l1_strength,
-            penalty_l2=self.l2_strength,
-            grad_tol=self.tol,
-            change_tol=self.delta
-            if self.delta is not None else (self.tol * 0.01),
-            max_iter=self.max_iter,
-            linesearch_max_iter=self.linesearch_max_iter,
-            lbfgs_memory=self.lbfgs_memory,
-            verbose=self.verbose,
-            fit_intercept=self.fit_intercept,
-            penalty_normalized=self.penalty_normalized
-        )
+        if not hasattr(self, 'qnparams'):
+            self.qnparams = QNParams(
+                loss=self.loss,
+                penalty_l1=self.l1_strength,
+                penalty_l2=self.l2_strength,
+                grad_tol=self.tol,
+                change_tol=self.delta
+                if self.delta is not None else (self.tol * 0.01),
+                max_iter=self.max_iter,
+                linesearch_max_iter=self.linesearch_max_iter,
+                lbfgs_memory=self.lbfgs_memory,
+                verbose=self.verbose,
+                fit_intercept=self.fit_intercept,
+                penalty_normalized=self.penalty_normalized
+            )
 
+        _num_classes = self.get_num_classes(_num_classes_dim)
         cdef qn_params qnpams = self.qnparams.params
         if dtype == np.float32:
             if sparse_input:
@@ -907,6 +895,27 @@ class QN(Base,
 
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))
+
+    def get_num_classes(self, _num_classes_dim):
+        """
+        Retrieves the number of classes from the classes dimension
+        in the coefficients.
+        """
+        cdef qn_params qnpams = self.qnparams.params
+        solves_classification = qnpams.loss in {
+            qn_loss_type.QN_LOSS_LOGISTIC,
+            qn_loss_type.QN_LOSS_SOFTMAX,
+            qn_loss_type.QN_LOSS_SVC_L1,
+            qn_loss_type.QN_LOSS_SVC_L2
+        }
+        solves_multiclass = qnpams.loss in {
+            qn_loss_type.QN_LOSS_SOFTMAX
+        }
+        if solves_classification and not solves_multiclass:
+            _num_classes = _num_classes_dim + 1
+        else:
+            _num_classes = _num_classes_dim
+        return _num_classes
 
     def _calc_intercept(self):
         """
