@@ -179,10 +179,14 @@ class CumlArray():
                 if isinstance(data, (CudfBuffer, DeviceBuffer)):
                     self._mem_type = MemoryType.device
                 elif mem_type is None:
-                    raise ValueError(
-                        'Must specify mem_type when data is passed as a'
-                        ' {}'.format(type(data))
-                    )
+                    if global_settings.memory_type in (
+                        None, MemoryType.mirror
+                    ):
+                        raise ValueError(
+                            'Must specify mem_type when data is passed as a'
+                            ' {}'.format(type(data))
+                        )
+                    self._mem_type = global_settings.memory_type
 
                 try:
                     data = data.ptr
