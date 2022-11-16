@@ -35,7 +35,7 @@ class MemoryTypeError(Exception):
 
 
 class MemoryType(Enum):
-    device = auto(),
+    device = auto()
     host = auto()
     managed = auto()
     mirror = auto()

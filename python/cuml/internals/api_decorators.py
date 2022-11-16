@@ -41,7 +41,7 @@ from cuml.internals.base_return_types import _get_base_return_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import global_settings
 from cuml.internals.memory_utils import using_output_type
-from cuml.internals.logger import logger
+from cuml.internals import logger
 
 CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
 
