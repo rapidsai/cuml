@@ -97,10 +97,10 @@ class LinearSVR(LinearSVM, RegressorMixin):
     epsilon : {LinearSVM_defaults.epsilon.__class__.__name__ \
             } (default = {LinearSVM_defaults.epsilon})
         The epsilon-sensitivity parameter for the SVR loss function.
-    output_type : {{'input', 'cudf', 'cupy', 'numpy', 'numba'}}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
+    output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
