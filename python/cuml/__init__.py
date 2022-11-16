@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.internals.base import Base
+from cuml.internals.base import Base, UniversalBase
 from cuml.internals.global_settings import has_cuda_gpu
 
 ## GPU only packages
@@ -175,6 +175,7 @@ __all__ = [
     "TreeExplainer",
     "TSNE",
     "UMAP",
+    "UniversalBase",
     # Functions
     "johnson_lindenstrauss_min_dim",
     "make_arima",
