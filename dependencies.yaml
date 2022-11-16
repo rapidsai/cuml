@@ -82,33 +82,17 @@ dependencies:
           - ucx>=1.13.0 # should this be for conda and requirements?
           - ucx-py=0.29.* # should this be for conda and requirements?
           - ucx-proc=*=gpu # should this be for conda and requirements?
-      - output_types: requirements
-        packages:
     specific:
-      - output_types: conda
+      - output_types: requirements
         matrices:
           - matrix:
               arch: x86_64
             packages:
-              - &gcc_amd64 gcc_linux-64=9.*
-              - &sysroot_amd64 sysroot_linux-64==2.17
+              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
           - matrix:
               arch: aarch64
             packages:
-              - &gcc_aarch64 gcc_linux-aarch64=9.*
-              - &sysroot_aarch64 sysroot_linux-aarch64==2.17
-      - output_types: conda
-        matrices:
-          - matrix:
-              arch: x86_64
-              cuda: "11.5"
-            packages:
-              - &nvcc_amd64_115 nvcc_linux-64=11.5
-          - matrix:
-              arch: aarch64
-              cuda: "11.5"
-            packages:
-              - &nvcc_aarch64_115 nvcc_linux-aarch64=11.5
+              - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
   cudatoolkit:
     specific:
       - output_types: conda
