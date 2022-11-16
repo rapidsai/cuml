@@ -225,7 +225,6 @@ class ProcessEnter(object):
         self._process_enter_cbs: typing.Deque[typing.Callable] = deque()
 
     def process_enter(self):
-        print(self.__class__)
 
         for cb in self._process_enter_cbs:
             cb()
@@ -241,7 +240,6 @@ class ProcessReturn(object):
             [typing.Any], typing.Any]] = deque()
 
     def process_return(self, ret_val):
-        print(self.__class__)
 
         for cb in self._process_return_cbs:
             ret_val = cb(ret_val)
@@ -273,7 +271,6 @@ class InternalAPIContextBase(contextlib.ExitStack,
         self._process_obj: ProcessReturn = None
 
     def __enter__(self):
-        print(self.__class__)
 
         # Enter the root context to know if we are the root cm
         self.is_root = self.enter_context(self.root_cm) == 1
@@ -328,7 +325,6 @@ class ProcessEnterReturnArray(ProcessEnter):
         self._process_enter_cbs.append(self.push_output_types)
 
     def push_output_types(self):
-        print(self.__class__)
 
         self._context.enter_context(self._context.root_cm.push_output_types())
 
@@ -351,7 +347,6 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
         root_cm = self._context.root_cm
 
         def set_output_type():
-            print(self.__class__)
             output_type = root_cm.output_type
             mem_type = root_cm.memory_type
 
@@ -395,7 +390,6 @@ class ProcessReturnArray(ProcessReturn):
 
     def convert_to_cumlarray(self, ret_val):
 
-        print(self.__class__)
         # Get the output type
         ret_val_type_str, is_sparse = \
             cuml.internals.input_utils.determine_array_type_full(ret_val)
@@ -446,7 +440,6 @@ class ProcessReturnSparseArray(ProcessReturnArray):
 
     def convert_to_cumlarray(self, ret_val):
 
-        print(self.__class__)
         # Get the output type
         ret_val_type_str, is_sparse = \
             cuml.internals.input_utils.determine_array_type_full(ret_val)
@@ -482,16 +475,12 @@ class ProcessReturnGeneric(ProcessReturnArray):
         self._process_return_cbs.append(self.process_generic)
 
     def process_single(self, ret_val):
-        print(self.__class__)
         for cb in self._single_array_cbs:
-            print(type(ret_val))
             ret_val = cb(ret_val)
-            print(type(ret_val))
 
         return ret_val
 
     def process_tuple(self, ret_val: tuple):
-        print('tuple')
 
         # Convert to a list
         out_val = list(ret_val)
@@ -503,7 +492,6 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return tuple(out_val)
 
     def process_dict(self, ret_val):
-        print('dict')
 
         for name, item in ret_val.items():
 
@@ -512,7 +500,6 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return ret_val
 
     def process_list(self, ret_val):
-        print('list')
 
         for idx, item in enumerate(ret_val):
 
@@ -521,7 +508,6 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return ret_val
 
     def process_generic(self, ret_val):
-        print('generic')
 
         if (cuml.internals.input_utils.is_array_like(ret_val)):
             return self.process_single(ret_val)
