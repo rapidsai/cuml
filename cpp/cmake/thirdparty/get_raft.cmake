@@ -55,11 +55,11 @@ function(find_and_configure_raft)
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    cuml-exports
             INSTALL_EXPORT_SET  cuml-exports
+            COMPONENTS          ${RAFT_COMPONENTS}
             CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
-            FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
@@ -81,13 +81,13 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+                        FORK             cjnolet
+                        PINNED_TAG       bug-2212-revert_cusparse_changes
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
                         # even if it's already installed.
-                        CLONE_ON_PIN     ON
+                        CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
                         USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
