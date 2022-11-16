@@ -310,7 +310,7 @@ class NearestNeighbors(UniversalBase,
                  metric="euclidean",
                  p=2,
                  algo_params=None,
-                 metric_params={},
+                 metric_params=None,
                  output_type=None,
                  **kwargs):
 
@@ -321,7 +321,7 @@ class NearestNeighbors(UniversalBase,
         self.n_neighbors = n_neighbors
         self.n_indices = 0
         self.effective_metric_ = metric
-        self.effective_metric_params_ = metric_params
+        self.effective_metric_params_ = metric_params if metric_params else {}
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm

@@ -217,6 +217,8 @@ class RegressorMixin:
         preds = self.predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
+    # TODO : remove score function duplicate
+    # once updated CPU/GPU interoperability class is ready
     @generate_docstring(
         return_values={
             'name': 'score',
@@ -282,6 +284,8 @@ class ClassifierMixin:
         preds = self.predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
 
+    # TODO : remove score function duplicate
+    # once updated CPU/GPU interoperability class is ready
     @generate_docstring(
         return_values={
             'name':
