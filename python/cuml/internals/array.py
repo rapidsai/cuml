@@ -279,6 +279,20 @@ class CumlArray():
             except AttributeError:
                 self._array_interface['strides'] = strides
 
+        if (
+            (isinstance(data, CumlArray) or not (
+                hasattr(data, '__array_interface__')
+                or hasattr(data, '__cuda_array_interface__')
+            )) and (
+                dtype is not None and shape is not None and order is not None
+            )
+        ):
+            self._array_interface['shape'] = shape
+            self._array_interface['strides'] = strides
+        else:
+            if validate is None:
+                validate = True
+
         array_strides = self._array_interface['strides']
         if array_strides is not None:
             array_strides = host_xpy.array(array_strides)
@@ -307,18 +321,6 @@ class CumlArray():
         else:
             self._order = None
 
-        if (
-            (isinstance(data, CumlArray) or not (
-                hasattr(data, '__array_interface__')
-                or hasattr(data, '__cuda_array_interface__')
-            )) and (
-                dtype is not None and shape is not None and order is not None
-            )
-        ):
-            self._array_interface['shape'] = shape
-        else:
-            if validate is None:
-                validate = True
         # Validate final data against input arguments
         if validate:
             if mem_type != self._mem_type:
@@ -345,8 +347,6 @@ class CumlArray():
                     host_xpy.array(self._array_interface['shape']),
                     shape_arr
                 ):
-                    import pdb
-                    pdb.set_trace()
                     raise ValueError(
                         'Specified shape inconsistent with input data object'
                     )
@@ -587,7 +587,12 @@ class CumlArray():
             )
         elif output_type == 'series':
             if len(self.shape) == 2 and self.shape[1] == 1:
-                arr = CumlArray(self, shape=(self.shape[0],))
+                arr = CumlArray(
+                    self,
+                    dtype=self.dtype,
+                    order=self.order,
+                    shape=(self.shape[0],)
+                )
             else:
                 arr = self
 
