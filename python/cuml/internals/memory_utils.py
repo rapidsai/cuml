@@ -313,6 +313,8 @@ def _check_array_contiguity(ary):
             return True
 
         shape = ary_interface['shape']
+        if len(shape) == 1:
+            return True
         strides = ary_interface['strides']
         dtype = global_settings.xpy.dtype(ary_interface['typestr'])
         order = _strides_to_order(strides, dtype)
