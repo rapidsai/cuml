@@ -352,26 +352,24 @@ def gen_data(
 ):
     """Returns a tuple of data from the specified generator.
 
-    Output
-    -------
-        (train_features, train_labels, test_features, test_labels) tuple
-        containing matrices or dataframes of the requested format.
-        test_features and test_labels may be None if no splitting was done.
-
     Parameters
     ----------
     dataset_name : str
         Dataset to use. Can be a synthetic generator (blobs or regression)
         or a specified dataset (higgs currently, others coming soon)
-
     dataset_format : str
         Type of data to return. (One of cudf, numpy, pandas, gpuarray)
-
     n_samples : int
         Number of samples to include in training set (regardless of test split)
     test_fraction : float
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
+
+    Returns
+    -------
+        (train_features, train_labels, test_features, test_labels) tuple
+        containing matrices or dataframes of the requested format.
+        test_features and test_labels may be None if no splitting was done.
     """
     data = _data_generators[dataset_name](
         int(n_samples / (1 - test_fraction)),

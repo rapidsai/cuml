@@ -377,7 +377,7 @@ class ExponentialSmoothing(Base):
             the forecasted points from all time series is returned.
 
         Returns
-        ----------
+        -------
         preds : cudf.DataFrame or cudf.Series
             Series of forecasted points if index is provided.
             DataFrame of all forecasted points if index=None.

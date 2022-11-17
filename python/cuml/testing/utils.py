@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import inspect
+from textwrap import dedent, indent
 
 import cupy as cp
 import numpy as np
@@ -38,25 +39,113 @@ from cuml.common.base import Base
 import pytest
 
 
-def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+def array_difference(a, b, with_sign=True):
     """
-    Utility function to compare 2 numpy arrays. Two individual elements
-    are assumed equal if they are within `unit_tol` of each other, and two
-    arrays are considered equal if less than `total_tol` percentage of
-    elements are different.
-
+    Utility function to compute the difference between 2 arrays.
     """
-
     a = to_nparray(a)
     b = to_nparray(b)
 
     if len(a) == 0 and len(b) == 0:
-        return True
+        return 0
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a - b) > unit_tol)) / a.size < total_tol
-    return res
+    return np.sum(np.abs(a - b))
+
+
+class array_equal:
+    """
+    Utility functor to compare 2 numpy arrays and optionally show a meaningful
+    error message in case they are not. Two individual elements are assumed
+    equal if they are within `unit_tol` of each other, and two arrays are
+    considered equal if less than `total_tol` percentage of elements are
+    different.
+
+    """
+
+    def __init__(self, a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+        self.a = to_nparray(a)
+        self.b = to_nparray(b)
+        self.unit_tol = unit_tol
+        self.total_tol = total_tol
+        self.with_sign = with_sign
+
+    def compute_difference(self):
+        return array_difference(self.a, self.b, with_sign=self.with_sign)
+
+    def __bool__(self):
+        if len(self.a) == len(self.b) == 0:
+            return True
+
+        if self.with_sign:
+            a, b = self.a, self.b
+        else:
+            a, b = np.abs(self.a), np.abs(self.b)
+
+        res = (np.sum(np.abs(a - b) > self.unit_tol)) / a.size < self.total_tol
+        return bool(res)
+
+    def __eq__(self, other):
+        if isinstance(other, bool):
+            return bool(self) == other
+        return super().__eq__(other)
+
+    def _repr(self, threshold=None):
+        name = self.__class__.__name__
+
+        return [f"<{name}: "] \
+            + f"{np.array2string(self.a, threshold=threshold)} ".splitlines()\
+            + f"{np.array2string(self.b, threshold=threshold)} ".splitlines()\
+            + [
+                f"unit_tol={self.unit_tol} ",
+                f"total_tol={self.total_tol} ",
+                f"with_sign={self.with_sign}",
+                ">"
+            ]
+
+    def __repr__(self):
+        return "".join(self._repr(threshold=5))
+
+    def __str__(self):
+        tokens = self._repr(threshold=1000)
+        return "\n".join(
+            f"{'    ' if 0 < n < len(tokens) - 1 else ''}{token}"
+            for n, token in enumerate(tokens)
+        )
+
+
+def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
+    """
+    Raises an AssertionError if arrays are not considered equal.
+
+    Uses the same arguments as array_equal(), but raises an AssertionError in
+    case that the test considers the arrays to not be equal.
+
+    This function will generate a nicer error message in the context of pytest
+    compared to a plain `assert array_equal(...)`.
+    """
+    # Determine array equality.
+    equal = array_equal(
+        a, b, unit_tol=unit_tol, total_tol=total_tol, with_sign=with_sign)
+    if not equal:
+        # Generate indented array string representation ...
+        str_a = indent(np.array2string(a), "   ").splitlines()
+        str_b = indent(np.array2string(b), "   ").splitlines()
+        # ... and add labels
+        str_a[0] = f"a: {str_a[0][3:]}"
+        str_b[0] = f"b: {str_b[0][3:]}"
+
+        # Create assertion error message and raise exception.
+        assertion_error_msg = dedent(f"""
+        Arrays are not equal
+
+        unit_tol:  {unit_tol}
+        total_tol: {total_tol}
+        with_sign: {with_sign}
+
+        """) + "\n".join(str_a + str_b)
+        raise AssertionError(assertion_error_msg)
 
 
 def get_pattern(name, n_samples):

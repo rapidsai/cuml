@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     This function calls `make_blobs` from `cuml.datasets` on each Dask worker
     and aggregates them into a single Dask Dataframe.
 
-    For more information on Scikit-learn's `make_blobs:
+    For more information on Scikit-learn's `make_blobs
     <https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_blobs.html>`_.
 
     Parameters
