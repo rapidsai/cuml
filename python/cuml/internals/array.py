@@ -987,7 +987,10 @@ class CumlArray():
         if isinstance(X, CudfDataFrame):
             X = X.to_cupy(copy=False)
 
-        arr = cls(X, index=index, order=order, validate=False)
+        requested_order = (order, None)[fail_on_order]
+        arr = cls(
+            X, index=index, order=requested_order, validate=False
+        )
         if deepcopy:
             arr = copy.deepcopy(arr)
 
@@ -1036,14 +1039,14 @@ class CumlArray():
                     output_dtype=convert_to_dtype,
                     output_mem_type=convert_to_mem_type
                 ),
-                order=order,
+                order=requested_order,
                 index=index,
                 validate=False
             )
 
         make_copy = force_contiguous and not arr.is_contiguous
 
-        if (order != arr.order and order != 'K') or make_copy:
+        if (not fail_on_order and order != arr.order and order != 'K') or make_copy:
             arr = cls(arr.mem_type.xpy.array(
                 arr.to_output('array'),
                 order=order,
