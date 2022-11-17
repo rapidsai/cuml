@@ -833,7 +833,7 @@ class NearestNeighbors(UniversalBase,
         return D_ndarr, I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    def kneighbors_graph(self,
+    def _kneighbors_graph(self,
                          X=None,
                          n_neighbors=None,
                          mode='connectivity') -> SparseCumlArray:
