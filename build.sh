@@ -74,7 +74,7 @@ CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
 CCACHE=OFF
 CLEAN=0
-BUILD_DISABLE_DEPRECATION_WARNING=ON
+BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
@@ -120,6 +120,9 @@ if hasArg clean; then
     CLEAN=1
 fi
 
+if hasArg cpp-mgtests; then
+    BUILD_CUML_MG_TESTS=ON
+fi
 
 # Long arguments
 LONG_ARGUMENT_LIST=(
@@ -182,7 +185,7 @@ while true; do
             NVTX=ON
             ;;
         --show_depr_warn )
-            BUILD_DISABLE_DEPRECATION_WARNING=OFF
+            BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
             ;;
         --codecov )
             CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
@@ -257,7 +260,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
-          -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
+          -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CUML_EXTRA_CMAKE_ARGS} \

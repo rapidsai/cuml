@@ -22,9 +22,7 @@
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -39,6 +37,8 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace Solver {

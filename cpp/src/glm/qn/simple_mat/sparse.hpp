@@ -19,10 +19,10 @@
 #include <vector>
 
 #include "base.hpp"
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/ternary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>

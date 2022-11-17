@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>
@@ -26,6 +26,7 @@
 #include <cuml/datasets/make_blobs.hpp>
 
 #include <cuml/neighbors/knn.hpp>
+#include <raft/spatial/knn/specializations.hpp>
 
 namespace ML {
 

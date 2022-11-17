@@ -31,12 +31,13 @@
 
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
-#include <metrics/batched/information_criterion.cuh>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/common.hpp>
+#include <raft/stats/information_criterion.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>
@@ -613,14 +614,13 @@ void information_criterion(raft::handle_t& handle,
     handle, arima_mem, d_y, d_exog, batch_size, n_obs, order, params, d_ic, false, false, MLE);
 
   /* Compute information criterion from log-likelihood and base term */
-  MLCommon::Metrics::Batched::information_criterion(
-    d_ic,
-    d_ic,
-    static_cast<MLCommon::Metrics::IC_Type>(ic_type),
-    order.complexity(),
-    batch_size,
-    n_obs - order.n_diff(),
-    stream);
+  raft::stats::information_criterion_batched(d_ic,
+                                             d_ic,
+                                             static_cast<raft::stats::IC_Type>(ic_type),
+                                             order.complexity(),
+                                             batch_size,
+                                             n_obs - order.n_diff(),
+                                             stream);
 }
 
 /**

@@ -17,8 +17,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <algorithm>

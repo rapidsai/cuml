@@ -18,7 +18,7 @@
 
 #include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace ML {
 

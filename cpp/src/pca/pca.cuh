@@ -18,7 +18,6 @@
 
 #include <cuml/decomposition/params.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/transpose.cuh>
@@ -27,6 +26,7 @@
 #include <raft/stats/cov.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <tsvd/tsvd.cuh>
 

@@ -27,10 +27,10 @@
 
 #include "arima_helpers.cuh"
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 

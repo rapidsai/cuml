@@ -70,12 +70,12 @@ function(find_and_configure_raft)
       GLOBAL_TARGETS      raft::raft
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
+      COMPONENTS          ${RAFT_COMPONENTS}
       CPM_ARGS
         GIT_REPOSITORY         ${PKG_REPO}
         GIT_TAG                ${PKG_PINNED_TAG}
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
-        FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
         OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_SHARED_LIBS ${RAFT_BUILD_SHARED_LIBS}"
@@ -101,11 +101,10 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         REPO             ${CUML_RAFT_REPOSITORY}
                         PINNED_TAG       ${CUML_RAFT_BRANCH}
                         EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
-
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
                         # even if it's already installed.
-                        CLONE_ON_PIN     ON
+                        CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
                         USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}

@@ -19,8 +19,8 @@
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
