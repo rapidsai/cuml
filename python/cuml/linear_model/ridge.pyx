@@ -67,10 +67,10 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        double *sample_weight) except +
 
 
-class Ridge(RegressorMixin,
+class Ridge(UniversalBase,
+            RegressorMixin,
             LinearPredictMixin,
-            FMajorInputTagMixin,
-            UniversalBase):
+            FMajorInputTagMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
