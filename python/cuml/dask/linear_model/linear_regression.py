@@ -35,12 +35,12 @@ class LinearRegression(BaseEstimator,
     As the number of features in X increases, the accuracy of Eig algorithm
     drops.
 
-    This is an experimental implementation of dask Linear Regresion. It
+    This is an experimental implementation of dask Linear Regression. It
     supports input X that has more than one column. Single column input
     X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
-    -----------
+    ----------
     algorithm : 'eig'
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
@@ -55,7 +55,7 @@ class LinearRegression(BaseEstimator,
         If False, no scaling will be done.
 
     Attributes
-    -----------
+    ----------
     coef_ : cuDF series, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
