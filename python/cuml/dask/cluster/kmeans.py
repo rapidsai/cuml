@@ -23,8 +23,8 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from raft.dask.common.comms import Comms
-from raft.dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import Comms
+from raft_dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -69,7 +69,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
+        kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random
         from data for the initial centroids. If an ndarray is passed,
         it should be of shape (n_clusters, n_features) and gives the
@@ -89,7 +89,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     Attributes
     ----------
-
     cluster_centers_ : cuDF DataFrame or CuPy ndarray
         The coordinates of the final clusters. This represents of "mean" of
         each data cluster.

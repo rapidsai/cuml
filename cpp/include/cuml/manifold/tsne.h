@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace raft {
 class handle_t;
@@ -84,7 +85,7 @@ struct TSNEParams {
   // The momentum used after the exaggeration phase.
   float post_momentum = 0.8;
 
-  // Set this to -1 for pure random intializations or >= 0 for
+  // Set this to -1 for pure random initializations or >= 0 for
   // reproducible outputs. This sets random seed correctly, but there
   // may still be some variance due to the parallel nature of this algorithm.
   long long random_state = -1;
@@ -100,6 +101,12 @@ struct TSNEParams {
   // the knn graph is passed in explicitly. This is to better match the
   // behavior of Scikit-learn's T-SNE.
   bool square_distances = true;
+
+  // Distance metric to use.
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
+
+  // Value of p for Minkowski distance
+  float p = 2.0;
 
   // Which implementation algorithm to use.
   TSNE_ALGORITHM algorithm = TSNE_ALGORITHM::FFT;

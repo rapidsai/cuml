@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -529,6 +529,10 @@ def input_to_host_array(X,
     `inp_array` is a new device array if the input was not a NumPy device
         array. It is a reference to the input X if it was a NumPy host array
     """
+
+    if isinstance(X, (int, float, complex, bool, str,
+                      type(None), dict, set, list, tuple)):
+        return X
 
     if isinstance(X, np.ndarray):
         if len(X.shape) > 1:

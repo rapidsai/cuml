@@ -18,7 +18,6 @@
 import typing
 
 import ctypes
-import cudf
 import numpy as np
 import cupy as cp
 
@@ -33,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -160,7 +159,7 @@ class SGD(Base,
         cuML predictions :  [3.0055...  2.0214...]
 
     Parameters
-    -----------
+    ----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
         'hinge' uses linear SVM
         'log' uses logistic regression
@@ -200,7 +199,7 @@ class SGD(Base,
         validation accuracy does not improve for n_iter_no_change epochs.
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
-        The number of epochs to train without any imporvement in the model
+        The number of epochs to train without any improvement in the model
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA

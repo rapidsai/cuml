@@ -17,27 +17,33 @@
 #include <random>
 #include <type_traits>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include <common/nvtx.hpp>
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
 #include <omp.h>
-#include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/map.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/distance/kernels.cuh>
+#include <raft/label/classlabels.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/tuple.h>
 
 #include <glm/ols.cuh>
 #include <glm/qn/qn.cuh>

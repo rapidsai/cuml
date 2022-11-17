@@ -20,16 +20,16 @@
 #include <limits>
 #include <math.h>
 #include <memory>
-#include <raft/cuda_utils.cuh>
 
 #include "ws_util.cuh"
 #include <cub/device/device_select.cuh>
-#include <linalg/init.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/init.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
@@ -84,7 +84,7 @@ class Results {
       flag(n_train, stream)
   {
     InitCubBuffers();
-    MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
+    raft::linalg::range(f_idx.data(), n_train, stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 

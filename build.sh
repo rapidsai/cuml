@@ -74,7 +74,7 @@ CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
 CCACHE=OFF
 CLEAN=0
-BUILD_DISABLE_DEPRECATION_WARNING=ON
+BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
@@ -120,6 +120,9 @@ if hasArg clean; then
     CLEAN=1
 fi
 
+if hasArg cpp-mgtests; then
+    BUILD_CUML_MG_TESTS=ON
+fi
 
 # Long arguments
 LONG_ARGUMENT_LIST=(
@@ -182,7 +185,7 @@ while true; do
             NVTX=ON
             ;;
         --show_depr_warn )
-            BUILD_DISABLE_DEPRECATION_WARNING=OFF
+            BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
             ;;
         --codecov )
             CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
@@ -229,7 +232,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Before
 
 ################################################################################
 # Configure for building all C++ targets
@@ -258,7 +260,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
-          -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
+          -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CUML_EXTRA_CMAKE_ARGS} \
@@ -283,11 +285,16 @@ fi
 
 # Build and (optionally) install the cuml Python package
 if completeBuild || hasArg cuml || hasArg pydocs; then
+    # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
+        CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+    fi
+
     cd ${REPODIR}/python
+
+    python setup.py build_ext --inplace -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     fi
 
     if hasArg pydocs; then

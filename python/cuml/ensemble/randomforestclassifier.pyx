@@ -29,7 +29,7 @@ from cuml.common.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -46,8 +46,9 @@ from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
+from cuml.prims.label.classlabels import check_labels, invert_labels
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -145,7 +146,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         Predicted labels :  [0. 1. 0. 1. 0. 1. 0. 1. 0. 1.]
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int or string (default = ``0`` (``'gini'``))
@@ -342,7 +343,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         Converts the cuML RF model to a Treelite model
 
         Returns
-        ----------
+        -------
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
@@ -431,6 +432,8 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
+        # Track the labels to see if update is necessary
+        self.update_labels = not check_labels(y_m, self.classes_)
         cdef uintptr_t X_ptr, y_ptr
 
         X_ptr = X_m.ptr
@@ -562,10 +565,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         ----------
         X : {}
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True. Also the 'GPU' should only be
-            used for classification problems.
+            'GPU' to predict using the GPU, 'CPU' otherwise.
         algo : string (default = ``'auto'``)
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -599,20 +599,10 @@ class RandomForestClassifier(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         y : {}
         """
         if predict_model == "CPU":
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
-        elif self.dtype == np.float64:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
         else:
@@ -624,6 +614,9 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        if self.update_labels:
+            preds = preds.to_output().astype(self.classes_.dtype)
+            preds = invert_labels(preds, self.classes_)
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -633,8 +626,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                       fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
-        implementation of predict. Therefore, data with 'dtype = np.float32'
-        should be used with this function.
+        implementation of predict.
 
         Parameters
         ----------
@@ -671,14 +663,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         -------
         y : {}
         """
-        if self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,

@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 from collections import defaultdict
 from numba import cuda
@@ -33,7 +32,7 @@ from cuml.common.mixins import RegressorMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 
@@ -50,7 +49,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        float *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo) except +
+                       int algo,
+                       float *sample_weight) except +
 
     cdef void ridgeFit(handle_t& handle,
                        double *input,
@@ -63,7 +63,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        double *intercept,
                        bool fit_intercept,
                        bool normalize,
-                       int algo) except +
+                       int algo,
+                       double *sample_weight) except +
 
 
 class Ridge(Base,
@@ -123,7 +124,7 @@ class Ridge(Base,
         1 14.999...
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
@@ -160,14 +161,14 @@ class Ridge(Base,
         See :ref:`verbosity-levels` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
     Ridge provides L2 regularization. This means that the coefficients can
     shrink to become very small, but not zero. This can cause issues of
     interpretability on the coefficients.
@@ -237,12 +238,12 @@ class Ridge(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True) -> "Ridge":
+    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr
+        cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
@@ -253,6 +254,16 @@ class Ridge(Base,
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
         y_ptr = y_m.ptr
+
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=(
+                                        self.dtype if convert_dtype else None),
+                                    check_rows=n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
+        else:
+            sample_weight_ptr = 0
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -292,7 +303,8 @@ class Ridge(Base,
                      <float*>&c_intercept1,
                      <bool>self.fit_intercept,
                      <bool>self.normalize,
-                     <int>self.algo)
+                     <int>self.algo,
+                     <float*>sample_weight_ptr)
 
             self.intercept_ = c_intercept1
         else:
@@ -309,7 +321,8 @@ class Ridge(Base,
                      <double*>&c_intercept2,
                      <bool>self.fit_intercept,
                      <bool>self.normalize,
-                     <int>self.algo)
+                     <int>self.algo,
+                     <double*>sample_weight_ptr)
 
             self.intercept_ = c_intercept2
 
@@ -317,6 +330,8 @@ class Ridge(Base,
 
         del X_m
         del y_m
+        if sample_weight is not None:
+            del sample_weight_m
 
         return self
 

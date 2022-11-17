@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/mutual_info_score.cuh>
+#include <raft/stats/mutual_info_score.hpp>
 
 namespace ML {
 
@@ -31,7 +31,7 @@ double mutual_info_score(const raft::handle_t& handle,
                          const int lower_class_range,
                          const int upper_class_range)
 {
-  return MLCommon::Metrics::mutual_info_score(
+  return raft::stats::mutual_info_score(
     y, y_hat, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 

@@ -432,18 +432,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
     ----------
     transformers : list of tuples
         List of (name, transformer, columns) tuples specifying the
-        transformer objects to be applied to subsets of the data.
+        transformer objects to be applied to subsets of the data:
 
-        name : str
+        * name : str
             Like in Pipeline and FeatureUnion, this allows the transformer and
             its parameters to be set using ``set_params`` and searched in grid
             search.
-        transformer : {'drop', 'passthrough'} or estimator
-            Estimator must support :term:`fit` and :term:`transform`.
+        * transformer : {'drop', 'passthrough'} or estimator
+            Estimator must support `fit` and `transform`.
             Special-cased strings 'drop' and 'passthrough' are accepted as
             well, to indicate to drop the columns or to pass them through
             untransformed, respectively.
-        columns :  str, array-like of str, int, array-like of int, \
+        * columns :  str, array-like of str, int, array-like of int, \
                 array-like of bool, slice or callable
             Indexes the data on its second axis. Integers are interpreted as
             positional columns, while strings can reference DataFrame columns
@@ -464,9 +464,9 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         the transformers.
         By setting ``remainder`` to be an estimator, the remaining
         non-specified columns will use the ``remainder`` estimator. The
-        estimator must support :term:`fit` and :term:`transform`.
+        estimator must support `fit` and `transform`.
         Note that using this feature requires that the DataFrame columns
-        input at :term:`fit` and :term:`transform` have identical order.
+        input at `fit` and `transform` have identical order.
 
     sparse_threshold : float, default=0.3
         If the output of the different transformers contains sparse matrices,
@@ -1028,14 +1028,14 @@ def make_column_transformer(*transformers,
     ----------
     *transformers : tuples
         Tuples of the form (transformer, columns) specifying the
-        transformer objects to be applied to subsets of the data.
+        transformer objects to be applied to subsets of the data:
 
-        transformer : {'drop', 'passthrough'} or estimator
-            Estimator must support :term:`fit` and :term:`transform`.
+        * transformer : {'drop', 'passthrough'} or estimator
+            Estimator must support `fit` and `transform`.
             Special-cased strings 'drop' and 'passthrough' are accepted as
             well, to indicate to drop the columns or to pass them through
             untransformed, respectively.
-        columns : str,  array-like of str, int, array-like of int, slice, \
+        * columns : str,  array-like of str, int, array-like of int, slice, \
                 array-like of bool or callable
             Indexes the data on its second axis. Integers are interpreted as
             positional columns, while strings can reference DataFrame columns
@@ -1056,7 +1056,7 @@ def make_column_transformer(*transformers,
         the transformers.
         By setting ``remainder`` to be an estimator, the remaining
         non-specified columns will use the ``remainder`` estimator. The
-        estimator must support :term:`fit` and :term:`transform`.
+        estimator must support `fit` and `transform`.
 
     sparse_threshold : float, default=0.3
         If the transformed output consists of a mix of sparse and dense data,
@@ -1069,7 +1069,7 @@ def make_column_transformer(*transformers,
     n_jobs : int, default=None
         Number of jobs to run in parallel.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
-        ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
+        ``-1`` means using all processors. See `Glossary <n_jobs>`
         for more details.
 
     verbose : bool, default=False
@@ -1097,7 +1097,6 @@ def make_column_transformer(*transformers,
                                      ['numerical_column']),
                                     ('onehotencoder', OneHotEncoder(...),
                                      ['categorical_column'])])
-
     """
     # transformer_weights keyword is not passed through because the user
     # would need to know the automatically generated names of the transformers

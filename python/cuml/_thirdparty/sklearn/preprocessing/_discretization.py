@@ -93,7 +93,7 @@ class KBinsDiscretizer(TransformerMixin,
       np.concatenate([-np.inf, bin_edges_[i][1:-1], np.inf])
 
     You can combine ``KBinsDiscretizer`` with
-    :class:`sklearn.compose.ColumnTransformer` if you only want to preprocess
+    :class:`cuml.compose.ColumnTransformer` if you only want to preprocess
     part of the features.
 
     ``KBinsDiscretizer`` might produce constant features (e.g., when
@@ -104,12 +104,12 @@ class KBinsDiscretizer(TransformerMixin,
     Examples
     --------
     >>> from cuml.preprocessing import KBinsDiscretizer
-    >>> import numpy as np
+    >>> import cupy as cp
     >>> X = [[-2, 1, -4,   -1],
     ...      [-1, 2, -3, -0.5],
     ...      [ 0, 3, -2,  0.5],
     ...      [ 1, 4, -1,    2]]
-    >>> X = np.array(X)
+    >>> X = cp.array(X)
     >>> est = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='uniform')
     >>> est.fit(X)
     KBinsDiscretizer(...)
@@ -135,7 +135,7 @@ class KBinsDiscretizer(TransformerMixin,
 
     """
 
-    bin_edges_ = CumlArrayDescriptor()
+    bin_edges_internal_ = CumlArrayDescriptor()
     n_bins_ = CumlArrayDescriptor()
 
     @_deprecate_pos_args(version="21.06")
@@ -234,7 +234,7 @@ class KBinsDiscretizer(TransformerMixin,
                                   'decreasing the number of bins.' % jj)
                     n_bins[jj] = len(bin_edges[jj]) - 1
 
-        self.bin_edges_ = bin_edges
+        self.bin_edges_internal_ = bin_edges
         self.n_bins_ = n_bins
 
         if 'onehot' in self.encode:
@@ -303,7 +303,7 @@ class KBinsDiscretizer(TransformerMixin,
             raise ValueError("Incorrect number of features. Expecting {}, "
                              "received {}.".format(n_features, Xt.shape[1]))
 
-        bin_edges = self.bin_edges_
+        bin_edges = self.bin_edges_internal_
         for jj in range(Xt.shape[1]):
             # Values which are close to a bin edge are susceptible to numeric
             # instability. Add eps to X so these values are binned correctly
@@ -353,9 +353,13 @@ class KBinsDiscretizer(TransformerMixin,
                              "received {}.".format(n_features, Xinv.shape[1]))
 
         for jj in range(n_features):
-            bin_edges = self.bin_edges_[jj]
+            bin_edges = self.bin_edges_internal_[jj]
             bin_centers = (bin_edges[1:] + bin_edges[:-1]) * 0.5
             idxs = np.asnumpy(Xinv[:, jj])
             Xinv[:, jj] = bin_centers[idxs.astype(np.int32)]
 
         return Xinv
+
+    @property
+    def bin_edges_(self):
+        return self.bin_edges_internal_

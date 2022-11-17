@@ -1,6 +1,6 @@
-~~~~~~~~~~~~~~~~~~~
-cuML API Reference
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+API Reference
+~~~~~~~~~~~~~
 
 .. role:: py(code)
    :language: python
@@ -82,9 +82,52 @@ Feature and Label Encoding (Single-GPU)
  .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
     :members:
 
+Feature Scaling and Normalization (Single-GPU)
+----------------------------------------------
+.. autoclass:: cuml.preprocessing.MaxAbsScaler
+    :members:
+.. autoclass:: cuml.preprocessing.MinMaxScaler
+    :members:
+.. autoclass:: cuml.preprocessing.Normalizer
+    :members:
+.. autoclass:: cuml.preprocessing.RobustScaler
+    :members:
+.. autoclass:: cuml.preprocessing.StandardScaler
+    :members:
+.. autofunction:: cuml.preprocessing.maxabs_scale
+.. autofunction:: cuml.preprocessing.minmax_scale
+.. autofunction:: cuml.preprocessing.normalize
+.. autofunction:: cuml.preprocessing.robust_scale
+.. autofunction:: cuml.preprocessing.scale
+
+Other preprocessing methods (Single-GPU)
+----------------------------------------
+.. autoclass:: cuml.preprocessing.Binarizer
+    :members:
+.. autoclass:: cuml.preprocessing.FunctionTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.KBinsDiscretizer
+    :members:
+.. autoclass:: cuml.preprocessing.KernelCenterer
+    :members:
+.. autoclass:: cuml.preprocessing.MissingIndicator
+    :members:
+.. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.PowerTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.QuantileTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.SimpleImputer
+    :members:
+.. autofunction:: cuml.preprocessing.add_dummy_feature
+.. autofunction:: cuml.preprocessing.binarize
+
+.. automodule:: cuml.compose
+   :members: ColumnTransformer, make_column_transformer, make_column_selector
 
 Text Preprocessing (Single-GPU)
----------------------------------------
+-------------------------------
  .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
@@ -144,7 +187,7 @@ Array Wrappers (Internal API)
     :members:
 
 Metrics (regression, classification, and distance)
----------------------------------------------------
+--------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -192,8 +235,11 @@ Metrics (clustering and manifold learning)
   .. automodule:: cuml.metrics.cluster.mutual_info_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.v_measure_score
+    :members:
+
 Benchmarking
--------------
+------------
 
   .. automodule:: cuml.benchmark.algorithms
     :members:
@@ -263,12 +309,15 @@ Multiclass Classification
     :members:
 
 Naive Bayes
-----------------------
+-----------
 
 .. autoclass:: cuml.naive_bayes.MultinomialNB
     :members:
 
 .. autoclass:: cuml.naive_bayes.BernoulliNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.ComplementNB
     :members:
 
 .. autoclass:: cuml.naive_bayes.GaussianNB
@@ -350,13 +399,13 @@ Clustering
 ==========
 
 K-Means Clustering
---------------------
+------------------
 
 .. autoclass:: cuml.KMeans
     :members:
 
 DBSCAN
--------
+------
 
 .. autoclass:: cuml.DBSCAN
     :members:
@@ -371,8 +420,9 @@ Agglomerative Clustering
 HDBSCAN
 -------
 
-.. autoclass:: cuml.cluster.HDBSCAN
+.. automodule:: cuml.cluster.hdbscan
    :members:
+   :undoc-members:
 
 
 Dimensionality Reduction and Manifold Learning
@@ -396,7 +446,7 @@ Truncated SVD
     :members:
 
 UMAP
--------------
+----
 
 .. autoclass:: cuml.UMAP
     :members:
@@ -414,7 +464,7 @@ Random Projections
 
 
 TSNE
--------------
+----
 
 .. autoclass:: cuml.TSNE
     :members:
@@ -435,22 +485,22 @@ Nearest Neighbors Classification
     :members:
 
 Nearest Neighbors Regression
---------------------------------
+----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Kernel Density Estimation
---------------------------------
+-------------------------
 
 .. autoclass:: cuml.neighbors.KernelDensity
     :members:
 
 Time Series
-============
+===========
 
 HoltWinters
--------------
+-----------
 
 .. autoclass:: cuml.ExponentialSmoothing
     :members:
@@ -484,13 +534,13 @@ Multi-Node, Multi-GPU Algorithms
 ================================
 
 DBSCAN Clustering
---------------------
+-----------------
 
 .. autoclass:: cuml.dask.cluster.DBSCAN
     :members:
 
 K-Means Clustering
---------------------
+------------------
 
 .. autoclass:: cuml.dask.cluster.KMeans
     :members:
@@ -509,7 +559,7 @@ Nearest Neighbors
 
 
 Principal Component Analysis
------------------------------
+----------------------------
 .. autoclass:: cuml.dask.decomposition.PCA
     :members:
 
@@ -523,7 +573,7 @@ Random Forest
     :members:
 
 Truncated SVD
---------------
+-------------
 
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
@@ -588,14 +638,6 @@ Experimental
 .. note:: Due to the nature of this module, it is not imported by default by
     the root `cuml` package. Each `experimental` submodule must be imported
     separately.
-
-Preprocessing
--------------
-.. automodule:: cuml.experimental.preprocessing
-   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
-      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
-      add_dummy_feature, binarize, minmax_scale, normalize,
-      PolynomialFeatures, robust_scale, scale
 
 Linear Models
 -------------

@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/norm.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
-#include <raft/stats/meanvar.hpp>
-#include <raft/stats/stddev.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/meanvar.cuh>
+#include <raft/stats/stddev.cuh>
 #include <raft/stats/weighted_mean.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -62,9 +62,9 @@ void preProcessData(const raft::handle_t& handle,
                     math_t* norm2_input,
                     bool fit_intercept,
                     bool normalize,
-                    cudaStream_t stream,
                     math_t* sample_weight = nullptr)
 {
+  cudaStream_t stream = handle.get_stream();
   raft::common::nvtx::range fun_scope("ML::GLM::preProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
@@ -131,9 +131,9 @@ void postProcessData(const raft::handle_t& handle,
                      math_t* mu_labels,
                      math_t* norm2_input,
                      bool fit_intercept,
-                     bool normalize,
-                     cudaStream_t stream)
+                     bool normalize)
 {
+  cudaStream_t stream = handle.get_stream();
   raft::common::nvtx::range fun_scope("ML::GLM::postProcessData-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");

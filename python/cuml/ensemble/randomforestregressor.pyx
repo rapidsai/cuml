@@ -30,7 +30,7 @@ import cuml.internals
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -48,7 +48,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -143,7 +143,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         MSE score of cuml :  0.9076250195503235
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int or string (default = ``2`` (``'mse'``))
@@ -239,9 +239,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-      * GPU-based inference is only supported with 32-bit (float32) datatypes.
+      * GPU-based inference is only supported with 32-bit (float32) data-types.
         Alternatives are to use CPU-based inference for 64-bit (float64)
-        datatypes, or let the default automatic datatype conversion occur
+        data-types, or let the default automatic datatype conversion occur
         during GPU inference.
 
     For additional docs, see `scikitlearn's RandomForestRegressor
@@ -346,7 +346,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         Converts the cuML RF model to a Treelite model
 
         Returns
-        ----------
+        -------
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
@@ -544,9 +544,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         ----------
         X : {}
         predict_model : String (default = 'GPU')
-            'GPU' to predict using the GPU, 'CPU' otherwise. The GPU can only
-            be used if the model was trained on float32 data and `X` is float32
-            or convert_dtype is set to True.
+            'GPU' to predict using the GPU, 'CPU' otherwise.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
@@ -576,22 +574,12 @@ class RandomForestRegressor(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         y : {}
 
         """
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
-        elif self.dtype == np.float64:
-            warnings.warn("GPU based predict only accepts "
-                          "np.float32 data. The model was "
-                          "trained on np.float64 data hence "
-                          "cannot use GPU-based prediction! "
-                          "\nDefaulting to CPU-based Prediction. "
-                          "\nTo predict on float-64 data, set "
-                          "parameter predict_model = 'CPU'")
-            preds = self._predict_model_on_cpu(X,
-                                               convert_dtype=convert_dtype)
         else:
             preds = self._predict_model_on_gpu(
                 X=X,
@@ -648,7 +636,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         mean_square_error : float or
         median_abs_error : float or
         mean_abs_error : float

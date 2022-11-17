@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from raft.dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import get_raft_comm_state
 
 
 class LinearRegression(BaseEstimator,
@@ -35,12 +35,12 @@ class LinearRegression(BaseEstimator,
     As the number of features in X increases, the accuracy of Eig algorithm
     drops.
 
-    This is an experimental implementation of dask Linear Regresion. It
+    This is an experimental implementation of dask Linear Regression. It
     supports input X that has more than one column. Single column input
     X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
-    -----------
+    ----------
     algorithm : 'eig'
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
@@ -55,7 +55,7 @@ class LinearRegression(BaseEstimator,
         If False, no scaling will be done.
 
     Attributes
-    -----------
+    ----------
     coef_ : cuDF series, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array

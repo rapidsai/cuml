@@ -18,7 +18,7 @@ set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_RAFT_DIST USE_RAFT_NN USE_RAFT_STATIC USE_FAISS_STATIC CLONE_ON_PIN NVTX)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
@@ -45,24 +45,27 @@ function(find_and_configure_raft)
         set(RAFT_COMPILE_LIBRARIES OFF)
     endif()
 
+    # We need to set this each time so that on subsequent calls to cmake
+    # the raft-config.cmake re-evaluates the RAFT_NVTX value
+    set(RAFT_NVTX ${PKG_NVTX})
+
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    cuml-exports
             INSTALL_EXPORT_SET  cuml-exports
+            COMPONENTS          ${RAFT_COMPONENTS}
             CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
-            FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
             OPTIONS
               "BUILD_TESTS OFF"
               "RAFT_COMPILE_LIBRARIES ${RAFT_COMPILE_LIBRARIES}"
               "RAFT_COMPILE_NN_LIBRARY ${PKG_USE_RAFT_NN}"
               "RAFT_COMPILE_DIST_LIBRARY ${PKG_USE_RAFT_DIST}"
               "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
-              "RAFT_NVTX ${NVTX}"
     )
 
     if(raft_ADDED)
@@ -79,14 +82,15 @@ endfunction()
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             rapidsai
-                        PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+			PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
                         # even if it's already installed.
-                        CLONE_ON_PIN     ON
+                        CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
                         USE_RAFT_NN      ${CUML_USE_RAFT_NN}
                         USE_RAFT_DIST    ${CUML_USE_RAFT_DIST}
                         USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
+                        NVTX             ${NVTX}
                         )

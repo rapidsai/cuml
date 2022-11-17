@@ -31,11 +31,10 @@ from cuml.common.mixins import FMajorInputTagMixin
 import numpy as np
 import cupy as cp
 
-import cudf
 
 from cython.operator cimport dereference as deref
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool
@@ -134,7 +133,7 @@ class KNeighborsClassifier(NearestNeighbors,
             4., 1., 3.], dtype=float32)
 
     Notes
-    ------
+    -----
 
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.

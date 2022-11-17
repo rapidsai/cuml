@@ -34,9 +34,11 @@ class MBSGDRegressor(Base,
     The MBSGD Regressor implementation is experimental and and it uses a
     different algorithm than sklearn's SGDClassifier. In order to improve
     the results obtained from cuML's MBSGD Regressor:
+
     * Reduce the batch size
     * Increase the eta0
     * Increase the number of iterations
+
     Since cuML is analyzing the data in batches using a small eta0 might
     not let the model learn as much as scikit learn does. Furthermore,
     decreasing the batch size might seen an increase in the time required
@@ -79,7 +81,7 @@ class MBSGDRegressor(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     loss : 'squared_loss' (default = 'squared_loss')
        'squared_loss' uses linear regression
     penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
@@ -124,7 +126,7 @@ class MBSGDRegressor(Base,
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
-        the number of epochs to train without any imporvement in the model
+        the number of epochs to train without any improvement in the model
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -142,7 +144,7 @@ class MBSGDRegressor(Base,
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
-    ------
+    -----
     For additional docs, see `scikitlearn's SGDRegressor
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """

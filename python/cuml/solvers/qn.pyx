@@ -15,7 +15,6 @@
 
 # distutils: language = c++
 
-import cudf
 import cupy as cp
 import numpy as np
 
@@ -28,7 +27,7 @@ from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
@@ -294,7 +293,7 @@ class QN(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     loss: 'sigmoid', 'softmax', 'l1', 'l2', 'svc_l1', 'svc_l2', 'svr_l1', \
         'svr_l2' (default = 'sigmoid').
         'sigmoid' loss used for single class logistic regression;
@@ -382,7 +381,7 @@ class QN(Base,
         implementations, such as sklearn's.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_classes, n_features)
         The estimated coefficients for the linear regression model.
         Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
@@ -390,7 +389,7 @@ class QN(Base,
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
        This class contains implementations of two popular Quasi-Newton methods:
 
          - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,

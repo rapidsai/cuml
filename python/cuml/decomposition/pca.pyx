@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 import cupy as cp
 import cupyx
@@ -36,8 +35,8 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.common.input_utils import input_to_cuml_array
@@ -252,7 +251,7 @@ class PCA(Base,
         estimated covariance of X.
 
     Notes
-    ------
+    -----
     PCA considers linear combinations of features, specifically those that
     maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or

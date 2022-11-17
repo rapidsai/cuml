@@ -24,6 +24,7 @@ import copy
 
 import cupyx
 import scipy.sparse
+import cupy as cp
 
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.testing.utils import array_equal, unit_param, \
@@ -530,3 +531,97 @@ def test_umap_knn_parameters(n_neighbors):
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)
     test_equality(embedding6, embedding7)
+
+
+def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
+    n_ref_zeros = (a == 0).sum()
+    n_ref_non_zero_elms = a.size - n_ref_zeros
+    n_correct = (cp.abs(a - b) <= (atol + rtol * cp.abs(b))).sum()
+    correctness = (n_correct - n_ref_zeros) / n_ref_non_zero_elms
+    return correctness >= threshold
+
+
+@pytest.mark.parametrize('n_rows', [200, 800])
+@pytest.mark.parametrize('n_features', [8, 32])
+@pytest.mark.parametrize('n_neighbors', [8, 16])
+def test_fuzzy_simplicial_set(n_rows,
+                              n_features,
+                              n_neighbors):
+    n_clusters = 30
+    random_state = 42
+
+    X, _ = make_blobs(n_samples=n_rows, centers=n_clusters,
+                      n_features=n_features, random_state=random_state)
+
+    model = cuUMAP(n_neighbors=n_neighbors)
+    model.fit(X)
+    cu_fss_graph = model.graph_
+
+    model = umap.UMAP(n_neighbors=n_neighbors)
+    model.fit(X)
+    ref_fss_graph = model.graph_
+
+    cu_fss_graph = cu_fss_graph.todense()
+    ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
+    assert correctness_sparse(ref_fss_graph,
+                              cu_fss_graph,
+                              atol=0.1,
+                              rtol=0.2,
+                              threshold=0.95)
+
+
+@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'l1',
+                                    'manhattan', 'minkowski', 'chebyshev',
+                                    'cosine', 'correlation', 'jaccard',
+                                    'hamming', 'canberra'])
+def test_umap_distance_metrics_fit_transform_trust(metric):
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
+
+    if metric == 'jaccard':
+        data = data >= 0
+
+    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                           metric=metric, init='random')
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
+                        metric=metric, init='random')
+    umap_embedding = umap_model.fit_transform(data)
+    cuml_embedding = cuml_model.fit_transform(data)
+
+    umap_trust = trustworthiness(data, umap_embedding,
+                                 n_neighbors=10, metric=metric)
+    cuml_trust = trustworthiness(data, cuml_embedding,
+                                 n_neighbors=10, metric=metric)
+
+    assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
+
+
+@pytest.mark.parametrize('metric', ['euclidean', 'l1', 'manhattan',
+                                    'minkowski', 'chebyshev',
+                                    'cosine', 'correlation', 'jaccard',
+                                    'hamming', 'canberra'])
+def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
+    data, labels = make_blobs(n_samples=1000, n_features=64,
+                              centers=5, random_state=42)
+
+    data_selection = np.random.RandomState(42).choice(
+                       [True, False], 1000, replace=True, p=[0.75, 0.25])
+
+    if metric == 'jaccard':
+        data = data >= 0
+
+    new_data = scipy.sparse.csr_matrix(data[~data_selection])
+
+    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
+                           metric=metric, init='random')
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
+                        metric=metric, init='random')
+    umap_embedding = umap_model.fit_transform(new_data)
+    cuml_embedding = cuml_model.fit_transform(new_data)
+
+    umap_trust = trustworthiness(data[~data_selection], umap_embedding,
+                                 n_neighbors=10, metric=metric)
+    cuml_trust = trustworthiness(data[~data_selection], cuml_embedding,
+                                 n_neighbors=10, metric=metric)
+
+    assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)

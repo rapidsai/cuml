@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-#include <metrics/trustworthiness_score.cuh>
+#include <raft/stats/trustworthiness_score.hpp>
 
 #include <cuml/metrics/metrics.hpp>
 
-#include <raft/distance/distance.hpp>
+#if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.hpp>
+#endif
 
-#include <raft/handle.hpp>
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
+
+#include <raft/distance/distance.cuh>
+
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Metrics {
@@ -50,7 +57,7 @@ double trustworthiness_score(const raft::handle_t& h,
                              int n_neighbors,
                              int batchSize)
 {
-  return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
+  return raft::stats::trustworthiness_score<math_t, distance_type>(
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
 

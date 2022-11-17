@@ -17,8 +17,13 @@
 #include "tsne_runner.cuh"
 #include <cuml/manifold/tsne.h>
 
-namespace ML {
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/spatial/knn/specializations.hpp>
+#endif
 
+#include <raft/distance/distance_types.hpp>
+
+namespace ML {
 template <typename tsne_input, typename value_idx, typename value_t>
 value_t _fit(const raft::handle_t& handle,
              tsne_input& input,

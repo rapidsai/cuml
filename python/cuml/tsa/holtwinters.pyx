@@ -27,7 +27,7 @@ from cuml.common import using_output_type
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:
@@ -377,7 +377,7 @@ class ExponentialSmoothing(Base):
             the forecasted points from all time series is returned.
 
         Returns
-        ----------
+        -------
         preds : cudf.DataFrame or cudf.Series
             Series of forecasted points if index is provided.
             DataFrame of all forecasted points if index=None.

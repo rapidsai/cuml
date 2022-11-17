@@ -21,22 +21,25 @@
 #include <numeric>
 #include <vector>
 
-#include <cache/cache_util.cuh>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/cholesky_r1_update.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/cholesky_r1_update.cuh>
+#include <raft/util/cache_util.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
@@ -1114,7 +1117,7 @@ void larsPredict(const raft::handle_t& handle,
     // We collect active columns of X to contiguous space
     X_active_cols.resize(n_active * ld_X, stream);
     const int TPB = 64;
-    MLCommon::Cache::get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
+    raft::cache::get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
       X, ld_X, active_idx, n_active, X_active_cols.data());
     RAFT_CUDA_TRY(cudaGetLastError());
     X = X_active_cols.data();

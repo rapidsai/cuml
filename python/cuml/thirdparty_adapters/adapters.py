@@ -1,4 +1,5 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+#
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -247,7 +248,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         if array.shape[0] < ensure_min_samples:
             raise ValueError("Not enough samples")
 
-    if ensure_min_features > 0 and hasshape and array.ndim == 2:
+    if ensure_min_features > 0 and hasshape and len(array.shape) == 2:
         n_features = array.shape[1]
         if n_features < ensure_min_features:
             raise ValueError("Found array with %d feature(s) (shape=%s) while"
@@ -294,16 +295,18 @@ def _masked_column_median(arr, masked_value):
     mask = _get_mask(arr, masked_value)
     if arr.size == 0:
         return cp.full(arr.shape[1], cp.nan)
-    arr_sorted = arr.copy()
     if not cp.isnan(masked_value):
+        arr_sorted = arr.copy()
         # If nan is not the missing value, any column with nans should
         # have a median of nan
         nan_cols = cp.any(cp.isnan(arr), axis=0)
         arr_sorted[mask] = cp.nan
+        arr_sorted.sort(axis=0)
     else:
         nan_cols = cp.full(arr.shape[1], False)
-    # nans are always sorted to end of array
-    arr_sorted = cp.sort(arr_sorted, axis=0)
+        # nans are always sorted to end of array and the sort call
+        # copies the data
+        arr_sorted = cp.sort(arr, axis=0)
 
     count_missing_values = mask.sum(axis=0)
     # Ignore missing values in determining "halfway" index of sorted

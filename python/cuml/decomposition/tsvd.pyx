@@ -17,7 +17,6 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
 import numpy as np
 
 from enum import IntEnum
@@ -30,7 +29,7 @@ from libc.stdint cimport uintptr_t
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -169,7 +168,7 @@ class TruncatedSVD(Base,
         2  5.0  1.0  1.0
 
     Parameters
-    -----------
+    ----------
     algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
         Full uses a eigendecomposition of the covariance matrix then discards
         components.
@@ -203,7 +202,7 @@ class TruncatedSVD(Base,
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     components_ : array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
     explained_variance_ : array
@@ -214,7 +213,7 @@ class TruncatedSVD(Base,
         The top K singular values. Remember all singular values >= 0
 
     Notes
-    ------
+    -----
     TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number
     of components you want is much smaller than the number of features. The
     approximation to the largest singular values and vectors is very robust,

@@ -28,16 +28,16 @@
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/label/classlabels.hpp>
+#include <raft/distance/kernels.cuh>
+#include <raft/label/classlabels.cuh>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/iterator/counting_iterator.h>
 
 namespace ML {
@@ -50,7 +50,7 @@ void svcFit(const raft::handle_t& handle,
             int n_cols,
             math_t* labels,
             const SvmParameter& param,
-            MLCommon::Matrix::KernelParams& kernel_params,
+            raft::distance::kernels::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -75,11 +75,12 @@ void svcFit(const raft::handle_t& handle,
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 
   rmm::device_uvector<math_t> y(n_rows, stream);
-  MLCommon::Label::getOvrLabels(
+  raft::label::getOvrlabels(
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
-  MLCommon::Matrix::GramMatrixBase<math_t>* kernel =
-    MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params, handle_impl.get_cublas_handle());
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel =
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
+                                                           handle_impl.get_cublas_handle());
   SmoSolver<math_t> smo(handle_impl, param, kernel);
   smo.Solve(input,
             n_rows,
@@ -101,7 +102,7 @@ void svcPredict(const raft::handle_t& handle,
                 math_t* input,
                 int n_rows,
                 int n_cols,
-                MLCommon::Matrix::KernelParams& kernel_params,
+                raft::distance::kernels::KernelParams& kernel_params,
                 const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
@@ -133,9 +134,9 @@ void svcPredict(const raft::handle_t& handle,
 
   cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
 
-  MLCommon::Matrix::GramMatrixBase<math_t>* kernel =
-    MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params, cublas_handle);
-  if (kernel_params.kernel == MLCommon::Matrix::RBF) {
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel =
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, cublas_handle);
+  if (kernel_params.kernel == raft::distance::kernels::RBF) {
     // Temporary buffers for the RBF kernel, see below
     x_rbf.resize(n_batch * n_cols, stream);
     idx.resize(n_batch, stream);
@@ -147,7 +148,7 @@ void svcPredict(const raft::handle_t& handle,
     if (i + n_batch >= n_rows) { n_batch = n_rows - i; }
     math_t* x_ptr = nullptr;
     int ld1       = 0;
-    if (kernel_params.kernel == MLCommon::Matrix::RBF) {
+    if (kernel_params.kernel == raft::distance::kernels::RBF) {
       // The RBF kernel does not support ld parameters (See issue #1172)
       // To come around this limitation, we copy the batch into a temporary
       // buffer.

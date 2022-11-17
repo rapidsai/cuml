@@ -20,7 +20,7 @@ import numpy as np
 from pandas import DataFrame as pdDataFrame
 from cudf import DataFrame as cuDataFrame
 
-from cuml.experimental.preprocessing import \
+from cuml.compose import \
     ColumnTransformer as cuColumnTransformer, \
     make_column_transformer as cu_make_column_transformer, \
     make_column_selector as cu_make_column_selector

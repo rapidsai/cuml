@@ -206,7 +206,7 @@ class TfidfVectorizer(CountVectorizer):
 
         Parameters
         ----------
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
            A Series of string documents
 
         Returns
@@ -225,7 +225,7 @@ class TfidfVectorizer(CountVectorizer):
 
         Parameters
         ----------
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
            A Series of string documents
 
         Returns
@@ -246,7 +246,7 @@ class TfidfVectorizer(CountVectorizer):
 
         Parameters
         ----------
-        raw_documents : cudf.Series
+        raw_documents : cudf.Series or pd.Series
            A Series of string documents
 
         Returns

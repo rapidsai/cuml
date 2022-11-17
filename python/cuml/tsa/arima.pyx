@@ -30,13 +30,15 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
 from cuml.common import has_scipy
+from cuml.common.input_utils import determine_array_dtype
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
 from cuml.internals import _deprecate_pos_args
+import warnings
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -209,6 +211,9 @@ class ARIMA(Base):
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+    convert_dtype : boolean
+        When set to True, the model will automatically convert the inputs to
+        np.float64.
 
     Attributes
     ----------
@@ -311,7 +316,8 @@ class ARIMA(Base):
                  simple_differencing=True,
                  handle=None,
                  verbose=False,
-                 output_type=None):
+                 output_type=None,
+                 convert_dtype=True):
 
         if not has_scipy():
             raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
@@ -346,7 +352,9 @@ class ARIMA(Base):
 
         # Endogenous variable. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(endog, check_dtype=np.float64)
+            = input_to_cuml_array(
+                endog, check_dtype=np.float64,
+                convert_to_dtype=(np.float64 if convert_dtype else None))
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
@@ -565,27 +573,27 @@ class ARIMA(Base):
 
     def get_param_names(self):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def get_params(self, deep=True):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def set_params(self, **params):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
@@ -857,7 +865,7 @@ class ARIMA(Base):
         h : float (default=1e-8)
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
-            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})` # noqa
+            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})`
 
         maxiter : int (default=1000)
             Maximum number of iterations of L-BFGS-B
@@ -869,7 +877,7 @@ class ARIMA(Base):
         truncate : int (default=0)
             When using CSS, start the sum of squares after a given number of
             observations
-        """
+        """  # noqa
         def fit_helper(x_in, fit_method):
             cdef uintptr_t d_y_ptr = self.d_y.ptr
 

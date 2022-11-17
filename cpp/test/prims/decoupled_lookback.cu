@@ -17,8 +17,8 @@
 #include "test_utils.h"
 #include <decoupled_lookback.cuh>
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/interruptible.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
