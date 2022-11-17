@@ -37,6 +37,7 @@ dependencies:
           - libraft-nn=22.12.*
       - output_types: conda
         packages:
+          - python>=3.8,<3.10
           - rapids-build-env=22.12.*
           - nccl>=2.9.9 # assuming, as pip isnt yet multi GPU
           - raft-dask=22.12.* # assuming, as pip isnt yet multi GPU
@@ -74,6 +75,7 @@ dependencies:
           - dask-cuda=22.12.*
           - dask>=2022.9.2
           - distributed>=2022.9.2
+          - joblib >=0.11
       - output_types: conda
         packages:
           - cupy>=7.8.0,<12.0.0a0
