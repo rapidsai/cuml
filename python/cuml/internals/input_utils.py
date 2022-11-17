@@ -26,7 +26,9 @@ from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
     safe_import,
+    safe_import_from,
     null_decorator,
+    return_false,
     UnavailableError
 )
 
@@ -53,6 +55,16 @@ try:
     NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
 except UnavailableError:
     NumbaDeviceNDArrayBase = numba_devicearray
+scipy_isspmatrix = safe_import_from(
+    'scipy.sparse',
+    'isspmatrix',
+    alt=return_false
+)
+cupyx_isspmatrix = gpu_only_import_from(
+    'cupyx.scipy.sparse',
+    'isspmatrix',
+    alt=return_false
+)
 
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
@@ -91,12 +103,14 @@ _sparse_types = [SparseCumlArray]
 try:
     _input_type_to_str[cupyx.scipy.sparse.spmatrix] = 'cupy'
     _sparse_types.append(cupyx.scipy.sparse.spmatrix)
+    _input_type_to_mem_type[cupyx.scipy.sparse.spmatrix] = MemoryType.device
 except UnavailableError:
     pass
 
 try:
     _input_type_to_str[scipy_sparse.spmatrix] = 'numpy'
     _sparse_types.append(scipy_sparse.spmatrix)
+    _input_type_to_mem_type[scipy_sparse.spmatrix] = MemoryType.device
 except UnavailableError:
     pass
 
@@ -261,6 +275,8 @@ def is_array_like(X):
             ) or isinstance(X, (
                 SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
                 PandasDataFrame))
+            or cupyx_isspmatrix(X)
+            or scipy_isspmatrix(X)
             or numba_cuda.devicearray.is_cuda_ndarray(X)
         )
     except UnavailableError:

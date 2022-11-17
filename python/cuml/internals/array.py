@@ -683,7 +683,6 @@ class CumlArray():
             'constructor-kwargs': {
                 'dtype': self.dtype.str,
                 'shape': self.shape,
-                'strides': self.strides,
                 'order': self.order,
                 'mem_type': mem_type.name
             },
