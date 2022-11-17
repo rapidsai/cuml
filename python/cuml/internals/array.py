@@ -23,7 +23,9 @@ from cuml.internals.global_settings import global_settings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.memory_utils import class_with_cupy_rmm
+from cuml.internals.memory_utils import (
+    class_with_cupy_rmm, _check_array_contiguity
+)
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -410,13 +412,7 @@ class CumlArray():
 
     @cached_property
     def is_contiguous(self):
-        try:
-            return self.to_output('array').data.contiguous
-        except AttributeError:
-            return (
-                self.to_output('array').flags['C_CONTIGUOUS'] or
-                self.to_output('array').flags['F_CONTIGUOUS']
-            )
+        return _check_array_contiguity(self)
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed
