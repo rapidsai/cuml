@@ -960,6 +960,9 @@ class CumlArray():
             ) and (
                 not force_contiguous
                 or X.is_contiguous
+            ) and (
+                order in ('K', None)
+                or X.order == order
             )
         ):
             if deepcopy:
