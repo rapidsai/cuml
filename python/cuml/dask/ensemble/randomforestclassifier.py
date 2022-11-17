@@ -64,7 +64,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     classifier for more information about the underlying algorithm.
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
                    total number of trees in the forest (not per-worker)
     handle : cuml.Handle
@@ -143,13 +143,13 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         while splitting. When True, it returns the results from workers
         with data (the number of trained estimators will be less than
         n_estimators) When False, throws a RuntimeError.
-        This is an experiemental parameter, and may be removed
+        This is an experimental parameter, and may be removed
         in the future.
 
     Examples
     --------
     For usage examples, please see the RAPIDS notebooks repository:
-    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/random_forest_mnmg_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/main/notebooks/random_forest_mnmg_demo.ipynb
     """
 
     def __init__(
@@ -351,7 +351,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         Returns
         -------
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
-
         """
         if predict_model == "CPU":
             preds = self.predict_model_on_cpu(X=X,
@@ -536,7 +535,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         required to configure this estimator as a dictionary.
 
         Parameters
-        -----------
+        ----------
         deep : boolean (default = True)
         """
         return self._get_params(deep)
@@ -548,7 +547,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         the sklearn set_params.
 
         Parameters
-        -----------
+        ----------
         params : dict of new params.
         """
         return self._set_params(**params)

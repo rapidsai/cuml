@@ -93,7 +93,7 @@ def make_regression(
                   typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
 
-    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html # noqa: E501
+    See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
 
     Examples
     --------
@@ -168,7 +168,7 @@ def make_regression(
     coef : device array of shape [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
-    """
+    """  # noqa: E501
 
     # Set the default output type to "cupy". This will be ignored if the user
     # has set `cuml.global_settings.output_type`. Only necessary for array

@@ -67,7 +67,6 @@ class CumlArray(Buffer):
 
     Attributes
     ----------
-
     ptr : int
         Pointer to the data
     size : int

@@ -128,7 +128,7 @@ class NearestNeighbors(BaseEstimator):
             Number of neighbors
 
         Returns
-        --------
+        -------
         n_neighbors: int
             Default n_neighbors if parameter n_neighbors is none
         """
