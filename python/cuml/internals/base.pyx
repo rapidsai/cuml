@@ -35,6 +35,7 @@ from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
 from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.array import CumlArray
 from cuml.internals.safe_imports import (
     gpu_only_import, gpu_only_import_from
@@ -594,38 +595,43 @@ class UniversalBase(Base):
                 self._set_output_mem_type(args[0])
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
-                for attr in self.get_attr_names():
-                    # check presence of attribute
-                    if hasattr(self._cpu_model, attr) or \
-                       isinstance(getattr(type(self._cpu_model),
-                                          attr, None), property):
-                        # get the cpu attribute
-                        if hasattr(self._cpu_model, attr):
-                            cpu_attr = getattr(self._cpu_model, attr)
-                        else:
-                            cpu_attr = getattr(type(self._cpu_model),
-                                               attr).fget(self._cpu_model)
-                        # if the cpu attribute is an array
-                        if isinstance(cpu_attr, np.ndarray):
-                            # get data order wished for by CumlArrayDescriptor
-                            if hasattr(self, attr + '_order'):
-                                order = getattr(self, attr + '_order')
+                with using_memory_type(
+                    (MemoryType.host, MemoryType.device)[
+                        is_cuda_available()
+                    ]
+                ):
+                    for attr in self.get_attr_names():
+                        # check presence of attribute
+                        if hasattr(self._cpu_model, attr) or \
+                           isinstance(getattr(type(self._cpu_model),
+                                              attr, None), property):
+                            # get the cpu attribute
+                            if hasattr(self._cpu_model, attr):
+                                cpu_attr = getattr(self._cpu_model, attr)
                             else:
-                                order = 'K'
-                            # transfer array to gpu and set it as a cuml
-                            # attribute
-                            cuml_array = input_to_cuml_array(
-                                cpu_attr,
-                                order=order,
-                                convert_to_mem_type=(
-                                    MemoryType.host,
-                                    MemoryType.device
-                                )[is_cuda_available()]
-                            )[0]
-                            setattr(self, attr, cuml_array)
-                        else:
-                            # transfer all other types of attributes directly
-                            setattr(self, attr, cpu_attr)
+                                cpu_attr = getattr(type(self._cpu_model),
+                                                   attr).fget(self._cpu_model)
+                            # if the cpu attribute is an array
+                            if isinstance(cpu_attr, np.ndarray):
+                                # get data order wished for by CumlArrayDescriptor
+                                if hasattr(self, attr + '_order'):
+                                    order = getattr(self, attr + '_order')
+                                else:
+                                    order = 'K'
+                                # transfer array to gpu and set it as a cuml
+                                # attribute
+                                cuml_array = input_to_cuml_array(
+                                    cpu_attr,
+                                    order=order,
+                                    convert_to_mem_type=(
+                                        MemoryType.host,
+                                        MemoryType.device
+                                    )[is_cuda_available()]
+                                )[0]
+                                setattr(self, attr, cuml_array)
+                            else:
+                                # transfer all other types of attributes directly
+                                setattr(self, attr, cpu_attr)
                 if func_name == 'fit':
                     return self
             # return method result

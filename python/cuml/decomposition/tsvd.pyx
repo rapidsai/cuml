@@ -27,7 +27,7 @@ from libc.stdint cimport uintptr_t
 
 
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
@@ -101,7 +101,7 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class TruncatedSVD(Base,
+class TruncatedSVD(UniversalBase,
                    FMajorInputTagMixin):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a

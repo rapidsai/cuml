@@ -343,6 +343,9 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
                 output_type = self.base_obj._input_type
                 mem_type = self.base_obj._input_mem_type
 
+            if mem_type is None:
+                mem_type = global_settings.memory_type
+
             if (output_type != root_cm.output_type):
                 set_api_output_type(output_type)
             if (mem_type != root_cm.memory_type):
