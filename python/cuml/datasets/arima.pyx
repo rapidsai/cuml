@@ -103,7 +103,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         If it is None, a new one is created just for this function call
 
     Returns
-    --------
+    -------
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset
     """

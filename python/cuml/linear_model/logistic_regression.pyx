@@ -104,7 +104,7 @@ class LogisticRegression(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     penalty : 'none', 'l1', 'l2', 'elasticnet' (default = 'l2')
         Used to specify the norm used in the penalization.
         If 'none' or 'l2' are selected, then L-BFGS solver will be used.
@@ -164,15 +164,14 @@ class LogisticRegression(Base,
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_: dev array, dim (n_classes, n_features) or (n_classes, n_features+1)
         The estimated coefficients for the linear regression model.
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
-
+    -----
     cuML's LogisticRegression uses a different solver that the equivalent
     Scikit-learn, except when there is no penalty and `solver=lbfgs` is
     used in Scikit-learn. This can cause (smaller) differences in the
@@ -392,7 +391,6 @@ class LogisticRegression(Base,
     def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
-
         """
         return self._predict_proba_impl(
             X,

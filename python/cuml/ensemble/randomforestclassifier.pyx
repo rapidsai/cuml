@@ -146,7 +146,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         Predicted labels :  [0. 1. 0. 1. 0. 1. 0. 1. 0. 1.]
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int or string (default = ``0`` (``'gini'``))
@@ -343,7 +343,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         Converts the cuML RF model to a Treelite model
 
         Returns
-        ----------
+        -------
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
@@ -599,7 +599,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         y : {}
         """
         if predict_model == "CPU":
