@@ -164,7 +164,7 @@ class LinearRegression(Base,
 
 
     Parameters
-    -----------
+    ----------
     algorithm : {'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'eig')
         Choose an algorithm:
 
@@ -209,14 +209,14 @@ class LinearRegression(Base,
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
     LinearRegression suffers from multicollinearity (when columns are
     correlated with each other), and variance explosions from outliers.
     Consider using Ridge Regression to fix the multicollinearity problem, and
@@ -235,9 +235,7 @@ class LinearRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`__.
-
-
+    <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
     """
 
     sk_import_path_ = 'sklearn.linear_model'

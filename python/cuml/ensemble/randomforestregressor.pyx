@@ -143,7 +143,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         MSE score of cuml :  0.9076250195503235
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int or string (default = ``2`` (``'mse'``))
@@ -239,9 +239,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-      * GPU-based inference is only supported with 32-bit (float32) datatypes.
+      * GPU-based inference is only supported with 32-bit (float32) data-types.
         Alternatives are to use CPU-based inference for 64-bit (float64)
-        datatypes, or let the default automatic datatype conversion occur
+        data-types, or let the default automatic datatype conversion occur
         during GPU inference.
 
     For additional docs, see `scikitlearn's RandomForestRegressor
@@ -346,7 +346,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         Converts the cuML RF model to a Treelite model
 
         Returns
-        ----------
+        -------
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
@@ -574,7 +574,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         y : {}
 
         """
@@ -636,7 +636,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         mean_square_error : float or
         median_abs_error : float or
         mean_abs_error : float

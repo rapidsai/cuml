@@ -410,7 +410,6 @@ def set_global_output_type(output_type):
 
     >>> import cuml
     >>> import cupy as cp
-    >>>
     >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
     >>> ary = cp.asarray(ary)
     >>> prev_output_type = cuml.global_settings.output_type
@@ -496,10 +495,8 @@ def using_output_type(output_type):
 
     >>> import cuml
     >>> import cupy as cp
-    >>>
     >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
     >>> ary = cp.asarray(ary)
-    >>>
     >>> with cuml.using_output_type('cudf'):
     ...     dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     ...     dbscan_float.fit(ary)
@@ -519,13 +516,11 @@ def using_output_type(output_type):
     >>> dbscan_float2 = cuml.DBSCAN(eps=1.0, min_samples=1)
     >>> dbscan_float2.fit(ary)
     DBSCAN()
-    >>>
     >>> # cuML default output
     >>> dbscan_float2.labels_
     array([0, 1, 2], dtype=int32)
     >>> isinstance(dbscan_float2.labels_, cp.ndarray)
     True
-
     """
     prev_output_type = cuml.global_settings.output_type
     try:
