@@ -74,22 +74,19 @@ class TargetEncoder:
     --------
     Converting a categorical implementation to a numerical one
 
-    .. code-block:: python
+    >>> from cudf import DataFrame, Series
+    >>> from cuml.preprocessing import TargetEncoder
+    >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
+    ...                    'label': [1, 0, 1, 1]})
+    >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
-        >>> from cudf import DataFrame, Series
-        >>> from cuml.preprocessing import TargetEncoder
-        >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
-        ...                    'label': [1, 0, 1, 1]})
-        >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
-
-        >>> encoder = TargetEncoder()
-        >>> train_encoded = encoder.fit_transform(train.category, train.label)
-        >>> test_encoded = encoder.transform(test.category)
-        >>> print(train_encoded)
-        [1. 1. 0. 1.]
-        >>> print(test_encoded)
-        [1.   0.75 0.5  1.  ]
-
+    >>> encoder = TargetEncoder()
+    >>> train_encoded = encoder.fit_transform(train.category, train.label)
+    >>> test_encoded = encoder.transform(test.category)
+    >>> print(train_encoded)
+    [1. 1. 0. 1.]
+    >>> print(test_encoded)
+    [1.   0.75 0.5  1.  ]
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
                  split_method='interleaved', output_type='auto',
@@ -150,6 +147,7 @@ class TargetEncoder:
             folds. Its values should be integers in range
             `[0, N-1]` to split data into `N` folds. If None,
             fold_ids is generated based on `split_method`.
+
         Returns
         -------
         self : TargetEncoder

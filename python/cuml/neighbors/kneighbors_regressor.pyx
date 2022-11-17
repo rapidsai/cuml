@@ -147,7 +147,7 @@ class KNeighborsRegressor(NearestNeighbors,
         dtype=float32)
 
     Notes
-    ------
+    -----
 
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
