@@ -944,7 +944,7 @@ class CumlArray():
         else:
             convert_to_mem_type = MemoryType.from_str(
                 convert_to_mem_type
-            )
+            ) if convert_to_mem_type else convert_to_mem_type
         if convert_to_dtype:
             convert_to_dtype = host_xpy.dtype(convert_to_dtype)
         # Provide fast-path for CumlArray input
