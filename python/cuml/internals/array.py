@@ -963,7 +963,10 @@ class CumlArray():
             ) and (
                 order in ('K', None)
                 or X.order == order
-            )
+            ) and not check_dtype
+            and not check_mem_type
+            and not check_cols
+            and not check_rows
         ):
             if deepcopy:
                 return copy.deepcopy(X)
