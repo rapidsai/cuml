@@ -418,8 +418,8 @@ class SVC(SVMBase,
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
-        X, _, _, _, _ = input_to_host_array(X)
-        y, _, _, _, _ = input_to_host_array(y)
+        X = input_to_host_array(X).array
+        y = input_to_host_array(y).array
 
         if not has_sklearn():
             raise RuntimeError(
@@ -526,7 +526,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X, _, _, _, _ = input_to_host_array(X)
+            X = input_to_host_array(X).array
 
             with cuml.internals.exit_internal_api():
                 preds = self.prob_svc.predict(X)
@@ -560,7 +560,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X, _, _, _, _ = input_to_host_array(X)
+            X = input_to_host_array(X).array
 
             # Exit the internal API when calling sklearn code (forces numpy
             # conversion)

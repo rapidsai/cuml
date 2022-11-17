@@ -76,7 +76,7 @@ def seas_test(y, s, handle=None) -> CumlArray:
             .format(s))
 
     # At the moment we use a host array
-    h_y, _, n_obs, batch_size, dtype = \
+    h_y, n_obs, batch_size, dtype = \
         input_to_host_array(y, check_dtype=[np.float32, np.float64])
 
     # Temporary: Python implementation

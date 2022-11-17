@@ -131,8 +131,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
             raise ValueError('Invalid multiclass strategy ' +
                              str(self.strategy) + ', must be one of '
                              '{"ovr", "ovo"}')
-        X, _, _, _, _ = input_to_host_array(X)
-        y, _, _, _, _ = input_to_host_array(y)
+        X = input_to_host_array(X).array
+        y = input_to_host_array(y).array
         with cuml.internals.exit_internal_api():
             self.multiclass_estimator.fit(X, y)
             return self
@@ -145,7 +145,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Predict using multi class classifier.
         """
-        X, _, _, _, _ = input_to_host_array(X)
+        X = input_to_host_array(X).array
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.predict(X)
 
@@ -158,7 +158,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Calculate the decision function.
         """
-        X, _, _, _, _ = input_to_host_array(X)
+        X = input_to_host_array(X).array
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.decision_function(X)
 
