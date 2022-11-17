@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.5", "11.4", "11.2", "11.0"]
       arch: [x86_64]
     includes:
       - build
@@ -24,10 +24,10 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - &cmake_ver cmake>=3.23.1
+          - &cmake_ver cmake>=3.23.1 # build dependency not listed in conda dev environment
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
-          - cython>=0.29,<0.30
+          - cython>=0.29,<0.30 # build dependency not listed in conda dev environment
           - treelite=3.0.0
           - cudf=22.12.*
           - rmm=22.12.*
@@ -37,8 +37,9 @@ dependencies:
           - libraft-nn=22.12.*
       - output_types: conda
         packages:
-          - python>=3.8,<3.10
+          - python>=3.8,<3.10 # conda package dependency not listed in conda dev environment
           - rapids-build-env=22.12.*
+          # build dependency not listed in conda dev environment
           - nccl>=2.9.9 # assuming, as pip isnt yet multi GPU
           - raft-dask=22.12.* # assuming, as pip isnt yet multi GPU
           - pylibraft=22.12.* # assuming, as pip isnt yet multi GPU
@@ -48,25 +49,55 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - &gcc_amd64 gcc_linux-64=9.*
-              - &sysroot_amd64 sysroot_linux-64==2.17
+              - &gcc_amd64 gcc_linux-64=9.* # build dependency not listed in conda dev environment
+              - &sysroot_amd64 sysroot_linux-64==2.17 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
             packages:
-              - &gcc_aarch64 gcc_linux-aarch64=9.*
-              - &sysroot_aarch64 sysroot_linux-aarch64==2.17
+              - &gcc_aarch64 gcc_linux-aarch64=9.* # build dependency not listed in conda dev environment
+              - &sysroot_aarch64 sysroot_linux-aarch64==2.17 # build dependency not listed in conda dev environment
       - output_types: conda
         matrices:
           - matrix:
               arch: x86_64
               cuda: "11.5"
             packages:
-              - &nvcc_amd64_115 nvcc_linux-64=11.5
+              - &nvcc_amd64_115 nvcc_linux-64=11.5 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
               cuda: "11.5"
             packages:
-              - &nvcc_aarch64_115 nvcc_linux-aarch64=11.5
+              - &nvcc_aarch64_115 nvcc_linux-aarch64=11.5 # build dependency not listed in conda dev environment
+          - matrix:
+              arch: x86_64
+              cuda: "11.4"
+            packages:
+              - &nvcc_amd64_114 nvcc_linux-64=11.4 # build dependency not listed in conda dev environment
+          - matrix:
+              arch: aarch64
+              cuda: "11.4"
+            packages:
+              - &nvcc_aarch64_114 nvcc_linux-aarch64=11.4 # build dependency not listed in conda dev environment
+          - matrix:
+              arch: x86_64
+              cuda: "11.2"
+            packages:
+              - &nvcc_amd64_112 nvcc_linux-64=11.2 # build dependency not listed in conda dev environment
+          - matrix:
+              arch: aarch64
+              cuda: "11.2"
+            packages:
+              - &nvcc_aarch64_112 nvcc_linux-aarch64=11.2 # build dependency not listed in conda dev environment
+          - matrix:
+              arch: x86_64
+              cuda: "11.0"
+            packages:
+              - &nvcc_amd64_110 nvcc_linux-64=11.0 # build dependency not listed in conda dev environment
+          - matrix:
+              arch: aarch64
+              cuda: "11.0"
+            packages:
+              - &nvcc_aarch64_110 nvcc_linux-aarch64=11.0 # build dependency not listed in conda dev environment
   run:
     common:
       - output_types: [conda, requirements]
@@ -75,10 +106,10 @@ dependencies:
           - dask-cuda=22.12.*
           - dask>=2022.9.2
           - distributed>=2022.9.2
-          - joblib >=0.11
+          - joblib >=0.11 # conda package dependency not listed in conda dev environment
       - output_types: conda
         packages:
-          - cupy>=7.8.0,<12.0.0a0
+          - cupy>=7.8.0,<12.0.0a0 # conda package dependency not listed in conda dev environment
           - libfaiss>=1.7.0 # should this be for conda and requirements?
           - faiss-proc=*=cuda # should this be for conda and requirements?
           - ucx>=1.13.0 # should this be for conda and requirements?
@@ -90,7 +121,7 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
+              - cupy-cuda115>=7.8.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
           - matrix:
               arch: aarch64
             packages:
@@ -100,17 +131,21 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              cuda: "11.2"
+              cuda: "11.5"
             packages:
-              - cudatoolkit=11.2
+              - cudatoolkit=11.5
           - matrix:
               cuda: "11.4"
             packages:
               - cudatoolkit=11.4
           - matrix:
-              cuda: "11.5"
+              cuda: "11.2"
             packages:
-              - cudatoolkit=11.5
+              - cudatoolkit=11.2
+          - matrix:
+              cuda: "11.0"
+            packages:
+              - cudatoolkit=11.0
   develop:
     common:
       - output_types: conda
