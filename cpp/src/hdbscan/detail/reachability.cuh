@@ -23,7 +23,6 @@
 
 #include <raft/linalg/unary_op.cuh>
 
-#include <raft/cluster/detail/connectivities.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 

@@ -51,10 +51,11 @@ void single_linkage_neighbors(const raft::handle_t& handle,
 
 struct distance_graph_impl_int_float
   : public raft::cluster::detail::
-      distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, int, float> {};
-
+      distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, int, float> {
+};
 struct distance_graph_impl_int_double
   : public raft::cluster::detail::
-      distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, int, double> {};
+      distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, int, double> {
+};
 
 };  // end namespace ML
