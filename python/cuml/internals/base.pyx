@@ -37,6 +37,7 @@ from cuml.internals.input_utils import input_to_host_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.safe_imports import (
     gpu_only_import, gpu_only_import_from
 )
@@ -649,6 +650,10 @@ class UniversalBase(Base):
     def kneighbors(self, X, *args, **kwargs) \
             -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         return self.dispatch_func('kneighbors', X, *args, **kwargs)
+
+    def kneighbors_graph(self, X, *args, **kwargs) \
+            -> SparseCumlArray:
+        return self.dispatch_func('kneighbors_graph', X, *args, **kwargs)
 
     def fit_transform(self, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('fit_transform', *args, **kwargs)
