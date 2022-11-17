@@ -130,8 +130,13 @@ class SparseCumlArray():
         if not convert_to_dtype:
             convert_to_dtype = data.dtype
 
-        if not convert_to_mem_type:
+        if convert_to_mem_type:
+            convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
+
+        if convert_to_mem_type is MemoryType.mirror or not convert_to_mem_type:
             convert_to_mem_type = from_mem_type
+
+        self._mem_type = convert_to_mem_type
 
         if not convert_index:
             convert_index = data.indptr.dtype
@@ -166,7 +171,8 @@ class SparseCumlArray():
                    category="utils", domain="cuml_python")
     def to_output(self, output_type='cupy',
                   output_format=None,
-                  output_dtype=None):
+                  output_dtype=None,
+                  output_mem_type=None):
         """
         Convert array to output format
 
@@ -178,38 +184,57 @@ class SparseCumlArray():
             - 'cupy' - to cupy array
             - 'scipy' - to scipy (host) array
             - 'numpy' - to scipy (host) array
+            - 'array' - to cupy or scipy array depending on
+              output_mem_type
 
         output_format : string, optional { 'coo', 'csc' }
             Optionally convert the output to the specified format.
         output_dtype : string, optional
             Optionally cast the array to a specified dtype, creating
             a copy if necessary.
+        output_mem_type : {'host, 'device'}, optional
+            Optionally convert array to given memory type. If `output_type`
+            already indicates a specific memory type, `output_type` takes
+            precedence. If the memory type is not otherwise indicated, the data
+            are kept on their current device.
         """
-        # Treat numpy and scipy as the same
-        if (output_type == "numpy"):
-            output_type = "scipy"
-
-        output_dtype = self.data.dtype \
-            if output_dtype is None else output_dtype
-
-        if output_type not in ['cupy', 'scipy']:
-            # raise ValueError("Unsupported output_type: %s" % output_type)
-            # Default if output_type doesn't support sparse arrays
-            output_type = 'cupy'
-
-        cuml_arr_output_type = 'numpy' \
-            if output_type in ('scipy', 'numpy') else 'cupy'
-
-        data = self.data.to_output(cuml_arr_output_type, output_dtype)
-        indices = self.indices.to_output(cuml_arr_output_type)
-        indptr = self.indptr.to_output(cuml_arr_output_type)
-
-        if output_type == 'cupy':
-            constructor = cpx_sparse.csr_matrix
-        elif output_type == 'scipy':
-            constructor = scipy_sparse.csr_matrix
+        if output_mem_type is None:
+            output_mem_type = global_settings.memory_type
         else:
-            raise ValueError("Unsupported output_type: %s" % output_type)
+            output_mem_type = MemoryType.from_str(output_mem_type)
+        # Treat numpy and scipy as the same
+        if output_type in ('numpy', 'scipy'):
+            if global_settings.memory_type.is_host_accessible:
+                output_mem_type = global_settings.memory_type
+            else:
+                output_mem_type = MemoryType.host
+        elif output_type == 'cupy':
+            if global_settings.memory_type.is_device_accessible:
+                output_mem_type = global_settings.memory_type
+            else:
+                output_mem_type = MemoryType.device
+        elif output_mem_type is MemoryType.mirror:
+            output_mem_type = self.mem_type
+
+        data = self.data.to_output(
+            'array',
+            output_dtype=output_dtype,
+            output_mem_type=output_mem_type
+        )
+        indices = self.indices.to_output(
+            'array', output_mem_type=output_mem_type
+        )
+        indptr = self.indptr.to_output(
+            'array',
+            output_mem_type=output_mem_type
+        )
+
+        if output_type in ('scipy', 'numpy'):
+            constructor = scipy_sparse.csr_matrix
+        elif output_mem_type.is_device_accessible:
+            constructor = cpx_sparse.csr_matrix
+        else:
+            constructor = scipy_sparse.csr_matrix
 
         ret = constructor((data, indices, indptr),
                           dtype=output_dtype, shape=self.shape)

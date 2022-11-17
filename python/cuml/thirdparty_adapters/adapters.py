@@ -16,10 +16,14 @@
 
 import numpy as np
 import cupy as cp
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
+from cuml.internals.global_settings import global_settings
 from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
+from scipy.sparse import csr_matrix as cpu_csr_matrix
+from scipy.sparse import csc_matrix as cpu_csc_matrix
+from scipy.sparse import csc_matrix as cpu_coo_matrix
 from scipy import sparse as cpu_sparse
 from cupyx.scipy import sparse as gpu_sparse
 
@@ -259,11 +263,20 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     if is_sparse:
         check_sparse(array, accept_sparse, accept_large_sparse)
         if array.format == 'csr':
-            new_array = gpu_csr_matrix(array, copy=copy)
+            if global_settings.memory_type.is_device_accessible:
+                new_array = gpu_csr_matrix(array, copy=copy)
+            else:
+                new_array = cpu_csr_matrix(array, copy=copy)
         elif array.format == 'csc':
-            new_array = gpu_csc_matrix(array, copy=copy)
+            if global_settings.memory_type.is_device_accessible:
+                new_array = gpu_csc_matrix(array, copy=copy)
+            else:
+                new_array = cpu_csc_matrix(array, copy=copy)
         elif array.format == 'coo':
-            new_array = gpu_coo_matrix(array, copy=copy)
+            if global_settings.memory_type.is_device_accessible:
+                new_array = gpu_coo_matrix(array, copy=copy)
+            else:
+                new_array = cpu_coo_matrix(array, copy=copy)
         else:
             raise ValueError('Sparse matrix format not supported')
         check_finite(new_array.data, force_all_finite)
@@ -271,10 +284,16 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             new_array = new_array.astype(correct_dtype)
         return new_array
     else:
-        X, n_rows, n_cols, dtype = input_to_cupy_array(array,
-                                                       order=order,
-                                                       deepcopy=copy,
-                                                       fail_on_null=False)
+        if global_settings.memory_type.is_device_accessible:
+            X, n_rows, n_cols, dtype = input_to_cupy_array(array,
+                                                           order=order,
+                                                           deepcopy=copy,
+                                                           fail_on_null=False)
+        else:
+            X, n_rows, n_cols, dtype = input_to_host_array(array,
+                                                           order=order,
+                                                           deepcopy=copy,
+                                                           fail_on_null=False)
         if correct_dtype != dtype:
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)
