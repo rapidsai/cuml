@@ -81,10 +81,10 @@ _input_type_to_str = {
     SparseCumlArray: "cuml",
     np_ndarray: "numpy",
     cp_ndarray: "cupy",
-    CudfSeries: "cudf",
-    CudfDataFrame: "cudf",
-    PandasSeries: "pandas",
-    PandasDataFrame: "pandas",
+    CudfSeries: "series",
+    CudfDataFrame: "dataframe",
+    PandasSeries: "series",
+    PandasDataFrame: "dataframe",
     NumbaDeviceNDArrayBase: "numba"
 }
 
@@ -492,7 +492,24 @@ def convert_dtype(X,
     if safe_dtype:
         cur_dtype = determine_array_dtype(X)
         if not global_settings.xpy.can_cast(cur_dtype, to_dtype):
-            raise TypeError("Data type conversion would lose information.")
+            try:
+                target_dtype_range = global_settings.xpy.iinfo(
+                    to_dtype
+                )
+            except ValueError:
+                target_dtype_range = global_settings.xpy.finfo(
+                    to_dtype
+                )
+            out_of_range = (
+                (X < target_dtype_range.min) | (X > target_dtype_range.max)
+            ).any()
+            try:
+                out_of_range = out_of_range.any()
+            except AttributeError:
+                pass
+
+            if out_of_range:
+                raise TypeError("Data type conversion would lose information.")
     try:
         if numba_cuda.is_cuda_array(X):
             arr = cp.asarray(X, dtype=to_dtype)
