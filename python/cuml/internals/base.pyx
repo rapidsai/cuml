@@ -647,6 +647,7 @@ class UniversalBase(Base):
     def transform(self, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('transform', *args, **kwargs)
 
+    @cuml.internals.api_base_return_generic()
     def kneighbors(self, X, *args, **kwargs) \
             -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         return self.dispatch_func('kneighbors', X, *args, **kwargs)
