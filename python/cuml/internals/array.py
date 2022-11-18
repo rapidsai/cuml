@@ -49,6 +49,7 @@ cached_property = safe_import_from(
 )
 CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+CudfIndex = gpu_only_import_from('cudf', 'Index')
 CudfSeries = gpu_only_import_from('cudf', 'Series')
 DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
@@ -60,8 +61,9 @@ nvtx_annotate = gpu_only_import_from(
     'annotate',
     alt=null_decorator
 )
-PandasSeries = cpu_only_import_from('pandas', 'Series')
 PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+PandasIndex = cpu_only_import_from('pandas', 'Index')
+PandasSeries = cpu_only_import_from('pandas', 'Series')
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -628,13 +630,27 @@ class CumlArray():
             )
             if len(arr.shape) == 1:
                 arr = arr.reshape(arr.shape[0], 1)
+            if self.index is None:
+                out_index = None
+            elif (
+                output_mem_type.is_device_accessible and not
+                self.mem_type.is_device_accessible
+            ):
+                out_index = cudf.Index.from_pandas(self.index)
+            elif (
+                output_mem_type.is_host_accessible and not
+                self.mem_type.is_host_accessible
+            ):
+                out_index = self.index.to_pandas()
+            else:
+                out_index = self.index
             try:
                 result = output_mem_type.xdf.DataFrame(
-                    arr, index=self.index
+                    arr, index=out_index
                 )
                 return result
             except TypeError:
-                raise ValueError('Unsupported dtype for Series')
+                raise ValueError('Unsupported dtype for DataFrame')
 
         return self
 
@@ -978,6 +994,21 @@ class CumlArray():
             X = X.compute()
 
         index = getattr(X, 'index', None)
+        if index is not None:
+            if (
+                convert_to_mem_type is MemoryType.host and isinstance(
+                    index,
+                    CudfIndex
+                )
+            ):
+                index = index.to_pandas()
+            elif (
+                convert_to_mem_type is MemoryType.device and isinstance(
+                    index,
+                    PandasIndex
+                )
+            ):
+                index = CudfIndex.from_pandas(index)
 
         if (isinstance(X, CudfSeries)):
             if X.null_count != 0:
