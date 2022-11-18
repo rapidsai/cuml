@@ -525,7 +525,6 @@ def test_pickle(input_type, protocol):
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = CumlArray(data=inp)
-    print('in', ary.strides)
     dumps_kwargs = {"protocol": protocol}
     loads_kwargs = {}
     f = []
@@ -543,7 +542,6 @@ def test_pickle(input_type, protocol):
         assert np.all(inp == b.to_output('series'))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
-    print('out', b.strides)
 
     assert ary._array_interface['shape'] == \
         b._array_interface['shape']
