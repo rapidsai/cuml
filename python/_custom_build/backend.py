@@ -20,8 +20,8 @@ def replace_requirements(func):
         orig_list = getattr(_orig, func.__name__)(config_settings)
         suffix = os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')
         append_list = [
-            f"rmm{suffix}"
-            f"pylibraft{suffix}"
+            f"rmm{suffix}",
+            f"pylibraft{suffix}",
         ]
         return orig_list + append_list
 
