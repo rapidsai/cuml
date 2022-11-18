@@ -24,7 +24,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - &cmake_ver cmake>=3.23.1 # build dependency not listed in conda dev environment
+          - cmake>=3.23.1 # build dependency not listed in conda dev environment
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30 # build dependency not listed in conda dev environment
@@ -49,55 +49,55 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - &gcc_amd64 gcc_linux-64=9.* # build dependency not listed in conda dev environment
-              - &sysroot_amd64 sysroot_linux-64==2.17 # build dependency not listed in conda dev environment
+              - gcc_linux-64=9.* # build dependency not listed in conda dev environment
+              - sysroot_linux-64==2.17 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
             packages:
-              - &gcc_aarch64 gcc_linux-aarch64=9.* # build dependency not listed in conda dev environment
-              - &sysroot_aarch64 sysroot_linux-aarch64==2.17 # build dependency not listed in conda dev environment
+              - gcc_linux-aarch64=9.* # build dependency not listed in conda dev environment
+              - sysroot_linux-aarch64==2.17 # build dependency not listed in conda dev environment
       - output_types: conda
         matrices:
           - matrix:
               arch: x86_64
               cuda: "11.5"
             packages:
-              - &nvcc_amd64_115 nvcc_linux-64=11.5 # build dependency not listed in conda dev environment
+              - nvcc_linux-64=11.5 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
               cuda: "11.5"
             packages:
-              - &nvcc_aarch64_115 nvcc_linux-aarch64=11.5 # build dependency not listed in conda dev environment
+              - nvcc_linux-aarch64=11.5 # build dependency not listed in conda dev environment
           - matrix:
               arch: x86_64
               cuda: "11.4"
             packages:
-              - &nvcc_amd64_114 nvcc_linux-64=11.4 # build dependency not listed in conda dev environment
+              - nvcc_linux-64=11.4 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
               cuda: "11.4"
             packages:
-              - &nvcc_aarch64_114 nvcc_linux-aarch64=11.4 # build dependency not listed in conda dev environment
+              - nvcc_linux-aarch64=11.4 # build dependency not listed in conda dev environment
           - matrix:
               arch: x86_64
               cuda: "11.2"
             packages:
-              - &nvcc_amd64_112 nvcc_linux-64=11.2 # build dependency not listed in conda dev environment
+              - nvcc_linux-64=11.2 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
               cuda: "11.2"
             packages:
-              - &nvcc_aarch64_112 nvcc_linux-aarch64=11.2 # build dependency not listed in conda dev environment
+              - nvcc_linux-aarch64=11.2 # build dependency not listed in conda dev environment
           - matrix:
               arch: x86_64
               cuda: "11.0"
             packages:
-              - &nvcc_amd64_110 nvcc_linux-64=11.0 # build dependency not listed in conda dev environment
+              - nvcc_linux-64=11.0 # build dependency not listed in conda dev environment
           - matrix:
               arch: aarch64
               cuda: "11.0"
             packages:
-              - &nvcc_aarch64_110 nvcc_linux-aarch64=11.0 # build dependency not listed in conda dev environment
+              - nvcc_linux-aarch64=11.0 # build dependency not listed in conda dev environment
   run:
     common:
       - output_types: [conda, requirements]
@@ -151,7 +151,6 @@ dependencies:
       - output_types: conda
         packages:
           - doxygen>=1.8.20
-
   doc:
     common:
       - output_types: [conda, requirements]
@@ -190,5 +189,3 @@ dependencies:
               - git+https://github.com/dask/dask-glm@main
               - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
               - sparse
-
-      
