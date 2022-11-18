@@ -49,7 +49,8 @@ set(CUML_CPP_TARGET "cuml++")
 if(FIND_CUML_CPP)
   # We need to call get_treelite explicitly because we need the correct
   # ${TREELITE_LIBS} definition for RF
-  include(rapids-find)
+  include(rapids-cpm)
+  rapids_cpm_init()
   include(../cpp/cmake/thirdparty/get_treelite.cmake)
   find_package(cuml ${CUML_VERSION} REQUIRED)
 else()
