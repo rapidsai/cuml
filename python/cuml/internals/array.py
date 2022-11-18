@@ -32,6 +32,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
     null_decorator,
+    return_false,
     safe_import,
     safe_import_from
 )
@@ -64,6 +65,9 @@ nvtx_annotate = gpu_only_import_from(
 PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
 PandasIndex = cpu_only_import_from('pandas', 'Index')
 PandasSeries = cpu_only_import_from('pandas', 'Series')
+is_numba_array = gpu_only_import_from(
+    'numba.cuda', 'is_cuda_array', alt=return_false
+)
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -604,7 +608,7 @@ class CumlArray():
                         output_mem_type == MemoryType.host
                         and arr._mem_type != MemoryType.host
                     ):
-                        result = cudf.Series(
+                        return cudf.Series(
                             arr,
                             dtype=output_dtype,
                             index=self.index
@@ -1059,6 +1063,8 @@ class CumlArray():
                     target_dtype_range = arr.mem_type.xpy.finfo(
                         convert_to_dtype
                     )
+                if is_numba_array(X):
+                    X = cp.asarray(X)
                 if (
                     (X < target_dtype_range.min) |
                     (X > target_dtype_range.max)
