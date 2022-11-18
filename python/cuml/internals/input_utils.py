@@ -434,7 +434,7 @@ def input_to_cupy_array(X,
                                    force_contiguous=force_contiguous,
                                    convert_to_mem_type=MemoryType.device)
 
-    return out_data._replace(array=out_data.array.to_output("array"))
+    return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
 @nvtx_annotate(message="common.input_utils.input_to_host_array",
