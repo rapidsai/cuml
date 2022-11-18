@@ -1084,7 +1084,7 @@ class CumlArray():
                 arr.to_output('array'),
                 order=order,
                 copy=make_copy
-            ))
+            ), index=index)
 
         n_rows = arr.shape[0]
 
