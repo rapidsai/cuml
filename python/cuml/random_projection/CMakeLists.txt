@@ -21,7 +21,7 @@ set(cython_sources
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
+  LINKED_LIBRARIES "${cuml_sg_libraries}"
   MODULE_PREFIX random_projection_
   ASSOCIATED_TARGETS cuml
 )

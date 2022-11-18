@@ -14,7 +14,6 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-
 include(../fetch_rapids.cmake)
 
 set(CUML_VERSION 22.12.00)
@@ -101,6 +100,17 @@ if(NOT cuml_FOUND)
 
   set(cython_lib_dir cuml)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
+endif()
+
+set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
+
+if(NOT SINGLEGPU)
+  include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
+  set(cuml_mg_libraries
+    cuml::${CUML_CPP_TARGET}
+    cumlprims_mg::cumlprims_mg
+  )
 endif()
 
 rapids_cython_init()

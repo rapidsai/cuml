@@ -30,7 +30,7 @@ add_subdirectory(hdbscan)
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
+  LINKED_LIBRARIES "${cuml_mg_libraries}"
   MODULE_PREFIX cluster_
   ASSOCIATED_TARGETS cuml
 )

@@ -12,8 +12,6 @@
 # the License.
 # =============================================================================
 
-
-
 set(cython_sources
     randomforest_common.pyx
     randomforest_shared.pyx
@@ -21,10 +19,14 @@ set(cython_sources
     randomforestregressor.pyx
 )
 
+set(linked_libraries
+    ${cuml_sg_libraries}
+    ${TREELITE_LIBS})
+
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES cuml::${CUML_CPP_TARGET}
+  LINKED_LIBRARIES "${linked_libraries}"
   MODULE_PREFIX ensemble_
   ASSOCIATED_TARGETS cuml
 )
