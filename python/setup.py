@@ -87,7 +87,8 @@ if "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE" in os.environ:
     versioneer.get_versions = get_versions
 
 
-setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
+cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
+setup(name=f'cuml{cuda_suffix}',
       version=os.getenv("RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE",
                         default=versioneer.get_version()),
       description="cuML - RAPIDS ML Algorithms",
@@ -112,9 +113,9 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
         "seaborn",
         "treelite==3.0.0",
         "treelite_runtime==3.0.0",
-        f"cudf{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
-        f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
-        f"raft-dask{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"cudf{cuda_suffix}",
+        f"pylibraft{cuda_suffix}",
+        f"raft-dask{cuda_suffix}",
       ],
       extras_require={
           "test": [
