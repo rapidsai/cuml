@@ -724,7 +724,7 @@ class CumlArray():
                 f"but got {ary._array_interface['shape']}"
             )
 
-        return ary
+        return CumlArray.from_input(ary)
 
     def __reduce_ex__(self, protocol):
         header, frames = self.host_serialize()
