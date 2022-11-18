@@ -1,5 +1,5 @@
-cuML blogs and other references
-===============================
+Blogs and other references
+==========================
 
 The RAPIDS team blogs at https://medium.com/rapids-ai, and many of
 these blog posts provide deeper dives into models or key features from
@@ -13,7 +13,7 @@ Integrations, applications, and general concepts
 * `RAPIDS on AWS Sagemaker <https://medium.com/rapids-ai/running-rapids-experiments-at-scale-using-amazon-sagemaker-d516420f165b>`_
 
 Tree and forest models
------------------------
+----------------------
 * `Accelerating Random Forests up to 45x using cuML <https://medium.com/rapids-ai/accelerating-random-forests-up-to-45x-using-cuml-dfb782a31bea>`_
 * `RAPIDS Forest Inference Library: Prediction at 100 million rows per second <https://medium.com/rapids-ai/rapids-forest-inference-library-prediction-at-100-million-rows-per-second-19558890bc35>`_
 * `Sparse Forests with FIL <https://medium.com/rapids-ai/sparse-forests-with-fil-ffbb42b0c7e3>`_
