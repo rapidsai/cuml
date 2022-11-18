@@ -317,7 +317,10 @@ def _check_array_contiguity(ary):
             return True
         strides = ary_interface['strides']
         dtype = global_settings.xpy.dtype(ary_interface['typestr'])
-        order = _strides_to_order(strides, dtype)
+        try:
+            order = ary.order
+        except AttributeError:
+            order = _strides_to_order(strides, dtype)
         itemsize = global_settings.xpy.dtype(dtype).itemsize
 
         # We check if the strides jump on the non contiguous dimension
