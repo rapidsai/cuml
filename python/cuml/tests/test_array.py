@@ -23,6 +23,7 @@ import operator
 
 from copy import deepcopy
 from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import _get_size_from_shape
 from cuml.internals.memory_utils import _strides_to_order
@@ -505,7 +506,7 @@ def test_serialize(input_type):
         ary2._array_interface['strides']
     assert ary._array_interface['typestr'] == \
         ary2._array_interface['typestr']
-    assert ary.mem_type is ary2.mem_type
+    assert ary2.mem_type is global_settings.memory_type
 
     if input_type != 'series':
         # skipping one dimensional ary order test
