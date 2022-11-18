@@ -4,23 +4,51 @@ on:
   push:
     branches:
       - 'pull-request/[0-9]+'
+  workflow_call:
+    inputs:
+      versioneer-override:
+        type: string
+        default: ''
+      build-tag:
+        type: string
+        default: ''
+      branch:
+        required: true
+        type: string
+      date:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      build-type:
+        type: string
+        default: nightly
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
+  group: "cuml-${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  cuml-wheel: # build cuml wheels
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-2
+  cuml-wheel:
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@main
     with:
-      package-name: cuml
+      repo: rapidsai/cuml
+
+      build-type: ${{ inputs.build-type || 'pull-request' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+
       package-dir: python
+      package-name: cuml
 
-      skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/sevagh/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCUML_CUMLPRIMS_MG_BRANCH=upkeep/cibuildwheel-support -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCMAKE_CUDA_ARCHITECTURES=ALL"
+      python-package-versioneer-override: ${{ inputs.versioneer-override }}
+      python-package-build-tag: ${{ inputs.build-tag }}
 
-      test-before-amd64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 dask-cudf-cu11 raft-dask-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple && pip install git+https://github.com/scikit-learn-contrib/hdbscan.git@master && pip install git+https://github.com/dask/dask-glm@main"
-      test-before-arm64: "pip install rmm-cu11 cudf-cu11 pylibraft-cu11 dask-cudf-cu11 raft-dask-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple && pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install git+https://github.com/scikit-learn-contrib/hdbscan.git@master && pip install git+https://github.com/dask/dask-glm@main"
+      skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/vyasr/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON"
+
+      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       test-extras:  "test"
-      test-requires: "dask-cuda"
       test-unittest: "pytest -v ./python/cuml/tests"
     secrets: inherit

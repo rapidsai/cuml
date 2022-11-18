@@ -128,6 +128,9 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
               "umap-learn",
               "statsmodels",
               "scikit-learn==0.24",
+              "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",
+              "dask-glm @ git+https://github.com/dask/dask-glm@main",
+              "dask-cuda"
           ]
       },
       zip_safe=False)
