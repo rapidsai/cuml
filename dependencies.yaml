@@ -11,6 +11,7 @@ files:
       - develop
       - doc
       - notebook
+      - py_version
       - run
       - test_python
 channels:
@@ -37,9 +38,6 @@ dependencies:
           - libraft-headers=22.12.*
           - libraft-distance=22.12.*
           - libraft-nn=22.12.*
-      - output_types: conda
-        packages:
-          - python>=3.8,<3.10 # conda package dependency not listed in conda dev environment
           - rapids-build-env=22.12.*
           # build dependency not listed in conda dev environment
           - nccl>=2.9.9 # assuming, as pip isnt yet multi GPU
@@ -178,6 +176,9 @@ dependencies:
               py: "3.9"
             packages:
               - python=3.9
+          - matrix:
+            packages:
+              - python>=3.8,<3.10
   test_python:
     common:
       - output_types: [conda, requirements]
