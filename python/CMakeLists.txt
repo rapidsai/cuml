@@ -31,7 +31,7 @@ project(
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
-option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+option(SINGLEGPU "Disable all mnmg components and comms libraries" ON)
 option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
@@ -83,7 +83,6 @@ if(NOT cuml_FOUND)
     set(CUML_USE_RAFT_STATIC ON)
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
-    set(ENABLE_CUMLPRIMS_MG OFF)
     #set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
     # Don't install the static libs into wheels
     set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
