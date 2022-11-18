@@ -31,24 +31,8 @@ from skbuild import setup
 ##############################################################################
 # - Print of build options used by setup.py  --------------------------------
 
-cuda_home = get_environment_option("CUDA_HOME")
-libcuml_path = get_environment_option('CUML_BUILD_PATH')
-
 clean_artifacts = get_cli_option('clean')
 
-##############################################################################
-# - Dependencies include and lib folder setup --------------------------------
-
-if not cuda_home:
-    nvcc_path = shutil.which('nvcc')
-    if (not nvcc_path):
-        raise FileNotFoundError("nvcc not found.")
-
-    cuda_home = str(Path(nvcc_path).parent.parent)
-    print("-- Using nvcc to detect CUDA, found at " + str(cuda_home))
-
-cuda_include_dir = os.path.join(cuda_home, "include")
-cuda_lib_dir = os.path.join(cuda_home, "lib64")
 
 ##############################################################################
 # - Clean target -------------------------------------------------------------
@@ -58,7 +42,6 @@ if clean_artifacts:
 
     # Reset these paths since they may be deleted below
     treelite_path = False
-    libcuml_path = False
 
     try:
         setup_file_path = str(Path(__file__).parent.absolute())
@@ -87,11 +70,6 @@ if clean_artifacts:
         sys.exit(0)
 
 
-if not libcuml_path:
-    libcuml_path = '../cpp/build/'
-
-cmdclass = versioneer.get_cmdclass()
-
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
@@ -108,7 +86,7 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
           "Programming Language :: Python :: 3.8",
           "Programming Language :: Python :: 3.9"
       ],
-      cmdclass=cmdclass,
+      cmdclass=versioneer.get_cmdclass(),
       include_package_data=True,
       packages=find_packages(include=['cuml', 'cuml.*']),
       package_data={
