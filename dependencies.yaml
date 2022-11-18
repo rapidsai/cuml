@@ -29,6 +29,8 @@ dependencies:
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30 # build dependency not listed in conda dev environment
           - treelite=3.0.0
+      - output_types: conda
+        packages:
           - cudf=22.12.*
           - rmm=22.12.*
           - libcumlprims=22.12.*
@@ -102,14 +104,14 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - dask-cudf=22.12.*
-          - dask-cuda=22.12.*
           - dask>=2022.9.2
           - distributed>=2022.9.2
           - joblib>=0.11 # conda package dependency not listed in conda dev environment
       - output_types: conda
         packages:
           - cupy>=7.8.0,<12.0.0a0 # conda package dependency not listed in conda dev environment
+          - dask-cudf=22.12.*
+          - dask-cuda=22.12.*
           - libfaiss>=1.7.0 # should this be for conda and requirements?
           - faiss-proc=*=cuda # should this be for conda and requirements?
           - ucx>=1.13.0 # should this be for conda and requirements?
@@ -155,11 +157,13 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - rapids-doc-env=22.12.*
           - sphinx-markdown-tables
+      - output_types: conda
+        packages:
+          - rapids-doc-env=22.12.*
   notebook:
     common:
-      - output_types: [conda, requirements]
+      - output_types: conda
         packages:
           - rapids-notebook-env=22.12.*
   py_version:
@@ -184,6 +188,8 @@ dependencies:
           - seaborn
           - nltk
           - dask-ml
+      - output_types: conda
+        packages:
           - pip
           - pip:
               - git+https://github.com/dask/dask-glm@main
