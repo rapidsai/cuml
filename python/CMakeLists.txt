@@ -77,8 +77,9 @@ if(NOT cuml_FOUND)
   set(BUILD_CUML_PRIMS_BENCH OFF)
   set(CUML_EXPORT_TREELITE_LINKAGE ON)
 
-  # Statically link dependencies if building wheels
+  set(_exclude_from_all "")
   if(${CUML_BUILD_WHEELS})
+    # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
     set(CUML_USE_RAFT_STATIC ON)
     set(CUML_USE_FAISS_STATIC ON)
@@ -89,10 +90,7 @@ if(NOT cuml_FOUND)
     set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
     set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
     #set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
-  endif()
 
-  set(_exclude_from_all "")
-  if(CUML_BUILD_WHEELS)
     # Don't install the cuML C++ targets into wheels
     set(_exclude_from_all EXCLUDE_FROM_ALL)
   endif()
