@@ -60,6 +60,12 @@ endif()
 
 include(rapids-cython)
 
+if(CUML_BUILD_WHEELS)
+  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+else()
+  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
+endif()
+
 if(NOT cuml_FOUND)
   # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
   # languages for the C++ project even if this project does not require those languges.
