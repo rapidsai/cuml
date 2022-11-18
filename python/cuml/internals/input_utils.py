@@ -81,10 +81,10 @@ _input_type_to_str = {
     SparseCumlArray: "cuml",
     np_ndarray: "numpy",
     cp_ndarray: "cupy",
-    CudfSeries: "series",
-    CudfDataFrame: "dataframe",
-    PandasSeries: "series",
-    PandasDataFrame: "dataframe",
+    CudfSeries: "cudf",
+    CudfDataFrame: "cudf",
+    PandasSeries: "pandas",
+    PandasDataFrame: "pandas",
     NumbaDeviceNDArrayBase: "numba"
 }
 
