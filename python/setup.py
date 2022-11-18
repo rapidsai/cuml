@@ -21,9 +21,7 @@ from pathlib import Path
 
 from setuptools import find_packages
 
-from setuputils import clean_folder
-from setuputils import get_environment_option
-from setuputils import get_cli_option
+from setuputils import clean_folder, get_cli_option
 
 import versioneer
 from skbuild import setup
@@ -129,7 +127,7 @@ setup(name=f'cuml{cuda_suffix}',
               "umap-learn",
               "statsmodels",
               "scikit-learn==0.24",
-              "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",
+              "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
               "dask-glm @ git+https://github.com/dask/dask-glm@main",
               "dask-cuda"
           ]

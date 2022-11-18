@@ -315,7 +315,10 @@ def input_to_cuml_array(X,
 
     # format conversion
 
-    if has_dask_cudf() and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if (
+        has_dask_cudf()
+        and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame))
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
@@ -574,7 +577,10 @@ def convert_dtype(X,
     if the conversion would lose information.
     """
 
-    if has_dask_cudf() and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if (
+        has_dask_cudf()
+        and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame))
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
