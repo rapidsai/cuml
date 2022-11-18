@@ -114,10 +114,6 @@ setup(name='cuml'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       package_data={
           key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
       },
-      setup_requires=[
-        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
-        f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
-      ],
       install_requires=[
         "numba",
         "scipy",

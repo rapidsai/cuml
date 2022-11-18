@@ -24,3 +24,5 @@ requires = [
     "treelite==3.0.0",
     "treelite_runtime==3.0.0",
 ]
+build-backend = "backend"
+backend-path = ["_custom_build"]
