@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import glob
 import os
 import shutil
 import sys
@@ -21,10 +22,44 @@ from pathlib import Path
 
 from setuptools import find_packages
 
-from setuputils import clean_folder, get_cli_option
-
 import versioneer
 from skbuild import setup
+
+
+##############################################################################
+# - Helper functions
+def get_cli_option(name):
+    if name in sys.argv:
+        print("-- Detected " + str(name) + " build option.")
+        return True
+
+    else:
+        return False
+
+
+def clean_folder(path):
+    """
+    Function to clean all Cython and Python artifacts and cache folders. It
+    clean the folder as well as its direct children recursively.
+
+    Parameters
+    ----------
+    path : String
+        Path to the folder to be cleaned.
+    """
+    shutil.rmtree(path + '/__pycache__', ignore_errors=True)
+
+    folders = glob.glob(path + '/*/')
+    for folder in folders:
+        shutil.rmtree(folder + '/__pycache__', ignore_errors=True)
+
+        clean_folder(folder)
+
+        cython_exts = glob.glob(folder + '/*.cpp')
+        cython_exts.extend(glob.glob(folder + '/*.cpython*'))
+        for file in cython_exts:
+            os.remove(file)
+
 
 ##############################################################################
 # - Print of build options used by setup.py  --------------------------------
