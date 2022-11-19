@@ -60,7 +60,7 @@ __all__ = [
     "mutual_info_score",
     "confusion_matrix",
     "entropy",
-    "nan_euclidean_distances"
+    "nan_euclidean_distances",
     "pairwise_distances",
     "sparse_pairwise_distances",
     "pairwise_kernels",
