@@ -10,6 +10,7 @@ from functools import wraps
 from setuptools import build_meta as _orig
 
 # Alias the required bits
+prepare_metadata_for_build_wheel = _orig.prepare_metadata_for_build_wheel
 build_wheel = _orig.build_wheel
 build_sdist = _orig.build_sdist
 
