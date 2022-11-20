@@ -31,8 +31,8 @@ project(
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
-option(SINGLEGPU "Disable all mnmg components and comms libraries" ON)
 option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
+option(SINGLEGPU "Disable all mnmg components and comms libraries" ${CUML_BUILD_WHEELS})
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
