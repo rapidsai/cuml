@@ -699,7 +699,6 @@ class CumlArray():
             'constructor-kwargs': {
                 'dtype': self.dtype.str,
                 'shape': self.shape,
-                'order': self.order,
                 'mem_type': mem_type.name
             },
             'desc': self._array_interface,
@@ -724,7 +723,7 @@ class CumlArray():
                 f"but got {ary._array_interface['shape']}"
             )
 
-        return CumlArray.from_input(ary)
+        return ary.to_mem_type(global_settings.memory_type)
 
     def __reduce_ex__(self, protocol):
         header, frames = self.host_serialize()
