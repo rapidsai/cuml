@@ -57,7 +57,6 @@ jobs:
 
       # Need to install CMake because treelite needs to be compiled for arm (no wheels available).
       test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake"
-      test-extras:  "test"
-      # TODO: Ignore multi-gpu tests for now. Some doctests are also MG so skip that too.
-      test-unittest: "pytest -v ./python/cuml/tests --ignore=./python/cuml/tests/dask"
+      test-extras: test
+      test-unittest: "pytest -v ./python/cuml/tests"
     secrets: inherit
