@@ -29,7 +29,7 @@ class LabelEncoder(BaseEstimator,
                    DelayedTransformMixin,
                    DelayedInverseTransformMixin):
     """
-    An nvcategory based implementation of ordinal label encoding
+    A cuDF-based implementation of ordinal label encoding
 
     Parameters
     ----------
@@ -124,7 +124,7 @@ class LabelEncoder(BaseEstimator,
 
     def fit(self, y):
         """
-        Fit a LabelEncoder (nvcategory) instance to a set of categories
+        Fit a LabelEncoder instance to a set of categories
 
         Parameters
         ----------
