@@ -60,3 +60,4 @@ jobs:
       test-extras:  "test"
       # TODO: Ignore multi-gpu tests for now. Some doctests are also MG so skip that too.
       test-unittest: "pytest -v ./python/cuml/tests --ignore=./python/cuml/tests/dask"
+    secrets: inherit
