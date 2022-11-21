@@ -83,6 +83,11 @@ if [ "$(arch)" = "x86_64" ]; then
         "rapids-doc-env=${MINOR_VERSION}.*"
 fi
 
+gpuci_conda_retry remove -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      --force rapids-build-env rapids-notebook-env
+gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+      treelite=3.0.1
+
 # https://docs.rapids.ai/maintainers/depmgmt/
 # gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 # gpuci_mamba_retry install -y "your-pkg=1.0.0"
