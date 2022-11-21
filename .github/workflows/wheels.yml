@@ -48,6 +48,7 @@ jobs:
       # the clone as is.
       extra-repo: rapidsai/cumlprims_mg
       extra-repo-sha: branch-22.12
+      extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
 
       python-package-versioneer-override: ${{ inputs.versioneer-override }}
       python-package-build-tag: ${{ inputs.build-tag }}
@@ -59,9 +60,3 @@ jobs:
       test-extras:  "test"
       # TODO: Ignore multi-gpu tests for now. Some doctests are also MG so skip that too.
       test-unittest: "pytest -v ./python/cuml/tests --ignore=./python/cuml/tests/dask"
-    secrets:
-      extra-repo-deploy-key: ${{ secrets.CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY }}
-      RAPIDSAI_GHA_AWS_ACCESS_KEY_ID: ${{ secrets.RAPIDSAI_GHA_AWS_ACCESS_KEY_ID }}
-      RAPIDSAI_GHA_AWS_SECRET_ACCESS_KEY: ${{ secrets.RAPIDSAI_GHA_AWS_SECRET_ACCESS_KEY }}
-      RAPIDSAI_PYPI_CI_PASSWORD: ${{ secrets.RAPIDSAI_PYPI_CI_PASSWORD }}
-
