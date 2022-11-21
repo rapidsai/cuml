@@ -14,25 +14,28 @@
 # limitations under the License.
 #
 
-import sys
 import gc
-
-import pytest
-
-import cupy as cp
-import cudf
-import numpy as np
 import operator
-
+import sys
 from copy import deepcopy
-from numba import cuda
+
+import cudf
+import cupy as cp
+import numpy as np
+import pytest
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
-from cuml.common.memory_utils import _get_size_from_shape
-from cuml.common.memory_utils import _strides_to_order
+from cuml.common.memory_utils import _get_size_from_shape, _strides_to_order
+from cuml.testing.strategies import (_create_cuml_array_input,
+                                     cuml_array_dtypes, cuml_array_input_types,
+                                     cuml_array_orders, cuml_array_shapes)
+from hypothesis import given, settings, strategies as st
+from numba import cuda
+
 # Temporarily disabled due to CUDA 11.0 issue
 # https://github.com/rapidsai/cuml/issues/4332
 # from rmm import DeviceBuffer
+
 
 if sys.version_info < (3, 8):
     try:
@@ -76,75 +79,20 @@ unsupported_cudf_dtypes = [np.uint8, np.uint16, np.uint32, np.uint64,
                            np.float16]
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('order', ['F', 'C'])
-def test_array_init(input_type, dtype, shape, order):
-    if input_type == 'series':
-        if dtype in unsupported_cudf_dtypes or \
-                shape in [(10, 5), (1, 10)]:
-            pytest.skip("Unsupported cuDF Series parameter")
+def _series_normalized_shape(shape):
+    """Normalize to inherently one-dimensional shape for series.
 
-    inp, ary, ptr = create_ary_init_tests(input_type, dtype, shape, order)
-
-    if shape == (10, 5):
-        assert ary.order == order
-
-    if shape == 10:
-        assert ary.shape == (10,)
-        assert len(ary) == 10
-    elif input_type == 'series':
-        # cudf Series make their shape (10,) from (10, 1)
-        if shape == (10, 1):
-            assert ary.shape == (10,)
-    else:
-        assert ary.shape == shape
-
-    assert ary.dtype == np.dtype(dtype)
-
-    if (input_type == "numpy"):
-        assert isinstance(ary._owner, cp.ndarray)
-
-        truth = cp.asnumpy(inp)
-        del inp
-
-        assert ary.ptr == ptr
-        data = ary.to_output('numpy')
-
-        assert np.array_equal(truth, data)
-    else:
-        helper_test_ownership(ary, inp, False)
+    Examples:
+        - (2, 1) -> (2, )
+        - (1, 2) -> (2, )
+        - (1, 1) -> (1, )
+    """
+    normalized_shape = tuple(d for d in shape if d > 1) or (1, )
+    assert len(normalized_shape) == 1
+    return normalized_shape
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-def test_ownership_with_gc(input_type):
-    # garbage collection slows down the test suite significantly, we only
-    # need to test for each input type, not for shapes/dtypes/etc.
-    if input_type == 'numpy':
-        pytest.skip("test not valid for numpy input")
-
-    inp, ary, ptr = create_ary_init_tests(input_type, np.float32, (10, 10),
-                                          'F')
-
-    helper_test_ownership(ary, inp, True)
-
-
-def create_ary_init_tests(ary_type, dtype, shape, order):
-    if ary_type is not None:
-        inp = create_input(ary_type, dtype, shape, order)
-        ary = CumlArray(data=inp)
-        ptr = ary.ptr
-    else:
-        inp = create_input('cupy', dtype, shape, order)
-        ptr = inp.__cuda_array_interface__['data'][0]
-        ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
-                        order=order)
-
-    return (inp, ary, ptr)
-
-
-def get_owner(curr):
+def _get_owner(curr):
     if (isinstance(curr, CumlArray)):
         return curr._owner
     elif (isinstance(curr, cp.ndarray)):
@@ -153,91 +101,140 @@ def get_owner(curr):
         return None
 
 
-def helper_test_ownership(ary, inp, garbage_collect):
-    found_owner = False
-    # Make sure the input array is in the ownership chain
-    curr_owner = ary
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders())
+@settings(deadline=None)
+def test_array_inputs(input_type, dtype, shape, order):
+    input_array = _create_cuml_array_input(input_type, dtype, shape, order)
+    assert input_array.dtype == dtype
+    if input_type == "series":
+        assert input_array.shape == _series_normalized_shape(shape)
+    else:
+        assert input_array.shape == shape
 
-    while (curr_owner is not None):
-        if (curr_owner is inp):
-            found_owner = True
-            break
-
-        curr_owner = get_owner(curr_owner)
-
-    assert found_owner, "GPU input arrays must be in the owner chain"
-
-    inp_copy = deepcopy(cp.asarray(inp))
-
-    # testing owner reference keeps data of ary alive
-    del inp
-
-    if garbage_collect:
-        # Force GC just in case it lingers
-        gc.collect()
-
-    assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
+    layout_flag = f"{order}_CONTIGUOUS"
+    if input_type == "series":
+        assert input_array.values.flags[layout_flag]
+    else:
+        assert input_array.flags[layout_flag]
 
 
-@pytest.mark.parametrize('data_type', [bytes, bytearray, memoryview])
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('order', ['F', 'C'])
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders(),
+    force_gc=st.booleans())
+@settings(deadline=None, max_examples=1000)
+def test_array_init(input_type, dtype, shape, order, force_gc):
+    input_array = _create_cuml_array_input(input_type, dtype, shape, order)
+    cuml_array = CumlArray(data=input_array)
+
+    # Test basic array properties
+    assert cuml_array.dtype == dtype
+
+    if input_type == "series":
+        assert cuml_array.shape == _series_normalized_shape(shape)
+    else:
+        assert cuml_array.shape == shape
+
+    # Order is only well-defined (and preserved) for multi-dimensional arrays.
+    multi_dimensional = len([d for d in shape if d > 1]) > 1
+    assert cuml_array.order == order if multi_dimensional else "C"
+
+    # Check input array and array equality.
+    assert np.array_equal(
+        cp.asnumpy(input_array),
+        cuml_array.to_output("numpy")
+    )
+
+    # Test ownership
+    if input_type == "numpy":
+        # Numpy input arrays are expected to be owned by cupy.
+        assert isinstance(cuml_array._owner, cp.ndarray)
+    else:
+        # Check that the original input array is part of the owner chain.
+        current_owner = cuml_array
+
+        while current_owner is not None:
+            if current_owner is input_array:
+                break
+            current_owner = _get_owner(current_owner)
+        else:
+            assert False, "Unable to find input array in owner chain."
+
+        # Check that data is kept in memory even when the input_array reference
+        # is deleted.
+        input_array_copy = deepcopy(cp.asarray(input_array))
+        del input_array
+        if force_gc:
+            gc.collect()
+
+        assert np.array_equal(
+            cp.asarray(cuml_array), cp.asarray(input_array_copy))
+
+
+@given(
+    data_type=st.sampled_from([bytes, bytearray, memoryview]),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders(),
+)
 def test_array_init_from_bytes(data_type, dtype, shape, order):
     dtype = np.dtype(dtype)
-    bts = bytes(_get_size_from_shape(shape, dtype)[0])
+    values = bytes(_get_size_from_shape(shape, dtype)[0])
 
+    # Convert to data_type to be tested if needed.
     if data_type != bytes:
-        bts = data_type(bts)
+        values = data_type(values)
 
-    ary = CumlArray(bts, dtype=dtype, shape=shape, order=order)
+    array = CumlArray(values, dtype=dtype, shape=shape, order=order)
 
-    if shape == (10, 5):
-        assert ary.order == order
+    assert array.order == order
+    assert array.shape in (shape, (shape, ))
+    assert array.dtype == dtype
 
-    if shape == 10:
-        assert ary.shape == (10,)
-    else:
-        assert ary.shape == shape
+    array_copy = cp.zeros(shape, dtype=dtype)
 
-    assert ary.dtype == dtype
-
-    cp_ary = cp.zeros(shape, dtype=dtype)
-
-    assert cp.all(cp.asarray(cp_ary) == cp_ary)
+    assert cp.all(cp.asarray(array_copy) == array_copy)
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('order', ['F', 'C'])
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
 def test_array_init_bad(input_type, dtype, shape, order):
     """
     This test ensures that we assert on incorrect combinations of arguments
     when creating CumlArray
     """
-    if input_type == 'series':
-        if dtype == np.float16:
-            pytest.skip("Skipping due to cuDF issue #9065")
-        inp = create_input(input_type, dtype, shape, 'C')
-    else:
-        inp = create_input(input_type, dtype, shape, order)
+
+    input_array = _create_cuml_array_input(input_type, dtype, shape, order)
 
     # Ensure the array is creatable
-    cuml_ary = CumlArray(inp)
+    array = CumlArray(input_array)
 
     with pytest.raises(AssertionError):
-        CumlArray(inp, dtype=cuml_ary.dtype)
+        CumlArray(input_array, dtype=array.dtype)
 
     with pytest.raises(AssertionError):
-        CumlArray(inp, shape=cuml_ary.shape)
+        CumlArray(input_array, shape=array.shape)
 
     with pytest.raises(AssertionError):
-        CumlArray(inp,
-                  order=_strides_to_order(cuml_ary.strides, cuml_ary.shape,
-                                          cuml_ary.dtype))
+        CumlArray(
+            input_array,
+            order=_strides_to_order(
+                array.strides, array.shape, array.dtype
+            ),
+        )
 
-    assert cp.all(cp.asarray(inp) == cp.asarray(cuml_ary))
+    assert cp.all(cp.asarray(input_array) == cp.asarray(array))
 
 
 @pytest.mark.parametrize('slice', test_slices)
