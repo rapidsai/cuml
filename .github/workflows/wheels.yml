@@ -34,7 +34,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feature/extra_repos
     with:
       repo: rapidsai/cuml
-
       build-type: ${{ inputs.build-type || 'pull-request' }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
