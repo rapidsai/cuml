@@ -46,7 +46,7 @@ jobs:
       python-package-versioneer-override: ${{ inputs.versioneer-override }}
       python-package-build-tag: ${{ inputs.build-tag }}
 
-      skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/vyasr/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON"
+      skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/vyasr/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCPM_DOWNLOAD_ALL=ON -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_FORCE_CLONE_RAFT=ON -DCPM_cumlprims_mg_SOURCE=/project/cumlprims_mg/"
 
       # Need to install CMake because treelite needs to be compiled for arm (no wheels available).
       test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake"
