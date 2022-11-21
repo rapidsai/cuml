@@ -43,7 +43,7 @@ function(find_and_configure_cumlprims_mg)
           GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
           GIT_TAG        ${PKG_PINNED_TAG}
           EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
-          #SOURCE_SUBDIR    cpp
+          SOURCE_SUBDIR    cpp
           OPTIONS
             "BUILD_TESTS OFF"
             "BUILD_BENCHMARKS OFF"
