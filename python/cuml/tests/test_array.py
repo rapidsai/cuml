@@ -66,6 +66,7 @@ np_array = gpu_only_import_from('numpy', 'ndarray')
 numba_array = gpu_only_import_from('numba.cuda.cudadrv.devicearray',
                                    'DeviceNDArray')
 
+
 if sys.version_info < (3, 8):
     try:
         import pickle5 as pickle
@@ -159,6 +160,8 @@ def test_array_init(input_type, dtype, shape, order, mem_type, force_gc):
 
     _assert_equal(input_array_copy, cuml_array)
 
+        assert np.array_equal(
+            cp.asarray(cuml_array), cp.asarray(input_array_copy))
 
 @given(
     data_type=st.sampled_from([bytes, bytearray, memoryview]),

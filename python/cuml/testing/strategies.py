@@ -322,6 +322,114 @@ def _get_limits(strategy):
         yield strategy.stop
 
 
+_CUML_ARRAY_INPUT_TYPES = [
+    'numpy', 'numba', 'cupy', 'series', None,
+]
+
+
+_CUML_ARRAY_DTYPES = [
+    np.float16, np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+    np.uint8, np.uint16, np.uint32, np.uint64
+]
+
+_CUML_ARRAY_ORDERS = ["F", "C"]
+
+
+_CUML_ARRAY_SUPPORTED_OUTPUT_DTYPES = [
+    np.float16, np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+    np.uint8, np.uint16, np.uint32, np.uint64
+]
+
+
+_UNSUPPORTED_CUDF_DTYPES = [np.uint8, np.uint16, np.uint32, np.uint64,
+                            np.float16]  # TODO: maybe not needed?
+
+
+@composite
+def cuml_array_input_types(draw):
+    return draw(sampled_from(_CUML_ARRAY_INPUT_TYPES))
+
+
+@composite
+def cuml_array_dtypes(draw):
+    return draw(sampled_from(_CUML_ARRAY_DTYPES))
+
+
+@composite
+def cuml_array_orders(draw):
+    return draw(sampled_from(_CUML_ARRAY_ORDERS))
+
+
+@composite
+def cuml_array_shapes(
+    draw,
+    *,
+    min_dims=1,
+    max_dims=2,
+    min_side=1,
+    max_side=None
+):
+    max_side = 10 if max_side is None else max_side
+
+    # TODO: Raise ValueError for these:
+    assert 1 <= min_dims <= max_dims
+    assert 0 < min_side < max_side
+
+    shapes = array_shapes(
+        min_dims=min_dims, max_dims=max_dims,
+        min_side=min_side, max_side=max_side,
+    )
+    return draw(shapes)
+
+    # just_size = integers(min_side, max_side)
+    # return draw(one_of(shapes, just_size))
+
+
+def _create_cuml_array_input(input_type, dtype, shape, order):
+    multidimensional = isinstance(shape, tuple) and \
+        len([d for d in shape if d > 1]) > 1
+    assume(
+        not (
+            input_type == "series"
+            and (
+                dtype in _UNSUPPORTED_CUDF_DTYPES
+                or multidimensional
+            )
+        )
+    )
+
+    array = cp.ones(shape, dtype=dtype, order=order)
+
+    if input_type == 'numpy':
+        return np.array(cp.asnumpy(array), dtype=dtype, order=order)
+
+    elif input_type == 'numba':
+        return cuda.as_cuda_array(array)
+
+    elif input_type == 'series':
+        return cudf.Series(array)
+
+    elif input_type is None or input_type == 'cupy':
+        return array
+
+    raise ValueError(f"Unknown input_type '{input_type}.")
+
+
+@composite
+def cuml_arrays(
+    draw,
+    input_types=cuml_array_input_types(),
+    dtypes=cuml_array_dtypes(),
+    shapes=array_shapes(max_dims=2),
+    orders=cuml_array_orders()
+):
+    array_input = _create_cuml_array_input(
+        draw(input_types), draw(dtypes), draw(shapes), draw(orders))
+    return CumlArray(data=array_input)
+
+
 @composite
 def standard_datasets(
     draw,
