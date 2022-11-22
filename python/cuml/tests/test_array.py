@@ -16,7 +16,7 @@
 
 import gc
 import operator
-import sys
+import pickle
 from copy import deepcopy
 
 import cudf
@@ -33,15 +33,6 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from numba import cuda
 from rmm import DeviceBuffer
-
-if sys.version_info < (3, 8):
-    try:
-        import pickle5 as pickle
-    except ImportError:
-        import pickle
-else:
-    import pickle
-
 
 test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
