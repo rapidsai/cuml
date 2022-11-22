@@ -18,6 +18,7 @@ import gc
 import operator
 import pickle
 from copy import deepcopy
+from itertools import dropwhile
 
 import cudf
 import cupy as cp
@@ -72,17 +73,24 @@ def _normalized_shape(shape):
     return (shape, ) if isinstance(shape, int) else shape
 
 
-def _series_normalized_shape(shape):
-    """Normalize to inherently one-dimensional shape for series.
+def _squeezed_shape(shape):
+    """Remove all trailing axes of length 1 from shape.
 
-    Examples:
-        - (2, 1) -> (2, )
-        - (1, 2) -> (2, )
-        - (1, 1) -> (1, )
+    Similar to, but not exactly like np.squeeze().
     """
-    ret = tuple(d for d in _normalized_shape(shape) if d > 1) or (1, )
-    assert len(ret) == 1
-    return ret
+    return tuple(reversed(list(dropwhile(lambda d: d == 1, reversed(shape)))))
+
+
+def _series_squeezed_shape(shape):
+    """Remove all but one axes of length 1 from shape."""
+    if shape:
+        return tuple([d for d in _normalized_shape(shape) if d != 1]) or (1,)
+    else:
+        return ()
+
+
+def _multidimensional(shape):
+    return len(_squeezed_shape(_normalized_shape(shape))) > 1
 
 
 def _get_owner(curr):
@@ -104,7 +112,7 @@ def test_array_inputs(input_type, dtype, shape, order):
     input_array = create_cuml_array_input(input_type, dtype, shape, order)
     assert input_array.dtype == dtype
     if input_type == "series":
-        assert input_array.shape == _series_normalized_shape(shape)
+        assert input_array.shape == _series_squeezed_shape(shape)
     else:
         assert input_array.shape == _normalized_shape(shape)
 
@@ -130,14 +138,12 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
     assert cuml_array.dtype == dtype
 
     if input_type == "series":
-        assert cuml_array.shape == _series_normalized_shape(shape)
+        assert cuml_array.shape == _series_squeezed_shape(shape)
     else:
         assert cuml_array.shape == _normalized_shape(shape)
 
-    # Order is only well-defined (and preserved) for multi-dimensional arrays.
-    multi_dimensional = \
-        len([d for d in _normalized_shape(shape) if d > 1]) > 1
-    assert cuml_array.order == order if multi_dimensional else "C"
+    # Order is only well-defined (and preserved) for multidimensional arrays.
+    assert cuml_array.order == order if _multidimensional(shape) else "C"
 
     # Check input array and array equality.
     assert np.array_equal(
