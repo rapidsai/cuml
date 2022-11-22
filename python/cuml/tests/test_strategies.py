@@ -61,6 +61,27 @@ def test_cuml_array_inputs(array_input):
         cp.asnumpy(array_input), array.to_output("numpy"), equal_nan=True)
 
 
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders())
+@settings(deadline=None)
+def test_array_inputs(input_type, dtype, shape, order):
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
+    assert input_array.dtype == dtype
+    if input_type == "series":
+        assert input_array.shape == series_squeezed_shape(shape)
+    else:
+        assert input_array.shape == normalized_shape(shape)
+
+    layout_flag = f"{order}_CONTIGUOUS"
+    if input_type == "series":
+        assert input_array.values.flags[layout_flag]
+    else:
+        assert input_array.flags[layout_flag]
+
+
 @given(standard_datasets())
 def test_standard_datasets_default(dataset):
     X, y = dataset

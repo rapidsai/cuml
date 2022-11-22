@@ -80,7 +80,6 @@ test_output_types = (
     'df_obj'
 )
 
-
 _OUTPUT_TYPES_MAPPING = {
     'cupy': cp.ndarray,
     'numpy': np.ndarray,
