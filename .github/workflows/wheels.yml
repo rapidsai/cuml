@@ -55,8 +55,10 @@ jobs:
 
       skbuild-configure-options: "--log-level=DEBUG -DCUML_RAFT_REPOSITORY=https://github.com/vyasr/raft.git -DCUML_RAFT_BRANCH=feat/cibuildwheel -DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCPM_cumlprims_mg_SOURCE=/project/cumlprims_mg/"
 
-      # Need to install CMake because treelite needs to be compiled for arm (no wheels available).
       # Always want to test against latest dask/distributed.
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main && pip install git+https://github.com/dask/distributed.git@main "
+      # On arm also need to install cupy from the specific webpage and CMake
+      # because treelite needs to be compiled (no wheels available for arm).
       test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main && pip install git+https://github.com/dask/distributed.git@main "
       test-extras: test
       test-unittest: "pytest -v ./python/cuml/tests -n 4"
