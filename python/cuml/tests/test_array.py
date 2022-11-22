@@ -158,11 +158,9 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
     else:
         # Check that the original input array is part of the owner chain.
         current_owner = cuml_array
-
-        while current_owner is not None:
+        while (current_owner := _get_owner(current_owner)) is not None:
             if current_owner is input_array:
                 break
-            current_owner = _get_owner(current_owner)
         else:
             assert False, "Unable to find input array in owner chain."
 
