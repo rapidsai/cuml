@@ -90,7 +90,7 @@ def cuml_array_shapes(
     # return draw(one_of(shapes, just_size))
 
 
-def _create_cuml_array_input(input_type, dtype, shape, order):
+def create_cuml_array_input(input_type, dtype, shape, order):
     multidimensional = isinstance(shape, tuple) and \
         len([d for d in shape if d > 1]) > 1
     assume(
@@ -125,7 +125,7 @@ def cuml_arrays(
     shapes=array_shapes(max_dims=2),
     orders=cuml_array_orders()
 ):
-    array_input = _create_cuml_array_input(
+    array_input = create_cuml_array_input(
         draw(input_types), draw(dtypes), draw(shapes), draw(orders))
     return CumlArray(data=array_input)
 

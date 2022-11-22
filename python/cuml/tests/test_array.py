@@ -26,7 +26,7 @@ import pytest
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape, _strides_to_order
-from cuml.testing.strategies import (_create_cuml_array_input,
+from cuml.testing.strategies import (create_cuml_array_input,
                                      cuml_array_dtypes, cuml_array_input_types,
                                      cuml_array_orders, cuml_array_shapes)
 from hypothesis import given, settings, strategies as st
@@ -108,7 +108,7 @@ def _get_owner(curr):
     order=cuml_array_orders())
 @settings(deadline=None)
 def test_array_inputs(input_type, dtype, shape, order):
-    input_array = _create_cuml_array_input(input_type, dtype, shape, order)
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
     assert input_array.dtype == dtype
     if input_type == "series":
         assert input_array.shape == _series_normalized_shape(shape)
@@ -130,7 +130,7 @@ def test_array_inputs(input_type, dtype, shape, order):
     force_gc=st.booleans())
 @settings(deadline=None, max_examples=1000)
 def test_array_init(input_type, dtype, shape, order, force_gc):
-    input_array = _create_cuml_array_input(input_type, dtype, shape, order)
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
     cuml_array = CumlArray(data=input_array)
 
     # Test basic array properties
@@ -213,7 +213,7 @@ def test_array_init_bad(input_type, dtype, shape, order):
     when creating CumlArray
     """
 
-    input_array = _create_cuml_array_input(input_type, dtype, shape, order)
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
 
     # Ensure the array is creatable
     array = CumlArray(input_array)
