@@ -270,16 +270,16 @@ def test_get_set_item(indices, dtype, order):
     assert np.array_equal(inp, ary.to_output('numpy'))
 
 
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('order', ['C', 'F'])
+@given(
+    shape=cuml_array_shapes(),
+    dtype=cuml_array_dtypes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
 def test_create_empty(shape, dtype, order):
     ary = CumlArray.empty(shape=shape, dtype=dtype, order=order)
     assert isinstance(ary.ptr, int)
-    if shape == 10:
-        assert ary.shape == (shape,)
-    else:
-        assert ary.shape == shape
+    assert ary.shape == _normalized_shape(shape)
     assert ary.dtype == np.dtype(dtype)
     # Temporarily disabled due to CUDA 11.0 issue
     # https://github.com/rapidsai/cuml/issues/4332
