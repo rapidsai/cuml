@@ -134,7 +134,7 @@ def test_array_inputs(input_type, dtype, shape, order):
     shape=cuml_array_shapes(),
     order=cuml_array_orders(),
     force_gc=st.booleans())
-@settings(deadline=None, max_examples=1000)
+@settings(deadline=None)
 def test_array_init(input_type, dtype, shape, order, force_gc):
     input_array = create_cuml_array_input(input_type, dtype, shape, order)
     cuml_array = CumlArray(data=input_array)
@@ -248,7 +248,7 @@ def test_array_init_bad(input_type, dtype, shape, order):
     dtype=cuml_array_dtypes(),
     order=cuml_array_orders(),
 )
-@settings(deadline=None, max_examples=10000)
+@settings(deadline=None)
 def test_get_set_item(indices, dtype, order):
     inp = create_cuml_array_input("numpy", dtype, (10, 10), order)
     ary = CumlArray(data=inp)
