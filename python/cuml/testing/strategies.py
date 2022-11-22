@@ -76,9 +76,12 @@ def cuml_array_shapes(
 ):
     max_side = 10 if max_side is None else max_side
 
-    # TODO: Raise ValueError for these:
-    assert 1 <= min_dims <= max_dims
-    assert 0 < min_side < max_side
+    if not (1 <= min_dims <= max_dims):
+        raise ValueError(
+            "Arguments violate condition 1 <= min_dims <= max_dims.")
+    if not (0 < min_side < max_side):
+        raise ValueError(
+            "Arguments violate condition 0 < min_side < max_side.")
 
     shapes = array_shapes(
         min_dims=min_dims, max_dims=max_dims,
