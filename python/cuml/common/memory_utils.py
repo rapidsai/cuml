@@ -258,6 +258,10 @@ def _rmm_cupy6_array_like(ary, order):
 
 
 def _strides_to_order(strides, shape, dtype):
+    # cuda array interface specification
+    if strides is None:
+        return 'C'
+
     itemsize = cp.dtype(dtype).itemsize
     shape = list(shape)
     strides = list(strides)
