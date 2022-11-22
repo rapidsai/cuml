@@ -29,7 +29,8 @@ from cuml.common.memory_utils import _get_size_from_shape, _strides_to_order
 from cuml.testing.strategies import (create_cuml_array_input,
                                      cuml_array_dtypes, cuml_array_input_types,
                                      cuml_array_orders, cuml_array_shapes)
-from hypothesis import given, settings, strategies as st
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 from numba import cuda
 
 # Temporarily disabled due to CUDA 11.0 issue
@@ -235,38 +236,31 @@ def test_array_init_bad(input_type, dtype, shape, order):
     assert cp.all(cp.asarray(input_array) == cp.asarray(array))
 
 
-@pytest.mark.parametrize('slice', test_slices)
-@pytest.mark.parametrize('order', ['C', 'F'])
-def test_get_set_item(slice, order):
-    if order == 'F' and slice != 'both':
-        pytest.skip("See issue https://github.com/rapidsai/cuml/issues/2412")
-
-    inp = create_input('numpy', 'float32', (10, 10), order)
+@given(
+    indices=st.slices(10),  # TODO: should be basic_indices() as shown below
+    # indices=basic_indices((10, 10)),
+    dtype=cuml_array_dtypes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None, max_examples=10000)
+def test_get_set_item(indices, dtype, order):
+    inp = create_cuml_array_input("numpy", dtype, (10, 10), order)
     ary = CumlArray(data=inp)
 
-    if isinstance(slice, int):
-        assert np.array_equal(inp[slice], ary[slice].to_output('numpy'))
-        inp[slice] = 1.0
-        ary[slice] = 1.0
+    # Assumption required due to limitation on step size for F-order.
+    assume(order != "F" or (indices.step in (None, 1)))
 
-    elif slice == 'left':
-        assert np.array_equal(inp[5:], ary[5:].to_output('numpy'))
-        inp[5:] = 1.0
-        ary[5:] = 1.0
+    # Check equality of array views.
+    inp_view = inp[indices]
 
-    elif slice == 'right':
-        assert np.array_equal(inp[:5], ary[:5].to_output('numpy'))
-        inp[:5] = 1.0
-        ary[:5] = 1.0
+    # Must assume that resulting view must have at least one element to not
+    # trigger UnownedMemory exception.
+    assume(np.isscalar(inp_view) or inp_view.size > 0)
 
-    elif slice == 'both':
-        assert np.array_equal(inp[:], ary[:].to_output('numpy'))
-        inp[:] = 1.0
-        ary[:] = 1.0
+    assert np.array_equal(inp_view, ary[indices].to_output("numpy"))
 
-    else:
-        pytest.skip("not implemented logical indexing, unless we need it")
-
+    # Check equalit after assigning to array slice.
+    ary[indices] = 1.0
     assert np.array_equal(inp, ary.to_output('numpy'))
 
 
