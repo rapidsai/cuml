@@ -336,20 +336,40 @@ _CUML_ARRAY_DTYPES = [
 _CUML_ARRAY_ORDERS = ["F", "C"]
 
 
-_CUML_ARRAY_SUPPORTED_OUTPUT_DTYPES = [
+_CUML_ARRAY_OUTPUT_TYPES = [
+    "cudf",
+    "cupy",
+    "dataframe",
+    "numba",  # TODO: is this still needed?
+    "numpy",
+    "series",
+]
+
+
+_CUML_ARRAY_OUTPUT_DTYPES = [
     np.float16, np.float32, np.float64,
     np.int8, np.int16, np.int32, np.int64,
     np.uint8, np.uint16, np.uint32, np.uint64
 ]
 
 
-_UNSUPPORTED_CUDF_DTYPES = [np.uint8, np.uint16, np.uint32, np.uint64,
-                            np.float16]  # TODO: maybe not needed?
+UNSUPPORTED_CUDF_DTYPES = [np.uint8, np.uint16, np.uint32, np.uint64,
+                           np.float16]
 
 
 @composite
 def cuml_array_input_types(draw):
     return draw(sampled_from(_CUML_ARRAY_INPUT_TYPES))
+
+
+@composite
+def cuml_array_output_types(draw):
+    return draw(sampled_from(_CUML_ARRAY_OUTPUT_TYPES))
+
+
+@composite
+def cuml_array_output_dtypes(draw):
+    return draw(sampled_from(_CUML_ARRAY_OUTPUT_DTYPES))
 
 
 @composite
@@ -395,7 +415,7 @@ def create_cuml_array_input(input_type, dtype, shape, order):
         not (
             input_type == "series"
             and (
-                dtype in _UNSUPPORTED_CUDF_DTYPES
+                dtype in UNSUPPORTED_CUDF_DTYPES
                 or multidimensional
             )
         )
