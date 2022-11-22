@@ -456,11 +456,15 @@ def cuml_arrays(
     draw,
     input_types=cuml_array_input_types(),
     dtypes=cuml_array_dtypes(),
-    shapes=array_shapes(max_dims=2),
+    shapes=cuml_array_shapes(),
     orders=cuml_array_orders()
 ):
     array_input = create_cuml_array_input(
-        draw(input_types), draw(dtypes), draw(shapes), draw(orders))
+        input_type=draw(input_types),
+        dtype=draw(dtypes),
+        shape=draw(shapes),
+        order=draw(orders),
+    )
     return CumlArray(data=array_input)
 
 
