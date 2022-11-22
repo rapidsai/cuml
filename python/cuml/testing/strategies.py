@@ -384,10 +384,8 @@ def cuml_array_shapes(
         min_dims=min_dims, max_dims=max_dims,
         min_side=min_side, max_side=max_side,
     )
-    return draw(shapes)
-
-    # just_size = integers(min_side, max_side)
-    # return draw(one_of(shapes, just_size))
+    just_size = integers(min_side, max_side)
+    return draw(one_of(shapes, just_size))
 
 
 def create_cuml_array_input(input_type, dtype, shape, order):
