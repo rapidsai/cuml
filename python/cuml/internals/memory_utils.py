@@ -36,11 +36,9 @@ cupy_using_allocator = gpu_only_import_from(
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
-global_settings = GlobalSettings()
-
 
 def set_global_memory_type(memory_type):
-    global_settings.memory_type = MemoryType.from_str(memory_type)
+    GlobalSettings().memory_type = MemoryType.from_str(memory_type)
 
 
 class using_memory_type:
@@ -49,7 +47,7 @@ class using_memory_type:
         self.prev_mem_type = None
 
     def __enter__(self):
-        self.prev_mem_type = global_settings.memory_type
+        self.prev_mem_type = GlobalSettings().memory_type
         set_global_memory_type(self.mem_type)
 
     def __exit__(self, *_):
@@ -64,13 +62,13 @@ class ArrayInfo:
     """
     shape: tuple
     order: str
-    dtype: global_settings.xpy.dtype
+    dtype: GlobalSettings().xpy.dtype
     strides: tuple
 
     @staticmethod
     def from_interface(interface: dict) -> "ArrayInfo":
         out_shape = interface['shape']
-        out_type = global_settings.xpy.dtype(interface['typestr'])
+        out_type = GlobalSettings().xpy.dtype(interface['typestr'])
         out_order = "C"
         out_strides = None
 
@@ -234,7 +232,7 @@ def _strides_to_order(strides, dtype):
 
 
 def _order_to_strides(order, shape, dtype):
-    itemsize = global_settings.xpy.dtype(dtype).itemsize
+    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         return (itemsize, )
 
@@ -265,7 +263,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = global_settings.xpy.dtype(dtype).itemsize
+    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape, )
@@ -316,12 +314,12 @@ def _check_array_contiguity(ary):
         if len(shape) == 1:
             return True
         strides = ary_interface['strides']
-        dtype = global_settings.xpy.dtype(ary_interface['typestr'])
+        dtype = GlobalSettings().xpy.dtype(ary_interface['typestr'])
         try:
             order = ary.order
         except AttributeError:
             order = _strides_to_order(strides, dtype)
-        itemsize = global_settings.xpy.dtype(dtype).itemsize
+        itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
 
         # We check if the strides jump on the non contiguous dimension
         # does not correspond to the array dimension size, which indicates
@@ -420,7 +418,7 @@ def set_global_output_type(output_type):
         raise ValueError('Parameter output_type must be one of "numpy", '
                          '"cupy", cudf", "numba", "input" or None')
 
-    global_settings.output_type = output_type
+    GlobalSettings().output_type = output_type
 
 
 @contextlib.contextmanager
@@ -498,9 +496,9 @@ def using_output_type(output_type):
     True
 
     """
-    prev_output_type = global_settings.output_type
+    prev_output_type = GlobalSettings().output_type
     try:
         set_global_output_type(output_type)
         yield prev_output_type
     finally:
-        global_settings.output_type = prev_output_type
+        GlobalSettings().output_type = prev_output_type

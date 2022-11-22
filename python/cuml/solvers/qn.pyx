@@ -26,7 +26,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -446,7 +446,7 @@ class QN(Base,
     def coef_(self, value):
         value = value.to_output('array').T
         if self.fit_intercept:
-            value = global_settings.xpy.vstack([value, self.intercept_])
+            value = GlobalSettings().xpy.vstack([value, self.intercept_])
         value, _, _, _ = input_to_cuml_array(value)
         self._coef_ = value
 

@@ -23,7 +23,7 @@ import operator
 
 from copy import deepcopy
 from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import global_settings
+from cuml import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import _get_size_from_shape
 from cuml.internals.memory_utils import _strides_to_order

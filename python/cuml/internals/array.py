@@ -19,7 +19,7 @@ import copy
 import operator
 import pickle
 
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
@@ -159,7 +159,7 @@ class CumlArray():
                  validate=None):
 
         if dtype is not None:
-            dtype = global_settings.xpy.dtype(dtype)
+            dtype = GlobalSettings().xpy.dtype(dtype)
 
         self._index = index
         if mem_type is not None:
@@ -187,14 +187,14 @@ class CumlArray():
                 if isinstance(data, (CudfBuffer, DeviceBuffer)):
                     self._mem_type = MemoryType.device
                 elif mem_type is None:
-                    if global_settings.memory_type in (
+                    if GlobalSettings().memory_type in (
                         None, MemoryType.mirror
                     ):
                         raise ValueError(
                             'Must specify mem_type when data is passed as a'
                             ' {}'.format(type(data))
                         )
-                    self._mem_type = global_settings.memory_type
+                    self._mem_type = GlobalSettings().memory_type
 
                 try:
                     data = data.ptr
@@ -208,7 +208,7 @@ class CumlArray():
                 else:
 
                     if self._mem_type is None:
-                        cur_xpy = global_settings.xpy
+                        cur_xpy = GlobalSettings().xpy
                     else:
                         cur_xpy = self._mem_type.xpy
                     # Assume integers are pointers. For everything else,
@@ -723,7 +723,7 @@ class CumlArray():
                 f"but got {ary._array_interface['shape']}"
             )
 
-        return ary.to_mem_type(global_settings.memory_type)
+        return ary.to_mem_type(GlobalSettings().memory_type)
 
     def __reduce_ex__(self, protocol):
         header, frames = self.host_serialize()
@@ -772,7 +772,7 @@ class CumlArray():
             Whether to create a F-major or C-major array.
         """
         if mem_type is None:
-            mem_type = global_settings.memory_type
+            mem_type = GlobalSettings().memory_type
 
         return CumlArray(
             mem_type.xpy.empty(shape, dtype, order), index=index
@@ -802,7 +802,7 @@ class CumlArray():
         """
 
         if mem_type is None:
-            mem_type = global_settings.memory_type
+            mem_type = GlobalSettings().memory_type
         return CumlArray(
             mem_type.xpy.full(shape, value, dtype, order), index=index
         )
@@ -955,7 +955,7 @@ class CumlArray():
 
         """
         if convert_to_mem_type is None:
-            convert_to_mem_type = global_settings.memory_type
+            convert_to_mem_type = GlobalSettings().memory_type
         else:
             convert_to_mem_type = MemoryType.from_str(
                 convert_to_mem_type

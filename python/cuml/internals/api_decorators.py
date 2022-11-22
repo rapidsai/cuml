@@ -39,7 +39,7 @@ from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_return_types import _get_base_return_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
 from cuml.internals import logger
 
@@ -688,12 +688,12 @@ def api_ignore(func: _DecoratorType) -> _DecoratorType:
 @contextlib.contextmanager
 def exit_internal_api():
 
-    assert (global_settings.root_cm is not None)
+    assert (GlobalSettings().root_cm is not None)
 
     try:
-        old_root_cm = global_settings.root_cm
+        old_root_cm = GlobalSettings().root_cm
 
-        global_settings.root_cm = None
+        GlobalSettings().root_cm = None
 
         # Set the global output type to the previous value to pretend we never
         # entered the API
@@ -702,7 +702,7 @@ def exit_internal_api():
             yield
 
     finally:
-        global_settings.root_cm = old_root_cm
+        GlobalSettings().root_cm = old_root_cm
 
 
 def mirror_args(

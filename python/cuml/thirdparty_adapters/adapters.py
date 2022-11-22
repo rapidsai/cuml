@@ -17,7 +17,7 @@
 import numpy as np
 import cupy as cp
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
@@ -263,17 +263,17 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     if is_sparse:
         check_sparse(array, accept_sparse, accept_large_sparse)
         if array.format == 'csr':
-            if global_settings.memory_type.is_device_accessible:
+            if GlobalSettings().memory_type.is_device_accessible:
                 new_array = gpu_csr_matrix(array, copy=copy)
             else:
                 new_array = cpu_csr_matrix(array, copy=copy)
         elif array.format == 'csc':
-            if global_settings.memory_type.is_device_accessible:
+            if GlobalSettings().memory_type.is_device_accessible:
                 new_array = gpu_csc_matrix(array, copy=copy)
             else:
                 new_array = cpu_csc_matrix(array, copy=copy)
         elif array.format == 'coo':
-            if global_settings.memory_type.is_device_accessible:
+            if GlobalSettings().memory_type.is_device_accessible:
                 new_array = gpu_coo_matrix(array, copy=copy)
             else:
                 new_array = cpu_coo_matrix(array, copy=copy)
@@ -284,7 +284,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             new_array = new_array.astype(correct_dtype)
         return new_array
     else:
-        if global_settings.memory_type.is_device_accessible:
+        if GlobalSettings().memory_type.is_device_accessible:
             X, n_rows, n_cols, dtype = input_to_cupy_array(array,
                                                            order=order,
                                                            deepcopy=copy,
