@@ -49,7 +49,8 @@ if (is_cuda_available()):
     import cuml.feature_extraction
     from cuml.fil import fil
 
-    from cuml.internals.global_settings import global_settings
+    from cuml.internals.global_settings import (
+        GlobalSettings, _global_settings_data)
 
     from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
@@ -111,6 +112,18 @@ from ._version import get_versions
 # Version configuration
 __version__ = get_versions()['version']
 del get_versions
+
+
+def __getattr__(name):
+
+    if name == 'global_settings':
+        try:
+            return _global_settings_data.settings
+        except AttributeError:
+            _global_settings_data.settings = GlobalSettings()
+            return _global_settings_data.settings
+
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
 __all__ = [

@@ -154,27 +154,16 @@ class GlobalSettings:
         return self.memory_type.xpy
 
 
-def _get_global_settings():
-    try:
-        return _global_settings_data.settings
-    except AttributeError:
-        _global_settings_data.settings = GlobalSettings()
-        return _global_settings_data.settings
-
-def __getattr__(name):
-
-    if name == 'global_settings':
-        return _get_global_settings()
-    raise AttributeError(f"module {__name__} has no attribute {name}")
+global_settings = GlobalSettings()
 
 
 def set_global_memory_type(memory_type):
-    _get_global_settings().memory_type = MemoryType.from_str(memory_type)
+    global_settings.memory_type = MemoryType.from_str(memory_type)
 
 
 class using_memory_type:
     def __init__(self, memory_type):
-        self.prev_memory_type = _get_global_settings().memory_type
+        self.prev_memory_type = global_settings.memory_type
         set_global_memory_type(memory_type)
 
     def __enter__(self):
@@ -185,12 +174,12 @@ class using_memory_type:
 
 
 def set_global_device_type(device_type):
-    _get_global_settings().device_type = DeviceType.from_str(device_type)
+    global_settings.device_type = DeviceType.from_str(device_type)
 
 
 class using_device_type:
     def __init__(self, device_type):
-        self.prev_device_type = _get_global_settings().device_type
+        self.prev_device_type = global_settings.device_type
         set_global_device_type(device_type)
 
     def __enter__(self):
