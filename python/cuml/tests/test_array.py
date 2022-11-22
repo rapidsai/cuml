@@ -32,11 +32,7 @@ from cuml.testing.strategies import (create_cuml_array_input,
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from numba import cuda
-
-# Temporarily disabled due to CUDA 11.0 issue
-# https://github.com/rapidsai/cuml/issues/4332
-# from rmm import DeviceBuffer
-
+from rmm import DeviceBuffer
 
 if sys.version_info < (3, 8):
     try:
@@ -281,9 +277,7 @@ def test_create_empty(shape, dtype, order):
     assert isinstance(ary.ptr, int)
     assert ary.shape == _normalized_shape(shape)
     assert ary.dtype == np.dtype(dtype)
-    # Temporarily disabled due to CUDA 11.0 issue
-    # https://github.com/rapidsai/cuml/issues/4332
-    # assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
+    assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
 
 @pytest.mark.parametrize('shape', test_shapes)
