@@ -436,6 +436,22 @@ def create_cuml_array_input(input_type, dtype, shape, order):
 
 
 @composite
+def cuml_array_inputs(
+    draw,
+    input_types=cuml_array_input_types(),
+    dtypes=cuml_array_dtypes(),
+    shapes=cuml_array_shapes(),
+    orders=cuml_array_orders(),
+):
+    return create_cuml_array_input(
+        input_type=draw(input_types),
+        dtype=draw(dtypes),
+        shape=draw(shapes),
+        order=draw(orders),
+    )
+
+
+@composite
 def cuml_arrays(
     draw,
     input_types=cuml_array_input_types(),
