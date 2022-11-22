@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   cuml-wheel:
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feature/extra_repos
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@main
     with:
       repo: rapidsai/cuml
 
