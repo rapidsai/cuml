@@ -15,12 +15,12 @@
 #
 
 
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_type import DeviceType
 
 
 def set_global_device_type(device_type):
-    global_settings.device_type = DeviceType.from_str(device_type)
+    GlobalSettings().device_type = DeviceType.from_str(device_type)
 
 
 class using_device_type:
@@ -29,7 +29,7 @@ class using_device_type:
         self.prev_device_type = None
 
     def __enter__(self):
-        self.prev_device_type = global_settings.device_type
+        self.prev_device_type = GlobalSettings().device_type
         set_global_device_type(self.device_type)
 
     def __exit__(self, *_):

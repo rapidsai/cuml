@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.logger import debug
@@ -94,8 +94,8 @@ class SparseCumlArray():
                    domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
-                 convert_to_mem_type=global_settings.memory_type,
-                 convert_index=global_settings.xpy.int32,
+                 convert_to_mem_type=GlobalSettings().memory_type,
+                 convert_index=GlobalSettings().xpy.int32,
                  convert_format=True):
         is_sparse = False
         try:
@@ -199,18 +199,18 @@ class SparseCumlArray():
             are kept on their current device.
         """
         if output_mem_type is None:
-            output_mem_type = global_settings.memory_type
+            output_mem_type = GlobalSettings().memory_type
         else:
             output_mem_type = MemoryType.from_str(output_mem_type)
         # Treat numpy and scipy as the same
         if output_type in ('numpy', 'scipy'):
-            if global_settings.memory_type.is_host_accessible:
-                output_mem_type = global_settings.memory_type
+            if GlobalSettings().memory_type.is_host_accessible:
+                output_mem_type = GlobalSettings().memory_type
             else:
                 output_mem_type = MemoryType.host
         elif output_type == 'cupy':
-            if global_settings.memory_type.is_device_accessible:
-                output_mem_type = global_settings.memory_type
+            if GlobalSettings().memory_type.is_device_accessible:
+                output_mem_type = GlobalSettings().memory_type
             else:
                 output_mem_type = MemoryType.device
         elif output_mem_type is MemoryType.mirror:
