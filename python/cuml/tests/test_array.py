@@ -428,12 +428,15 @@ def test_cuda_array_interface(dtype, shape, order):
     assert cp.all(inp == cp.asarray(ary))
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-def test_serialize(input_type):
-    if input_type == 'series':
-        inp = create_input(input_type, np.float32, (10, 1), 'C')
-    else:
-        inp = create_input(input_type, np.float32, (10, 5), 'F')
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
+def test_serialize(input_type, dtype, shape, order):
+    inp = create_cuml_array_input(input_type, dtype, shape, order)
     ary = CumlArray(data=inp)
     header, frames = ary.serialize()
     ary2 = CumlArray.deserialize(header, frames)
@@ -460,19 +463,26 @@ def test_serialize(input_type):
         assert ary.order == ary2.order
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
 @pytest.mark.parametrize('protocol', [4, 5])
-def test_pickle(input_type, protocol):
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
+def test_pickle(protocol, input_type, dtype, shape, order):
     if protocol > pickle.HIGHEST_PROTOCOL:
         pytest.skip(
             f"Trying to test with pickle protocol {protocol},"
             f" but highest supported protocol is {pickle.HIGHEST_PROTOCOL}."
         )
-    if input_type == 'series':
-        inp = create_input(input_type, np.float32, (10, 1), 'C')
-    else:
-        inp = create_input(input_type, np.float32, (10, 5), 'F')
+
+    # Generate CumlArray
+    inp = create_cuml_array_input(input_type, dtype, shape, order)
     ary = CumlArray(data=inp)
+
+    # Prepare keyword arguments.
     dumps_kwargs = {"protocol": protocol}
     loads_kwargs = {}
     f = []
@@ -481,8 +491,12 @@ def test_pickle(input_type, protocol):
         dumps_kwargs["buffer_callback"] = f.append
         loads_kwargs["buffers"] = f
         len_f = 1
+
+    # Perform serialization and unserialization.
     a = pickle.dumps(ary, **dumps_kwargs)
     b = pickle.loads(a, **loads_kwargs)
+
+    # Check equality
     assert len(f) == len_f
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
@@ -491,6 +505,7 @@ def test_pickle(input_type, protocol):
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
 
+    # Check CUDA Array Interface match.
     assert ary.__cuda_array_interface__['shape'] == \
         b.__cuda_array_interface__['shape']
     assert ary.__cuda_array_interface__['strides'] == \
