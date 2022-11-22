@@ -38,9 +38,6 @@ from hypothesis import strategies as st
 from numba import cuda
 from rmm import DeviceBuffer
 
-test_input_types = [
-    'numpy', 'numba', 'cupy', 'series', None
-]
 
 _OUTPUT_TYPES_MAPPING = {
     'cupy': cp.ndarray,
@@ -49,25 +46,6 @@ _OUTPUT_TYPES_MAPPING = {
     'dataframe': cudf.DataFrame,
     'series': cudf.Series,
 }
-
-test_dtypes_all = [
-    np.float16, np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64
-]
-
-test_dtypes_output = [
-    np.float16, np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64
-]
-
-test_shapes = [10, (10,), (10, 1), (10, 5), (1, 10)]
-
-test_slices = [0, 5, 'left', 'right', 'both', 'bool_op']
-
-unsupported_cudf_dtypes = [np.uint8, np.uint16, np.uint32, np.uint64,
-                           np.float16]
 
 
 def _normalized_shape(shape):
@@ -608,19 +586,3 @@ def test_sliced_array_owner(order):
     # error on `cupy.cuda.runtime.pointerGetAttributes(cuml_slice.ptr)` in CUDA
     # < 11.0 or cudaErrorInvalidDevice in CUDA > 11.0 (unclear why it changed)
     assert (cp.all(cuml_slice.to_output('cupy') == cupy_slice))
-
-
-def create_input(input_type, dtype, shape, order):
-    rand_ary = cp.ones(shape, dtype=dtype, order=order)
-
-    if input_type == 'numpy':
-        return np.array(cp.asnumpy(rand_ary), dtype=dtype, order=order)
-
-    elif input_type == 'numba':
-        return cuda.as_cuda_array(rand_ary)
-
-    elif input_type == 'series':
-        return cudf.Series(rand_ary)
-
-    else:
-        return rand_ary
