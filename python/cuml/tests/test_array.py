@@ -373,41 +373,33 @@ def test_output(output_type, dtype, order, shape):
         assert np.all(inp == res2)
 
 
-@pytest.mark.parametrize('output_type', _OUTPUT_TYPES_MAPPING)
-@pytest.mark.parametrize('dtype', [
-    np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-])
-@pytest.mark.parametrize('out_dtype', [
-    np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-])
-@pytest.mark.parametrize('shape', test_shapes)
-def test_output_dtype(output_type, dtype, out_dtype, shape):
-    inp = create_input('numpy', dtype, shape, order="F")
+@given(
+    output_type=cuml_array_output_types(),
+    shape=cuml_array_shapes(),
+    dtype=cuml_array_dtypes(),
+    order=cuml_array_orders(),
+    out_dtype=cuml_array_dtypes(),
+)
+@settings(deadline=None)
+def test_output_dtype(output_type, shape, dtype, order, out_dtype):
+
+    # Required assumptions for cudf outputs:
+    if output_type in ("cudf", "dataframe", "series"):
+        assume(dtype not in UNSUPPORTED_CUDF_DTYPES)
+        assume(out_dtype not in UNSUPPORTED_CUDF_DTYPES)
+    if output_type == "series":
+        assume(len(_squeezed_shape(_normalized_shape(shape))) == 1)
+
+    # Perform conversion
+    inp = create_cuml_array_input("numpy", dtype, shape, order)
     ary = CumlArray(inp)
+    res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
 
-    if dtype in unsupported_cudf_dtypes and \
-            output_type in ['series', 'dataframe', 'cudf']:
-        with pytest.raises(ValueError):
-            res = ary.to_output(
-                output_type=output_type,
-                output_dtype=out_dtype
-            )
-
-    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
-        with pytest.raises(ValueError):
-            res = ary.to_output(
-                output_type=output_type,
-                output_dtype=out_dtype
-            )
+    # Check output dtype
+    if isinstance(res, cudf.DataFrame):
+        res.values.dtype is out_dtype
     else:
-        res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
-
-        if isinstance(res, cudf.DataFrame):
-            res.values.dtype == out_dtype
-        else:
-            res.dtype == out_dtype
+        res.dtype is out_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
