@@ -27,13 +27,12 @@ import pytest
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape, _strides_to_order
-from cuml.testing.strategies import (create_cuml_array_input,
+from cuml.testing.strategies import (UNSUPPORTED_CUDF_DTYPES,
+                                     create_cuml_array_input,
                                      cuml_array_dtypes, cuml_array_input_types,
-                                     cuml_array_orders,
+                                     cuml_array_inputs, cuml_array_orders,
                                      cuml_array_output_types,
-                                     cuml_array_shapes,
-                                     UNSUPPORTED_CUDF_DTYPES,
-                                     )
+                                     cuml_array_shapes)
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from numba import cuda
@@ -518,14 +517,22 @@ def test_pickle(protocol, input_type, dtype, shape, order):
         assert ary.order == b.order
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-def test_deepcopy(input_type):
-    if input_type == 'series':
-        inp = create_input(input_type, np.float32, (10, 1), 'C')
-    else:
-        inp = create_input(input_type, np.float32, (10, 5), 'F')
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
+def test_deepcopy(input_type, dtype, shape, order):
+    # Generate CumlArray
+    inp = create_cuml_array_input(input_type, dtype, shape, order)
     ary = CumlArray(data=inp)
+
+    # Perform deepcopy
     b = deepcopy(ary)
+
+    # Check equality
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
     elif input_type == 'series':
@@ -535,6 +542,7 @@ def test_deepcopy(input_type):
 
     assert ary.ptr != b.ptr
 
+    # Check CUDA Array Interface match.
     assert ary.__cuda_array_interface__['shape'] == \
         b.__cuda_array_interface__['shape']
     assert ary.__cuda_array_interface__['strides'] == \
@@ -548,9 +556,10 @@ def test_deepcopy(input_type):
 
 
 @pytest.mark.parametrize('operation', [operator.add, operator.sub])
-def test_cumlary_binops(operation):
-    a = cp.arange(5)
-    b = cp.arange(5)
+@given(a=cuml_array_inputs())
+@settings(deadline=None)
+def test_cumlary_binops(operation, a):
+    b = deepcopy(a)
 
     ary_a = CumlArray(a)
     ary_b = CumlArray(b)
@@ -558,7 +567,7 @@ def test_cumlary_binops(operation):
     c = operation(a, b)
     ary_c = operation(ary_a, ary_b)
 
-    assert(cp.all(ary_c.to_output('cupy') == c))
+    assert(cp.all(ary_c.to_output('cupy') == cp.asarray(c)))
 
 
 @pytest.mark.parametrize('order', ['F', 'C'])
