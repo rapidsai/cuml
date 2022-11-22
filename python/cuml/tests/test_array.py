@@ -67,15 +67,6 @@ numba_array = gpu_only_import_from('numba.cuda.cudadrv.devicearray',
                                    'DeviceNDArray')
 
 
-if sys.version_info < (3, 8):
-    try:
-        import pickle5 as pickle
-    except ImportError:
-        import pickle
-else:
-    import pickle
-
-
 test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
 ]
