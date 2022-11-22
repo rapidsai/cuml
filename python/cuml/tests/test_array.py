@@ -123,7 +123,8 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
         assert cuml_array.shape == _normalized_shape(shape)
 
     # Order is only well-defined (and preserved) for multidimensional arrays.
-    assert cuml_array.order == order if _multidimensional(shape) else "C"
+    md = isinstance(shape, tuple) and len([d for d in shape if d != 1]) > 1
+    assert cuml_array.order == order if md else "C"
 
     # Check input array and array equality.
     assert np.array_equal(
