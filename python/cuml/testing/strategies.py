@@ -323,7 +323,7 @@ def _get_limits(strategy):
 
 
 _CUML_ARRAY_INPUT_TYPES = [
-    'numpy', 'numba', 'cupy', 'series', None,
+    'numpy', 'cupy', 'series', None,
 ]
 
 
@@ -404,9 +404,6 @@ def _create_cuml_array_input(input_type, dtype, shape, order):
 
     if input_type == 'numpy':
         return np.array(cp.asnumpy(array), dtype=dtype, order=order)
-
-    elif input_type == 'numba':
-        return cuda.as_cuda_array(array)
 
     elif input_type == 'series':
         return cudf.Series(array)
