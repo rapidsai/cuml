@@ -271,27 +271,36 @@ def test_create_empty(shape, dtype, order):
     assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
 
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('order', ['F', 'C'])
+@given(
+    shape=cuml_array_shapes(),
+    dtype=cuml_array_dtypes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
 def test_create_zeros(shape, dtype, order):
     ary = CumlArray.zeros(shape=shape, dtype=dtype, order=order)
     test = cp.zeros(shape).astype(dtype)
     assert cp.all(test == cp.asarray(ary))
 
 
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('order', ['F', 'C'])
+@given(
+    shape=cuml_array_shapes(),
+    dtype=cuml_array_dtypes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
 def test_create_ones(shape, dtype, order):
     ary = CumlArray.ones(shape=shape, dtype=dtype, order=order)
     test = cp.ones(shape).astype(dtype)
     assert cp.all(test == cp.asarray(ary))
 
 
-@pytest.mark.parametrize('shape', test_shapes)
-@pytest.mark.parametrize('dtype', test_dtypes_all)
-@pytest.mark.parametrize('order', ['F', 'C'])
+@given(
+    shape=cuml_array_shapes(),
+    dtype=cuml_array_dtypes(),
+    order=cuml_array_orders(),
+)
+@settings(deadline=None)
 def test_create_full(shape, dtype, order):
     value = cp.array([cp.random.randint(100)]).astype(dtype)
     ary = CumlArray.full(value=value[0], shape=shape, dtype=dtype, order=order)
