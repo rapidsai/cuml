@@ -67,9 +67,6 @@ numba_array = gpu_only_import_from('numba.cuda.cudadrv.devicearray',
                                    'DeviceNDArray')
 
 
-test_input_types = [
-    'numpy', 'numba', 'cupy', 'series', None
-]
 
 test_output_types = (
     'cupy',
