@@ -18,7 +18,6 @@ import gc
 import operator
 import pickle
 from copy import deepcopy
-from itertools import dropwhile
 
 import cudf
 import cupy as cp
@@ -33,11 +32,12 @@ from cuml.testing.strategies import (UNSUPPORTED_CUDF_DTYPES,
                                      cuml_array_inputs, cuml_array_orders,
                                      cuml_array_output_types,
                                      cuml_array_shapes)
+from cuml.testing.utils import (normalized_shape, series_squeezed_shape,
+                                squeezed_shape)
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from numba import cuda
 from rmm import DeviceBuffer
-
 
 _OUTPUT_TYPES_MAPPING = {
     'cupy': cp.ndarray,
@@ -48,29 +48,8 @@ _OUTPUT_TYPES_MAPPING = {
 }
 
 
-def _normalized_shape(shape):
-    """Normalize shape to tuple."""
-    return (shape, ) if isinstance(shape, int) else shape
-
-
-def _squeezed_shape(shape):
-    """Remove all trailing axes of length 1 from shape.
-
-    Similar to, but not exactly like np.squeeze().
-    """
-    return tuple(reversed(list(dropwhile(lambda d: d == 1, reversed(shape)))))
-
-
-def _series_squeezed_shape(shape):
-    """Remove all but one axes of length 1 from shape."""
-    if shape:
-        return tuple([d for d in _normalized_shape(shape) if d != 1]) or (1,)
-    else:
-        return ()
-
-
 def _multidimensional(shape):
-    return len(_squeezed_shape(_normalized_shape(shape))) > 1
+    return len(squeezed_shape(normalized_shape(shape))) > 1
 
 
 def _get_owner(curr):
@@ -80,27 +59,6 @@ def _get_owner(curr):
         return curr.data.mem._owner
     else:
         return None
-
-
-@given(
-    input_type=cuml_array_input_types(),
-    dtype=cuml_array_dtypes(),
-    shape=cuml_array_shapes(),
-    order=cuml_array_orders())
-@settings(deadline=None)
-def test_array_inputs(input_type, dtype, shape, order):
-    input_array = create_cuml_array_input(input_type, dtype, shape, order)
-    assert input_array.dtype == dtype
-    if input_type == "series":
-        assert input_array.shape == _series_squeezed_shape(shape)
-    else:
-        assert input_array.shape == _normalized_shape(shape)
-
-    layout_flag = f"{order}_CONTIGUOUS"
-    if input_type == "series":
-        assert input_array.values.flags[layout_flag]
-    else:
-        assert input_array.flags[layout_flag]
 
 
 @given(
@@ -118,9 +76,9 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
     assert cuml_array.dtype == dtype
 
     if input_type == "series":
-        assert cuml_array.shape == _series_squeezed_shape(shape)
+        assert cuml_array.shape == series_squeezed_shape(shape)
     else:
-        assert cuml_array.shape == _normalized_shape(shape)
+        assert cuml_array.shape == normalized_shape(shape)
 
     # Order is only well-defined (and preserved) for multidimensional arrays.
     md = isinstance(shape, tuple) and len([d for d in shape if d != 1]) > 1
@@ -253,7 +211,7 @@ def test_get_set_item(indices, dtype, order):
 def test_create_empty(shape, dtype, order):
     ary = CumlArray.empty(shape=shape, dtype=dtype, order=order)
     assert isinstance(ary.ptr, int)
-    assert ary.shape == _normalized_shape(shape)
+    assert ary.shape == normalized_shape(shape)
     assert ary.dtype == np.dtype(dtype)
     assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
@@ -308,7 +266,7 @@ def test_output(output_type, dtype, order, shape):
     if output_type in ("cudf", "dataframe", "series"):
         assume(dtype not in UNSUPPORTED_CUDF_DTYPES)
     if output_type == "series":
-        assume(len(_series_squeezed_shape(shape)) == 1)
+        assume(len(series_squeezed_shape(shape)) == 1)
 
     # Generate input and cuml array
     inp = create_cuml_array_input("numpy", dtype, shape, order)
@@ -366,7 +324,7 @@ def test_output_dtype(output_type, shape, dtype, order, out_dtype):
         assume(dtype not in UNSUPPORTED_CUDF_DTYPES)
         assume(out_dtype not in UNSUPPORTED_CUDF_DTYPES)
     if output_type == "series":
-        assume(len(_squeezed_shape(_normalized_shape(shape))) == 1)
+        assume(len(squeezed_shape(normalized_shape(shape))) == 1)
 
     # Perform conversion
     inp = create_cuml_array_input("numpy", dtype, shape, order)
