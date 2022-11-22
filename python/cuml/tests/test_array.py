@@ -80,6 +80,11 @@ unsupported_cudf_dtypes = [np.uint8, np.uint16, np.uint32, np.uint64,
                            np.float16]
 
 
+def _normalized_shape(shape):
+    """Normalize shape to tuple."""
+    return (shape, ) if isinstance(shape, int) else shape
+
+
 def _series_normalized_shape(shape):
     """Normalize to inherently one-dimensional shape for series.
 
@@ -88,9 +93,9 @@ def _series_normalized_shape(shape):
         - (1, 2) -> (2, )
         - (1, 1) -> (1, )
     """
-    normalized_shape = tuple(d for d in shape if d > 1) or (1, )
-    assert len(normalized_shape) == 1
-    return normalized_shape
+    ret = tuple(d for d in _normalized_shape(shape) if d > 1) or (1, )
+    assert len(ret) == 1
+    return ret
 
 
 def _get_owner(curr):
@@ -114,7 +119,7 @@ def test_array_inputs(input_type, dtype, shape, order):
     if input_type == "series":
         assert input_array.shape == _series_normalized_shape(shape)
     else:
-        assert input_array.shape == shape
+        assert input_array.shape == _normalized_shape(shape)
 
     layout_flag = f"{order}_CONTIGUOUS"
     if input_type == "series":
@@ -140,10 +145,11 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
     if input_type == "series":
         assert cuml_array.shape == _series_normalized_shape(shape)
     else:
-        assert cuml_array.shape == shape
+        assert cuml_array.shape == _normalized_shape(shape)
 
     # Order is only well-defined (and preserved) for multi-dimensional arrays.
-    multi_dimensional = len([d for d in shape if d > 1]) > 1
+    multi_dimensional = \
+        len([d for d in _normalized_shape(shape) if d > 1]) > 1
     assert cuml_array.order == order if multi_dimensional else "C"
 
     # Check input array and array equality.
