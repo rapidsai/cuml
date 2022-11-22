@@ -165,9 +165,7 @@ setup(name=f'cuml{cuda_suffix}',
               "scikit-learn==0.24",
               "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
               "dask-glm @ git+https://github.com/dask/dask-glm@main",
-              # TODO: Temporary pinning because the latest dask-cuda requires
-              # changes to distributed that are only available on main.
-              "dask-cuda==22.10.00"
+              "dask-cuda"
           ]
       },
       zip_safe=False)
