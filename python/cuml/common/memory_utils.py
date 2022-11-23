@@ -263,8 +263,6 @@ def _strides_to_order(strides, shape, dtype):
         return 'C'
 
     itemsize = cp.dtype(dtype).itemsize
-    shape = list(shape)
-    strides = list(strides)
 
     if strides[0] == itemsize and \
         all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
@@ -284,29 +282,27 @@ def _strides_to_order(strides, shape, dtype):
 
 
 def _order_to_strides(order, shape, dtype):
-    itemsize = cp.dtype(dtype).itemsize
+    item_size = cp.dtype(dtype).itemsize
     if isinstance(shape, int) or len(shape) == 1:
-        return (itemsize, )
+        return (item_size, )
 
     elif len(shape) == 0:
         return None
 
-    strides = [itemsize]
-
     if order == 'F':
+        strides = [item_size]
         for dim_size in shape[:-1]:
             strides.append(dim_size * strides[-1])
+        return tuple(strides)
 
     elif order == 'C':
-        shape = shape[::-1]
-        for dim_size in shape[:-1]:
+        strides = [item_size]
+        for dim_size in shape[:0:-1]:
             strides.append(dim_size * strides[-1])
-        strides = strides[::-1]
+        return tuple(strides[::-1])
 
     else:
-        raise ValueError('Order must be "F" or "C". ')
-
-    return tuple(strides)
+        raise ValueError('Order must be "F" or "C".')
 
 
 def _get_size_from_shape(shape, dtype):
