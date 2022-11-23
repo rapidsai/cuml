@@ -205,11 +205,12 @@ class KMeans(Base,
         batched pairwise distance computation is :py:`max_samples_per_batch *
         n_clusters`. It might become necessary to lower this number when
         `n_clusters` becomes prohibitively large.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used.
-        See :ref:`output-data-type-configuration` for more info.
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------

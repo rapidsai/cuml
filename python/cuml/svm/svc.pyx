@@ -181,11 +181,12 @@ class SVC(SVMBase,
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used.
-        See :ref:`output-data-type-configuration` for more info.
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
     random_state: int (default = None)

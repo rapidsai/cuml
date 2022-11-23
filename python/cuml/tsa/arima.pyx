@@ -154,7 +154,7 @@ cdef class ARIMAParamsWrapper:
 
 
 class ARIMA(Base):
-    r"""
+    """
     Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction, with support for seasonality (SARIMA)
 
@@ -206,11 +206,12 @@ class ARIMA(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used.
-        See :ref:`output-data-type-configuration` for more info.
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     convert_dtype : boolean
         When set to True, the model will automatically convert the inputs to
         np.float64.
@@ -235,7 +236,8 @@ class ARIMA(Base):
     -----
     *Performance:* Let :math:`r=max(p+s*P, q+s*Q+1)`. The device memory used
     for most operations is
-    :math:`O(\mathtt{batch\_size}*\mathtt{n\_obs} + \mathtt{batch\_size}*r^2)`.
+    :math:\
+    `O(\\mathtt{batch\\_size}*\\mathtt{n\\_obs} + \\mathtt{batch\\_size}*r^2)`.
     The execution time is a linear function of `n_obs` and `batch_size`
     (if `batch_size` is large), but grows very fast with `r`.
 
