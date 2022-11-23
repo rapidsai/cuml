@@ -22,10 +22,6 @@ import cuml
 import cudf.comm.serialize  # noqa: F401
 
 
-def serialize_mat_descriptor(m):
-    return cp.cusparse.MatDescriptor.create, ()
-
-
 try:
     from distributed.protocol import dask_deserialize, dask_serialize
     from distributed.protocol.serialize import pickle_dumps, pickle_loads
@@ -80,7 +76,6 @@ try:
     register_generic(MultinomialNB, 'dask',
                      dask_serialize, dask_deserialize)
 
-    copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
 except ImportError:
     # distributed is probably not installed on the system
     pass
