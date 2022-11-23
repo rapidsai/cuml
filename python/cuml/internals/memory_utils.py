@@ -414,10 +414,13 @@ def set_global_output_type(output_type):
 
     # Check for allowed types. Allow 'cuml' to support internal estimators
     if (
-        output_type != 'cuml'
+        output_type is not None
+        and output_type != 'cuml'
         and output_type not in INTERNAL_VALID_OUTPUT_TYPES
     ):
-        # Omit 'cuml' from the error message. Should only be used internally
+        valid_output_types_str = ', '.join(
+            [f"'{x}'" for x in VALID_OUTPUT_TYPES]
+        )
         raise ValueError(
             f'output_type must be one of {valid_output_types_str}'
             f' or None. Got: {output_type}'
