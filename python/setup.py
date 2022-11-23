@@ -40,7 +40,7 @@ def get_cli_option(name):
 def clean_folder(path):
     """
     Function to clean all Cython and Python artifacts and cache folders. It
-    clean the folder as well as its direct children recursively.
+    cleans the folder as well as its direct children recursively.
 
     Parameters
     ----------
