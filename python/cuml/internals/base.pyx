@@ -36,6 +36,10 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.output_type import (
+    INTERNAL_VALID_OUTPUT_TYPES,
+    VALID_OUTPUT_TYPES
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.safe_imports import (
@@ -461,16 +465,19 @@ def _check_output_type_str(output_str):
     if isinstance(output_str, str):
         output_type = output_str.lower()
         # Check for valid output types + "input"
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
+        if output_type in INTERNAL_VALID_OUTPUT_TYPES:
             # Return the original version if nothing has changed, otherwise
             # return the lowered. This is to try and keep references the same
             # to support sklearn.base.clone() where possible
             return output_str if output_type == output_str else output_type
 
-    # Did not match any acceptable value
-    raise ValueError("output_type must be one of " +
-                     "'numpy', 'cupy', 'cudf' or 'numba'" +
-                     "Got: {}".format(output_str))
+    valid_output_types_str = ', '.join(
+        [f"'{x}'" for x in VALID_OUTPUT_TYPES]
+    )
+    raise ValueError(
+        f'output_type must be one of {valid_output_types_str}'
+        f' Got: {output_str}'
+    )
 
 
 def _determine_stateless_output_type(output_type, input_obj):

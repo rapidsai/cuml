@@ -24,6 +24,10 @@ from functools import wraps
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.mem_type import MemoryType
+from cuml.internals.output_type import (
+    INTERNAL_VALID_OUTPUT_TYPES,
+    VALID_OUTPUT_TYPES
+)
 from cuml.internals.safe_imports import (
     gpu_only_import_from,
     NullContext
@@ -409,12 +413,15 @@ def set_global_output_type(output_type):
         output_type = output_type.lower()
 
     # Check for allowed types. Allow 'cuml' to support internal estimators
-    if output_type not in [
-            'numpy', 'cupy', 'cudf', 'numba', 'cuml', "input", None
-    ]:
+    if (
+        output_type != 'cuml'
+        and output_type not in INTERNAL_VALID_OUTPUT_TYPES
+    ):
         # Omit 'cuml' from the error message. Should only be used internally
-        raise ValueError('Parameter output_type must be one of "numpy", '
-                         '"cupy", cudf", "numba", "input" or None')
+        raise ValueError(
+            f'output_type must be one of {valid_output_types_str}'
+            f' or None. Got: {output_type}'
+        )
 
     GlobalSettings().output_type = output_type
 
