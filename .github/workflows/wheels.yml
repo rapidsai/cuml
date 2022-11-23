@@ -61,5 +61,5 @@ jobs:
       # because treelite needs to be compiled (no wheels available for arm).
       test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main && pip install git+https://github.com/dask/distributed.git@main "
       test-extras: test
-      test-unittest: "pytest -v ./python/cuml/tests -n 4"
+      test-unittest: "pytest -v ./python/cuml/tests"
     secrets: inherit
