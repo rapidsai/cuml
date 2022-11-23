@@ -48,8 +48,8 @@ function(find_and_configure_raft)
     # the raft-config.cmake re-evaluates the RAFT_NVTX value
     set(RAFT_NVTX ${PKG_NVTX})
 
-    set(RAFT_BUILD_SHARED_LIBS ${PKG_USE_RAFT_STATIC})
-    if()
+    set(RAFT_BUILD_SHARED_LIBS ON)
+    if(${PKG_USE_RAFT_STATIC})
       set(RAFT_BUILD_SHARED_LIBS OFF)
     endif()
 
