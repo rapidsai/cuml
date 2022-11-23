@@ -29,6 +29,7 @@ from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common import parts_to_ranks
 from cuml.internals import BaseMetaClass
+from cuml.internals.base import Base
 
 from dask_cudf.core import DataFrame as dcDataFrame
 from dask_cudf.core import Series as dcSeries
