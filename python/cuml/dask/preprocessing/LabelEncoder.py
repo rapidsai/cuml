@@ -41,6 +41,7 @@ class LabelEncoder(BaseEstimator,
 
     Examples
     --------
+    Converting a categorical implementation to a numerical one
 
     .. code-block:: python
 
