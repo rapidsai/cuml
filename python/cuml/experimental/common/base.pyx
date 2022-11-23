@@ -34,7 +34,10 @@ from cuml.common.base import Base
 def dispatcher(func_name, gpu_func):
     @functools.wraps(gpu_func)
     def dispatch(self, *args, **kwargs):
-        return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+        if isinstance(self, UniversalBase):
+            return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+        else:
+            return gpu_func(self, *args, **kwargs)
     return dispatch
 
 
