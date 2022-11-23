@@ -20,13 +20,11 @@ import operator
 import re
 from dataclasses import dataclass
 from functools import wraps
-from enum import Enum, auto
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
-    gpu_only_import,
     gpu_only_import_from,
     NullContext
 )

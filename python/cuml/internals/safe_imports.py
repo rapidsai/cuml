@@ -19,7 +19,6 @@ import importlib
 import traceback
 from cuml.internals.device_support import CPU_ENABLED, GPU_ENABLED
 from cuml.internals import logger
-from distutils.version import LooseVersion
 
 
 class UnavailableError(Exception):

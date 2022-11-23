@@ -37,13 +37,10 @@ from cuml.internals.api_context_managers import ReturnGenericCM
 from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
-from cuml.internals.base_return_types import _get_base_return_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
 from cuml.internals import logger
-
-CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
 
 
 class DecoratorMetaClass(type):

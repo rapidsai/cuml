@@ -97,11 +97,12 @@ class LabelBinarizer(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used.
-        See :ref:`output-data-type-configuration` for more info.
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -253,8 +254,8 @@ class LabelBinarizer(Base):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.internals.import_utils import dummy_function_always_false \
-                    as scipy_sparse_isspmatrix
+            from cuml.internals.import_utils import \
+                dummy_function_always_false as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.
         if cupyx.scipy.sparse.isspmatrix(y):

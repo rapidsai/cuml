@@ -20,6 +20,7 @@ from pylibraft.common.handle import Handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.base import Base
 
+
 def get_tag_from_model_func(func, tag, default=None):
     """
     Function returns the tags from the model that function `func` is bound to.

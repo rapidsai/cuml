@@ -17,7 +17,9 @@
 from dataclasses import dataclass, field
 from cuml.internals.array import CumlArray
 import cuml
-from cuml.internals.input_utils import input_to_cuml_array, determine_array_type
+from cuml.internals.input_utils import (
+    input_to_cuml_array, determine_array_type
+)
 
 
 @dataclass

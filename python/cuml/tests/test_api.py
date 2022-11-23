@@ -53,7 +53,9 @@ def dataset():
     return X, y
 
 
-models_config = ClassEnumerator(module=cuml, exclude_classes=(cuml.UniversalBase,))
+models_config = ClassEnumerator(
+    module=cuml, exclude_classes=(cuml.UniversalBase,)
+)
 models = models_config.get_models()
 
 # tag system based on experimental tag system from Scikit-learn >=0.21

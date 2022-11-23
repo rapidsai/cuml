@@ -26,7 +26,6 @@ from cuml.internals.array import CumlArray
 from cuml import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import _get_size_from_shape
-from cuml.internals.memory_utils import _strides_to_order
 # Temporarily disabled due to CUDA 11.0 issue
 # https://github.com/rapidsai/cuml/issues/4332
 # from rmm import DeviceBuffer

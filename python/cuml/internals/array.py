@@ -674,8 +674,8 @@ class CumlArray():
         obj = typ.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(message="common.CumlArray.device_serialize", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(message="common.CumlArray.device_serialize",
+                   category="utils", domain="cuml_python")
     def device_serialize(self):
         mem_type = (
             self.mem_type if self.mem_type.is_device_accessible else
@@ -987,7 +987,6 @@ class CumlArray():
                 return copy.deepcopy(X)
             else:
                 return X
-            
 
         if isinstance(
             X,
@@ -1084,7 +1083,9 @@ class CumlArray():
 
         make_copy = force_contiguous and not arr.is_contiguous
 
-        if (not fail_on_order and order != arr.order and order != 'K') or make_copy:
+        if (
+            not fail_on_order and order != arr.order and order != 'K'
+        ) or make_copy:
             arr = cls(arr.mem_type.xpy.array(
                 arr.to_output('array'),
                 order=order,

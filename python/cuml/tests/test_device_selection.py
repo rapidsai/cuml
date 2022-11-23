@@ -34,7 +34,6 @@ from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from umap import UMAP as refUMAP
-from cuml import Handle
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.internals.mem_type import MemoryType

@@ -58,4 +58,3 @@ def _get_base_return_type(class_name, attr):
         return None
 
     return None
-
