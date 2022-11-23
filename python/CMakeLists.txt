@@ -163,7 +163,6 @@ add_subdirectory(cuml/solvers)
 add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
-add_subdirectory(cuml/experimental/internals)
 add_subdirectory(cuml/experimental/linear_model)
 
 if(DEFINED cython_lib_dir)
