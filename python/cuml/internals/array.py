@@ -461,7 +461,10 @@ class CumlArray():
         self._mem_type.xpy.asarray(self).__setitem__(slice, value)
 
     def __len__(self):
-        return self.shape[0]
+        try:
+            return self.shape[0]
+        except IndexError:
+            return 0
 
     def _operator_overload(self, other, fn):
         return CumlArray(fn(self.to_output('array'), other))
