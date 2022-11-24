@@ -381,29 +381,26 @@ class BaseReturnAnyDecorator(ReturnDecorator,
 
         self.prep_arg_to_use(func)
 
-        @_wrap_once(func)
-        def inner_with_setters(*args, **kwargs):
+        if self.has_setters:
 
-            with self._recreate_cm(func, args):
+            @_wrap_once(func)
+            def inner_with_setters(*args, **kwargs):
 
-                self_val, input_val, target_val = \
-                    self.get_arg_values(*args, **kwargs)
+                with self._recreate_cm(func, args):
 
-                self.do_setters(self_val=self_val,
-                                input_val=input_val,
-                                target_val=target_val)
+                    self_val, input_val, target_val = \
+                        self.get_arg_values(*args, **kwargs)
 
-                return func(*args, **kwargs)
+                    self.do_setters(self_val=self_val,
+                                    input_val=input_val,
+                                    target_val=target_val)
 
-        @_wrap_once(func)
-        def inner(*args, **kwargs):
+                    return func(*args, **kwargs)
 
-            with self._recreate_cm(func, args):
-                return func(*args, **kwargs)
+            return inner_with_setters
 
-        # Return the function depending on whether or not we do any automatic
-        # wrapping
-        return inner_with_setters if self.has_setters else inner
+        else:
+            return super().__call__(func)
 
 
 class ReturnArrayDecorator(ReturnDecorator,
