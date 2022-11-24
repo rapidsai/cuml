@@ -331,15 +331,10 @@ def test_output_dtype(output_type, shape, dtype, order, out_dtype):
         res.dtype is out_dtype
 
 
-@given(
-    dtype=cuml_array_dtypes(),
-    shape=cuml_array_shapes(),
-    order=cuml_array_orders(),
-)
+@given(cuml_array_inputs(input_types=st.just("cupy")))
 @settings(deadline=None)
 @pytest.mark.xfail(reason="Fails for version and strides keys.")
-def test_cuda_array_interface(dtype, shape, order):
-    inp = create_cuml_array_input('cupy', dtype, shape, order)
+def test_cuda_array_interface(inp):
     ary = CumlArray(inp)
 
     inp_cai = inp.__cuda_array_interface__
