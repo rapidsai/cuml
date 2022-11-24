@@ -47,7 +47,19 @@ def _wrap_once(wrapped, *args, **kwargs):
     return functools.wraps(wrapped, *args, **kwargs)
 
 
-def prep_arg_to_use(func)
+def _has_self(sig):
+    return "self" in sig.parameters and list(sig.parameters)[0] == "self"
+
+
+def _find_arg(sig, default_name, offset=0):
+    # Check for default name in input args
+    if default_name in sig.parameters:
+        return default_name
+    # Otherwise use next argument if available.
+    elif len(sig.parameters) > int(_has_self(sig)) + offset:
+        return list(sig.parameters)[int(_has_self(sig)) + offset]
+    else:
+        raise Exception("Unable to determine arg.")
 
 
 class WithArgsDecoratorMixin(object):
@@ -57,18 +69,16 @@ class WithArgsDecoratorMixin(object):
     """
     def __init__(self,
                  *,
-                 input_arg: str = ...,
-                 target_arg: str = ...,
+                 input_arg: typing.Optional[str] = None,
+                 target_arg: typing.Optional[str] = None,
                  needs_self=True,
                  needs_input=False,
                  needs_target=False):
+
         super().__init__()
 
-        # For input_arg and target_arg, use Ellipsis to auto detect, None to
-        # skip (this has different functionality on Base where it can determine
-        # the output type like CumlArrayDescriptor)
-        self.input_arg = input_arg
-        self.target_arg = target_arg
+        self.input_arg = None if input_arg is ... else input_arg
+        self.target_arg = None if target_arg is ... else target_arg
 
         self.needs_self = needs_self
         self.needs_input = needs_input
@@ -79,76 +89,26 @@ class WithArgsDecoratorMixin(object):
         # Determine from the signature what processing needs to be done. This
         # is executed once per function on import
         sig = inspect.signature(func, follow_wrapped=True)
-        sig_args = list(sig.parameters.keys())
+        sig_args = list(sig.parameters)
 
-        self.has_self = "self" in sig.parameters and sig_args.index(
-            "self") == 0
+        self.has_self = _has_self(sig)
 
-        if (not self.has_self and self.needs_self):
+        if self.needs_self and not self.has_self:
             raise Exception("No self found on function!")
 
         # Return early if we dont need args
-        if (not self.needs_input and not self.needs_target):
+        if not (self.needs_input or self.needs_target):
             return
 
-        self_offset = (1 if self.has_self else 0)
-
-        if (self.needs_input):
-            input_arg_to_use = self.input_arg
-            input_arg_to_use_name = None
-
-            # if input_arg is None, then set to first non self argument
-            if (input_arg_to_use is ...):
-
-                # Check for "X" in input args
-                if ("X" in sig_args):
-                    input_arg_to_use = "X"
-                else:
-                    if (len(sig.parameters) <= self_offset):
-                        raise Exception("No input_arg could be determined!")
-
-                    input_arg_to_use = sig_args[self_offset]
-
-            # Now convert that to an index
-            if (isinstance(input_arg_to_use, str)):
-                input_arg_to_use_name = input_arg_to_use
-                input_arg_to_use = sig_args.index(input_arg_to_use)
-
-            assert input_arg_to_use != -1 and input_arg_to_use is not None, \
-                "Could not determine input_arg"
-
-            # Save the name and argument to use later
-            self.input_arg_to_use = input_arg_to_use
-            self.input_arg_to_use_name = input_arg_to_use_name
+        if self.needs_input:
+            self.input_arg_to_use_name = self.input_arg or _find_arg(sig, "X")
+            self.input_arg_to_use = sig_args.index(self.input_arg_to_use_name)
 
         if (self.needs_target):
-
-            target_arg_to_use = self.target_arg
-            target_arg_to_use_name = None
-
-            # if input_arg is None, then set to first non self argument
-            if (target_arg_to_use is ...):
-
-                # Check for "y" in args
-                if ("y" in sig_args):
-                    target_arg_to_use = "y"
-                else:
-                    if (len(sig.parameters) <= self_offset + 1):
-                        raise Exception("No target_arg could be determined!")
-
-                    target_arg_to_use = sig_args[self_offset + 1]
-
-            # Now convert that to an index
-            if (isinstance(target_arg_to_use, str)):
-                target_arg_to_use_name = target_arg_to_use
-                target_arg_to_use = sig_args.index(target_arg_to_use)
-
-            assert target_arg_to_use != -1 and target_arg_to_use is not None, \
-                "Could not determine target_arg"
-
-            # Save the name and argument to use later
-            self.target_arg_to_use = target_arg_to_use
-            self.target_arg_to_use_name = target_arg_to_use_name
+            self.target_arg_to_use_name = self.target_arg or \
+                _find_arg(sig, "y", 1)
+            self.target_arg_to_use = \
+                sig_args.index(self.target_arg_to_use_name)
 
     def get_arg_values(self, *args, **kwargs):
         """
