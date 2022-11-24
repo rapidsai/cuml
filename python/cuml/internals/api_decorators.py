@@ -320,20 +320,16 @@ class HasGettersDecoratorMixin(object):
 
 
 class ReturnDecorator():
+
+    cm_class = None
+
     def __init__(self):
         super().__init__()
 
         self.do_autowrap = False
 
     def __call__(self, func: _DecoratorType) -> _DecoratorType:
-        raise NotImplementedError()
 
-    def _recreate_cm(self, func, args) -> InternalAPIContextBase:
-        raise NotImplementedError()
-
-
-class ReturnAnyDecorator(ReturnDecorator):
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
         @_wrap_once(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args):
@@ -341,13 +337,23 @@ class ReturnAnyDecorator(ReturnDecorator):
 
         return inner
 
-    def _recreate_cm(self, func, args):
-        return ReturnAnyCM(func, args)
+    @classmethod
+    def _recreate_cm(self, func, args) -> InternalAPIContextBase:
+        if self.cm_class is None:
+            raise NotImplementedError()
+        return self.cm_class(func, args)
+
+
+class ReturnAnyDecorator(ReturnDecorator):
+    cm_class = ReturnAnyCM
 
 
 class BaseReturnAnyDecorator(ReturnDecorator,
                              HasSettersDecoratorMixin,
                              WithArgsDecoratorMixin):
+
+    cm_class = BaseReturnAnyCM
+
     def __init__(self,
                  *,
                  input_arg: str = ...,
@@ -398,13 +404,13 @@ class BaseReturnAnyDecorator(ReturnDecorator,
         # wrapping
         return inner_with_setters if self.has_setters else inner
 
-    def _recreate_cm(self, func, args):
-        return BaseReturnAnyCM(func, args)
-
 
 class ReturnArrayDecorator(ReturnDecorator,
                            HasGettersDecoratorMixin,
                            WithArgsDecoratorMixin):
+
+    cm_class = ReturnArrayCM
+
     def __init__(self,
                  *,
                  input_arg: str = ...,
@@ -456,21 +462,19 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         return inner_with_getters if self.has_getters else inner
 
-    def _recreate_cm(self, func, args):
-
-        return ReturnArrayCM(func, args)
-
 
 class ReturnSparseArrayDecorator(ReturnArrayDecorator):
-    def _recreate_cm(self, func, args):
 
-        return ReturnSparseArrayCM(func, args)
+    cm_class = ReturnSparseArrayCM
 
 
 class BaseReturnArrayDecorator(ReturnDecorator,
                                HasSettersDecoratorMixin,
                                HasGettersDecoratorMixin,
                                WithArgsDecoratorMixin):
+
+    cm_class = BaseReturnArrayCM
+
     def __init__(self,
                  *,
                  input_arg: str = ...,
@@ -587,27 +591,17 @@ class BaseReturnArrayDecorator(ReturnDecorator,
         else:
             return inner
 
-    def _recreate_cm(self, func, args):
-
-        return BaseReturnArrayCM(func, args)
-
 
 class BaseReturnSparseArrayDecorator(BaseReturnArrayDecorator):
-    def _recreate_cm(self, func, args):
-
-        return BaseReturnSparseArrayCM(func, args)
+    cm_class = BaseReturnSparseArrayCM
 
 
 class ReturnGenericDecorator(ReturnArrayDecorator):
-    def _recreate_cm(self, func, args):
-
-        return ReturnGenericCM(func, args)
+    cm_class = ReturnGenericCM
 
 
 class BaseReturnGenericDecorator(BaseReturnArrayDecorator):
-    def _recreate_cm(self, func, args):
-
-        return BaseReturnGenericCM(func, args)
+    cm_class = BaseReturnGenericCM
 
 
 class BaseReturnArrayFitTransformDecorator(BaseReturnArrayDecorator):
