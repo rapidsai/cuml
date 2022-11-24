@@ -325,6 +325,10 @@ def cudf_compatible_dtypes(dtype):
     return dtype not in UNSUPPORTED_CUDF_DTYPES
 
 
+def cudf_compatible_dtypes(dtype):
+    return dtype not in UNSUPPORTED_CUDF_DTYPES
+
+
 @given(
     inp=cuml_array_inputs(),
     input_mem_type=cuml_array_mem_types(),
