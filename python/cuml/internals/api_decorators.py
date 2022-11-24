@@ -18,7 +18,6 @@ import contextlib
 import functools
 import inspect
 import typing
-from functools import wraps
 import warnings
 
 import cuml.internals.array
@@ -42,28 +41,10 @@ from cuml.internals.memory_utils import using_output_type
 from cuml.internals import logger
 
 
-class DecoratorMetaClass(type):
-    """
-    This metaclass is used to prevent wrapping functions multiple times by
-    adding `__cuml_is_wrapped = True` to the function __dict__
-    """
-    def __new__(cls, classname, bases, classDict):
-
-        if ("__call__" in classDict):
-
-            func = classDict["__call__"]
-
-            @wraps(func)
-            def wrap_call(*args, **kwargs):
-                ret_val = func(*args, **kwargs)
-
-                ret_val.__dict__[CUML_WRAPPED_FLAG] = True
-
-                return ret_val
-
-            classDict["__call__"] = wrap_call
-
-        return type.__new__(cls, classname, bases, classDict)
+def _wrap_once(wrapped, *args, **kwargs):
+    """Prevent wrapping functions multiple times."""
+    setattr(wrapped, CUML_WRAPPED_FLAG, True)
+    return functools.wraps(wrapped, *args, **kwargs)
 
 
 class WithArgsDecoratorMixin(object):
@@ -338,7 +319,7 @@ class HasGettersDecoratorMixin(object):
         return False if needs_self else self.get_output_dtype
 
 
-class ReturnDecorator(metaclass=DecoratorMetaClass):
+class ReturnDecorator():
     def __init__(self):
         super().__init__()
 
@@ -353,7 +334,7 @@ class ReturnDecorator(metaclass=DecoratorMetaClass):
 
 class ReturnAnyDecorator(ReturnDecorator):
     def __call__(self, func: _DecoratorType) -> _DecoratorType:
-        @wraps(func)
+        @_wrap_once(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args):
                 return func(*args, **kwargs)
@@ -393,7 +374,7 @@ class BaseReturnAnyDecorator(ReturnDecorator,
 
         self.prep_arg_to_use(func)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner_with_setters(*args, **kwargs):
 
             with self._recreate_cm(func, args):
@@ -407,7 +388,7 @@ class BaseReturnAnyDecorator(ReturnDecorator,
 
                 return func(*args, **kwargs)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner(*args, **kwargs):
 
             with self._recreate_cm(func, args):
@@ -449,7 +430,7 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         self.prep_arg_to_use(func)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner_with_getters(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
@@ -465,7 +446,7 @@ class ReturnArrayDecorator(ReturnDecorator,
 
             return cm.process_return(ret_val)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
@@ -524,7 +505,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
         self.prep_arg_to_use(func)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner_set_get(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
@@ -549,7 +530,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
             return cm.process_return(ret_val)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner_set(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
@@ -567,7 +548,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
             return cm.process_return(ret_val)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner_get(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
@@ -586,7 +567,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
             return cm.process_return(ret_val)
 
-        @wraps(func)
+        @_wrap_once(func)
         def inner(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
@@ -706,7 +687,7 @@ def mirror_args(
     assigned=('__doc__', '__annotations__'),
     updated=functools.WRAPPER_UPDATES
 ) -> typing.Callable[[_DecoratorType], _DecoratorType]:
-    return wraps(wrapped=wrapped, assigned=assigned, updated=updated)
+    return _wrap_once(wrapped=wrapped, assigned=assigned, updated=updated)
 
 
 class _deprecate_pos_args:
