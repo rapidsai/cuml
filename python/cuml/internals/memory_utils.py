@@ -30,11 +30,11 @@ from cuml.internals.output_type import (
 )
 from cuml.internals.safe_imports import (
     gpu_only_import_from,
-    NullContext
+    UnavailableNullContext
 )
 
 cupy_using_allocator = gpu_only_import_from(
-    'cupy.cuda', 'using_allocator', alt=NullContext
+    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
