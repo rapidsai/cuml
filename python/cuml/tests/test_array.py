@@ -317,7 +317,7 @@ def test_output_dtype(output_type, shape, dtype, order, out_dtype):
         assume(dtype not in UNSUPPORTED_CUDF_DTYPES)
         assume(out_dtype not in UNSUPPORTED_CUDF_DTYPES)
     if output_type == "series":
-        assume(len(squeezed_shape(normalized_shape(shape))) == 1)
+        assume(not _multidimensional(shape))
 
     # Perform conversion
     inp = create_cuml_array_input("numpy", dtype, shape, order)
