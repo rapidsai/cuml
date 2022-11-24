@@ -430,25 +430,19 @@ def test_pickle(protocol, inp):
         assert ary.order == b.order
 
 
-@given(
-    input_type=cuml_array_input_types(),
-    dtype=cuml_array_dtypes(),
-    shape=cuml_array_shapes(),
-    order=cuml_array_orders(),
-)
+@given(inp=cuml_array_inputs())
 @settings(deadline=None)
-def test_deepcopy(input_type, dtype, shape, order):
+def test_deepcopy(inp):
     # Generate CumlArray
-    inp = create_cuml_array_input(input_type, dtype, shape, order)
     ary = CumlArray(data=inp)
 
     # Perform deepcopy
     b = deepcopy(ary)
 
     # Check equality
-    if input_type == 'numpy':
+    if isinstance(inp, np.ndarray):
         assert np.all(inp == b.to_output('numpy'))
-    elif input_type == 'series':
+    elif isinstance(inp, (cudf.Series, pd.Series)):
         assert np.all(inp == b.to_output('series'))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
@@ -463,7 +457,7 @@ def test_deepcopy(input_type, dtype, shape, order):
     assert ary.__cuda_array_interface__['typestr'] == \
         b.__cuda_array_interface__['typestr']
 
-    if input_type != 'series':
+    if isinstance(inp, (cudf.Series, pd.Series)):
         # skipping one dimensional ary order test
         assert ary.order == b.order
 
