@@ -22,6 +22,7 @@ from copy import deepcopy
 import cudf
 import cupy as cp
 import numpy as np
+import pandas as pd
 import pytest
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
@@ -352,15 +353,9 @@ def test_cuda_array_interface(inp):
     assert cp.all(inp == cp.asarray(ary))
 
 
-@given(
-    input_type=cuml_array_input_types(),
-    dtype=cuml_array_dtypes(),
-    shape=cuml_array_shapes(),
-    order=cuml_array_orders(),
-)
+@given(cuml_array_inputs())
 @settings(deadline=None)
-def test_serialize(input_type, dtype, shape, order):
-    inp = create_cuml_array_input(input_type, dtype, shape, order)
+def test_serialize(inp):
     ary = CumlArray(data=inp)
     header, frames = ary.serialize()
     ary2 = CumlArray.deserialize(header, frames)
@@ -368,9 +363,9 @@ def test_serialize(input_type, dtype, shape, order):
     assert pickle.loads(header['type-serialized']) is CumlArray
     assert all(isinstance(f, Buffer) for f in frames)
 
-    if input_type == 'numpy':
+    if isinstance(inp, np.ndarray):
         assert np.all(inp == ary2.to_output('numpy'))
-    elif input_type == 'series':
+    elif isinstance(inp, (cudf.Series, pd.Series)):
         assert np.all(inp == ary2.to_output('series'))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
@@ -382,8 +377,7 @@ def test_serialize(input_type, dtype, shape, order):
     assert ary.__cuda_array_interface__['typestr'] == \
         ary2.__cuda_array_interface__['typestr']
 
-    if input_type != 'series':
-        # skipping one dimensional ary order test
+    if isinstance(inp, (cudf.Series, pd.Series)):
         assert ary.order == ary2.order
 
 
