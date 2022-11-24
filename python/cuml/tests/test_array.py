@@ -33,7 +33,7 @@ from cuml.testing.strategies import (UNSUPPORTED_CUDF_DTYPES,
                                      cuml_array_output_types,
                                      cuml_array_shapes)
 from cuml.testing.utils import (normalized_shape, series_squeezed_shape,
-                                squeezed_shape)
+                                squeezed_shape, to_nparray)
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from numba import cuda
@@ -251,27 +251,25 @@ def test_create_full(shape, dtype, order):
     assert cp.all(test == cp.asarray(ary))
 
 
+def cudf_compatible_dtypes(dtype):
+    return dtype not in UNSUPPORTED_CUDF_DTYPES
+
+
 @given(
+    inp=cuml_array_inputs(),
     output_type=cuml_array_output_types(),
-    shape=cuml_array_shapes(),
-    dtype=cuml_array_dtypes(),
-    order=cuml_array_orders(),
 )
 @settings(deadline=None)
-def test_output(output_type, dtype, order, shape):
+def test_output(inp, output_type):
 
     # Required assumptions for cudf outputs:
     if output_type in ("cudf", "dataframe", "series"):
-        assume(dtype not in UNSUPPORTED_CUDF_DTYPES)
+        assume(inp.dtype not in UNSUPPORTED_CUDF_DTYPES)
     if output_type == "series":
-        assume(len(series_squeezed_shape(shape)) == 1)
+        assume(not _multidimensional(inp.shape))
 
-    # Generate input and cuml array
-    inp = create_cuml_array_input("numpy", dtype, shape, order)
-    ary = CumlArray(inp)
-
-    # Perform conversion
-    res = ary.to_output(output_type)
+    # Generate CumlArray from input and perform conversion.
+    res = CumlArray(inp).to_output(output_type)
 
     # Check output type
     if output_type == 'numba':  # TODO: is this still needed?
@@ -279,32 +277,29 @@ def test_output(output_type, dtype, order, shape):
         assert cuda.devicearray.is_cuda_ndarray(res)
     elif output_type == 'cudf':
         assert isinstance(
-            res, cudf.DataFrame if _multidimensional(shape) else cudf.Series)
+            res,
+            cudf.DataFrame if _multidimensional(inp.shape) else cudf.Series)
     else:
         assert isinstance(res, _OUTPUT_TYPES_MAPPING[output_type])
 
-    # Check output date equality
-    if output_type == 'cupy':
-        assert cp.all(cp.asarray(inp) == res)
-
-    elif output_type == 'numba':
-        assert cp.all(cp.asarray(cuda.to_device(inp)) == cp.asarray(res))
-
-    elif output_type in ('cudf', 'dataframe', 'series'):
-        if output_type == 'dataframe' or _multidimensional(shape):
-            assert (cudf.DataFrame(inp) == res).to_numpy().all()
+    def _data_equal(res):
+        # Check output data equality
+        if isinstance(res, cudf.Series):
+            return (cudf.Series(np.ravel(inp)) == res).to_numpy().all()
+        elif isinstance(res, cudf.DataFrame):
+            return (cudf.DataFrame(inp) == res).to_numpy().all()
         else:
-            comp = cudf.Series(np.ravel(inp)) == res
-            assert np.all(comp.to_numpy())
+            return np.array_equal(to_nparray(inp), to_nparray(res))
 
-    else:
-        assert np.array_equal(inp, res)
+    assert _data_equal(res)
 
     # check for e2e cartesian product:
-    if output_type not in ('dataframe', 'cudf'):
-        res2 = CumlArray(res)
-        res2 = res2.to_output('numpy')
-        assert np.all(inp == res2)
+    if output_type == 'series':
+        # The special-casing here is necessary since the input array
+        # might have to be raveled before comparison.
+        assert _data_equal(CumlArray(res).to_output('series'))
+    elif output_type not in ('dataframe', 'cudf'):
+        assert _data_equal(CumlArray(res).to_output("numpy"))
 
 
 @given(
