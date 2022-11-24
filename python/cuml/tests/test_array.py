@@ -382,14 +382,9 @@ def test_serialize(inp):
 
 
 @pytest.mark.parametrize('protocol', [4, 5])
-@given(
-    input_type=cuml_array_input_types(),
-    dtype=cuml_array_dtypes(),
-    shape=cuml_array_shapes(),
-    order=cuml_array_orders(),
-)
+@given(inp=cuml_array_inputs())
 @settings(deadline=None)
-def test_pickle(protocol, input_type, dtype, shape, order):
+def test_pickle(protocol, inp):
     if protocol > pickle.HIGHEST_PROTOCOL:
         pytest.skip(
             f"Trying to test with pickle protocol {protocol},"
@@ -397,7 +392,6 @@ def test_pickle(protocol, input_type, dtype, shape, order):
         )
 
     # Generate CumlArray
-    inp = create_cuml_array_input(input_type, dtype, shape, order)
     ary = CumlArray(data=inp)
 
     # Prepare keyword arguments.
@@ -416,9 +410,9 @@ def test_pickle(protocol, input_type, dtype, shape, order):
 
     # Check equality
     assert len(f) == len_f
-    if input_type == 'numpy':
+    if isinstance(inp, np.ndarray):
         assert np.all(inp == b.to_output('numpy'))
-    elif input_type == 'series':
+    elif isinstance(inp, (cudf.Series, pd.Series)):
         assert np.all(inp == b.to_output('series'))
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
@@ -431,7 +425,7 @@ def test_pickle(protocol, input_type, dtype, shape, order):
     assert ary.__cuda_array_interface__['typestr'] == \
         b.__cuda_array_interface__['typestr']
 
-    if input_type != 'series':
+    if isinstance(inp, (cudf.Series, pd.Series)):
         # skipping one dimensional ary order test
         assert ary.order == b.order
 
