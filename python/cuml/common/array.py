@@ -199,7 +199,11 @@ class CumlArray(Buffer):
                     self.order = order
                 else:
                     cupy_data = cp.array(data, copy=True, order='C')
-                    return super().__init__(data=cupy_data)
+                    self._ptr = cupy_data.data.ptr
+                    self._owner = cupy_data if cupy_data.flags.owndata \
+                        else data
+                    self.order = 'C'
+                    self.strides = cupy_data.strides
 
         else:
             raise TypeError("Unrecognized data type: %s" % str(type(data)))
