@@ -19,7 +19,6 @@ import typing
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-# from cuml.internals.base import Base
 
 
 def _get_base_return_type(class_name, attr):

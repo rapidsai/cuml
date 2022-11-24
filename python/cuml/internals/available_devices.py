@@ -30,6 +30,6 @@ get_cuda_count = gpu_only_import_from('rmm._cuda.gpu', 'getDeviceCount')
 @cache
 def is_cuda_available():
     try:
-        return get_cuda_count() >= 1 and GPU_ENABLED
+        return GPU_ENABLED and get_cuda_count() >= 1
     except UnavailableError:
         return False
