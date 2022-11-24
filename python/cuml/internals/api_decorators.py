@@ -265,7 +265,7 @@ class HasGettersDecoratorMixin(object):
         return False if needs_self else self.get_output_dtype
 
 
-class ReturnDecorator():
+class ReturnDirectDecorator():
 
     cm_class = None
 
@@ -290,11 +290,25 @@ class ReturnDecorator():
         return self.cm_class(func, args)
 
 
-class ReturnAnyDecorator(ReturnDecorator):
+class ReturnUnwindDecorator(ReturnDirectDecorator):
+
+    def __call__(self, func: _DecoratorType) -> _DecoratorType:
+
+        @_wrap_once(func)
+        def inner(*args, **kwargs):
+            with self._recreate_cm(func, args) as cm:
+                ret_val = func(*args, **kwargs)
+
+            return cm.process_return(ret_val)
+
+        return inner
+
+
+class ReturnAnyDecorator(ReturnDirectDecorator):
     cm_class = ReturnAnyCM
 
 
-class BaseReturnAnyDecorator(ReturnDecorator,
+class BaseReturnAnyDecorator(ReturnDirectDecorator,
                              HasSettersDecoratorMixin,
                              WithArgsDecoratorMixin):
 
@@ -308,7 +322,7 @@ class BaseReturnAnyDecorator(ReturnDecorator,
                  set_output_dtype=False,
                  set_n_features_in=True) -> None:
 
-        ReturnDecorator.__init__(self)
+        ReturnDirectDecorator.__init__(self)
         HasSettersDecoratorMixin.__init__(self,
                                           set_output_type=set_output_type,
                                           set_output_dtype=set_output_dtype,
@@ -348,7 +362,7 @@ class BaseReturnAnyDecorator(ReturnDecorator,
             return super().__call__(func)
 
 
-class ReturnArrayDecorator(ReturnDecorator,
+class ReturnArrayDecorator(ReturnUnwindDecorator,
                            HasGettersDecoratorMixin,
                            WithArgsDecoratorMixin):
 
@@ -361,7 +375,7 @@ class ReturnArrayDecorator(ReturnDecorator,
                  get_output_type=False,
                  get_output_dtype=False) -> None:
 
-        ReturnDecorator.__init__(self)
+        ReturnDirectDecorator.__init__(self)
         HasGettersDecoratorMixin.__init__(self,
                                           get_output_type=get_output_type,
                                           get_output_dtype=get_output_dtype)
@@ -379,31 +393,30 @@ class ReturnArrayDecorator(ReturnDecorator,
 
         self.prep_arg_to_use(func)
 
-        @_wrap_once(func)
-        def inner_with_getters(*args, **kwargs):
-            with self._recreate_cm(func, args) as cm:
+        if self.has_getters:
 
-                # Get input/target values
-                _, input_val, target_val = self.get_arg_values(*args, **kwargs)
+            @_wrap_once(func)
+            def inner_with_getters(*args, **kwargs):
+                with self._recreate_cm(func, args) as cm:
 
-                # Now execute the getters
-                self.do_getters_no_self(input_val=input_val,
-                                        target_val=target_val)
+                    # Get input/target values
+                    _, input_val, target_val = \
+                        self.get_arg_values(*args, **kwargs)
 
-                # Call the function
-                ret_val = func(*args, **kwargs)
+                    # Now execute the getters
+                    self.do_getters_no_self(input_val=input_val,
+                                            target_val=target_val)
 
-            return cm.process_return(ret_val)
+                    # Call the function
+                    ret_val = func(*args, **kwargs)
 
-        @_wrap_once(func)
-        def inner(*args, **kwargs):
-            with self._recreate_cm(func, args) as cm:
+                return cm.process_return(ret_val)
 
-                ret_val = func(*args, **kwargs)
+            return inner_with_getters
 
-            return cm.process_return(ret_val)
+        else:
 
-        return inner_with_getters if self.has_getters else inner
+            return super().__call__(func)
 
 
 class ReturnSparseArrayDecorator(ReturnArrayDecorator):
@@ -411,7 +424,7 @@ class ReturnSparseArrayDecorator(ReturnArrayDecorator):
     cm_class = ReturnSparseArrayCM
 
 
-class BaseReturnArrayDecorator(ReturnDecorator,
+class BaseReturnArrayDecorator(ReturnUnwindDecorator,
                                HasSettersDecoratorMixin,
                                HasGettersDecoratorMixin,
                                WithArgsDecoratorMixin):
@@ -428,7 +441,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
                  set_output_dtype=False,
                  set_n_features_in=False) -> None:
 
-        ReturnDecorator.__init__(self)
+        ReturnDirectDecorator.__init__(self)
         HasSettersDecoratorMixin.__init__(self,
                                           set_output_type=set_output_type,
                                           set_output_dtype=set_output_dtype,
@@ -514,15 +527,6 @@ class BaseReturnArrayDecorator(ReturnDecorator,
 
             return cm.process_return(ret_val)
 
-        @_wrap_once(func)
-        def inner(*args, **kwargs):
-            with self._recreate_cm(func, args) as cm:
-
-                # Call the function
-                ret_val = func(*args, **kwargs)
-
-            return cm.process_return(ret_val)
-
         # Return the function depending on whether or not we do any automatic
         # wrapping
         if (self.has_getters and self.has_setters):
@@ -532,7 +536,7 @@ class BaseReturnArrayDecorator(ReturnDecorator,
         elif (self.has_setters):
             return inner_set
         else:
-            return inner
+            return super().__call__(func)
 
 
 class BaseReturnSparseArrayDecorator(BaseReturnArrayDecorator):
