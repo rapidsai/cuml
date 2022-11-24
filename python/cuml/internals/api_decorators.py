@@ -62,6 +62,18 @@ def _find_arg(sig, default_name, offset=0):
         raise Exception("Unable to determine arg.")
 
 
+def _get_value(args, kwargs, name, index):
+    try:
+        return kwargs[name]
+    except KeyError:
+        try:
+            return args[index]
+        except IndexError:
+            raise IndexError(
+                f"Specified arg idx: {index}, and argument name: {name}, "
+                "were not found in args or kwargs.")
+
+
 class WithArgsDecoratorMixin(object):
     """
     This decorator mixin handles processing the input arguments for all api
@@ -101,14 +113,12 @@ class WithArgsDecoratorMixin(object):
             return
 
         if self.needs_input:
-            self.input_arg_to_use_name = self.input_arg or _find_arg(sig, "X")
-            self.input_arg_to_use = sig_args.index(self.input_arg_to_use_name)
+            self.input_arg_name = self.input_arg or _find_arg(sig, "X")
+            self.input_arg_idx = sig_args.index(self.input_arg_name)
 
         if (self.needs_target):
-            self.target_arg_to_use_name = self.target_arg or \
-                _find_arg(sig, "y", 1)
-            self.target_arg_to_use = \
-                sig_args.index(self.target_arg_to_use_name)
+            self.target_arg_name = self.target_arg or _find_arg(sig, "y", 1)
+            self.target_arg_idx = sig_args.index(self.target_arg_name)
 
     def get_arg_values(self, *args, **kwargs):
         """
@@ -130,48 +140,23 @@ class WithArgsDecoratorMixin(object):
         input_val = None
         target_val = None
 
-        if (self.has_self):
+        if self.has_self:
             self_val = args[0]
 
-        if (self.needs_input):
-            # Check if its set to a string
-            if (isinstance(self.input_arg_to_use, str)):
-                input_val = kwargs[self.input_arg_to_use]
+        if self.needs_input:
+            assert isinstance(self.input_arg_idx, int)
 
-            # If all arguments are set by name, then this can happen
-            elif (self.input_arg_to_use >= len(args)):
-                # Check for the name in kwargs
-                if (self.input_arg_to_use_name in kwargs):
-                    input_val = kwargs[self.input_arg_to_use_name]
-                else:
-                    raise IndexError(
-                        ("Specified input_arg idx: {}, and argument name: {}, "
-                         "were not found in args or kwargs").format(
-                             self.input_arg_to_use,
-                             self.input_arg_to_use_name))
-            else:
-                # Otherwise return the index
-                input_val = args[self.input_arg_to_use]
+            input_val = _get_value(
+                args, kwargs,
+                self.input_arg_name, self.input_arg_idx)
 
-        if (self.needs_target):
-            # Check if its set to a string
-            if (isinstance(self.target_arg_to_use, str)):
-                target_val = kwargs[self.target_arg_to_use]
+        if self.needs_target:
+            assert isinstance(self.target_arg_idx, int)
 
-            # If all arguments are set by name, then this can happen
-            elif (self.target_arg_to_use >= len(args)):
-                # Check for the name in kwargs
-                if (self.target_arg_to_use_name in kwargs):
-                    target_val = kwargs[self.target_arg_to_use_name]
-                else:
-                    raise IndexError((
-                        "Specified target_arg idx: {}, and argument name: {}, "
-                        "were not found in args or kwargs").format(
-                            self.target_arg_to_use,
-                            self.target_arg_to_use_name))
-            else:
-                # Otherwise return the index
-                target_val = args[self.target_arg_to_use]
+            target_val = _get_value(
+                args, kwargs,
+                self.target_arg_name, self.target_arg_idx
+            )
 
         return self_val, input_val, target_val
 
