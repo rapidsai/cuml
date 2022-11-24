@@ -47,6 +47,9 @@ def _wrap_once(wrapped, *args, **kwargs):
     return functools.wraps(wrapped, *args, **kwargs)
 
 
+def prep_arg_to_use(func)
+
+
 class WithArgsDecoratorMixin(object):
     """
     This decorator mixin handles processing the input arguments for all api
@@ -71,7 +74,7 @@ class WithArgsDecoratorMixin(object):
         self.needs_input = needs_input
         self.needs_target = needs_target
 
-    def prep_arg_to_use(self, func) -> bool:
+    def prep_arg_to_use(self, func):
 
         # Determine from the signature what processing needs to be done. This
         # is executed once per function on import
@@ -146,8 +149,6 @@ class WithArgsDecoratorMixin(object):
             # Save the name and argument to use later
             self.target_arg_to_use = target_arg_to_use
             self.target_arg_to_use_name = target_arg_to_use_name
-
-        return True
 
     def get_arg_values(self, *args, **kwargs):
         """
