@@ -40,15 +40,15 @@ class MemoryType(Enum):
     managed = auto()
     mirror = auto()
 
-    @staticmethod
-    def from_str(memory_type):
+    @classmethod
+    def from_str(cls, memory_type):
         if isinstance(memory_type, str):
             memory_type = memory_type.lower()
-        elif isinstance(memory_type, MemoryType):
+        elif isinstance(memory_type, cls):
             return memory_type
 
         try:
-            return MemoryType[memory_type]
+            return cls[memory_type]
         except KeyError:
             raise ValueError('Parameter memory_type must be one of "device", '
                              '"host", "managed" or "mirror"')
@@ -56,8 +56,8 @@ class MemoryType(Enum):
     @property
     def xpy(self):
         if (
-            self == MemoryType.host
-            or (self == MemoryType.mirror and not GPU_ENABLED)
+            self is MemoryType.host
+            or (self is MemoryType.mirror and not GPU_ENABLED)
         ):
             return np
         else:
@@ -66,8 +66,8 @@ class MemoryType(Enum):
     @property
     def xdf(self):
         if (
-            self == MemoryType.host
-            or (self == MemoryType.mirror and not GPU_ENABLED)
+            self is MemoryType.host
+            or (self is MemoryType.mirror and not GPU_ENABLED)
         ):
             return pandas
         else:
@@ -76,8 +76,8 @@ class MemoryType(Enum):
     @property
     def xsparse(self):
         if (
-            self == MemoryType.host
-            or (self == MemoryType.mirror and not GPU_ENABLED)
+            self is MemoryType.host
+            or (self is MemoryType.mirror and not GPU_ENABLED)
         ):
             return scipy_sparse
         else:

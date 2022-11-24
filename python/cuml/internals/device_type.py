@@ -24,31 +24,31 @@ class DeviceTypeError(Exception):
 
 
 class DeviceType(Enum):
-    host = auto(),
+    host = auto()
     device = auto()
 
-    @staticmethod
-    def from_str(device_type):
+    @classmethod
+    def from_str(cls, device_type):
         if isinstance(device_type, str):
             device_type = device_type.lower()
 
         if device_type in ('cpu', 'host', DeviceType.host):
-            return DeviceType.host
+            return cls.host
         elif device_type in ('gpu', 'device', DeviceType.device):
-            return DeviceType.device
+            return cls.device
         else:
             raise ValueError('Parameter device_type must be one of "cpu" or '
                              '"gpu"')
 
-    def is_compatible(self, mem_type):
-        if self == DeviceType.device:
+    def is_compatible(self, mem_type: MemoryType) -> bool:
+        if self is DeviceType.device:
             return mem_type.is_device_accessible
         else:
             return mem_type.is_host_accessible
 
     @property
     def default_memory_type(self):
-        if self == DeviceType.device:
+        if self is DeviceType.device:
             return MemoryType.device
         else:
             return MemoryType.host

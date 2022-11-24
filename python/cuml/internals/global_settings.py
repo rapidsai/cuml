@@ -86,6 +86,8 @@ class GlobalSettings:
     @device_type.setter
     def device_type(self, value):
         self._device_type = value
+        # Only change the memory type if current value is incompatible with new
+        # device
         if not self._device_type.is_compatible(self.memory_type):
             self.memory_type = self._device_type.default_memory_type
 

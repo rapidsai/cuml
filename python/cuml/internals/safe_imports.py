@@ -206,7 +206,7 @@ def is_unavailable(obj):
     return type(is_unavailable) == UnavailableMeta
 
 
-class NullContext:
+class UnavailableNullContext:
     '''A placeholder class for unavailable context managers
 
     This context manager will return a value which will throw an
