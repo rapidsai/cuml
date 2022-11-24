@@ -175,18 +175,16 @@ def test_array_init_bad(input_type, dtype, shape, order):
 
 
 @given(
+    inp=cuml_array_inputs(),
     indices=st.slices(10),  # TODO: should be basic_indices() as shown below
     # indices=basic_indices((10, 10)),
-    dtype=cuml_array_dtypes(),
-    order=cuml_array_orders(),
 )
 @settings(deadline=None)
-def test_get_set_item(indices, dtype, order):
-    inp = create_cuml_array_input("numpy", dtype, (10, 10), order)
+def test_get_set_item(inp, indices):
     ary = CumlArray(data=inp)
 
     # Assumption required due to limitation on step size for F-order.
-    assume(order != "F" or (indices.step in (None, 1)))
+    assume(ary.order != "F" or (indices.step in (None, 1)))
 
     # Check equality of array views.
     inp_view = inp[indices]
@@ -195,11 +193,11 @@ def test_get_set_item(indices, dtype, order):
     # trigger UnownedMemory exception.
     assume(np.isscalar(inp_view) or inp_view.size > 0)
 
-    assert np.array_equal(inp_view, ary[indices].to_output("numpy"))
+    assert cp.all(cp.asarray(inp_view) == cp.asarray(ary[indices]))
 
     # Check equalit after assigning to array slice.
     ary[indices] = 1.0
-    assert np.array_equal(inp, ary.to_output('numpy'))
+    assert cp.all(cp.asarray(inp) == cp.asarray(ary))
 
 
 @given(
