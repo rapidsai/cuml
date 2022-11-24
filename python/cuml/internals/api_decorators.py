@@ -655,13 +655,6 @@ api_base_return_generic_skipall = BaseReturnGenericDecorator(
     get_output_type=False)
 
 
-def api_ignore(func: _DecoratorType) -> _DecoratorType:
-
-    func.__dict__[CUML_WRAPPED_FLAG] = True
-
-    return func
-
-
 @contextlib.contextmanager
 def exit_internal_api():
 
