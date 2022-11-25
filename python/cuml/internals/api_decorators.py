@@ -429,78 +429,38 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
         has_self, input_arg, target_arg = self.prep_arg_to_use(func)
 
         @_wrap_once(func)
-        def inner_set_get(*args, **kwargs):
+        def inner(*args, **kwargs):
+            # TODO: Check whether having branches in this function comes with
+            #       a performance penalty!
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
                 self_val = args[0] if has_self else None
-                input_val = _get_value(args, kwargs, * input_arg) \
-                    if input_arg else None
-                target_val = _get_value(args, kwargs, * target_arg) \
-                    if target_arg else None
+
+                if self.has_getters or self.has_setters:
+                    input_val = _get_value(args, kwargs, * input_arg)
 
                 # Must do the setters first
-                self.do_setters(self_val=self_val,
-                                input_val=input_val,
-                                target_val=target_val)
+                if self.has_setters:
+                    target_val = _get_value(args, kwargs, * target_arg)
+                    self.do_setters(self_val=self_val,
+                                    input_val=input_val,
+                                    target_val=target_val)
 
                 # Now execute the getters
-                if (self.needs_input):
-                    self.do_getters(self_val=self_val, input_val=input_val)
-                else:
-                    self.do_getters(self_val=self_val)
+                if self.has_getters:
+                    if (self.needs_input):
+                        self.do_getters(self_val=self_val, input_val=input_val)
+                    else:
+                        self.do_getters(self_val=self_val)
 
                 # Call the function
                 ret_val = func(*args, **kwargs)
 
             return cm.process_return(ret_val)
 
-        @_wrap_once(func)
-        def inner_set(*args, **kwargs):
-            with self._recreate_cm(func, args) as cm:
-
-                # Get input/target values
-                self_val = args[0] if has_self else None
-                input_val = _get_value(args, kwargs, * input_arg)
-                target_val = _get_value(args, kwargs, * target_arg)
-
-                # Must do the setters first
-                self.do_setters(self_val=self_val,
-                                input_val=input_val,
-                                target_val=target_val)
-
-                # Call the function
-                ret_val = func(*args, **kwargs)
-
-            return cm.process_return(ret_val)
-
-        @_wrap_once(func)
-        def inner_get(*args, **kwargs):
-            with self._recreate_cm(func, args) as cm:
-
-                # Get input/target values
-                self_val = args[0] if has_self else None
-
-                # Do the getters
-                if self.needs_input:
-                    input_val = _get_value(args, kwargs, * input_arg)
-                    self.do_getters(self_val=self_val, input_val=input_val)
-                else:
-                    self.do_getters(self_val=self_val)
-
-                # Call the function
-                ret_val = func(*args, **kwargs)
-
-            return cm.process_return(ret_val)
-
-        # Return the function depending on whether or not we do any automatic
-        # wrapping
-        if (self.has_getters and self.has_setters):
-            return inner_set_get
-        elif (self.has_getters):
-            return inner_get
-        elif (self.has_setters):
-            return inner_set
+        if self.has_getters or self.has_setters:
+            return inner
         else:
             return super().__call__(func)
 
