@@ -147,8 +147,8 @@ class HasSettersDecoratorMixin(object):
         self.set_output_dtype = set_output_dtype
         self.set_n_features_in = set_n_features_in
 
-        self.has_setters = (self.set_output_type or self.set_output_dtype
-                            or self.set_n_features_in)
+        self.has_setters = (
+            set_output_type or set_output_dtype or set_n_features_in)
 
     def do_setters(self, *, self_val, input_val, target_val):
         if (self.set_output_type):
@@ -183,43 +183,40 @@ class HasGettersDecoratorMixin(object):
         self.get_output_type = get_output_type
         self.get_output_dtype = get_output_dtype
 
-        self.has_getters = (self.get_output_type or self.get_output_dtype)
+        self.has_getters = get_output_type or get_output_dtype
 
-    def do_getters_with_self_no_input(self, *, self_val):
-        if (self.get_output_type):
-            out_type = self_val.output_type
+    class _NOT_GIVEN:
+        """Sentinel that indicates the argument was not provided."""
 
-            if (out_type == "input"):
-                out_type = self_val._input_type
+    def do_getters(self, *,
+                   self_val=_NOT_GIVEN,
+                   input_val=_NOT_GIVEN,
+                   target_val=_NOT_GIVEN):
 
+        if self.get_output_type:
+            if self_val is self._NOT_GIVEN:
+                assert input_val is not self._NOT_GIVEN
+                out_type = \
+                    cuml.common.input_utils.determine_array_type(input_val)
+            elif input_val is self._NOT_GIVEN:
+                out_type = self_val.output_type
+
+                if out_type == "input":
+                    out_type = self_val._input_type
+            else:
+                out_type = self_val._get_output_type(input_val)
+
+            assert out_type is not None
             set_api_output_type(out_type)
 
-        if (self.get_output_dtype):
-            set_api_output_dtype(self_val._get_target_dtype())
-
-    def do_getters_with_self(self, *, self_val, input_val):
-        if (self.get_output_type):
-            out_type = self_val._get_output_type(input_val)
-            assert out_type is not None, \
-                ("`get_output_type` is False but output_type could not "
-                 "be determined from input_arg")
-            set_api_output_type(out_type)
-
-        if (self.get_output_dtype):
-            set_api_output_dtype(self_val._get_target_dtype())
-
-    def do_getters_no_self(self, *, input_val, target_val):
-        if (self.get_output_type):
-            assert input_val is not None, \
-                "`get_output_type` is False but no input_arg detected"
-            set_api_output_type(
-                cuml.internals.input_utils.determine_array_type(input_val))
-
-        if (self.get_output_dtype):
-            assert target_val is not None, \
-                "`get_output_dtype` is False but no target_arg detected"
-            set_api_output_dtype(
-                cuml.internals.input_utils.determine_array_dtype(target_val))
+        if self.get_output_dtype:
+            if self_val is self._NOT_GIVEN:
+                assert target_val is not self._NOT_GIVEN
+                output_dtype = \
+                    cuml.internals.input_utils.determine_array_dtype(target_val)
+            else:
+                output_dtype = self_val._get_target_dtype()
+            set_api_output_dtype(output_dtype)
 
     def has_getters_target(self, needs_self):
         return False if needs_self else self.get_output_dtype
@@ -370,8 +367,7 @@ class ReturnArrayDecorator(ReturnUnwindDecorator,
                         if self.needs_target else None
 
                     # Now execute the getters
-                    self.do_getters_no_self(input_val=input_val,
-                                            target_val=target_val)
+                    self.do_getters(input_val=input_val, target_val=target_val)
 
                     # Call the function
                     ret_val = func(*args, **kwargs)
@@ -450,10 +446,9 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
 
                 # Now execute the getters
                 if (self.needs_input):
-                    self.do_getters_with_self(self_val=self_val,
-                                              input_val=input_val)
+                    self.do_getters(self_val=self_val, input_val=input_val)
                 else:
-                    self.do_getters_with_self_no_input(self_val=self_val)
+                    self.do_getters(self_val=self_val)
 
                 # Call the function
                 ret_val = func(*args, **kwargs)
@@ -489,10 +484,9 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
                 # Do the getters
                 if self.needs_input:
                     input_val = _get_value(args, kwargs, * input_arg)
-                    self.do_getters_with_self(self_val=self_val,
-                                              input_val=input_val)
+                    self.do_getters(self_val=self_val, input_val=input_val)
                 else:
-                    self.do_getters_with_self_no_input(self_val=self_val)
+                    self.do_getters(self_val=self_val)
 
                 # Call the function
                 ret_val = func(*args, **kwargs)
