@@ -51,18 +51,20 @@ def _has_self(sig):
     return "self" in sig.parameters and list(sig.parameters)[0] == "self"
 
 
-def _find_arg(sig, default_name, offset=0):
+def _find_arg(sig, default_name, default_position):
+    params = list(sig.parameters)
+
     # Check for default name in input args
     if default_name in sig.parameters:
-        return default_name
-    # Otherwise use next argument if available.
-    elif len(sig.parameters) > int(_has_self(sig)) + offset:
-        return list(sig.parameters)[int(_has_self(sig)) + offset]
+        return default_name, params.index(default_name)
+    # Otherwise use argument in list by position
     else:
-        raise Exception("Unable to determine arg.")
+        index = int(_has_self(sig)) + default_position
+        return params[index], index
 
 
 def _get_value(args, kwargs, name, index):
+    """Determine value for a given set of args, kwargs, name and index."""
     try:
         return kwargs[name]
     except KeyError:
@@ -96,69 +98,36 @@ class WithArgsDecoratorMixin(object):
         self.needs_input = needs_input
         self.needs_target = needs_target
 
-    def prep_arg_to_use(self, func):
+    def prep_arg_to_use(self, func) -> tuple:
+        """"
+        Determine from function signature what processing needs to be done.
 
-        # Determine from the signature what processing needs to be done. This
-        # is executed once per function on import
+        This function is executed once per function definition.
+
+        Return tuple of:
+            - has_self
+            - input_arg (name, index)
+            - target_arg (name, index)
+        """
+
         sig = inspect.signature(func, follow_wrapped=True)
-        sig_args = list(sig.parameters)
 
-        self.has_self = _has_self(sig)
+        has_self = _has_self(sig)
 
-        if self.needs_self and not self.has_self:
+        if self.needs_self and not has_self:
             raise Exception("No self found on function!")
 
-        # Return early if we dont need args
-        if not (self.needs_input or self.needs_target):
-            return
-
         if self.needs_input:
-            self.input_arg_name = self.input_arg or _find_arg(sig, "X")
-            self.input_arg_idx = sig_args.index(self.input_arg_name)
-
-        if (self.needs_target):
-            self.target_arg_name = self.target_arg or _find_arg(sig, "y", 1)
-            self.target_arg_idx = sig_args.index(self.target_arg_name)
-
-    def get_arg_values(self, *args, **kwargs):
-        """
-        This function is called once per function invocation to get the values
-        of self, input and target.
-
-        Returns
-        -------
-        tuple
-            Returns a tuple of self, input, target values
-
-        Raises
-        ------
-        IndexError
-            Raises an exception if the specified input argument is not
-            available or called with the wrong number of arguments
-        """
-        self_val = None
-        input_val = None
-        target_val = None
-
-        if self.has_self:
-            self_val = args[0]
-
-        if self.needs_input:
-            assert isinstance(self.input_arg_idx, int)
-
-            input_val = _get_value(
-                args, kwargs,
-                self.input_arg_name, self.input_arg_idx)
+            input_arg = _find_arg(sig, self.input_arg or "X", 0)
+        else:
+            input_arg = (None, None)
 
         if self.needs_target:
-            assert isinstance(self.target_arg_idx, int)
+            target_arg = _find_arg(sig, self.target_arg or "y", 1)
+        else:
+            target_arg = (None, None)
 
-            target_val = _get_value(
-                args, kwargs,
-                self.target_arg_name, self.target_arg_idx
-            )
-
-        return self_val, input_val, target_val
+        return has_self, input_arg, target_arg
 
 
 class HasSettersDecoratorMixin(object):
@@ -338,7 +307,7 @@ class BaseReturnAnyDecorator(ReturnDirectDecorator,
 
     def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
-        self.prep_arg_to_use(func)
+        has_self, input_arg, target_arg = self.prep_arg_to_use(func)
 
         if self.has_setters:
 
@@ -347,8 +316,11 @@ class BaseReturnAnyDecorator(ReturnDirectDecorator,
 
                 with self._recreate_cm(func, args):
 
-                    self_val, input_val, target_val = \
-                        self.get_arg_values(*args, **kwargs)
+                    self_val = args[0] if has_self else None
+                    input_val = _get_value(args, kwargs, * input_arg) \
+                        if self.needs_input else None
+                    target_val = _get_value(args, kwargs, * target_arg) \
+                        if self.needs_target else None
 
                     self.do_setters(self_val=self_val,
                                     input_val=input_val,
@@ -391,7 +363,7 @@ class ReturnArrayDecorator(ReturnUnwindDecorator,
 
     def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
-        self.prep_arg_to_use(func)
+        _, input_arg, target_arg = self.prep_arg_to_use(func)
 
         if self.has_getters:
 
@@ -400,8 +372,10 @@ class ReturnArrayDecorator(ReturnUnwindDecorator,
                 with self._recreate_cm(func, args) as cm:
 
                     # Get input/target values
-                    _, input_val, target_val = \
-                        self.get_arg_values(*args, **kwargs)
+                    input_val = _get_value(args, kwargs, * input_arg) \
+                        if self.needs_input else None
+                    target_val = _get_value(args, kwargs, * target_arg) \
+                        if self.needs_target else None
 
                     # Now execute the getters
                     self.do_getters_no_self(input_val=input_val,
@@ -463,15 +437,18 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
 
     def __call__(self, func: _DecoratorType) -> _DecoratorType:
 
-        self.prep_arg_to_use(func)
+        has_self, input_arg, target_arg = self.prep_arg_to_use(func)
 
         @_wrap_once(func)
         def inner_set_get(*args, **kwargs):
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
-                self_val, input_val, target_val = \
-                    self.get_arg_values(*args, **kwargs)
+                self_val = args[0] if has_self else None
+                input_val = _get_value(args, kwargs, * input_arg) \
+                    if input_arg else None
+                target_val = _get_value(args, kwargs, * target_arg) \
+                    if target_arg else None
 
                 # Must do the setters first
                 self.do_setters(self_val=self_val,
@@ -495,8 +472,9 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
-                self_val, input_val, target_val = \
-                    self.get_arg_values(*args, **kwargs)
+                self_val = args[0] if has_self else None
+                input_val = _get_value(args, kwargs, * input_arg)
+                target_val = _get_value(args, kwargs, * target_arg)
 
                 # Must do the setters first
                 self.do_setters(self_val=self_val,
@@ -513,10 +491,11 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
             with self._recreate_cm(func, args) as cm:
 
                 # Get input/target values
-                self_val, input_val, _ = self.get_arg_values(*args, **kwargs)
+                self_val = args[0] if has_self else None
 
                 # Do the getters
-                if (self.needs_input):
+                if self.needs_input:
+                    input_val = _get_value(args, kwargs, * input_arg)
                     self.do_getters_with_self(self_val=self_val,
                                               input_val=input_val)
                 else:
