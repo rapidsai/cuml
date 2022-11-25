@@ -24,74 +24,24 @@ import cuml
 from cuml.common.device_selection import DeviceType
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
-
-from cuml.internals import api_base_return_any, api_base_return_array, \
-    api_base_return_generic, api_base_fit_transform, \
-    api_base_return_any_skipall
 from cuml.common.base import Base
 
 
-def dispatcher(func_name, gpu_func):
+def enable_cpu(gpu_func):
     @functools.wraps(gpu_func)
     def dispatch(self, *args, **kwargs):
         if isinstance(self, UniversalBase):
+            func_name = gpu_func.func_name
             return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
         else:
             return gpu_func(self, *args, **kwargs)
     return dispatch
 
 
-def resolve_mro(cls, attr_name):
-    for klass in cls.__mro__:
-        if attr_name in vars(klass):
-            attr = getattr(klass, attr_name)
-            if not getattr(attr, '_cuml_dispatch_wrapped', False):
-                return klass, attr
-            else:
-                return None
-    return None
-
-
-return_decorators = {
-    'fit': api_base_return_any(),
-    'predict': api_base_return_array(),
-    'transform': api_base_return_array(),
-    'kneighbors': api_base_return_generic(),
-    'fit_transform': api_base_fit_transform(),
-    'fit_predict': api_base_return_array(),
-    'inverse_transform': api_base_return_array(),
-    'score': api_base_return_any_skipall,
-    'decision_function': api_base_return_array(),
-    'predict_proba': api_base_return_array(),
-    'predict_log_proba': api_base_return_array()
-}
-
-
 class UniversalBase(Base):
     """
     Experimental base class to implement CPU/GPU interoperability.
     """
-    initialized = False
-
-    def __new__(cls, *args, **kwargs):
-        if not cls.initialized:
-            estimator_methods = return_decorators.keys()
-            for func_name in estimator_methods:
-                # get cuML GPU function
-                resolution = resolve_mro(cls, func_name)
-                # if a function was found
-                if resolution:
-                    klass, gpu_func = resolution
-                    return_deco= return_decorators[func_name]
-                    new_func = return_deco(dispatcher(func_name, gpu_func))
-                    new_func._cuml_dispatch_wrapped = True
-                    setattr(klass, func_name, new_func)
-
-            # remember that class has been initialized
-            cls.initialized = True
-
-        # return an instance of the class
-        return super().__new__(cls)
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
         """

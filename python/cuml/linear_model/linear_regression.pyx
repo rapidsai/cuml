@@ -39,6 +39,8 @@ from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.experimental.common import enable_cpu
+
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -277,6 +279,7 @@ class LinearRegression(UniversalBase,
         }[algorithm]
 
     @generate_docstring()
+    @enable_cpu
     def fit(self, X, y, convert_dtype=True,
             sample_weight=None) -> "LinearRegression":
         """
@@ -428,6 +431,7 @@ class LinearRegression(UniversalBase,
 
         return self
 
+    @enable_cpu
     def predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.n_cols = self.coef_.shape[0]

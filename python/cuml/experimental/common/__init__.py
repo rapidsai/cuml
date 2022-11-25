@@ -15,3 +15,4 @@
 #
 
 from cuml.experimental.common.base import UniversalBase
+from cuml.experimental.common.base import enable_cpu
