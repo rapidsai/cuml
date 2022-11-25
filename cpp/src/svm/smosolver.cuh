@@ -47,6 +47,14 @@
 #include <raft/linalg/unary_op.cuh>
 
 #include "results.cuh"
+#include<cassert>
+#include <string>
+#include <sstream>
+
+#include <thrust/device_ptr.h>
+#include <thrust/copy.h>
+#include <cstdlib>
+#include <chrono>
 
 namespace ML {
 namespace SVM {
@@ -101,6 +109,21 @@ class SmoSolver {
     ML::Logger::get().setLevel(param.verbosity);
   }
 
+
+  void GetNonzeroDeltaAlpha(const math_t *vec, int n_ws, const int *idx,
+                            math_t *nz_vec, int *n_nz, int *nz_idx, cudaStream_t stream) {
+    thrust::device_ptr<math_t> vec_ptr(const_cast<math_t *>(vec));
+    thrust::device_ptr<math_t> nz_vec_ptr(nz_vec);
+    thrust::device_ptr<int> idx_ptr(const_cast<int *>(idx));
+    thrust::device_ptr<int> nz_idx_ptr(nz_idx);
+    auto nonzero = [] __device__(math_t a) { return a != 0; };
+    thrust::device_ptr<int> nz_end =
+      thrust::copy_if(thrust::cuda::par.on(stream), idx_ptr, idx_ptr + n_ws,
+                      vec_ptr, nz_idx_ptr, nonzero);
+    *n_nz = nz_end - nz_idx_ptr;
+    thrust::copy_if(thrust::cuda::par.on(stream), vec_ptr, vec_ptr + n_ws,
+                    nz_vec_ptr, nonzero);
+  }
 #define SMO_WS_SIZE 1024
   /**
    * @brief Solve the quadratic optimization problem.
@@ -139,7 +162,7 @@ class SmoSolver {
     WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
     Initialize(&y, sample_weight, n_rows, n_cols);
-    KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel, cache_size, svmType);
+    // KernelCache<math_t> cache(handle, x, n_rows, n_cols, n_ws, kernel, cache_size, svmType);
     // Init counters
     max_outer_iter        = GetDefaultMaxIter(n_train, max_outer_iter);
     n_iter                = 0;
@@ -150,31 +173,62 @@ class SmoSolver {
     report_increased_diff = true;
     bool keep_going       = true;
 
+    rmm::device_uvector<math_t> x_ws(n_ws * n_cols, stream);
+    rmm::device_uvector<math_t> kernel_tile(n_ws * n_ws, stream);
+    rmm::device_uvector<math_t> kernel_tile_big(n_ws * n_rows, stream);
+    rmm::device_uvector<math_t> nz_da(n_ws, stream);
+    rmm::device_uvector<int> nz_da_idx(n_ws, stream);
+    rmm::device_uvector<math_t> x_ws2(n_ws * n_cols, stream);
+
     while (n_iter < max_outer_iter && keep_going) {
       RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
+      raft::common::nvtx::push_range("SmoSolver::ws_select");
       ws.Select(f.data(), alpha.data(), y, C_vec.data());
+      raft::common::nvtx::pop_range();
 
-      math_t* cacheTile = cache.GetTile(ws.GetIndices());
+      raft::common::nvtx::push_range("SmoSolver::Kernel");
+      // math_t* cacheTile = cache.GetTile(ws.GetIndices());
+      raft::matrix::copyRows<math_t, int, size_t>(
+      x, n_rows, n_cols, x_ws.data(), ws.GetIndices(), n_ws, stream, false);
+
+      (*kernel)(x_ws.data(), n_ws, n_cols, x_ws.data(), n_ws, kernel_tile.data(), false, stream);
+            cudaDeviceSynchronize();
+      raft::common::nvtx::pop_range();
+      raft::common::nvtx::push_range("SmoSolver::SmoBlockSolve");
       SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(y,
                                                                  n_train,
                                                                  alpha.data(),
                                                                  n_ws,
                                                                  delta_alpha.data(),
                                                                  f.data(),
-                                                                 cacheTile,
-                                                                 cache.GetWsIndices(),
+                                                                 kernel_tile.data(),
+                                                                 ws.GetIndices(),
                                                                  C_vec.data(),
                                                                  tol,
                                                                  return_buff.data(),
                                                                  max_inner_iter,
                                                                  svmType,
-                                                                 cache.GetColIdxMap());
+                                                                 nullptr);
 
       RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       raft::update_host(host_return_buff, return_buff.data(), 2, stream);
+      raft::common::nvtx::pop_range();
 
-      UpdateF(f.data(), n_rows, delta_alpha.data(), cache.GetUniqueSize(), cacheTile);
+      raft::common::nvtx::push_range("SmoSolver::UpdateF");
+      int nnz_da;
+      GetNonzeroDeltaAlpha(delta_alpha.data(), n_ws, ws.GetIndices(),
+                           nz_da.data(), &nnz_da, nz_da_idx.data(), stream);
+      // The following should be performed only for elements with nonzero delta_alpha 
+      if (nnz_da > 0) {
+        //std::cout<<"Calc kernel matrix elements for nonzero delta_alpha " << nnz_da << std::endl;
+          raft::matrix::copyRows<math_t, int, size_t>(
+            x, n_rows, n_cols, x_ws2.data(), nz_da_idx.data(), nnz_da, stream, false);
+          (*kernel)(x, n_rows, n_cols, x_ws2.data(), nnz_da, kernel_tile_big.data(), false, stream);
+          UpdateF(f.data(), n_rows, nz_da.data(), nnz_da, kernel_tile_big.data());
+      }
+      cudaDeviceSynchronize();
+      raft::common::nvtx::pop_range();
 
       handle.sync_stream(stream);
 
@@ -187,7 +241,7 @@ class SmoSolver {
     }
 
     CUML_LOG_DEBUG(
-      "SMO solver finished after %d outer iterations, total inner"
+      "SMO solver finished after %d outer iterations, total inner %d"
       " iterations, and diff %lf",
       n_iter,
       n_inner_iter,

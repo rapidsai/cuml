@@ -48,7 +48,7 @@ option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
-option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
+option(BUILD_PRIMS_TESTS "Build ml-prim tests" OFF)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
