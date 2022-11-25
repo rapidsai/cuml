@@ -167,12 +167,6 @@ class HasSettersDecoratorMixin(object):
             if (len(input_val.shape) >= 2):
                 self_val._set_n_features_in(input_val)
 
-    def has_setters_input(self):
-        return self.set_output_type or self.set_n_features_in
-
-    def has_setters_target(self):
-        return self.set_output_dtype
-
 
 class HasGettersDecoratorMixin(object):
     """
@@ -226,9 +220,6 @@ class HasGettersDecoratorMixin(object):
                 "`get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
                 cuml.internals.input_utils.determine_array_dtype(target_val))
-
-    def has_getters_input(self):
-        return self.get_output_type
 
     def has_getters_target(self, needs_self):
         return False if needs_self else self.get_output_dtype
@@ -300,8 +291,9 @@ class BaseReturnAnyDecorator(ReturnDirectDecorator,
                                         input_arg=input_arg,
                                         target_arg=target_arg,
                                         needs_self=True,
-                                        needs_input=self.has_setters_input(),
-                                        needs_target=self.has_setters_target())
+                                        needs_input=set_output_type
+                                        or set_n_features_in,
+                                        needs_target=set_output_dtype)
 
         self.do_autowrap = self.has_setters
 
@@ -356,7 +348,7 @@ class ReturnArrayDecorator(ReturnUnwindDecorator,
             input_arg=input_arg,
             target_arg=target_arg,
             needs_self=False,
-            needs_input=self.has_getters_input(),
+            needs_input=get_output_type,
             needs_target=self.has_getters_target(False))
 
         self.do_autowrap = self.has_getters
@@ -428,10 +420,11 @@ class BaseReturnArrayDecorator(ReturnUnwindDecorator,
             input_arg=input_arg,
             target_arg=target_arg,
             needs_self=True,
-            needs_input=(self.has_setters_input() or self.has_getters_input())
-            and input_arg is not None,
-            needs_target=self.has_setters_target()
-            or self.has_getters_target(True))
+            needs_input=input_arg is not None
+            and (set_output_type or set_n_features_in or get_output_type),
+            needs_target=set_output_dtype
+            or (False if True else get_output_dtype)
+        )
 
         self.do_autowrap = self.has_setters or self.has_getters
 
