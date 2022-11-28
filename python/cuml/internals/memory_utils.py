@@ -429,8 +429,7 @@ def set_global_output_type(output_type):
     GlobalSettings().output_type = output_type
 
 
-@contextlib.contextmanager
-def using_output_type(output_type):
+class using_output_type(output_type):
     """
     Context manager method to set cuML's global output type inside a `with`
     statement. It gets reset to the prior value it had once the `with` code
@@ -504,9 +503,14 @@ def using_output_type(output_type):
     True
 
     """
-    prev_output_type = GlobalSettings().output_type
-    try:
-        set_global_output_type(output_type)
-        yield prev_output_type
-    finally:
-        GlobalSettings().output_type = prev_output_type
+
+    def __init__(self, output_type):
+        self.output_type = output_type
+
+    def __enter__(self):
+        self.prev_output_type = GlobalSettings().output_type
+        set_global_output_type(self.output_type)
+        return self.prev_output_type
+
+    def __exit__(self, *_):
+        GlobalSettings().output_type = self.prev_output_type

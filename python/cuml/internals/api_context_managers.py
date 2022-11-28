@@ -29,7 +29,9 @@ if TYPE_CHECKING:
     from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.safe_imports import gpu_only_import_from, UnavailableNullContext
+from cuml.internals.safe_imports import (
+    gpu_only_import_from, UnavailableNullContext
+)
 
 cupy_using_allocator = gpu_only_import_from(
     'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
