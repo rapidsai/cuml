@@ -201,7 +201,7 @@ def get_internal_context() -> InternalAPIContext:
     return GlobalSettings().root_cm
 
 
-class ProcessEnter(object):
+class ProcessEnterReturnAny(object):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__()
 
@@ -215,7 +215,7 @@ class ProcessEnter(object):
             cb()
 
 
-class ProcessReturn(object):
+class ProcessReturnAny(object):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__()
 
@@ -232,8 +232,8 @@ class ProcessReturn(object):
         return ret_val
 
 
-EnterT = typing.TypeVar("EnterT", bound=ProcessEnter)
-ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturn)
+EnterT = typing.TypeVar("EnterT", bound=ProcessEnterReturnAny)
+ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturnAny)
 
 
 class InternalAPIContextBase(contextlib.ExitStack,
@@ -252,8 +252,8 @@ class InternalAPIContextBase(contextlib.ExitStack,
 
         self.is_root = False
 
-        self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
-        self._process_obj: ProcessReturn = None
+        self._enter_obj: ProcessEnterReturnAny = self.ProcessEnter_Type(self)
+        self._process_obj: ProcessReturnAny = None
 
     def __enter__(self):
 
@@ -290,11 +290,7 @@ class InternalAPIContextBase(contextlib.ExitStack,
         return type(type_name, (cls, ), ns)
 
 
-class ProcessEnterReturnAny(ProcessEnter):
-    pass
-
-
-class ProcessEnterReturnArray(ProcessEnter):
+class ProcessEnterReturnArray(ProcessEnterReturnAny):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
@@ -351,11 +347,7 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray):
         self._context.callback(set_output_type)
 
 
-class ProcessReturnAny(ProcessReturn):
-    pass
-
-
-class ProcessReturnArray(ProcessReturn):
+class ProcessReturnArray(ProcessReturnAny):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
