@@ -400,7 +400,7 @@ class Base(TagsMixin,
                 inp
             )
 
-        return output_type
+        return mem_type
 
     def _set_target_dtype(self, target):
         self.target_dtype = cuml.internals.input_utils.determine_array_dtype(

@@ -98,18 +98,18 @@ _input_type_to_mem_type = {
     NumbaDeviceNDArrayBase: MemoryType.device
 }
 
-_sparse_types = [SparseCumlArray]
+_SPARSE_TYPES = [SparseCumlArray]
 
 try:
     _input_type_to_str[cupyx.scipy.sparse.spmatrix] = 'cupy'
-    _sparse_types.append(cupyx.scipy.sparse.spmatrix)
+    _SPARSE_TYPES.append(cupyx.scipy.sparse.spmatrix)
     _input_type_to_mem_type[cupyx.scipy.sparse.spmatrix] = MemoryType.device
 except UnavailableError:
     pass
 
 try:
     _input_type_to_str[scipy_sparse.spmatrix] = 'numpy'
-    _sparse_types.append(scipy_sparse.spmatrix)
+    _SPARSE_TYPES.append(scipy_sparse.spmatrix)
     _input_type_to_mem_type[scipy_sparse.spmatrix] = MemoryType.device
 except UnavailableError:
     pass
@@ -259,7 +259,7 @@ def determine_array_type_full(X):
     if (gen_type is None):
         return None, None
 
-    return _input_type_to_str[gen_type], gen_type in _sparse_types
+    return _input_type_to_str[gen_type], gen_type in _SPARSE_TYPES
 
 
 def is_array_like(X):
