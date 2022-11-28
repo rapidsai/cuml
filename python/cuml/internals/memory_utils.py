@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import contextlib
 import functools
 import operator
 import re
@@ -429,7 +428,7 @@ def set_global_output_type(output_type):
     GlobalSettings().output_type = output_type
 
 
-class using_output_type(output_type):
+class using_output_type:
     """
     Context manager method to set cuML's global output type inside a `with`
     statement. It gets reset to the prior value it had once the `with` code
