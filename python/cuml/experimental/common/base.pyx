@@ -30,11 +30,8 @@ from cuml.common.base import Base
 def enable_cpu(gpu_func):
     @functools.wraps(gpu_func)
     def dispatch(self, *args, **kwargs):
-        if isinstance(self, UniversalBase):
-            func_name = gpu_func.func_name
-            return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
-        else:
-            return gpu_func(self, *args, **kwargs)
+        func_name = gpu_func.func_name
+        return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
     return dispatch
 
 
