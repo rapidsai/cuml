@@ -290,13 +290,6 @@ class InternalAPIContextBase(contextlib.ExitStack,
         return type(type_name, (cls, ), ns)
 
 
-class ProcessEnterBaseMixin(ProcessEnter):
-    def __init__(self, context: "InternalAPIContextBase"):
-        super().__init__(context)
-
-        self.base_obj: Base = self._context._args[0]
-
-
 class ProcessEnterReturnAny(ProcessEnter):
     pass
 
@@ -312,10 +305,11 @@ class ProcessEnterReturnArray(ProcessEnter):
         self._context.enter_context(self._context.root_cm.push_output_types())
 
 
-class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
-                                  ProcessEnterBaseMixin):
+class ProcessEnterBaseReturnArray(ProcessEnterReturnArray):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
+
+        self.base_obj: cuml.Base = self._context._args[0]
 
         # IMPORTANT: Only perform output type processing if
         # `root_cm.output_type` is None. Since we default to using the incoming
