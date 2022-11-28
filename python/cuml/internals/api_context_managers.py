@@ -278,9 +278,7 @@ class InternalAPIContextBase(contextlib.ExitStack,
     def __class_getitem__(cls: typing.Type["InternalAPIContextBase"], params):
 
         param_names = [
-            param.__name__ if hasattr(param, '__name__') else str(param)
-            for param in params
-        ]
+            getattr(param, '__name__', str(param)) for param in params]
 
         type_name = f'{cls.__name__}[{", ".join(param_names)}]'
 
