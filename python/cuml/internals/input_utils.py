@@ -263,24 +263,37 @@ def determine_array_type_full(X):
 
 
 def is_array_like(X):
+    if (
+        hasattr(X, '__cuda_array_interface__')
+        or (
+            hasattr(X, '__array_interface__')
+            and not (
+                isinstance(X, global_settings.xpy.generic)
+                or isinstance(X, type)
+            )
+        ) or isinstance(X, (
+            SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
+            PandasDataFrame
+        ))
+    ):
+        return True
+
     try:
-        return (
-            hasattr(X, '__cuda_array_interface__')
-            or (
-                hasattr(X, '__array_interface__')
-                and not (
-                    isinstance(X, global_settings.xpy.generic)
-                    or isinstance(X, type)
-                )
-            ) or isinstance(X, (
-                SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
-                PandasDataFrame))
-            or cupyx_isspmatrix(X)
-            or scipy_isspmatrix(X)
-            or numba_cuda.devicearray.is_cuda_ndarray(X)
-        )
+        if cupyx_isspmatrix(X):
+            return True
     except UnavailableError:
-        return False
+        pass
+    try:
+        if scipy_isspmatrix(X):
+            return True
+    except UnavailableError:
+        pass
+    try:
+        if numba_cuda.devicearray.is_cuda_ndarray(X):
+            return True
+    except UnavailableError:
+        pass
+    return False
 
 
 @nvtx_annotate(message="common.input_utils.input_to_cuml_array",
