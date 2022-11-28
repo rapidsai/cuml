@@ -14,7 +14,7 @@ dependencies:
 - scikit-build>=0.13.1
 - cudf=23.02.*
 - rmm=23.02.*
-- libcumlprims=23.02.*
+- libcumlprims=22.12.*
 - libraft-headers=23.02.*
 - libraft-distance=23.02.*
 - libraft-nn=23.02.*

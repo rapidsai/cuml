@@ -44,7 +44,7 @@ requirements:
     - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - libcumlprims {{ minor_version }}
+    - libcumlprims==22.12.*
     - libraft-headers {{ minor_version }}
     - libraft-distance {{ minor_version }}
     - libraft-nn {{ minor_version }}
@@ -69,7 +69,7 @@ outputs:
         - cmake {{ cmake_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcumlprims {{ minor_version }}
+        - libcumlprims==22.12.*
         - libraft-headers {{ minor_version }}
         - libraft-distance {{ minor_version }}
         - libraft-nn {{ minor_version }}
