@@ -48,9 +48,9 @@ endfunction()
 # cumlprims_mg as part of building cuml itself, set the CMake variable
 # `-D CPM_cumlprims_mg_SOURCE=/path/to/cumlprims_mg`
 ###
-find_and_configure_cumlprims_mg(VERSION    ${CUML_MIN_VERSION_cumlprims_mg}
+find_and_configure_cumlprims_mg(VERSION    22.12
                                 FORK       rapidsai
-                                PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
+                                PINNED_TAG branch-22.12
                                 # When PINNED_TAG above doesn't match cuml,
                                 # force local cumlprims_mg clone in build directory
                                 # even if it's already installed.
