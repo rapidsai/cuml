@@ -38,6 +38,8 @@ def _safe_solve(K, y):
         err_mode = geterr()["linalg"]
         seterr(linalg="raise")
         dual_coef = lapack.posv(K, y)
+        if cp.all(cp.isnan(dual_coef)):
+            raise np.linalg.LinAlgError
         seterr(linalg=err_mode)
     except np.linalg.LinAlgError:
         warnings.warn(
