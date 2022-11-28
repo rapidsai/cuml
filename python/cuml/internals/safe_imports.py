@@ -203,7 +203,7 @@ class UnavailableMeta(type):
 
 def is_unavailable(obj):
     '''Helper to check if given symbol is actually a placeholder'''
-    return type(obj) == UnavailableMeta
+    return type(obj) is UnavailableMeta
 
 
 class UnavailableNullContext:
