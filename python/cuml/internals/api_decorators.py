@@ -82,7 +82,6 @@ def _get_value(args, kwargs, name, index):
 def _make_decorator_function(
     context_manager_cls: InternalAPIContextBase,
     process_return=True,
-    needs_self: bool = False,
     ** defaults,
 ) -> typing.Callable[..., _DecoratorType]:
     # This function generates a function to be applied as decorator to a
@@ -119,14 +118,24 @@ def _make_decorator_function(
             sig = inspect.signature(func, follow_wrapped=True)
 
             has_self = _has_self(sig)
-            if needs_self and not has_self:
-                raise Exception("No self found on function!")
 
-            if input_arg is not None and (
-                set_output_type
-                or set_output_dtype
-                or set_n_features_in
-                or get_output_type
+            if (
+                any((set_output_type, set_output_dtype, set_n_features_in))
+                or (get_output_type and not input_arg)
+                or (get_output_dtype and not target_arg)
+            ) and not has_self:
+                raise ValueError(
+                    "Specified combination of options can only be used for "
+                    "class functions with self parameter."
+                )
+
+            if input_arg is not None and any(
+                (
+                    get_output_type,
+                    set_n_features_in,
+                    set_output_dtype,
+                    set_output_type,
+                )
             ):
                 input_arg_ = _find_arg(sig, input_arg or "X", 0)
             else:
@@ -155,13 +164,10 @@ def _make_decorator_function(
                         target_val = None
 
                     if set_output_type:
-                        assert self_val is not None
                         self_val._set_output_type(input_val)
                     if set_output_dtype:
-                        assert self_val is not None
                         self_val._set_target_dtype(target_val)
                     if set_n_features_in and len(input_val.shape) >= 2:
-                        assert self_val is not None
                         self_val._set_n_features_in(input_val)
 
                     if get_output_type:
@@ -203,14 +209,12 @@ def _make_decorator_function(
 api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
 api_base_return_any = _make_decorator_function(
     BaseReturnAnyCM,
-    needs_self=True,
     set_output_type=True,
     set_n_features_in=True,
 )
 api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
 api_base_return_array = _make_decorator_function(
     BaseReturnArrayCM,
-    needs_self=True,
     process_return=True,
     get_output_type=True,
 )
@@ -219,14 +223,12 @@ api_return_generic = _make_decorator_function(
 )
 api_base_return_generic = _make_decorator_function(
     BaseReturnGenericCM,
-    needs_self=True,
     process_return=True,
     get_output_type=True,
 )
 api_base_fit_transform = _make_decorator_function(
     # TODO: add tests for this decorator(
     BaseReturnArrayCM,
-    needs_self=True,
     process_return=True,
     get_output_type=True,
     set_output_type=True,
@@ -238,7 +240,6 @@ api_return_sparse_array = _make_decorator_function(
 )
 api_base_return_sparse_array = _make_decorator_function(
     BaseReturnSparseArrayCM,
-    needs_self=True,
     process_return=True,
     get_output_type=True,
 )
