@@ -209,10 +209,10 @@ class Base(TagsMixin,
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
             if output_type is None else output_type)
-        try:
-            self.output_mem_type = MemoryType.from_str(output_mem_type)
-        except ValueError:
+        if output_mem_type is None:
             self.output_mem_type = cuml.global_settings.memory_type
+        else:
+            self.output_mem_type = MemoryType.from_str(output_mem_type)
         self._input_type = None
         self._input_mem_type = None
         self.target_dtype = None
