@@ -32,8 +32,12 @@ import pylibraft.common.handle
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_host_array
+from cuml.internals.input_utils import (
+    determine_array_type,
+    determine_array_memtype,
+    input_to_cuml_array,
+    input_to_host_array
+)
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.output_type import (
@@ -222,7 +226,6 @@ class Base(TagsMixin,
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
 
-
     def __repr__(self):
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
@@ -351,10 +354,10 @@ class Base(TagsMixin,
             self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
-        self._input_type = cuml.internals.input_utils.determine_array_type(inp)
+        self._input_type = determine_array_type(inp)
 
     def _set_output_mem_type(self, inp):
-        self._input_mem_type = cuml.internals.input_utils.determine_array_memtype(
+        self._input_mem_type = determine_array_memtype(
             inp
         )
 
@@ -374,7 +377,7 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.internals.input_utils.determine_array_type(inp)
+            output_type = determine_array_type(inp)
 
         return output_type
 
@@ -395,10 +398,8 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.internals.input_utils.determine_array_type(inp)
-            mem_type = cuml.internals.input_utils.determine_array_memtype(
-                inp
-            )
+            output_type = determine_array_type(inp)
+            mem_type = determine_array_memtype(inp)
 
         return mem_type
 
@@ -495,7 +496,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = cuml.internals.input_utils.determine_array_type(input_obj)
+        temp_output = determine_array_type(input_obj)
 
     return temp_output
 
@@ -622,7 +623,8 @@ class UniversalBase(Base):
                                                    attr).fget(self._cpu_model)
                             # if the cpu attribute is an array
                             if isinstance(cpu_attr, np.ndarray):
-                                # get data order wished for by CumlArrayDescriptor
+                                # get data order wished for by
+                                # CumlArrayDescriptor
                                 if hasattr(self, attr + '_order'):
                                     order = getattr(self, attr + '_order')
                                 else:
@@ -639,7 +641,8 @@ class UniversalBase(Base):
                                 )[0]
                                 setattr(self, attr, cuml_array)
                             else:
-                                # transfer all other types of attributes directly
+                                # transfer all other types of attributes
+                                # directly
                                 setattr(self, attr, cpu_attr)
                 if func_name == 'fit':
                     return self
@@ -684,4 +687,3 @@ class UniversalBase(Base):
 
     def predict_log_proba(self, *args, **kwargs) -> CumlArray:
         return self.dispatch_func('predict_log_proba', *args, **kwargs)
-
