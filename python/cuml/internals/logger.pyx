@@ -131,7 +131,8 @@ def set_level(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.internals.logger.LEVEL_*
+        Logging level to be set. \
+        It must be one of cuml.internals.logger.LEVEL_*
 
     Returns
     -------
@@ -213,7 +214,8 @@ def should_log_for(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.internals.logger.level_*
+        Logging level to be set. \
+        It must be one of cuml.internals.logger.level_*
     """
     return Logger.get().shouldLogFor(<int>level)
 

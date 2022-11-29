@@ -835,9 +835,9 @@ class NearestNeighbors(UniversalBase,
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
     def _kneighbors_graph(self,
-                         X=None,
-                         n_neighbors=None,
-                         mode='connectivity') -> SparseCumlArray:
+                          X=None,
+                          n_neighbors=None,
+                          mode='connectivity') -> SparseCumlArray:
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
