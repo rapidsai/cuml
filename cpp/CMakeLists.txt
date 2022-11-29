@@ -264,6 +264,20 @@ SECTIONS
 ]=])
 endif()
 
+# Copy the interface include directories from INCLUDED_TARGET to TARGET.
+# This is necessary when INCLUDED_TARGET was compiled statically but includes
+# public APIs that may still require consumers to have the same interface
+# headers available.
+function(copy_interface_excludes)
+  set(_options "")
+  set(_one_value TARGET INCLUDED_TARGET)
+  set(_multi_value "")
+  cmake_parse_arguments(_CUML_INCLUDES "${_options}" "${_one_value}"
+                        "${_multi_value}" ${ARGN})
+  get_target_property(_includes ${_CUML_INCLUDES_INCLUDED_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+  target_include_directories(${_CUML_INCLUDES_TARGET} PUBLIC ${_includes})
+endfunction()
+
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
@@ -540,36 +554,30 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(_cuml_cpp_private_libs)
 
   if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
-    get_target_property(_includes raft::raft INTERFACE_INCLUDE_DIRECTORIES)
-    target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
+    copy_interface_excludes(INCLUDED_TARGET raft::raft TARGET ${CUML_CPP_TARGET})
 
     if(CUML_USE_RAFT_NN AND (TARGET faiss::faiss))
-      get_target_property(_includes faiss::faiss INTERFACE_INCLUDE_DIRECTORIES)
-      target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
+      copy_interface_excludes(INCLUDED_TARGET faiss::faiss TARGET ${CUML_CPP_TARGET})
     endif()
 
     if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
       list(APPEND _cuml_cpp_private_libs cuco::cuco)
     endif()
-
-    unset(_includes)
   endif()
 
   if(CUML_USE_TREELITE_STATIC AND (TARGET treelite::treelite_static))
-    # `treelite` and `treelite_runtime` have duplicate symbols, so
-    # we can only link to one of them if we're linking statically.
+    # By default, TREELITE_LIBS will contain both treelite::treelite_static and
+    # treelite::treelite_runtime_static if we are linking statically, but these
+    # two targets have duplicate symbols so we can only link to one of them.
     set(TREELITE_LIBS treelite::treelite_static)
-    get_target_property(_includes treelite::treelite_static INTERFACE_INCLUDE_DIRECTORIES)
-    target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
-    unset(_includes)
+
+    copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
   elseif(CUML_EXPORT_TREELITE_LINKAGE)
     list(APPEND _cuml_cpp_public_libs ${TREELITE_LIBS})
   endif()
 
   if(CUML_USE_CUMLPRIMS_MG_STATIC AND (TARGET cumlprims_mg::cumlprims_mg))
-    get_target_property(_includes cumlprims_mg::cumlprims_mg INTERFACE_INCLUDE_DIRECTORIES)
-    target_include_directories(${CUML_CPP_TARGET} PUBLIC ${_includes})
-    unset(_includes)
+    copy_interface_excludes(INCLUDED_TARGET cumlprims_mg::cumlprims_mg TARGET ${CUML_CPP_TARGET})
   endif()
 
   # These are always private:
