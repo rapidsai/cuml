@@ -56,10 +56,10 @@ jobs:
       skbuild-configure-options: "-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCPM_cumlprims_mg_SOURCE=/project/cumlprims_mg/"
 
       # Always want to test against latest dask/distributed.
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main"
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@main"
       # On arm also need to install cupy from the specific webpage and CMake
       # because treelite needs to be compiled (no wheels available for arm).
-      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main"
+      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@main"
       test-extras: test
       test-unittest: "pytest -v ./python/cuml/tests -k 'not test_silhouette_score_batched'"
     secrets: inherit
