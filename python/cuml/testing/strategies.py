@@ -54,7 +54,7 @@ _CUML_ARRAY_OUTPUT_TYPES = [
     "cudf",
     "cupy",
     "dataframe",
-    "numba",  # TODO: is this still needed?
+    "numba",
     "numpy",
     "series",
 ]
