@@ -227,7 +227,7 @@ class TfidfVectorizer(CountVectorizer):
         ----------
         raw_documents : cudf.Series or pd.Series
            A Series of string documents
-       y : None
+        y : None
             Ignored.
 
         Returns

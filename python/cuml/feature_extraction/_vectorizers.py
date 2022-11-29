@@ -518,7 +518,6 @@ class CountVectorizer(_VectorizerMixin):
 
         raw_documents : cudf.Series or pd.Series
             A Series of string documents
-
         y : None
             Ignored.
 
@@ -541,7 +540,6 @@ class CountVectorizer(_VectorizerMixin):
         ----------
         raw_documents : cudf.Series or pd.Series
            A Series of string documents
-
         y : None
             Ignored.
 
