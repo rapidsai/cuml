@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.common.base import Base
+from cuml.experimental.common.base import UniversalBase
 from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
@@ -39,6 +39,8 @@ from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common.input_utils import input_to_cupy_array
+from cuml.experimental.common import enable_cpu
+
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -116,7 +118,7 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     return coef, intercept
 
 
-class LinearRegression(Base,
+class LinearRegression(UniversalBase,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
@@ -277,8 +279,9 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "LinearRegression":
+    @enable_cpu
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -428,12 +431,14 @@ class LinearRegression(Base,
 
         return self
 
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
+    @enable_cpu
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.n_cols = self.coef_.shape[0]
         # Adding Base here skips it in the Method Resolution Order (MRO)
         # Since Base and LinearPredictMixin now both have a `predict` method
-        return super(Base, self).predict(X, convert_dtype=convert_dtype)
+        return super(UniversalBase, self).predict(X,
+                                                  convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \
