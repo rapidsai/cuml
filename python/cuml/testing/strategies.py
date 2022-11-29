@@ -60,21 +60,6 @@ _CUML_ARRAY_OUTPUT_TYPES = [
 ]
 
 
-_CUML_ARRAY_OUTPUT_DTYPES = [
-    np.float16,
-    np.float32,
-    np.float64,
-    np.int8,
-    np.int16,
-    np.int32,
-    np.int64,
-    np.uint8,
-    np.uint16,
-    np.uint32,
-    np.uint64,
-]
-
-
 UNSUPPORTED_CUDF_DTYPES = [
     np.uint8,
     np.uint16,
@@ -99,7 +84,7 @@ def cuml_array_output_types(draw):
 @composite
 def cuml_array_output_dtypes(draw):
     """Generates all cuml array supported output dtypes."""
-    return draw(sampled_from(_CUML_ARRAY_OUTPUT_DTYPES))
+    return draw(sampled_from(_CUML_ARRAY_DTYPES))
 
 
 @composite
