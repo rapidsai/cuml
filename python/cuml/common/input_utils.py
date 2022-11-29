@@ -289,12 +289,11 @@ def input_to_cuml_array(X,
     def check_order(arr_order):
         if order != 'K' and arr_order != order:
             if fail_on_order:
-                raise ValueError("Expected " + order_to_str(order) +
-                                 " major order, but got the opposite.")
+                raise ValueError("Expected " + order_to_str(order))
             else:
                 debug("Expected " + order_to_str(order) + " major order, "
-                      "but got the opposite. Converting data, this will "
-                      "result in additional memory utilization.")
+                      "Converting data, this will result in "
+                      "additional memory utilization.")
                 return True
         return False
 
