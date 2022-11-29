@@ -69,10 +69,9 @@ option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library"
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
 # The options below allow incorporating libcuml into another build process
-# without installing all its components. This is useful if, for instance,
-# libcuml and its dependencies are being linked to statically, in which case
-# the built artifacts do not need to be installed (and especially if total file
-# size is at a premium).
+# without installing all its components. This is useful if total file size is
+# at a premium and we do not expect other consumers to use any APIs of the
+# dependency except those that are directly linked to by the dependent library.
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target" OFF)
