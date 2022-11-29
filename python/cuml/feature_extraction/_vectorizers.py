@@ -509,7 +509,7 @@ class CountVectorizer(_VectorizerMixin):
         preprocess = self.build_preprocessor()
         return preprocess(raw_documents)
 
-    def fit(self, raw_documents):
+    def fit(self, raw_documents, y=None):
         """
         Build a vocabulary of all tokens in the raw documents.
 
@@ -519,6 +519,9 @@ class CountVectorizer(_VectorizerMixin):
         raw_documents : cudf.Series or pd.Series
             A Series of string documents
 
+        y : None
+            Ignored.
+
         Returns
         -------
         self
@@ -527,7 +530,7 @@ class CountVectorizer(_VectorizerMixin):
         self.fit_transform(raw_documents)
         return self
 
-    def fit_transform(self, raw_documents):
+    def fit_transform(self, raw_documents, y=None):
         """
         Build the vocabulary and return document-term matrix.
 
@@ -538,6 +541,9 @@ class CountVectorizer(_VectorizerMixin):
         ----------
         raw_documents : cudf.Series or pd.Series
            A Series of string documents
+
+        y : None
+            Ignored.
 
         Returns
         -------
