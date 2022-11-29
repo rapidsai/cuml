@@ -18,6 +18,11 @@ include(../fetch_rapids.cmake)
 
 set(CUML_VERSION 22.12.00)
 
+# We always need CUDA for cuML because the raft dependency brings in a
+# header-only cuco dependency that enables CUDA unconditionally.
+include(rapids-cuda)
+rapids_cuda_init_architectures(cuml-python)
+
 project(
   cuml-python
   VERSION ${CUML_VERSION}
@@ -25,7 +30,7 @@ project(
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
-            C CXX
+            C CXX CUDA
 )
 
 ################################################################################
@@ -67,16 +72,6 @@ else()
 endif()
 
 if(NOT cuml_FOUND)
-  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
-  # languages for the C++ project even if this project does not require those languges.
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(cuml-python)
-  enable_language(CUDA)
-
-  # Since cuml only enables CUDA optionally, we need to manually include the file that
-  # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_PRIMS_TESTS OFF)
   set(BUILD_CUML_C_LIBRARY OFF)
