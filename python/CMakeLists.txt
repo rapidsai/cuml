@@ -81,7 +81,7 @@ if(NOT cuml_FOUND)
   set(CUML_EXPORT_TREELITE_LINKAGE ON)
 
   set(_exclude_from_all "")
-  if(${CUML_BUILD_WHEELS})
+  if(CUML_BUILD_WHEELS)
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
     set(CUML_USE_RAFT_STATIC ON)
