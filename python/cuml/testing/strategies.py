@@ -15,23 +15,36 @@
 import cudf
 import cupy as cp
 import numpy as np
-from cuml.common.array import CumlArray
 from hypothesis import assume
-from hypothesis.extra.numpy import arrays, floating_dtypes, array_shapes
-from hypothesis.strategies import (composite, integers, just, none,
-                                   one_of, sampled_from)
-from numba import cuda
+from hypothesis.extra.numpy import array_shapes, arrays, floating_dtypes
+from hypothesis.strategies import (
+    composite,
+    integers,
+    just,
+    none,
+    one_of,
+    sampled_from,
+)
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
+from cuml.common.array import CumlArray
 
-_CUML_ARRAY_INPUT_TYPES = ['numpy', 'cupy', 'series']
+_CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
 
 
 _CUML_ARRAY_DTYPES = [
-    np.float16, np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64
+    np.float16,
+    np.float32,
+    np.float64,
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
 ]
 
 _CUML_ARRAY_ORDERS = ["F", "C"]
@@ -48,14 +61,27 @@ _CUML_ARRAY_OUTPUT_TYPES = [
 
 
 _CUML_ARRAY_OUTPUT_DTYPES = [
-    np.float16, np.float32, np.float64,
-    np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64
+    np.float16,
+    np.float32,
+    np.float64,
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
 ]
 
 
-UNSUPPORTED_CUDF_DTYPES = [np.uint8, np.uint16, np.uint32, np.uint64,
-                           np.float16]
+UNSUPPORTED_CUDF_DTYPES = [
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
+    np.float16,
+]
 
 
 @composite
@@ -90,12 +116,7 @@ def cuml_array_orders(draw):
 
 @composite
 def cuml_array_shapes(
-    draw,
-    *,
-    min_dims=1,
-    max_dims=2,
-    min_side=1,
-    max_side=None
+    draw, *, min_dims=1, max_dims=2, min_side=1, max_side=None
 ):
     """
     Generates cuml array shapes.
@@ -121,14 +142,18 @@ def cuml_array_shapes(
 
     if not (1 <= min_dims <= max_dims):
         raise ValueError(
-            "Arguments violate condition 1 <= min_dims <= max_dims.")
+            "Arguments violate condition 1 <= min_dims <= max_dims."
+        )
     if not (0 < min_side < max_side):
         raise ValueError(
-            "Arguments violate condition 0 < min_side < max_side.")
+            "Arguments violate condition 0 < min_side < max_side."
+        )
 
     shapes = array_shapes(
-        min_dims=min_dims, max_dims=max_dims,
-        min_side=min_side, max_side=max_side,
+        min_dims=min_dims,
+        max_dims=max_dims,
+        min_side=min_side,
+        max_side=max_side,
     )
     just_size = integers(min_side, max_side)
     return draw(one_of(shapes, just_size))
@@ -156,27 +181,25 @@ def create_cuml_array_input(input_type, dtype, shape, order):
 
     input_type = "cupy" if input_type is None else input_type
 
-    multidimensional = isinstance(shape, tuple) and \
-        len([d for d in shape if d > 1]) > 1
+    multidimensional = (
+        isinstance(shape, tuple) and len([d for d in shape if d > 1]) > 1
+    )
     assume(
         not (
             input_type == "series"
-            and (
-                dtype in UNSUPPORTED_CUDF_DTYPES
-                or multidimensional
-            )
+            and (dtype in UNSUPPORTED_CUDF_DTYPES or multidimensional)
         )
     )
 
     array = cp.ones(shape, dtype=dtype, order=order)
 
-    if input_type == 'numpy':
+    if input_type == "numpy":
         return np.array(cp.asnumpy(array), dtype=dtype, order=order)
 
-    elif input_type == 'series':
+    elif input_type == "series":
         return cudf.Series(array)
 
-    elif input_type == 'cupy':
+    elif input_type == "cupy":
         return array
 
     raise ValueError(
@@ -226,7 +249,7 @@ def cuml_arrays(
     input_types=cuml_array_input_types(),
     dtypes=cuml_array_dtypes(),
     shapes=cuml_array_shapes(),
-    orders=cuml_array_orders()
+    orders=cuml_array_orders(),
 ):
     """
     Generates cuml arrays.
