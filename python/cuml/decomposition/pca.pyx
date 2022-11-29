@@ -253,7 +253,7 @@ class PCA(UniversalBase,
         estimated covariance of X.
 
     Notes
-    ------
+    -----
     PCA considers linear combinations of features, specifically those that
     maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or

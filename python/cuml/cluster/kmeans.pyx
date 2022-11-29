@@ -221,7 +221,7 @@ class KMeans(Base,
         Which cluster each datapoint belongs to.
 
     Notes
-    ------
+    -----
     KMeans requires `n_clusters` to be specified. This means one needs to
     approximately guess or know how many clusters a dataset has. If one is not
     sure, one can start with a small number of clusters, and visualize the

@@ -504,7 +504,7 @@ class UMAP(UniversalBase,
             to pick a custom distance function (sometimes useful
             on certain datasets) whereas UMAP uses euclidean by default.
             The custom distance function should match the metric used
-            to train UMAP embeedings. Storing and reusing a knn_graph
+            to train UMAP embeddings. Storing and reusing a knn_graph
             will also provide a speedup to the UMAP algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
@@ -642,7 +642,7 @@ class UMAP(UniversalBase,
             to pick a custom distance function (sometimes useful
             on certain datasets) whereas UMAP uses euclidean by default.
             The custom distance function should match the metric used
-            to train UMAP embeedings. Storing and reusing a knn_graph
+            to train UMAP embeddings. Storing and reusing a knn_graph
             will also provide a speedup to the UMAP algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
@@ -688,7 +688,7 @@ class UMAP(UniversalBase,
             to pick a custom distance function (sometimes useful
             on certain datasets) whereas UMAP uses euclidean by default.
             The custom distance function should match the metric used
-            to train UMAP embeedings. Storing and reusing a knn_graph
+            to train UMAP embeddings. Storing and reusing a knn_graph
             will also provide a speedup to the UMAP algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,

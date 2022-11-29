@@ -128,7 +128,7 @@ class TSNE(Base,
     algorithm is more accurate, but too slow to use on large datasets.
 
     Parameters
-    -----------
+    ----------
     n_components : int (default 2)
         The output dimensionality size. Currently only 2 is supported.
     perplexity : float (default 30.0)
@@ -158,7 +158,7 @@ class TSNE(Base,
         'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'minkowski',
         'chebyshev', 'cosine', 'correlation']
     init : str 'random' (default 'random')
-        Currently supports random intialization.
+        Currently supports random initialization.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -220,7 +220,7 @@ class TSNE(Base,
         feature at this time.
 
     References
-    -----------
+    ----------
     .. [1] `van der Maaten, L.J.P.
        t-Distributed Stochastic Neighbor Embedding
        <https://lvdmaaten.github.io/tsne/>`_
@@ -312,7 +312,7 @@ class TSNE(Base,
         if init.lower() != 'random':
             # TODO https://github.com/rapidsai/cuml/issues/3458
             warnings.warn("TSNE does not support {} but only random "
-                          "intialization.".format(init))
+                          "initialization.".format(init))
             init = 'random'
         if angle < 0 or angle > 1:
             raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
@@ -397,7 +397,7 @@ class TSNE(Base,
         Fit X into an embedded space.
 
         Parameters
-        -----------
+        ----------
         knn_graph : sparse array-like (device or host), \
                 shape=(n_samples, n_samples)
             A sparse array containing the k-nearest neighbors of X,
@@ -408,7 +408,7 @@ class TSNE(Base,
             to pick a custom distance function (sometimes useful
             on certain datasets) whereas t-SNE uses euclidean by default.
             The custom distance function should match the metric used
-            to train t-SNE embeedings. Storing and reusing a knn_graph
+            to train t-SNE embeddings. Storing and reusing a knn_graph
             will also provide a speedup to the t-SNE algorithm
             when performing a grid search.
             Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,

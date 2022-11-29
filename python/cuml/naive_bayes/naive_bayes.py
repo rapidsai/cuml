@@ -272,7 +272,6 @@ class _BaseNB(Base, ClassifierMixin):
     def predict_proba(self, X) -> CumlArray:
         """
         Return probability estimates for the test vector X.
-
         """
         result = cp.exp(self.predict_log_proba(X))
         return result

@@ -124,7 +124,7 @@ class Ridge(UniversalBase,
         1 14.999...
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
@@ -162,14 +162,14 @@ class Ridge(UniversalBase,
         See :ref:`verbosity-levels` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
     Ridge provides L2 regularization. This means that the coefficients can
     shrink to become very small, but not zero. This can cause issues of
     interpretability on the coefficients.

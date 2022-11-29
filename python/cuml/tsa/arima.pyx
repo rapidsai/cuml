@@ -575,27 +575,27 @@ class ARIMA(Base):
 
     def get_param_names(self):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def get_params(self, deep=True):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def set_params(self, **params):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
@@ -867,7 +867,7 @@ class ARIMA(Base):
         h : float (default=1e-8)
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
-            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})` # noqa
+            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})`
 
         maxiter : int (default=1000)
             Maximum number of iterations of L-BFGS-B
@@ -879,7 +879,7 @@ class ARIMA(Base):
         truncate : int (default=0)
             When using CSS, start the sum of squares after a given number of
             observations
-        """
+        """  # noqa
         def fit_helper(x_in, fit_method):
             cdef uintptr_t d_y_ptr = self.d_y.ptr
 

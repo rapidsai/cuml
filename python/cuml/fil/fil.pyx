@@ -566,9 +566,9 @@ class ForestInference(Base,
         ...     np.asarray(fil_preds_gpu)) # doctest: +SKIP
 
     Notes
-    ------
+    -----
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/forest_inference_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/main/notebooks/forest_inference_demo.ipynb
 
     """
 
@@ -669,7 +669,7 @@ class ForestInference(Base,
             version.
 
         Returns
-        ----------
+        -------
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
@@ -698,7 +698,7 @@ class ForestInference(Base,
             version.
 
         Returns
-        ----------
+        -------
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
@@ -726,7 +726,7 @@ class ForestInference(Base,
             https://treelite.readthedocs.io/en/latest/treelite-api.html
     {}
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest/ XGBoost model.
@@ -816,7 +816,7 @@ class ForestInference(Base,
             - ``'float64'``: always load in float64
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model created from the scikit-learn
             model passed.
@@ -913,7 +913,7 @@ class ForestInference(Base,
             It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the model read from the file.
@@ -951,7 +951,7 @@ class ForestInference(Base,
     {}
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.

@@ -129,7 +129,7 @@ cdef class BaseRandomProjection():
         If set to True transformed matrix will be dense otherwise sparse.
 
     random_state : int (default = None)
-        Seed used to initilize random generator
+        Seed used to initialize random generator
 
     Attributes
     ----------
@@ -397,7 +397,7 @@ class GaussianRandomProjection(Base,
         automatic deduction when n_components is set to 'auto'.
 
     random_state : int (default = None)
-        Seed used to initilize random generator
+        Seed used to initialize random generator
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -415,7 +415,7 @@ class GaussianRandomProjection(Base,
         random matrix generation method
 
     Notes
-    ------
+    -----
     This class is unable to be used with ``sklearn.base.clone()`` and will
     raise an exception when called.
 
@@ -538,7 +538,7 @@ class SparseRandomProjection(Base,
         If set to True transformed matrix will be dense otherwise sparse.
 
     random_state : int (default = None)
-        Seed used to initilize random generator
+        Seed used to initialize random generator
 
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.

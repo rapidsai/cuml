@@ -294,7 +294,7 @@ class QN(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     loss: 'sigmoid', 'softmax', 'l1', 'l2', 'svc_l1', 'svc_l2', 'svr_l1', \
         'svr_l2' (default = 'sigmoid').
         'sigmoid' loss used for single class logistic regression;
@@ -383,7 +383,7 @@ class QN(Base,
         implementations, such as sklearn's.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_classes, n_features)
         The estimated coefficients for the linear regression model.
         Note: shape is (n_classes, n_features + 1) if fit_intercept = True.
@@ -391,7 +391,7 @@ class QN(Base,
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
        This class contains implementations of two popular Quasi-Newton methods:
 
          - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,

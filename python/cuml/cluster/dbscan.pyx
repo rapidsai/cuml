@@ -132,7 +132,7 @@ class DBSCAN(Base,
         dtype: int32
 
     Parameters
-    -----------
+    ----------
     eps : float (default = 0.5)
         The maximum distance between 2 points such they reside in the same
         neighborhood.
@@ -188,7 +188,7 @@ class DBSCAN(Base,
         calc_core_sample_indices==True
 
     Notes
-    ------
+    -----
     DBSCAN is very sensitive to the distance metric it is used with, and a
     large assumption is that datapoints need to be concentrated in groups for
     clusters to be constructed.

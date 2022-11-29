@@ -46,28 +46,29 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
     It is often also used as a 'distance metric' between two probablity
     ditributions (not symmetric)
 
-        Parameters
-        ----------
-        P : Dense array of probabilities corresponding to distribution P
-           shape = (n_samples, 1)
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy.
+    Parameters
+    ----------
+    P : Dense array of probabilities corresponding to distribution P
+        shape = (n_samples, 1)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-        Q : Dense array of probabilities corresponding to distribution Q
-           shape = (n_samples, 1)
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy.
+    Q : Dense array of probabilities corresponding to distribution Q
+        shape = (n_samples, 1)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-        handle : cuml.Handle
+    handle : cuml.Handle
 
-        convert_dtype : bool, optional (default = True)
-            When set to True, the method will, convert P and
-            Q to be the same data type: float32. This
-            will increase memory used for the method.
-        Returns
-        -------
-        float
-           The KL Divergence value
+    convert_dtype : bool, optional (default = True)
+        When set to True, the method will, convert P and
+        Q to be the same data type: float32. This
+        will increase memory used for the method.
+
+    Returns
+    -------
+    float
+        The KL Divergence value
     """
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()

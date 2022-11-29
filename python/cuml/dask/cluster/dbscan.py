@@ -70,7 +70,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         to False will avoid unnecessary kernel launches
 
     Notes
-    ------
+    -----
     For additional docs, see the documentation of the single-GPU DBSCAN model
     """
 

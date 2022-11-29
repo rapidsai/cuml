@@ -312,32 +312,29 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
+    >>> import cupy as cp
+    >>> from cuml.metrics import pairwise_distances
 
-    .. code-block:: python
+    >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
+    >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
 
-        >>> import cupy as cp
-        >>> from cuml.metrics import pairwise_distances
-        >>>
-        >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
-        >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
-        >>>
-        >>> # Euclidean Pairwise Distance, Single Input:
-        >>> pairwise_distances(X, metric='euclidean')
-        array([[0.        , 2.236..., 5.830...],
-            [2.236..., 0.        , 3.605...],
-            [5.830..., 3.605..., 0.        ]])
-        >>>
-        >>> # Cosine Pairwise Distance, Multi-Input:
-        >>> pairwise_distances(X, Y, metric='cosine')
-        array([[0.445... , 0.131...],
-            [0.485..., 0.156...],
-            [0.470..., 0.146...]])
-        >>>
-        >>> # Manhattan Pairwise Distance, Multi-Input:
-        >>> pairwise_distances(X, Y, metric='manhattan')
-        array([[ 4.,  2.],
-            [ 7.,  5.],
-            [12., 10.]])
+    >>> # Euclidean Pairwise Distance, Single Input:
+    >>> pairwise_distances(X, metric='euclidean')
+    array([[0.        , 2.236..., 5.830...],
+        [2.236..., 0.        , 3.605...],
+        [5.830..., 3.605..., 0.        ]])
+
+    >>> # Cosine Pairwise Distance, Multi-Input:
+    >>> pairwise_distances(X, Y, metric='cosine')
+    array([[0.445... , 0.131...],
+        [0.485..., 0.156...],
+        [0.470..., 0.146...]])
+
+    >>> # Manhattan Pairwise Distance, Multi-Input:
+    >>> pairwise_distances(X, Y, metric='manhattan')
+    array([[ 4.,  2.],
+        [ 7.,  5.],
+        [12., 10.]])
     """
 
     if is_sparse(X):

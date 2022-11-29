@@ -74,7 +74,7 @@ class ElasticNet(UniversalBase,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
@@ -134,7 +134,7 @@ class ElasticNet(UniversalBase,
         See :ref:`verbosity-levels` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array

@@ -152,7 +152,7 @@ class IncrementalPCA(PCA):
         <http://www.miketipping.com/papers/met-mppca.pdf>`_
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -190,7 +190,6 @@ class IncrementalPCA(PCA):
         >>> # Noise Variance:
         >>> ipca.noise_variance_.item() # doctest: +SKIP
         0.0037122774558343763
-
     """
     def __init__(self, *, handle=None, n_components=None, whiten=False,
                  copy=True, batch_size=None, verbose=False,
