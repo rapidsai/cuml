@@ -322,9 +322,7 @@ def _get_limits(strategy):
         yield strategy.stop
 
 
-_CUML_ARRAY_INPUT_TYPES = [
-    'numpy', 'cupy', 'series', None,
-]
+_CUML_ARRAY_INPUT_TYPES = ['numpy', 'cupy', 'series']
 
 
 _CUML_ARRAY_DTYPES = [
@@ -475,10 +473,13 @@ def create_cuml_array_input(input_type, dtype, shape, order):
     elif input_type == 'series':
         return cudf.Series(array)
 
-    elif input_type is None or input_type == 'cupy':
+    elif input_type == 'cupy':
         return array
 
-    raise ValueError(f"Unknown input_type '{input_type}.")
+    raise ValueError(
+        "The value for 'input_type' must be "
+        f"one of {', '.join(_CUML_ARRAY_INPUT_TYPES)}."
+    )
 
 
 @composite
