@@ -15,9 +15,6 @@
 #
 
 
-import copyreg
-
-import cupy as cp
 import cuml
 import cudf.comm.serialize  # noqa: F401
 
