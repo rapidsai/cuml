@@ -407,14 +407,14 @@ def cuml_array_shapes(
         Returned shapes will have at most this number of dimensions.
     min_side: int, default=1
         Returned shapes will have at least this size in any dimension.
-    max_side: int | None, default=10
+    max_side: int | None, default=min_side + 9
         Returned shapes will have at most this size in any dimension.
 
     Returns
     -------
     Shapes for cuml array inputs.
     """
-    max_side = 10 if max_side is None else max_side
+    max_side = min_side + 9 if max_side is None else max_side
 
     if not (1 <= min_dims <= max_dims):
         raise ValueError(
