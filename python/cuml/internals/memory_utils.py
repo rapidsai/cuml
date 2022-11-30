@@ -78,7 +78,7 @@ class ArrayInfo:
             out_strides = _order_to_strides(out_order, out_shape, out_type)
         else:
             out_strides = interface['strides']
-            out_order = _strides_to_order(out_strides, out_shape, out_type)
+            out_order = _strides_to_order(out_strides, out_type)
 
         return ArrayInfo(shape=out_shape,
                          order=out_order,
@@ -220,52 +220,39 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     return result
 
 
-def _strides_to_order(strides, shape, dtype):
+def _strides_to_order(strides, dtype):
     # cuda array interface specification
     if strides is None:
         return 'C'
-
-    itemsize = cp.dtype(dtype).itemsize
-
-    if strides[0] == itemsize and \
-        all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
-                range(len(strides) - 1))):
+    if strides[0] == dtype.itemsize or len(strides) == 1:
         return 'F'
-
-    shape = shape[::-1]
-    strides = strides[::-1]
-
-    if strides[0] == itemsize and \
-        all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
-                range(len(strides) - 1))):
+    elif strides[1] == dtype.itemsize:
         return 'C'
     else:
-        debug('Uncontiguous array, will perform a copy')
-        return None
+        raise ValueError("Invalid strides value for dtype")
 
 
 def _order_to_strides(order, shape, dtype):
-    item_size = GlobalSettings().xpy.dtype(dtype).itemsize
+    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
-        return (item_size, )
+        return (itemsize, )
 
     elif len(shape) == 0:
         return None
 
-    if order == 'F':
-        strides = [item_size]
-        for dim_size in shape[:-1]:
-            strides.append(dim_size * strides[-1])
-        return tuple(strides)
+    elif len(shape) == 1:
+        return (itemsize, )
 
     elif order == 'C':
-        strides = [item_size]
-        for dim_size in shape[:0:-1]:
-            strides.append(dim_size * strides[-1])
-        return tuple(strides[::-1])
+        dim_minor = shape[1] * itemsize
+        return (dim_minor, itemsize)
+
+    elif order == 'F':
+        dim_minor = shape[0] * itemsize
+        return (itemsize, dim_minor)
 
     else:
-        raise ValueError('Order must be "F" or "C".')
+        raise ValueError('Order must be "F" or "C". ')
 
 
 def _get_size_from_shape(shape, dtype):
@@ -297,6 +284,10 @@ def _check_array_contiguity(ary):
     ----------
     ary: __cuda_array_interface__ or __array_interface__ compliant array.
     """
+
+    if hasattr(ary, 'ndim'):
+        if ary.ndim == 1:
+            return True
 
     # Use contiguity flags if present
     if hasattr(ary, 'flags'):
@@ -331,7 +322,18 @@ def _check_array_contiguity(ary):
             order = _strides_to_order(strides, dtype)
         itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
 
-        return order in ['C', 'F']
+        # We check if the strides jump on the non contiguous dimension
+        # does not correspond to the array dimension size, which indicates
+        # this is a view to a non contiguous array.
+        if order == 'F':
+            if (shape[0] * itemsize) != strides[1]:
+                return False
+
+        elif order == 'C':
+            if (shape[1] * itemsize) != strides[0]:
+                return False
+
+        return True
 
 
 def set_global_output_type(output_type):
