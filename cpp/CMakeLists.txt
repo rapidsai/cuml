@@ -232,7 +232,6 @@ endif()
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
-  include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
 if(ENABLE_CUMLPRIMS_MG)
