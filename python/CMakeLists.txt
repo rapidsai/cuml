@@ -48,6 +48,7 @@ set(CUML_CPP_TARGET "cuml++")
 # If the user requested it,  we attempt to find cuml.
 if(FIND_CUML_CPP)
   include(rapids-cpm)
+  include(rapids-export)
   rapids_cpm_init()
   include(rapids-cuda)
   rapids_cuda_init_architectures(cuml-python)
