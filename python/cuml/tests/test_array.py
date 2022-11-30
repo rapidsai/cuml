@@ -62,6 +62,13 @@ def _get_owner(curr):
         return None
 
 
+def _assert_equal(array_like, cuml_array):
+    """Check whether array-like data and cuml array data are equal."""
+    assert cp.array_equal(
+        cp.asarray(array_like), cuml_array.to_output("cupy"), equal_nan=True,
+    )
+
+
 @given(
     input_type=cuml_array_input_types(),
     dtype=cuml_array_dtypes(),
@@ -86,10 +93,7 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
     assert cuml_array.order == order if md else "C"
 
     # Check input array and array equality.
-    assert np.array_equal(
-        cp.asnumpy(input_array),
-        cuml_array.to_output("numpy")
-    )
+    _assert_equal(input_array, cuml_array)
 
     # Test ownership
     if input_type == "numpy":
@@ -111,8 +115,7 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
         if force_gc:
             gc.collect()
 
-        assert np.array_equal(
-            cp.asarray(cuml_array), cp.asarray(input_array_copy))
+        _assert_equal(input_array_copy, cuml_array)
 
 
 @given(
@@ -194,11 +197,18 @@ def test_get_set_item(inp, indices):
     # trigger UnownedMemory exception.
     assume(np.isscalar(inp_view) or inp_view.size > 0)
 
-    assert cp.all(cp.asarray(inp_view) == cp.asarray(ary[indices]))
+    _assert_equal(inp_view, ary[indices])
 
-    # Check equalit after assigning to array slice.
+    # Check equality after assigning to array slice.
     ary[indices] = 1.0
-    assert cp.all(cp.asarray(inp) == cp.asarray(ary))
+    inp[indices] = 1.0
+
+    # We need to assume that inp is not a cudf.Series here, otherwise
+    # ary.to_output("cupy") called by equal() will trigger a CUDARuntimeError:
+    # cudaErrorInvalidDevice: invalid device ordinal error.
+    assume(not isinstance(inp, cudf.Series))
+
+    _assert_equal(inp, ary)
 
 
 @given(
@@ -283,24 +293,70 @@ def test_output(inp, output_type):
     else:
         assert isinstance(res, _OUTPUT_TYPES_MAPPING[output_type])
 
-    def _data_equal(res):
+    def assert_data_equal_(res):
         # Check output data equality
         if isinstance(res, cudf.Series):
-            return (cudf.Series(np.ravel(inp)) == res).to_numpy().all()
+            # A simple equality check `assert cudf.Series(inp).equals(res)`
+            # does not work for with multi-dimensional data.
+            assert cudf.Series(np.ravel(inp)).equals(res)
         elif isinstance(res, cudf.DataFrame):
-            return (cudf.DataFrame(inp) == res).to_numpy().all()
+            # Assumption required because of:
+            #   https://github.com/rapidsai/cudf/issues/12266
+            assume(not np.isnan(res.to_numpy()).any())
+
+            assert cudf.DataFrame(inp).equals(res)
         else:
-            return np.array_equal(to_nparray(inp), to_nparray(res))
+            assert np.array_equal(
+                to_nparray(inp), to_nparray(res), equal_nan=True)
 
-    assert _data_equal(res)
+    assert_data_equal_(res)
 
-    # check for e2e cartesian product:
-    if output_type == 'series':
-        # The special-casing here is necessary since the input array
-        # might have to be raveled before comparison.
-        assert _data_equal(CumlArray(res).to_output('series'))
-    elif output_type not in ('dataframe', 'cudf'):
-        assert _data_equal(CumlArray(res).to_output("numpy"))
+
+@given(
+    inp=cuml_array_inputs(),
+    output_type=cuml_array_output_types(),
+)
+@settings(deadline=None)
+def test_end_to_end_conversion_via_intermediate(inp, output_type):
+    # This test requires a lot of assumptions in combination with cuDF
+    # intermediates.
+
+    # Assumptions required for cuDF limitations:
+    assume(
+        # Not all dtypes are supported by cuDF.
+        not(
+            output_type in ("cudf", "dataframe", "series")
+            and inp.dtype in UNSUPPORTED_CUDF_DTYPES
+        )
+    )
+    assume(
+        # Can't convert multidimensional arrays to a Series.
+        not(output_type == "series" and len(inp.shape) > 1)
+    )
+
+    # Assumptions required for cuML limitations:
+    assume(
+        # Cannot convert from DataFrame to CumlArray wihthout explicitly
+        # specifying shape, dtype, and order.
+        not(
+            output_type == "dataframe" or
+            (output_type == "cudf" and len(inp.shape) > 1)
+        )
+    )
+
+    # First conversion:
+    array = CumlArray(data=inp)
+    _assert_equal(inp, array)
+
+    # Second conversion via intermediate
+    intermediate = array.to_output(output_type)
+
+    # Cupy does not support masked arrays.
+    cai = getattr(intermediate, "__cuda_array_interface__", dict())
+    assume(cai.get("mask") is None)
+
+    array2 = CumlArray(data=intermediate)
+    _assert_equal(inp, array2)
 
 
 @given(
@@ -363,12 +419,7 @@ def test_serialize(inp):
     assert pickle.loads(header['type-serialized']) is CumlArray
     assert all(isinstance(f, Buffer) for f in frames)
 
-    if isinstance(inp, np.ndarray):
-        assert np.all(inp == ary2.to_output('numpy'))
-    elif isinstance(inp, (cudf.Series, pd.Series)):
-        assert np.all(inp == ary2.to_output('series'))
-    else:
-        assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
+    _assert_equal(inp, ary2)
 
     assert ary.__cuda_array_interface__['shape'] == \
         ary2.__cuda_array_interface__['shape']
@@ -410,12 +461,7 @@ def test_pickle(protocol, inp):
 
     # Check equality
     assert len(f) == len_f
-    if isinstance(inp, np.ndarray):
-        assert np.all(inp == b.to_output('numpy'))
-    elif isinstance(inp, (cudf.Series, pd.Series)):
-        assert np.all(inp == b.to_output('series'))
-    else:
-        assert cp.all(cp.asarray(inp) == cp.asarray(b))
+    _assert_equal(inp, b)
 
     # Check CUDA Array Interface match.
     assert ary.__cuda_array_interface__['shape'] == \
@@ -440,13 +486,7 @@ def test_deepcopy(inp):
     b = deepcopy(ary)
 
     # Check equality
-    if isinstance(inp, np.ndarray):
-        assert np.all(inp == b.to_output('numpy'))
-    elif isinstance(inp, (cudf.Series, pd.Series)):
-        assert np.all(inp == b.to_output('series'))
-    else:
-        assert cp.all(cp.asarray(inp) == cp.asarray(b))
-
+    _assert_equal(inp, b)
     assert ary.ptr != b.ptr
 
     # Check CUDA Array Interface match.
@@ -474,7 +514,7 @@ def test_cumlary_binops(operation, a):
     c = operation(a, b)
     ary_c = operation(ary_a, ary_b)
 
-    assert(cp.all(ary_c.to_output('cupy') == cp.asarray(c)))
+    _assert_equal(c, ary_c)
 
 
 @pytest.mark.parametrize('order', ['F', 'C'])

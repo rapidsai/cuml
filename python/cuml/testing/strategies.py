@@ -220,12 +220,40 @@ def cuml_array_inputs(
     -------
     A strategy for valid cuml array inputs.
     """
-    return create_cuml_array_input(
-        input_type=draw(input_types),
-        dtype=draw(dtypes),
-        shape=draw(shapes),
-        order=draw(orders),
+    input_type = draw(input_types)
+    dtype = draw(dtypes)
+    shape = draw(shapes)
+    order = draw(orders)
+    multidimensional = (isinstance(shape, tuple) and len(shape) > 1)
+    assume(
+        not (
+            input_type == "series"
+            and (dtype in UNSUPPORTED_CUDF_DTYPES or multidimensional)
+        )
     )
+
+    data = draw(arrays(dtype=dtype, shape=shape))
+
+    if input_type == "numpy":
+        ret = np.asarray(data, order=order)
+
+    elif input_type == "cupy":
+        ret = cp.array(data, dtype=dtype, order=order)
+
+    elif input_type == "series":
+        ret = cudf.Series(data)
+
+    else:
+        raise ValueError(
+            "The value for 'input_type' must be "
+            f"one of {', '.join(_CUML_ARRAY_INPUT_TYPES)}."
+        )
+
+    # Cupy currently does not support masked arrays.
+    cai = getattr(ret, '__cuda_array_interface__', dict())
+    assume(cai.get('mask') is None)
+
+    return ret
 
 
 @composite
