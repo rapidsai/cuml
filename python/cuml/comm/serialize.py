@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,8 @@
 #
 
 
-import copyreg
-
-import cupy as cp
 import cuml
 import cudf.comm.serialize  # noqa: F401
-
-
-def serialize_mat_descriptor(m):
-    return cp.cusparse.MatDescriptor.create, ()
 
 
 try:
@@ -80,7 +73,6 @@ try:
     register_generic(MultinomialNB, 'dask',
                      dask_serialize, dask_deserialize)
 
-    copyreg.pickle(cp.cusparse.MatDescriptor, serialize_mat_descriptor)
 except ImportError:
     # distributed is probably not installed on the system
     pass
