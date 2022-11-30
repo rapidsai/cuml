@@ -215,29 +215,9 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
         with cupy_using_allocator(rmm_cupy_allocator):
             result = cupy_fn(*args, **kwargs)
     else:
-        temp_res = cupy_fn(*args, **kwargs)
-        result = \
-            _rmm_cupy6_array_like(temp_res,
-                                  order=_strides_to_order(temp_res.strides,
-                                                          temp_res.shape,
-                                                          temp_res.dtype))
-        cp.copyto(result, temp_res)
+        result = cupy_fn(*args, **kwargs)
 
     return result
-
-
-def _rmm_cupy6_array_like(ary, order):
-    nbytes = np.ndarray(ary.shape,
-                        dtype=ary.dtype,
-                        strides=ary.strides,
-                        order=order).nbytes
-    memptr = rmm.rmm_cupy_allocator(nbytes)
-    arr = cp.ndarray(ary.shape,
-                     dtype=ary.dtype,
-                     memptr=memptr,
-                     strides=ary.strides,
-                     order=order)
-    return arr
 
 
 def _strides_to_order(strides, shape, dtype):
