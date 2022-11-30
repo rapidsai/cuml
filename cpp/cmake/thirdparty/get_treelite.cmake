@@ -88,6 +88,6 @@ function(find_and_configure_treelite)
     rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
 endfunction()
 
-find_and_configure_treelite(VERSION     3.0.0
-                        PINNED_TAG  a8e688b7f0486227fe723229e4cbb77e3a669148
+find_and_configure_treelite(VERSION     3.0.1
+                        PINNED_TAG  cb09d539dce7e67f60cc33e4fac6b95b7185847a
                         BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})
