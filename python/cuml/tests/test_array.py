@@ -147,8 +147,7 @@ def test_array_init(input_type, dtype, shape, order, mem_type, force_gc):
 
     _assert_equal(input_array_copy, cuml_array)
 
-        assert np.array_equal(
-            cp.asarray(cuml_array), cp.asarray(input_array_copy))
+        _assert_equal(input_array_copy, cuml_array)
 
 @given(
     data_type=st.sampled_from([bytes, bytearray, memoryview]),

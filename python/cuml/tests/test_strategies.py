@@ -67,7 +67,7 @@ def test_cuml_array_inputs(array_input):
     shape=cuml_array_shapes(),
     order=cuml_array_orders())
 @settings(deadline=None)
-def test_array_inputs(input_type, dtype, shape, order):
+def test_cuml_array_input_elements(input_type, dtype, shape, order):
     input_array = create_cuml_array_input(input_type, dtype, shape, order)
     assert input_array.dtype == dtype
     if input_type == "series":
@@ -80,6 +80,16 @@ def test_array_inputs(input_type, dtype, shape, order):
         assert input_array.values.flags[layout_flag]
     else:
         assert input_array.flags[layout_flag]
+
+
+@given(cuml_array_inputs())
+@settings(deadline=None)
+def test_cuml_array_inputs(array_input):
+    array = CumlArray(data=array_input)
+    assert cp.array_equal(
+        cp.asarray(array_input), array.to_output("cupy"), equal_nan=True)
+    assert np.array_equal(
+        cp.asnumpy(array_input), array.to_output("numpy"), equal_nan=True)
 
 
 @given(standard_datasets())
