@@ -230,10 +230,6 @@ if(all_algo OR treeshap_algo)
   endif()
 endif()
 
-if(NOT SINGLEGPU)
-  include(cmake/thirdparty/get_nccl.cmake)
-endif()
-
 if(ENABLE_CUMLPRIMS_MG)
   include(cmake/thirdparty/get_cumlprims_mg.cmake)
 endif()
