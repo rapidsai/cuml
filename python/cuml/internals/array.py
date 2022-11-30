@@ -416,6 +416,10 @@ class CumlArray():
     def shape(self):
         return self._array_interface['shape']
 
+    @property
+    def ndim(self):
+        return len(self._array_interface['shape'])
+
     @cached_property
     def is_contiguous(self):
         return _check_array_contiguity(self)
