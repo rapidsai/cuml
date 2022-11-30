@@ -288,7 +288,7 @@ class LinearRegression(LinearPredictMixin,
 
     @generate_docstring()
     def _fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "LinearRegression":
+             sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
