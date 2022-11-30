@@ -21,8 +21,8 @@ requires = [
     "scikit-build>=0.13.1",
     "cmake>=3.23.1",
     "ninja",
-    "treelite==3.0.0",
-    "treelite_runtime==3.0.0",
+    "treelite==3.0.1",
+    "treelite_runtime==3.0.1",
     "versioneer",
 ]
 build-backend = "backend"
