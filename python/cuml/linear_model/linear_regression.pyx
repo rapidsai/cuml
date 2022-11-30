@@ -287,8 +287,9 @@ class LinearRegression(LinearPredictMixin,
         }[algorithm]
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "LinearRegression":
+    @enable_cpu
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -442,7 +443,8 @@ class LinearRegression(LinearPredictMixin,
 
         return self
 
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
+    @enable_cpu
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.features_in_ = self.coef_.shape[0]
         # Adding UniversalBase here skips it in the Method Resolution Order
