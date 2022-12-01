@@ -163,8 +163,6 @@ class UmapTransform : public UmapBase {
                     this->data.X.data(),
                     this->params.nrows,
                     this->params.ncols,
-                    nullptr,
-                    nullptr,
                     this->data.X.data(),
                     this->params.nrows,
                     embeddings,

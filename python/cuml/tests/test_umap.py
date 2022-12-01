@@ -27,6 +27,7 @@ import scipy.sparse
 import cupy as cp
 
 from cuml.manifold.umap import UMAP as cuUMAP
+from cuml.metrics import pairwise_distances
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
 from sklearn.neighbors import NearestNeighbors
@@ -478,7 +479,7 @@ def test_exp_decay_params():
 
 
 @pytest.mark.parametrize('n_neighbors', [5, 15])
-def test_umap_knn_parameters(n_neighbors):
+def test_umap_knn_graph(n_neighbors):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0)
     data = data.astype(np.float32)
@@ -531,6 +532,40 @@ def test_umap_knn_parameters(n_neighbors):
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)
     test_equality(embedding6, embedding7)
+
+
+@pytest.mark.parametrize('precomputed_type', ['knn_graph', 'tuple',
+                                              'pairwise'])
+@pytest.mark.parametrize('sparse_input', [False, True])
+def test_umap_precomputed_knn(precomputed_type, sparse_input):
+    data, labels = make_blobs(n_samples=2000, n_features=10,
+                              centers=5, random_state=0)
+    data = data.astype(np.float32)
+
+    if sparse_input:
+        sparsification = np.random.choice([0., 1.],
+                                          p=[0.1, 0.9],
+                                          size=data.shape)
+        data = np.multiply(data, sparsification)
+        data = scipy.sparse.csr_matrix(data)
+
+    n_neighbors = 8
+
+    if precomputed_type == 'knn_graph':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+    elif precomputed_type == 'tuple':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors(data, return_distance=True)
+    elif precomputed_type == 'pairwise':
+        precomputed_knn = pairwise_distances(data)
+
+    model = cuUMAP(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
+    embedding = model.fit_transform(data)
+    trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
+    assert trust >= 0.92
 
 
 def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):

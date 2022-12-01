@@ -19,6 +19,7 @@ import scipy
 import cupyx
 
 from cuml.manifold import TSNE
+from cuml.metrics import pairwise_distances
 from cuml.testing.utils import array_equal, stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
@@ -26,6 +27,7 @@ from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness
 from sklearn import datasets
 from sklearn.manifold import TSNE as skTSNE
+from sklearn.neighbors import NearestNeighbors
 
 pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
                                         "experimental::")
@@ -140,6 +142,40 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
 
     embed = tsne.fit_transform(X, True, knn_graph.tocsc())
     validate_embedding(X, embed)
+
+
+@pytest.mark.parametrize('precomputed_type', ['knn_graph', 'tuple',
+                                              'pairwise'])
+@pytest.mark.parametrize('sparse_input', [False, True])
+def test_tsne_precomputed_knn(precomputed_type, sparse_input):
+    data, labels = make_blobs(n_samples=2000, n_features=10,
+                              centers=5, random_state=0)
+    data = data.astype(np.float32)
+
+    if sparse_input:
+        sparsification = np.random.choice([0., 1.],
+                                          p=[0.1, 0.9],
+                                          size=data.shape)
+        data = np.multiply(data, sparsification)
+        data = scipy.sparse.csr_matrix(data)
+
+    n_neighbors = DEFAULT_N_NEIGHBORS
+
+    if precomputed_type == 'knn_graph':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+    elif precomputed_type == 'tuple':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors(data, return_distance=True)
+    elif precomputed_type == 'pairwise':
+        precomputed_knn = pairwise_distances(data)
+
+    model = TSNE(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
+    embedding = model.fit_transform(data)
+    trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
+    assert trust >= 0.92
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
