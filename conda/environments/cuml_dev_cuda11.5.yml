@@ -22,8 +22,8 @@ dependencies:
 - pylibraft=22.12.*
 - dask-cudf=22.12.*
 - dask-cuda=22.12.*
-- dask>=2022.9.2
-- distributed>=2022.9.2
+- dask==2022.11.1
+- distributed==2022.11.1
 - ucx>=1.13.0
 - ucx-py=0.29.*
 - ucx-proc=*=gpu
