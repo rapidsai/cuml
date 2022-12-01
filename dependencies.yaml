@@ -108,7 +108,7 @@ dependencies:
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
-          - treelite=3.0.0
+          - treelite=3.0.1
       - output_types: conda
         packages:
           - cudf=22.12.*

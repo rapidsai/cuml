@@ -21,4 +21,9 @@ requires = [
     "scikit-build>=0.13.1",
     "cmake>=3.23.1,!=3.25.0",
     "ninja",
+    "treelite==3.0.1",
+    "treelite_runtime==3.0.1",
+    "versioneer",
 ]
+build-backend = "backend"
+backend-path = ["_custom_build"]
