@@ -19,7 +19,7 @@ set(cython_sources
 rapids_cython_create_modules(
         CXX
         SOURCE_FILES "${cython_sources}"
-        LINKED_LIBRARIES ${cuml_sg_libraries}
+        LINKED_LIBRARIES "${cuml_sg_libraries}"
         MODULE_PREFIX cluster_hdbscan_
         ASSOCIATED_TARGETS cuml
 )

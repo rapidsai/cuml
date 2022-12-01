@@ -33,6 +33,8 @@ class Profiler:
                   env=dict(os.environ, NVTX_BENCHMARK='TRUE'))
         if res.returncode != 0:
             raise Exception(res.stderr)
+        else:
+            return res.stdout
 
     def _nsys_profile(self, command):
         profile_command = ['nsys',
@@ -188,5 +190,15 @@ class Profiler:
 
 
 if __name__ == "__main__":
+    def check_version():
+        stdout = Profiler._execute(['nsys', '--version'])
+        full_version = stdout.decode("utf-8").split(' ')[-1]
+        year, month = full_version.split('.')[:2]
+        version = float(year + '.' + month)
+        if version < 2021.4:
+            raise Exception('This script requires nsys 2021.4 '
+                            'or later version of the tool.')
+
+    check_version()
     profiler = Profiler()
     profiler.profile(sys.argv[1])

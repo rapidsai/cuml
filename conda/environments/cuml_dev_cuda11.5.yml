@@ -34,7 +34,7 @@ dependencies:
 - umap-learn
 - scikit-learn=0.24
 - sphinx-markdown-tables
-- treelite=3.0.0
+- treelite=3.0.1
 - statsmodels
 - seaborn
 - nltk
