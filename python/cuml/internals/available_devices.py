@@ -18,7 +18,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from, UnavailableError
 )
 try:
-    from functools import cache
+    from functools import cache  # requires Python >= 3.9
 except ImportError:
     from functools import lru_cache
     cache = lru_cache(maxsize=None)
