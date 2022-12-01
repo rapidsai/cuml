@@ -24,7 +24,6 @@ from pylibraft.common.cuda import Stream
 from cuml.testing.utils import \
     get_classes_from_package, \
     small_classification_dataset
-from cuml.experimental.common.base import Base as experimentalBase
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
                                                             as sklBaseEstimator
 
@@ -97,10 +96,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
     if issubclass(klass, sklBaseEstimator):
         pytest.skip("Preprocessing models do not have "
                     "the base arguments in constructors.")
-
-    if issubclass(klass, experimentalBase):
-        pytest.skip("The CPU/GPU base class does not have "
-                    "the base arguments in its constructor.")
 
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
