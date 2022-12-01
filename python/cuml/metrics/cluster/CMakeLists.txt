@@ -31,4 +31,3 @@ rapids_cython_create_modules(
   LINKED_LIBRARIES "${cuml_sg_libraries}"
   ASSOCIATED_TARGETS cuml
 )
-

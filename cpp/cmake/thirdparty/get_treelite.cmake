@@ -14,16 +14,17 @@
 # limitations under the License.
 #=============================================================================
 
+
 function(find_and_configure_treelite)
 
-    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS)
+    set(oneValueArgs VERSION PINNED_TAG EXCLUDE_FROM_ALL BUILD_STATIC_LIBS)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
     if(NOT PKG_BUILD_STATIC_LIBS)
-        list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
+      list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
     else()
-        list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
+      list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
     endif()
 
     rapids_cpm_find(Treelite ${PKG_VERSION}
@@ -32,6 +33,7 @@ function(find_and_configure_treelite)
         CPM_ARGS
             GIT_REPOSITORY   https://github.com/dmlc/treelite.git
             GIT_TAG          ${PKG_PINNED_TAG}
+            EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
             OPTIONS
               "USE_OPENMP ON"
               "BUILD_STATIC_LIBS ${PKG_BUILD_STATIC_LIBS}"
@@ -90,4 +92,5 @@ endfunction()
 
 find_and_configure_treelite(VERSION     3.0.1
                         PINNED_TAG  cb09d539dce7e67f60cc33e4fac6b95b7185847a
+                        EXCLUDE_FROM_ALL  ${CUML_EXCLUDE_TREELITE_FROM_ALL}
                         BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})
