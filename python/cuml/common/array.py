@@ -67,7 +67,6 @@ class CumlArray(Buffer):
 
     Attributes
     ----------
-
     ptr : int
         Pointer to the data
     size : int
@@ -195,7 +194,16 @@ class CumlArray(Buffer):
                                                  self.dtype)
             else:
                 self.strides = ary_interface['strides']
-                self.order = _strides_to_order(self.strides, self.dtype)
+                order = _strides_to_order(self.strides, self.shape, self.dtype)
+                if order in ['C', 'F']:
+                    self.order = order
+                else:
+                    cupy_data = cp.array(data, copy=True, order='C')
+                    self._ptr = cupy_data.data.ptr
+                    self._owner = cupy_data if cupy_data.flags.owndata \
+                        else data
+                    self.order = 'C'
+                    self.strides = cupy_data.strides
 
         else:
             raise TypeError("Unrecognized data type: %s" % str(type(data)))

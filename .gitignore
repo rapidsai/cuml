@@ -31,10 +31,13 @@ dask-worker-space/
 tmp/
 .hypothesis
 wheels/
+wheelhouse/
 _skbuild/
 
 ## files pickled in notebook when ran during python docstring generation
 docs/source/*.model
+docs/source/*.pkl
+docs/source/*.tl
 
 ## eclipse
 .project
