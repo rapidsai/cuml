@@ -12,8 +12,6 @@
 # the License.
 # =============================================================================
 
-
-
 set(cython_sources
     randomforest_common.pyx
     randomforest_shared.pyx
@@ -21,7 +19,7 @@ set(cython_sources
     randomforestregressor.pyx
 )
 
-set(linked_libraries 
+set(linked_libraries
     ${cuml_sg_libraries}
     ${TREELITE_LIBS})
 
