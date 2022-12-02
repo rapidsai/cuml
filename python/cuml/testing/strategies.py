@@ -59,6 +59,13 @@ _CUML_ARRAY_OUTPUT_TYPES = [
     "series",
 ]
 
+# TODO(wphicks): Once all memory types are supported, just directly
+# iterate on the enum values
+_CUML_ARRAY_MEM_TYPES = (
+    'host',
+    'device'
+)
+
 
 UNSUPPORTED_CUDF_DTYPES = [
     np.uint8,
@@ -97,6 +104,16 @@ def cuml_array_dtypes(draw):
 def cuml_array_orders(draw):
     """Generates all supported cuml array orders."""
     return draw(sampled_from(_CUML_ARRAY_ORDERS))
+
+
+@composite
+def cuml_array_mem_types(draw):
+    """Generates all supported cuml array mem_types.
+
+    Note that we do not currently test managed memory because it is not yet
+    officially supported.
+    """
+    return draw(sampled_from(_CUML_ARRAY_MEM_TYPES))
 
 
 @composite
@@ -263,6 +280,7 @@ def cuml_arrays(
     dtypes=cuml_array_dtypes(),
     shapes=cuml_array_shapes(),
     orders=cuml_array_orders(),
+    mem_types=cuml_array_mem_types(),
 ):
     """
     Generates cuml arrays.
@@ -289,7 +307,7 @@ def cuml_arrays(
         shape=draw(shapes),
         order=draw(orders),
     )
-    return CumlArray(data=array_input)
+    return CumlArray(data=array_input, mem_type=draw(mem_types))
 
 
 @composite
