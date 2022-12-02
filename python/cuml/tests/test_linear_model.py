@@ -781,13 +781,20 @@ def test_ridge_predict_convert_dtype(dataset, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
-def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
-    X, y = make_classification(n_samples=50, n_features=10, random_state=0)
-    X = X.astype(train_dtype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+@given(
+    dataset=split_datasets(
+        standard_classification_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64))
+        )
+    ),
+    test_dtype=floating_dtypes(sizes=(32, 64)),
+)
+@settings(deadline=5000)
+def test_logistic_predict_convert_dtype(dataset, test_dtype):
+    X_train, X_test, y_train, y_test = dataset
+
+    # Assumption needed to avoid qn.h: logistic loss invalid C error.
+    assume(set(np.unique(y_train)) == set(np.unique(y_test)))
 
     clf = cuLog()
     clf.fit(X_train, y_train)
