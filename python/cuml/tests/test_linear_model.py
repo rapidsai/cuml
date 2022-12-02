@@ -46,7 +46,6 @@ from cuml.testing.utils import (
     array_difference,
     array_equal,
     small_regression_dataset,
-    small_classification_dataset,
     unit_param,
     quality_param,
     stress_param,
@@ -622,19 +621,32 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     assert score_test >= 0.94
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_logistic_regression_model_default(dtype):
+@given(
+    dataset=split_datasets(
+        standard_classification_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+        )
+    )
+)
+@pytest.mark.xfail(reason="qn.h: logistic loss invalid C")  # TODO: file issue
+@settings(deadline=5000)
+def test_logistic_regression_model_default(dataset):
+    X_train, X_test, y_train, y_test = dataset
 
-    X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
+    culog_score = culog.score(X_test, y_test)
+    target(1 / culog_score, label="inverse culog score")
+
     sklog = skLog(multi_class="auto")
-
     sklog.fit(X_train, y_train)
+    sklog_score = sklog.score(X_test, y_test)
+    target(1 / sklog_score, label="inverse sklog score")
 
-    assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
+    diff = abs(culog_score - sklog_score)
+    target(diff, label="sklog and culog score difference")
+
+    assert culog_score >= sklog_score - 0.022
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
