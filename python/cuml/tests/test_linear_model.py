@@ -649,11 +649,15 @@ def test_logistic_regression_model_default(dataset):
     assert culog_score >= sklog_score - 0.022
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("order", ["C", "F"])
-@pytest.mark.parametrize("sparse_input", [False, True])
-@pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("penalty", ["none", "l1", "l2"])
+@given(
+    dtype=floating_dtypes(sizes=(32, 64)),
+    order=st.sampled_from(("C", "F")),
+    sparse_input=st.booleans(),
+    fit_intercept=st.booleans(),
+    penalty=st.sampled_from(("none", "l1", "l2")),
+
+)
+@settings(deadline=5000)
 def test_logistic_regression_model_digits(
         dtype, order, sparse_input, fit_intercept, penalty):
 
