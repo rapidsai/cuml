@@ -684,43 +684,45 @@ def test_logistic_regression_decision_function(
     assert array_equal(cu_dec_func, sk_dec_func)
 
 
-@pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
-    (np.float32, 10, 2, True),
-    (np.float64, 100, 10, False),
-    (np.float64, 100, 2, True)
-])
-@pytest.mark.parametrize("column_info", [(20, 10)])
-@pytest.mark.parametrize("sparse_input", [False, True])
+@given(
+    dataset=split_datasets(
+        standard_classification_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+            n_classes=st.sampled_from((2, 10)),
+            n_features=st.just(20),
+            n_informative=st.just(10),
+        )
+    ),
+    fit_intercept=st.booleans(),
+    sparse_input=st.booleans(),
+)
+@settings(deadline=5000)
 def test_logistic_regression_predict_proba(
-    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
-):
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols,
-        n_info=n_info, num_classes=num_classes
-    )
-    X_train = csr_matrix(X_train) if sparse_input else X_train
-    X_test = csr_matrix(X_test) if sparse_input else X_test
+        dataset, fit_intercept, sparse_input):
 
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
+    X_train, X_test, y_train, y_test = dataset
+
+    # Assumption needed to avoid qn.h: logistic loss invalid C error.
+    assume(set(np.unique(y_train)) == set(np.unique(y_test)))
+    num_classes = len(np.unique(y_train))
+
+    if sparse_input:
+        X_train = csr_matrix(X_train)
+        X_test = csr_matrix(X_test)
 
     culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
-    if num_classes > 2:
-        sklog = skLog(
-            fit_intercept=fit_intercept,
-            solver="lbfgs",
-            multi_class="multinomial"
+    sklog = skLog(
+        fit_intercept=fit_intercept,
+        **(
+            {"solver": "lbfgs", "multi_class": "multinomial"}
+            if num_classes > 2
+            else {}
         )
-    else:
-        sklog = skLog(fit_intercept=fit_intercept)
+    )
     sklog.coef_ = culog.coef_
-    if fit_intercept:
-        sklog.intercept_ = culog.intercept_
-    else:
-        skLog.intercept_ = 0
+    sklog.intercept_ = culog.intercept_ if fit_intercept else 0
     sklog.classes_ = np.arange(num_classes)
 
     cu_proba = culog.predict_proba(X_test)
