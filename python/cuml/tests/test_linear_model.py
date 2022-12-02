@@ -683,7 +683,8 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@given(dtype=floating_dtypes(sizes=(32, 64)))
+@settings(deadline=5000)
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
