@@ -591,13 +591,16 @@ def test_logistic_regression(dataset, penalty, l1_ratio, fit_intercept, C,
     assert all(label in all_labels for label in np.unique(cu_preds))
 
 
-@pytest.mark.parametrize("dtype, penalty, l1_ratio", [
-    (np.float32, "none", 1.0),
-    (np.float64, "l2", 0.0),
-    (np.float32, "elasticnet", 1.0),
-    (np.float64, "l1", None),
-])
+@given(
+    dtype=floating_dtypes(sizes=(32, 64)),
+    penalty=st.sampled_from(("none", "l1", "l2", "elasticnet")),
+    l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
+)
+@settings(deadline=5000)
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
+    if penalty == 'elasticnet':
+        assume(l1_ratio is not None)
+
     # Test logistic regression on the breast cancer dataset. We do not scale
     # the dataset which could lead to numerical problems (fixed in PR #2543).
     X, y = load_breast_cancer(return_X_y=True)
@@ -609,11 +612,14 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     culog = cuLog(**params)
     culog.fit(X_train, y_train)
 
-    score_test = 0.94
-    score_train = 0.94
+    score_train = culog.score(X_train, y_train)
+    score_test = culog.score(X_test, y_test)
 
-    assert culog.score(X_train, y_train) >= score_train
-    assert culog.score(X_test, y_test) >= score_test
+    target(1 / score_train, label="inverse train score")
+    target(1 / score_test, label="inverse test score")
+
+    assert score_train >= 0.94
+    assert score_test >= 0.94
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
