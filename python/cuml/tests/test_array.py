@@ -276,7 +276,6 @@ def test_create_empty(shape, dtype, order, mem_type):
         assert isinstance(ary.ptr, int)
         assert ary.shape == normalized_shape(shape)
         assert ary.dtype == np.dtype(dtype)
-        assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
 
 @given(
@@ -319,7 +318,7 @@ def test_create_ones(shape, dtype, order, mem_type):
 def test_create_full(shape, dtype, order, mem_type):
     mem_type = MemoryType.from_str(mem_type)
     with using_memory_type(mem_type):
-        value = mem_type.xpy.array([cp.random.randint(100)]).astype(dtype)
+        value = mem_type.xpy.array([mem_type.xpy.random.randint(100)]).astype(dtype)
         ary = CumlArray.full(value=value[0], shape=shape, dtype=dtype, order=order)
         test = mem_type.xpy.zeros(shape).astype(dtype) + value[0]
         assert mem_type.xpy.all(test == mem_type.xpy.asarray(ary))
@@ -335,7 +334,7 @@ def cudf_compatible_dtypes(dtype):
     output_type=cuml_array_output_types(),
 )
 @settings(deadline=None)
-def test_output(inp, output_type):
+def test_output(inp, input_mem_type, output_type):
 
     # Required assumptions for cudf outputs:
     if output_type in ("cudf", "dataframe", "series"):
@@ -368,13 +367,17 @@ def test_output(inp, output_type):
         if isinstance(res, CudfSeries):
             # A simple equality check `assert cudf.Series(inp).equals(res)`
             # does not work for with multi-dimensional data.
-            assert cudf.Series(np.ravel(inp)).equals(res)
+            assert CudfSeries(np.ravel(inp)).equals(res)
+        elif isinstance(res, PandasSeries):
+            assert PandasSeries(np.ravel(inp)).equals(res)
         elif isinstance(res, CudfDataFrame):
             # Assumption required because of:
             #   https://github.com/rapidsai/cudf/issues/12266
             assume(not np.isnan(res.to_numpy()).any())
 
             assert CudfDataFrame(inp).equals(res)
+        elif isinstance(res, PandasDataFrame):
+            assert PandasDataFrame(inp).equals(res)
         else:
             assert np.array_equal(
                 to_nparray(inp), to_nparray(res), equal_nan=True)
@@ -391,6 +394,7 @@ def test_output(inp, output_type):
 def test_end_to_end_conversion_via_intermediate(inp,
                                                 output_type,
                                                 mem_type):
+    mem_type = MemoryType.from_str(mem_type)
     # This test requires a lot of assumptions in combination with cuDF
     # intermediates.
 
@@ -398,7 +402,7 @@ def test_end_to_end_conversion_via_intermediate(inp,
     assume(
         # Not all dtypes are supported by cuDF.
         not(
-            output_type in ("cudf", "dataframe", "series")
+            output_type in ('cudf', 'pandas', 'dataframe', 'series')
             and inp.dtype in UNSUPPORTED_CUDF_DTYPES
         )
     )
@@ -407,14 +411,13 @@ def test_end_to_end_conversion_via_intermediate(inp,
         not(output_type == "series" and len(inp.shape) > 1)
     )
 
-    # Assumptions required for cuML limitations:
-    # TODO(wphicks): This might no longer be true?
     assume(
         # Cannot convert from DataFrame to CumlArray wihthout explicitly
         # specifying shape, dtype, and order.
         not(
             output_type == "dataframe" or
-            (output_type == "cudf" and len(inp.shape) > 1)
+            (output_type == "cudf" and len(inp.shape) > 1) or 
+            (output_type == "pandas" and len(inp.shape) > 1)
         )
     )
 
@@ -466,28 +469,58 @@ def test_output_dtype(
             res.dtype is out_dtype
 
 
-@given(cuml_array_inputs())
+@given(
+    inp=cuml_array_inputs(),
+    mem_type=cuml_array_mem_types()
+)
 @settings(deadline=None)
-def test_array_interface(inp):
-    ary = CumlArray(inp)
+def test_array_interface(inp, mem_type):
+    mem_type = MemoryType.from_str(mem_type)
+    with using_memory_type(mem_type):
+        ary = CumlArray(inp)
 
-    inp_ai = getattr(
-        inp,
-        '__cuda_array_interface__',
-        inp.__array_interface__
-    )
-    ary_ai = ary._array_interface
+        in_mem_type = determine_array_memtype(inp)
+        if isinstance(inp, PandasSeries):
+            converted_inp = inp.to_numpy()
+        elif isinstance(inp, CudfSeries):
+            converted_inp = cp.asnumpy(inp.to_cupy())
+        else:
+            converted_inp = inp
 
-    # Check CUDA Array Interface equality.
-    assert inp_ai["shape"] == ary_ai["shape"]
-    assert inp_ai["typestr"] == ary_ai["typestr"]
-    assert inp_ai["data"] == ary_ai["data"]
-    assert inp_ai["version"] == ary_ai["version"]  # mismatch
-    # Mismatch for one-dimensional arrays:
-    assert inp_ai["strides"] == ary_ai["strides"]
+        try:
+            inp_ai = converted_inp.__cuda_array_interface__
+        except AttributeError:
+            inp_ai = converted_inp.__array_interface__
 
-    # Check equality
-    assert cp.all(cp.asarray(inp) == cp.asarray(ary))
+        ary_ai = ary._array_interface
+
+        # Check Array Interface equality.
+        assert inp_ai["shape"] == ary_ai["shape"]
+        assert inp_ai["typestr"] == ary_ai["typestr"]
+        if (
+            not isinstance(inp, (PandasSeries, CudfSeries)) and
+            determine_array_memtype(inp) is global_settings.memory_type
+        ):
+            assert inp_ai["data"] == ary_ai["data"]
+        # Mismatch for one-dimensional arrays:
+        if inp_ai.get('strides', None) is not None:
+            assert inp_ai["strides"] == ary_ai["strides"]
+
+        if in_mem_type.is_device_accessible:
+            joint_mem_type = in_mem_type
+        else:
+            joint_mem_type = mem_type
+
+        # Check equality
+        inp_arr = joint_mem_type.xpy.asarray(converted_inp)
+        out_arr = joint_mem_type.xpy.asarray(ary)
+        assert (
+            joint_mem_type.xpy.all(inp_arr == out_arr) or
+            joint_mem_type.xpy.all(
+                joint_mem_type.xpy.isnan(inp_arr) ==
+                joint_mem_type.xpy.isnan(out_arr)
+            )
+        )
 
 
 @given(
@@ -503,20 +536,20 @@ def test_serialize(inp, to_serialize_mem_type, from_serialize_mem_type):
     with using_memory_type(from_serialize_mem_type):
         ary2 = CumlArray.deserialize(header, frames)
 
-    assert pickle.loads(header['type-serialized']) is CumlArray
+        assert pickle.loads(header['type-serialized']) is CumlArray
 
-    _assert_equal(inp, ary2)
+        _assert_equal(inp, ary2)
 
-    assert ary._array_interface['shape'] == \
-        ary2._array_interface['shape']
-    assert ary._array_interface['strides'] == \
-        ary2._array_interface['strides']
-    assert ary._array_interface['typestr'] == \
-        ary2._array_interface['typestr']
-    assert ary2.mem_type is global_settings.memory_type
+        assert ary._array_interface['shape'] == \
+            ary2._array_interface['shape']
+        assert ary._array_interface['strides'] == \
+            ary2._array_interface['strides']
+        assert ary._array_interface['typestr'] == \
+            ary2._array_interface['typestr']
+        assert ary2.mem_type is global_settings.memory_type
 
-    if isinstance(inp, (cudf.Series, pd.Series)):
-        assert ary.order == ary2.order
+        if isinstance(inp, (cudf.Series, pd.Series)):
+            assert ary.order == ary2.order
 
 
 @pytest.mark.parametrize('protocol', [4, 5])
@@ -554,8 +587,16 @@ def test_pickle(
 
     assert ary._array_interface['shape'] == \
         b._array_interface['shape']
-    assert ary._array_interface['strides'] == \
-        b._array_interface['strides']
+    # Restricting the strides check due to
+    # https://github.com/cupy/cupy/issues/5897
+    if not(
+        len(ary.shape) > 1 and (
+            (ary.order == 'C' and ary.shape[0] == 1) or
+            (ary.order == 'F' and ary.shape[-1] == 1)
+        )
+    ):
+        assert ary._array_interface['strides'] == \
+            b._array_interface['strides']
     assert ary._array_interface['typestr'] == \
         b._array_interface['typestr']
     # Check equality
@@ -629,17 +670,19 @@ def test_sliced_array_owner(order, mem_type):
     contiguous, this would create an intermediate object with no references
     that would be cleaned up by GC causing an error when using the memory
     """
+    mem_type = MemoryType.from_str(mem_type)
+    xpy = mem_type.xpy
 
     # Create 2 copies of a random array
-    random_cp = cp.array(cp.random.random((500, 4)),
+    random_arr = xpy.array(xpy.random.random((500, 4)),
                          dtype=np.float32,
                          order=order)
-    cupy_array = cp.array(random_cp, copy=True)
+    arr = xpy.array(random_arr, copy=True)
     with using_memory_type(mem_type):
-        cuml_array = CumlArray(random_cp)
+        cuml_array = CumlArray(random_arr)
 
     # Make sure we have 2 pieces of data
-    assert cupy_array.data.ptr != cuml_array.ptr
+    assert arr.data.ptr != cuml_array.ptr
 
     # Since these are C arrays, slice off the first column to ensure they are
     # non-contiguous
@@ -647,7 +690,7 @@ def test_sliced_array_owner(order, mem_type):
     cupy_slice = cupy_array[1:, 1:]
 
     # Delete the input object just to be sure
-    del random_cp
+    del random_arr
 
     # Make sure to cleanup any objects. Forces deletion of intermediate owner
     # object
@@ -656,4 +699,4 @@ def test_sliced_array_owner(order, mem_type):
     # Calling `to_output` forces use of the pointer. This can fail with a cuda
     # error on `cupy.cuda.runtime.pointerGetAttributes(cuml_slice.ptr)` in CUDA
     # < 11.0 or cudaErrorInvalidDevice in CUDA > 11.0 (unclear why it changed)
-    assert (cp.all(cuml_slice.to_output('cupy') == cupy_slice))
+    assert (xpy.all(cuml_slice.to_output('cupy') == cupy_slice))

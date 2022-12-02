@@ -180,10 +180,13 @@ class CumlArray():
                 self._owner = data
             except AttributeError:  # Must construct array interface
                 if dtype is None:
-                    raise ValueError(
-                        'Must specify dtype when data is passed as a'
-                        ' {}'.format(type(data))
-                    )
+                    try:
+                        dtype = data.dtype
+                    except AttributeError:
+                        raise ValueError(
+                            'Must specify dtype when data is passed as a'
+                            ' {}'.format(type(data))
+                        )
                 if isinstance(data, (CudfBuffer, DeviceBuffer)):
                     self._mem_type = MemoryType.device
                 elif mem_type is None:
