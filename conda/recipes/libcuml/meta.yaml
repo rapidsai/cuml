@@ -54,6 +54,7 @@ requirements:
     - gtest {{ gtest_version }}
     - gmock
     - libfaiss {{ libfaiss_version }} *_cuda
+    - spdlog {{spdlog_version}}
 
 outputs:
   - name: libcuml
