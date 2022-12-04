@@ -136,13 +136,13 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Check GPU usage"
     nvidia-smi
 
-    gpuci_logger "GoogleTest for libcuml"
-    set -x
-    cd $WORKSPACE/cpp/build
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+    # gpuci_logger "GoogleTest for libcuml"
+    # set -x
+    # cd $WORKSPACE/cpp/build
+    # GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
-    export LD_LIBRARY_PATH_CACHED=""
+    # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+    # export LD_LIBRARY_PATH_CACHED=""
 
     set -x
     install_dask
@@ -152,29 +152,29 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=cuml/tests/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=0 --timeout=300 --ignore=cuml/tests/dask --ignore=cuml/raft --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest cuml/tests/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    timeout 7200 sh -c "pytest cuml/tests/dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=0 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
 
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
-    set +e -Eo pipefail
-    EXITCODE=0
-    trap "EXITCODE=1" ERR
+    # set +e -Eo pipefail
+    # EXITCODE=0
+    # trap "EXITCODE=1" ERR
 
-    gpuci_logger "Notebook tests"
-    ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
-    python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
+    # gpuci_logger "Notebook tests"
+    # ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+    # python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
 
     ################################################################################
     # TEST - Run GoogleTest for ml-prims
     ################################################################################
 
-    gpuci_logger "Run ml-prims test"
-    cd $WORKSPACE/cpp/build
-    GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
+    # gpuci_logger "Run ml-prims test"
+    # cd $WORKSPACE/cpp/build
+    # GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
 
     ################################################################################
     # TEST - Run GoogleTest for ml-prims, but with cuda-memcheck enabled
@@ -197,14 +197,14 @@ else
     gpuci_logger "Installing libcuml and libcuml-tests"
     gpuci_mamba_retry install -y -c ${CONDA_ARTIFACT_PATH} libcuml libcuml-tests
 
-    gpuci_logger "Running libcuml test binaries"
-    GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
-    for gt in "$CONDA_PREFIX/bin/gtests/libcuml/"*; do
-        test_name=$(basename $gt)
-        echo "Running gtest $test_name"
-        ${gt} ${GTEST_ARGS}
-        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
-    done
+    # gpuci_logger "Running libcuml test binaries"
+    # GTEST_ARGS="xml:${WORKSPACE}/test-results/libcuml_cpp/"
+    # for gt in "$CONDA_PREFIX/bin/gtests/libcuml/"*; do
+    #     test_name=$(basename $gt)
+    #     echo "Running gtest $test_name"
+    #     ${gt} ${GTEST_ARGS}
+    #     echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    # done
 
     # TODO: Move boa install to gpuci/rapidsai
     gpuci_mamba_retry install boa
@@ -227,34 +227,34 @@ else
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python/cuml/tests
 
-    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=50 --timeout=300 --ignore=dask --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
+    pytest --cache-clear --basetemp=${WORKSPACE}/cuml-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml.xml -v -s -m "not memleak" --durations=0 --timeout=300 --ignore=dask --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-coverage.xml --cov-report term
 
-    timeout 7200 sh -c "pytest dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=50 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
+    timeout 7200 sh -c "pytest dask --cache-clear --basetemp=${WORKSPACE}/cuml-mg-cuda-tmp --junitxml=${WORKSPACE}/junit-cuml-mg.xml -v -s -m 'not memleak' --durations=0 --timeout=300 --cov-config=.coveragerc --cov=cuml --cov-report=xml:${WORKSPACE}/python/cuml/cuml-dask-coverage.xml --cov-report term"
 
     ################################################################################
     # TEST - Run notebook tests
     ################################################################################
 
-    gpuci_logger "Notebook tests"
-    set +e -Eo pipefail
-    EXITCODE=0
-    trap "EXITCODE=1" ERR
+    # gpuci_logger "Notebook tests"
+    # set +e -Eo pipefail
+    # EXITCODE=0
+    # trap "EXITCODE=1" ERR
 
-    ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
-    python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
+    # ${WORKSPACE}/ci/gpu/test-notebooks.sh 2>&1 | tee nbtest.log
+    # python ${WORKSPACE}/ci/utils/nbtestlog2junitxml.py nbtest.log
 
     ################################################################################
     # TEST - Run GoogleTest for ml-prims
     ################################################################################
 
-    gpuci_logger "Run ml-prims test"
-    GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
-    for gt in "$CONDA_PREFIX/bin/gtests/libcuml_prims/"*; do
-        test_name=$(basename $gt)
-        echo "Running gtest $test_name"
-        ${gt} ${GTEST_ARGS}
-        echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
-    done
+    # gpuci_logger "Run ml-prims test"
+    # GTEST_ARGS="xml:${WORKSPACE}/test-results/prims/"
+    # for gt in "$CONDA_PREFIX/bin/gtests/libcuml_prims/"*; do
+    #     test_name=$(basename $gt)
+    #     echo "Running gtest $test_name"
+    #     ${gt} ${GTEST_ARGS}
+    #     echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+    # done
 
 
     ################################################################################
@@ -267,17 +267,17 @@ else
         python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
     fi
 
-    if [ "$(arch)" = "x86_64" ]; then
-        gpuci_logger "Building doxygen C++ docs"
-        #Need to run in standard directory, not our artifact dir
-        unset LIBCUML_BUILD_DIR
-        $WORKSPACE/build.sh cppdocs -v
+    # if [ "$(arch)" = "x86_64" ]; then
+    #     gpuci_logger "Building doxygen C++ docs"
+    #     #Need to run in standard directory, not our artifact dir
+    #     unset LIBCUML_BUILD_DIR
+    #     $WORKSPACE/build.sh cppdocs -v
 
-        if [ "$CUDA_REL" != "11.0" ]; then
-            gpuci_logger "Building python docs"
-            $WORKSPACE/build.sh pydocs
-        fi
-    fi
+    #     if [ "$CUDA_REL" != "11.0" ]; then
+    #         gpuci_logger "Building python docs"
+    #         $WORKSPACE/build.sh pydocs
+    #     fi
+    # fi
 
 fi
 
