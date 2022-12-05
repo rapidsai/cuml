@@ -516,6 +516,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         return self.condensed_tree_obj
 
+    @condensed_tree_.setter
+    def condensed_tree_(self, new_val):
+        self.condensed_tree_obj = new_val
+
     @property
     def single_linkage_tree_(self):
 
@@ -535,11 +539,19 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         return self.single_linkage_tree_obj
 
+    @single_linkage_tree_.setter
+    def single_linkage_tree_(self, new_val):
+        self.single_linkage_tree_obj = new_val
+
     @property
     def prediction_data_(self):
         if not self.fit_called_:
             raise ValueError(
                 'The model is not trained yet (call fit() first).')
+
+        if not self.prediction_data_:
+            raise ValueError(
+                'Train model with fit(prediction_data=True).')
 
         if self.prediction_data_obj is None:
             if has_hdbscan_prediction():
@@ -568,6 +580,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                             metric=self.metric)
 
         return self.prediction_data_obj
+
+    @prediction_data_.setter
+    def prediction_data_(self, new_val):
+        self.prediction_data_obj = new_val
 
     def build_minimum_spanning_tree(self, X):
 
@@ -666,8 +682,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
-        # if self.prediction_data:
-        self.X_m = X_m
+        if self.prediction_data:
+            self.X_m = X_m
         self.n_rows = n_rows
         self.n_cols = n_cols
 
