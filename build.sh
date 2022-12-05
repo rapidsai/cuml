@@ -120,6 +120,9 @@ if hasArg clean; then
     CLEAN=1
 fi
 
+if hasArg cpp-mgtests; then
+    BUILD_CUML_MG_TESTS=ON
+fi
 
 # Long arguments
 LONG_ARGUMENT_LIST=(

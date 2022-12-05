@@ -15,9 +15,10 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/cluster/specializations.cuh>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>
@@ -64,7 +65,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.n_clusters          = testparams.n_clusters;
     params.tol                 = testparams.tol;
     params.n_init              = 5;
-    params.seed                = 1;
+    params.rng_state.seed      = 1;
     params.oversampling_factor = 0;
 
     auto stream = handle.get_stream();

@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 
-#include <cub/device/device_scan.cuh>
+#include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/functional.h>
@@ -34,6 +34,10 @@
 namespace ML {
 namespace TimeSeries {
 
+struct BoolToIntFunctor {
+  HDI int operator()(const bool& a) const { return static_cast<int>(a); }
+};
+
 /**
  * Helper to compute the cumulative sum of a boolean mask
  *
@@ -44,22 +48,19 @@ namespace TimeSeries {
  */
 void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size, cudaStream_t stream)
 {
+  BoolToIntFunctor conversion_op;
+  cub::TransformInputIterator<int, BoolToIntFunctor, const bool*> itr(mask, conversion_op);
+
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
-  cub::DeviceScan::InclusiveSum(
-    NULL, temp_storage_bytes, reinterpret_cast<const char*>(mask), cumul, mask_size, stream);
+  cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, itr, cumul, mask_size, stream);
 
   // Allocate temporary storage
   rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute the scan
-  cub::DeviceScan::InclusiveSum(d_temp_storage,
-                                temp_storage_bytes,
-                                reinterpret_cast<const char*>(mask),
-                                cumul,
-                                mask_size,
-                                stream);
+  cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, itr, cumul, mask_size, stream);
 }
 
 /**

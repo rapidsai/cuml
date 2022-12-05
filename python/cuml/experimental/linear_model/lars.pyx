@@ -84,7 +84,7 @@ class Lars(Base, RegressorMixin):
             for j=0..n_{col}-1
 
     Parameters
-    -----------
+    ----------
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
@@ -97,7 +97,7 @@ class Lars(Base, RegressorMixin):
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
     fit_path : boolean (default = True)
-        Whether to return all the coefficients along the reularization path
+        Whether to return all the coefficients along the regularization path
         in the `coef_path_` attribute.
     precompute : bool, 'auto', or array-like with shape = (n_features, \
             n_features). (default = 'auto')
@@ -124,7 +124,7 @@ class Lars(Base, RegressorMixin):
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     alphas_ : array of floats or doubles, shape = [n_alphas + 1]
         The maximum correlation at each step.
     active_ : array of ints shape = [n_alphas]

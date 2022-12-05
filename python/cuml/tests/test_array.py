@@ -234,7 +234,8 @@ def test_array_init_bad(input_type, dtype, shape, order):
 
     with pytest.raises(AssertionError):
         CumlArray(inp,
-                  order=_strides_to_order(cuml_ary.strides, cuml_ary.dtype))
+                  order=_strides_to_order(cuml_ary.strides, cuml_ary.shape,
+                                          cuml_ary.dtype))
 
     assert cp.all(cp.asarray(inp) == cp.asarray(cuml_ary))
 

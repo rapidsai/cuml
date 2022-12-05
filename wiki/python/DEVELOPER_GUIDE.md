@@ -49,6 +49,8 @@ Examples subject to numerical imprecision, or that can't be reproduced consisten
 ## Testing and Unit Testing
 We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/tests`.
 
+Some tests are run against inputs generated with [hypothesis](https://hypothesis.works/). See the `cuml/testing/strategies.py` module for custom strategies that can be used to test cuml estimators with diverse inputs. For example, use the `regression_datasets()` strategy to test random regression problems.
+
 ## Device and Host memory allocations
 TODO: talk about enabling RMM here when it is ready
 

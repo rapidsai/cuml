@@ -7,25 +7,25 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=11.2
-- cuda-python >=11.5,<11.7.1
-- rapids-build-env=22.12.*
-- rapids-notebook-env=22.12.*
-- rapids-doc-env=22.12.*
+- cuda-python >=11.7.1,<12.0
+- rapids-build-env=23.02.*
+- rapids-notebook-env=23.02.*
+- rapids-doc-env=23.02.*
 - scikit-build>=0.13.1
-- cudf=22.12.*
-- rmm=22.12.*
-- libcumlprims=22.12.*
-- libraft-headers=22.12.*
-- libraft-distance=22.12.*
-- libraft-nn=22.12.*
-- raft-dask=22.12.*
-- pylibraft=22.12.*
-- dask-cudf=22.12.*
-- dask-cuda=22.12.*
+- cudf=23.02.*
+- rmm=23.02.*
+- libcumlprims=23.02.*
+- libraft-headers=23.02.*
+- libraft-distance=23.02.*
+- libraft-nn=23.02.*
+- raft-dask=23.02.*
+- pylibraft=23.02.*
+- dask-cudf=23.02.*
+- dask-cuda=23.02.*
 - dask>=2022.9.2
 - distributed>=2022.9.2
 - ucx>=1.13.0
-- ucx-py=0.29.*
+- ucx-py=0.30.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
@@ -34,7 +34,7 @@ dependencies:
 - umap-learn
 - scikit-learn=0.24
 - sphinx-markdown-tables
-- treelite=3.0.0
+- treelite=3.0.1
 - statsmodels
 - seaborn
 - nltk
