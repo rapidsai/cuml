@@ -22,9 +22,10 @@ from cython.operator cimport dereference as deref
 
 import numpy as np
 import cupy as cp
+from warnings import warn
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.experimental.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 
@@ -35,6 +36,7 @@ from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import logger
 from cuml.common.import_utils import has_hdbscan_plots
+from cuml.common.import_utils import has_hdbscan_prediction
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -163,7 +165,7 @@ def _construct_condensed_tree_attribute(ptr,
 
 def _build_condensed_tree_plot_host(
         parent, child, lambdas, sizes,
-        cluster_selection_epsilon, allow_single_cluster):
+        cluster_selection_method, allow_single_cluster):
     raw_tree = np.recarray(shape=(parent.shape[0],),
                            formats=[np.intp, np.intp, float, np.intp],
                            names=('parent', 'child', 'lambda_val',
@@ -176,7 +178,7 @@ def _build_condensed_tree_plot_host(
     if has_hdbscan_plots():
         from hdbscan.plots import CondensedTree
         return CondensedTree(raw_tree,
-                             cluster_selection_epsilon,
+                             cluster_selection_method,
                              allow_single_cluster)
 
     return None
@@ -430,11 +432,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         Even then in some optimized cases a tree may not be generated.
 
     """
+    sk_import_path_ = 'hdbscan'
 
     labels_ = CumlArrayDescriptor()
     probabilities_ = CumlArrayDescriptor()
     outlier_scores_ = CumlArrayDescriptor()
-    probabilities_ = CumlArrayDescriptor()
 
     # Single Linkage Tree
     children_ = CumlArrayDescriptor()
@@ -510,7 +512,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             self.condensed_tree_obj = _build_condensed_tree_plot_host(
                 self.condensed_parent_, self.condensed_child_,
                 self.condensed_lambdas_, self.condensed_sizes_,
-                self.cluster_selection_epsilon, self.allow_single_cluster)
+                self.cluster_selection_method, self.allow_single_cluster)
 
         return self.condensed_tree_obj
 
@@ -532,6 +534,40 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                 self.single_linkage_tree_obj = SingleLinkageTree(raw_tree)
 
         return self.single_linkage_tree_obj
+
+    @property
+    def prediction_data_(self):
+        if not self.fit_called_:
+            raise ValueError(
+                'The model is not trained yet (call fit() first).')
+
+        if self.prediction_data_obj is None:
+            if has_hdbscan_prediction():
+                from sklearn.neighbors import KDTree, BallTree
+                from hdbscan.prediction import PredictionData
+
+                FAST_METRICS = KDTree.valid_metrics + \
+                    BallTree.valid_metrics + ["cosine", "arccos"]
+
+                if self.metric in FAST_METRICS:
+                    min_samples = self.min_samples or self.min_cluster_size
+                    if self.metric in KDTree.valid_metrics:
+                        tree_type = "kdtree"
+                    elif self.metric in BallTree.valid_metrics:
+                        tree_type = "balltree"
+                    else:
+                        warn("Metric {} not supported"
+                             "for prediction data!".format(self.metric))
+                        return
+                
+                self.prediction_data_obj = PredictionData(
+                                            self.X_m.to_output("numpy"),
+                                            self.condensed_tree_,
+                                            min_samples,
+                                            tree_type=tree_type,
+                                            metric=self.metric)
+
+        return self.prediction_data_obj
 
     def build_minimum_spanning_tree(self, X):
 
@@ -557,7 +593,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         """
 
         if not self.fit_called_:
-            raise AttributeError(
+            raise ValueError(
                 'The model is not trained yet (call fit() first).')
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -630,8 +666,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
-        if self.prediction_data:
-            self.X_m = X_m
+        # if self.prediction_data:
+        self.X_m = X_m
         self.n_rows = n_rows
         self.n_cols = n_cols
 
@@ -807,3 +843,14 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "gen_min_span_tree",
             "prediction_data"
         ]
+
+    def get_attributes_names(self):
+        attr_names = ['labels_', 'probabilities_', 'cluster_persistence_',
+                      'condensed_tree_', 'single_linkage_tree_',
+                      'outlier_scores_']
+        if self.gen_min_span_tree_:
+            attr_names = attr_names + ['minimum_spanning_tree_']
+        if self.prediction_data:
+            attr_names = attr_names + ['prediction_data_']
+        
+        return attr_names
