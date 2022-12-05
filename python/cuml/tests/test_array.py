@@ -542,8 +542,16 @@ def test_serialize(inp, to_serialize_mem_type, from_serialize_mem_type):
 
         assert ary._array_interface['shape'] == \
             ary2._array_interface['shape']
-        assert ary._array_interface['strides'] == \
-            ary2._array_interface['strides']
+        # Restricting the strides check due to
+        # https://github.com/cupy/cupy/issues/5897
+        if not(
+            len(ary.shape) > 1 and (
+                (ary.order == 'C' and ary.shape[0] == 1) or
+                (ary.order == 'F' and ary.shape[-1] == 1)
+            )
+        ):
+            assert ary._array_interface['strides'] == \
+                ary2._array_interface['strides']
         assert ary._array_interface['typestr'] == \
             ary2._array_interface['typestr']
         assert ary2.mem_type is global_settings.memory_type
@@ -627,8 +635,16 @@ def test_deepcopy(inp, mem_type):
 
         assert ary._array_interface['shape'] == \
             b._array_interface['shape']
-        assert ary._array_interface['strides'] == \
-            b._array_interface['strides']
+        # Restricting the strides check due to
+        # https://github.com/cupy/cupy/issues/5897
+        if not(
+            len(ary.shape) > 1 and (
+                (ary.order == 'C' and ary.shape[0] == 1) or
+                (ary.order == 'F' and ary.shape[-1] == 1)
+            )
+        ):
+            assert ary._array_interface['strides'] == \
+                b._array_interface['strides']
         assert ary._array_interface['typestr'] == \
             b._array_interface['typestr']
 
@@ -682,12 +698,15 @@ def test_sliced_array_owner(order, mem_type):
         cuml_array = CumlArray(random_arr)
 
     # Make sure we have 2 pieces of data
-    assert arr.data.ptr != cuml_array.ptr
+    if mem_type.is_device_accessible:
+        assert arr.data.ptr != cuml_array.ptr
+    else:
+        assert arr.__array_interface__['data'][0] != cuml_array.ptr
 
     # Since these are C arrays, slice off the first column to ensure they are
     # non-contiguous
     cuml_slice = cuml_array[1:, 1:]
-    cupy_slice = cupy_array[1:, 1:]
+    arr_slice = arr[1:, 1:]
 
     # Delete the input object just to be sure
     del random_arr
@@ -699,4 +718,6 @@ def test_sliced_array_owner(order, mem_type):
     # Calling `to_output` forces use of the pointer. This can fail with a cuda
     # error on `cupy.cuda.runtime.pointerGetAttributes(cuml_slice.ptr)` in CUDA
     # < 11.0 or cudaErrorInvalidDevice in CUDA > 11.0 (unclear why it changed)
-    assert (xpy.all(cuml_slice.to_output('cupy') == cupy_slice))
+    assert (xpy.all(
+        cuml_slice.to_output('array', output_mem_type=mem_type) == arr_slice
+    ))
