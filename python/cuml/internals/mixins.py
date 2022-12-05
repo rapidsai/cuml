@@ -234,10 +234,7 @@ class RegressorMixin:
         """
         from cuml.metrics.regression import r2_score
 
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
+        handle = getattr(self, 'handle', None)
 
         preds = self._predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
@@ -300,10 +297,7 @@ class ClassifierMixin:
         """
         from cuml.metrics.accuracy import accuracy_score
 
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
+        handle = getattr(self, 'handle', None)
 
         preds = self._predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)

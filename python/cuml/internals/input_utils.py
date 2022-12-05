@@ -466,8 +466,7 @@ def input_to_host_array(X,
     Identical to input_to_cuml_array but it returns a host (NumPy array instead
     of CumlArray
     """
-    if not fail_on_null:
-        if isinstance(X, (CudfDataFrame, CudfSeries)):
+    if not fail_on_null and isinstance(X, (CudfDataFrame, CudfSeries)):
             try:
                 X = X.values
             except ValueError:
