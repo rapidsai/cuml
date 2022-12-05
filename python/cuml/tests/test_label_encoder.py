@@ -218,9 +218,11 @@ def test_inverse_transform_cupy_numpy(orig_label, ord_label,
 
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
+
+    reverted = cp.asarray(reverted)
+    expected_reverted = cp.asarray(expected_reverted)
     assert(len(reverted) == len(expected_reverted))
-    assert(len(reverted)
-           == len(reverted[reverted == expected_reverted]))
+    assert(len(reverted) == len(reverted[reverted == expected_reverted]))
     # test if correctly raies ValueError
     with pytest.raises(ValueError, match='y contains previously unseen label'):
         le.inverse_transform(bad_ord_label)
