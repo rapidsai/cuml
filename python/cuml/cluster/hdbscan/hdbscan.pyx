@@ -52,12 +52,20 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         CondensedHierarchy(
             const handle_t &handle, size_t n_leaves)
 
+        CondensedHierarchy(const handle_t& handle_,
+                           size_t n_leaves_,
+                           int n_edges_,
+                           value_idx* parents_,
+                           value_idx* children_,
+                           value_t* lambdas_,
+                           value_idx* sizes_);
+
         value_idx *get_parents()
         value_idx *get_children()
         value_t *get_lambdas()
         value_idx *get_sizes()
         value_idx get_n_edges()
-
+ 
     cdef cppclass hdbscan_output[int, float]:
         hdbscan_output(const handle_t &handle,
                        int n_leaves,
@@ -130,6 +138,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            CLUSTER_SELECTION_METHOD cluster_selection_method,
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
+
+    void _compute_core_dists(const handle_t& handle,
+                            const float* X,
+                            float* core_dists,
+                            size_t m,
+                            size_t n,
+                            DistanceType metric,
+                            int min_samples)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -504,6 +520,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.gen_min_span_tree_ = gen_min_span_tree
 
+        self._cpu_to_gpu_interop_prepped = False
+
     @property
     def condensed_tree_(self):
 
@@ -549,9 +567,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError(
                 'The model is not trained yet (call fit() first).')
 
-        if not self.prediction_data_:
-            raise ValueError(
-                'Train model with fit(prediction_data=True).')
+        #if not self.prediction_data:
+        #    raise ValueError(
+        #       'Train model with fit(prediction_data=True).')
 
         if self.prediction_data_obj is None:
             if has_hdbscan_prediction():
@@ -682,8 +700,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
-        if self.prediction_data:
-            self.X_m = X_m
+        #if self.prediction_data:
+        self.X_m = X_m
         self.n_rows = n_rows
         self.n_cols = n_cols
 
@@ -843,6 +861,66 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                           <bool> self.allow_single_cluster,
                           <int> self.max_cluster_size,
                           <float> self.cluster_selection_epsilon)
+
+    def _prep_cpu_to_gpu_prediction(self, X, convert_dtype=True):
+        """
+        This is an internal function, to be called when HDBSCAN
+        is trained on CPU but GPU inference is desired.
+        """
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        X_m, n_rows, n_cols, dtype = \
+            input_to_cuml_array(X, order='C',
+                                check_dtype=[np.float32],
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
+
+        self.condensed_parent_, n_edges, _, _ = \
+            input_to_cuml_array(self.condensed_tree_.to_numpy()['parent'],
+                                order='C',
+                                convert_to_dtype=np.int32)
+
+        self.condensed_child_, _, _, _ = \
+            input_to_cuml_array(self.condensed_tree_.to_numpy()['child'],
+                                order='C',
+                                convert_to_dtype=np.int32)
+
+        self.condensed_lambdas_, _, _, _ = \
+            input_to_cuml_array(self.condensed_tree_.to_numpy()['lambda_val'],
+                                order='C',
+                                convert_to_dtype=np.float32)
+
+        self.condensed_sizes_, _, _, _ = \
+            input_to_cuml_array(self.condensed_tree_.to_numpy()['child_size'],
+                                order='C',
+                                convert_to_dtype=np.int32)
+
+        cdef uintptr_t parent_ptr = self.condensed_parent_.ptr
+        cdef uintptr_t child_ptr = self.condensed_child_.ptr
+        cdef uintptr_t lambdas_ptr = self.condensed_lambdas_.ptr
+        cdef uintptr_t sizes_ptr = self.condensed_sizes_.ptr
+
+        cdef CondensedHierarchy[int, float] *condensed_tree = \
+            new CondensedHierarchy[int, float](
+                handle_[0], <size_t>n_rows, <int>n_edges, <int*> parent_ptr, <int*> child_ptr, <float*> lambdas_ptr, <int*> sizes_ptr)
+
+        self.condensed_tree_ptr = <size_t> condensed_tree
+
+        self.core_dists = CumlArray.empty(n_rows, dtype="float32")
+        metric = _metrics_mapping[self.metric]
+
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t core_dists_ptr = self.core_dists.ptr
+
+        _compute_core_dists(handle_[0], 
+                            <float*> X_ptr,
+                            <float*> core_dists_ptr,
+                            <size_t> n_rows,
+                            <size_t> n_cols,
+                            <DistanceType> metric,
+                            <int> self.min_samples
+                            )
 
     def get_param_names(self):
         return super().get_param_names() + [

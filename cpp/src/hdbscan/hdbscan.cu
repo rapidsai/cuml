@@ -126,4 +126,15 @@ void out_of_sample_predict(const raft::handle_t& handle,
                                                 out_labels,
                                                 out_probabilities);
 }
+
+void _compute_core_dists(const raft::handle_t& handle,
+  const float* X,
+  float* core_dists,
+  size_t m,
+  size_t n,
+  raft::distance::DistanceType metric,
+  int min_samples) {
+    HDBSCAN::detail::Reachability::_compute_core_dists<int, float>(handle, X, core_dists, m, n, metric, min_samples);
+}
+
 };  // end namespace ML

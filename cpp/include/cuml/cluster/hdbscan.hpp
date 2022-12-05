@@ -486,4 +486,12 @@ void out_of_sample_predict(const raft::handle_t& handle,
                            int min_samples,
                            int* out_labels,
                            float* out_probabilities);
+
+void _compute_core_dists(const raft::handle_t& handle,
+  const float* X,
+  float* core_dists,
+  size_t m,
+  size_t n,
+  raft::distance::DistanceType metric,
+  int min_samples);
 }  // END namespace ML
