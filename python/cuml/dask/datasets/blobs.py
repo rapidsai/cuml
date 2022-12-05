@@ -47,7 +47,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), shuffle=True,
                random_state=None, return_centers=False,
                verbose=False, order='F', dtype='float32',
-               client=None):
+               workers=None, client=None):
     """
     Makes labeled Dask-Cupy arrays containing blobs
     for a randomly generated set of centroids.
@@ -89,6 +89,9 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         The order of the generated samples
     dtype : str, optional (default='float32')
         Dtype of the generated samples
+    workers : optional, list of strings
+        Dask addresses of workers to use for computation.
+        If None, all available Dask workers will be used.
     client : dask.distributed.Client (optional)
              Dask client to use
 
@@ -108,7 +111,8 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     generator = _create_rs_generator(random_state=random_state)
 
-    workers = list(client.scheduler_info()['workers'].keys())
+    if workers is None:
+        workers = list(client.scheduler_info()['workers'].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
