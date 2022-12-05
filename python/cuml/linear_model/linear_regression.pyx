@@ -114,9 +114,9 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
         X_arr = sample_weight[:, None] * X_arr
         y_arr = sample_weight[:, None] * y_arr
 
-    u, s, vh = X.xpy.linalg.svd(X_arr, full_matrices=False)
+    u, s, vh = X.mem_type.xpy.linalg.svd(X_arr, full_matrices=False)
 
-    params = vh.T @ divide_non_zero(u.T @ y, s[:, None])
+    params = vh.T @ divide_non_zero(u.T @ y_arr, s[:, None])
 
     coef = params[:-1] if fit_intercept else params
     intercept = params[-1] if fit_intercept else None
