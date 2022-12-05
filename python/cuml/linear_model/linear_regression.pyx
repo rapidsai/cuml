@@ -121,7 +121,10 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     coef = params[:-1] if fit_intercept else params
     intercept = params[-1] if fit_intercept else None
 
-    return CumlArray.from_input(coef), CumlArray.from_input(intercept)
+    return (
+        CumlArray.from_input(coef),
+        None if intercept is None else CumlArray.from_input(intercept)
+    )
 
 
 class LinearRegression(LinearPredictMixin,

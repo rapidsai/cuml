@@ -81,7 +81,7 @@ class LinearPredictMixin:
                 X,
                 check_dtype=self.dtype,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols
+                check_cols=self.n_features_in_
             ).array
             intercept_cp = input_to_cupy_array(self.intercept_).array
             preds_cp = X_cp @ coef_cp + intercept_cp
