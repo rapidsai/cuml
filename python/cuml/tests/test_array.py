@@ -676,6 +676,7 @@ def test_cumlary_binops(operation, a, mem_type):
 @given(
     mem_type=cuml_array_mem_types()
 )
+@settings(deadline=None)
 def test_sliced_array_owner(order, mem_type):
     """
     When slicing a CumlArray, a new object can be created created which
