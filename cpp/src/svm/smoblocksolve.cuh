@@ -182,16 +182,17 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
   __shared__ int k_col_idx_map[WSIZE];
   __shared__ int64_t k_col_idx_u, k_col_idx_l;
 
-  int tid        = threadIdx.x;
-  int idx        = ws_idx[tid];
-  int64_t n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
+  int tid = threadIdx.x;
+  int idx = ws_idx[tid];
+  // printf("Thread %d runs idx %d\n", tid, idx);
+  int64_t n_rows = n_train;  //(svmType == EPSILON_SVR) ? n_train / 2 : n_train;
 
   // Consult KernelCache::GetTile for the layout of the kernel matrix
   // kernel matrix row and columns indices for workspace vector ws_idx[tid]
   // k_row_idx \in [0..n_rows-1]
-  int64_t k_row_idx = (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
+  int64_t k_row_idx = tid;  //(svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
   // k_col_idx \in [0..n_unique-1]
-  int64_t k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
+  int64_t k_col_idx = tid;  //(svmType == C_SVC) ? tid : kColIdx[tid];
 
   k_col_idx_map[tid] = k_col_idx;
 
@@ -205,7 +206,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 
-  Kd[tid]    = kernel[k_row_idx + k_col_idx * n_rows];
+  Kd[tid]    = kernel[k_row_idx + k_col_idx * n_ws];
   int n_iter = 0;
 
   for (; n_iter < max_iter; n_iter++) {
@@ -222,7 +223,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
     __syncthreads();  // needed because we are reusing the shared memory buffer
                       // and also the k_col_idx_u shared value
-    math_t Kui   = kernel[k_col_idx_u * n_rows + k_row_idx];
+    math_t Kui   = kernel[k_col_idx_u * n_ws + k_row_idx];
     math_t f_max = BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
 
     if (tid == 0) {
@@ -249,7 +250,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
       k_col_idx_l = k_col_idx_map[l];
     }
     __syncthreads();
-    math_t Kli = kernel[k_col_idx_l * n_rows + k_row_idx];
+    math_t Kli = kernel[k_col_idx_l * n_ws + k_row_idx];
 
     // Update alpha
     // Let's set q = \frac{f_l - f_u}{\eta_{ul}

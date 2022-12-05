@@ -21,9 +21,11 @@
 #include <math.h>
 #include <memory>
 
+#include "sparse_util.cuh"
 #include "ws_util.cuh"
 #include <cub/device/device_select.cuh>
 #include <raft/core/handle.hpp>
+#include <cuml/matrix/cumlmatrix.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
@@ -52,25 +54,23 @@ class Results {
    * fitted using SMO.
    *
    * @param handle cuML handle implementation
-   * @param x training vectors in column major format, size [n_rows x n_cols]
+   * @param matrix training vectors in matrix format (MLCommon::Matrix::Matrix)
    * @param y target labels (values +/-1), size [n_train]
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
    */
   Results(const raft::handle_t& handle,
-          const math_t* x,
+          MLCommon::Matrix::Matrix<math_t>* matrix,
           const math_t* y,
-          int n_rows,
-          int n_cols,
           const math_t* C,
           SvmType svmType)
     : rmm_alloc(rmm::mr::get_current_device_resource()),
       stream(handle.get_stream()),
       handle(handle),
-      n_rows(n_rows),
-      n_cols(n_cols),
-      x(x),
+      n_rows(matrix->numRows()),
+      n_cols(matrix->numCols()),
+      matrix(matrix),
       y(y),
       C(C),
       svmType(svmType),
@@ -82,8 +82,43 @@ class Results {
       idx_selected(n_train, stream),
       val_selected(n_train, stream),
       val_tmp(n_train, stream),
-      flag(n_train, stream)
+      flag(n_train, stream),
+      release_tmp_matrix(false)
   {
+    InitCubBuffers();
+    raft::linalg::range(f_idx.data(), n_train, stream);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+
+  // legacy ctor
+  Results(const raft::handle_t& handle,
+          math_t* x,
+          const math_t* y,
+          int n_rows,
+          int n_cols,
+          const math_t* C,
+          SvmType svmType)
+    : rmm_alloc(rmm::mr::get_current_device_resource()),
+      stream(handle.get_stream()),
+      handle(handle),
+      n_rows(n_rows),
+      n_cols(n_cols),
+      y(y),
+      C(C),
+      svmType(svmType),
+      n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
+      cub_storage(0, stream),
+      d_num_selected(stream),
+      d_val_reduced(stream),
+      f_idx(n_train, stream),
+      idx_selected(n_train, stream),
+      val_selected(n_train, stream),
+      val_tmp(n_train, stream),
+      flag(n_train, stream),
+      release_tmp_matrix(true)
+  {
+    matrix = new MLCommon::Matrix::DenseMatrix<math_t>(x, n_rows, n_cols);
+
     InitCubBuffers();
     raft::linalg::range(f_idx.data(), n_train, stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -142,8 +177,31 @@ class Results {
   {
     math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support, stream);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    switch (matrix->getType()) {
+      case MLCommon::Matrix::MatrixType::CSR: {
+        MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
+          dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+        ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
+                                               csr_matrix->indices,
+                                               csr_matrix->data,
+                                               n_rows,
+                                               n_cols,
+                                               x_support,
+                                               idx,
+                                               n_support,
+                                               stream);
+        break;
+      }
+      case MLCommon::Matrix::MatrixType::DENSE: {
+        MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
+          dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
+        raft::matrix::copyRows(
+          dense_matrix->data, n_rows, n_cols, x_support, idx, n_support, stream);
+        break;
+      }
+      default: THROW("Solve not implemented for matrix type %d", matrix->getType());
+    }
+
     return x_support;
   }
 
@@ -279,31 +337,35 @@ class Results {
 
   rmm::mr::device_memory_resource* rmm_alloc;
 
+  ~Results()
+  {
+    if (release_tmp_matrix) delete matrix;
+  }
+
  private:
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;       //!< number of rows in the training vector matrix
-  int n_cols;       //!< number of features
-  const math_t* x;  //!< training vectors
-  const math_t* y;  //!< labels
-  const math_t* C;  //!< penalty parameter
-  SvmType svmType;  //!< SVM problem type: SVC or SVR
-  int n_train;      //!< number of training vectors (including duplicates for SVR)
-
+  int n_rows;                                //!< number of rows in the training vector matrix
+  int n_cols;                                //!< number of features
+  MLCommon::Matrix::Matrix<math_t>* matrix;  //!< training vector matrix
+  const math_t* y;                           //!< labels
+  const math_t* C;                           //!< penalty parameter
+  SvmType svmType;                           //!< SVM problem type: SVC or SVR
+  int n_train;          //!< number of training vectors (including duplicates for SVR)
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
   rmm::device_scalar<int> d_num_selected;
   rmm::device_scalar<math_t> d_val_reduced;
   rmm::device_uvector<char> cub_storage;
   size_t cub_bytes = 0;
-
   // Helper arrays for collecting the results
   rmm::device_uvector<int> f_idx;
   rmm::device_uvector<int> idx_selected;
   rmm::device_uvector<math_t> val_selected;
   rmm::device_uvector<math_t> val_tmp;
   rmm::device_uvector<bool> flag;
+  bool release_tmp_matrix;  //!< matrix object is tmp and needs to be released
 
   /* Allocate cub temporary buffers for GetResults
    */

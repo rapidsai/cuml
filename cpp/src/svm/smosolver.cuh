@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/matrix/cumlmatrix.hpp>
 
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -34,6 +35,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/sequence.h>
 #include <type_traits>
 
 #include "kernelcache.cuh"
@@ -47,14 +49,14 @@
 #include <raft/linalg/unary_op.cuh>
 
 #include "results.cuh"
-#include<cassert>
-#include <string>
+#include <cassert>
 #include <sstream>
+#include <string>
 
-#include <thrust/device_ptr.h>
-#include <thrust/copy.h>
-#include <cstdlib>
 #include <chrono>
+#include <cstdlib>
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
 
 namespace ML {
 namespace SVM {
@@ -109,20 +111,23 @@ class SmoSolver {
     ML::Logger::get().setLevel(param.verbosity);
   }
 
-
-  void GetNonzeroDeltaAlpha(const math_t *vec, int n_ws, const int *idx,
-                            math_t *nz_vec, int *n_nz, int *nz_idx, cudaStream_t stream) {
-    thrust::device_ptr<math_t> vec_ptr(const_cast<math_t *>(vec));
+  void GetNonzeroDeltaAlpha(const math_t* vec,
+                            int n_ws,
+                            const int* idx,
+                            math_t* nz_vec,
+                            int* n_nz,
+                            int* nz_idx,
+                            cudaStream_t stream)
+  {
+    thrust::device_ptr<math_t> vec_ptr(const_cast<math_t*>(vec));
     thrust::device_ptr<math_t> nz_vec_ptr(nz_vec);
-    thrust::device_ptr<int> idx_ptr(const_cast<int *>(idx));
+    thrust::device_ptr<int> idx_ptr(const_cast<int*>(idx));
     thrust::device_ptr<int> nz_idx_ptr(nz_idx);
-    auto nonzero = [] __device__(math_t a) { return a != 0; };
-    thrust::device_ptr<int> nz_end =
-      thrust::copy_if(thrust::cuda::par.on(stream), idx_ptr, idx_ptr + n_ws,
-                      vec_ptr, nz_idx_ptr, nonzero);
+    auto nonzero                   = [] __device__(math_t a) { return a != 0; };
+    thrust::device_ptr<int> nz_end = thrust::copy_if(
+      thrust::cuda::par.on(stream), idx_ptr, idx_ptr + n_ws, vec_ptr, nz_idx_ptr, nonzero);
     *n_nz = nz_end - nz_idx_ptr;
-    thrust::copy_if(thrust::cuda::par.on(stream), vec_ptr, vec_ptr + n_ws,
-                    nz_vec_ptr, nonzero);
+    thrust::copy_if(thrust::cuda::par.on(stream), vec_ptr, vec_ptr + n_ws, nz_vec_ptr, nonzero);
   }
 #define SMO_WS_SIZE 1024
   /**
@@ -131,7 +136,8 @@ class SmoSolver {
    * The output arrays (dual_coefs, x_support, idx) will be allocated on the
    * device, they should be unallocated on entry.
    *
-   * @param [in] x training vectors in column major format, size [n_rows x n_cols]
+   * @param [in] matrix training vectors in matrix format(MLCommon::Matrix::Matrix), size [n_rows x
+   * n_cols]
    * @param [in] n_rows number of rows (training vectors)
    * @param [in] n_cols number of columns (features)
    * @param [in] y labels (values +/-1), size [n_rows]
@@ -145,7 +151,7 @@ class SmoSolver {
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
-  void Solve(math_t* x,
+  void Solve(MLCommon::Matrix::Matrix<math_t>* matrix,
              int n_rows,
              int n_cols,
              math_t* y,
@@ -185,14 +191,39 @@ class SmoSolver {
       raft::common::nvtx::push_range("SmoSolver::ws_select");
       ws.Select(f.data(), alpha.data(), y, C_vec.data());
       raft::common::nvtx::pop_range();
-
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
       raft::common::nvtx::push_range("SmoSolver::Kernel");
       // math_t* cacheTile = cache.GetTile(ws.GetIndices());
-      raft::matrix::copyRows<math_t, int, size_t>(
-      x, n_rows, n_cols, x_ws.data(), ws.GetIndices(), n_ws, stream, false);
+
+      switch (matrix->getType()) {
+        case MLCommon::Matrix::MatrixType::CSR: {
+          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
+            dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+          ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
+                                                 csr_matrix->indices,
+                                                 csr_matrix->data,
+                                                 n_rows,
+                                                 n_cols,
+                                                 x_ws.data(),
+                                                 ws.GetIndices(),
+                                                 n_ws,
+                                                 stream);
+          break;
+        }
+        case MLCommon::Matrix::MatrixType::DENSE: {
+          MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
+            dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
+          raft::matrix::copyRows<math_t, int, size_t>(
+            dense_matrix->data, n_rows, n_cols, x_ws.data(), ws.GetIndices(), n_ws, stream, false);
+          RAFT_CUDA_TRY(cudaPeekAtLastError());
+          break;
+        }
+        default: THROW("Solve not implemented for matrix type %d", matrix->getType());
+      }
 
       (*kernel)(x_ws.data(), n_ws, n_cols, x_ws.data(), n_ws, kernel_tile.data(), false, stream);
-            cudaDeviceSynchronize();
+      cudaDeviceSynchronize();
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
       raft::common::nvtx::pop_range();
       raft::common::nvtx::push_range("SmoSolver::SmoBlockSolve");
       SmoBlockSolve<math_t, SMO_WS_SIZE><<<1, n_ws, 0, stream>>>(y,
@@ -217,15 +248,136 @@ class SmoSolver {
 
       raft::common::nvtx::push_range("SmoSolver::UpdateF");
       int nnz_da;
-      GetNonzeroDeltaAlpha(delta_alpha.data(), n_ws, ws.GetIndices(),
-                           nz_da.data(), &nnz_da, nz_da_idx.data(), stream);
-      // The following should be performed only for elements with nonzero delta_alpha 
+      GetNonzeroDeltaAlpha(
+        delta_alpha.data(), n_ws, ws.GetIndices(), nz_da.data(), &nnz_da, nz_da_idx.data(), stream);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+      // The following should be performed only for elements with nonzero delta_alpha
       if (nnz_da > 0) {
-        //std::cout<<"Calc kernel matrix elements for nonzero delta_alpha " << nnz_da << std::endl;
-          raft::matrix::copyRows<math_t, int, size_t>(
-            x, n_rows, n_cols, x_ws2.data(), nz_da_idx.data(), nnz_da, stream, false);
-          (*kernel)(x, n_rows, n_cols, x_ws2.data(), nnz_da, kernel_tile_big.data(), false, stream);
-          UpdateF(f.data(), n_rows, nz_da.data(), nnz_da, kernel_tile_big.data());
+        switch (matrix->getType()) {
+          case MLCommon::Matrix::MatrixType::CSR: {
+            MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
+              dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+            ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
+                                                   csr_matrix->indices,
+                                                   csr_matrix->data,
+                                                   n_rows,
+                                                   n_cols,
+                                                   x_ws2.data(),
+                                                   nz_da_idx.data(),
+                                                   nnz_da,
+                                                   stream);
+
+            // for now just extract rows to *dense* rows
+            // we need to batch over n_rows in order to fit data in n_ws-sized batches
+            for (int offset = 0; offset < n_rows; offset += n_ws) {
+              int batch_size = std::min(n_ws, n_rows - offset);
+              // extract rows [offset, offset + batch_size) into x_ws
+              thrust::device_ptr<int> batch_idx_ptr(nz_da_idx.data());
+              thrust::sequence(
+                thrust::cuda::par.on(stream), batch_idx_ptr, batch_idx_ptr + batch_size, offset);
+              ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
+                                                     csr_matrix->indices,
+                                                     csr_matrix->data,
+                                                     n_rows,
+                                                     n_cols,
+                                                     x_ws.data(),
+                                                     nz_da_idx.data(),
+                                                     batch_size,
+                                                     stream);
+
+              // compute batch kernel of  (batch_size x n_cols) x (n_cols x nnz_da) --> (batch_size
+              // x nnz_da)
+              (*kernel)(x_ws.data(),
+                        batch_size,
+                        n_cols,
+                        x_ws2.data(),
+                        nnz_da,
+                        kernel_tile.data(),
+                        false,
+                        stream);
+              RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+              // do partial update
+              UpdateF(f.data() + offset, batch_size, nz_da.data(), nnz_da, kernel_tile.data());
+              RAFT_CUDA_TRY(cudaPeekAtLastError());
+            }
+            break;
+          }
+          case MLCommon::Matrix::MatrixType::DENSE: {
+            MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
+              dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
+            bool batching_enabled = true;
+            if (batching_enabled) {
+              raft::matrix::copyRows<math_t, int, size_t>(dense_matrix->data,
+                                                          n_rows,
+                                                          n_cols,
+                                                          x_ws2.data(),
+                                                          nz_da_idx.data(),
+                                                          nnz_da,
+                                                          stream,
+                                                          false);
+
+              // for now just extract rows to *dense* rows
+              // we need to batch over n_rows in order to fit data in n_ws-sized batches
+              for (int offset = 0; offset < n_rows; offset += n_ws) {
+                int batch_size = std::min(n_ws, n_rows - offset);
+                // extract rows [offset, offset + batch_size) into x_ws
+                thrust::device_ptr<int> batch_idx_ptr(nz_da_idx.data());
+                thrust::sequence(
+                  thrust::cuda::par.on(stream), batch_idx_ptr, batch_idx_ptr + batch_size, offset);
+                raft::matrix::copyRows<math_t, int, size_t>(dense_matrix->data,
+                                                            n_rows,
+                                                            n_cols,
+                                                            x_ws.data(),
+                                                            nz_da_idx.data(),
+                                                            batch_size,
+                                                            stream,
+                                                            false);
+
+                // compute batch kernel of  (batch_size x n_cols) x (n_cols x nnz_da) -->
+                // (batch_size x nnz_da)
+                (*kernel)(x_ws.data(),
+                          batch_size,
+                          n_cols,
+                          x_ws2.data(),
+                          nnz_da,
+                          kernel_tile.data(),
+                          false,
+                          stream);
+                RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+                // do partial update
+                UpdateF(f.data() + offset, batch_size, nz_da.data(), nnz_da, kernel_tile.data());
+                RAFT_CUDA_TRY(cudaPeekAtLastError());
+              }
+            } else {
+              // std::cout<<"Calc kernel matrix elements for nonzero delta_alpha " << nnz_da <<
+              // std::endl;
+              raft::matrix::copyRows<math_t, int, size_t>(dense_matrix->data,
+                                                          n_rows,
+                                                          n_cols,
+                                                          x_ws2.data(),
+                                                          nz_da_idx.data(),
+                                                          nnz_da,
+                                                          stream,
+                                                          false);
+              RAFT_CUDA_TRY(cudaPeekAtLastError());
+              (*kernel)(dense_matrix->data,
+                        n_rows,
+                        n_cols,
+                        x_ws2.data(),
+                        nnz_da,
+                        kernel_tile_big.data(),
+                        false,
+                        stream);
+              RAFT_CUDA_TRY(cudaPeekAtLastError());
+              UpdateF(f.data(), n_rows, nz_da.data(), nnz_da, kernel_tile_big.data());
+              RAFT_CUDA_TRY(cudaPeekAtLastError());
+            }
+            break;
+          }
+          default: THROW("Solve not implemented for matrix type %d", matrix->getType());
+        }
       }
       cudaDeviceSynchronize();
       raft::common::nvtx::pop_range();
@@ -246,9 +398,40 @@ class SmoSolver {
       n_iter,
       n_inner_iter,
       diff_prev);
-    Results<math_t> res(handle, x, y, n_rows, n_cols, C_vec.data(), svmType);
+
+    Results<math_t> res(handle, matrix, y, C_vec.data(), svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
+
     ReleaseBuffers();
+  }
+
+  // TODO remove layer once matrix object can be passed from python
+  void Solve(math_t* x,
+             int n_rows,
+             int n_cols,
+             math_t* y,
+             const math_t* sample_weight,
+             math_t** dual_coefs,
+             int* n_support,
+             math_t** x_support,
+             int** idx,
+             math_t* b,
+             int max_outer_iter = -1,
+             int max_inner_iter = 10000)
+  {
+    MLCommon::Matrix::DenseMatrix dense_matrix(x, n_rows, n_cols);
+    Solve(&dense_matrix,
+          n_rows,
+          n_cols,
+          y,
+          sample_weight,
+          dual_coefs,
+          n_support,
+          x_support,
+          idx,
+          b,
+          max_outer_iter,
+          max_inner_iter);
   }
 
   /**

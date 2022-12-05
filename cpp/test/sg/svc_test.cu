@@ -1527,6 +1527,6 @@ TYPED_TEST_CASE(SvrTest, FloatTypes);
 TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
 TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
 TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
-//TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
+// TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
 };  // namespace SVM
 };  // namespace ML
