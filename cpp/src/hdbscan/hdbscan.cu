@@ -128,13 +128,33 @@ void out_of_sample_predict(const raft::handle_t& handle,
 }
 
 void _compute_core_dists(const raft::handle_t& handle,
-  const float* X,
-  float* core_dists,
-  size_t m,
-  size_t n,
-  raft::distance::DistanceType metric,
-  int min_samples) {
-    HDBSCAN::detail::Reachability::_compute_core_dists<int, float>(handle, X, core_dists, m, n, metric, min_samples);
+                         const float* X,
+                         float* core_dists,
+                         size_t m,
+                         size_t n,
+                         raft::distance::DistanceType metric,
+                         int min_samples)
+{
+  HDBSCAN::detail::Reachability::_compute_core_dists<int, float>(
+    handle, X, core_dists, m, n, metric, min_samples);
 }
 
+void _compute_inverse_label_map(const raft::handle_t& handle,
+                                HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                                size_t n_leaves,
+                                HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                                rmm::device_uvector<int>& inverse_label_map,
+                                bool allow_single_cluster,
+                                int max_cluster_size,
+                                float cluster_selection_epsilon)
+{
+  HDBSCAN::detail::Extract::_compute_inverse_label_map(handle,
+                                                       condensed_tree,
+                                                       n_leaves,
+                                                       cluster_selection_method,
+                                                       inverse_label_map,
+                                                       allow_single_cluster,
+                                                       max_cluster_size,
+                                                       cluster_selection_epsilon);
+}
 };  // end namespace ML

@@ -488,10 +488,20 @@ void out_of_sample_predict(const raft::handle_t& handle,
                            float* out_probabilities);
 
 void _compute_core_dists(const raft::handle_t& handle,
-  const float* X,
-  float* core_dists,
-  size_t m,
-  size_t n,
-  raft::distance::DistanceType metric,
-  int min_samples);
+                         const float* X,
+                         float* core_dists,
+                         size_t m,
+                         size_t n,
+                         raft::distance::DistanceType metric,
+                         int min_samples);
+
+void _compute_inverse_label_map(const raft::handle_t& handle,
+                                HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                                size_t n_leaves,
+                                HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                                rmm::device_uvector<int>& inverse_label_map,
+                                bool allow_single_cluster,
+                                int max_cluster_size,
+                                float cluster_selection_epsilon);
+
 }  // END namespace ML

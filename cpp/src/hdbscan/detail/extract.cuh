@@ -179,6 +179,60 @@ void do_labelling_on_host(const raft::handle_t& handle,
   raft::update_device(labels, result.data(), n_leaves, stream);
 }
 
+/*
+  @brief Internal function compute inverse_label_map for CPU/GPU interop
+*/
+template <typename value_idx, typename value_t>
+void _compute_inverse_label_map(const raft::handle_t& handle,
+                                Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                                size_t n_leaves,
+                                Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                                rmm::device_uvector<value_idx>& inverse_label_map,
+                                bool allow_single_cluster,
+                                value_idx max_cluster_size,
+                                value_t cluster_selection_epsilon)
+{
+  auto stream = handle.get_stream();
+  rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
+                                                handle.get_stream());
+  Stability::compute_stabilities(handle, condensed_tree, tree_stabilities.data());
+  rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());
+
+  if (max_cluster_size <= 0) max_cluster_size = n_leaves;  // negates the max cluster size
+
+  Select::select_clusters(handle,
+                          condensed_tree,
+                          tree_stabilities.data(),
+                          is_cluster.data(),
+                          cluster_selection_method,
+                          allow_single_cluster,
+                          max_cluster_size,
+                          cluster_selection_epsilon);
+
+  std::vector<int> is_cluster_h(is_cluster.size());
+  raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(), stream);
+  handle.sync_stream(stream);
+
+  std::set<value_idx> clusters;
+  for (std::size_t i = 0; i < is_cluster_h.size(); i++) {
+    if (is_cluster_h[i] != 0) { clusters.insert(i + n_leaves); }
+  }
+
+  std::vector<value_idx> inverse_label_map_h(clusters.size(), -1);
+  value_idx i = 0;
+  // creating inverse index between
+  // original and final labels
+  for (const value_idx cluster : clusters) {
+    inverse_label_map_h[i] = cluster - n_leaves;
+    i++;
+  }
+
+  // resizing is to n_clusters
+  inverse_label_map.resize(clusters.size(), stream);
+  raft::copy(
+    inverse_label_map.data(), inverse_label_map_h.data(), inverse_label_map_h.size(), stream);
+}
+
 /**
  * Compute cluster stabilities, perform cluster selection, and
  * label the resulting clusters. In addition, probabilities

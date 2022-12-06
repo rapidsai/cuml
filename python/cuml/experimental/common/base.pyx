@@ -111,9 +111,6 @@ class UniversalBase(Base):
                         else:
                             # transfer all other types of attributes directly
                             self.sk_model_.__dict__[attr] = cu_attr
-                    else:
-                        raise ValueError('Attribute "{}" could not be found in'
-                                         ' the cuML estimator'.format(attr))
 
             # converts all the args
             args = tuple(input_to_host_array(arg)[0] for arg in args)
@@ -130,7 +127,7 @@ class UniversalBase(Base):
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
                 for attribute in self.get_attributes_names():
-                    sk_attr = self.sk_model_.__dict__[attribute]
+                    sk_attr = getattr(self.sk_model_, attribute)
                     # if the sklearn attribute is an array
                     if isinstance(sk_attr, np.ndarray):
                         # transfer array to gpu and set it as a cuml

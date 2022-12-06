@@ -149,15 +149,18 @@ def has_hdbscan_plots(raise_if_unavailable=True):
         else:
             return False
 
+
 def has_hdbscan_prediction(raise_if_unavailable=True):
     try:
         from hdbscan.prediction import PredictionData  # NOQA
         return True
     except ImportError:
         if(raise_if_unavailable):
-            raise ImportError("hdbscan.prediction must be installed to use prediction.")
+            raise ImportError("hdbscan.prediction must be installed "
+                              "to use prediction.")
         else:
             return False
+
 
 def has_shap(min_version="0.37"):
     try:

@@ -22,6 +22,8 @@ from cython.operator cimport dereference as deref
 import numpy as np
 import cupy as cp
 
+import cuml
+from cuml.common.device_selection import DeviceType
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
@@ -34,6 +36,7 @@ from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import logger
 from cuml.common.import_utils import has_hdbscan_plots
+from cuml.common.import_utils import has_hdbscan_prediction
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -131,7 +134,19 @@ def all_points_membership_vectors(clusterer):
         The probability that point ``i`` of the original dataset is a member of
         cluster ``j`` is in ``membership_vectors[i, j]``.
     """
+    device_type = cuml.global_settings.device_type
 
+    # cpu/gpu train, cpu infer
+    if device_type == DeviceType.host:
+        assert has_hdbscan_prediction()
+        return
+
+    # cpu train, prep gpu infer
+    if device_type == DeviceType.device and hasattr(clusterer, "sk_model_"):
+        if not clusterer._cpu_to_gpu_interop_prepped:
+            clusterer._prep_cpu_to_gpu_prediction()
+
+    # gpu infer
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
                          "Please call clusterer.fit first")
@@ -152,15 +167,15 @@ def all_points_membership_vectors(clusterer):
 
     cdef uintptr_t membership_vec_ptr = membership_vec.ptr
 
-    cdef hdbscan_output *hdbscan_output_ = \
-        <hdbscan_output*><size_t>clusterer.hdbscan_output_
-
     cdef PredictionData *prediction_data_ = \
         <PredictionData*><size_t>clusterer.prediction_data_ptr
 
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
     compute_all_points_membership_vectors(handle_[0],
-                                          hdbscan_output_.get_condensed_tree(),
+                                          deref(condensed_tree),
                                           deref(prediction_data_),
                                           <float*> input_ptr,
                                           _metrics_mapping[clusterer.metric],
