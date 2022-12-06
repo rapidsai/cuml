@@ -61,10 +61,6 @@ from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
 
 
-pytestmark = pytest.mark.filterwarnings("ignore: Regressors in active "
-                                        "set degenerate(.*)::sklearn[.*]")
-
-
 def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
     X, y = make_regression(
         **kwargs, n_samples=nrows, n_features=ncols, n_informative=n_info,
