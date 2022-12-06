@@ -311,6 +311,22 @@ def cuml_arrays(
     return CumlArray(data=array_input, mem_type=draw(mem_types))
 
 
+def _get_limits(strategy):
+    """Try to find the strategy's limits.
+
+    Raises AttributeError if limits cannot be determined.
+    """
+    # unwrap if lazy
+    strategy = getattr(strategy, "wrapped_strategy", strategy)
+
+    try:
+        yield getattr(strategy, "value")  # just(...)
+    except AttributeError:
+        # assume numbers strategy
+        yield strategy.start
+        yield strategy.stop
+
+
 @composite
 def standard_datasets(
     draw,
@@ -566,9 +582,38 @@ def standard_classification_datasets(
 ):
     n_features_ = draw(n_features)
     if n_informative is None:
-        n_informative = just(max(min(n_features_, 1), int(0.1 * n_features_)))
+        try:
+            # Try to meet:
+            #   log_2(n_classes * n_clusters_per_class) <= n_informative
+            n_classes_min = min(_get_limits(n_classes))
+            n_clusters_per_class_min = min(_get_limits(n_clusters_per_class))
+            n_informative_min = \
+                int(np.ceil(np.log2(n_classes_min * n_clusters_per_class_min)))
+        except AttributeError:
+            # Otherwise aim for 10% of n_features, but at least 1.
+            n_informative_min = max(1, int(0.1 * n_features_))
+
+        n_informative = just(min(n_features_, n_informative_min))
     if n_redundant is None:
         n_redundant = just(max(min(n_features_, 1), int(0.1 * n_features_)))
+
+    # Check whether the
+    #   log_2(n_classes * n_clusters_per_class) <= n_informative
+    # inequality can in principle be met.
+    try:
+        n_classes_min = min(_get_limits(n_classes))
+        n_clusters_per_class_min = min(_get_limits(n_clusters_per_class))
+        n_informative_max = max(_get_limits(n_informative))
+    except AttributeError:
+        pass  # unable to determine limits
+    else:
+        if np.log2(n_classes_min * n_clusters_per_class_min) \
+                > n_informative_max:
+            raise ValueError(
+                "Assumptions cannot be met, the following inequality must "
+                "hold: log_2(n_classes * n_clusters_per_class) "
+                "<= n_informative ."
+            )
 
     # Check base assumption concerning the composition of feature vectors.
     n_informative_ = draw(n_informative)
