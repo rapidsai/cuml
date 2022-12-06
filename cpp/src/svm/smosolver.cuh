@@ -197,8 +197,7 @@ class SmoSolver {
 
       switch (matrix->getType()) {
         case MLCommon::Matrix::MatrixType::CSR: {
-          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
-            dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
           ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                  csr_matrix->indices,
                                                  csr_matrix->data,
@@ -211,10 +210,14 @@ class SmoSolver {
           break;
         }
         case MLCommon::Matrix::MatrixType::DENSE: {
-          MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
-            dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
-          raft::matrix::copyRows<math_t, int, size_t>(
-            dense_matrix->data, n_rows, n_cols, x_ws.data(), ws.GetIndices(), n_ws, stream, false);
+          raft::matrix::copyRows<math_t, int, size_t>(matrix->asDense()->data,
+                                                      n_rows,
+                                                      n_cols,
+                                                      x_ws.data(),
+                                                      ws.GetIndices(),
+                                                      n_ws,
+                                                      stream,
+                                                      false);
           RAFT_CUDA_TRY(cudaPeekAtLastError());
           break;
         }
@@ -255,8 +258,7 @@ class SmoSolver {
       if (nnz_da > 0) {
         switch (matrix->getType()) {
           case MLCommon::Matrix::MatrixType::CSR: {
-            MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
-              dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+            MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
             ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                    csr_matrix->indices,
                                                    csr_matrix->data,
@@ -304,9 +306,8 @@ class SmoSolver {
             break;
           }
           case MLCommon::Matrix::MatrixType::DENSE: {
-            MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
-              dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
-            bool batching_enabled = true;
+            MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix = matrix->asDense();
+            bool batching_enabled                               = true;
             if (batching_enabled) {
               raft::matrix::copyRows<math_t, int, size_t>(dense_matrix->data,
                                                           n_rows,

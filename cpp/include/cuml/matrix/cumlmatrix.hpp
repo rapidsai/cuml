@@ -19,6 +19,13 @@
 namespace MLCommon {
 namespace Matrix {
 
+template <typename math_t>
+class DenseMatrix;
+template <typename math_t>
+class CsrMatrix;
+template <typename math_t>
+class CooMatrix;
+
 enum MatrixType { DENSE, CSR, COO };
 
 template <typename math_t>
@@ -29,6 +36,27 @@ class Matrix {
   int numCols() { return n_cols; };
   virtual MatrixType getType() = 0;
   virtual ~Matrix(){};
+
+  DenseMatrix<math_t>* asDense()
+  {
+    DenseMatrix<math_t>* cast = dynamic_cast<DenseMatrix<math_t>*>(this);
+    assert(cast != nullptr);
+    return cast;
+  };
+
+  CsrMatrix<math_t>* asCsr()
+  {
+    CsrMatrix<math_t>* cast = dynamic_cast<CsrMatrix<math_t>*>(this);
+    assert(cast != nullptr);
+    return cast;
+  };
+
+  CooMatrix<math_t>* asCoo()
+  {
+    CooMatrix<math_t>* cast = dynamic_cast<CooMatrix<math_t>*>(this);
+    assert(cast != nullptr);
+    return cast;
+  };
 
  private:
   int n_rows;

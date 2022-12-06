@@ -194,8 +194,7 @@ void svcPredict(const raft::handle_t& handle,
       thrust::sequence(thrust::cuda::par.on(stream), idx_ptr, idx_ptr + n_batch, i);
       switch (matrix->getType()) {
         case MLCommon::Matrix::MatrixType::CSR: {
-          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
-            dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
           ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                  csr_matrix->indices,
                                                  csr_matrix->data,
@@ -208,10 +207,14 @@ void svcPredict(const raft::handle_t& handle,
           break;
         }
         case MLCommon::Matrix::MatrixType::DENSE: {
-          MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
-            dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
-          raft::matrix::copyRows(
-            dense_matrix->data, n_rows, n_cols, x_rbf.data(), idx.data(), n_batch, stream, false);
+          raft::matrix::copyRows(matrix->asDense()->data,
+                                 n_rows,
+                                 n_cols,
+                                 x_rbf.data(),
+                                 idx.data(),
+                                 n_batch,
+                                 stream,
+                                 false);
           break;
         }
         default: THROW("svcPredict not implemented for matrix type %d", matrix->getType());
@@ -220,7 +223,7 @@ void svcPredict(const raft::handle_t& handle,
       x_ptr = x_rbf.data();
       ld1   = n_batch;
     } else {
-      x_ptr = dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix)->data + i;
+      x_ptr = matrix->asDense()->data + i;
       ld1   = n_rows;
     }
     kernel->evaluate(x_ptr,

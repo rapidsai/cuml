@@ -179,8 +179,7 @@ class Results {
     // Collect support vectors into a contiguous block
     switch (matrix->getType()) {
       case MLCommon::Matrix::MatrixType::CSR: {
-        MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix =
-          dynamic_cast<MLCommon::Matrix::CsrMatrix<math_t>*>(matrix);
+        MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
         ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                csr_matrix->indices,
                                                csr_matrix->data,
@@ -193,10 +192,8 @@ class Results {
         break;
       }
       case MLCommon::Matrix::MatrixType::DENSE: {
-        MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix =
-          dynamic_cast<MLCommon::Matrix::DenseMatrix<math_t>*>(matrix);
         raft::matrix::copyRows(
-          dense_matrix->data, n_rows, n_cols, x_support, idx, n_support, stream);
+          matrix->asDense()->data, n_rows, n_cols, x_support, idx, n_support, stream);
         break;
       }
       default: THROW("Solve not implemented for matrix type %d", matrix->getType());
