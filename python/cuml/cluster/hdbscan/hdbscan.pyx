@@ -97,7 +97,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method,
-        bool prediction_data
 
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
@@ -123,7 +122,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  size_t m, size_t n,
                  DistanceType metric,
                  HDBSCANParams & params,
-                 hdbscan_output & output)
+                 hdbscan_output & output,
+                 float * core_dists)
 
     void build_condensed_hierarchy(
       const handle_t &handle,
@@ -534,6 +534,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         self.gen_min_span_tree = gen_min_span_tree
 
+        self.core_dists = None
         self.condensed_tree_ptr = None
         self.prediction_data_ptr = None
         self._cpu_to_gpu_interop_prepped = False
@@ -653,9 +654,10 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         cdef hdbscan_output *hdbscan_output_ = \
             <hdbscan_output*><size_t>self.hdbscan_output_
 
+        cdef uintptr_t core_dists = self.core_dists.ptr
         cdef PredictionData[int, float] *prediction_data = new PredictionData(
             handle_[0], <int> self.n_rows, <int> self.n_cols,
-            hdbscan_output_.get_core_dists())
+            <float*> core_dists)
         self.prediction_data_ptr = <size_t>prediction_data
 
         generate_prediction_data(handle_[0],
@@ -754,6 +756,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.mst_src_ = CumlArray.empty(n_rows-1, dtype="int32")
         self.mst_dst_ = CumlArray.empty(n_rows-1, dtype="int32")
         self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
+        self.core_dists = CumlArray.empty(n_rows, dtype="float32")
 
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
@@ -788,7 +791,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         params.max_cluster_size = self.max_cluster_size
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
         params.allow_single_cluster = self.allow_single_cluster
-        params.prediction_data = self.prediction_data
 
         if self.cluster_selection_method == 'eom':
             params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
@@ -804,6 +806,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
+        cdef uintptr_t core_dists_ptr = self.core_dists.ptr
+
         if self.connectivity == 'knn' or self.connectivity == 'pairwise':
             hdbscan(handle_[0],
                     <float*>input_ptr,
@@ -811,7 +815,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                     <int> n_cols,
                     <DistanceType> metric,
                     params,
-                    deref(linkage_output))
+                    deref(linkage_output),
+                    <float*> core_dists_ptr)
         else:
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")

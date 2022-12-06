@@ -32,13 +32,11 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out)
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             float* core_dists)
 {
   rmm::device_uvector<int> labels(m, handle.get_stream());
-  rmm::device_uvector<float> core_dists(m, handle.get_stream());
-  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), core_dists.data(), out);
-
-  if (params.prediction_data) { out.set_core_dists(std::move(core_dists)); }
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, labels.data(), core_dists, out);
 }
 
 void build_condensed_hierarchy(const raft::handle_t& handle,

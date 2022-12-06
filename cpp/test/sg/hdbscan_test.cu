@@ -83,6 +83,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     rmm::device_uvector<IdxT> mst_src(params.n_row - 1, handle.get_stream());
     rmm::device_uvector<IdxT> mst_dst(params.n_row - 1, handle.get_stream());
     rmm::device_uvector<T> mst_weights(params.n_row - 1, handle.get_stream());
+    rmm::device_uvector<T> core_dists(params.n_row, handle.get_stream());
 
     rmm::device_uvector<T> out_probabilities(params.n_row, handle.get_stream());
 
@@ -112,7 +113,8 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
             params.n_col,
             raft::distance::DistanceType::L2SqrtExpanded,
             hdbscan_params,
-            out);
+            out,
+            core_dists.data());
 
     handle.sync_stream(handle.get_stream());
 

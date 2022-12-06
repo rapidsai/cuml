@@ -263,15 +263,13 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
                  value_t* deltas_,
                  value_idx* mst_src_,
                  value_idx* mst_dst_,
-                 value_t* mst_weights_,
-                 bool prediction_data_ = false)
+                 value_t* mst_weights_)
     : robust_single_linkage_output<value_idx, value_t>(
         handle_, n_leaves_, labels_, children_, sizes_, deltas_, mst_src_, mst_dst_, mst_weights_),
       probabilities(probabilities_),
       stabilities(0, handle_.get_stream()),
       condensed_tree(handle_, n_leaves_),
-      inverse_label_map(0, handle_.get_stream()),
-      core_dists(0, handle_.get_stream())
+      inverse_label_map(0, handle_.get_stream())
   {
   }
 
@@ -283,13 +281,6 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   value_idx* get_inverse_label_map() { return inverse_label_map.data(); }
   // internal function
   rmm::device_uvector<value_idx>& _get_inverse_label_map() { return inverse_label_map; }
-
-  // setters and getters for core_dists which is used by PredictionData
-  void set_core_dists(rmm::device_uvector<value_t>&& core_dists_)
-  {
-    core_dists = std::move(core_dists_);
-  }
-  value_t* get_core_dists() { return core_dists.data(); }
 
   /**
    * Once n_clusters is known, the stabilities array
@@ -314,11 +305,6 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   // Size not known ahead of time. Initialize
   // with `initialize_stabilities()` method.
   rmm::device_uvector<value_t> stabilities;
-
-  // Used for the prediction API
-  // where core_dists needs to be stored on the
-  // PredictionData object
-  rmm::device_uvector<value_t> core_dists;
 
   // Use condensed hierarchy to wrap
   // condensed tree outputs since we do not
@@ -441,7 +427,8 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out);
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             float* core_dists);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,
