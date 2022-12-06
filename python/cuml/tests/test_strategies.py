@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import numpy as np
 from cuml.testing.strategies import (
+    standard_classification_datasets,
     standard_regression_datasets,
     regression_datasets,
     split_datasets,
@@ -20,7 +22,7 @@ from cuml.testing.strategies import (
 )
 from hypothesis import given, settings, HealthCheck
 from hypothesis import strategies as st
-from hypothesis.extra.numpy import floating_dtypes
+from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
 
 
 @given(standard_datasets())
@@ -127,3 +129,51 @@ def test_split_regression_datasets(split_dataset):
     assert y_train.ndim == y_test.ndim
     assert y_train.ndim in (0, 1, 2)
     assert 2 <= (len(X_train) + len(X_test)) <= 200
+
+
+@given(standard_classification_datasets())
+def test_standard_classification_datasets_default(dataset):
+    X, y = dataset
+    assert X.ndim == 2
+    assert X.shape[0] <= 200
+    assert X.shape[1] <= 200
+    assert (y.ndim == 0) or (y.ndim in (1, 2) and y.shape[0] <= 200)
+    assert np.issubdtype(X.dtype, np.floating)
+    assert np.issubdtype(y.dtype, np.integer)
+
+
+@given(
+    standard_classification_datasets(
+        dtypes=floating_dtypes(sizes=64),
+        n_samples=st.integers(min_value=2, max_value=200),
+        n_features=st.integers(min_value=4, max_value=200),
+        n_informative=st.just(2),
+        n_redundant=st.just(2),
+        random_state=0,
+        labels_dtypes=integer_dtypes(sizes=64),
+    )
+)
+def test_standard_classification_datasets(dataset):
+
+    from sklearn.datasets import make_classification
+
+    X, y = dataset
+    assert X.ndim == 2
+    assert X.shape[0] <= 200
+    assert X.shape[1] <= 200
+    assert (y.ndim == 1 and y.shape[0] <= 200) or y.ndim == 0
+    assert np.issubdtype(X.dtype, np.floating)
+    assert np.issubdtype(y.dtype, np.integer)
+
+    X_cmp, y_cmp = make_classification(
+        n_samples=X.shape[0], n_features=X.shape[1], random_state=0,
+    )
+
+    assert X.dtype.type == X_cmp.dtype.type
+    assert X.ndim == X_cmp.ndim
+    assert X.shape == X_cmp.shape
+    assert y.dtype.type == y_cmp.dtype.type
+    assert y.ndim == y_cmp.ndim
+    assert y.shape == y_cmp.shape
+    assert (X == X_cmp).all()
+    assert (y == y_cmp).all()

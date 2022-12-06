@@ -12,11 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import numpy as np
 from hypothesis import assume
-from hypothesis.extra.numpy import arrays, floating_dtypes
+from hypothesis.extra.numpy import arrays, floating_dtypes, integer_dtypes
 from hypothesis.strategies import composite, integers, just, none, one_of
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
+
+
+def _get_limits(strategy):
+    """Try to find the strategy's limits.
+
+    Raises AttributeError if limits cannot be determined.
+    """
+    # unwrap if lazy
+    strategy = getattr(strategy, "wrapped_strategy", strategy)
+
+    try:
+        yield getattr(strategy, "value")  # just(...)
+    except AttributeError:
+        # assume numbers strategy
+        yield strategy.start
+        yield strategy.stop
 
 
 @composite
@@ -88,11 +105,12 @@ def combined_datasets_strategy(* datasets, name=None, doc=None):
         draw,
         dtypes=floating_dtypes(),
         n_samples=integers(min_value=0, max_value=200),
-        n_features=integers(min_value=0, max_value=200)
+        n_features=integers(min_value=0, max_value=200),
+        **kwargs,
     ):
         """Datasets strategy composed of multiple datasets strategies."""
         datasets_strategies = (
-            dataset(dtypes, n_samples, n_features) for dataset in datasets)
+            dataset(dtypes, n_samples, n_features, **kwargs) for dataset in datasets)
         return draw(one_of(datasets_strategies))
 
     strategy.__name__ = "datasets" if name is None else name
@@ -248,3 +266,92 @@ regression_datasets = combined_datasets_strategy(
     strategies.
     """
 )
+
+
+@composite
+def standard_classification_datasets(
+    draw,
+    dtypes=floating_dtypes(),
+    n_samples=integers(min_value=100, max_value=200),
+    n_features=integers(min_value=10, max_value=20),
+    *,
+    n_informative=None,
+    n_redundant=None,
+    n_repeated=just(0),
+    n_classes=just(2),
+    n_clusters_per_class=just(2),
+    weights=none(),
+    flip_y=just(0.01),
+    class_sep=just(1.0),
+    hypercube=just(True),
+    shift=just(0.0),
+    scale=just(1.0),
+    shuffle=just(True),
+    random_state=None,
+    labels_dtypes=integer_dtypes(),
+):
+    n_features_ = draw(n_features)
+    if n_informative is None:
+        try:
+            # Try to meet:
+            #   log_2(n_classes * n_clusters_per_class) <= n_informative
+            n_classes_min = min(_get_limits(n_classes))
+            n_clusters_per_class_min = min(_get_limits(n_clusters_per_class))
+            n_informative_min = \
+                int(np.ceil(np.log2(n_classes_min * n_clusters_per_class_min)))
+        except AttributeError:
+            # Otherwise aim for 10% of n_features, but at least 1.
+            n_informative_min = max(1, int(0.1 * n_features_))
+
+        n_informative = just(min(n_features_, n_informative_min))
+    if n_redundant is None:
+        n_redundant = just(max(min(n_features_, 1), int(0.1 * n_features_)))
+
+    # Check whether the
+    #   log_2(n_classes * n_clusters_per_class) <= n_informative
+    # inequality can in principle be met.
+    try:
+        n_classes_min = min(_get_limits(n_classes))
+        n_clusters_per_class_min = min(_get_limits(n_clusters_per_class))
+        n_informative_max = max(_get_limits(n_informative))
+    except AttributeError:
+        pass  # unable to determine limits
+    else:
+        if np.log2(n_classes_min * n_clusters_per_class_min) \
+                > n_informative_max:
+            raise ValueError(
+                "Assumptions cannot be met, the following inequality must "
+                "hold: log_2(n_classes * n_clusters_per_class) "
+                "<= n_informative ."
+            )
+
+    # Check base assumption concerning the composition of feature vectors.
+    n_informative_ = draw(n_informative)
+    n_redundant_ = draw(n_redundant)
+    n_repeated_ = draw(n_repeated)
+    assume(n_informative_ + n_redundant_ + n_repeated_ < n_features_)
+
+    # Check base assumption concerning relationship of number of clusters and
+    # informative features.
+    n_classes_ = draw(n_classes)
+    n_clusters_per_class_ = draw(n_clusters_per_class)
+    assume(np.log2(n_classes_ * n_clusters_per_class_) <= n_informative_)
+
+    X, y = make_classification(
+        n_samples=draw(n_samples),
+        n_features=n_features_,
+        n_informative=n_informative_,
+        n_redundant=n_redundant_,
+        n_repeated=n_repeated_,
+        n_classes=n_classes_,
+        n_clusters_per_class=n_clusters_per_class_,
+        weights=draw(weights),
+        flip_y=draw(flip_y),
+        class_sep=draw(class_sep),
+        hypercube=draw(hypercube),
+        shift=draw(shift),
+        scale=draw(scale),
+        shuffle=draw(shuffle),
+        random_state=random_state,
+    )
+    return X.astype(draw(dtypes)), y.astype(draw(labels_dtypes))
