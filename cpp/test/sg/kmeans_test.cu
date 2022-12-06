@@ -72,10 +72,9 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     rmm::device_uvector<T> X(n_samples * n_features, stream);
     rmm::device_uvector<int> labels(n_samples, stream);
 
-  if (n_features >= 1000) {
-    GTEST_SKIP();  // Skip the test for double imput
-  } else {
-
+    if (n_features >= 1000) {
+      GTEST_SKIP();  // Skip the test for double imput
+    } else {
       make_blobs(handle,
                  X.data(),
                  labels.data(),
