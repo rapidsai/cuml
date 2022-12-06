@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import lru_cache, partial
+from functools import partial
 import cupy as cp
 import numpy as np
 import pytest
@@ -55,57 +55,12 @@ import rmm
 from scipy.sparse import csr_matrix
 
 import sklearn
-from sklearn.datasets import make_regression, make_classification, load_digits
-from sklearn.datasets import load_breast_cancer
+from sklearn.datasets import make_regression
+from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
-
-
-pytestmark = pytest.mark.filterwarnings("ignore: Regressors in active "
-                                        "set degenerate(.*)::sklearn[.*]")
-
-
-def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
-    X, y = make_regression(
-        **kwargs, n_samples=nrows, n_features=ncols, n_informative=n_info,
-        random_state=0
-    )
-    return train_test_split(X, y, train_size=0.8, random_state=10)
-
-
-@lru_cache(4)
-def _make_regression_dataset_from_cache(nrows, ncols, n_info, **kwargs):
-    return _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs)
-
-
-def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
-    if nrows * ncols < 1e8:  # Keep cache under 4 GB
-        dataset = _make_regression_dataset_from_cache(nrows, ncols, n_info,
-                                                      **kwargs)
-    else:
-        dataset = _make_regression_dataset_uncached(nrows, ncols, n_info,
-                                                    **kwargs)
-
-    return map(lambda arr: arr.astype(datatype), dataset)
-
-
-def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
-    X, y = make_classification(
-        n_samples=nrows,
-        n_features=ncols,
-        n_informative=n_info,
-        n_classes=num_classes,
-        random_state=0,
-    )
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=10
-    )
-
-    return X_train, X_test, y_train, y_test
 
 
 def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
