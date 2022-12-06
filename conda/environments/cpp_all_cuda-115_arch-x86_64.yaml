@@ -11,12 +11,12 @@ dependencies:
 - cudatoolkit=11.5
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
-- libcumlprims=22.12.*
+- libcumlprims=23.02.*
 - libfaiss>=1.7.0
-- libraft-distance=22.12.*
-- libraft-headers=22.12.*
-- libraft-nn=22.12.*
+- libraft-distance=23.02.*
+- libraft-headers=23.02.*
+- libraft-nn=23.02.*
 - nvcc_linux-64=11.5
-- rmm=22.12.*
+- rmm=23.02.*
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-115_arch-x86_64
