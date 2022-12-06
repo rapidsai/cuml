@@ -395,6 +395,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     auto weight_view =
       raft::make_device_vector_view<const DataT, IndexT>(weight.data_handle(), weight.extent(0));
     raft::cluster::kmeans::KMeansParams default_params;
+    default_params.verbosity  = params.verbosity;
     default_params.n_clusters = params.n_clusters;
 
     raft::cluster::kmeans::fit_main(handle,
@@ -419,6 +420,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 
     // generate `n_random_clusters` centroids
     raft::cluster::kmeans::KMeansParams rand_params;
+    rand_params.verbosity  = params.verbosity;
     rand_params.init       = raft::cluster::kmeans::KMeansParams::InitMethod::Random;
     rand_params.n_clusters = n_random_clusters;
     initRandom(handle, rand_params, X, centroidsRawData);
