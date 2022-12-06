@@ -30,6 +30,3 @@ libfaiss_version:
 
 libcusolver_version:
   - ">=11.2.1"
-
-spdlog_version:
-  - ">=1.8.5,<1.9"
