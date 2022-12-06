@@ -427,7 +427,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
         src/metrics/silhouette_score_batched_double.cu
-        src/metrics/silhouette_score_batched_single.cu
+        src/metrics/silhouette_score_batched_float.cu
         src/metrics/trustworthiness.cu
         src/metrics/v_measure.cu)
   endif()
