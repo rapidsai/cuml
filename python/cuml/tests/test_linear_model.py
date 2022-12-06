@@ -866,87 +866,63 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.fixture(scope='session',
-                params=['binary', 'multiclass-3', 'multiclass-7'])
-def regression_dataset(request):
-    regression_type = request.param
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
+@given(
+    dataset=standard_classification_datasets(
+        dtypes=floating_dtypes(sizes=(32, 64)),
+        n_classes=st.integers(2, 7),
+        n_features=st.integers(20, 40),
+    ),
+    sample_weight=st.sampled_from((None, True)),
+    class_weight=st.sampled_from((None, "balanced", True)),
+)
+@settings(deadline=None)
+def test_logistic_regression_weighting(dataset, sample_weight, class_weight):
+    X, y = dataset
 
-    out = {}
-    for test_status in ['regular', 'stress_test']:
-        if test_status == 'regular':
-            n_samples, n_features = 100000, 5
-        elif test_status == 'stress_test':
-            n_samples, n_features = 1000000, 20
+    n_samples = len(X)
+    n_classes = len(np.unique(y))
 
-        data = (np.random.rand(n_samples, n_features) * 2) - 1
-
-        if regression_type == 'binary':
-            coef = (np.random.rand(n_features) * 2) - 1
-            coef /= np.linalg.norm(coef)
-            output = (data @ coef) > 0
-        elif regression_type.startswith('multiclass'):
-            n_classes = 3 if regression_type == 'multiclass-3' else 7
-            coef = (np.random.rand(n_features, n_classes) * 2) - 1
-            coef /= np.linalg.norm(coef, axis=0)
-            output = (data @ coef).argmax(axis=1)
-        output = output.astype(np.int32)
-
-        out[test_status] = (regression_type, data, coef, output)
-    return out
-
-
-@pytest.mark.parametrize('option', ['sample_weight', 'class_weight',
-                                    'balanced', 'no_weight'])
-@pytest.mark.parametrize('test_status', ['regular',
-                                         stress_param('stress_test')])
-def test_logistic_regression_weighting(regression_dataset,
-                                       option, test_status):
-    regression_type, data, coef, output = regression_dataset[test_status]
-
-    class_weight = None
-    sample_weight = None
-    if option == 'sample_weight':
-        n_samples = data.shape[0]
+    if sample_weight is True:
         sample_weight = np.abs(np.random.rand(n_samples))
-    elif option == 'class_weight':
-        class_weight = np.random.rand(2)
-        class_weight = {0: class_weight[0], 1: class_weight[1]}
-    elif option == 'balanced':
-        class_weight = 'balanced'
+    if class_weight is True:
+        class_weight = np.random.rand(n_classes)
+        class_weight = {i: c for i, c in enumerate(class_weight)}
 
     culog = cuLog(fit_intercept=False, class_weight=class_weight)
-    culog.fit(data, output, sample_weight=sample_weight)
+    culog.fit(X, y, sample_weight=sample_weight)
 
     sklog = skLog(fit_intercept=False, class_weight=class_weight)
-    sklog.fit(data, output, sample_weight=sample_weight)
+    sklog.fit(X, y, sample_weight=sample_weight)
 
-    skcoef = np.squeeze(sklog.coef_)
-    cucoef = np.squeeze(culog.coef_)
-    if regression_type == 'binary':
-        skcoef /= np.linalg.norm(skcoef)
-        cucoef /= np.linalg.norm(cucoef)
-        unit_tol = 0.04
-        total_tol = 0.08
-    elif regression_type.startswith('multiclass'):
-        skcoef = skcoef.T
-        skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
-        cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
-        unit_tol = 0.2
-        total_tol = 0.3
+    # Check coefficients equality.
+    unit_tol, total_tol = (.08, .12) if n_classes == 2 else (.3, .4)
+    equal = array_equal(
+        np.squeeze(culog.coef_),
+        np.squeeze(sklog.coef_).T,
+        unit_tol=unit_tol, total_tol=total_tol)
+    note(equal)
+    assert equal
 
-    equality = array_equal(skcoef, cucoef, unit_tol=unit_tol,
-                           total_tol=total_tol)
-    if not equality:
-        print('\ncoef.shape: ', coef.shape)
-        print('coef:\n', coef)
-        print('cucoef.shape: ', cucoef.shape)
-        print('cucoef:\n', cucoef)
-    assert equality
+    # Check output probabilities equality.
+    equal = array_equal(
+        culog.predict_proba(X),
+        sklog.predict_proba(X),
+        unit_tol=.5, total_tol=.5)
+    note(equal)
+    assert equal
 
-    cuOut = culog.predict(data)
-    skOut = sklog.predict(data)
-    assert array_equal(skOut, cuOut, unit_tol=unit_tol,
-                       total_tol=total_tol)
+    # Check output predicted classes equality.
+    try:
+        # This tests would likely XPASS without this check!
+        equal = array_equal(
+            culog.predict(X), sklog.predict(X),
+            unit_tol=.5, total_tol=.5)
+        note(equal)
+        assert equal
+    except AssertionError:
+        pytest.xfail(
+            "Probabilities are equal, but predictected classes are not.")
 
 
 @pytest.mark.parametrize('algo', [cuLog, cuRidge])
