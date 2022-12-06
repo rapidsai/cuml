@@ -96,14 +96,14 @@ void build_index_into_children(const raft::handle_t& handle,
  * @param[in] handle raft handle for resource reuse
  * @param[in] condensed_tree a condensed hierarchy
  * @param[in] labels Final normalized labels
- * @param[in] label_map map of normalized labels to original labels (size n_clusters)
+ * @param[in] inverse_label_map map of normalized labels to original labels (size n_clusters)
  * @param[in] n_selected_clusters number of clusters in the final clustering
  * @param[in] prediction_data PreditionData object
  */
 void generate_prediction_data(const raft::handle_t& handle,
                               CondensedHierarchy<int, float>& condensed_tree,
                               int* labels,
-                              int* label_map,
+                              int* inverse_label_map,
                               int n_selected_clusters,
                               PredictionData<int, float>& prediction_data)
 {
@@ -190,14 +190,14 @@ void generate_prediction_data(const raft::handle_t& handle,
   rmm::device_uvector<int> exemplar_labels(n_exemplars, stream);
 
   // this uses the original, pre-normalized label by
-  // using the label_map to lookup the original labels from final labels
+  // using the inverse label_map to lookup the original labels from final labels
   thrust::transform(exec_policy,
                     prediction_data.get_exemplar_idx(),
                     prediction_data.get_exemplar_idx() + n_exemplars,
                     exemplar_labels.data(),
-                    [labels, label_map] __device__(auto idx) {
+                    [labels, inverse_label_map] __device__(auto idx) {
                       auto label = labels[idx];
-                      if (label != -1) { return label_map[label]; }
+                      if (label != -1) { return inverse_label_map[label]; }
                       return -1;
                     });
 

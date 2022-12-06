@@ -112,7 +112,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
                                   CondensedHierarchy[int, float]&
                                   condensed_tree,
                                   int* labels,
-                                  int* label_map,
+                                  int* inverse_label_map,
                                   int n_selected_clusters,
                                   PredictionData[int, float]& prediction_data)
 

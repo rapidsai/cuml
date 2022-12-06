@@ -301,8 +301,6 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
     robust_single_linkage_output<value_idx, value_t>::set_n_clusters(n_clusters_);
     stabilities.resize(n_clusters_,
                        robust_single_linkage_output<value_idx, value_t>::get_handle().get_stream());
-    // label_map.resize(n_clusters_,
-    //               robust_single_linkage_output<value_idx, value_t>::get_handle().get_stream());
   }
 
   CondensedHierarchy<value_idx, value_t>& get_condensed_tree() { return condensed_tree; }
@@ -409,7 +407,7 @@ template class PredictionData<int, float>;
 void generate_prediction_data(const raft::handle_t& handle,
                               CondensedHierarchy<int, float>& condensed_tree,
                               int* labels,
-                              int* label_map,
+                              int* inverse_label_map,
                               int n_selected_clusters,
                               PredictionData<int, float>& prediction_data);
 
