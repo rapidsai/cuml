@@ -47,7 +47,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         self.client = get_client(client)
 
         # set client verbosity
-        self.verbose = kwargs['verbose'] if 'verbose' in kwargs else False
+        self.verbose = kwargs.get("verbose", False)
 
         # kwargs transmits the verbosity level to workers
         self.kwargs = kwargs
