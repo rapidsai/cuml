@@ -47,7 +47,7 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                n_parts=None, center_box=(-10, 10), shuffle=True,
                random_state=None, return_centers=False,
                verbose=False, order='F', dtype='float32',
-               workers=None, client=None):
+               client=None, workers=None):
     """
     Makes labeled Dask-Cupy arrays containing blobs
     for a randomly generated set of centroids.
@@ -89,11 +89,12 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         The order of the generated samples
     dtype : str, optional (default='float32')
         Dtype of the generated samples
+    client : dask.distributed.Client (optional)
+             Dask client to use
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
-    client : dask.distributed.Client (optional)
-             Dask client to use
+        (e.g. : `workers = list(client.scheduler_info()['workers'].keys())`)
 
     Returns
     -------
@@ -105,6 +106,24 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         [n_centers, n_features], optional
         The centers of the underlying blobs. It is returned only if
         return_centers is True.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> from cuml.dask.datasets import make_blobs
+
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
+
+        >>> workers = list(client.scheduler_info()['workers'].keys())
+        >>> X, y = make_blobs(1000, 10, centers=42, cluster_std=0.1,
+        ...                   workers=workers)
+
+        >>> client.close()
+        >>> cluster.close()
     """
 
     client = get_client(client=client)
