@@ -741,11 +741,11 @@ class HashingVectorizer(_VectorizerMixin):
         >>> from cuml.feature_extraction.text import HashingVectorizer
         >>> import pandas as pd
         >>> corpus = [
-        >>>     'This is the first document.',
-        >>>     'This document is the second document.',
-        >>>     'And this is the third one.',
-        >>>     'Is this the first document?',
-        >>> ]
+        ...     'This is the first document.',
+        ...     'This document is the second document.',
+        ...     'And this is the third one.',
+        ...     'Is this the first document?',
+        ... ]
         >>> vectorizer = HashingVectorizer(n_features=2**4)
         >>> X = vectorizer.fit_transform(pd.Series(corpus))
         >>> print(X.shape)

@@ -22,3 +22,10 @@ from cuml.feature_extraction._tfidf import TfidfTransformer  # noqa # pylint: di
 from cuml.feature_extraction._tfidf_vectorizer import TfidfVectorizer  # noqa # pylint: disable=unused-import
 from cuml.feature_extraction._vectorizers import CountVectorizer  # noqa # pylint: disable=unused-import
 from cuml.feature_extraction._vectorizers import HashingVectorizer # noqa # pylint: disable=unused-import
+
+__all__ = [
+    "TfidfTransformer",
+    "TfidfVectorizer",
+    "CountVectorizer",
+    "HashingVectorizer"
+]
