@@ -232,7 +232,7 @@ def determine_array_memtype(X):
     if isinstance(X, (CudfDataFrame, CudfSeries)):
         return MemoryType.device
     if isinstance(X, (PandasDataFrame, PandasSeries)):
-        return MemoryType.device
+        return MemoryType.host
     return None
 
 
