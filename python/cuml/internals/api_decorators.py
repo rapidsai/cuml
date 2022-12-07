@@ -50,16 +50,20 @@ def _has_self(sig):
     return "self" in sig.parameters and list(sig.parameters)[0] == "self"
 
 
-def _find_arg(sig, default_name, default_position):
+def _find_arg(sig, arg_name, default_position):
     params = list(sig.parameters)
 
     # Check for default name in input args
-    if default_name in sig.parameters:
-        return default_name, params.index(default_name)
+    if arg_name in sig.parameters:
+        return arg_name, params.index(arg_name)
     # Otherwise use argument in list by position
-    else:
+    elif arg_name is ...:
         index = int(_has_self(sig)) + default_position
         return params[index], index
+    else:
+        raise ValueError(
+            f"Unable to find parameter '{arg_name}'."
+        )
 
 
 def _get_value(args, kwargs, name, index):
