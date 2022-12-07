@@ -91,16 +91,6 @@ dependencies:
               cuda: "11.2"
             packages:
               - nvcc_linux-aarch64=11.2
-          - matrix:
-              arch: x86_64
-              cuda: "11.0"
-            packages:
-              - nvcc_linux-64=11.0
-          - matrix:
-              arch: aarch64
-              cuda: "11.0"
-            packages:
-              - nvcc_linux-aarch64=11.0
   py_build:
     common:
       - output_types: [conda, requirements]
@@ -119,14 +109,14 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - dask>=2022.9.2
-          - distributed>=2022.9.2
+          - dask>=2022.12.0
+          - distributed>=2022.12.0
           - joblib>=0.11
       - output_types: conda
         packages:
           - cupy>=7.8.0,<12.0.0a0
-          - dask-cudf=23.02.*
           - dask-cuda=23.02.*
+          - dask-cudf=23.02.*
           - ucx>=1.13.0
           - ucx-py=0.29.*
           - ucx-proc=*=gpu
@@ -136,7 +126,7 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - cupy-cuda115>=7.8.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
+              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
           - matrix:
               arch: aarch64
             packages:
@@ -163,10 +153,6 @@ dependencies:
               cuda: "11.2"
             packages:
               - cudatoolkit=11.2
-          - matrix:
-              cuda: "11.0"
-            packages:
-              - cudatoolkit=11.0
   doc:
     common:
       - output_types: [conda, requirements]
@@ -174,7 +160,7 @@ dependencies:
           - sphinx-markdown-tables
       - output_types: conda
         packages:
-          - doxygen>=1.8.20
+          - doxygen=1.8.20 # pre-commit hook needs a specific version.
   py_version:
     specific:
       - output_types: conda
@@ -194,12 +180,12 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - umap-learn
+          - dask-ml
+          - nltk
+          - seaborn
           - scikit-learn=0.24
           - statsmodels
-          - seaborn
-          - nltk
-          - dask-ml
+          - umap-learn
       - output_types: conda
         packages:
           - pip
