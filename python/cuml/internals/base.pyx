@@ -392,7 +392,7 @@ class Base(TagsMixin,
         mem_type = cuml.global_settings.memory_type
 
         # If we are input, get the type from the input
-        if output_type == 'input':
+        if cuml.global_settings.output_type == 'input':
             mem_type = determine_array_memtype(inp)
 
         return mem_type
