@@ -389,16 +389,10 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = cuml.global_settings.output_type
         mem_type = cuml.global_settings.memory_type
-
-        # If it's None, default to our type
-        if mem_type in (None, MemoryType.mirror):
-            output_type = self.output_type
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = determine_array_type(inp)
             mem_type = determine_array_memtype(inp)
 
         return mem_type

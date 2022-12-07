@@ -477,7 +477,7 @@ def cpu_only_import_from(module, symbol, *, alt=None):
         The imported symbol, the given alternate, or a class derived from
         UnavailableMeta.
     '''
-    if GPU_ENABLED:
+    if CPU_ENABLED:
         imported_module = importlib.import_module(module)
         return getattr(imported_module, symbol)
     else:
