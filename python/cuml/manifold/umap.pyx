@@ -426,7 +426,7 @@ class UMAP(UniversalBase,
         cdef UMAPParams* umap_params = new UMAPParams()
         umap_params.n_neighbors = <int> cls.n_neighbors
         umap_params.n_components = <int> cls.n_components
-        umap_params.n_epochs = <int> cls.n_epochs if cls.n_epochs else 0
+        umap_params.n_epochs = <int> cls.n_epochs or 0
         umap_params.learning_rate = <float> cls.learning_rate
         umap_params.min_dist = <float> cls.min_dist
         umap_params.spread = <float> cls.spread
