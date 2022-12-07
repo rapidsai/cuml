@@ -108,7 +108,7 @@ class GlobalSettings:
     @property
     def output_type(self):
         """The globally-defined default output type for cuML API calls"""
-        return self._get_property_helper("_output_type")  # pylint: disable=no-member
+        return self._get_property_helper("_output_type")
 
     @output_type.setter
     def output_type(self, value):
