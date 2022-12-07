@@ -202,7 +202,7 @@ def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
           cp.array([0, 1, 2, 3, 4])),
          (np.array([1.09, .09, .09, .09]),
           np.array([1, 1, 0, 0, 1]),
-          np.array([1.09, 1.09, .09, .09, 1.09]),
+          cp.array([1.09, 1.09, .09, .09, 1.09]),
           np.array([0, 1, 1, 1, 2]))])
 def test_inverse_transform_cupy_numpy(orig_label, ord_label,
                                       expected_reverted,
@@ -218,9 +218,9 @@ def test_inverse_transform_cupy_numpy(orig_label, ord_label,
 
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
+
     assert(len(reverted) == len(expected_reverted))
-    assert(len(reverted)
-           == len(reverted[reverted == expected_reverted]))
+    assert(len(reverted) == len(reverted[reverted == expected_reverted]))
     # test if correctly raies ValueError
     with pytest.raises(ValueError, match='y contains previously unseen label'):
         le.inverse_transform(bad_ord_label)
