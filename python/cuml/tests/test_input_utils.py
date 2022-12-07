@@ -25,7 +25,6 @@ from cuml.common import input_to_host_array
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import has_cupy
 from cuml.internals.input_utils import convert_dtype
-from cuml.internals.memory_utils import _check_array_contiguity
 from numba import cuda as nbcuda
 from pandas import DataFrame as pdDF
 from pandas import Series as pdSeries
@@ -283,7 +282,7 @@ def test_non_contiguous_to_contiguous_input(dtype, input_type, order,
                                       force_contiguous=force_contiguous)
 
     if force_contiguous:
-        assert(_check_array_contiguity(cumlary))
+        assert(cumlary.is_contiguous)
 
     np.testing.assert_equal(real_data, cumlary.to_output('numpy'))
 

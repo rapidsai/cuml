@@ -55,37 +55,6 @@ class using_memory_type:
         set_global_memory_type(self.prev_mem_type)
 
 
-@dataclass(frozen=True)
-class ArrayInfo:
-    """
-    Calculate the necessary shape, order, stride and dtype of an array from an
-    ``__array_interface__`` or ``__cuda_array_interface__``
-    """
-    shape: tuple
-    order: str
-    dtype: GlobalSettings().xpy.dtype
-    strides: tuple
-
-    @staticmethod
-    def from_interface(interface: dict) -> "ArrayInfo":
-        out_shape = interface['shape']
-        out_type = GlobalSettings().xpy.dtype(interface['typestr'])
-        out_order = "C"
-        out_strides = None
-
-        if interface.get('strides', None) is None:
-            out_order = 'C'
-            out_strides = _order_to_strides(out_order, out_shape, out_type)
-        else:
-            out_strides = interface['strides']
-            out_order = _strides_to_order(out_strides, out_type)
-
-        return ArrayInfo(shape=out_shape,
-                         order=out_order,
-                         dtype=out_type,
-                         strides=out_strides)
-
-
 def with_cupy_rmm(func):
     """
 
@@ -220,41 +189,6 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     return result
 
 
-def _strides_to_order(strides, dtype):
-    # cuda array interface specification
-    if strides is None:
-        return 'C'
-    if strides[0] == dtype.itemsize or len(strides) == 1:
-        return 'F'
-    elif strides[1] == dtype.itemsize:
-        return 'C'
-    else:
-        raise ValueError("Invalid strides value for dtype")
-
-
-def _order_to_strides(order, shape, dtype):
-    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
-    if isinstance(shape, int):
-        return (itemsize, )
-
-    elif len(shape) == 0:
-        return None
-
-    elif len(shape) == 1:
-        return (itemsize, )
-
-    elif order == 'C':
-        dim_minor = shape[1] * itemsize
-        return (dim_minor, itemsize)
-
-    elif order == 'F':
-        dim_minor = shape[0] * itemsize
-        return (itemsize, dim_minor)
-
-    else:
-        raise ValueError('Order must be "F" or "C". ')
-
-
 def _get_size_from_shape(shape, dtype):
     """
     Calculates size based on shape and dtype, returns (None, None) if either
@@ -274,66 +208,6 @@ def _get_size_from_shape(shape, dtype):
     else:
         raise ValueError("Shape must be int or tuple of ints.")
     return (size, shape)
-
-
-def _check_array_contiguity(ary):
-    """
-    Check if array-like ary is contioguous.
-
-    Parameters
-    ----------
-    ary: __cuda_array_interface__ or __array_interface__ compliant array.
-    """
-
-    if hasattr(ary, 'ndim'):
-        if ary.ndim == 1:
-            return True
-
-    # Use contiguity flags if present
-    if hasattr(ary, 'flags'):
-        if ary.flags['C_CONTIGUOUS'] or ary.flags['F_CONTIGUOUS']:
-            return True
-        else:
-            return False
-
-    # Check contiguity from shape and strides if not
-    else:
-        if hasattr(ary, "__array_interface__"):
-            ary_interface = ary.__array_interface__
-
-        elif hasattr(ary, "__cuda_array_interface__"):
-            ary_interface = ary.__cuda_array_interface__
-
-        else:
-            raise TypeError("No array_interface attribute detected in input. ")
-
-        # if the strides are not set or none, then the array is C-contiguous
-        if 'strides' not in ary_interface or ary_interface['strides'] is None:
-            return True
-
-        shape = ary_interface['shape']
-        if len(shape) == 1:
-            return True
-        strides = ary_interface['strides']
-        dtype = GlobalSettings().xpy.dtype(ary_interface['typestr'])
-        try:
-            order = ary.order
-        except AttributeError:
-            order = _strides_to_order(strides, dtype)
-        itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
-
-        # We check if the strides jump on the non contiguous dimension
-        # does not correspond to the array dimension size, which indicates
-        # this is a view to a non contiguous array.
-        if order == 'F':
-            if (shape[0] * itemsize) != strides[1]:
-                return False
-
-        elif order == 'C':
-            if (shape[1] * itemsize) != strides[0]:
-                return False
-
-        return True
 
 
 def set_global_output_type(output_type):

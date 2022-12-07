@@ -18,7 +18,7 @@ import cupy as cp
 import cupyx
 import numpy as np
 
-from cuml.internals.memory_utils import _strides_to_order
+from cuml.internals.array import array_to_memory_order
 from cuml.common import input_to_cuml_array
 from numba import cuda
 from typing import Union
@@ -51,8 +51,7 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
         x_cudf = True
     elif hasattr(X, "__cuda_array_interface__"):
         X = cp.asarray(X)
-        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
-                                    cp.dtype(X.dtype))
+    x_order = array_to_memory_order(X)
 
     # labels and stratify will be only cp arrays
     if isinstance(labels, cudf.Series):
@@ -68,9 +67,7 @@ def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
         labels_cudf = True
         labels = labels[0].values
 
-    labels_order = _strides_to_order(
-                        labels.__cuda_array_interface__['strides'],
-                        cp.dtype(labels.dtype))
+    labels_order = array_to_memory_order(labels)
 
     # Converting to cupy array removes the need to add an if-else block
     # for startify column
@@ -433,13 +430,9 @@ def train_test_split(X,
             return split_return
 
     # If not stratified, perform train_test_split splicing
-    if hasattr(X, "__cuda_array_interface__"):
-        x_order = _strides_to_order(X.__cuda_array_interface__['strides'],
-                                    cp.dtype(X.dtype))
+    x_order = array_to_memory_order(X)
 
-    if hasattr(y, "__cuda_array_interface__"):
-        y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
-                                    cp.dtype(y.dtype))
+    x_order = array_to_memory_order(y)
 
     if hasattr(X, "__cuda_array_interface__") or \
             isinstance(X, cupyx.scipy.sparse.csr_matrix):

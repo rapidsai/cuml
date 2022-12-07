@@ -23,9 +23,7 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.memory_utils import (
-    class_with_cupy_rmm, _check_array_contiguity
-)
+from cuml.internals.memory_utils import class_with_cupy_rmm
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -68,6 +66,53 @@ PandasSeries = cpu_only_import_from('pandas', 'Series')
 is_numba_array = gpu_only_import_from(
     'numba.cuda', 'is_cuda_array', alt=return_false
 )
+
+
+def _order_to_strides(order, shape, dtype):
+    '''
+    Given memory order, shape and dtype, return expected strides
+    '''
+    dtype = host_xpy.dtype(dtype)
+    if order == 'C':
+        strides = host_xpy.append(
+            host_xpy.cumprod(
+                host_xpy.array(shape[:0:-1])
+            )[::-1],
+            1
+        ) * dtype.itemsize
+    elif order == 'F':
+        strides = (host_xpy.cumprod(
+            host_xpy.array([1, *shape[:-1]])
+        ) * dtype.itemsize)
+    else:
+        raise ValueError(
+            'Must specify strides or order, and order must'
+            ' be one of "C" or "F"'
+        )
+    return strides
+
+
+def _determine_memory_order(shape, strides, dtype, default='C'):
+    '''
+    Given strides, shape and dtype for an array, return memory order
+
+    If order is neither C nor F contiguous, return None. If array is both C and
+    F contiguous, return default if given or 'C' otherwise.
+    '''
+    if strides is None:
+        return 'C'
+    if len(shape) < 2:
+        return 'C' if default in (None, 'K') else default
+    shape = host_xpy.array(shape)
+    strides = host_xpy.array(strides)
+    itemsize = host_xpy.dtype(dtype).itemsize
+    if strides[0] == itemsize:
+        if host_xpy.all(strides[1:] == shape[:-1] * strides[:-1]):
+            return 'F'
+    elif strides[-1] == itemsize:
+        if host_xpy.all(strides[:-1] == shape[1:] * strides[1:]):
+            return 'C'
+    return None
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
@@ -254,22 +299,7 @@ class CumlArray():
                     except TypeError:  # Shape given as integer
                         strides = (dtype.itemsize,)
                 if strides is None:
-                    if order == 'C':
-                        strides = host_xpy.append(
-                            host_xpy.cumprod(
-                                host_xpy.array(shape[:0:-1])
-                            )[::-1],
-                            1
-                        ) * dtype.itemsize
-                    elif order == 'F':
-                        strides = (host_xpy.cumprod(
-                            host_xpy.array([1, *shape[:-1]])
-                        ) * dtype.itemsize)
-                    else:
-                        raise ValueError(
-                            'Must specify strides or order, and order must'
-                            ' be one of "C" or "F"'
-                        )
+                    strides = _order_to_strides(order, shape, dtype)
 
                 self._array_interface = {
                     'shape': shape,
@@ -311,30 +341,13 @@ class CumlArray():
         array_strides = self._array_interface['strides']
         if array_strides is not None:
             array_strides = host_xpy.array(array_strides)
-        if (
-            (
-                array_strides is None
-                or len(array_strides) == 1
-                or host_xpy.all(
-                    array_strides[1:] == array_strides[:-1]
-                )
-            ) and order not in ('K', None)
-        ):
-            self._order = order
-        elif (
-            array_strides is None or
-            len(array_strides) == 1 or
-            host_xpy.all(
-                array_strides[1:] <= array_strides[:-1]
-            )
-        ):
-            self._order = 'C'
-        elif host_xpy.all(
-            array_strides[1:] >= array_strides[:-1]
-        ):
-            self._order = 'F'
-        else:
-            self._order = None
+
+        self._order = _determine_memory_order(
+            self._array_interface['shape'],
+            self._array_interface['strides'],
+            self._array_interface['typestr'],
+            order
+        )
 
         # Validate final data against input arguments
         if validate:
@@ -425,7 +438,7 @@ class CumlArray():
 
     @cached_property
     def is_contiguous(self):
-        return _check_array_contiguity(self)
+        return self.order in ('C', 'F')
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed
@@ -1158,3 +1171,43 @@ class CumlArray():
                     ' rows.'
                 )
         return arr
+
+
+def array_to_memory_order(arr, default='C'):
+    '''
+    Given an array-like object, determine its memory order
+
+    If arr is C-contiguous, the string 'C' will be returned; if
+    F-contiguous 'F'. If arr is neither C nor F contiguous, None will be
+    returned. If an arr is both C and F contiguous, the indicated default
+    will be returned. If a default of None or 'K' is given and the arr is both
+    C and F contiguous, 'C' will be returned.
+    '''
+    try:
+        return arr.order
+    except AttributeError:
+        pass
+    try:
+        array_interface = arr.__cuda_array_interface__
+    except AttributeError:
+        try:
+            array_interface = arr.__array_interface__
+        except AttributeError:
+            return array_to_memory_order(CumlArray.from_input(arr, order='K'))
+    return _determine_memory_order(
+        array_interface['shape'],
+        array_interface['strides'],
+        array_interface['typestr'],
+        default=default
+    )
+
+def is_array_contiguous(arr):
+    '''Return true if array is C or F contiguous'''
+    try:  # Fast path for CumlArray
+        return arr.is_contiguous
+    except AttributeError:
+        pass
+    try:  # Fast path for cupy/numpy arrays
+        return arr.flags['C_CONTIGUOUS'] or arr.flags['F_CONTIGUOUS']
+    except (AttributeError, KeyError):
+        return array_to_memory_order(arr) is not None
