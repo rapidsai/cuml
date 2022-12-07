@@ -61,15 +61,15 @@ class Results {
    * @param C penalty parameter
    */
   Results(const raft::handle_t& handle,
-          MLCommon::Matrix::Matrix<math_t>* matrix,
+          const MLCommon::Matrix::Matrix<math_t>& matrix,
           const math_t* y,
           const math_t* C,
           SvmType svmType)
     : rmm_alloc(rmm::mr::get_current_device_resource()),
       stream(handle.get_stream()),
       handle(handle),
-      n_rows(matrix->numRows()),
-      n_cols(matrix->numCols()),
+      n_rows(matrix.numRows()),
+      n_cols(matrix.numCols()),
       matrix(matrix),
       y(y),
       C(C),
@@ -83,7 +83,7 @@ class Results {
       val_selected(n_train, stream),
       val_tmp(n_train, stream),
       flag(n_train, stream),
-      release_tmp_matrix(false)
+      tmp_matrix(nullptr)
   {
     InitCubBuffers();
     raft::linalg::range(f_idx.data(), n_train, stream);
@@ -115,10 +115,9 @@ class Results {
       val_selected(n_train, stream),
       val_tmp(n_train, stream),
       flag(n_train, stream),
-      release_tmp_matrix(true)
+      tmp_matrix(new MLCommon::Matrix::DenseMatrix<math_t>(x, n_rows, n_cols)),
+      matrix(*tmp_matrix)
   {
-    matrix = new MLCommon::Matrix::DenseMatrix<math_t>(x, n_rows, n_cols);
-
     InitCubBuffers();
     raft::linalg::range(f_idx.data(), n_train, stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -177,9 +176,9 @@ class Results {
   {
     math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    switch (matrix->getType()) {
+    switch (matrix.getType()) {
       case MLCommon::Matrix::MatrixType::CSR: {
-        MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
+        const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
         ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                csr_matrix->indices,
                                                csr_matrix->data,
@@ -193,10 +192,10 @@ class Results {
       }
       case MLCommon::Matrix::MatrixType::DENSE: {
         raft::matrix::copyRows(
-          matrix->asDense()->data, n_rows, n_cols, x_support, idx, n_support, stream);
+          matrix.asDense()->data, n_rows, n_cols, x_support, idx, n_support, stream);
         break;
       }
-      default: THROW("Solve not implemented for matrix type %d", matrix->getType());
+      default: THROW("Solve not implemented for matrix type %d", matrix.getType());
     }
 
     return x_support;
@@ -336,19 +335,20 @@ class Results {
 
   ~Results()
   {
-    if (release_tmp_matrix) delete matrix;
+    if (tmp_matrix != nullptr) delete tmp_matrix;
   }
 
  private:
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;                                //!< number of rows in the training vector matrix
-  int n_cols;                                //!< number of features
-  MLCommon::Matrix::Matrix<math_t>* matrix;  //!< training vector matrix
-  const math_t* y;                           //!< labels
-  const math_t* C;                           //!< penalty parameter
-  SvmType svmType;                           //!< SVM problem type: SVC or SVR
+  int n_rows;                                      //!< number of rows in the training vector matrix
+  int n_cols;                                      //!< number of features
+  const MLCommon::Matrix::Matrix<math_t>& matrix;  //!< training vector matrix
+  MLCommon::Matrix::Matrix<math_t>* tmp_matrix;    //!< training vector matrix
+  const math_t* y;                                 //!< labels
+  const math_t* C;                                 //!< penalty parameter
+  SvmType svmType;                                 //!< SVM problem type: SVC or SVR
   int n_train;          //!< number of training vectors (including duplicates for SVR)
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
@@ -362,7 +362,6 @@ class Results {
   rmm::device_uvector<math_t> val_selected;
   rmm::device_uvector<math_t> val_tmp;
   rmm::device_uvector<bool> flag;
-  bool release_tmp_matrix;  //!< matrix object is tmp and needs to be released
 
   /* Allocate cub temporary buffers for GetResults
    */

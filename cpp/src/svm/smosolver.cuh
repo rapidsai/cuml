@@ -151,7 +151,7 @@ class SmoSolver {
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
-  void Solve(MLCommon::Matrix::Matrix<math_t>* matrix,
+  void Solve(const MLCommon::Matrix::Matrix<math_t>& matrix,
              int n_rows,
              int n_cols,
              math_t* y,
@@ -195,9 +195,9 @@ class SmoSolver {
       raft::common::nvtx::push_range("SmoSolver::Kernel");
       // math_t* cacheTile = cache.GetTile(ws.GetIndices());
 
-      switch (matrix->getType()) {
+      switch (matrix.getType()) {
         case MLCommon::Matrix::MatrixType::CSR: {
-          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
+          const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
           ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                  csr_matrix->indices,
                                                  csr_matrix->data,
@@ -210,7 +210,7 @@ class SmoSolver {
           break;
         }
         case MLCommon::Matrix::MatrixType::DENSE: {
-          raft::matrix::copyRows<math_t, int, size_t>(matrix->asDense()->data,
+          raft::matrix::copyRows<math_t, int, size_t>(matrix.asDense()->data,
                                                       n_rows,
                                                       n_cols,
                                                       x_ws.data(),
@@ -221,7 +221,7 @@ class SmoSolver {
           RAFT_CUDA_TRY(cudaPeekAtLastError());
           break;
         }
-        default: THROW("Solve not implemented for matrix type %d", matrix->getType());
+        default: THROW("Solve not implemented for matrix type %d", matrix.getType());
       }
 
       (*kernel)(x_ws.data(), n_ws, n_cols, x_ws.data(), n_ws, kernel_tile.data(), false, stream);
@@ -256,9 +256,9 @@ class SmoSolver {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       // The following should be performed only for elements with nonzero delta_alpha
       if (nnz_da > 0) {
-        switch (matrix->getType()) {
+        switch (matrix.getType()) {
           case MLCommon::Matrix::MatrixType::CSR: {
-            MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
+            const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
             ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                    csr_matrix->indices,
                                                    csr_matrix->data,
@@ -306,8 +306,8 @@ class SmoSolver {
             break;
           }
           case MLCommon::Matrix::MatrixType::DENSE: {
-            MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix = matrix->asDense();
-            bool batching_enabled                               = true;
+            const MLCommon::Matrix::DenseMatrix<math_t>* dense_matrix = matrix.asDense();
+            bool batching_enabled                                     = true;
             if (batching_enabled) {
               raft::matrix::copyRows<math_t, int, size_t>(dense_matrix->data,
                                                           n_rows,
@@ -377,7 +377,7 @@ class SmoSolver {
             }
             break;
           }
-          default: THROW("Solve not implemented for matrix type %d", matrix->getType());
+          default: THROW("Solve not implemented for matrix type %d", matrix.getType());
         }
       }
       cudaDeviceSynchronize();
@@ -421,7 +421,7 @@ class SmoSolver {
              int max_inner_iter = 10000)
   {
     MLCommon::Matrix::DenseMatrix dense_matrix(x, n_rows, n_cols);
-    Solve(&dense_matrix,
+    Solve(dense_matrix,
           n_rows,
           n_cols,
           y,

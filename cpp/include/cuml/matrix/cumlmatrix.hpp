@@ -32,9 +32,9 @@ template <typename math_t>
 class Matrix {
  public:
   Matrix(int rows, int cols) : n_rows(rows), n_cols(cols){};
-  int numRows() { return n_rows; };
-  int numCols() { return n_cols; };
-  virtual MatrixType getType() = 0;
+  int numRows() const { return n_rows; };
+  int numCols() const { return n_cols; };
+  virtual MatrixType getType() const = 0;
   virtual ~Matrix(){};
 
   DenseMatrix<math_t>* asDense()
@@ -58,6 +58,27 @@ class Matrix {
     return cast;
   };
 
+  const DenseMatrix<math_t>* asDense() const
+  {
+    const DenseMatrix<math_t>* cast = dynamic_cast<const DenseMatrix<math_t>*>(this);
+    assert(cast != nullptr);
+    return cast;
+  };
+
+  const CsrMatrix<math_t>* asCsr() const
+  {
+    const CsrMatrix<math_t>* cast = dynamic_cast<const CsrMatrix<math_t>*>(this);
+    assert(cast != nullptr);
+    return cast;
+  };
+
+  const CooMatrix<math_t>* asCoo() const
+  {
+    const CooMatrix<math_t>* cast = dynamic_cast<const CooMatrix<math_t>*>(this);
+    assert(cast != nullptr);
+    return cast;
+  };
+
  private:
   int n_rows;
   int n_cols;
@@ -67,7 +88,7 @@ template <typename math_t>
 class DenseMatrix : public Matrix<math_t> {
  public:
   DenseMatrix(math_t* data, int rows, int cols) : Matrix<math_t>(rows, cols), data(data) {}
-  virtual MatrixType getType() { return MatrixType::DENSE; }
+  virtual MatrixType getType() const { return MatrixType::DENSE; }
   math_t* data;
 };
 
@@ -78,7 +99,7 @@ class CsrMatrix : public Matrix<math_t> {
     : Matrix<math_t>(rows, cols), indptr(indptr), indices(indices), data(data), nnz(nnz)
   {
   }
-  virtual MatrixType getType() { return MatrixType::CSR; }
+  virtual MatrixType getType() const { return MatrixType::CSR; }
   int nnz;
   int* indptr;
   int* indices;
@@ -92,7 +113,7 @@ class CooMatrix : public Matrix<math_t> {
     : Matrix<math_t>(rows, cols), rowindex(rowindex), colindex(colindex), data(data)
   {
   }
-  virtual MatrixType getType() { return MatrixType::COO; }
+  virtual MatrixType getType() const { return MatrixType::COO; }
   int* rowindex;
   int* colindex;
   math_t* data;

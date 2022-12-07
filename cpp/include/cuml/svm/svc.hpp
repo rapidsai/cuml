@@ -63,30 +63,13 @@ void svcFit(const raft::handle_t& handle,
             const math_t* sample_weight);
 
 template <typename math_t>
-void svcFit(const raft::handle_t& handle,
-            MLCommon::Matrix::Matrix<math_t>* matrix,
-            int n_rows,
-            int n_cols,
-            math_t* labels,
-            const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
-            SvmModel<math_t>& model,
-            const math_t* sample_weight);
-
-// same as above -- takes CSR format for feature matrix
-template <typename math_t>
-void svcFitSparse(const raft::handle_t& handle,
-                  int* indptr,
-                  int* indices,
-                  math_t* data,
-                  int n_rows,
-                  int n_cols,
-                  int nnz,
-                  math_t* labels,
-                  const SvmParameter& param,
-                  raft::distance::kernels::KernelParams& kernel_params,
-                  SvmModel<math_t>& model,
-                  const math_t* sample_weight);
+void svcFitX(const raft::handle_t& handle,
+             const MLCommon::Matrix::Matrix<math_t>& matrix,
+             math_t* labels,
+             const SvmParameter& param,
+             raft::distance::kernels::KernelParams& kernel_params,
+             SvmModel<math_t>& model,
+             const math_t* sample_weight);
 
 /**
  * @brief Predict classes or decision function value for samples in input.
@@ -129,30 +112,13 @@ void svcPredict(const raft::handle_t& handle,
                 bool predict_class);
 
 template <typename math_t>
-void svcPredict(const raft::handle_t& handle,
-                MLCommon::Matrix::Matrix<math_t>* matrix,
-                int n_rows,
-                int n_cols,
-                raft::distance::kernels::KernelParams& kernel_params,
-                const SvmModel<math_t>& model,
-                math_t* preds,
-                math_t buffer_size,
-                bool predict_class);
-
-// same as above -- takes CSR format for feature matrix
-template <typename math_t>
-void svcPredictSparse(const raft::handle_t& handle,
-                      int* indptr,
-                      int* indices,
-                      math_t* data,
-                      int n_rows,
-                      int n_cols,
-                      int nnz,
-                      raft::distance::kernels::KernelParams& kernel_params,
-                      const SvmModel<math_t>& model,
-                      math_t* preds,
-                      math_t buffer_size,
-                      bool predict_class);
+void svcPredictX(const raft::handle_t& handle,
+                 const MLCommon::Matrix::Matrix<math_t>& matrix,
+                 raft::distance::kernels::KernelParams& kernel_params,
+                 const SvmModel<math_t>& model,
+                 math_t* preds,
+                 math_t buffer_size,
+                 bool predict_class);
 
 /**
  * Deallocate device buffers in the SvmModel struct.

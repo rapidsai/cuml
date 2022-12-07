@@ -46,16 +46,17 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t>
-void svcFit(const raft::handle_t& handle,
-            MLCommon::Matrix::Matrix<math_t>* matrix,
-            int n_rows,
-            int n_cols,
-            math_t* labels,
-            const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
-            SvmModel<math_t>& model,
-            const math_t* sample_weight)
+void svcFitX(const raft::handle_t& handle,
+             const MLCommon::Matrix::Matrix<math_t>& matrix,
+             math_t* labels,
+             const SvmParameter& param,
+             raft::distance::kernels::KernelParams& kernel_params,
+             SvmModel<math_t>& model,
+             const math_t* sample_weight)
 {
+  int n_cols = matrix.numCols();
+  int n_rows = matrix.numRows();
+
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
 
@@ -112,39 +113,21 @@ void svcFit(const raft::handle_t& handle,
             const math_t* sample_weight)
 {
   MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
-  svcFit(handle, &dense_matrix, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
-}
-
-// TODO remove layer once matrix object can be passed from python
-template <typename math_t>
-void svcFitSparse(const raft::handle_t& handle,
-                  int* indptr,
-                  int* indices,
-                  math_t* data,
-                  int n_rows,
-                  int n_cols,
-                  int nnz,
-                  math_t* labels,
-                  const SvmParameter& param,
-                  raft::distance::kernels::KernelParams& kernel_params,
-                  SvmModel<math_t>& model,
-                  const math_t* sample_weight)
-{
-  MLCommon::Matrix::CsrMatrix<math_t> csr_matrix(indptr, indices, data, nnz, n_rows, n_cols);
-  svcFit(handle, &csr_matrix, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
+  svcFitX(handle, dense_matrix, labels, param, kernel_params, model, sample_weight);
 }
 
 template <typename math_t>
-void svcPredict(const raft::handle_t& handle,
-                MLCommon::Matrix::Matrix<math_t>* matrix,
-                int n_rows,
-                int n_cols,
-                raft::distance::kernels::KernelParams& kernel_params,
-                const SvmModel<math_t>& model,
-                math_t* preds,
-                math_t buffer_size,
-                bool predict_class)
+void svcPredictX(const raft::handle_t& handle,
+                 const MLCommon::Matrix::Matrix<math_t>& matrix,
+                 raft::distance::kernels::KernelParams& kernel_params,
+                 const SvmModel<math_t>& model,
+                 math_t* preds,
+                 math_t buffer_size,
+                 bool predict_class)
 {
+  int n_rows = matrix.numRows();
+  int n_cols = matrix.numCols();
+
   ASSERT(n_cols == model.n_cols, "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
@@ -186,15 +169,15 @@ void svcPredict(const raft::handle_t& handle,
     math_t* x_ptr = nullptr;
     int ld1       = 0;
     if (kernel_params.kernel == raft::distance::kernels::RBF ||
-        matrix->getType() != MLCommon::Matrix::DENSE) {
+        matrix.getType() != MLCommon::Matrix::DENSE) {
       // The RBF kernel does not support ld parameters (See issue #1172)
       // To come around this limitation, we copy the batch into a temporary
       // buffer.
       thrust::device_ptr<int> idx_ptr(idx.data());
       thrust::sequence(thrust::cuda::par.on(stream), idx_ptr, idx_ptr + n_batch, i);
-      switch (matrix->getType()) {
+      switch (matrix.getType()) {
         case MLCommon::Matrix::MatrixType::CSR: {
-          MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix->asCsr();
+          const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
           ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
                                                  csr_matrix->indices,
                                                  csr_matrix->data,
@@ -207,7 +190,7 @@ void svcPredict(const raft::handle_t& handle,
           break;
         }
         case MLCommon::Matrix::MatrixType::DENSE: {
-          raft::matrix::copyRows(matrix->asDense()->data,
+          raft::matrix::copyRows(matrix.asDense()->data,
                                  n_rows,
                                  n_cols,
                                  x_rbf.data(),
@@ -217,13 +200,13 @@ void svcPredict(const raft::handle_t& handle,
                                  false);
           break;
         }
-        default: THROW("svcPredict not implemented for matrix type %d", matrix->getType());
+        default: THROW("svcPredict not implemented for matrix type %d", matrix.getType());
       }
 
       x_ptr = x_rbf.data();
       ld1   = n_batch;
     } else {
-      x_ptr = matrix->asDense()->data + i;
+      x_ptr = matrix.asDense()->data + i;
       ld1   = n_rows;
     }
     kernel->evaluate(x_ptr,
@@ -287,28 +270,7 @@ void svcPredict(const raft::handle_t& handle,
                 bool predict_class)
 {
   MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
-  svcPredict(
-    handle, &dense_matrix, n_rows, n_cols, kernel_params, model, preds, buffer_size, predict_class);
-}
-
-// TODO remove layer once matrix object can be passed from python
-template <typename math_t>
-void svcPredictSparse(const raft::handle_t& handle,
-                      int* indptr,
-                      int* indices,
-                      math_t* data,
-                      int n_rows,
-                      int n_cols,
-                      int nnz,
-                      raft::distance::kernels::KernelParams& kernel_params,
-                      const SvmModel<math_t>& model,
-                      math_t* preds,
-                      math_t buffer_size,
-                      bool predict_class)
-{
-  MLCommon::Matrix::CsrMatrix<math_t> csr_matrix(indptr, indices, data, nnz, n_rows, n_cols);
-  svcPredict(
-    handle, &csr_matrix, n_rows, n_cols, kernel_params, model, preds, buffer_size, predict_class);
+  svcPredictX(handle, dense_matrix, kernel_params, model, preds, buffer_size, predict_class);
 }
 
 template <typename math_t>

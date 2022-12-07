@@ -86,6 +86,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
+cdef extern from "cuml/matrix/cumlmatrix.hpp" namespace "MLCommon::Matrix":
+    cdef cppclass Matrix[math_t]:
+        int n_rows
+        int n_cols
+
+    cdef cppclass CsrMatrix[math_t](Matrix[math_t]):
+        int nnz;
+        int* indptr;
+        int* indices;
+        math_t* data;
+        CsrMatrix(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols) except +
+
+    cdef cppclass DenseMatrix[math_t](Matrix[math_t]):
+        math_t* data;
+        DenseMatrix(math_t* data, int rows, int cols) except +
+  
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
@@ -100,33 +116,14 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
-                             int n_rows, int n_cols, math_t *labels,
-                             const SvmParameter &param,
-                             KernelParams &kernel_params,
-                             SvmModel[math_t] &model,
-                             const math_t *sample_weight) except+
-
-    cdef void svcFitSparse[math_t](const handle_t &handle, int* indptr,
-                                   int* indices, math_t *data,
-                                   int n_rows, int n_cols, int nnz, math_t *labels,
-                                   const SvmParameter &param,
-                                   KernelParams &kernel_params,
-                                   SvmModel[math_t] &model,
-                                   const math_t *sample_weight) except+
-
-    cdef void svcPredict[math_t](
-        const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const SvmModel[math_t] &model,
-        math_t *preds, math_t buffer_size, bool predict_class) except +
-
-    cdef void svcPredictSparse[math_t](
-        const handle_t &handle, int* indptr,
-        int* indices, math_t *data, int n_rows, int n_cols, int nnz,
-        KernelParams &kernel_params, const SvmModel[math_t] &model,
-        math_t *preds, math_t buffer_size, bool predict_class) except +
-
-
+    cdef void svcFitX[math_t](const handle_t &handle, const Matrix[math_t] &matrix,
+                                math_t *labels,
+                                const SvmParameter &param,
+                                KernelParams &kernel_params,
+                                SvmModel[math_t] &model,
+                                const math_t *sample_weight) except +
+  
+    
 class SVC(SVMBase,
           ClassifierMixin):
     """
@@ -514,6 +511,8 @@ class SVC(SVMBase,
         cdef SvmParameter param = self._get_svm_params()
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
+        cdef Matrix[float] *matrix_f
+        cdef Matrix[double] *matrix_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef int n_rows = self.n_rows
@@ -528,36 +527,28 @@ class SVC(SVMBase,
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
             if is_sparse:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFitSparse(
-                            deref(handle_), <int*>X_indptr, <int*>X_indices, <float*>X_data, n_rows,
-                            n_cols, n_nnz, <float*>y_ptr, param, _kernel_params,
-                            deref(model_f), <float*>sample_weight_ptr)
+                matrix_f = new CsrMatrix[float](<int*>X_indptr, <int*>X_indices, <float*>X_data, n_nnz, n_rows, n_cols)
             else:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFit(
-                            deref(handle_), <float*>X_ptr, n_rows,
-                            n_cols, <float*>y_ptr, param, _kernel_params,
-                            deref(model_f), <float*>sample_weight_ptr)
+                matrix_f = new DenseMatrix[float](<float*>X_data, n_rows, n_cols)
+            with cuda_interruptible():
+                with nogil:
+                    svcFitX(
+                        deref(handle_), deref(matrix_f),
+                        <float*>y_ptr, param, _kernel_params,
+                        deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
             if is_sparse:
-                with cuda_interruptible():  
-                    with nogil:
-                        svcFitSparse(
-                            deref(handle_), <int*>X_indptr, <int*>X_indices, <double*>X_data, n_rows,
-                            n_cols, n_nnz, <double*>y_ptr, param, _kernel_params,
-                            deref(model_d), <double*>sample_weight_ptr)
+                matrix_d = new CsrMatrix[double](<int*>X_indptr, <int*>X_indices, <double*>X_data, n_nnz, n_rows, n_cols)
             else:
-                with cuda_interruptible():
-                    with nogil:
-                        svcFit(
-                            deref(handle_), <double*>X_ptr, n_rows,
-                            n_cols, <double*>y_ptr, param, _kernel_params,
-                            deref(model_d), <double*>sample_weight_ptr)
+                matrix_d = new DenseMatrix[double](<double*>X_data, n_rows, n_cols)
+            with cuda_interruptible():
+                with nogil:
+                    svcFitX(
+                        deref(handle_), deref(matrix_d),
+                        <double*>y_ptr, param, _kernel_params,
+                        deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
