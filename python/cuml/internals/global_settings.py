@@ -31,6 +31,10 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
         # If RAPIDS_NO_INITIALIZE is set, then we do lazy initialization
         if "RAPIDS_NO_INITIALIZE" not in os.environ:
             self.set_properties()
+        else:
+            self.shared_state = {
+                'root_cm': None
+            }
 
     def set_properties(self):
         if BUILT_WITH_CUDA and has_cuda_gpu():
@@ -77,16 +81,13 @@ class GlobalSettings:
     """
 
     def __init__(self):
-        # If RAPIDS_NO_INITIALIZE is set, then we do lazy initialization
-        if "RAPIDS_NO_INITIALIZE" not in os.environ:
-            self.__dict__ = _global_settings_data.shared_state
+        self.__dict__ = _global_settings_data.shared_state
 
     def _get_property_helper(self, property_name):
         try:
             return self.__dict__[property_name]
         except AttributeError:
             _global_settings_data.set_properties()
-            self.__dict__ = _global_settings_data.shared_state
 
     @property
     def device_type(self):
