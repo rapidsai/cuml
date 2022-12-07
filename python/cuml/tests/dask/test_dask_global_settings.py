@@ -22,7 +22,7 @@ from dask import delayed
 
 import cuml
 from cuml import set_global_output_type, using_output_type
-from cuml.internals.api_context_managers import _using_mirror_output_type
+from cuml.internals.api_decorators import _using_mirror_output_type
 from cuml.internals.global_settings import (
     _global_settings_data,
     _GlobalSettingsData,

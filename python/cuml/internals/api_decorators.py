@@ -22,22 +22,25 @@ import warnings
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
-from cuml.internals.api_context_managers import BaseReturnAnyCM
-from cuml.internals.api_context_managers import BaseReturnArrayCM
-from cuml.internals.api_context_managers import BaseReturnGenericCM
-from cuml.internals.api_context_managers import BaseReturnSparseArrayCM
-from cuml.internals.api_context_managers import InternalAPIContextBase
-from cuml.internals.api_context_managers import ReturnAnyCM
-from cuml.internals.api_context_managers import ReturnArrayCM
-from cuml.internals.api_context_managers import ReturnGenericCM
-from cuml.internals.api_context_managers import ReturnSparseArrayCM
-from cuml.internals.api_context_managers import set_api_output_dtype
-from cuml.internals.api_context_managers import set_api_output_type
+from cuml.internals import logger
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
 from cuml.internals.type_utils import _DecoratorType, wraps_typed
-from cuml.internals import logger
+from cuml.internals.safe_imports import (
+    gpu_only_import_from, UnavailableNullContext
+)
+
+cupy_using_allocator = gpu_only_import_from(
+    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
+)
+rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
+
+
+_API_STACK_LEVEL = 0
+_API_OUTPUT_TYPE = None
+_API_OUTPUT_DTYPE = None
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -79,8 +82,128 @@ def _get_value(args, kwargs, name, index):
                 "were not found in args or kwargs.")
 
 
+@contextlib.contextmanager
+def _using_mirror_output_type():
+    """
+    Sets global_settings.output_type to "mirror" for internal API
+    handling. We need a separate function since `cuml.using_output_type()`
+    doesn't accept "mirror"
+
+    Yields
+    -------
+    string
+        Returns the previous value in global_settings.output_type
+    """
+    prev_output_type = GlobalSettings().output_type
+    try:
+        GlobalSettings().output_type = "mirror"
+        yield prev_output_type
+    finally:
+        GlobalSettings().output_type = prev_output_type
+
+
+@contextlib.contextmanager
+def _restore_dtype():
+    prev_output_dtype = GlobalSettings().output_dtype
+    try:
+        yield
+    finally:
+        GlobalSettings().output_dtype = prev_output_dtype
+
+
+def in_internal_api():
+    return _API_STACK_LEVEL > 1
+
+
+@contextlib.contextmanager
+def api_context():
+    global _API_STACK_LEVEL
+
+    _API_STACK_LEVEL += 1
+    # print("API STACK LEVEL", _API_STACK_LEVEL)
+
+    try:
+        # TODO: Refactor flow below to use contextlib.ExitStack
+        if _API_STACK_LEVEL == 1:
+            with cupy_using_allocator(rmm_cupy_allocator):
+                with _restore_dtype():
+                    current_output_type = GlobalSettings().output_type
+                    if current_output_type in (None, "input", "mirror"):
+                        with _using_mirror_output_type():
+                            yield
+                    else:
+                        yield
+        else:
+            yield
+    finally:
+        _API_STACK_LEVEL -= 1
+        # print("API STACK LEVEL", _API_STACK_LEVEL)
+
+
+def set_api_output_type(output_type):
+    global _API_OUTPUT_TYPE
+    _API_OUTPUT_TYPE = output_type
+
+
+def set_api_output_dtype(output_dtype):
+    global _API_OUTPUT_DTYPE
+    _API_OUTPUT_DTYPE = output_dtype
+
+
+def _convert_to_cumlarray(ret_val):
+    # Get the output type
+    ret_val_type_str, is_sparse = iu.determine_array_type_full(ret_val)
+
+    # If we are a supported array and not already cuml, convert to cuml
+    if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
+        if is_sparse:
+            ret_val = SparseCumlArray(
+                ret_val,
+                convert_to_mem_type=GlobalSettings().memory_type,
+                convert_index=False
+            )
+        else:
+            ret_val = iu.input_to_cuml_array(
+                ret_val,
+                convert_to_mem_type=GlobalSettings().memory_type,
+                order="K"
+            ).array
+
+    return ret_val
+
+
+def process_single(value):
+    output_type = _API_OUTPUT_TYPE
+    output_dtype = _API_OUTPUT_DTYPE
+    try:
+        ca = _convert_to_cumlarray(value)
+        ret = ca.to_output(
+            output_type=output_type,
+            output_dtype=output_dtype,
+        )
+        return ret
+    except AttributeError:
+        raise
+        # return value
+
+
+def process_generic(value):
+    if iu.is_array_like(value):
+        return process_single(value)
+
+    if isinstance(value, tuple):
+        return tuple(process_generic(item) for item in value)
+
+    if isinstance(value, dict):
+        return {key: process_generic(value) for key, value in value.items()}
+
+    if isinstance(value, list):
+        return list(process_generic(item) for item in value)
+
+    return value
+
+
 def _make_decorator_function(
-    context_manager_cls: InternalAPIContextBase,
     process_return=True,
     ** defaults,
 ) -> typing.Callable[..., _DecoratorType]:
@@ -149,8 +272,12 @@ def _make_decorator_function(
             @_wrap_once(func)
             def wrapper(*args, **kwargs):
                 # Wraps the decorated function, executed at runtime.
+                # breakpoint()
 
-                with context_manager_cls(func, args) as cm:
+                with api_context():
+
+                    if in_internal_api():
+                        return func(*args, **kwargs)
 
                     self_val = args[0] if has_self else None
 
@@ -197,7 +324,7 @@ def _make_decorator_function(
                     else:
                         return func(*args, **kwargs)
 
-                return cm.process_return(ret)
+                    return process_generic(ret)
 
             return wrapper
 
@@ -206,29 +333,34 @@ def _make_decorator_function(
     return functools.partial(decorator_function, **defaults)
 
 
-api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
+api_return_any = _make_decorator_function(
+    # ReturnAnyCM,
+    process_return=False)
 api_base_return_any = _make_decorator_function(
-    BaseReturnAnyCM,
+    # BaseReturnAnyCM,
     set_output_type=True,
     set_n_features_in=True,
 )
-api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
+api_return_array = _make_decorator_function(
+    # ReturnArrayCM,
+    process_return=True)
 api_base_return_array = _make_decorator_function(
-    BaseReturnArrayCM,
+    # BaseReturnArrayCM,
     process_return=True,
     get_output_type=True,
 )
 api_return_generic = _make_decorator_function(
-    ReturnGenericCM, process_return=True
+    # ReturnGenericCM,
+    process_return=True
 )
 api_base_return_generic = _make_decorator_function(
-    BaseReturnGenericCM,
+    # BaseReturnGenericCM,
     process_return=True,
     get_output_type=True,
 )
 api_base_fit_transform = _make_decorator_function(
     # TODO: add tests for this decorator(
-    BaseReturnArrayCM,
+    # BaseReturnArrayCM,
     process_return=True,
     get_output_type=True,
     set_output_type=True,
@@ -236,10 +368,11 @@ api_base_fit_transform = _make_decorator_function(
 )
 
 api_return_sparse_array = _make_decorator_function(
-    ReturnSparseArrayCM, process_return=True
+    # ReturnSparseArrayCM,
+    process_return=True
 )
 api_base_return_sparse_array = _make_decorator_function(
-    BaseReturnSparseArrayCM,
+    # BaseReturnSparseArrayCM,
     process_return=True,
     get_output_type=True,
 )
@@ -255,6 +388,7 @@ api_base_return_generic_skipall = api_base_return_generic(
 
 @contextlib.contextmanager
 def exit_internal_api():
+    raise NotImplementedError()
 
     assert (GlobalSettings().root_cm is not None)
 

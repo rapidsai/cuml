@@ -34,7 +34,7 @@ from cuml.internals.api_decorators import (
     api_return_sparse_array,
     exit_internal_api,
 )
-from cuml.internals.api_context_managers import (
+from cuml.internals.api_decorators import (
     in_internal_api,
     set_api_output_dtype,
     set_api_output_type,
