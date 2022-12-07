@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import os
 import threading
 from cuml.common.cuda import BUILT_WITH_CUDA, has_cuda_gpu
 from cuml.common.device_selection import DeviceType
@@ -27,6 +28,11 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
 
     def __init__(self):
         super().__init__()
+        # If RAPIDS_NO_INITIALIZE is set, then we do lazy initialization
+        if "RAPIDS_NO_INITIALIZE" not in os.environ:
+            self.set_properties()
+
+    def set_properties(self):
         if BUILT_WITH_CUDA and has_cuda_gpu():
             default_device_type = DeviceType.device
             default_memory_type = MemoryType.device
@@ -71,11 +77,20 @@ class GlobalSettings:
     """
 
     def __init__(self):
-        self.__dict__ = _global_settings_data.shared_state
+        # If RAPIDS_NO_INITIALIZE is set, then we do lazy initialization
+        if "RAPIDS_NO_INITIALIZE" not in os.environ:
+            self.__dict__ = _global_settings_data.shared_state
+
+    def _get_property_helper(self, property_name):
+        try:
+            return self.__dict__[property_name]
+        except AttributeError:
+            _global_settings_data.set_properties()
+            self.__dict__ = _global_settings_data.shared_state
 
     @property
     def device_type(self):
-        return self._device_type  # pylint: disable=no-member
+        return self._get_property_helper("_device_type")
 
     @device_type.setter
     def device_type(self, value):
@@ -83,7 +98,7 @@ class GlobalSettings:
 
     @property
     def memory_type(self):
-        return self._memory_type  # pylint: disable=no-member
+        return self._get_property_helper("_memory_type")
 
     @memory_type.setter
     def memory_type(self, value):
@@ -92,8 +107,9 @@ class GlobalSettings:
     @property
     def output_type(self):
         """The globally-defined default output type for cuML API calls"""
-        return self._output_type  # pylint: disable=no-member
+        return self._get_property_helper("_output_type")  # pylint: disable=no-member
 
     @output_type.setter
     def output_type(self, value):
         self._output_type = value
+
