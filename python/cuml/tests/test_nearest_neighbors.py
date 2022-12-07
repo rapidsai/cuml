@@ -65,6 +65,7 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
     ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.sort()
     ret.remove("haversine")  # This is tested on its own
     return ret
 
@@ -83,7 +84,9 @@ def valid_metrics_sparse(algo="brute", cuml_algo=None):
     cuml_metrics = cuml.neighbors.VALID_METRICS_SPARSE[cuml_algo]
     sklearn_metrics = set(sklearn.neighbors.VALID_METRICS_SPARSE[algo])
     sklearn_metrics.update(sklearn.neighbors.VALID_METRICS[algo])
-    return [value for value in cuml_metrics if value in sklearn_metrics]
+    ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.sort()
+    return ret
 
 
 def metric_p_combinations():
@@ -281,10 +284,10 @@ def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
 
 
 @pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
-@pytest.mark.parametrize("metric", set([
+@pytest.mark.parametrize("metric", [
         "l2", "euclidean", "sqeuclidean",
         "cosine", "correlation"
-    ]))
+    ])
 def test_ann_distances_metrics(algo, metric):
     X, y = make_blobs(n_samples=500, centers=2,
                       n_features=128, random_state=0)
