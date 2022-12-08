@@ -30,17 +30,17 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.common.base import UniversalBase
-from cuml.common.mixins import RegressorMixin
+from cuml.experimental.common.base import Base
+from cuml.common.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
+from cuml.internals.api_decorators import device_interop_preparation
+
 from cuml.common.mixins import FMajorInputTagMixin
 from cuml.common.input_utils import input_to_cupy_array
-from cuml.experimental.common import enable_cpu
-
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -118,7 +118,7 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     return coef, intercept
 
 
-class LinearRegression(UniversalBase,
+class LinearRegression(Base,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
@@ -240,10 +240,11 @@ class LinearRegression(UniversalBase,
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
     """
 
-    sk_import_path_ = 'sklearn.linear_model'
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
+    coef_ = CumlArrayDescriptor(order='F')
+    intercept_ = CumlArrayDescriptor(order='F')
 
+    @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
@@ -279,17 +280,17 @@ class LinearRegression(UniversalBase,
         }[algorithm]
 
     @generate_docstring()
-    @enable_cpu
-    def fit(self, X, y, convert_dtype=True,
-            sample_weight=None) -> "LinearRegression":
+    def _fit(self, X, y, convert_dtype=True,
+             sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
-        X_m, n_rows, self.n_cols, self.dtype = \
+        X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
+        self.feature_names_in_ = X_m.index
 
         y_m, _, y_cols, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
@@ -308,7 +309,7 @@ class LinearRegression(UniversalBase,
         else:
             sample_weight_ptr = 0
 
-        if self.n_cols < 1:
+        if self.n_features_in_ < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
@@ -316,7 +317,7 @@ class LinearRegression(UniversalBase,
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1 and self.algo != 0:
+        if self.n_features_in_ == 1 and self.algo != 0:
             warnings.warn("Changing solver from 'eig' to 'svd' as eig " +
                           "solver does not support training data with 1 " +
                           "column currently.", UserWarning)
@@ -330,7 +331,7 @@ class LinearRegression(UniversalBase,
                 X_m, y_m, convert_dtype, sample_weight_m
             )
 
-        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
@@ -342,7 +343,7 @@ class LinearRegression(UniversalBase,
             olsFit(handle_[0],
                    <float*>X_ptr,
                    <int>n_rows,
-                   <int>self.n_cols,
+                   <int>self.n_features_in_,
                    <float*>y_ptr,
                    <float*>coef_ptr,
                    <float*>&c_intercept1,
@@ -356,7 +357,7 @@ class LinearRegression(UniversalBase,
             olsFit(handle_[0],
                    <double*>X_ptr,
                    <int>n_rows,
-                   <int>self.n_cols,
+                   <int>self.n_features_in_,
                    <double*>y_ptr,
                    <double*>coef_ptr,
                    <double*>&c_intercept2,
@@ -416,7 +417,7 @@ class LinearRegression(UniversalBase,
         self.coef_, _, _, _ = input_to_cuml_array(
             coef,
             check_dtype=self.dtype,
-            check_rows=self.n_cols,
+            check_rows=self.n_features_in_,
             check_cols=y_cols
         )
         if self.fit_intercept:
@@ -431,21 +432,12 @@ class LinearRegression(UniversalBase,
 
         return self
 
-    @enable_cpu
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        self.dtype = self.coef_.dtype
-        self.n_cols = self.coef_.shape[0]
-        # Adding Base here skips it in the Method Resolution Order (MRO)
-        # Since Base and LinearPredictMixin now both have a `predict` method
-        return super(UniversalBase, self).predict(X,
-                                                  convert_dtype=convert_dtype)
-
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
 
-    def get_attributes_names(self):
-        return ['coef_', 'intercept_']
+    def get_attr_names(self):
+        return ['coef_', 'intercept_', 'n_features_in_', 'feature_names_in_']
 
     @staticmethod
     def _more_static_tags():
