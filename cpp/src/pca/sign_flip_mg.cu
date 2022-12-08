@@ -20,9 +20,9 @@
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_vector.h>

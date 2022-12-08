@@ -99,7 +99,7 @@ class CD(Base,
     regression and ridge, lasso, and elastic-net penalties.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         >>> import cupy as cp
@@ -133,7 +133,7 @@ class CD(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     loss : 'squared_loss'
         Only 'squared_loss' is supported right now.
         'squared_loss' uses linear regression in its predict step.

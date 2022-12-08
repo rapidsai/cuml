@@ -28,22 +28,16 @@
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "optimize_batch_kernel.cuh"
 #include <string>
 
 #include <raft/sparse/op/filter.cuh>
-
-#include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
-#include <thrust/extrema.h>
-#include <thrust/for_each.h>
 #include <thrust/iterator/constant_iterator.h>
-#include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/system/cuda/execution_policy.h>

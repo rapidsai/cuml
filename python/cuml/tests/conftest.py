@@ -20,6 +20,7 @@ import subprocess
 
 import numpy as np
 import cupy as cp
+import hypothesis
 
 from math import ceil
 from sklearn.datasets import fetch_20newsgroups
@@ -32,6 +33,30 @@ from cuml.testing.utils import create_synthetic_dataset
 
 # Add the import here for any plugins that should be loaded EVERY TIME
 pytest_plugins = ("cuml.testing.plugins.quick_run_plugin")
+
+
+# Configure hypothesis profiles
+
+hypothesis.settings.register_profile(
+    name="unit",
+    parent=hypothesis.settings.get_profile("default"),
+    max_examples=20,
+    suppress_health_check=[
+        hypothesis.HealthCheck.data_too_large,
+    ],
+)
+
+hypothesis.settings.register_profile(
+    name="quality",
+    parent=hypothesis.settings.get_profile("unit"),
+    max_examples=100,
+)
+
+hypothesis.settings.register_profile(
+    name="stress",
+    parent=hypothesis.settings.get_profile("quality"),
+    max_examples=200
+)
 
 
 def pytest_addoption(parser):
@@ -75,7 +100,7 @@ def pytest_collection_modifyitems(config, items):
     # Mark the tests as "skip" if needed
     if not should_run_unit:
         skip_unit = pytest.mark.skip(
-            reason="Stress tests run with --run_unit flag.")
+            reason="Unit tests run with --run_unit flag.")
         for item in items:
             if "unit" in item.keywords:
                 item.add_marker(skip_unit)
@@ -100,6 +125,17 @@ def pytest_configure(config):
     # max_gpu_memory: Capacity of the GPU memory in GB
     pytest.max_gpu_memory = get_gpu_memory()
     pytest.adapt_stress_test = 'CUML_ADAPT_STRESS_TESTS' in os.environ
+
+    # Load special hypothesis profiles for either quality or stress tests.
+    # Note that the profile can be manually overwritten with the
+    # --hypothesis-profile command line option in which case the settings
+    # specified here will be ignored.
+    if config.getoption("--run_stress"):
+        hypothesis.settings.load_profile("stress")
+    elif config.getoption("--run_quality"):
+        hypothesis.settings.load_profile("quality")
+    else:
+        hypothesis.settings.load_profile("unit")
 
 
 @pytest.fixture(scope="module")

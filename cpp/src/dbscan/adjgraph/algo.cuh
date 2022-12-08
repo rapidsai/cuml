@@ -23,8 +23,8 @@
 #include "pack.h"
 
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/sparse/convert/csr.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

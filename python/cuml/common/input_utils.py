@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -289,12 +289,11 @@ def input_to_cuml_array(X,
     def check_order(arr_order):
         if order != 'K' and arr_order != order:
             if fail_on_order:
-                raise ValueError("Expected " + order_to_str(order) +
-                                 " major order, but got the opposite.")
+                raise ValueError("Expected " + order_to_str(order))
             else:
                 debug("Expected " + order_to_str(order) + " major order, "
-                      "but got the opposite. Converting data, this will "
-                      "result in additional memory utilization.")
+                      "Converting data, this will result in "
+                      "additional memory utilization.")
                 return True
         return False
 
@@ -315,7 +314,10 @@ def input_to_cuml_array(X,
 
     # format conversion
 
-    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if (
+        has_dask_cudf()
+        and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame))
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
@@ -531,6 +533,10 @@ def input_to_host_array(X,
         array. It is a reference to the input X if it was a NumPy host array
     """
 
+    if isinstance(X, (int, float, complex, bool, str,
+                      type(None), dict, set, list, tuple)):
+        return X
+
     if isinstance(X, np.ndarray):
         if len(X.shape) > 1:
             n_cols = X.shape[1]
@@ -570,7 +576,10 @@ def convert_dtype(X,
     if the conversion would lose information.
     """
 
-    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if (
+        has_dask_cudf()
+        and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame))
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 

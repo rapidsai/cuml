@@ -21,11 +21,11 @@
 #include <cumlprims/opg/stats/mean.hpp>
 #include <cumlprims/opg/stats/mean_center.hpp>
 #include <raft/core/comms.hpp>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;

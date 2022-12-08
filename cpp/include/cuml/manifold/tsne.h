@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace raft {
 class handle_t;
@@ -85,7 +85,7 @@ struct TSNEParams {
   // The momentum used after the exaggeration phase.
   float post_momentum = 0.8;
 
-  // Set this to -1 for pure random intializations or >= 0 for
+  // Set this to -1 for pure random initializations or >= 0 for
   // reproducible outputs. This sets random seed correctly, but there
   // may still be some variance due to the parallel nature of this algorithm.
   long long random_state = -1;

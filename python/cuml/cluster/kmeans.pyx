@@ -22,6 +22,7 @@ import rmm
 import warnings
 import typing
 
+from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
@@ -34,6 +35,7 @@ from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
+from cuml.metrics.distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
@@ -88,7 +90,6 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         const float *X,
                         int n_samples,
                         int n_features,
-                        int metric,
                         float *X_new) except +
 
     cdef void transform(handle_t& handle,
@@ -97,7 +98,6 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         const double *X,
                         int n_samples,
                         int n_features,
-                        int metric,
                         double *X_new) except +
 
 
@@ -220,7 +220,7 @@ class KMeans(Base,
         Which cluster each datapoint belongs to.
 
     Notes
-    ------
+    -----
     KMeans requires `n_clusters` to be specified. This means one needs to
     approximately guess or know how many clusters a dataset has. If one is not
     sure, one can start with a small number of clusters, and visualize the
@@ -243,6 +243,21 @@ class KMeans(Base,
     labels_ = CumlArrayDescriptor()
     cluster_centers_ = CumlArrayDescriptor()
 
+    def _get_kmeans_params(self):
+        cdef KMeansParams* params = \
+            <KMeansParams*>calloc(1, sizeof(KMeansParams))
+        params.n_clusters = <int>self.n_clusters
+        params.init = self._params_init
+        params.max_iter = <int>self.max_iter
+        params.tol = <double>self.tol
+        params.verbosity = <int>self.verbose
+        params.rng_state.seed = self.random_state
+        params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+        params.batch_samples = <int>self.max_samples_per_batch
+        params.oversampling_factor = <double>self.oversampling_factor
+        params.n_init = <int>self.n_init
+        return <size_t>params
+
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
@@ -264,9 +279,6 @@ class KMeans(Base,
         self.labels_ = None
         self.cluster_centers_ = None
 
-        cdef KMeansParams params
-        params.n_clusters = <int>self.n_clusters
-
         # cuPy does not allow comparing with string. See issue #2372
         init_str = init if isinstance(init, str) else None
 
@@ -278,28 +290,18 @@ class KMeans(Base,
 
         if (init_str in ['scalable-k-means++', 'k-means||']):
             self.init = init_str
-            params.init = KMeansPlusPlus
+            self._params_init = KMeansPlusPlus
 
         elif (init_str == 'random'):
             self.init = init
-            params.init = Random
+            self._params_init = Random
 
         else:
             self.init = 'preset'
-            params.init = Array
+            self._params_init = Array
             self.cluster_centers_, n_rows, self.n_cols, self.dtype = \
                 input_to_cuml_array(init, order='C',
                                     check_dtype=[np.float32, np.float64])
-
-        params.max_iter = <int>self.max_iter
-        params.tol = <double>self.tol
-        params.verbosity = <int>self.verbose
-        params.seed = <int>self.random_state
-        params.metric = 0   # distance metric as squared L2: @todo - support other metrics # noqa: E501
-        params.batch_samples=<int>self.max_samples_per_batch
-        params.oversampling_factor=<double>self.oversampling_factor
-        params.n_init = <int>self.n_init
-        self._params = params
 
     @generate_docstring()
     def fit(self, X, sample_weight=None) -> "KMeans":
@@ -346,13 +348,14 @@ class KMeans(Base,
         cdef float inertiaf = 0
         cdef double inertiad = 0
 
-        cdef KMeansParams params = self._params
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
         cdef int n_iter = 0
 
         if self.dtype == np.float32:
             fit_predict(
                 handle_[0],
-                <KMeansParams> params,
+                <KMeansParams> deref(params),
                 <const float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
@@ -367,7 +370,7 @@ class KMeans(Base,
         elif self.dtype == np.float64:
             fit_predict(
                 handle_[0],
-                <KMeansParams> params,
+                <KMeansParams> deref(params),
                 <const double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
@@ -387,6 +390,7 @@ class KMeans(Base,
         self.handle.sync()
         del(X_m)
         del(sample_weight_m)
+        free(params)
         return self
 
     @generate_docstring(return_values={'name': 'preds',
@@ -461,11 +465,13 @@ class KMeans(Base,
         # Sum of squared distances of samples to their closest cluster center.
         cdef float inertiaf = 0
         cdef double inertiad = 0
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
 
         if self.dtype == np.float32:
             predict(
                 handle_[0],
-                <KMeansParams> self._params,
+                <KMeansParams> deref(params),
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
                 <size_t> n_rows,
@@ -479,7 +485,7 @@ class KMeans(Base,
         elif self.dtype == np.float64:
             predict(
                 handle_[0],
-                <KMeansParams> self._params,
+                <KMeansParams> deref(params),
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
                 <size_t> n_rows,
@@ -498,6 +504,7 @@ class KMeans(Base,
         self.handle.sync()
         del(X_m)
         del(sample_weight_m)
+        free(params)
         return self.labels_, inertia
 
     @generate_docstring(return_values={'name': 'preds',
@@ -547,27 +554,27 @@ class KMeans(Base,
         cdef uintptr_t preds_ptr = preds.ptr
 
         # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
-        distance_metric = 1
+        cdef KMeansParams* params = \
+            <KMeansParams*><size_t>self._get_kmeans_params()
+        params.metric = DistanceType.L2SqrtExpanded
 
         if self.dtype == np.float32:
             transform(
                 handle_[0],
-                <KMeansParams> self._params,
+                <KMeansParams> deref(params),
                 <float*> cluster_centers_ptr,
                 <float*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
-                <int> distance_metric,
                 <float*> preds_ptr)
         elif self.dtype == np.float64:
             transform(
                 handle_[0],
-                <KMeansParams> self._params,
+                <KMeansParams> deref(params),
                 <double*> cluster_centers_ptr,
                 <double*> input_ptr,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
-                <int> distance_metric,
                 <double*> preds_ptr)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
@@ -577,6 +584,7 @@ class KMeans(Base,
         self.handle.sync()
 
         del(X_m)
+        free(params)
         return preds
 
     @generate_docstring(return_values={'name': 'score',

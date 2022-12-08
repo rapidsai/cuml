@@ -1,6 +1,6 @@
-~~~~~~~~~~~~~~~~~~~
-cuML API Reference
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+API Reference
+~~~~~~~~~~~~~
 
 .. role:: py(code)
    :language: python
@@ -187,7 +187,7 @@ Array Wrappers (Internal API)
     :members:
 
 Metrics (regression, classification, and distance)
----------------------------------------------------
+--------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -239,7 +239,7 @@ Metrics (clustering and manifold learning)
     :members:
 
 Benchmarking
--------------
+------------
 
   .. automodule:: cuml.benchmark.algorithms
     :members:
@@ -309,7 +309,7 @@ Multiclass Classification
     :members:
 
 Naive Bayes
-----------------------
+-----------
 
 .. autoclass:: cuml.naive_bayes.MultinomialNB
     :members:
@@ -399,13 +399,13 @@ Clustering
 ==========
 
 K-Means Clustering
---------------------
+------------------
 
 .. autoclass:: cuml.KMeans
     :members:
 
 DBSCAN
--------
+------
 
 .. autoclass:: cuml.DBSCAN
     :members:
@@ -420,8 +420,9 @@ Agglomerative Clustering
 HDBSCAN
 -------
 
-.. autoclass:: cuml.cluster.HDBSCAN
+.. automodule:: cuml.cluster.hdbscan
    :members:
+   :undoc-members:
 
 
 Dimensionality Reduction and Manifold Learning
@@ -445,7 +446,7 @@ Truncated SVD
     :members:
 
 UMAP
--------------
+----
 
 .. autoclass:: cuml.UMAP
     :members:
@@ -463,7 +464,7 @@ Random Projections
 
 
 TSNE
--------------
+----
 
 .. autoclass:: cuml.TSNE
     :members:
@@ -484,22 +485,22 @@ Nearest Neighbors Classification
     :members:
 
 Nearest Neighbors Regression
---------------------------------
+----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Kernel Density Estimation
---------------------------------
+-------------------------
 
 .. autoclass:: cuml.neighbors.KernelDensity
     :members:
 
 Time Series
-============
+===========
 
 HoltWinters
--------------
+-----------
 
 .. autoclass:: cuml.ExponentialSmoothing
     :members:
@@ -533,13 +534,13 @@ Multi-Node, Multi-GPU Algorithms
 ================================
 
 DBSCAN Clustering
---------------------
+-----------------
 
 .. autoclass:: cuml.dask.cluster.DBSCAN
     :members:
 
 K-Means Clustering
---------------------
+------------------
 
 .. autoclass:: cuml.dask.cluster.KMeans
     :members:
@@ -558,7 +559,7 @@ Nearest Neighbors
 
 
 Principal Component Analysis
------------------------------
+----------------------------
 .. autoclass:: cuml.dask.decomposition.PCA
     :members:
 
@@ -572,7 +573,7 @@ Random Forest
     :members:
 
 Truncated SVD
---------------
+-------------
 
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:
