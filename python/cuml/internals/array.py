@@ -106,12 +106,12 @@ def _determine_memory_order(shape, strides, dtype, default='C'):
     shape = host_xpy.array(shape)
     strides = host_xpy.array(strides)
     itemsize = host_xpy.dtype(dtype).itemsize
+    if strides[-1] == itemsize:
+        if host_xpy.all(strides[:-1] == shape[1:] * strides[1:]):
+            return 'C'
     if strides[0] == itemsize:
         if host_xpy.all(strides[1:] == shape[:-1] * strides[:-1]):
             return 'F'
-    elif strides[-1] == itemsize:
-        if host_xpy.all(strides[:-1] == shape[1:] * strides[1:]):
-            return 'C'
     return None
 
 
