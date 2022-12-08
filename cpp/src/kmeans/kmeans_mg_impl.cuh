@@ -53,6 +53,8 @@ namespace impl {
 
 #define KMEANS_COMM_ROOT 0
 
+static raft::cluster::kmeans::KMeansParams default_params;
+
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
 void initRandom(const raft::handle_t& handle,
@@ -394,12 +396,11 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     auto n_iter  = raft::make_host_scalar<IndexT>(0);
     auto weight_view =
       raft::make_device_vector_view<const DataT, IndexT>(weight.data_handle(), weight.extent(0));
-    raft::cluster::kmeans::KMeansParams default_params;
-    default_params.verbosity  = params.verbosity;
-    default_params.n_clusters = params.n_clusters;
+    raft::cluster::kmeans::KMeansParams params_copy = params;
+    params_copy.rng_state                           = default_params.rng_state;
 
     raft::cluster::kmeans::fit_main(handle,
-                                    default_params,
+                                    params_copy,
                                     const_centroids,
                                     weight_view,
                                     centroidsRawData,
@@ -419,8 +420,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
                     n_random_clusters);
 
     // generate `n_random_clusters` centroids
-    raft::cluster::kmeans::KMeansParams rand_params;
-    rand_params.verbosity  = params.verbosity;
+    raft::cluster::kmeans::KMeansParams rand_params = params;
+    rand_params.rng_state                           = default_params.rng_state;
     rand_params.init       = raft::cluster::kmeans::KMeansParams::InitMethod::Random;
     rand_params.n_clusters = n_random_clusters;
     initRandom(handle, rand_params, X, centroidsRawData);
