@@ -298,6 +298,10 @@ class ClassifierMixin:
         from cuml.metrics.accuracy import accuracy_score
 
         handle = getattr(self, 'handle', None)
+        if hasattr(self, 'handle'):
+            handle = self.handle
+        else:
+            handle = None
 
         preds = self._predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
