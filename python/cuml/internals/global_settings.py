@@ -50,7 +50,6 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
             }
 
 
-
 _global_settings_data = _GlobalSettingsData()
 
 
