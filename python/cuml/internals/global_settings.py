@@ -113,4 +113,3 @@ class GlobalSettings:
     @output_type.setter
     def output_type(self, value):
         self._output_type = value
-
