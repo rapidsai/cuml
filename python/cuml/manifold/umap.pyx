@@ -675,7 +675,7 @@ class UMAP(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    def transform(self, X, convert_dtype=True, knn_graph=None) -> CumlArray:
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -686,28 +686,6 @@ class UMAP(Base,
 
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
-
-        Parameters
-        ----------
-        knn_graph : sparse array-like (device or host)
-            shape=(n_samples, n_samples)
-            A sparse array containing the k-nearest neighbors of X,
-            where the columns are the nearest neighbor indices
-            for each row and the values are their distances.
-            It's important that `k>=n_neighbors`,
-            so that UMAP can model the neighbors from this graph,
-            instead of building its own internally.
-            Users using the knn_graph parameter provide UMAP
-            with their own run of the KNN algorithm. This allows the user
-            to pick a custom distance function (sometimes useful
-            on certain datasets) whereas UMAP uses euclidean by default.
-            The custom distance function should match the metric used
-            to train UMAP embeddings. Storing and reusing a knn_graph
-            will also provide a speedup to the UMAP algorithm
-            when performing a grid search.
-            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            CSR/COO preferred other formats will go through conversion to CSR
-
         """
         if len(X.shape) != 2:
             raise ValueError("X should be two dimensional")
