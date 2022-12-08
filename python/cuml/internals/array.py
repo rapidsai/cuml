@@ -342,12 +342,23 @@ class CumlArray():
         if array_strides is not None:
             array_strides = host_xpy.array(array_strides)
 
-        self._order = _determine_memory_order(
-            self._array_interface['shape'],
-            self._array_interface['strides'],
-            self._array_interface['typestr'],
-            order
-        )
+        if (
+            (
+                array_strides is None
+                or len(array_strides) == 1
+                or host_xpy.all(
+                    array_strides[1:] == array_strides[:-1]
+                )
+            ) and order not in ('K', None)
+        ):
+            self._order = order
+        else:
+            self._order = _determine_memory_order(
+                self._array_interface['shape'],
+                self._array_interface['strides'],
+                self._array_interface['typestr'],
+                order
+            )
 
         # Validate final data against input arguments
         if validate:
