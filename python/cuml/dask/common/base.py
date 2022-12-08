@@ -45,7 +45,12 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         Constructor for distributed estimators.
         """
         self.client = get_client(client)
+
+        # set client verbosity
         self.verbose = verbose
+
+        # kwargs transmits the verbosity level to workers
+        kwargs["verbose"] = verbose
         self.kwargs = kwargs
 
         self.internal_model = None
