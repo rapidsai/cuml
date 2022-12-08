@@ -30,26 +30,25 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
         super().__init__()
         # If RAPIDS_NO_INITIALIZE is set, then we do lazy initialization
         if "RAPIDS_NO_INITIALIZE" not in os.environ:
-            self.set_properties()
+            if BUILT_WITH_CUDA and has_cuda_gpu():
+                default_device_type = DeviceType.device
+                default_memory_type = MemoryType.device
+            else:
+                warn('GPU will not be used')
+                default_device_type = DeviceType.host
+                default_memory_type = MemoryType.host
+            self.shared_state = {
+                '_output_type': None,
+                '_device_type': default_device_type,
+                '_memory_type': default_memory_type,
+                'root_cm': None
+            }
         else:
             self.shared_state = {
+                '_output_type': None,
                 'root_cm': None
             }
 
-    def set_properties(self):
-        if BUILT_WITH_CUDA and has_cuda_gpu():
-            default_device_type = DeviceType.device
-            default_memory_type = MemoryType.device
-        else:
-            warn('GPU will not be used')
-            default_device_type = DeviceType.host
-            default_memory_type = MemoryType.host
-        self.shared_state = {
-            '_output_type': None,
-            '_device_type': default_device_type,
-            '_memory_type': default_memory_type,
-            'root_cm': None
-        }
 
 
 _global_settings_data = _GlobalSettingsData()
@@ -83,15 +82,15 @@ class GlobalSettings:
     def __init__(self):
         self.__dict__ = _global_settings_data.shared_state
 
-    def _get_property_helper(self, property_name):
-        try:
-            return self.__dict__[property_name]
-        except AttributeError:
-            _global_settings_data.set_properties()
-
     @property
     def device_type(self):
-        return self._get_property_helper("_device_type")
+        try:
+            return self._device_type
+        except AttributeError:
+            if BUILT_WITH_CUDA and has_cuda_gpu():
+                self.device_type = DeviceType.device
+            else:
+                self.device_type = DeviceType.host
 
     @device_type.setter
     def device_type(self, value):
@@ -99,7 +98,13 @@ class GlobalSettings:
 
     @property
     def memory_type(self):
-        return self._get_property_helper("_memory_type")
+        try:
+            return self._device_type
+        except AttributeError:
+            if BUILT_WITH_CUDA and has_cuda_gpu():
+                self.memory_type = MemoryType.device
+            else:
+                self.memory_type = MemoryType.host
 
     @memory_type.setter
     def memory_type(self, value):
@@ -108,7 +113,7 @@ class GlobalSettings:
     @property
     def output_type(self):
         """The globally-defined default output type for cuML API calls"""
-        return self._get_property_helper("_output_type")
+        return self._output_type  # pylint: disable=no-member
 
     @output_type.setter
     def output_type(self, value):
