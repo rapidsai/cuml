@@ -63,24 +63,27 @@ class LinearPredictMixin:
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
         """
+        self.dtype = self.coef_.dtype
+
         if self.coef_ is None:
             raise ValueError(
                 "LinearModel.predict() cannot be called before fit(). "
                 "Please fit the model first."
             )
-        if len(self.coef_.shape) == 2 and self.coef_.shape[1] > 1:
+        n_targets = self.coef_.shape[0]
+        if len(self.coef_.shape) == 2 and n_targets > 1:
             # Handle multi-target prediction in Python.
             coef_cp = input_to_cupy_array(self.coef_).array
             X_cp = input_to_cupy_array(
                 X,
                 check_dtype=self.dtype,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols
+                check_cols=self.n_features_in_
             ).array
             intercept_cp = input_to_cupy_array(self.intercept_).array
             preds_cp = X_cp @ coef_cp + intercept_cp
@@ -92,7 +95,7 @@ class LinearPredictMixin:
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_cols)
+                                check_cols=self.n_features_in_)
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
 

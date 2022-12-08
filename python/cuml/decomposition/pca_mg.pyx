@@ -90,13 +90,14 @@ class PCAMG(BaseDecompositionMG, PCA):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCAMG *params = new paramsPCAMG()
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))
+        self.n_features_ = n_cols
 
         return <size_t>params
 

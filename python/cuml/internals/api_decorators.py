@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import inspect
 import typing
 from functools import wraps
 import warnings
+from importlib import import_module
 
 import cuml
 import cuml.common
@@ -39,6 +40,7 @@ from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.base_helpers import _get_base_return_type
+from cuml.common import logger
 
 CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
 
@@ -797,3 +799,52 @@ class _deprecate_pos_args:
         inner_f.__dict__[_deprecate_pos_args.FLAG_NAME] = True
 
         return inner_f
+
+
+def device_interop_preparation(init_func):
+    """
+    This function serves as a decorator to cuML estimators that implement
+    the CPU/GPU interoperability feature. It imports the joint CPU estimator
+    and processes the hyperparameters.
+    """
+
+    @functools.wraps(init_func)
+    def processor(self, *args, **kwargs):
+        # if child class (parent class was already decorated), skip
+        if hasattr(self, '_cpu_model_class'):
+            return init_func(self, *args, **kwargs)
+
+        if hasattr(self, '_cpu_estimator_import_path'):
+            # if import path differs from the one of sklearn
+            # look for _cpu_estimator_import_path
+            estimator_path = self._cpu_estimator_import_path.split('.')
+            model_path = '.'.join(estimator_path[:-1])
+            model_name = estimator_path[-1]
+        else:
+            # import from similar path to the current estimator
+            # class
+            model_path = 'sklearn' + self.__class__.__module__[4:]
+            model_name = self.__class__.__name__
+        self._cpu_model_class = getattr(import_module(model_path), model_name)
+
+        # Save all kwargs
+        self._full_kwargs = kwargs
+        # Generate list of available cuML hyperparameters
+        gpu_hyperparams = list(inspect.signature(init_func).parameters.keys())
+        # Save list of available CPU estimator hyperparameters
+        self._cpu_hyperparams = list(
+            inspect.signature(self._cpu_model_class.__init__).parameters.keys()
+        )
+
+        # Filter provided parameters for cuML estimator initialization
+        filtered_kwargs = {}
+        for keyword, arg in self._full_kwargs.items():
+            if keyword in gpu_hyperparams:
+                filtered_kwargs[keyword] = arg
+            else:
+                logger.info("Unused keyword parameter: {} "
+                            "during cuML estimator "
+                            "initialization".format(keyword))
+
+        return init_func(self, *args, **filtered_kwargs)
+    return processor

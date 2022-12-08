@@ -22,15 +22,16 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
-from cuml.common.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.experimental.common.base import Base
+from cuml.common.mixins import ClassifierMixin, \
+    FMajorInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 import cuml.common.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import device_interop_preparation
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -85,9 +86,8 @@ class LogisticRegression(Base,
         >>> reg.fit(X,y)
         LogisticRegression()
         >>> print(reg.coef_)
-        0    0.698...
-        1    0.570...
-        dtype: float32
+                 0         1
+        0  0.69861  0.570058
         >>> print(reg.intercept_)
         0   -2.188...
         dtype: float32
@@ -123,8 +123,6 @@ class LogisticRegression(Base,
     fit_intercept : boolean (default = True)
         If True, the model tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    class_weight : None
-        Custom class weighs are currently not supported.
     class_weight : dict or 'balanced', default=None
         By default all classes have a weight one. However, a dictionary
         can be provided with weights associated with classes
@@ -182,10 +180,12 @@ class LogisticRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    classes_ = CumlArrayDescriptor()
-    class_weight_ = CumlArrayDescriptor()
-    expl_spec_weights_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'sklearn.linear_model.LogisticRegression'
+    classes_ = CumlArrayDescriptor(order='F')
+    class_weight = CumlArrayDescriptor(order='F')
+    expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
+    @device_interop_preparation
     def __init__(
         self,
         *,
@@ -239,7 +239,7 @@ class LogisticRegression(Base,
         if class_weight is not None:
             self._build_class_weights(class_weight)
         else:
-            self.class_weight_ = None
+            self.class_weight = None
 
         self.solver_model = QN(
             loss=loss,
@@ -262,12 +262,16 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, sample_weight=None,
-            convert_dtype=True) -> "LogisticRegression":
+    def _fit(self, X, y, sample_weight=None,
+             convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
         """
+        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
+        if hasattr(X, 'index'):
+            self.feature_names_in_ = X.index
+
         # Converting y to device array here to use `unique` function
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
@@ -280,7 +284,7 @@ class LogisticRegression(Base,
                 raise ValueError("Only values of 0 and 1 are"
                                  " supported for binary classification.")
 
-        if sample_weight is not None or self.class_weight_ is not None:
+        if sample_weight is not None or self.class_weight is not None:
             if sample_weight is None:
                 sample_weight = cp.ones(n_rows)
 
@@ -299,22 +303,22 @@ class LogisticRegression(Base,
                             msg = "Class label {} not present.".format(c)
                             raise ValueError(msg)
 
-            if self.class_weight_ is not None:
-                if self.class_weight_ == 'balanced':
+            if self.class_weight is not None:
+                if self.class_weight == 'balanced':
                     class_weight = n_rows / \
                                    (self._num_classes *
                                     cp.bincount(y_m.to_output('cupy')))
                     class_weight = CumlArray(class_weight)
                 else:
                     check_expl_spec_weights()
-                    n_explicit = self.class_weight_.shape[0]
+                    n_explicit = self.class_weight.shape[0]
                     if n_explicit != self._num_classes:
                         class_weight = cp.ones(self._num_classes)
-                        class_weight[:n_explicit] = self.class_weight_
+                        class_weight[:n_explicit] = self.class_weight
                         class_weight = CumlArray(class_weight)
-                        self.class_weight_ = class_weight
+                        self.class_weight = class_weight
                     else:
-                        class_weight = self.class_weight_
+                        class_weight = self.class_weight
                 out = y_m.to_output('cupy')
                 sample_weight *= class_weight[out].to_output('cupy')
                 sample_weight = CumlArray(sample_weight)
@@ -359,7 +363,7 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    def decision_function(self, X, convert_dtype=False) -> CumlArray:
+    def _decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -375,7 +379,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -388,7 +392,7 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
+    def _predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
@@ -404,7 +408,7 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    def _predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
@@ -419,14 +423,16 @@ class LogisticRegression(Base,
                             X,
                             convert_dtype=False,
                             log_proba=False) -> CumlArray:
+        _num_classes = self.classes_.shape[0]
+
         scores = cp.asarray(
             self.decision_function(X, convert_dtype=convert_dtype), order="F"
         ).T
-        if self._num_classes == 2:
+        if _num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
             proba[:, 0] = 1 - proba[:, 1]
-        elif self._num_classes > 2:
+        elif _num_classes > 2:
             max_scores = cp.max(scores, axis=1).reshape((-1, 1))
             scores -= max_scores
             proba = cp.exp(scores)
@@ -459,14 +465,14 @@ class LogisticRegression(Base,
 
     def _build_class_weights(self, class_weight):
         if class_weight == 'balanced':
-            self.class_weight_ = 'balanced'
+            self.class_weight = 'balanced'
         else:
             classes = list(class_weight.keys())
             weights = list(class_weight.values())
             max_class = sorted(classes)[-1]
             class_weight = cp.ones(max_class + 1)
             class_weight[classes] = weights
-            self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
+            self.class_weight, _, _, _ = input_to_cuml_array(class_weight)
             self.expl_spec_weights_, _, _, _ = \
                 input_to_cuml_array(np.array(classes))
 
@@ -492,6 +498,24 @@ class LogisticRegression(Base,
         self.solver_model.set_params(**params)
         return self
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def coef_(self):
+        return self.solver_model.coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        self.solver_model.coef_ = value
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def intercept_(self):
+        return self.solver_model.intercept_
+
+    @intercept_.setter
+    def intercept_(self, value):
+        self.solver_model.intercept_ = value
+
     def get_param_names(self):
         return super().get_param_names() + [
             "penalty",
@@ -513,3 +537,7 @@ class LogisticRegression(Base,
         super().__init__(handle=None,
                          verbose=state["verbose"])
         self.__dict__.update(state)
+
+    def get_attr_names(self):
+        return ['classes_', 'intercept_', 'coef_', 'n_features_in_',
+                'feature_names_in_']

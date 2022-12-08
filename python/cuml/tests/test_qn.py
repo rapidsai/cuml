@@ -75,15 +75,13 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 assert (qn.objective - 0.40263831615448) < tol
                 cp.testing.assert_array_almost_equal(
                     qn.coef_,
-                    np.array([[-2.1088872],
-                              [2.4812558]]),
+                    np.array([[-2.1088872, 2.4812558]]),
                     decimal=3)
             else:
                 assert (qn.objective - 0.4317452311515808) < tol
                 cp.testing.assert_array_almost_equal(
                     qn.coef_,
-                    np.array([[-2.120777],
-                              [3.056865]]),
+                    np.array([[-2.120777, 3.056865]]),
                     decimal=3)
         elif penalty == 'l1' and l2_strength == 0.0:
             if fit_intercept:
@@ -91,15 +89,13 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                     assert (qn.objective - 0.40263831615448) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-2.1088872],
-                                  [2.4812558]]),
+                        np.array([[-2.1088872, 2.4812558]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.44295936822891235) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.6899368],
-                                  [1.9021575]]),
+                        np.array([[-1.6899368, 1.9021575]]),
                         decimal=3)
 
             else:
@@ -107,16 +103,14 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                     assert (qn.objective - 0.4317452311515808) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-2.120777],
-                                  [3.056865]]),
+                        np.array([[-2.120777, 3.056865]]),
                         decimal=3)
 
                 else:
                     assert (qn.objective - 0.4769895672798157) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.6214856],
-                                  [2.3650239]]),
+                        np.array([[-1.6214856, 2.3650239]]),
                         decimal=3)
 
                 # assert False
@@ -127,15 +121,13 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                     assert (qn.objective - 0.40263831615448) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-2.1088872],
-                                  [2.4812558]]),
+                        np.array([[-2.1088872, 2.4812558]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.43780848383903503) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.5337948],
-                                  [1.678699]]),
+                        np.array([[-1.5337948, 1.678699]]),
                         decimal=3)
 
             else:
@@ -143,16 +135,14 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                     assert (qn.objective - 0.4317452311515808) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-2.120777],
-                                  [3.056865]]),
+                        np.array([[-2.120777, 3.056865]]),
                         decimal=3)
 
                 else:
                     assert (qn.objective - 0.4750209450721741) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.3931049],
-                                  [2.0140104]]),
+                        np.array([[-1.3931049, 2.0140104]]),
                         decimal=3)
 
         if penalty == 'elasticnet':
@@ -161,59 +151,51 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                     assert (qn.objective - 0.40263831615448) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-2.1088872],
-                                  [2.4812558]]),
+                        np.array([[-2.1088872, 2.4812558]]),
                         decimal=3)
                 elif l1_strength == 0.0:
                     assert (qn.objective - 0.43780848383903503) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.5337948],
-                                  [1.678699]]),
+                        np.array([[-1.5337948, 1.678699]]),
                         decimal=3)
                 elif l2_strength == 0.0:
                     assert (qn.objective - 0.44295936822891235) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.6899368],
-                                  [1.9021575]]),
+                        np.array([[-1.6899368, 1.9021575]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.467987984418869) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.3727235],
-                                  [1.4639963]]),
+                        np.array([[-1.3727235, 1.4639963]]),
                         decimal=3)
             else:
                 if l1_strength == 0.0 and l2_strength == 0.0:
                     assert (qn.objective - 0.4317452311515808) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-2.120777],
-                                  [3.056865]]),
+                        np.array([[-2.120777, 3.056865]]),
                         decimal=3)
                 elif l1_strength == 0.0:
                     assert (qn.objective - 0.4750209450721741) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.3931049],
-                                  [2.0140104]]),
+                        np.array([[-1.3931049, 2.0140104]]),
                         decimal=3)
 
                 elif l2_strength == 0.0:
                     assert (qn.objective - 0.4769895672798157) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.6214856],
-                                  [2.3650239]]),
+                        np.array([[-1.6214856, 2.3650239]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.5067970156669617) < tol
                     cp.testing.assert_array_almost_equal(
                         qn.coef_,
-                        np.array([[-1.2102532],
-                                  [1.752459]]),
+                        np.array([[-1.2102532, 1.752459]]),
                         decimal=3)
 
                 print()
