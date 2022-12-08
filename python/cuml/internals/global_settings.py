@@ -91,6 +91,7 @@ class GlobalSettings:
                 self.device_type = DeviceType.device
             else:
                 self.device_type = DeviceType.host
+            return self._device_type
 
     @device_type.setter
     def device_type(self, value):
@@ -105,6 +106,7 @@ class GlobalSettings:
                 self.memory_type = MemoryType.device
             else:
                 self.memory_type = MemoryType.host
+            return self._memory_type
 
     @memory_type.setter
     def memory_type(self, value):
