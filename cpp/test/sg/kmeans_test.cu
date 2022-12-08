@@ -72,63 +72,67 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     rmm::device_uvector<T> X(n_samples * n_features, stream);
     rmm::device_uvector<int> labels(n_samples, stream);
 
-    make_blobs(handle,
-               X.data(),
-               labels.data(),
-               n_samples,
-               n_features,
-               params.n_clusters,
-               true,
-               nullptr,
-               nullptr,
-               1.0,
-               false,
-               -10.0f,
-               10.0f,
-               1234ULL);
+    if (n_features >= 1000) {
+      GTEST_SKIP();  // Skip the test for double imput
+    } else {
+      make_blobs(handle,
+                 X.data(),
+                 labels.data(),
+                 n_samples,
+                 n_features,
+                 params.n_clusters,
+                 true,
+                 nullptr,
+                 nullptr,
+                 1.0,
+                 false,
+                 -10.0f,
+                 10.0f,
+                 1234ULL);
 
-    d_labels.resize(n_samples, stream);
-    d_labels_ref.resize(n_samples, stream);
-    d_centroids.resize(params.n_clusters * n_features, stream);
+      d_labels.resize(n_samples, stream);
+      d_labels_ref.resize(n_samples, stream);
+      d_centroids.resize(params.n_clusters * n_features, stream);
 
-    T* d_sample_weight_ptr = nullptr;
-    if (testparams.weighted) {
-      d_sample_weight.resize(n_samples, stream);
-      d_sample_weight_ptr = d_sample_weight.data();
-      thrust::fill(
-        thrust::cuda::par.on(stream), d_sample_weight_ptr, d_sample_weight_ptr + n_samples, 1);
-    }
+      T* d_sample_weight_ptr = nullptr;
+      if (testparams.weighted) {
+        d_sample_weight.resize(n_samples, stream);
+        d_sample_weight_ptr = d_sample_weight.data();
+        thrust::fill(
+          thrust::cuda::par.on(stream), d_sample_weight_ptr, d_sample_weight_ptr + n_samples, 1);
+      }
 
-    raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
+      raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
-    handle.sync_stream(stream);
+      handle.sync_stream(stream);
 
-    T inertia  = 0;
-    int n_iter = 0;
+      T inertia  = 0;
+      int n_iter = 0;
 
-    kmeans::fit_predict(handle,
-                        params,
-                        X.data(),
-                        n_samples,
-                        n_features,
-                        d_sample_weight_ptr,
-                        d_centroids.data(),
-                        d_labels.data(),
-                        inertia,
-                        n_iter);
+      kmeans::fit_predict(handle,
+                          params,
+                          X.data(),
+                          n_samples,
+                          n_features,
+                          d_sample_weight_ptr,
+                          d_centroids.data(),
+                          d_labels.data(),
+                          inertia,
+                          n_iter);
 
-    handle.sync_stream(stream);
+      handle.sync_stream(stream);
 
-    score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
+      score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 
-    if (score < 1.0) {
-      std::stringstream ss;
-      ss << "Expected: " << raft::arr2Str(d_labels_ref.data(), 25, "d_labels_ref", stream);
-      CUML_LOG_DEBUG(ss.str().c_str());
-      ss.str(std::string());
-      ss << "Actual: " << raft::arr2Str(d_labels.data(), 25, "d_labels", stream);
-      CUML_LOG_DEBUG(ss.str().c_str());
-      CUML_LOG_DEBUG("Score = %lf", score);
+      if (score < 1.0) {
+        std::stringstream ss;
+        ss << "Expected: " << raft::arr2Str(d_labels_ref.data(), 25, "d_labels_ref", stream);
+        CUML_LOG_DEBUG(ss.str().c_str());
+        ss.str(std::string());
+        ss << "Actual: " << raft::arr2Str(d_labels.data(), 25, "d_labels", stream);
+        CUML_LOG_DEBUG(ss.str().c_str());
+        CUML_LOG_DEBUG("Score = %lf", score);
+      }
     }
   }
 

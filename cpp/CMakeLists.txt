@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 22.12.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 23.02.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -426,6 +426,8 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/r2_score.cu
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
+        src/metrics/silhouette_score_batched_double.cu
+        src/metrics/silhouette_score_batched_float.cu
         src/metrics/trustworthiness.cu
         src/metrics/v_measure.cu)
   endif()
