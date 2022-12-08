@@ -124,6 +124,7 @@ def test_array_init(input_type, dtype, shape, order, force_gc):
     shape=cuml_array_shapes(),
     order=cuml_array_orders(),
 )
+@settings(deadline=None)
 def test_array_init_from_bytes(data_type, dtype, shape, order):
     dtype = np.dtype(dtype)
     values = bytes(_get_size_from_shape(shape, dtype)[0])
