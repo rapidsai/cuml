@@ -40,16 +40,17 @@ from distributed.client import Future
 
 class BaseEstimator(object, metaclass=BaseMetaClass):
 
-    def __init__(self, *, client=None, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators.
         """
         self.client = get_client(client)
 
         # set client verbosity
-        self.verbose = kwargs.get("verbose", False)
+        self.verbose = verbose
 
         # kwargs transmits the verbosity level to workers
+        kwargs["verbose"] = verbose
         self.kwargs = kwargs
 
         self.internal_model = None
