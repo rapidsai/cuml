@@ -50,7 +50,7 @@ The RAFT Python code gets included in the cuML build and distributable artifacts
 
 ### Build Requirements
 
-cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-23.02/environments) includes all dependencies required to build cuML.
+cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-23.02/conda/environments) includes all dependencies required to build cuML.
 
 To build cuML's Python package, the following dependencies are required:
 
