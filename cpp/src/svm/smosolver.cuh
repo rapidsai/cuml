@@ -184,7 +184,17 @@ class SmoSolver {
     rmm::device_uvector<math_t> kernel_tile_big(n_ws * n_rows, stream);
     rmm::device_uvector<math_t> nz_da(n_ws, stream);
     rmm::device_uvector<int> nz_da_idx(n_ws, stream);
+    rmm::device_uvector<int> batch_idx(n_ws, stream);
     rmm::device_uvector<math_t> x_ws2(n_ws * n_cols, stream);
+
+    // additional storage needed for extracted csr rows
+    rmm::device_uvector<int> x_ws_indptr(n_ws + 1, stream);
+    rmm::device_uvector<int> x_ws_indices(n_ws * n_cols, stream);
+    rmm::device_uvector<int> x_ws2_indptr(n_ws + 1, stream);
+    rmm::device_uvector<int> x_ws2_indices(n_ws * n_cols, stream);
+
+    MLCommon::Matrix::CsrMatrix<math_t> csr_ws2(
+      x_ws2_indptr.data(), x_ws2_indices.data(), x_ws2.data(), -1, -1, -1);
 
     while (n_iter < max_outer_iter && keep_going) {
       RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha.data(), 0, n_ws * sizeof(math_t), stream));
@@ -198,15 +208,32 @@ class SmoSolver {
       switch (matrix.getType()) {
         case MLCommon::Matrix::MatrixType::CSR: {
           const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
-          ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
-                                                 csr_matrix->indices,
-                                                 csr_matrix->data,
-                                                 n_rows,
-                                                 n_cols,
-                                                 x_ws.data(),
-                                                 ws.GetIndices(),
-                                                 n_ws,
-                                                 stream);
+          MLCommon::Matrix::CsrMatrix<math_t> csr_ws1(
+            x_ws_indptr.data(), x_ws_indices.data(), x_ws.data(), -1, -1, -1);
+          ML::SVM::copySparseRowsToMatrix<math_t>(csr_matrix->indptr,
+                                                  csr_matrix->indices,
+                                                  csr_matrix->data,
+                                                  n_rows,
+                                                  n_cols,
+                                                  csr_ws1,
+                                                  ws.GetIndices(),
+                                                  n_ws,
+                                                  stream);
+          (*kernel)(handle,
+                    csr_ws1.indptr,
+                    csr_ws1.indices,
+                    csr_ws1.data,
+                    csr_ws1.nnz,
+                    n_ws,
+                    n_cols,
+                    csr_ws1.indptr,
+                    csr_ws1.indices,
+                    csr_ws1.data,
+                    csr_ws1.nnz,
+                    n_ws,
+                    kernel_tile.data(),
+                    false,
+                    stream);
           break;
         }
         case MLCommon::Matrix::MatrixType::DENSE: {
@@ -219,12 +246,13 @@ class SmoSolver {
                                                       stream,
                                                       false);
           RAFT_CUDA_TRY(cudaPeekAtLastError());
+          (*kernel)(
+            x_ws.data(), n_ws, n_cols, x_ws.data(), n_ws, kernel_tile.data(), false, stream);
           break;
         }
         default: THROW("Solve not implemented for matrix type %d", matrix.getType());
       }
 
-      (*kernel)(x_ws.data(), n_ws, n_cols, x_ws.data(), n_ws, kernel_tile.data(), false, stream);
       cudaDeviceSynchronize();
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       raft::common::nvtx::pop_range();
@@ -259,40 +287,51 @@ class SmoSolver {
         switch (matrix.getType()) {
           case MLCommon::Matrix::MatrixType::CSR: {
             const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
-            ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
-                                                   csr_matrix->indices,
-                                                   csr_matrix->data,
-                                                   n_rows,
-                                                   n_cols,
-                                                   x_ws2.data(),
-                                                   nz_da_idx.data(),
-                                                   nnz_da,
-                                                   stream);
+            MLCommon::Matrix::CsrMatrix<math_t> csr_ws2(
+              x_ws2_indptr.data(), x_ws2_indices.data(), x_ws2.data(), -1, -1, -1);
+            ML::SVM::copySparseRowsToMatrix<math_t>(csr_matrix->indptr,
+                                                    csr_matrix->indices,
+                                                    csr_matrix->data,
+                                                    n_rows,
+                                                    n_cols,
+                                                    csr_ws2,
+                                                    nz_da_idx.data(),
+                                                    nnz_da,
+                                                    stream);
 
             // for now just extract rows to *dense* rows
             // we need to batch over n_rows in order to fit data in n_ws-sized batches
             for (int offset = 0; offset < n_rows; offset += n_ws) {
               int batch_size = std::min(n_ws, n_rows - offset);
               // extract rows [offset, offset + batch_size) into x_ws
-              thrust::device_ptr<int> batch_idx_ptr(nz_da_idx.data());
+              thrust::device_ptr<int> batch_idx_ptr(batch_idx.data());
               thrust::sequence(
                 thrust::cuda::par.on(stream), batch_idx_ptr, batch_idx_ptr + batch_size, offset);
-              ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
-                                                     csr_matrix->indices,
-                                                     csr_matrix->data,
-                                                     n_rows,
-                                                     n_cols,
-                                                     x_ws.data(),
-                                                     nz_da_idx.data(),
-                                                     batch_size,
-                                                     stream);
+              MLCommon::Matrix::CsrMatrix<math_t> csr_ws1(
+                x_ws_indptr.data(), x_ws_indices.data(), x_ws.data(), -1, -1, -1);
+              ML::SVM::copySparseRowsToMatrix<math_t>(csr_matrix->indptr,
+                                                      csr_matrix->indices,
+                                                      csr_matrix->data,
+                                                      n_rows,
+                                                      n_cols,
+                                                      csr_ws1,
+                                                      batch_idx.data(),
+                                                      batch_size,
+                                                      stream);
 
-              // compute batch kernel of  (batch_size x n_cols) x (n_cols x nnz_da) --> (batch_size
-              // x nnz_da)
-              (*kernel)(x_ws.data(),
+              // compute batch kernel
+              // (batch_size x n_cols) x (n_cols x nnz_da) --> (batch_size x nnz_da)
+              (*kernel)(handle,
+                        csr_ws1.indptr,
+                        csr_ws1.indices,
+                        csr_ws1.data,
+                        csr_ws1.nnz,
                         batch_size,
                         n_cols,
-                        x_ws2.data(),
+                        csr_ws2.indptr,
+                        csr_ws2.indices,
+                        csr_ws2.data,
+                        csr_ws2.nnz,
                         nnz_da,
                         kernel_tile.data(),
                         false,
@@ -387,7 +426,6 @@ class SmoSolver {
 
       math_t diff = host_return_buff[0];
       keep_going  = CheckStoppingCondition(diff);
-
       n_inner_iter += host_return_buff[1];
       n_iter++;
       if (n_iter % 500 == 0) { CUML_LOG_DEBUG("SMO iteration %d, diff %lf", n_iter, (double)diff); }
@@ -406,7 +444,7 @@ class SmoSolver {
     ReleaseBuffers();
   }
 
-  // TODO remove layer once matrix object can be passed from python
+  // legacy interface
   void Solve(math_t* x,
              int n_rows,
              int n_cols,

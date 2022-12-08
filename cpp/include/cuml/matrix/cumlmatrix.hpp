@@ -79,7 +79,6 @@ class Matrix {
     return cast;
   };
 
- private:
   int n_rows;
   int n_cols;
 };
