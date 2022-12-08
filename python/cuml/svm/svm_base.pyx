@@ -580,9 +580,7 @@ class SVMBase(Base,
 
         self._check_is_fitted('_model')
 
-
         array_type, is_sparse = determine_array_type_full(X)
-        warn(f"Input data is type {array_type}, sparse = {is_sparse}")
         
         if is_sparse:
             X_m = SparseCumlArray(X)
@@ -596,17 +594,13 @@ class SVMBase(Base,
                     check_dtype=self.dtype,
                     convert_to_dtype=(self.dtype if convert_dtype else None))
 
-        warn(f"Running standard predict rows = {self.n_rows}, cols = {self.n_cols}")
-
         preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef SvmModel[float]* model_f
         cdef SvmModel[double]* model_d
-        cdef CsrMatrix[float] *csr_matrix_f
-        cdef CsrMatrix[double] *csr_matrix_d
-        cdef DenseMatrix[float] *dense_matrix_f
-        cdef DenseMatrix[double] *dense_matrix_d
+        cdef Matrix[float] *matrix_f
+        cdef Matrix[double] *matrix_d
         
         cdef uintptr_t X_ptr = X_m.data.ptr if is_sparse else X_m.ptr 
 
@@ -618,31 +612,23 @@ class SVMBase(Base,
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><size_t> self._model
             if is_sparse:
-                csr_matrix_f = new CsrMatrix[float](<int*>X_indptr, <int*>X_indices, <float*>X_data, n_nnz, n_rows, n_cols)
-                svcPredictX(handle_[0], deref(csr_matrix_f),
-                        self._get_kernel_params(), model_f[0],
-                        <float*>preds_ptr, <float>self.cache_size,
-                        <bool> predict_class)
+                matrix_f = new CsrMatrix[float](<int*>X_indptr, <int*>X_indices, <float*>X_data, n_nnz, n_rows, n_cols)
             else:
-                dense_matrix_f = new DenseMatrix[float](<float*>X_data, n_rows, n_cols)
-                svcPredictX(handle_[0], deref(dense_matrix_f), 
-                        self._get_kernel_params(), model_f[0],
-                        <float*>preds_ptr, <float>self.cache_size,
-                        <bool> predict_class)
+                matrix_f = new DenseMatrix[float](<float*>X_data, n_rows, n_cols)
+            svcPredictX(handle_[0], deref(matrix_f), 
+                    self._get_kernel_params(), model_f[0],
+                    <float*>preds_ptr, <float>self.cache_size,
+                    <bool> predict_class)
         else:
             model_d = <SvmModel[double]*><size_t> self._model
             if is_sparse:
-                csr_matrix_d = new CsrMatrix[double](<int*>X_indptr, <int*>X_indices, <double*>X_data, n_nnz, n_rows, n_cols)
-                svcPredictX(handle_[0], deref(csr_matrix_d), 
-                        self._get_kernel_params(), model_d[0],
-                        <double*>preds_ptr, <double>self.cache_size,
-                        <bool> predict_class)
+                matrix_d = new CsrMatrix[double](<int*>X_indptr, <int*>X_indices, <double*>X_data, n_nnz, n_rows, n_cols)
             else:
-                dense_matrix_d = new DenseMatrix[double](<double*>X_data, n_rows, n_cols)
-                svcPredictX(handle_[0], deref(dense_matrix_d), 
-                        self._get_kernel_params(), model_d[0],
-                        <double*>preds_ptr, <double>self.cache_size,
-                        <bool> predict_class)
+                matrix_d = new DenseMatrix[double](<double*>X_data, n_rows, n_cols)
+            svcPredictX(handle_[0], deref(matrix_d), 
+                    self._get_kernel_params(), model_d[0],
+                    <double*>preds_ptr, <double>self.cache_size,
+                    <bool> predict_class)
 
 
         self.handle.sync()

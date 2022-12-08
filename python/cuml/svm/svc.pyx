@@ -466,14 +466,12 @@ class SVC(SVMBase,
             return self._fit_proba(X, y, sample_weight)
 
         if self.n_classes_ > 2:
-            warn(f"Running multiclass fit, classes = {self.n_classes_}")
             return self._fit_multiclass(X, y, sample_weight)
 
 
         # we need to check whether out input X is sparse 
         # In that case we don't want to make a dense copy
         array_type, is_sparse = determine_array_type_full(X)
-        warn(f"Input data is type {array_type}, sparse = {is_sparse}")
         
         if is_sparse:
             X_m = SparseCumlArray(X)
@@ -483,8 +481,6 @@ class SVC(SVMBase,
         else:
             X_m, self.n_rows, self.n_cols, self.dtype = \
                 input_to_cuml_array(X, order='F')
-
-        warn(f"Running standard fit rows = {self.n_rows}, cols = {self.n_cols}")
 
         # Fit binary classifier
         convert_to_dtype = self.dtype if convert_dtype else None
