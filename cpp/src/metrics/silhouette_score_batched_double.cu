@@ -25,18 +25,23 @@
 namespace ML {
 
 namespace Metrics {
+namespace Batched {
+
 double silhouette_score(const raft::handle_t& handle,
-                        double* y,
-                        int nRows,
-                        int nCols,
-                        int* labels,
-                        int nLabels,
-                        double* silScores,
+                        double* X,
+                        int n_rows,
+                        int n_cols,
+                        int* y,
+                        int n_labels,
+                        double* scores,
+                        int chunk,
                         raft::distance::DistanceType metric)
 {
-  return raft::stats::silhouette_score<double, int>(
-    handle, y, nRows, nCols, labels, nLabels, silScores, handle.get_stream(), metric);
+  return raft::stats::silhouette_score_batched<double, int, int>(
+    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
 }
+
+}  // namespace Batched
 
 }  // namespace Metrics
 }  // namespace ML
