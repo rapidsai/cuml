@@ -99,7 +99,7 @@ class GlobalSettings:
     @property
     def memory_type(self):
         try:
-            return self._device_type
+            return self._memory_type
         except AttributeError:
             if BUILT_WITH_CUDA and has_cuda_gpu():
                 self.memory_type = MemoryType.device
