@@ -166,7 +166,7 @@ class NearestNeighbors(UniversalBase,
     n_neighbors : int (default=5)
         Default number of neighbors to query
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -955,7 +955,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         edges as the distances between points with the requested metric.
 
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     handle : cuml.Handle

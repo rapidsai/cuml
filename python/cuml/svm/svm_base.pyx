@@ -149,7 +149,7 @@ class SVMBase(Base,
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     epsilon: float (default = 0.1)
         epsilon parameter of the epsiron-SVR model. There is no penalty
