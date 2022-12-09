@@ -22,6 +22,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 
 # utils
 
+from cuml.internals import logger
 from cuml.internals.import_utils import has_cupy
 from cuml.internals.import_utils import has_dask
 from cuml.internals.import_utils import check_min_numba_version

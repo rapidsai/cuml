@@ -194,7 +194,7 @@ class SVC(SVMBase,
         Currently this argument is not used and a waring will be printed if the
         user provides it.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

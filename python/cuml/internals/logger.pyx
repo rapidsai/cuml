@@ -215,7 +215,7 @@ def should_log_for(level):
     ----------
     level : int
         Logging level to be set. \
-        It must be one of cuml.internals.logger.level_*
+        It must be one of cuml.common.logger.level_*
     """
     return Logger.get().shouldLogFor(<int>level)
 

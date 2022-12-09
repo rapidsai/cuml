@@ -77,7 +77,7 @@ class IncrementalPCA(PCA):
         is inferred from the data and set to :py:`5 * n_features`, to provide a
         balance between approximation accuracy and memory consumption.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
