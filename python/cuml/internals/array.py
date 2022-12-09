@@ -22,8 +22,11 @@ import pickle
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
-from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.memory_utils import class_with_cupy_rmm
+from cuml.internals.memory_utils import (
+    class_with_cupy_rmm,
+    determine_array_memtype,
+    with_cupy_rmm
+)
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -106,12 +109,20 @@ def _determine_memory_order(shape, strides, dtype, default='C'):
     shape = host_xpy.array(shape)
     strides = host_xpy.array(strides)
     itemsize = host_xpy.dtype(dtype).itemsize
+    c_contiguous = False
+    f_contiguous = False
     if strides[-1] == itemsize:
         if host_xpy.all(strides[:-1] == shape[1:] * strides[1:]):
-            return 'C'
+            c_contiguous = True
     if strides[0] == itemsize:
         if host_xpy.all(strides[1:] == shape[:-1] * strides[:-1]):
-            return 'F'
+            f_contiguous = True
+    if c_contiguous and f_contiguous:
+        return 'C' if default in (None, 'K') else default
+    elif c_contiguous:
+        return 'C'
+    elif f_contiguous:
+        return 'F'
     return None
 
 
@@ -357,7 +368,7 @@ class CumlArray():
                 self._array_interface['shape'],
                 self._array_interface['strides'],
                 self._array_interface['typestr'],
-                order
+                default=order
             )
 
         # Validate final data against input arguments
@@ -1205,9 +1216,15 @@ def array_to_memory_order(arr, default='C'):
             array_interface = arr.__array_interface__
         except AttributeError:
             return array_to_memory_order(CumlArray.from_input(arr, order='K'))
+    strides = array_interface.get('strides', None)
+    if strides is None:
+        try:
+            strides = arr.strides
+        except AttributeError:
+            pass
     return _determine_memory_order(
         array_interface['shape'],
-        array_interface['strides'],
+        strides,
         array_interface['typestr'],
         default=default
     )

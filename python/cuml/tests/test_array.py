@@ -25,7 +25,6 @@ from cuml.internals.array import (
     array_to_memory_order
 )
 from cuml import global_settings
-from cuml.internals.input_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import (
     _get_size_from_shape,
