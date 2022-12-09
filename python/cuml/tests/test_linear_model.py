@@ -283,7 +283,7 @@ def test_linear_regression_model_default(dataset):
 
 # TODO: Replace test_linear_regression_model_default with this test once #4963
 # is resolved.
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
+@pytest.mark.skip(reason="https://github.com/rapidsai/cuml/issues/4963")
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
