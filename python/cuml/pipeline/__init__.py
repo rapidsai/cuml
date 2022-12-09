@@ -30,3 +30,6 @@ if has_sklearn():
     make_pipeline.__doc__ = disclaimer + make_pipeline.__doc__
 
     __all__ = ['Pipeline', 'make_pipeline']
+else:
+    raise ImportError("Scikit-learn is needed to use "
+                      "Pipeline and make_pipeline")
