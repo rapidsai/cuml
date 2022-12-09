@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <vector>
 
 #include <cumlprims/opg/matrix/data.hpp>
@@ -44,6 +45,8 @@ using namespace MLCommon;
  * @param[in] rowMajorIndex boolean indicating whether the index is row major.
  * @param[in] rowMajorQuery boolean indicating whether the query is row major.
  * @param[in] k the number of neighbors to query
+ * @param[in] metric Distance metric
+ * @param[in] p Metric argument
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
@@ -57,6 +60,8 @@ void knn(raft::handle_t& handle,
          bool rowMajorIndex,
          bool rowMajorQuery,
          int k,
+         raft::distance::DistanceType metric,
+         float p,
          size_t batch_size,
          bool verbose);
 
@@ -81,6 +86,8 @@ void knn(raft::handle_t& handle,
  * @param[in] rowMajorQuery boolean indicating whether the query is row major.
  * @param[in] probas_only return probas instead of performing complete knn_classify
  * @param[in] k the number of neighbors to query
+ * @param[in] metric Distance metric
+ * @param[in] p Metric argument
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
@@ -94,12 +101,14 @@ void knn_classify(raft::handle_t& handle,
                   std::vector<std::vector<int*>>& y,
                   std::vector<int*>& uniq_labels,
                   std::vector<int>& n_unique,
-                  bool rowMajorIndex = false,
-                  bool rowMajorQuery = false,
-                  bool probas_only   = false,
-                  int k              = 10,
-                  size_t batch_size  = 1 << 15,
-                  bool verbose       = false);
+                  bool rowMajorIndex                  = false,
+                  bool rowMajorQuery                  = false,
+                  bool probas_only                    = false,
+                  int k                               = 10,
+                  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                  float p                             = 2.0f,
+                  size_t batch_size                   = 1 << 15,
+                  bool verbose                        = false);
 
 /**
  * Performs a multi-node multi-GPU KNN regress.
@@ -118,6 +127,8 @@ void knn_classify(raft::handle_t& handle,
  * @param[in] rowMajorIndex boolean indicating whether the index is row major.
  * @param[in] rowMajorQuery boolean indicating whether the query is row major.
  * @param[in] k the number of neighbors to query
+ * @param[in] metric Distance metric
+ * @param[in] p Metric argument
  * @param[in] n_outputs number of outputs
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
@@ -132,6 +143,8 @@ void knn_regress(raft::handle_t& handle,
                  bool rowMajorIndex,
                  bool rowMajorQuery,
                  int k,
+                 raft::distance::DistanceType metric,
+                 float p,
                  int n_outputs,
                  size_t batch_size,
                  bool verbose);

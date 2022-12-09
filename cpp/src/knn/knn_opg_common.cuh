@@ -62,6 +62,8 @@ struct opg_knn_param {
                 bool rowMajorIndex,
                 bool rowMajorQuery,
                 size_t k,
+                raft::distance::DistanceType metric,
+                float p,
                 size_t batch_size,
                 bool verbose)
   {
@@ -73,6 +75,8 @@ struct opg_knn_param {
     this->rowMajorIndex = rowMajorIndex;
     this->rowMajorQuery = rowMajorQuery;
     this->k             = k;
+    this->metric        = metric;
+    this->p             = p;
     this->batch_size    = batch_size;
     this->verbose       = verbose;
   }
@@ -86,9 +90,12 @@ struct opg_knn_param {
   Matrix::PartDescriptor* query_desc           = nullptr; /**< Descriptor for query input array */
   bool rowMajorIndex;                                     /**< Is index row major? */
   bool rowMajorQuery;                                     /**< Is query row major? */
-  size_t k          = 0;                                  /**< Number of nearest neighbors */
-  size_t batch_size = 0;                                  /**< Batch size */
-  bool verbose;                                           /**< verbose */
+  size_t k = 0;                                           /**< Number of nearest neighbors */
+  raft::distance::DistanceType metric =
+    raft::distance::DistanceType::L2Expanded; /**< Distance metric */
+  float p           = 2.0f;                   /**< Metric argument */
+  size_t batch_size = 0;                      /**< Batch size */
+  bool verbose;                               /**< verbose */
 
   std::size_t n_outputs = 0;              /**< Number of outputs per query (cl&re) */
   std::vector<std::vector<out_t*>>* y;    /**< Labels input array (cl&re) */
@@ -110,6 +117,8 @@ struct KNN_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
              bool rowMajorIndex,
              bool rowMajorQuery,
              size_t k,
+             raft::distance::DistanceType metric,
+             float p,
              size_t batch_size,
              bool verbose,
              std::vector<Matrix::Data<dist_t>*>* out_D,
@@ -122,6 +131,8 @@ struct KNN_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                                                 rowMajorIndex,
                                                 rowMajorQuery,
                                                 k,
+                                                metric,
+                                                p,
                                                 batch_size,
                                                 verbose)
   {
@@ -140,6 +151,8 @@ struct KNN_RE_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                 bool rowMajorIndex,
                 bool rowMajorQuery,
                 size_t k,
+                raft::distance::DistanceType metric,
+                float p,
                 size_t batch_size,
                 bool verbose,
                 std::size_t n_outputs,
@@ -153,6 +166,8 @@ struct KNN_RE_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                                                 rowMajorIndex,
                                                 rowMajorQuery,
                                                 k,
+                                                metric,
+                                                p,
                                                 batch_size,
                                                 verbose)
   {
@@ -172,6 +187,8 @@ struct KNN_CL_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                 bool rowMajorIndex,
                 bool rowMajorQuery,
                 size_t k,
+                raft::distance::DistanceType metric,
+                float p,
                 size_t batch_size,
                 bool verbose,
                 std::size_t n_outputs,
@@ -188,6 +205,8 @@ struct KNN_CL_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                                                 rowMajorIndex,
                                                 rowMajorQuery,
                                                 k,
+                                                metric,
+                                                p,
                                                 batch_size,
                                                 verbose)
   {
@@ -443,20 +462,20 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
   // ID ranges need to be offset by each local partition's
   // starting indices.
-  raft::spatial::knn::brute_force_knn<std::int64_t, float, std::size_t>(
-    handle,
-    ptrs,
-    sizes,
-    params.idx_desc->N,
-    query,
-    query_size,
-    work.res_I.data(),
-    work.res_D.data(),
-    params.k,
-    params.rowMajorIndex,
-    params.rowMajorQuery,
-    &start_indices_long,
-    raft::distance::DistanceType::L2SqrtExpanded);
+  raft::spatial::knn::brute_force_knn<std::int64_t, float, std::size_t>(handle,
+                                                                        ptrs,
+                                                                        sizes,
+                                                                        params.idx_desc->N,
+                                                                        query,
+                                                                        query_size,
+                                                                        work.res_I.data(),
+                                                                        work.res_D.data(),
+                                                                        params.k,
+                                                                        params.rowMajorIndex,
+                                                                        params.rowMajorQuery,
+                                                                        &start_indices_long,
+                                                                        params.metric,
+                                                                        params.p);
   handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

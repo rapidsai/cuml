@@ -25,6 +25,7 @@ from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
+from cuml.metrics.distance_type cimport DistanceType
 from cuml.common import input_to_cuml_array
 
 from libcpp cimport bool
@@ -52,6 +53,8 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         bool rowMajorQuery,
         bool probas_only,
         int k,
+        DistanceType metric,
+        float metricArg,
         size_t batch_size,
         bool verbose
     ) except +
@@ -152,8 +155,9 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
                 <int*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         is_verbose = logger.should_log_for(logger.level_debug)
+
+        metric = self._build_metric_type(self.effective_metric_)
         knn_classify(
             handle_[0],
             out_result_local_parts,
@@ -171,6 +175,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <bool>False,  # column-major query
             <bool>False,
             <int>self.n_neighbors,
+            <DistanceType>metric,
+            <float>self.p,
             <size_t>self.batch_size,
             <bool>is_verbose
         )
@@ -267,6 +273,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_debug)
 
+        metric = self._build_metric_type(self.effective_metric_)
         # Launch distributed operations
         knn_classify(
             handle_[0],
@@ -285,6 +292,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <bool>False,  # column-major query
             <bool>True,
             <int>self.n_neighbors,
+            <DistanceType>metric,
+            <float>self.p,
             <size_t>self.batch_size,
             <bool>is_verbose
         )

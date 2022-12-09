@@ -28,6 +28,7 @@ from cuml.neighbors import NearestNeighbors
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
+from cuml.metrics.distance_type cimport DistanceType
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -50,6 +51,8 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         bool rowMajorIndex,
         bool rowMajorQuery,
         int k,
+        DistanceType metric,
+        float metricArg,
         size_t batch_size,
         bool verbose
     ) except +
@@ -126,6 +129,7 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_debug)
 
+        metric = self._build_metric_type(self.effective_metric_)
         # Launch distributed operations
         knn(
             handle_[0],
@@ -140,6 +144,8 @@ class NearestNeighborsMG(NearestNeighbors):
             <bool>False,  # column-major index
             <bool>False,  # column-major query
             <int>self.n_neighbors,
+            <DistanceType>metric,
+            <float>self.p,
             <size_t>self.batch_size,
             <bool>is_verbose
         )

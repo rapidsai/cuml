@@ -25,6 +25,7 @@ from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
+from cuml.metrics.distance_type cimport DistanceType
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -47,6 +48,8 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         bool rowMajorIndex,
         bool rowMajorQuery,
         int k,
+        DistanceType metric,
+        float metricArg,
         int n_outputs,
         size_t batch_size,
         bool verbose
@@ -129,6 +132,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_debug)
 
+        metric = self._build_metric_type(self.effective_metric_)
         # Launch distributed operations
         knn_regress(
             handle_[0],
@@ -143,6 +147,8 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
             <bool>False,  # column-major index
             <bool>False,  # column-major query
             <int>self.n_neighbors,
+            <DistanceType>metric,
+            <float>self.p,
             <int>n_outputs,
             <size_t>self.batch_size,
             <bool>is_verbose
