@@ -91,7 +91,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 else
   if [ "$BUILD_LIBCUML" == '1' ]; then
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
+    # Manually specifying  -c nvidia/label/main due to https://github.com/conda/conda/issues/12163
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} -c nvidia/label/main conda/recipes/libcuml --dirty --no-remove-work-dir
     mkdir -p ${CONDA_BLD_DIR}/libcuml
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/libcuml/work
   fi
@@ -105,7 +106,8 @@ if [ "$BUILD_CUML" == '1' ]; then
     gpuci_conda_retry mambabuild --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/cuml -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=${PYTHON}
+    # Manually specifying  -c nvidia/label/main due to https://github.com/conda/conda/issues/12163
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} -c nvidia/label/main conda/recipes/cuml -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=${PYTHON}
     mkdir -p ${CONDA_BLD_DIR}/cuml
     mv ${CONDA_BLD_DIR}/work/ ${CONDA_BLD_DIR}/cuml/work
   fi
