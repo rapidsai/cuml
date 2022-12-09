@@ -26,7 +26,6 @@ from cuml.internals.input_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import (
     _get_size_from_shape,
-    _strides_to_order,
     using_memory_type
 )
 # Temporarily disabled due to CUDA 11.0 issue

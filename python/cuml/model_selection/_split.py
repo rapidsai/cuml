@@ -432,7 +432,10 @@ def train_test_split(X,
     # If not stratified, perform train_test_split splicing
     x_order = array_to_memory_order(X)
 
-    x_order = array_to_memory_order(y)
+    if y is None:
+        y_order = None
+    else:
+        y_order = array_to_memory_order(y)
 
     if hasattr(X, "__cuda_array_interface__") or \
             isinstance(X, cupyx.scipy.sparse.csr_matrix):
