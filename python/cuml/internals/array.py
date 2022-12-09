@@ -24,7 +24,6 @@ from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import (
     class_with_cupy_rmm,
-    determine_array_memtype,
     with_cupy_rmm
 )
 from cuml.internals.safe_imports import (
@@ -1228,6 +1227,7 @@ def array_to_memory_order(arr, default='C'):
         array_interface['typestr'],
         default=default
     )
+
 
 def is_array_contiguous(arr):
     '''Return true if array is C or F contiguous'''

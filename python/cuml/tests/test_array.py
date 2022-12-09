@@ -16,7 +16,6 @@
 
 import gc
 import operator
-import pickle
 import pytest
 import sys
 from copy import deepcopy
@@ -219,7 +218,6 @@ def test_array_init_bad(input_type, dtype, shape, order, mem_type):
         else:
             joint_mem_type = mem_type
 
-
         assert (joint_mem_type.xpy.all(
             joint_mem_type.xpy.asarray(input_array) ==
             joint_mem_type.xpy.asarray(array)
@@ -255,8 +253,9 @@ def test_get_set_item(inp, indices, mem_type):
         inp[indices] = 1.0
 
         # We need to assume that inp is not a cudf.Series here, otherwise
-        # ary.to_output("cupy") called by equal() will trigger a CUDARuntimeError:
-        # cudaErrorInvalidDevice: invalid device ordinal error.
+        # ary.to_output("cupy") called by equal() will trigger a
+        # CUDARuntimeError: cudaErrorInvalidDevice: invalid device ordinal
+        # error.
         assume(not isinstance(inp, cudf.Series))
 
         _assert_equal(inp, ary)
@@ -317,8 +316,12 @@ def test_create_ones(shape, dtype, order, mem_type):
 def test_create_full(shape, dtype, order, mem_type):
     mem_type = MemoryType.from_str(mem_type)
     with using_memory_type(mem_type):
-        value = mem_type.xpy.array([mem_type.xpy.random.randint(100)]).astype(dtype)
-        ary = CumlArray.full(value=value[0], shape=shape, dtype=dtype, order=order)
+        value = mem_type.xpy.array(
+            [mem_type.xpy.random.randint(100)]
+        ).astype(dtype)
+        ary = CumlArray.full(
+            value=value[0], shape=shape, dtype=dtype, order=order
+        )
         test = mem_type.xpy.zeros(shape).astype(dtype) + value[0]
         assert mem_type.xpy.all(test == mem_type.xpy.asarray(ary))
 
@@ -415,7 +418,7 @@ def test_end_to_end_conversion_via_intermediate(inp,
         # specifying shape, dtype, and order.
         not(
             output_type == "dataframe" or
-            (output_type == "cudf" and len(inp.shape) > 1) or 
+            (output_type == "cudf" and len(inp.shape) > 1) or
             (output_type == "pandas" and len(inp.shape) > 1)
         )
     )
@@ -572,7 +575,8 @@ def test_pickle(
         if protocol > pickle.HIGHEST_PROTOCOL:
             pytest.skip(
                 f"Trying to test with pickle protocol {protocol},"
-                f" but highest supported protocol is {pickle.HIGHEST_PROTOCOL}."
+                " but highest supported protocol is"
+                f" {pickle.HIGHEST_PROTOCOL}."
             )
 
         # Generate CumlArray
@@ -688,9 +692,11 @@ def test_sliced_array_owner(order, mem_type):
     xpy = mem_type.xpy
 
     # Create 2 copies of a random array
-    random_arr = xpy.array(xpy.random.random((500, 4)),
-                         dtype=np.float32,
-                         order=order)
+    random_arr = xpy.array(
+        xpy.random.random((500, 4)),
+        dtype=np.float32,
+        order=order
+    )
     arr = xpy.array(random_arr, copy=True)
     with using_memory_type(mem_type):
         cuml_array = CumlArray(random_arr)

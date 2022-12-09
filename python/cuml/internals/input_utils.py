@@ -451,12 +451,12 @@ def input_to_host_array(X,
     of CumlArray
     """
     if not fail_on_null and isinstance(X, (CudfDataFrame, CudfSeries)):
-            try:
-                X = X.values
-            except ValueError:
-                X = X.astype('float64', copy=False)
-                X.fillna(cp.nan, inplace=True)
-                X = X.values
+        try:
+            X = X.values
+        except ValueError:
+            X = X.astype('float64', copy=False)
+            X.fillna(cp.nan, inplace=True)
+            X = X.values
 
     out_data = input_to_cuml_array(X,
                                    order=order,
@@ -469,7 +469,7 @@ def input_to_host_array(X,
                                    force_contiguous=force_contiguous,
                                    convert_to_mem_type=MemoryType.host)
 
-    return out_data._replace(array=out_data.array.to_output("array"))
+    return out_data._replace(array=out_data.array.to_output("numpy"))
 
 
 def convert_dtype(X,
