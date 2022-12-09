@@ -28,13 +28,18 @@ from cuml.internals.output_type import (
     VALID_OUTPUT_TYPES
 )
 from cuml.internals.safe_imports import (
+    cpu_only_import_from,
     gpu_only_import_from,
     UnavailableNullContext
 )
 
+CudfSeries = gpu_only_import_from('cudf', 'Series')
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 cupy_using_allocator = gpu_only_import_from(
     'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
 )
+PandasSeries = cpu_only_import_from('pandas', 'Series')
+PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
@@ -382,3 +387,19 @@ class using_output_type:
 
     def __exit__(self, *_):
         GlobalSettings().output_type = self.prev_output_type
+
+
+def determine_array_memtype(X):
+    try:
+        return X.mem_type
+    except AttributeError:
+        pass
+    if hasattr(X, '__cuda_array_interface__'):
+        return MemoryType.device
+    if hasattr(X, '__array_interface__'):
+        return MemoryType.host
+    if isinstance(X, (CudfDataFrame, CudfSeries)):
+        return MemoryType.device
+    if isinstance(X, (PandasDataFrame, PandasSeries)):
+        return MemoryType.host
+    return None

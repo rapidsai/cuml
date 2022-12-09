@@ -23,6 +23,7 @@ except ImportError:
     TYPE_CHECKING = False
 
 import cuml.internals.input_utils
+import cuml.internals.memory_utils
 
 from cuml.internals.array_sparse import SparseCumlArray
 if TYPE_CHECKING:
@@ -88,7 +89,7 @@ def set_api_memory_type(mem_type):
             mem_type
         )
     except ValueError:
-        mem_type = cuml.internals.input_utils.determine_array_memtype(
+        mem_type = cuml.internals.memory_utils.determine_array_memtype(
             mem_type
         )
 

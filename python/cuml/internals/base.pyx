@@ -34,10 +34,10 @@ from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import (
     determine_array_type,
-    determine_array_memtype,
     input_to_cuml_array,
     input_to_host_array
 )
+from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.output_type import (

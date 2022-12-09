@@ -220,22 +220,6 @@ def determine_array_dtype(X):
     return dtype
 
 
-def determine_array_memtype(X):
-    try:
-        return X.mem_type
-    except AttributeError:
-        pass
-    if hasattr(X, '__cuda_array_interface__'):
-        return MemoryType.device
-    if hasattr(X, '__array_interface__'):
-        return MemoryType.host
-    if isinstance(X, (CudfDataFrame, CudfSeries)):
-        return MemoryType.device
-    if isinstance(X, (PandasDataFrame, PandasSeries)):
-        return MemoryType.host
-    return None
-
-
 def determine_array_type_full(X):
     """
     Returns a tuple of the array type, and a boolean if it is sparse

@@ -22,10 +22,10 @@ import sys
 from copy import deepcopy
 from cuml.internals.array import CumlArray
 from cuml import global_settings
-from cuml.internals.input_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import (
     _get_size_from_shape,
+    determine_array_memtype,
     using_memory_type
 )
 # Temporarily disabled due to CUDA 11.0 issue
@@ -598,8 +598,7 @@ def test_pickle(
     # https://github.com/cupy/cupy/issues/5897
     if not(
         len(ary.shape) > 1 and (
-            (ary.order == 'C' and ary.shape[0] == 1) or
-            (ary.order == 'F' and ary.shape[-1] == 1)
+            ary.shape[0] == 1 or ary.shape[-1] == 1
         )
     ):
         assert ary._array_interface['strides'] == \
@@ -638,8 +637,7 @@ def test_deepcopy(inp, mem_type):
         # https://github.com/cupy/cupy/issues/5897
         if not(
             len(ary.shape) > 1 and (
-                (ary.order == 'C' and ary.shape[0] == 1) or
-                (ary.order == 'F' and ary.shape[-1] == 1)
+                ary.shape[0] == 1 or ary.shape[-1] == 1
             )
         ):
             assert ary._array_interface['strides'] == \
