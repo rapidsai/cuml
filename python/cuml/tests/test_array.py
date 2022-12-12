@@ -19,7 +19,11 @@ import operator
 import pytest
 import sys
 from copy import deepcopy
-from cuml.internals.array import CumlArray
+from cuml.internals.array import (
+    CumlArray,
+    _order_to_strides,
+    array_to_memory_order
+)
 from cuml import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import (
@@ -725,3 +729,30 @@ def test_sliced_array_owner(order, mem_type):
     assert (xpy.all(
         cuml_slice.to_output('array', output_mem_type=mem_type) == arr_slice
     ))
+
+
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(min_dims=1, max_dims=5),
+    order=cuml_array_orders())
+@settings(deadline=None)
+def test_array_to_memory_order(input_type, dtype, shape, order):
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
+    assert array_to_memory_order(input_array, default=order) == order
+
+
+@given(
+    input_type=st.sampled_from(('cupy', 'numpy')),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(min_dims=1, max_dims=5),
+    order=cuml_array_orders())
+@settings(deadline=None)
+def test_order_to_strides(input_type, dtype, shape, order):
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
+    if isinstance(shape, int):
+        shape = (shape,)
+    assert np.all(
+        np.array(_order_to_strides(order, shape, dtype)) ==
+        np.array(input_array.strides)
+    )
