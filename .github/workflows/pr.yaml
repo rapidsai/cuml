@@ -23,7 +23,8 @@ jobs:
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@main
   conda-cpp-build:
-    needs: checks
+    # TODO: make build depend on checks stage above
+    # needs: checks
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-matrix-build.yaml@main
     with:
