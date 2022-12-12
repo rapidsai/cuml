@@ -18,8 +18,6 @@ source:
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-  script_env:
-    - VERSION_SUFFIX
   ignore_run_exports_from:
     - {{ compiler('cuda') }}
 

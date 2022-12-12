@@ -17,7 +17,6 @@ source:
 build:
   script_env:
     - PARALLEL_LEVEL
-    - VERSION_SUFFIX
     - PROJECT_FLASH
     - CMAKE_GENERATOR
     - CMAKE_C_COMPILER_LAUNCHER
