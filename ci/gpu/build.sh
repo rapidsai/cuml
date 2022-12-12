@@ -24,6 +24,10 @@ export HOME=$WORKSPACE
 # Determine CUDA release version
 export CUDA_REL=${CUDA_VERSION%.*}
 
+# Workaround to keep Jenkins builds working
+# until we migrate fully to GitHub Actions
+export RAPIDS_CUDA_VERSION="${CUDA}"
+
 # Switch to project root; also root of repo checkout
 cd $WORKSPACE
 
