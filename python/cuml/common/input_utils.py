@@ -314,7 +314,10 @@ def input_to_cuml_array(X,
 
     # format conversion
 
-    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if (
+        has_dask_cudf()
+        and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame))
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
@@ -532,7 +535,7 @@ def input_to_host_array(X,
 
     if isinstance(X, (int, float, complex, bool, str,
                       type(None), dict, set, list, tuple)):
-        return X
+        return (X,)
 
     if isinstance(X, np.ndarray):
         if len(X.shape) > 1:
@@ -573,7 +576,10 @@ def convert_dtype(X,
     if the conversion would lose information.
     """
 
-    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+    if (
+        has_dask_cudf()
+        and isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame))
+    ):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 

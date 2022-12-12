@@ -283,7 +283,7 @@ def test_linear_regression_model_default(dataset):
 
 # TODO: Replace test_linear_regression_model_default with this test once #4963
 # is resolved.
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
+@pytest.mark.skip(reason="https://github.com/rapidsai/cuml/issues/4963")
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
@@ -636,7 +636,7 @@ def test_logistic_regression_decision_function(
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = culog.coef_.T
+    sklog.coef_ = culog.coef_
     if fit_intercept:
         sklog.intercept_ = culog.intercept_
     else:
@@ -683,7 +683,7 @@ def test_logistic_regression_predict_proba(
         )
     else:
         sklog = skLog(fit_intercept=fit_intercept)
-    sklog.coef_ = culog.coef_.T
+    sklog.coef_ = culog.coef_
     if fit_intercept:
         sklog.intercept_ = culog.intercept_
     else:
@@ -822,7 +822,6 @@ def test_logistic_regression_weighting(regression_dataset,
         unit_tol = 0.04
         total_tol = 0.08
     elif regression_type.startswith('multiclass'):
-        skcoef = skcoef.T
         skcoef /= np.linalg.norm(skcoef, axis=1)[:, None]
         cucoef /= np.linalg.norm(cucoef, axis=1)[:, None]
         unit_tol = 0.2

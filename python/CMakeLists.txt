@@ -18,6 +18,11 @@ include(../fetch_rapids.cmake)
 
 set(CUML_VERSION 23.02.00)
 
+# We always need CUDA for cuML because the raft dependency brings in a
+# header-only cuco dependency that enables CUDA unconditionally.
+include(rapids-cuda)
+rapids_cuda_init_architectures(cuml-python)
+
 project(
   cuml-python
   VERSION ${CUML_VERSION}
@@ -25,12 +30,13 @@ project(
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
-            C CXX
+            C CXX CUDA
 )
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
+option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
@@ -44,63 +50,62 @@ set(CUML_CPP_TARGET "cuml++")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
-
-# If the user requested it,  we attempt to find cuml.
+# If the user requested it, we attempt to find cuml.
 if(FIND_CUML_CPP)
-  include(rapids-cpm)
-  rapids_cpm_init()
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(cuml-python)
-  enable_language(CUDA)
-
-  # variables used by get_raft.cmake, we can get rid of them when this is solved:
-  # https://github.com/rapidsai/rapids-cmake/issues/228
-  set(CUML_VERSION_MAJOR "${cuml-python_VERSION_MAJOR}")
-  set(CUML_VERSION_MINOR "${cuml-python_VERSION_MINOR}")
-  set(CUML_USE_RAFT_NN ON)
-  set(CUML_USE_RAFT_DIST ON)
-
-  # We need to call get_raft due to cuML asking for raft::nn and
-  # raft::distance targets
-  # see issue https://github.com/rapidsai/cuml/issues/4843
-  include(../cpp/cmake/thirdparty/get_raft.cmake)
-
   # We need to call get_treelite explicitly because we need the correct
   # ${TREELITE_LIBS} definition for RF
+  include(rapids-cpm)
+  include(rapids-export)
+  rapids_cpm_init()
   include(../cpp/cmake/thirdparty/get_treelite.cmake)
   find_package(cuml ${CUML_VERSION} REQUIRED)
-
 else()
   set(cuml_FOUND OFF)
 endif()
 
 include(rapids-cython)
 
+if(CUML_BUILD_WHEELS)
+  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+else()
+  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
+endif()
+
 if(NOT cuml_FOUND)
-  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
-  # languages for the C++ project even if this project does not require those languges.
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(cuml-python)
-  enable_language(CUDA)
-
-  # Since cuml only enables CUDA optionally, we need to manually include the file that
-  # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_cuml-python_INCLUDE}")
-
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_PRIMS_TESTS OFF)
   set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_EXAMPLES OFF)
   set(BUILD_CUML_BENCH OFF)
   set(BUILD_CUML_PRIMS_BENCH OFF)
-  message(STATUS "installing packages")
-  add_subdirectory(../cpp cuml-cpp)
+  set(CUML_EXPORT_TREELITE_LINKAGE ON)
+
+  set(_exclude_from_all "")
+  if(CUML_BUILD_WHEELS)
+    # Statically link dependencies if building wheels
+    set(CUDA_STATIC_RUNTIME ON)
+    set(CUML_USE_RAFT_STATIC ON)
+    set(CUML_USE_FAISS_STATIC ON)
+    set(CUML_USE_TREELITE_STATIC ON)
+    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+    # Don't install the static libs into wheels
+    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
+    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+
+    # Don't install the cuML C++ targets into wheels
+    set(_exclude_from_all EXCLUDE_FROM_ALL)
+  endif()
+
+  add_subdirectory(../cpp cuml-cpp ${_exclude_from_all})
 
   set(cython_lib_dir cuml)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
 if(NOT SINGLEGPU)
   include(../cpp/cmake/thirdparty/get_cumlprims_mg.cmake)
