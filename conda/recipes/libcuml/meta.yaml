@@ -45,6 +45,8 @@ requirements:
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - libraft-headers {{ minor_version }}
+    - libcublas-dev {{ libcublas_version }}
+    - libcurand-dev {{ libcurand_version }}
     - libraft-distance {{ minor_version }}
     - libraft-nn {{ minor_version }}
     - lapack

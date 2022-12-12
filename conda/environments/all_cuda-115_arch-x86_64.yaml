@@ -22,7 +22,9 @@ dependencies:
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
 - joblib>=0.11
+- libcublas-dev=11.7.4.6
 - libcumlprims=23.02.*
+- libcurand-dev=10.2.7.107
 - libfaiss>=1.7.0
 - libraft-distance=23.02.*
 - libraft-headers=23.02.*
