@@ -111,19 +111,3 @@ class GlobalSettings:
     @property
     def xpy(self):
         return self.memory_type.xpy
-
-
-def set_global_device_type(device_type):
-    GlobalSettings().device_type = DeviceType.from_str(device_type)
-
-
-class using_device_type:
-    def __init__(self, device_type):
-        self.prev_device_type = GlobalSettings().device_type
-        set_global_device_type(device_type)
-
-    def __enter__(self):
-        return self.prev_device_type
-
-    def __exit__(self, type_, value, traceback):
-        set_global_device_type(self.prev_device_type)
