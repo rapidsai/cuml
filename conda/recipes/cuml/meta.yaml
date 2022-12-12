@@ -34,10 +34,11 @@ build:
 
 requirements:
   build:
-    - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
+    - cmake {{ cmake_version }}
+    - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python x.x
