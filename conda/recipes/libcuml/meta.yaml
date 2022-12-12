@@ -37,24 +37,24 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - nccl {{ nccl_version }}
-    - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx {{ ucx_version }}
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
-    - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
-    - libcublas-dev {{ libcublas_version }}
-    - libcurand-dev {{ libcurand_version }}
-    - libraft-distance {{ minor_version }}
-    - libraft-nn {{ minor_version }}
-    - lapack
-    - treelite {{ treelite_version }}
+    - cudf {{ minor_version }}
     - faiss-proc=*=cuda
-    - gtest {{ gtest_version }}
     - gmock
+    - gtest {{ gtest_version }}
+    - lapack
+    - libcublas-dev {{ libcublas_version }}
+    - libcumlprims {{ minor_version }}
+    - libcurand-dev {{ libcurand_version }}
     - libfaiss {{ libfaiss_version }} *_cuda
+    - libraft-distance {{ minor_version }}
+    - libraft-headers {{ minor_version }}
+    - libraft-nn {{ minor_version }}
+    - nccl {{ nccl_version }}
+    - treelite {{ treelite_version }}
+    - ucx {{ ucx_version }}
+    - ucx-proc=*=gpu
+    - ucx-py {{ ucx_py_version }}
 
 outputs:
   - name: libcuml
