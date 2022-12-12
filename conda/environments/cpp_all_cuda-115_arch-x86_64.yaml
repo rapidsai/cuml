@@ -14,6 +14,8 @@ dependencies:
 - libcublas-dev=11.7.4.6
 - libcumlprims=23.02.*
 - libcurand-dev=10.2.7.107
+- libcusolver-dev=11.3.2.107
+- libcusparse-dev=11.7.0.107
 - libfaiss>=1.7.0
 - libraft-distance=23.02.*
 - libraft-headers=23.02.*

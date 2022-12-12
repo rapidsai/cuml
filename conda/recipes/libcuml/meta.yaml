@@ -46,6 +46,8 @@ requirements:
     - libcublas-dev {{ libcublas_version }}
     - libcumlprims {{ minor_version }}
     - libcurand-dev {{ libcurand_version }}
+    - libcusolver {{ libcusolver_version }}
+    - libcusparse {{ libcusparse_version }}
     - libfaiss {{ libfaiss_version }} *_cuda
     - libraft-distance {{ minor_version }}
     - libraft-headers {{ minor_version }}

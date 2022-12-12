@@ -32,10 +32,13 @@ libfaiss_version:
   - "1.7.0"
 
 libcusolver_version:
-  - ">=11.2.1"
+  - ">=11.2.1,<11.4.2.57"
 
 libcublas_version:
   - ">=11.7.3.1,<12"
 
 libcurand_version:
-  - ">=10.2.6.48,<12"
+  - ">=10.2.6.48,<10.3.1.50"
+
+libcusparse_version:
+  - ">=11.5.0,<12"
