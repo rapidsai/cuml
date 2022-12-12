@@ -52,7 +52,7 @@ function(ConfigureTest)
     Threads::Threads
     $<$<BOOL:${ConfigureTest_CUMLPRIMS}>:cumlprims_mg::cumlprims_mg>
     $<$<BOOL:${ConfigureTest_MPI}>:${MPI_CXX_LIBRARIES}>
-    $<$<BOOL:${ConfigureTest_RAFT_DISTANCE}>:${raft::distributed}>
+    $<$<BOOL:${ConfigureTest_RAFT_DISTANCE}>:raft::distributed>
     ${TREELITE_LIBS}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
