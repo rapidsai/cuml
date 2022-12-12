@@ -32,9 +32,6 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
 
-# ucx-py version
-export UCX_PY_VERSION='0.30.*'
-
 # configure numba threading library
 export NUMBA_THREADING_LAYER=workqueue
 

@@ -19,6 +19,9 @@ nccl_version:
 ucx_version:
   - "1.13.0"
 
+ucx_py_version:
+  - "0.30.*"
+
 treelite_version:
   - "3.0.1"
 

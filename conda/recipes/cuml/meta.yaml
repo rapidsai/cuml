@@ -7,7 +7,6 @@
 {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0] %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
-{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 
 package:
   name: cuml

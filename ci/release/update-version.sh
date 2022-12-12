@@ -59,8 +59,12 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
 done
 
 # Update ucx-py version
+# TODO: Remove "ci/*" file lines after Jenkins scripts are removed
 sed_runner "s/export UCX_PY_VERSION=.*/export UCX_PY_VERSION='${NEXT_UCX_PY_VERSION}'/g" ci/checks/style.sh
 sed_runner "s/export UCX_PY_VERSION=.*/export UCX_PY_VERSION='${NEXT_UCX_PY_VERSION}'/g" ci/cpu/build.sh
 sed_runner "s/export UCX_PY_VERSION=.*/export UCX_PY_VERSION='${NEXT_UCX_PY_VERSION}'/g" ci/gpu/build.sh
+for PKG in cuml libcuml; do
+    sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" "conda/recipes/${PKG}/conda_build_config.yaml"
+done
 
 sed_runner "s|/branch-.*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
