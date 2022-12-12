@@ -47,6 +47,7 @@ void olsFit(const raft::handle_t& handle,
          intercept,
          fit_intercept,
          normalize,
+         handle.get_stream(),
          algo,
          sample_weight);
 }
@@ -72,6 +73,7 @@ void olsFit(const raft::handle_t& handle,
          intercept,
          fit_intercept,
          normalize,
+         handle.get_stream(),
          algo,
          sample_weight);
 }
@@ -84,7 +86,7 @@ void gemmPredict(const raft::handle_t& handle,
                  float intercept,
                  float* preds)
 {
-  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds);
+  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds, handle.get_stream());
 }
 
 void gemmPredict(const raft::handle_t& handle,
@@ -95,7 +97,7 @@ void gemmPredict(const raft::handle_t& handle,
                  double intercept,
                  double* preds)
 {
-  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds);
+  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds, handle.get_stream());
 }
 
 void ridgeFit(const raft::handle_t& handle,
@@ -123,6 +125,7 @@ void ridgeFit(const raft::handle_t& handle,
            intercept,
            fit_intercept,
            normalize,
+           handle.get_stream(),
            algo,
            sample_weight);
 }
@@ -152,6 +155,7 @@ void ridgeFit(const raft::handle_t& handle,
            intercept,
            fit_intercept,
            normalize,
+           handle.get_stream(),
            algo,
            sample_weight);
 }

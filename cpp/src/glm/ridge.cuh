@@ -136,7 +136,7 @@ void ridgeEig(const raft::handle_t& handle,
 /**
  * @brief fit a ridge regression model (l2 regularized least squares)
  * @param handle        cuml handle
- * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param input         device pointer to feature matrix n_rows x n_cols (col-major)
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
@@ -162,10 +162,10 @@ void ridgeFit(const raft::handle_t& handle,
               math_t* intercept,
               bool fit_intercept,
               bool normalize,
+              cudaStream_t stream,
               int algo              = 0,
               math_t* sample_weight = nullptr)
 {
-  auto stream          = handle.get_stream();
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
 
@@ -249,4 +249,3 @@ void ridgeFit(const raft::handle_t& handle,
 
 };  // namespace GLM
 };  // namespace ML
-// end namespace ML
