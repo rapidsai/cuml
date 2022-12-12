@@ -16,7 +16,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL CUMLPRIMS MPI ML_INCLUDE)
+  set(options OPTIONAL CUMLPRIMS MPI ML_INCLUDE RAFT_DISTRIBUTED)
   set(oneValueArgs PREFIX NAME PATH)
   set(multiValueArgs TARGETS CONFIGURATIONS)
 
@@ -52,6 +52,7 @@ function(ConfigureTest)
     Threads::Threads
     $<$<BOOL:${ConfigureTest_CUMLPRIMS}>:cumlprims_mg::cumlprims_mg>
     $<$<BOOL:${ConfigureTest_MPI}>:${MPI_CXX_LIBRARIES}>
+    $<$<BOOL:${ConfigureTest_RAFT_DISTANCE}>:${raft::distributed}>
     ${TREELITE_LIBS}
     $<TARGET_NAME_IF_EXISTS:conda_env>
   )
@@ -196,17 +197,18 @@ endif()
 
 if(BUILD_CUML_MG_TESTS)
 
-  # This test needs to be rewritten to use the MPI comms, not the std comms.
+  # This test needs to be rewritten to use the MPI comms, not the std comms, and moved
+  # to RAFT: https://github.com/rapidsai/cuml/issues/5058
   #ConfigureTest(PREFIX MG NAME KMEANS_TEST PATH mg/kmeans_test.cu OPTIONAL NCCL CUMLPRIMS ML_INCLUDE)
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
-    ConfigureTest(PREFIX MG NAME KNN_TEST PATH mg/knn.cu OPTIONAL CUMLPRIMS MPI ML_INCLUDE)
-    ConfigureTest(PREFIX MG NAME KNN_CLASSIFY_TEST PATH mg/knn_classify.cu OPTIONAL CUMLPRIMS MPI ML_INCLUDE)
-    ConfigureTest(PREFIX MG NAME KNN_REGRESS_TEST PATH mg/knn_regress.cu OPTIONAL CUMLPRIMS MPI ML_INCLUDE)
-    ConfigureTest(PREFIX MG NAME MAIN_TEST PATH mg/main.cu OPTIONAL CUMLPRIMS MPI ML_INCLUDE)
-    ConfigureTest(PREFIX MG NAME PCA_TEST PATH mg/pca.cu OPTIONAL CUMLPRIMS MPI ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME KNN_TEST PATH mg/knn.cu OPTIONAL CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME KNN_CLASSIFY_TEST PATH mg/knn_classify.cu OPTIONAL CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME KNN_REGRESS_TEST PATH mg/knn_regress.cu OPTIONAL CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME MAIN_TEST PATH mg/main.cu OPTIONAL CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(PREFIX MG NAME PCA_TEST PATH mg/pca.cu OPTIONAL CUMLPRIMS MPI RAFT_DISTRIBUTED ML_INCLUDE)
   else(MPI_CXX_FOUND)
-   message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
+   message("OpenMPI not found. Skipping MultiGPU tests '${CUML_MG_TEST_TARGET}'")
   endif()
 endif()
 
