@@ -83,7 +83,7 @@ outputs:
         - libfaiss {{ libfaiss_version }} *_cuda
         - libcusolver {{ libcusolver_version }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libcuml library
   - name: libcuml-tests
@@ -103,6 +103,6 @@ outputs:
         - gtest {{ gtest_version }}
         - gmock {{ gtest_version }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libcuml test & benchmark executables

@@ -72,7 +72,7 @@ tests:                                 # [linux64]
     - cuml                             # [linux64]
 
 about:
-  home: http://rapids.ai/
+  home: https://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
   summary: cuML library
