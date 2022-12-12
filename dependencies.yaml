@@ -25,6 +25,11 @@ files:
       - cpp_build
       - cpp_run
       - cudatoolkit
+  checks:
+    output: none
+    includes:
+      - checks
+      - py_version
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -32,6 +37,12 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
+  checks:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - clang-tools==11.1.0
+          - flake8
   common_build:
     common:
       - output_types: [conda, requirements]
