@@ -13,7 +13,7 @@ CMake:
   - '**/CMakeLists.txt'
   - '**/cmake/**'
 
-CI:
+ci:
   - 'ci/**'
 
 conda:
