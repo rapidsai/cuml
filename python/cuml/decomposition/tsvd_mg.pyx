@@ -73,7 +73,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsTSVDMG *params = new paramsTSVDMG()
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.n_iterations = self.n_iter

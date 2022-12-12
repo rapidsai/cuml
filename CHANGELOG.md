@@ -1,6 +1,65 @@
-# cuML 22.12.00 (Date TBD)
+# cuML 23.02.00 (Date TBD)
 
-Please see https://github.com/rapidsai/cuml/releases/tag/v22.12.00a for the latest changes to this development branch.
+Please see https://github.com/rapidsai/cuml/releases/tag/v23.02.00a for the latest changes to this development branch.
+
+# cuML 22.12.00 (8 Dec 2022)
+
+## 🚨 Breaking Changes
+
+- Change docs theme to `pydata-sphinx` theme ([#4985](https://github.com/rapidsai/cuml/pull/4985)) [@galipremsagar](https://github.com/galipremsagar)
+- Remove &quot;Open In Colab&quot; link from Estimator Intro notebook. ([#4980](https://github.com/rapidsai/cuml/pull/4980)) [@bdice](https://github.com/bdice)
+- Remove `CumlArray.copy()` ([#4958](https://github.com/rapidsai/cuml/pull/4958)) [@madsbk](https://github.com/madsbk)
+
+## 🐛 Bug Fixes
+
+- Remove cupy.cusparse custom serialization ([#5024](https://github.com/rapidsai/cuml/pull/5024)) [@dantegd](https://github.com/dantegd)
+- Restore `LinearRegression` documentation ([#5020](https://github.com/rapidsai/cuml/pull/5020)) [@viclafargue](https://github.com/viclafargue)
+- Don&#39;t use CMake 3.25.0 as it has a FindCUDAToolkit show stopping bug ([#5007](https://github.com/rapidsai/cuml/pull/5007)) [@robertmaynard](https://github.com/robertmaynard)
+- verifying cusparse wrapper revert passes CI ([#4990](https://github.com/rapidsai/cuml/pull/4990)) [@cjnolet](https://github.com/cjnolet)
+- Use rapdsi_cpm_find(COMPONENTS ) for proper component tracking ([#4989](https://github.com/rapidsai/cuml/pull/4989)) [@robertmaynard](https://github.com/robertmaynard)
+- Fix integer overflow in AutoARIMA due to bool-to-int cub scan ([#4971](https://github.com/rapidsai/cuml/pull/4971)) [@Nyrio](https://github.com/Nyrio)
+- Add missing includes ([#4947](https://github.com/rapidsai/cuml/pull/4947)) [@vyasr](https://github.com/vyasr)
+- Fix the CMake option for disabling deprecation warnings. ([#4946](https://github.com/rapidsai/cuml/pull/4946)) [@vyasr](https://github.com/vyasr)
+- Make doctest resilient to changes in cupy reprs ([#4945](https://github.com/rapidsai/cuml/pull/4945)) [@vyasr](https://github.com/vyasr)
+- Assign python/ sub-directory to python-codeowners ([#4940](https://github.com/rapidsai/cuml/pull/4940)) [@csadorf](https://github.com/csadorf)
+- Fix for non-contiguous strides ([#4736](https://github.com/rapidsai/cuml/pull/4736)) [@viclafargue](https://github.com/viclafargue)
+
+## 📖 Documentation
+
+- Change docs theme to `pydata-sphinx` theme ([#4985](https://github.com/rapidsai/cuml/pull/4985)) [@galipremsagar](https://github.com/galipremsagar)
+- Remove &quot;Open In Colab&quot; link from Estimator Intro notebook. ([#4980](https://github.com/rapidsai/cuml/pull/4980)) [@bdice](https://github.com/bdice)
+- Updating build instructions ([#4979](https://github.com/rapidsai/cuml/pull/4979)) [@cjnolet](https://github.com/cjnolet)
+
+## 🚀 New Features
+
+- Reenable copy_prs. ([#5010](https://github.com/rapidsai/cuml/pull/5010)) [@vyasr](https://github.com/vyasr)
+- Add wheel builds ([#5009](https://github.com/rapidsai/cuml/pull/5009)) [@vyasr](https://github.com/vyasr)
+- LinearRegression: add support for multiple targets ([#4988](https://github.com/rapidsai/cuml/pull/4988)) [@ahendriksen](https://github.com/ahendriksen)
+- CPU/GPU interoperability POC ([#4874](https://github.com/rapidsai/cuml/pull/4874)) [@viclafargue](https://github.com/viclafargue)
+
+## 🛠️ Improvements
+
+- Upgrade Treelite to 3.0.1 ([#5018](https://github.com/rapidsai/cuml/pull/5018)) [@hcho3](https://github.com/hcho3)
+- fix addition of nan_euclidean_distances to public api ([#5015](https://github.com/rapidsai/cuml/pull/5015)) [@mattf](https://github.com/mattf)
+- Fixing raft pin to 22.12 ([#5000](https://github.com/rapidsai/cuml/pull/5000)) [@cjnolet](https://github.com/cjnolet)
+- Pin `dask` and `distributed` for release ([#4999](https://github.com/rapidsai/cuml/pull/4999)) [@galipremsagar](https://github.com/galipremsagar)
+- Update `dask` nightly install command in CI ([#4978](https://github.com/rapidsai/cuml/pull/4978)) [@galipremsagar](https://github.com/galipremsagar)
+- Improve error message for array_equal asserts. ([#4973](https://github.com/rapidsai/cuml/pull/4973)) [@csadorf](https://github.com/csadorf)
+- Use new rapids-cmake functionality for rpath handling. ([#4966](https://github.com/rapidsai/cuml/pull/4966)) [@vyasr](https://github.com/vyasr)
+- Impl. `CumlArray.deserialize()` ([#4965](https://github.com/rapidsai/cuml/pull/4965)) [@madsbk](https://github.com/madsbk)
+- Update `cuda-python` dependency to 11.7.1 ([#4961](https://github.com/rapidsai/cuml/pull/4961)) [@galipremsagar](https://github.com/galipremsagar)
+- Add check for nsys utility version in the `nvtx_benchmarks.py` script ([#4959](https://github.com/rapidsai/cuml/pull/4959)) [@viclafargue](https://github.com/viclafargue)
+- Remove `CumlArray.copy()` ([#4958](https://github.com/rapidsai/cuml/pull/4958)) [@madsbk](https://github.com/madsbk)
+- Implement hypothesis-based tests for linear models ([#4952](https://github.com/rapidsai/cuml/pull/4952)) [@csadorf](https://github.com/csadorf)
+- Switch to using rapids-cmake for gbench. ([#4950](https://github.com/rapidsai/cuml/pull/4950)) [@vyasr](https://github.com/vyasr)
+- Remove stale labeler ([#4949](https://github.com/rapidsai/cuml/pull/4949)) [@raydouglass](https://github.com/raydouglass)
+- Fix url in python/setup.py setuptools metadata. ([#4937](https://github.com/rapidsai/cuml/pull/4937)) [@csadorf](https://github.com/csadorf)
+- Updates to fix cuml build ([#4928](https://github.com/rapidsai/cuml/pull/4928)) [@cjnolet](https://github.com/cjnolet)
+- Documenting hdbscan module to add prediction functions ([#4925](https://github.com/rapidsai/cuml/pull/4925)) [@cjnolet](https://github.com/cjnolet)
+- Unpin `dask` and `distributed` for development ([#4912](https://github.com/rapidsai/cuml/pull/4912)) [@galipremsagar](https://github.com/galipremsagar)
+- Use KMeans from Raft ([#4713](https://github.com/rapidsai/cuml/pull/4713)) [@lowener](https://github.com/lowener)
+- Update cuml raft header extensions ([#4599](https://github.com/rapidsai/cuml/pull/4599)) [@cjnolet](https://github.com/cjnolet)
+- Reconciling primitives moved to RAFT ([#4583](https://github.com/rapidsai/cuml/pull/4583)) [@cjnolet](https://github.com/cjnolet)
 
 # cuML 22.10.00 (12 Oct 2022)
 

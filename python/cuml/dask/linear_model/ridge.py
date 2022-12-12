@@ -38,12 +38,12 @@ class Ridge(BaseEstimator,
     As the number of features in X increases, the accuracy of Eig algorithm
     drops.
 
-    This is an experimental implementation of dask Ridge Regresion. It
+    This is an experimental implementation of dask Ridge Regression. It
     supports input X that has more than one column. Single column input
     X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
@@ -53,7 +53,7 @@ class Ridge(BaseEstimator,
         Other solvers will be supported in the future.
     fit_intercept : boolean (default = True)
         If True, Ridge adds an additional term c to correct for the global
-        mean of y, modeling the reponse as "x * beta + c".
+        mean of y, modeling the response as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         If True, the predictors in X will be normalized by dividing by it's L2
@@ -61,7 +61,7 @@ class Ridge(BaseEstimator,
         If False, no scaling will be done.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array

@@ -18,6 +18,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from itertools import dropwhile
 
 from numba import cuda
 from numbers import Number
@@ -36,7 +37,6 @@ import cudf
 import cuml
 from cuml.common.input_utils import input_to_cuml_array, is_array_like
 from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
 import pytest
 
 
@@ -403,7 +403,7 @@ class ClassEnumerator:
             for name,
             cls in classes
             if cls not in self.exclude_classes and
-            issubclass(cls, (Base, experimentalBase))
+            issubclass(cls, Base)
         }
         models.update(self.custom_constructors)
         return models
@@ -758,3 +758,24 @@ def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
         print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
               np.mean(b))
     return equal
+
+
+def normalized_shape(shape):
+    """Normalize shape to tuple."""
+    return (shape, ) if isinstance(shape, int) else shape
+
+
+def squeezed_shape(shape):
+    """Remove all trailing axes of length 1 from shape.
+
+    Similar to, but not exactly like np.squeeze().
+    """
+    return tuple(reversed(list(dropwhile(lambda d: d == 1, reversed(shape)))))
+
+
+def series_squeezed_shape(shape):
+    """Remove all but one axes of length 1 from shape."""
+    if shape:
+        return tuple([d for d in normalized_shape(shape) if d != 1]) or (1,)
+    else:
+        return ()

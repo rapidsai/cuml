@@ -27,14 +27,14 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.experimental.common.base import Base
+from cuml.common.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import device_interop_preparation
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -124,7 +124,7 @@ class Ridge(Base,
         1 14.999...
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization. Array input will be supported later.
@@ -161,14 +161,14 @@ class Ridge(Base,
         See :ref:`verbosity-levels` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
     Ridge provides L2 regularization. This means that the coefficients can
     shrink to become very small, but not zero. This can cause issues of
     interpretability on the coefficients.
@@ -185,9 +185,11 @@ class Ridge(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
     """
 
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'sklearn.linear_model.Ridge'
+    coef_ = CumlArrayDescriptor(order='F')
+    intercept_ = CumlArrayDescriptor(order='F')
 
+    @device_interop_preparation
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
@@ -238,15 +240,17 @@ class Ridge(Base,
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
+    def _fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
 
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
-        X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        X_m, n_rows, self.n_features_in_, self.dtype = \
+            input_to_cuml_array(X, deepcopy=True,
+                                check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
+        self.feature_names_in_ = X_m.index
 
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
@@ -265,7 +269,7 @@ class Ridge(Base,
         else:
             sample_weight_ptr = 0
 
-        if self.n_cols < 1:
+        if self.n_features_in_ < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
@@ -273,7 +277,7 @@ class Ridge(Base,
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1 and self.algo != 0:
+        if self.n_features_in_ == 1 and self.algo != 0:
             warnings.warn("Changing solver to 'svd' as 'eig' or 'cd' " +
                           "solvers do not support training data with 1 " +
                           "column currently.", UserWarning)
@@ -281,7 +285,7 @@ class Ridge(Base,
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
@@ -295,7 +299,7 @@ class Ridge(Base,
             ridgeFit(handle_[0],
                      <float*>X_ptr,
                      <size_t>n_rows,
-                     <size_t>self.n_cols,
+                     <size_t>self.n_features_in_,
                      <float*>y_ptr,
                      <float*>&c_alpha1,
                      <int>self.n_alpha,
@@ -309,11 +313,10 @@ class Ridge(Base,
             self.intercept_ = c_intercept1
         else:
             c_alpha2 = self.alpha
-
             ridgeFit(handle_[0],
                      <double*>X_ptr,
                      <size_t>n_rows,
-                     <size_t>self.n_cols,
+                     <size_t>self.n_features_in_,
                      <double*>y_ptr,
                      <double*>&c_alpha2,
                      <int>self.n_alpha,
@@ -348,3 +351,6 @@ class Ridge(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
+
+    def get_attr_names(self):
+        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']

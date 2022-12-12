@@ -18,6 +18,7 @@
 
 import ctypes
 import numpy as np
+import cupy as cp
 import warnings
 
 from numba import cuda
@@ -30,13 +31,16 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.experimental.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.common.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
+from cuml.internals.api_decorators import device_interop_preparation
+
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.input_utils import input_to_cupy_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -63,6 +67,55 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool normalize,
                      int algo,
                      double *sample_weight) except +
+
+
+def divide_non_zero(x1, x2):
+    # Value chosen to be consistent with the RAFT implementation in
+    # linalg/detail/lstsq.cuh
+    eps = 1e-10
+
+    # Do not divide by values of x2 that are smaller than eps
+    mask = abs(x2) < eps
+    x2[mask] = 1.
+
+    return x1 / x2
+
+
+def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
+    assert X.ndim == 2
+    assert y.ndim == 2
+
+    x_rows, x_cols = X.shape
+    if x_cols == 0:
+        raise ValueError(
+            "Number of columns cannot be less than one"
+        )
+    if x_rows < 2:
+        raise ValueError(
+            "Number of rows cannot be less than two"
+        )
+
+    if fit_intercept:
+        # Add column containg ones to fit intercept.
+        nrow, ncol = X.shape
+        X_wide = cp.empty_like(X, shape=(nrow, ncol + 1))
+        X_wide[:, :ncol] = X
+        X_wide[:, ncol] = 1.
+        X = X_wide
+
+    if sample_weight is not None:
+        sample_weight = cp.sqrt(sample_weight)
+        X = sample_weight[:, None] * X
+        y = sample_weight[:, None] * y
+
+    u, s, vh = cp.linalg.svd(X, full_matrices=False)
+
+    params = vh.T @ divide_non_zero(u.T @ y, s[:, None])
+
+    coef = params[:-1] if fit_intercept else params
+    intercept = params[-1] if fit_intercept else None
+
+    return coef, intercept
 
 
 class LinearRegression(Base,
@@ -113,7 +166,7 @@ class LinearRegression(Base,
 
 
     Parameters
-    -----------
+    ----------
     algorithm : {'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'eig')
         Choose an algorithm:
 
@@ -158,14 +211,14 @@ class LinearRegression(Base,
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
-    ------
+    -----
     LinearRegression suffers from multicollinearity (when columns are
     correlated with each other), and variance explosions from outliers.
     Consider using Ridge Regression to fix the multicollinearity problem, and
@@ -184,15 +237,14 @@ class LinearRegression(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`__.
-
-
+    <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
     """
 
-    sk_import_path_ = 'sklearn.linear_model'
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
+    coef_ = CumlArrayDescriptor(order='F')
+    intercept_ = CumlArrayDescriptor(order='F')
 
+    @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
@@ -235,15 +287,16 @@ class LinearRegression(Base,
 
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
-        X_m, n_rows, self.n_cols, self.dtype = \
+        X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         X_ptr = X_m.ptr
+        self.feature_names_in_ = X_m.index
 
-        y_m, _, _, _ = \
+        y_m, _, y_cols, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_rows=n_rows, check_cols=1)
+                                check_rows=n_rows)
         y_ptr = y_m.ptr
 
         if sample_weight is not None:
@@ -256,7 +309,7 @@ class LinearRegression(Base,
         else:
             sample_weight_ptr = 0
 
-        if self.n_cols < 1:
+        if self.n_features_in_ < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
@@ -264,13 +317,21 @@ class LinearRegression(Base,
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
-        if self.n_cols == 1 and self.algo != 0:
+        if self.n_features_in_ == 1 and self.algo != 0:
             warnings.warn("Changing solver from 'eig' to 'svd' as eig " +
                           "solver does not support training data with 1 " +
                           "column currently.", UserWarning)
             self.algo = 0
 
-        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        if 1 < y_cols:
+            if sample_weight is None:
+                sample_weight_m = None
+
+            return self._fit_multi_target(
+                X_m, y_m, convert_dtype, sample_weight_m
+            )
+
+        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
@@ -282,7 +343,7 @@ class LinearRegression(Base,
             olsFit(handle_[0],
                    <float*>X_ptr,
                    <size_t>n_rows,
-                   <size_t>self.n_cols,
+                   <size_t>self.n_features_in_,
                    <float*>y_ptr,
                    <float*>coef_ptr,
                    <float*>&c_intercept1,
@@ -296,7 +357,7 @@ class LinearRegression(Base,
             olsFit(handle_[0],
                    <double*>X_ptr,
                    <size_t>n_rows,
-                   <size_t>self.n_cols,
+                   <size_t>self.n_features_in_,
                    <double*>y_ptr,
                    <double*>coef_ptr,
                    <double*>&c_intercept2,
@@ -316,16 +377,68 @@ class LinearRegression(Base,
 
         return self
 
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
-        self.dtype = self.coef_.dtype
-        self.n_cols = self.coef_.shape[0]
-        # Adding Base here skips it in the Method Resolution Order (MRO)
-        # Since Base and LinearPredictMixin now both have a `predict` method
-        return super(Base, self).predict(X, convert_dtype=convert_dtype)
+    def _fit_multi_target(self, X, y, convert_dtype=True, sample_weight=None):
+        # In the cuml C++ layer, there is no support yet for multi-target
+        # regression, i.e., a y vector with multiple columns.
+        # We implement the regression in Python here.
+
+        if self.algo != 0:
+            warnings.warn("Changing solver to 'svd' as this is the " +
+                          "only solver that support multiple targets " +
+                          "currently.", UserWarning)
+            self.algo = 0
+        if self.normalize:
+            raise ValueError(
+                "The normalize option is not supported when `y` has "
+                "multiple columns."
+            )
+
+        X_cupy = input_to_cupy_array(
+            X,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+        ).array
+        y_cupy, _, y_cols, _ = input_to_cupy_array(
+            y,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+        )
+        if sample_weight is None:
+            sample_weight_cupy = None
+        else:
+            sample_weight_cupy = input_to_cupy_array(
+                sample_weight,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+            ).array
+        coef, intercept = fit_multi_target(
+            X_cupy,
+            y_cupy,
+            fit_intercept=self.fit_intercept,
+            sample_weight=sample_weight_cupy
+        )
+        self.coef_, _, _, _ = input_to_cuml_array(
+            coef,
+            check_dtype=self.dtype,
+            check_rows=self.n_features_in_,
+            check_cols=y_cols
+        )
+        if self.fit_intercept:
+            self.intercept_, _, _, _ = input_to_cuml_array(
+                intercept,
+                check_dtype=self.dtype,
+                check_rows=y_cols,
+                check_cols=1
+            )
+        else:
+            self.intercept_ = CumlArray.zeros(y_cols, dtype=self.dtype)
+
+        return self
 
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']
 
-    def get_attributes_names(self):
-        return ['coef_', 'intercept_']
+    def get_attr_names(self):
+        return ['coef_', 'intercept_', 'n_features_in_', 'feature_names_in_']
+
+    @staticmethod
+    def _more_static_tags():
+        return {"multioutput": True}

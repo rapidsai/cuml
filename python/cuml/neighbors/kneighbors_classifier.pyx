@@ -75,9 +75,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsClassifier(NearestNeighbors,
-                           ClassifierMixin,
-                           FMajorInputTagMixin):
+class KNeighborsClassifier(ClassifierMixin,
+                           FMajorInputTagMixin,
+                           NearestNeighbors):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
@@ -133,7 +133,7 @@ class KNeighborsClassifier(NearestNeighbors,
             4., 1., 3.], dtype=float32)
 
     Notes
-    ------
+    -----
 
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
@@ -222,7 +222,7 @@ class KNeighborsClassifier(NearestNeighbors,
             <int*> classes_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>self.n_rows,
+            <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
         )
@@ -286,7 +286,7 @@ class KNeighborsClassifier(NearestNeighbors,
             deref(out_vec),
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>self.n_rows,
+            <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
         )

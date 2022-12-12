@@ -63,9 +63,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsRegressor(NearestNeighbors,
-                          RegressorMixin,
-                          FMajorInputTagMixin):
+class KNeighborsRegressor(RegressorMixin,
+                          FMajorInputTagMixin,
+                          NearestNeighbors):
     """
 
     K-Nearest Neighbors Regressor is an instance-based learning technique,
@@ -147,7 +147,7 @@ class KNeighborsRegressor(NearestNeighbors,
         dtype=float32)
 
     Notes
-    ------
+    -----
 
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
@@ -230,7 +230,7 @@ class KNeighborsRegressor(NearestNeighbors,
             <float*>results_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>self.n_rows,
+            <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
         )

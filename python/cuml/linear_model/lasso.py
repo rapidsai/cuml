@@ -15,6 +15,7 @@
 #
 
 from cuml.linear_model.elastic_net import ElasticNet
+from cuml.internals.api_decorators import device_interop_preparation
 
 
 class Lasso(ElasticNet):
@@ -61,7 +62,7 @@ class Lasso(ElasticNet):
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
@@ -115,7 +116,7 @@ class Lasso(ElasticNet):
         See :ref:`verbosity-levels` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
@@ -127,6 +128,9 @@ class Lasso(ElasticNet):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.linear_model.Lasso'
+
+    @device_interop_preparation
     def __init__(self, *, alpha=1.0, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',

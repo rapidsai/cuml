@@ -69,7 +69,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
+        kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random
         from data for the initial centroids. If an ndarray is passed,
         it should be of shape (n_clusters, n_features) and gives the
@@ -89,7 +89,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     Attributes
     ----------
-
     cluster_centers_ : cuDF DataFrame or CuPy ndarray
         The coordinates of the final clusters. This represents of "mean" of
         each data cluster.

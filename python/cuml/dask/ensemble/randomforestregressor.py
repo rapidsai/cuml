@@ -57,7 +57,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     classifier for more information about the underlying algorithm.
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         total number of trees in the forest (not per-worker)
     handle : cuml.Handle
@@ -139,7 +139,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         while splitting. When True, it returns the results from workers
         with data (the number of trained estimators will be less than
         n_estimators) When False, throws a RuntimeError.
-        This is an experiemental parameter, and may be removed
+        This is an experimental parameter, and may be removed
         in the future.
 
     """
@@ -285,7 +285,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
         algo : string (default = 'auto')
@@ -426,7 +426,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         required to configure this estimator as a dictionary.
 
         Parameters
-        -----------
+        ----------
         deep : boolean (default = True)
         """
         return self._get_params(deep)
@@ -438,7 +438,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         the sklearn set_params.
 
         Parameters
-        -----------
-        params : dict of new params
+        ----------
+        params : dict of new params.
         """
         return self._set_params(**params)

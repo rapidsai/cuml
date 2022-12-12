@@ -209,12 +209,21 @@ def int_dataset(request, random_seed):
                                   int(randint.size * 0.3),
                                   replace=False)
 
-    randint.ravel()[random_loc] = 0
-    zero_filled = convert(randint, request.param)
-    randint.ravel()[random_loc] = 1
-    one_filled = convert(randint, request.param)
-    randint.ravel()[random_loc] = cp.nan
-    nan_filled = convert(randint, request.param)
+    zero_filled = randint.copy().ravel()
+    zero_filled[random_loc] = 0
+    zero_filled = zero_filled.reshape(randint.shape)
+    zero_filled = convert(zero_filled, request.param)
+
+    one_filled = randint.copy().ravel()
+    one_filled[random_loc] = 1
+    one_filled = one_filled.reshape(randint.shape)
+    one_filled = convert(one_filled, request.param)
+
+    nan_filled = randint.copy().ravel()
+    nan_filled[random_loc] = cp.nan
+    nan_filled = nan_filled.reshape(randint.shape)
+    nan_filled = convert(nan_filled, request.param)
+
     return zero_filled, one_filled, nan_filled
 
 
