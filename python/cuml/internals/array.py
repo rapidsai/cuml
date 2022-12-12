@@ -520,7 +520,7 @@ class CumlArray():
         return self._operator_overload(other, operator.lt)
 
     def __le__(self, other):
-        return self._operator_overload(other, operator.lt)
+        return self._operator_overload(other, operator.le)
 
     def __gt__(self, other):
         return self._operator_overload(other, operator.gt)
