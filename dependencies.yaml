@@ -217,6 +217,7 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - dask-ml
+          - hdbscan
           - nltk
           - pytest
           - pytest-cov
@@ -229,5 +230,4 @@ dependencies:
           - pip
           - pip:
               - git+https://github.com/dask/dask-glm@main
-              - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
               - sparse
