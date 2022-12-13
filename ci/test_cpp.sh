@@ -27,7 +27,7 @@ rapids-print-env
 
 rapids-mamba-retry install \
   -c "${CPP_CHANNEL}" \
-  libcuml
+  libcuml libcuml-tests
 
 rapids-logger "Check GPU usage"
 nvidia-smi
