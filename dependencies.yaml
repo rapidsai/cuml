@@ -34,6 +34,12 @@ files:
     output: none
     includes:
       - cudatoolkit
+  test_python:
+    output: none
+    includes:
+      - cudatoolkit
+      - py_version
+      - test_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -212,8 +218,10 @@ dependencies:
         packages:
           - dask-ml
           - nltk
-          - seaborn
+          - pytest
+          - pytest-cov
           - scikit-learn=0.24
+          - seaborn
           - statsmodels
           - umap-learn
       - output_types: conda
