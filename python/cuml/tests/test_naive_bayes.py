@@ -162,9 +162,7 @@ def test_multinomial(x_dtype, y_dtype, nlp_20news):
     cuml_score = cuml_model.score(cu_X, cu_y)
     sk_score = sk_model.score(X, y)
 
-
     y_hat = cuml_model.predict(cu_X)
-
     y_hat = cp.asnumpy(y_hat)
     cu_y = cp.asnumpy(cu_y)
 
