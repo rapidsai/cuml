@@ -51,6 +51,7 @@ requirements:
     - cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
+    - libcublas-dev {{ libcublas_version }}
     - pylibraft {{ minor_version }}
     - raft-dask {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
