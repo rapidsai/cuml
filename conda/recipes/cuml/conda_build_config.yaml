@@ -18,3 +18,6 @@ ucx_py_version:
 
 libcublas_version:
   - ">=11.7.3.1,<12"
+
+libcusolver_version:
+  - ">=11.2.1,<11.4.2.57"
