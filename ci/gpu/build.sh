@@ -76,7 +76,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "xgboost=1.7.1dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
-      "shap>=0.37,<=0.39"
+      "shap>=0.37,<=0.39" \
+      "libcusparse<12.0"
 
 if [ "$(arch)" = "x86_64" ]; then
     gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \

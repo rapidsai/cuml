@@ -54,6 +54,7 @@ requirements:
     - gtest {{ gtest_version }}
     - gmock
     - libfaiss {{ libfaiss_version }} *_cuda
+    - libcusparse<12.0
 
 outputs:
   - name: libcuml
@@ -82,6 +83,7 @@ outputs:
         - faiss-proc=*=cuda
         - libfaiss {{ libfaiss_version }} *_cuda
         - libcusolver {{ libcusolver_version }}
+        - libcusparse<12.0
     about:
       home: http://rapids.ai/
       license: Apache-2.0
