@@ -48,7 +48,7 @@ requirements:
     - cudf {{ minor_version }}
     - cython>=0.29,<0.30
     - libcublas-dev {{ libcublas_version }}
-    - libcusolver {{ libcusolver_version }}
+    - libcusolver-dev {{ libcusolver_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - pylibraft {{ minor_version }}
