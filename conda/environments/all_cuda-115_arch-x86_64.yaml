@@ -37,6 +37,8 @@ dependencies:
 - nvcc_linux-64=11.5
 - pip
 - pylibraft=23.02.*
+- pytest
+- pytest-cov
 - python>=3.8,<3.10
 - raft-dask=23.02.*
 - rmm=23.02.*
