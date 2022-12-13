@@ -92,7 +92,7 @@ class GlobalSettings:
         try:
             return self._device_type
         except AttributeError:
-            if BUILT_WITH_CUDA and has_cuda_gpu():
+            if is_cuda_available():
                 self.device_type = DeviceType.device
             else:
                 self.device_type = DeviceType.host
@@ -111,7 +111,7 @@ class GlobalSettings:
         try:
             return self._memory_type
         except AttributeError:
-            if BUILT_WITH_CUDA and has_cuda_gpu():
+            if is_cuda_available():
                 self.memory_type = MemoryType.device
             else:
                 self.memory_type = MemoryType.host
