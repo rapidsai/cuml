@@ -46,11 +46,16 @@ requirements:
     - gtest {{ gtest_version }}
     - lapack
     - libcublas-dev {{ libcublas_version }}
+    - libcublas {{ libcublas_version }}
     - libcufft-dev {{ libcufft_version }}
+    - libcufft {{ libcufft_version }}
     - libcumlprims {{ minor_version }}
     - libcurand-dev {{ libcurand_version }}
+    - libcurand {{ libcurand_version }}
     - libcusolver-dev {{ libcusolver_version }}
+    - libcusolver {{ libcusolver_version }}
     - libcusparse-dev {{ libcusparse_version }}
+    - libcusparse {{ libcusparse_version }}
     - libfaiss {{ libfaiss_version }} *_cuda
     - libraft-distance {{ minor_version }}
     - libraft-headers {{ minor_version }}
