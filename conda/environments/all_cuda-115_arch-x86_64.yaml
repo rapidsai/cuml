@@ -23,6 +23,7 @@ dependencies:
 - gcc_linux-64=9.*
 - joblib>=0.11
 - libcublas-dev=11.7.4.6
+- libcufft-dev=10.6.0.107
 - libcumlprims=23.02.*
 - libcurand-dev=10.2.7.107
 - libcusolver-dev=11.3.2.107

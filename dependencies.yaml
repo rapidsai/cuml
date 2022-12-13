@@ -157,6 +157,7 @@ dependencies:
             packages:
               - cudatoolkit=11.5
               - libcublas-dev=11.7.4.6
+              - libcufft-dev=10.6.0.107
               - libcurand-dev=10.2.7.107
               - libcusolver-dev=11.3.2.107
               - libcusparse-dev=11.7.0.107
@@ -165,6 +166,7 @@ dependencies:
             packages:
               - cudatoolkit=11.4
               - libcublas-dev=11.6.5.2
+              - libcufft-dev=10.5.2.100
               - libcurand-dev=10.2.5.120
               - libcusolver-dev=11.2.0.120
               - libcusparse-dev=11.6.0.120
@@ -173,6 +175,7 @@ dependencies:
             packages:
               - cudatoolkit=11.2
               - libcublas-dev=11.5.2.43 # belongs to cuda-11.4.0 but it's the oldest available
+              - libcufft-dev=10.5.0.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcurand-dev=10.2.5.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcusolver-dev=11.2.0.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcusparse-dev=11.6.0.43 # belongs to cuda-11.4.0 but it's the oldest available

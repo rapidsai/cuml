@@ -42,3 +42,6 @@ libcurand_version:
 
 libcusparse_version:
   - ">=11.5.0,<12"
+
+libcufft_version:
+  - ">=10.6.0.107,<11"

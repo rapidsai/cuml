@@ -44,6 +44,7 @@ requirements:
     - gtest {{ gtest_version }}
     - lapack
     - libcublas-dev {{ libcublas_version }}
+    - libcufft-dev {{ libcufft_version }}
     - libcumlprims {{ minor_version }}
     - libcurand-dev {{ libcurand_version }}
     - libcusolver-dev {{ libcusolver_version }}
