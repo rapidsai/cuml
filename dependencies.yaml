@@ -30,6 +30,10 @@ files:
     includes:
       - checks
       - py_version
+  test_cpp:
+    output: none
+    includes:
+      - cudatoolkit
 channels:
   - rapidsai
   - rapidsai-nightly
