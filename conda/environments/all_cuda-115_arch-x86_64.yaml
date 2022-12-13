@@ -21,6 +21,7 @@ dependencies:
 - doxygen=1.8.20
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
+- hdbscan
 - joblib>=0.11
 - libcublas-dev=11.7.4.6
 - libcufft-dev=10.6.0.107
@@ -55,6 +56,5 @@ dependencies:
 - umap-learn
 - pip:
   - git+https://github.com/dask/dask-glm@main
-  - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   - sparse
 name: all_cuda-115_arch-x86_64
