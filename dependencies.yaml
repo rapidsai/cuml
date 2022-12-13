@@ -217,6 +217,8 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - dask-ml
+          # TODO: Ensure `hdbscan` doesn't need to be installed from
+          # latest master branch and can instead be installed from conda.
           - hdbscan
           - nltk
           - pytest
