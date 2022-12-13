@@ -47,8 +47,12 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - cudf {{ minor_version }}
     - cython>=0.29,<0.30
+    # TODO start: Evaluate removing these libcu* packages after
+    # the `raft` packages are updated for GH Actions
     - libcublas-dev {{ libcublas_version }}
     - libcusolver-dev {{ libcusolver_version }}
+    - libcusparse-dev {{ libcusparse_version }}
+    # TODO end
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
     - pylibraft {{ minor_version }}
