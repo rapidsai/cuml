@@ -619,7 +619,7 @@ def standard_classification_datasets(
     n_informative_ = draw(n_informative)
     n_redundant_ = draw(n_redundant)
     n_repeated_ = draw(n_repeated)
-    assume(n_informative_ + n_redundant_ + n_repeated_ < n_features_)
+    assume(n_informative_ + n_redundant_ + n_repeated_ <= n_features_)
 
     # Check base assumption concerning relationship of number of clusters and
     # informative features.
