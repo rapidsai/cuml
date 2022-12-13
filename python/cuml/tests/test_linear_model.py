@@ -563,6 +563,9 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     target(1 / score_train, label="inverse train score")
     target(1 / score_test, label="inverse test score")
 
+    # TODO: Use a more rigorous approach to determine expected minimal scores
+    # here. The values here are selected empirically and passed during test
+    # development.
     assert score_train >= 0.94
     assert score_test >= 0.94
 
