@@ -19,6 +19,8 @@ build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
     - PARALLEL_LEVEL
     - CMAKE_GENERATOR
     - CMAKE_C_COMPILER_LAUNCHER
