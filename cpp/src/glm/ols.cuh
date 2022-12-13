@@ -181,8 +181,8 @@ void gemmPredict(const raft::handle_t& handle,
   ASSERT(n_cols > 0, "gemmPredict: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "gemmPredict: number of rows cannot be less than one");
 
-  math_t alpha        = math_t(1);
-  math_t beta         = math_t(0);
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
   raft::linalg::gemm(handle,
                      input,
                      n_rows,
