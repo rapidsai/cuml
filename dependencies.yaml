@@ -223,6 +223,7 @@ dependencies:
           - hdbscan
           - hypothesis>=6.0,<7
           - nltk
+          - numpydoc
           - pytest
           - pytest-cases
           - pytest-cov
