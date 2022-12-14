@@ -229,11 +229,13 @@ dependencies:
           - pytest-cov
           - scikit-learn=0.24
           - seaborn
+          - sparse
           - statsmodels
           - umap-learn
       - output_types: conda
         packages:
           - pip
           - pip:
+              # TODO: Figure out what to do with this dependency
+              # since the repo is now archived.
               - git+https://github.com/dask/dask-glm@main
-              - sparse

@@ -49,6 +49,7 @@ dependencies:
 - scikit-build>=0.13.1
 - scikit-learn=0.24
 - seaborn
+- sparse
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-64==2.17
@@ -59,5 +60,4 @@ dependencies:
 - umap-learn
 - pip:
   - git+https://github.com/dask/dask-glm@main
-  - sparse
 name: all_cuda-115_arch-x86_64
