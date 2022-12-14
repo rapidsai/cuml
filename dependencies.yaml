@@ -216,6 +216,7 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
+          - cython>=0.29,<0.30
           - dask-ml
           # TODO: Ensure `hdbscan` doesn't need to be installed from
           # latest master branch and can instead be installed from conda.
