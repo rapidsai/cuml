@@ -134,10 +134,6 @@ if(BUILD_CUML_TESTS)
     ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST PATH sg/holtwinters_test.cu OPTIONAL ML_INCLUDE)
   endif()
 
-  if(all_algo OR kmeans_algo)
-    ConfigureTest(PREFIX SG NAME KMEANS_TEST PATH sg/kmeans_test.cu OPTIONAL ML_INCLUDE)
-  endif()
-
   if(all_algo OR knn_algo)
     ConfigureTest(PREFIX SG NAME KNN_TEST PATH sg/knn_test.cu OPTIONAL ML_INCLUDE)
   endif()
