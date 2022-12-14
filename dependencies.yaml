@@ -221,6 +221,7 @@ dependencies:
           # TODO: Ensure `hdbscan` doesn't need to be installed from
           # latest master branch and can instead be installed from conda.
           - hdbscan
+          - hypothesis>=6.0,<7
           - nltk
           - pytest
           - pytest-cov
