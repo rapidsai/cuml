@@ -48,7 +48,7 @@ pytest \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
   --cov-report=term \
-  test
+  .
 exitcode=$?
 
 if (( ${exitcode} != 0 )); then
@@ -66,7 +66,7 @@ pytest \
   --cov=cuml_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-dask-coverage.xml" \
   --cov-report=term \
-  test
+  .
 exitcode=$?
 
 if (( ${exitcode} != 0 )); then
