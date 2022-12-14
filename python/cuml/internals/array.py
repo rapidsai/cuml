@@ -1240,6 +1240,7 @@ def is_array_contiguous(arr):
     except (AttributeError, KeyError):
         return array_to_memory_order(arr) is not None
 
+
 def elements_in_representable_range(arr, dtype):
     '''Return true if all elements of the array can be represented in the
     available range of the given dtype'''
@@ -1253,5 +1254,3 @@ def elements_in_representable_range(arr, dtype):
     return not ((
         (arr_xpy < dtype_range.min) | (arr_xpy > dtype_range.max)
     ).any())
-
-
