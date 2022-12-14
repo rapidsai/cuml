@@ -19,3 +19,5 @@ rapids-mamba-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
+
+rapids-upload-conda-to-s3 python
