@@ -22,6 +22,7 @@ dependencies:
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
 - hdbscan
+- hypothesis>=6.0,<7
 - joblib>=0.11
 - libcublas-dev=11.7.4.6
 - libcufft-dev=10.6.0.107
