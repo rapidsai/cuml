@@ -40,6 +40,7 @@ dependencies:
 - pip
 - pylibraft=23.02.*
 - pytest
+- pytest-cases
 - pytest-cov
 - python>=3.8,<3.10
 - raft-dask=23.02.*

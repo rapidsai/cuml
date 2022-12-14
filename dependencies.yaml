@@ -224,6 +224,7 @@ dependencies:
           - hypothesis>=6.0,<7
           - nltk
           - pytest
+          - pytest-cases
           - pytest-cov
           - scikit-learn=0.24
           - seaborn
