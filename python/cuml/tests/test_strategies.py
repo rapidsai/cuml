@@ -14,7 +14,7 @@
 #
 import cupy as cp
 import numpy as np
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.testing.strategies import (
     create_cuml_array_input,
     cuml_array_dtypes,

@@ -497,7 +497,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 class UniversalBase(Base):
 
-    def dispatch_func(self, func_name, *args, **kwargs):
+    def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
         """
         This function will dispatch calls to training and inference according
         to the global configuration. It should work for all estimators
@@ -508,6 +508,8 @@ class UniversalBase(Base):
         ----------
         func_name : string
             name of the function to be dispatched
+        gpu_func : function
+            original cuML function
         args : arguments
             arguments to be passed to the function for the call
         kwargs : keyword arguments
@@ -517,13 +519,7 @@ class UniversalBase(Base):
         device_type = cuml.global_settings.device_type
         if device_type == DeviceType.device:
             # call the original cuml method
-            cuml_func_name = '_' + func_name
-            if hasattr(self, cuml_func_name):
-                cuml_func = getattr(self, cuml_func_name)
-                return cuml_func(*args, **kwargs)
-            else:
-                raise ValueError('Function "{}" could not be found in'
-                                 ' the cuML estimator'.format(cuml_func_name))
+            return gpu_func(self, *args, **kwargs)
 
         elif device_type == DeviceType.host:
             # check if the sklean model already set as attribute of the cuml
@@ -542,6 +538,7 @@ class UniversalBase(Base):
                 # initialize model
                 self._cpu_model = self._cpu_model_class(**filtered_kwargs)
 
+            if func_name not in ['fit', 'fit_transform', 'fit_predict']:
                 # transfer attributes trained with cuml
                 for attr in self.get_attr_names():
                     # check presence of attribute
@@ -642,42 +639,3 @@ class UniversalBase(Base):
                     return self
             # return method result
             return res
-
-    def fit(self, *args, **kwargs):
-        return self.dispatch_func('fit', *args, **kwargs)
-
-    def predict(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict', *args, **kwargs)
-
-    def transform(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('transform', *args, **kwargs)
-
-    @cuml.internals.api_base_return_generic()
-    def kneighbors(self, X, *args, **kwargs) \
-            -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
-        return self.dispatch_func('kneighbors', X, *args, **kwargs)
-
-    def kneighbors_graph(self, X, *args, **kwargs) \
-            -> SparseCumlArray:
-        return self.dispatch_func('kneighbors_graph', X, *args, **kwargs)
-
-    def fit_transform(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('fit_transform', *args, **kwargs)
-
-    def fit_predict(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('fit_predict', *args, **kwargs)
-
-    def inverse_transform(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('inverse_transform', *args, **kwargs)
-
-    def score(self, *args, **kwargs):
-        return self.dispatch_func('score', *args, **kwargs)
-
-    def decision_function(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('decision_function', *args, **kwargs)
-
-    def predict_proba(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict_proba', *args, **kwargs)
-
-    def predict_log_proba(self, *args, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict_log_proba', *args, **kwargs)

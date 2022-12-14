@@ -28,7 +28,7 @@ from hypothesis.strategies import (
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 
 _CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
 

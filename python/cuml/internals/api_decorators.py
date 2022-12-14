@@ -779,9 +779,9 @@ class _deprecate_pos_args:
 
 def device_interop_preparation(init_func):
     """
-    This function serves as a decorator to cuML estimators that implement
-    the CPU/GPU interoperability feature. It imports the joint CPU estimator
-    and processes the hyperparameters.
+    This function serves as a decorator for cuML estimators that implement
+    the CPU/GPU interoperability feature. It imports the paired CPU estimator
+    and processes the estimator's hyperparameters.
     """
 
     @functools.wraps(init_func)
@@ -824,3 +824,11 @@ def device_interop_preparation(init_func):
 
         return init_func(self, *args, **filtered_kwargs)
     return processor
+
+
+def enable_device_interop(gpu_func):
+    @functools.wraps(gpu_func)
+    def dispatch(self, *args, **kwargs):
+        func_name = gpu_func.__name__
+        return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+    return dispatch

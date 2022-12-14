@@ -36,7 +36,8 @@ from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.api_decorators import enable_device_interop
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -63,7 +64,8 @@ class LinearPredictMixin:
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 

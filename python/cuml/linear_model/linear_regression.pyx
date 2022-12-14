@@ -39,6 +39,7 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -290,8 +291,9 @@ class LinearRegression(LinearPredictMixin,
         }[algorithm]
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "LinearRegression":
+    @enable_device_interop
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -444,14 +446,6 @@ class LinearRegression(LinearPredictMixin,
             self.intercept_ = CumlArray.zeros(y_cols, dtype=self.dtype)
 
         return self
-
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
-        self.dtype = self.coef_.dtype
-        self.features_in_ = self.coef_.shape[0]
-        # Adding UniversalBase here skips it in the Method Resolution Order
-        # (MRO) Since UniversalBase and LinearPredictMixin now both have a
-        # `predict` method
-        return super()._predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \
