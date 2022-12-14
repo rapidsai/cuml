@@ -1239,3 +1239,19 @@ def is_array_contiguous(arr):
         return arr.flags['C_CONTIGUOUS'] or arr.flags['F_CONTIGUOUS']
     except (AttributeError, KeyError):
         return array_to_memory_order(arr) is not None
+
+def elements_in_representable_range(arr, dtype):
+    '''Return true if all elements of the array can be represented in the
+    available range of the given dtype'''
+    arr = CumlArray.from_input(arr)
+    dtype = arr.mem_type.xpy.dtype(dtype)
+    try:
+        dtype_range = arr.mem_type.xpy.iinfo(dtype)
+    except ValueError:
+        dtype_range = arr.mem_type.xpy.finfo(dtype)
+    arr_xpy = arr.to_output('array')
+    return not ((
+        (arr_xpy < dtype_range.min) | (arr_xpy > dtype_range.max)
+    ).any())
+
+
