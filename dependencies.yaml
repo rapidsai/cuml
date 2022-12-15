@@ -43,6 +43,7 @@ files:
   test_notebooks:
     output: none
     includes:
+      - cudatoolkit
       - py_run
       - py_version
       - test_notebooks
