@@ -24,8 +24,8 @@ import numpy as np
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
 

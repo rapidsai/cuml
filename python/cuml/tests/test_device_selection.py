@@ -23,33 +23,32 @@ import cudf
 import pickle
 import inspect
 from importlib import import_module
-
 from pytest_cases import fixture_union, pytest_fixture_plus
 from sklearn.datasets import make_regression, make_blobs
-from cuml.metrics import trustworthiness
-
-from cuml.testing.test_preproc_utils import to_output_type
-from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.common.memory_utils import MemoryType, using_memory_type
-
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from cuml.linear_model import LinearRegression
-from sklearn.linear_model import LogisticRegression as skLogisticRegression
-from cuml.linear_model import LogisticRegression
-from sklearn.linear_model import Lasso as skLasso
-from cuml.linear_model import Lasso
-from sklearn.linear_model import ElasticNet as skElasticNet
-from cuml.linear_model import ElasticNet
-from sklearn.linear_model import Ridge as skRidge
-from cuml.linear_model import Ridge
-from umap import UMAP as refUMAP
-from cuml.manifold import UMAP
-from cuml.decomposition import PCA
-from sklearn.decomposition import PCA as skPCA
-from cuml.decomposition import TruncatedSVD
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
-from cuml.neighbors import NearestNeighbors
+from sklearn.decomposition import PCA as skPCA
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import LogisticRegression as skLogisticRegression
+from sklearn.linear_model import Lasso as skLasso
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import Ridge as skRidge
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
+from umap import UMAP as refUMAP
+from cuml.common.device_selection import DeviceType, using_device_type
+from cuml.decomposition import PCA, TruncatedSVD
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import using_memory_type
+from cuml.linear_model import (
+    ElasticNet,
+    Lasso,
+    LinearRegression,
+    LogisticRegression,
+    Ridge
+)
+from cuml.manifold import UMAP
+from cuml.metrics import trustworthiness
+from cuml.neighbors import NearestNeighbors
+from cuml.testing.test_preproc_utils import to_output_type
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
