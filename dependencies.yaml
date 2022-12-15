@@ -251,6 +251,7 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - jupyter
+          - matplotlib
           - numpy
           - pandas
           - scikit-learn=0.24
