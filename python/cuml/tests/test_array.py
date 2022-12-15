@@ -167,6 +167,7 @@ def test_array_init(input_type, dtype, shape, order, mem_type, force_gc):
     order=cuml_array_orders(),
     mem_type=cuml_array_mem_types(),
 )
+@settings(deadline=None)
 def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     dtype = np.dtype(dtype)
     values = bytes(_get_size_from_shape(shape, dtype)[0])
