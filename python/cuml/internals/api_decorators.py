@@ -129,8 +129,12 @@ def _make_decorator_factory(
 
                     if input_arg_:
                         input_val = _get_value(args, kwargs, * input_arg_)
+                    else:
+                        input_val = None
                     if target_arg_:
                         target_val = _get_value(args, kwargs, * target_arg_)
+                    else:
+                        target_val = None
 
                     if set_output_type:
                         assert self_val is not None
