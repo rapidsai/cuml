@@ -40,6 +40,12 @@ files:
       - cudatoolkit
       - py_version
       - test_python
+  test_notebooks:
+    output: none
+    includes:
+      - py_run
+      - py_version
+      - test_notebooks
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -239,3 +245,11 @@ dependencies:
               # TODO: Figure out what to do with this dependency
               # since the repo is now archived.
               - git+https://github.com/dask/dask-glm@main
+  test_notebooks:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - jupyter
+          - numpy
+          - pandas
+          - scikit-learn=0.24

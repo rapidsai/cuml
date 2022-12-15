@@ -46,3 +46,9 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@main
     with:
       build_type: pull-request
+  conda-notebook-tests:
+    needs: conda-python-build
+    secrets: inherit
+    uses: ./.github/conda-notebook-tests.yaml
+    with:
+      build_type: pull-request
