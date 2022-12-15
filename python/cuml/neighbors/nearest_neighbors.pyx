@@ -905,7 +905,7 @@ class NearestNeighbors(Base,
         return sparse_csr
 
     @property
-    def metric(self, value):
+    def metric(self):
         return self.effective_metric_
 
     @metric.setter
@@ -913,7 +913,7 @@ class NearestNeighbors(Base,
         self.effective_metric_ = val
 
     @property
-    def metric_params(self, value):
+    def metric_params(self):
         return self.effective_metric_params_
 
     @metric_params.setter
