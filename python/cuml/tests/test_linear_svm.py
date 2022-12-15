@@ -28,7 +28,7 @@ from cuml.testing.utils import unit_param, quality_param, stress_param
 import sklearn.svm as sk
 import cuml.svm as cu
 import cuml
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 
 
 SEED = 42

@@ -13,15 +13,26 @@
 # =============================================================================
 
 
+function(add_module_gpu_default FILENAME)
+    set (extra_args ${ARGN})
+    list(LENGTH extra_args extra_count)
+    if (${extra_count} GREATER 0 OR
+        ${CUML_UNIVERSAL} OR
+        ${CUML_GPU})
+      list(APPEND cython_sources
+           ${FILENAME})
+      set (cython_sources ${cython_sources} PARENT_SCOPE)
+    endif()
+endfunction()
 
-set(cython_sources
-    base.pyx
-)
 
-rapids_cython_create_modules(
-  CXX
-  SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${cuml_sg_libraries}"
-  MODULE_PREFIX experimental_
-  ASSOCIATED_TARGETS cuml
-)
+function(add_module_universal_default FILENAME)
+    set (extra_args ${ARGN})
+    list(LENGTH extra_args extra_count)
+    if (${extra_count} GREATER 0 OR
+        ${CUML_UNIVERSAL})
+      list(APPEND cython_sources
+           ${FILENAME})
+      set (cython_sources ${cython_sources} PARENT_SCOPE)
+    endif()
+endfunction()

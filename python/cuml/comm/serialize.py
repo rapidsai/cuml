@@ -26,7 +26,7 @@ try:
 
     from distributed.protocol import register_generic
 
-    from cuml.common.array_sparse import SparseCumlArray
+    from cuml.internals.array_sparse import SparseCumlArray
 
     from cuml.ensemble import RandomForestRegressor
     from cuml.ensemble import RandomForestClassifier

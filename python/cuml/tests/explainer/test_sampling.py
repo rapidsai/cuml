@@ -56,7 +56,12 @@ def test_kmeans_input(input_type):
                                       [[1., 23.],
                                        [0., 52.]])
         assert isinstance(summary[0], cudf.DataFrame)
-    elif input_type == 'pandas-df' or input_type == 'numpy':
+    elif input_type == 'pandas-df':
+        cp.testing.assert_array_equal(summary[0].values,
+                                      [[1., 23.],
+                                       [0., 52.]])
+        assert isinstance(summary[0], pd.DataFrame)
+    elif input_type == 'numpy':
         cp.testing.assert_array_equal(summary[0],
                                       [[1., 23.],
                                        [0., 52.]])
@@ -66,9 +71,9 @@ def test_kmeans_input(input_type):
                                       [23., 52.])
         assert isinstance(summary[0], cudf.core.series.Series)
     elif input_type == 'pandas-series':
-        cp.testing.assert_array_equal(summary[0].flatten(),
+        cp.testing.assert_array_equal(summary[0].to_numpy().flatten(),
                                       [23., 52.])
-        assert isinstance(summary[0], np.ndarray)
+        assert isinstance(summary[0], pd.Series)
     elif input_type == 'numba':
         cp.testing.assert_array_equal(cp.array(summary[0]).tolist(),
                                       [[1., 23.],
