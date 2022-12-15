@@ -38,8 +38,8 @@ rapids-logger "notebook tests cuml"
 # Add notebooks that should be skipped here
 # (space-separated list of filenames without paths)
 SKIPNBS="cuml_benchmarks.ipynb"
-
 NOTEBOOKS_EXITCODE=0
+NBTEST="$(realpath "$(dirname "$0")/utils/nbtest.sh")"
 
 cd notebooks
 for nb in $(find . -name "*.ipynb"); do
@@ -56,7 +56,7 @@ for nb in $(find . -name "*.ipynb"); do
         echo "--------------------------------------------------------------------------------"
     else
         nvidia-smi
-        ./ci/utils/nbtest.sh "${nbBasename}"
+         ${NBTEST} "${nbBasename}"
         NOTEBOOKS_EXITCODE=$((NOTEBOOKS_EXITCODE | $?))
     fi
 done
