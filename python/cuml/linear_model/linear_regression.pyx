@@ -447,6 +447,14 @@ class LinearRegression(LinearPredictMixin,
 
         return self
 
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
+        self.dtype = self.coef_.dtype
+        self.features_in_ = self.coef_.shape[0]
+        # Adding UniversalBase here skips it in the Method Resolution Order
+        # (MRO) Since UniversalBase and LinearPredictMixin now both have a
+        # `predict` method
+        return super()._predict(X, convert_dtype=convert_dtype)
+
     def get_param_names(self):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'normalize']

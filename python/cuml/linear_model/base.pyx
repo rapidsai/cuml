@@ -32,11 +32,10 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
-from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.api_decorators import enable_device_interop
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
@@ -80,17 +79,18 @@ class LinearPredictMixin:
         self.dtype = self.coef_.dtype
         if len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1:
             # Handle multi-target prediction in Python.
-            coef_cp = input_to_cupy_array(self.coef_).array
-            X_cp = input_to_cupy_array(
+            coef_arr = CumlArray.from_input(self.coef_).to_output('array')
+            X_arr = CumlArray.from_input(
                 X,
                 check_dtype=self.dtype,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
                 check_cols=self.n_features_in_
-            ).array
-            intercept_cp = input_to_cupy_array(self.intercept_).array
-            preds_cp = X_cp @ coef_cp + intercept_cp
-            # preds = input_to_cuml_array(preds_cp).array # TODO:remove
-            return preds_cp
+            ).to_output('array')
+            intercept_arr = CumlArray.from_input(
+                self.intercept_
+            ).to_output('array')
+            preds_arr = X_arr @ coef_arr + intercept_arr
+            return preds_arr
 
         # Handle single-target prediction in C++
         X_m, n_rows, n_cols, dtype = \
