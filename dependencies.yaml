@@ -173,29 +173,46 @@ dependencies:
               cuda: "11.5"
             packages:
               - cudatoolkit=11.5
-              - libcublas-dev=11.7.4.6
-              - libcufft-dev=10.6.0.107
-              - libcurand-dev=10.2.7.107
-              - libcusolver-dev=11.3.2.107
-              - libcusparse-dev=11.7.0.107
+              - libcublas-dev>=11.7.3.1,<=11.7.4.6
+              - libcublas>=11.7.3.1,<=11.7.4.6
+              - libcufft-dev>=10.6.0.54,<=10.6.0.107
+              - libcufft>=10.6.0.54,<=10.6.0.107
+              - libcurand-dev>=10.2.6.48,<=10.2.7.107
+              - libcurand>=10.2.6.48,<=10.2.7.107
+              - libcusolver-dev>=11.2.1.48,<=11.3.2.107
+              - libcusolver>=11.2.1.48,<=11.3.2.107
+              - libcusparse-dev>=11.7.0.31,<=11.7.0.107
+              - libcusparse>=11.7.0.31,<=11.7.0.107
           - matrix:
               cuda: "11.4"
             packages:
               - cudatoolkit=11.4
-              - libcublas-dev=11.6.5.2
-              - libcufft-dev=10.5.2.100
-              - libcurand-dev=10.2.5.120
-              - libcusolver-dev=11.2.0.120
-              - libcusparse-dev=11.6.0.120
+              - &libcublas_dev114 libcublas-dev>=11.5.2.43,<=11.6.5.2
+              - &libcublas114 libcublas>=11.5.2.43,<=11.6.5.2
+              - &libcufft_dev114 libcufft-dev>=10.5.0.43,<=10.5.2.100
+              - &libcufft114 libcufft>=10.5.0.43,<=10.5.2.100
+              - &libcurand_dev114 libcurand-dev>=10.2.5.43,<=10.2.5.120
+              - &libcurand114 libcurand>=10.2.5.43,<=10.2.5.120
+              - &libcusolver_dev114 libcusolver-dev>=11.2.0.43,<=11.2.0.120
+              - &libcusolver114 libcusolver>=11.2.0.43,<=11.2.0.120
+              - &libcusparse_dev114 libcusparse-dev>=11.6.0.43,<=11.6.0.120
+              - &libcusparse114 libcusparse>=11.6.0.43,<=11.6.0.120
           - matrix:
               cuda: "11.2"
             packages:
               - cudatoolkit=11.2
-              - libcublas-dev=11.5.2.43 # belongs to cuda-11.4.0 but it's the oldest available
-              - libcufft-dev=10.5.0.43 # belongs to cuda-11.4.0 but it's the oldest available
-              - libcurand-dev=10.2.5.43 # belongs to cuda-11.4.0 but it's the oldest available
-              - libcusolver-dev=11.2.0.43 # belongs to cuda-11.4.0 but it's the oldest available
-              - libcusparse-dev=11.6.0.43 # belongs to cuda-11.4.0 but it's the oldest available
+              # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
+              # so 11.2 uses 11.4 packages (the oldest available).
+              - *libcublas_dev114
+              - *libcublas114
+              - *libcufft_dev114
+              - *libcufft114
+              - *libcurand_dev114
+              - *libcurand114
+              - *libcusolver_dev114
+              - *libcusolver114
+              - *libcusparse_dev114
+              - *libcusparse114
   doc:
     common:
       - output_types: [conda, requirements]
