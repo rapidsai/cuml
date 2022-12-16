@@ -16,11 +16,24 @@ sysroot_version:
 ucx_py_version:
   - "0.30.*"
 
-libcublas_version:
-  - ">=11.7.3.1,<12"
+# The CTK libraries below are missing from the conda-forge::cudatoolkit
+# package. The "*_host_*" version specifiers correspond to `11.5` packages and the
+# "*_run_*" version specifiers correspond to `11.x` packages.
 
-libcusolver_version:
-  - ">=11.2.1,<11.4.2.57"
+libcublas_host_version:
+  - ">=11.7.3.1,<=11.7.4.6"
 
-libcusparse_version:
-  - ">=11.5.0,<12"
+libcublas_run_version:
+  - ">=11.5.2.43,<=11.11.3.6"
+
+libcusolver_host_version:
+  - ">=11.2.1.48,<=11.3.2.107"
+
+libcusolver_run_version:
+  - ">=11.2.0.43,<=11.4.1.48"
+
+libcusparse_host_version:
+  - ">=11.7.0.31,<=11.7.0.107"
+
+libcusparse_run_version:
+  - ">=11.6.0.43,<=11.7.5.86"
