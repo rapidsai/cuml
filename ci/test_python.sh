@@ -32,7 +32,7 @@ rapids-print-env
 rapids-mamba-retry install \
   -c "${CPP_CHANNEL}" \
   -c "${PYTHON_CHANNEL}" \
-  cuml
+  libcuml cuml
 
 rapids-logger "Check GPU usage"
 nvidia-smi
