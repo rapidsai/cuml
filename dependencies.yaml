@@ -251,7 +251,7 @@ dependencies:
           - pytest
           - pytest-cases
           - pytest-cov
-          - scikit-learn=0.24
+          - &scikit_learn scikit-learn=0.24
           - seaborn
           - sparse
           - statsmodels
@@ -271,4 +271,4 @@ dependencies:
           - matplotlib
           - numpy
           - pandas
-          - scikit-learn=0.24
+          - *scikit_learn
