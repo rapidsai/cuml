@@ -807,6 +807,10 @@ def device_interop_preparation(init_func):
 def enable_device_interop(gpu_func):
     @functools.wraps(gpu_func)
     def dispatch(self, *args, **kwargs):
-        func_name = gpu_func.__name__
-        return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+        # check that the estimator implements CPU/GPU interoperability
+        if hasattr(self, 'dispatch_func'):
+            func_name = gpu_func.__name__
+            return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+        else:
+            return gpu_func(self, *args, **kwargs)
     return dispatch
