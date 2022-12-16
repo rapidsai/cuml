@@ -45,17 +45,17 @@ requirements:
     - gmock
     - gtest {{ gtest_version }}
     - lapack
-    - libcublas-dev {{ libcublas_version }}
     - libcublas {{ libcublas_version }}
-    - libcufft-dev {{ libcufft_version }}
+    - libcublas-dev {{ libcublas_version }}
     - libcufft {{ libcufft_version }}
+    - libcufft-dev {{ libcufft_version }}
     - libcumlprims {{ minor_version }}
-    - libcurand-dev {{ libcurand_version }}
     - libcurand {{ libcurand_version }}
-    - libcusolver-dev {{ libcusolver_version }}
+    - libcurand-dev {{ libcurand_version }}
     - libcusolver {{ libcusolver_version }}
-    - libcusparse-dev {{ libcusparse_version }}
+    - libcusolver-dev {{ libcusolver_version }}
     - libcusparse {{ libcusparse_version }}
+    - libcusparse-dev {{ libcusparse_version }}
     - libfaiss {{ libfaiss_version }} *_cuda
     - libraft-distance {{ minor_version }}
     - libraft-headers {{ minor_version }}
@@ -80,19 +80,19 @@ outputs:
         - cmake {{ cmake_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcumlprims {{ minor_version }}
-        - libraft-headers {{ minor_version }}
-        - libraft-distance {{ minor_version }}
-        - libraft-nn {{ minor_version }}
         - cudf {{ minor_version }}
-        - nccl {{ nccl_version }}
-        - ucx >={{ ucx_version }}
-        - ucx-py {{ ucx_py_version }}
-        - ucx-proc=*=gpu
-        - treelite {{ treelite_version }}
         - faiss-proc=*=cuda
-        - libfaiss {{ libfaiss_version }} *_cuda
+        - libcumlprims {{ minor_version }}
         - libcusolver {{ libcusolver_version }}
+        - libfaiss {{ libfaiss_version }} *_cuda
+        - libraft-distance {{ minor_version }}
+        - libraft-headers {{ minor_version }}
+        - libraft-nn {{ minor_version }}
+        - nccl {{ nccl_version }}
+        - treelite {{ treelite_version }}
+        - ucx >={{ ucx_version }}
+        - ucx-proc=*=gpu
+        - ucx-py {{ ucx_py_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
