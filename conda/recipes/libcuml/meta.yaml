@@ -82,8 +82,17 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - cudf {{ minor_version }}
         - faiss-proc=*=cuda
+        - libcublas {{ libcublas_run_version }}
+        - libcublas-dev {{ libcublas_run_version }}
+        - libcufft {{ libcufft_run_version }}
+        - libcufft-dev {{ libcufft_run_version }}
         - libcumlprims {{ minor_version }}
-        - libcusolver {{ libcusolver_version }}
+        - libcurand {{ libcurand_run_version }}
+        - libcurand-dev {{ libcurand_run_version }}
+        - libcusolver {{ libcusolver_run_version }}
+        - libcusolver-dev {{ libcusolver_run_version }}
+        - libcusparse {{ libcusparse_run_version }}
+        - libcusparse-dev {{ libcusparse_run_version }}
         - libfaiss {{ libfaiss_version }} *_cuda
         - libraft-distance {{ minor_version }}
         - libraft-headers {{ minor_version }}
