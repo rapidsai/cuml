@@ -146,7 +146,7 @@ dependencies:
           - dask-cuda=23.02.*
           - dask-cudf=23.02.*
           - ucx>=1.13.0
-          - ucx-py=0.29.*
+          - ucx-py=0.30.*
           - ucx-proc=*=gpu
     specific:
       - output_types: requirements
