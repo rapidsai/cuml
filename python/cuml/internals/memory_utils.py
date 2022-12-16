@@ -14,92 +14,49 @@
 # limitations under the License.
 #
 
-import contextlib
 import functools
 import operator
 import re
-from dataclasses import dataclass
 from functools import wraps
-from enum import Enum, auto
 
-import cuml
-import cupy as cp
-import numpy as np
-import rmm
-from cuml.common.import_utils import check_min_cupy_version
-from numba import cuda as nbcuda
-from cuml.common.logger import debug
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.device_support import GPU_ENABLED
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.output_type import (
+    INTERNAL_VALID_OUTPUT_TYPES,
+    VALID_OUTPUT_TYPES
+)
+from cuml.internals.safe_imports import (
+    cpu_only_import_from,
+    gpu_only_import_from,
+    UnavailableNullContext
+)
 
-try:
-    from cupy.cuda import using_allocator as cupy_using_allocator
-except ImportError:
-    try:
-        from cupy.cuda.memory import using_allocator as cupy_using_allocator
-    except ImportError:
-        pass
-
-
-class MemoryType(Enum):
-    device = auto(),
-    host = auto()
-    managed = auto()
-    mirror = auto()
-
-    @staticmethod
-    def from_str(memory_type):
-        if isinstance(memory_type, str):
-            memory_type = memory_type.lower()
-
-        try:
-            return MemoryType[memory_type]
-        except KeyError:
-            raise ValueError('Parameter memory_type must be one of "device", '
-                             '"host", "managed" or "mirror"')
+CudfSeries = gpu_only_import_from('cudf', 'Series')
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+cupy_using_allocator = gpu_only_import_from(
+    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
+)
+PandasSeries = cpu_only_import_from('pandas', 'Series')
+PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
 def set_global_memory_type(memory_type):
-    cuml.global_settings.memory_type = MemoryType.from_str(memory_type)
+    GlobalSettings().memory_type = MemoryType.from_str(memory_type)
 
 
-@contextlib.contextmanager
-def using_memory_type(memory_type):
-    prev_memory_type = cuml.global_settings.memory_type
-    try:
-        set_global_memory_type(memory_type)
-        yield prev_memory_type
-    finally:
-        cuml.global_settings.memory_type = prev_memory_type
+class using_memory_type:
+    def __init__(self, mem_type):
+        self.mem_type = mem_type
+        self.prev_mem_type = None
 
+    def __enter__(self):
+        self.prev_mem_type = GlobalSettings().memory_type
+        set_global_memory_type(self.mem_type)
 
-@dataclass(frozen=True)
-class ArrayInfo:
-    """
-    Calculate the necessary shape, order, stride and dtype of an array from an
-    ``__array_interface__`` or ``__cuda_array_interface__``
-    """
-    shape: tuple
-    order: str
-    dtype: np.dtype
-    strides: tuple
-
-    @staticmethod
-    def from_interface(interface: dict) -> "ArrayInfo":
-        out_shape = interface['shape']
-        out_type = np.dtype(interface['typestr'])
-        out_order = "C"
-        out_strides = None
-
-        if interface.get('strides', None) is None:
-            out_order = 'C'
-            out_strides = _order_to_strides(out_order, out_shape, out_type)
-        else:
-            out_strides = interface['strides']
-            out_order = _strides_to_order(out_strides, out_shape, out_type)
-
-        return ArrayInfo(shape=out_shape,
-                         order=out_order,
-                         dtype=out_type,
-                         strides=out_strides)
+    def __exit__(self, *_):
+        set_global_memory_type(self.prev_mem_type)
 
 
 def with_cupy_rmm(func):
@@ -123,8 +80,10 @@ def with_cupy_rmm(func):
 
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
-            return func(*args, **kwargs)
+        if GPU_ENABLED:
+            with cupy_using_allocator(rmm_cupy_allocator):
+                return func(*args, **kwargs)
+        return func(*args, **kwargs)
 
     # Mark the function as already wrapped
     cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
@@ -225,84 +184,13 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
 
     """
 
-    # using_allocator was introduced in CuPy 7. Once 7+ is required,
-    # this check can be removed alongside the else code path.
-    if check_min_cupy_version("7.0"):
-        with cupy_using_allocator(rmm.rmm_cupy_allocator):
+    if GPU_ENABLED:
+        with cupy_using_allocator(rmm_cupy_allocator):
             result = cupy_fn(*args, **kwargs)
-
     else:
-        temp_res = cupy_fn(*args, **kwargs)
-        result = \
-            _rmm_cupy6_array_like(temp_res,
-                                  order=_strides_to_order(temp_res.strides,
-                                                          temp_res.shape,
-                                                          temp_res.dtype))
-        cp.copyto(result, temp_res)
+        result = cupy_fn(*args, **kwargs)
 
     return result
-
-
-def _rmm_cupy6_array_like(ary, order):
-    nbytes = np.ndarray(ary.shape,
-                        dtype=ary.dtype,
-                        strides=ary.strides,
-                        order=order).nbytes
-    memptr = rmm.rmm_cupy_allocator(nbytes)
-    arr = cp.ndarray(ary.shape,
-                     dtype=ary.dtype,
-                     memptr=memptr,
-                     strides=ary.strides,
-                     order=order)
-    return arr
-
-
-def _strides_to_order(strides, shape, dtype):
-    # cuda array interface specification
-    if strides is None:
-        return 'C'
-
-    itemsize = cp.dtype(dtype).itemsize
-
-    if strides[0] == itemsize and \
-        all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
-                range(len(strides) - 1))):
-        return 'F'
-
-    shape = shape[::-1]
-    strides = strides[::-1]
-
-    if strides[0] == itemsize and \
-        all(map(lambda i: strides[i + 1] == strides[i] * shape[i],
-                range(len(strides) - 1))):
-        return 'C'
-    else:
-        debug('Uncontiguous array, will perform a copy')
-        return None
-
-
-def _order_to_strides(order, shape, dtype):
-    item_size = cp.dtype(dtype).itemsize
-    if isinstance(shape, int) or len(shape) == 1:
-        return (item_size, )
-
-    elif len(shape) == 0:
-        return None
-
-    if order == 'F':
-        strides = [item_size]
-        for dim_size in shape[:-1]:
-            strides.append(dim_size * strides[-1])
-        return tuple(strides)
-
-    elif order == 'C':
-        strides = [item_size]
-        for dim_size in shape[:0:-1]:
-            strides.append(dim_size * strides[-1])
-        return tuple(strides[::-1])
-
-    else:
-        raise ValueError('Order must be "F" or "C".')
 
 
 def _get_size_from_shape(shape, dtype):
@@ -314,7 +202,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = cp.dtype(dtype).itemsize
+    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape, )
@@ -324,45 +212,6 @@ def _get_size_from_shape(shape, dtype):
     else:
         raise ValueError("Shape must be int or tuple of ints.")
     return (size, shape)
-
-
-def _check_array_contiguity(ary):
-    """
-    Check if array-like ary is contioguous.
-
-    Parameters
-    ----------
-    ary: __cuda_array_interface__ or __array_interface__ compliant array.
-    """
-
-    # Use contiguity flags if present
-    if hasattr(ary, 'flags'):
-        if ary.flags['C_CONTIGUOUS'] or ary.flags['F_CONTIGUOUS']:
-            return True
-        else:
-            return False
-
-    # Check contiguity from shape and strides if not
-    else:
-        if hasattr(ary, "__array_interface__"):
-            ary_interface = ary.__array_interface__
-
-        elif hasattr(ary, "__cuda_array_interface__"):
-            ary_interface = ary.__cuda_array_interface__
-
-        else:
-            raise TypeError("No array_interface attribute detected in input. ")
-
-        # if the strides are not set or none, then the array is C-contiguous
-        if 'strides' not in ary_interface or ary_interface['strides'] is None:
-            return True
-
-        shape = ary_interface['shape']
-        strides = ary_interface['strides']
-        dtype = cp.dtype(ary_interface['typestr'])
-        order = _strides_to_order(strides, shape, dtype)
-
-        return order in ['C', 'F']
 
 
 def set_global_output_type(output_type):
@@ -440,18 +289,23 @@ def set_global_output_type(output_type):
         output_type = output_type.lower()
 
     # Check for allowed types. Allow 'cuml' to support internal estimators
-    if output_type not in [
-            'numpy', 'cupy', 'cudf', 'numba', 'cuml', "input", None
-    ]:
-        # Omit 'cuml' from the error message. Should only be used internally
-        raise ValueError('Parameter output_type must be one of "numpy", '
-                         '"cupy", cudf", "numba", "input" or None')
+    if (
+        output_type is not None
+        and output_type != 'cuml'
+        and output_type not in INTERNAL_VALID_OUTPUT_TYPES
+    ):
+        valid_output_types_str = ', '.join(
+            [f"'{x}'" for x in VALID_OUTPUT_TYPES]
+        )
+        raise ValueError(
+            f'output_type must be one of {valid_output_types_str}'
+            f' or None. Got: {output_type}'
+        )
 
-    cuml.global_settings.output_type = output_type
+    GlobalSettings().output_type = output_type
 
 
-@contextlib.contextmanager
-def using_output_type(output_type):
+class using_output_type:
     """
     Context manager method to set cuML's global output type inside a `with`
     statement. It gets reset to the prior value it had once the `with` code
@@ -521,26 +375,30 @@ def using_output_type(output_type):
     >>> isinstance(dbscan_float2.labels_, cp.ndarray)
     True
     """
-    prev_output_type = cuml.global_settings.output_type
+
+    def __init__(self, output_type):
+        self.output_type = output_type
+
+    def __enter__(self):
+        self.prev_output_type = GlobalSettings().output_type
+        set_global_output_type(self.output_type)
+        return self.prev_output_type
+
+    def __exit__(self, *_):
+        GlobalSettings().output_type = self.prev_output_type
+
+
+def determine_array_memtype(X):
     try:
-        set_global_output_type(output_type)
-        yield prev_output_type
-    finally:
-        cuml.global_settings.output_type = prev_output_type
-
-
-@with_cupy_rmm
-def numba_row_matrix(df):
-    """Compute the C (row major) version gpu matrix of df
-
-    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
-        If already on the device, its stream will be used to perform the
-        transpose (and to copy `row_major` to the device if necessary).
-
-    """
-
-    col_major = df.to_cupy()
-
-    row_major = cp.array(col_major, order='C')
-
-    return nbcuda.as_cuda_array(row_major)
+        return X.mem_type
+    except AttributeError:
+        pass
+    if hasattr(X, '__cuda_array_interface__'):
+        return MemoryType.device
+    if hasattr(X, '__array_interface__'):
+        return MemoryType.host
+    if isinstance(X, (CudfDataFrame, CudfSeries)):
+        return MemoryType.device
+    if isinstance(X, (PandasDataFrame, PandasSeries)):
+        return MemoryType.host
+    return None

@@ -24,15 +24,15 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.metrics.distance_type cimport DistanceType
 
 from collections import defaultdict
@@ -166,11 +166,12 @@ class DBSCAN(Base,
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
         The the attribute `core_sample_indices_` will not be used, setting this

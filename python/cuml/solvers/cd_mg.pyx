@@ -24,11 +24,11 @@ from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 import cuml.internals
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD

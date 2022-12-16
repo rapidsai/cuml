@@ -21,7 +21,7 @@ from itertools import chain, permutations
 from functools import partial
 
 import cuml
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import cupy as cp
 import cupyx
 import numpy as np

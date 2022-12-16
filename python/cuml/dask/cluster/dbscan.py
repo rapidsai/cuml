@@ -25,7 +25,7 @@ from raft_dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -58,11 +58,12 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
         The the attribute `core_sample_indices_` will not be used, setting this

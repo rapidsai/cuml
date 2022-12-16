@@ -16,7 +16,7 @@
 import cupy as cp
 import cupyx
 
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 

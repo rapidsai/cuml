@@ -35,8 +35,9 @@ from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
-from cuml.common.input_utils import input_to_cuml_array, is_array_like
-from cuml.common.base import Base
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.mem_type import MemoryType
 import pytest
 
 
@@ -217,9 +218,14 @@ def as_type(type, *args):
             result.append(arg)
         else:
             # make sure X with a single feature remains 2 dimensional
-            if type == 'cudf' and len(arg.shape) > 1:
+            if type in ('cudf', 'pandas', 'df_obj') and len(arg.shape) > 1:
+                if type == 'pandas':
+                    mem_type = MemoryType.host
+                else:
+                    mem_type = None
                 result.append(input_to_cuml_array(
-                    arg).array.to_output('dataframe'))
+                    arg).array.to_output(output_type='dataframe',
+                                         output_mem_type=mem_type))
             else:
                 result.append(input_to_cuml_array(arg).array.to_output(type))
     if len(result) == 1:
