@@ -38,6 +38,11 @@ function(find_and_configure_raft)
       string(APPEND RAFT_COMPONENTS " nn")
     endif()
 
+    # We need RAFT::distributed for MG tests
+    if(BUILD_CUML_MG_TESTS)
+      string(APPEND RAFT_COMPONENTS " distributed")
+    endif()
+
     if(PKG_USE_RAFT_DIST AND PKG_USE_RAFT_NN)
       set(RAFT_COMPILE_LIBRARIES ON)
     else()
