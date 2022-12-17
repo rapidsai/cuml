@@ -21,7 +21,7 @@ from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
 from cudf import GenericIndex
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 
 import warnings
 
@@ -89,11 +89,12 @@ class OneHotEncoder(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -103,6 +104,7 @@ class OneHotEncoder(Base):
         be retained.
 
     """
+
     def __init__(self, *,
                  categories='auto',
                  drop=None,

@@ -23,8 +23,8 @@ import cupy as cp
 import cudf
 from hypothesis import given, settings, assume, HealthCheck, strategies as st
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.common.import_utils import has_lightgbm, has_shap
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.import_utils import has_lightgbm, has_shap
+from cuml.internals.import_utils import has_sklearn
 from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc

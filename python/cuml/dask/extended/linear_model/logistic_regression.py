@@ -15,7 +15,7 @@
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.common import with_cupy_rmm
-from cuml.common.import_utils import has_daskglm
+from cuml.internals.import_utils import has_daskglm
 
 import cupy as cp
 import numpy as np

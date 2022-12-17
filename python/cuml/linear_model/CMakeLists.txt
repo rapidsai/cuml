@@ -14,14 +14,14 @@
 
 
 set(cython_sources
-    base.pyx
-    elastic_net.pyx
-    linear_regression.pyx
-    logistic_regression.pyx
-    mbsgd_classifier.pyx
-    mbsgd_regressor.pyx
-    ridge.pyx
-)
+    base.pyx)
+
+add_module_gpu_default("linear_regression.pyx" ${linear_model_algo} ${linearregression_algo})
+add_module_gpu_default("elastic_net.pyx" ${elastic_net_algo} ${linearregression_algo})
+add_module_gpu_default("logistic_regression.pyx" ${logistic_regression_algo} ${linearregression_algo})
+add_module_gpu_default("mbsgd_classifier.pyx" ${mbsgd_classifier_algo} ${linearregression_algo})
+add_module_gpu_default("mbsgd_regressor.pyx" ${mbsgd_regressor_algo} ${linearregression_algo})
+add_module_gpu_default("ridge.pyx" ${ridge_algo} ${linearregression_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources

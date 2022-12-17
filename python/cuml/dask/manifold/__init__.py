@@ -16,7 +16,7 @@
 
 import warnings
 
-from cuml.common.import_utils import has_dask
+from cuml.internals.import_utils import has_dask
 
 if has_dask():
     from cuml.dask.manifold.umap import UMAP

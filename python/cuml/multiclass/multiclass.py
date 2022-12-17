@@ -15,10 +15,10 @@
 
 import cuml.internals
 
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.import_utils import has_sklearn
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_host_array
 from cuml.internals import _deprecate_pos_args
@@ -70,11 +70,12 @@ class MulticlassClassifier(Base, ClassifierMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     strategy: string {'ovr', 'ovo'}, default='ovr'
         Multiclass classification strategy: 'ovr': one vs. rest or 'ovo': one
         vs. one
@@ -131,8 +132,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
             raise ValueError('Invalid multiclass strategy ' +
                              str(self.strategy) + ', must be one of '
                              '{"ovr", "ovo"}')
-        X, _, _, _, _ = input_to_host_array(X)
-        y, _, _, _, _ = input_to_host_array(y)
+        X = input_to_host_array(X).array
+        y = input_to_host_array(y).array
         with cuml.internals.exit_internal_api():
             self.multiclass_estimator.fit(X, y)
             return self
@@ -145,7 +146,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Predict using multi class classifier.
         """
-        X, _, _, _, _ = input_to_host_array(X)
+        X = input_to_host_array(X).array
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.predict(X)
 
@@ -158,7 +159,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Calculate the decision function.
         """
-        X, _, _, _, _ = input_to_host_array(X)
+        X = input_to_host_array(X).array
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.decision_function(X)
 
@@ -214,11 +215,12 @@ class OneVsRestClassifier(MulticlassClassifier):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     """
     @_deprecate_pos_args(version="21.06")
     def __init__(self,
@@ -284,11 +286,12 @@ class OneVsOneClassifier(MulticlassClassifier):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     """
     @_deprecate_pos_args(version="21.06")
     def __init__(self,

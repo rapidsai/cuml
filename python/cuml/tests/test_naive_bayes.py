@@ -24,7 +24,7 @@ from cuml.naive_bayes import BernoulliNB
 from cuml.naive_bayes import CategoricalNB
 from cuml.naive_bayes import ComplementNB
 from cuml.naive_bayes import GaussianNB
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.datasets import make_classification
 
 from numpy.testing import assert_allclose, assert_array_equal

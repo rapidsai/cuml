@@ -14,11 +14,13 @@
 # limitations under the License.
 #
 
-import cuml.internals
 import inspect
 
 from copy import deepcopy
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import api_base_return_any_skipall
+from cuml.internals.base_helpers import _tags_class_and_instance
+from cuml.internals.api_decorators import enable_device_interop
 
 
 ###############################################################################
@@ -57,7 +59,7 @@ _default_tags = {
 
 
 class TagsMixin:
-    @cuml.internals._tags_class_and_instance
+    @_tags_class_and_instance
     def _get_tags(cls):
         """
         Method that collects all the static tags associated to any
@@ -196,7 +198,8 @@ class RegressorMixin:
             'description': 'R^2 of self.predict(X) '
                            'wrt. y.'
         })
-    @cuml.internals.api_base_return_any_skipall
+    @api_base_return_any_skipall
+    @enable_device_interop
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -212,33 +215,6 @@ class RegressorMixin:
             handle = None
 
         preds = self.predict(X, **kwargs)
-        return r2_score(y, preds, handle=handle)
-
-    # TODO : remove score function duplicate
-    # once updated CPU/GPU interoperability class is ready
-    @generate_docstring(
-        return_values={
-            'name': 'score',
-            'type': 'float',
-            'description': 'R^2 of self.predict(X) '
-                           'wrt. y.'
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def _score(self, X, y, **kwargs):
-        """
-        Scoring function for regression estimators
-
-        Returns the coefficient of determination R^2 of the prediction.
-
-        """
-        from cuml.metrics.regression import r2_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self._predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
     @staticmethod
@@ -264,7 +240,8 @@ class ClassifierMixin:
             'description': ('Accuracy of self.predict(X) wrt. y '
                             '(fraction where y == pred_y)')
         })
-    @cuml.internals.api_base_return_any_skipall
+    @api_base_return_any_skipall
+    @enable_device_interop
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
@@ -278,33 +255,6 @@ class ClassifierMixin:
             handle = None
 
         preds = self.predict(X, **kwargs)
-        return accuracy_score(y, preds, handle=handle)
-
-    # TODO : remove score function duplicate
-    # once updated CPU/GPU interoperability class is ready
-    @generate_docstring(
-        return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description': ('Accuracy of self.predict(X) wrt. y '
-                            '(fraction where y == pred_y)')
-        })
-    @cuml.internals.api_base_return_any_skipall
-    def _score(self, X, y, **kwargs):
-        """
-        Scoring function for classifier estimators based on mean accuracy.
-
-        """
-        from cuml.metrics.accuracy import accuracy_score
-
-        if hasattr(self, 'handle'):
-            handle = self.handle
-        else:
-            handle = None
-
-        preds = self._predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
 
     @staticmethod
