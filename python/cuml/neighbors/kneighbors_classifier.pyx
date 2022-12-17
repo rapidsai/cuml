@@ -202,7 +202,7 @@ class KNeighborsClassifier(ClassifierMixin,
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
         classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
-                                  index=knn_indices.index)
+                                  index=inds.index)
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -272,7 +272,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
                                       order="C",
-                                      index=knn_indices.index)
+                                      index=inds.index)
             out_classes.append(classes)
             classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)

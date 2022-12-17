@@ -213,7 +213,7 @@ class KNeighborsRegressor(RegressorMixin,
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
                                   order="C",
-                                  index=knn_indices.index)
+                                  index=inds.index)
 
         cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr

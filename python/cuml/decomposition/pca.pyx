@@ -49,6 +49,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -406,7 +407,8 @@ class PCA(UniversalBase,
         return self
 
     @generate_docstring(X='dense_sparse')
-    def _fit(self, X, y=None) -> "PCA":
+    @enable_device_interop
+    def fit(self, X, y=None) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
@@ -496,7 +498,8 @@ class PCA(UniversalBase,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_return_array_skipall
-    def _fit_transform(self, X, y=None) -> CumlArray:
+    @enable_device_interop
+    def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -541,8 +544,9 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    def _inverse_transform(self, X, convert_dtype=False,
-                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
+    @enable_device_interop
+    def inverse_transform(self, X, convert_dtype=False,
+                          return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
         Transform data back to its original space.
 
@@ -642,7 +646,8 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    def _transform(self, X, convert_dtype=False) -> CumlArray:
+    @enable_device_interop
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
