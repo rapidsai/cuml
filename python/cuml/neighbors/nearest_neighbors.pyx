@@ -26,15 +26,15 @@ import warnings
 import math
 
 import cuml.internals
-from cuml.experimental.common.base import Base
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.base import UniversalBase
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.import_utils import has_scipy
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
@@ -150,7 +150,7 @@ cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
                          float metricArg) except +
 
 
-class NearestNeighbors(Base,
+class NearestNeighbors(UniversalBase,
                        CMajorInputTagMixin):
     """
     NearestNeighbors is an queries neighborhoods from a given set of
@@ -241,11 +241,12 @@ class NearestNeighbors(Base,
     metric_params : dict, optional (default = None)
         This is currently ignored.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -833,10 +834,10 @@ class NearestNeighbors(Base,
         return D_ndarr, I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    def kneighbors_graph(self,
-                         X=None,
-                         n_neighbors=None,
-                         mode='connectivity') -> SparseCumlArray:
+    def _kneighbors_graph(self,
+                          X=None,
+                          n_neighbors=None,
+                          mode='connectivity') -> SparseCumlArray:
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
