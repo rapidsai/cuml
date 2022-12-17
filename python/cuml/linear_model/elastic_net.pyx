@@ -27,6 +27,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
 class ElasticNet(UniversalBase,
@@ -237,8 +238,9 @@ class ElasticNet(UniversalBase,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "ElasticNet":
+    @enable_device_interop
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "ElasticNet":
         """
         Fit the model with X and y.
 
