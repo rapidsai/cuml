@@ -19,17 +19,18 @@
 from inspect import signature
 
 from cuml.solvers import CD, QN
-from cuml.experimental.common.base import Base
-from cuml.common.mixins import RegressorMixin, FMajorInputTagMixin
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.logger import warn
+from cuml.internals.logger import warn
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
-class ElasticNet(Base,
+class ElasticNet(UniversalBase,
                  LinearPredictMixin,
                  RegressorMixin,
                  FMajorInputTagMixin):
@@ -123,11 +124,12 @@ class ElasticNet(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -236,8 +238,9 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "ElasticNet":
+    @enable_device_interop
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "ElasticNet":
         """
         Fit the model with X and y.
 

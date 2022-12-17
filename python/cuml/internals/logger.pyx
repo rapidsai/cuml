@@ -131,7 +131,8 @@ def set_level(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+        Logging level to be set. \
+        It must be one of cuml.internals.logger.LEVEL_*
 
     Returns
     -------
@@ -168,9 +169,9 @@ def set_pattern(pattern):
     --------
 
     >>> # regular usage of setting a logging pattern for all subsequent logs
-    >>> import cuml.common.logger as logger
+    >>> import cuml.internals.logger as logger
     >>> logger.set_pattern("--> [%H-%M-%S] %v")
-    <cuml.common.logger.PatternSetter object at 0x...>
+    <cuml.internals.logger.PatternSetter object at 0x...>
     >>> # in case one wants to temporarily set the pattern for a code block
     >>> with logger.set_pattern("--> [%H-%M-%S] %v") as _:
     ...     logger.info("Hello world!")
@@ -213,7 +214,8 @@ def should_log_for(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.common.logger.level_*
+        Logging level to be set. \
+        It must be one of cuml.common.logger.level_*
     """
     return Logger.get().shouldLogFor(<int>level)
 

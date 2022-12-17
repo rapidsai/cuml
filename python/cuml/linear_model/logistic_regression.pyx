@@ -22,16 +22,16 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
-from cuml.experimental.common.base import Base
-from cuml.common.mixins import ClassifierMixin, \
-    FMajorInputTagMixin
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -39,7 +39,7 @@ supported_penalties = ["l1", "l2", "none", "elasticnet"]
 supported_solvers = ["qn"]
 
 
-class LogisticRegression(Base,
+class LogisticRegression(UniversalBase,
                          ClassifierMixin,
                          FMajorInputTagMixin):
     """
@@ -155,11 +155,12 @@ class LogisticRegression(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -262,8 +263,9 @@ class LogisticRegression(Base,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def _fit(self, X, y, sample_weight=None,
-             convert_dtype=True) -> "LogisticRegression":
+    @enable_device_interop
+    def fit(self, X, y, sample_weight=None,
+            convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -363,7 +365,8 @@ class LogisticRegression(Base,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    def _decision_function(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -379,7 +382,8 @@ class LogisticRegression(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -392,7 +396,8 @@ class LogisticRegression(Base,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def _predict_proba(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
@@ -408,7 +413,8 @@ class LogisticRegression(Base,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def _predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 

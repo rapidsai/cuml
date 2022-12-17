@@ -60,11 +60,7 @@ requirements:
     - libraft-distance {{ minor_version }}
     - libraft-headers {{ minor_version }}
     - libraft-nn {{ minor_version }}
-    - nccl {{ nccl_version }}
     - treelite {{ treelite_version }}
-    - ucx {{ ucx_version }}
-    - ucx-proc=*=gpu
-    - ucx-py {{ ucx_py_version }}
 
 outputs:
   - name: libcuml
@@ -97,11 +93,7 @@ outputs:
         - libraft-distance {{ minor_version }}
         - libraft-headers {{ minor_version }}
         - libraft-nn {{ minor_version }}
-        - nccl {{ nccl_version }}
         - treelite {{ treelite_version }}
-        - ucx >={{ ucx_version }}
-        - ucx-proc=*=gpu
-        - ucx-py {{ ucx_py_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0

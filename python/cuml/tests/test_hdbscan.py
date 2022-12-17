@@ -26,7 +26,7 @@ from cuml.testing.utils import get_pattern, array_equal
 
 import numpy as np
 
-from cuml.common import logger
+from cuml.internals import logger
 
 import hdbscan
 from hdbscan.plots import CondensedTree

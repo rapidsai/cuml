@@ -20,14 +20,11 @@ import inspect
 import typing
 from functools import wraps
 import warnings
-from importlib import import_module
 
-import cuml
-import cuml.common
-import cuml.common.array
-import cuml.common.array_sparse
-import cuml.common.input_utils
-from cuml.common.type_utils import _DecoratorType, wraps_typed
+import cuml.internals.array
+import cuml.internals.array_sparse
+import cuml.internals.input_utils
+from cuml.internals.type_utils import _DecoratorType, wraps_typed
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
 from cuml.internals.api_context_managers import BaseReturnGenericCM
@@ -39,10 +36,10 @@ from cuml.internals.api_context_managers import ReturnGenericCM
 from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
-from cuml.internals.base_helpers import _get_base_return_type
-from cuml.common import logger
-
-CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
+from cuml.internals.constants import CUML_WRAPPED_FLAG
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.memory_utils import using_output_type
+from cuml.internals import logger
 
 
 class DecoratorMetaClass(type):
@@ -326,13 +323,13 @@ class HasGettersDecoratorMixin(object):
             assert input_val is not None, \
                 "`get_output_type` is False but no input_arg detected"
             set_api_output_type(
-                cuml.common.input_utils.determine_array_type(input_val))
+                cuml.internals.input_utils.determine_array_type(input_val))
 
         if (self.get_output_dtype):
             assert target_val is not None, \
                 "`get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
-                cuml.common.input_utils.determine_array_dtype(target_val))
+                cuml.internals.input_utils.determine_array_dtype(target_val))
 
     def has_getters_input(self):
         return self.get_output_type
@@ -687,21 +684,21 @@ def api_ignore(func: _DecoratorType) -> _DecoratorType:
 @contextlib.contextmanager
 def exit_internal_api():
 
-    assert (cuml.global_settings.root_cm is not None)
+    assert (GlobalSettings().root_cm is not None)
 
     try:
-        old_root_cm = cuml.global_settings.root_cm
+        old_root_cm = GlobalSettings().root_cm
 
-        cuml.global_settings.root_cm = None
+        GlobalSettings().root_cm = None
 
         # Set the global output type to the previous value to pretend we never
         # entered the API
-        with cuml.using_output_type(old_root_cm.prev_output_type):
+        with using_output_type(old_root_cm.prev_output_type):
 
             yield
 
     finally:
-        cuml.global_settings.root_cm = old_root_cm
+        GlobalSettings().root_cm = old_root_cm
 
 
 def mirror_args(
@@ -710,28 +707,6 @@ def mirror_args(
     updated=functools.WRAPPER_UPDATES
 ) -> typing.Callable[[_DecoratorType], _DecoratorType]:
     return wraps(wrapped=wrapped, assigned=assigned, updated=updated)
-
-
-@mirror_args(BaseReturnArrayDecorator)
-def api_base_return_autoarray(*args, **kwargs):
-    def inner(func: _DecoratorType) -> _DecoratorType:
-        # Determine the array return type and choose
-        return_type = _get_base_return_type(None, func)
-
-        if (return_type == "generic"):
-            func = api_base_return_generic(*args, **kwargs)(func)
-        elif (return_type == "array"):
-            func = api_base_return_array(*args, **kwargs)(func)
-        elif (return_type == "sparsearray"):
-            func = api_base_return_sparse_array(*args, **kwargs)(func)
-        elif (return_type == "base"):
-            assert False, \
-                ("Must use api_base_return_autoarray decorator on function "
-                 "that returns some array")
-
-        return func
-
-    return inner
 
 
 class _deprecate_pos_args:
@@ -803,38 +778,17 @@ class _deprecate_pos_args:
 
 def device_interop_preparation(init_func):
     """
-    This function serves as a decorator to cuML estimators that implement
-    the CPU/GPU interoperability feature. It imports the joint CPU estimator
-    and processes the hyperparameters.
+    This function serves as a decorator for cuML estimators that implement
+    the CPU/GPU interoperability feature. It processes the estimator's
+    hyperparameters by saving them and filtering them for GPU execution.
     """
 
     @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
-        # if child class (parent class was already decorated), skip
-        if hasattr(self, '_cpu_model_class'):
-            return init_func(self, *args, **kwargs)
-
-        if hasattr(self, '_cpu_estimator_import_path'):
-            # if import path differs from the one of sklearn
-            # look for _cpu_estimator_import_path
-            estimator_path = self._cpu_estimator_import_path.split('.')
-            model_path = '.'.join(estimator_path[:-1])
-            model_name = estimator_path[-1]
-        else:
-            # import from similar path to the current estimator
-            # class
-            model_path = 'sklearn' + self.__class__.__module__[4:]
-            model_name = self.__class__.__name__
-        self._cpu_model_class = getattr(import_module(model_path), model_name)
-
         # Save all kwargs
         self._full_kwargs = kwargs
         # Generate list of available cuML hyperparameters
         gpu_hyperparams = list(inspect.signature(init_func).parameters.keys())
-        # Save list of available CPU estimator hyperparameters
-        self._cpu_hyperparams = list(
-            inspect.signature(self._cpu_model_class.__init__).parameters.keys()
-        )
 
         # Filter provided parameters for cuML estimator initialization
         filtered_kwargs = {}
@@ -848,3 +802,15 @@ def device_interop_preparation(init_func):
 
         return init_func(self, *args, **filtered_kwargs)
     return processor
+
+
+def enable_device_interop(gpu_func):
+    @functools.wraps(gpu_func)
+    def dispatch(self, *args, **kwargs):
+        # check that the estimator implements CPU/GPU interoperability
+        if hasattr(self, 'dispatch_func'):
+            func_name = gpu_func.__name__
+            return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+        else:
+            return gpu_func(self, *args, **kwargs)
+    return dispatch

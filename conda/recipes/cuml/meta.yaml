@@ -64,8 +64,6 @@ requirements:
     - scikit-build>=0.13.1
     - setuptools
     - treelite=3.0.1
-    - ucx-proc=*=gpu
-    - ucx-py {{ ucx_py_version }}
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
@@ -82,8 +80,6 @@ requirements:
     - python x.x
     - raft-dask {{ minor_version }}
     - treelite=3.0.1
-    - ucx-proc=*=gpu
-    - ucx-py {{ ucx_py_version }}
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]

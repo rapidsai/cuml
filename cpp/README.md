@@ -19,7 +19,6 @@ The `test` directory has subdirectories that reflect this distinction between th
 2. CUDA (>= 11.0)
 3. gcc (>=9.3.0)
 4. clang-format (= 11.1.0) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=11` and `clang-tools=11` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
-5. UCX with CUDA support [optional](>=1.7) - enables point-to-point messaging in the cuML communicator.
 
 ### Building cuML:
 
@@ -34,7 +33,7 @@ Current cmake offers the following configuration options:
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
-| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. |
+| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. See section about additional requirements.|
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | BUILD_CUML_BENCH | [ON, OFF]  | ON  | Enable/disable building of cuML C++ benchark. |
@@ -65,6 +64,13 @@ $ cmake --build . -j --target  ml           # Build ml_test algorithm tests bina
 $ cmake --build . -j --target  ml_mg        # Build ml_mg_test multi GPU algorithms tests binary
 $ cmake --build . -j --target  prims        # Build prims_test ML primitive unit tests binary
 ```
+
+### MultiGPU Tests Requirements Note:
+
+To build the MultiGPU tests (CMake option `BUILD_CUML_MG_TESTS`), the following dependencies are required:
+
+- MPI (OpenMPI recommended)
+- NCCL, version corresponding to [RAFT's requirement](https://github.com/rapidsai/raft/blob/branch-23.02/conda/recipes/raft-dask/meta.yaml#L49.
 
 ### Third Party Modules
 

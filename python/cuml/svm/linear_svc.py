@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
 __all__ = ['LinearSVC']
@@ -102,11 +102,12 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
         while ``'ovr'`` selects `OneVsRestClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
-    output_type : {{'input', 'cudf', 'cupy', 'numpy', 'numba'}}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------

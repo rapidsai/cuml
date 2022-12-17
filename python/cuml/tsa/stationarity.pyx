@@ -21,10 +21,10 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":

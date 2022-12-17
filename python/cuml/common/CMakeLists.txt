@@ -13,10 +13,8 @@
 # =============================================================================
 
 set(cython_sources
-    base.pyx
     cuda.pyx
     handle.pyx
-    logger.pyx
     pointer_utils.pyx
 )
 

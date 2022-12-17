@@ -43,7 +43,7 @@ import statsmodels.api as sm
 
 import cudf
 import cuml.tsa.arima as arima
-from cuml.common.input_utils import input_to_host_array
+from cuml.internals.input_utils import input_to_host_array
 
 from cuml.testing.utils import stress_param
 

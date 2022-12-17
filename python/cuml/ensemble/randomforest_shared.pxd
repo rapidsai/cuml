@@ -27,7 +27,7 @@ from libcpp.string cimport string
 
 from pylibraft.common.handle import Handle
 from cuml import ForestInference
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 

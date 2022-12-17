@@ -39,7 +39,6 @@ dependencies:
 - libraft-distance=23.02.*
 - libraft-headers=23.02.*
 - libraft-nn=23.02.*
-- nccl>=2.9.9
 - nltk
 - numpydoc
 - nvcc_linux-64=11.5
@@ -59,9 +58,6 @@ dependencies:
 - statsmodels
 - sysroot_linux-64==2.17
 - treelite=3.0.1
-- ucx-proc=*=gpu
-- ucx-py=0.30.*
-- ucx>=1.13.0
 - umap-learn
 - pip:
   - git+https://github.com/dask/dask-glm@main
