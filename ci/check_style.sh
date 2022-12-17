@@ -26,7 +26,7 @@ wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
 # pre-commit run --hook-stage manual --all-files --show-diff-on-failure
 
 # Run flake8 and get results/return code
-FLAKE=`flake8 --config=python/setup.cfg`
+FLAKE=$(flake8 --config=python/setup.cfg)
 RETVAL=$?
 
 # Output results if failure otherwise show pass
@@ -39,7 +39,7 @@ else
 fi
 
 # Check for copyright headers in the files modified currently
-COPYRIGHT=`python ci/checks/copyright.py --git-modified-only 2>&1`
+COPYRIGHT=$(python ci/checks/copyright.py --git-modified-only 2>&1)
 CR_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$CR_RETVAL
@@ -56,7 +56,7 @@ fi
 
 # Check for a consistent #include syntax
 # TODO: keep adding more dirs as and when we update the syntax
-HASH_INCLUDE=`python cpp/scripts/include_checker.py \
+HASH_INCLUDE=$(python cpp/scripts/include_checker.py \
                      cpp/bench \
                      cpp/comms/mpi/include \
                      cpp/comms/mpi/src \
@@ -67,7 +67,7 @@ HASH_INCLUDE=`python cpp/scripts/include_checker.py \
                      cpp/src \
                      cpp/src_prims \
                      cpp/test \
-                     2>&1`
+                     2>&1)
 HASH_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$HASH_RETVAL
@@ -83,7 +83,7 @@ else
 fi
 
 # Check for a consistent code format
-FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
+FORMAT=$(python cpp/scripts/run-clang-format.py 2>&1)
 FORMAT_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$FORMAT_RETVAL
@@ -118,7 +118,7 @@ function setup_and_run_clang_tidy() {
         python cpp/scripts/run-clang-tidy.py
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
 }
-TIDY=`setup_and_run_clang_tidy 2>&1`
+TIDY=$(setup_and_run_clang_tidy 2>&1)
 TIDY_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$TIDY_RETVAL
