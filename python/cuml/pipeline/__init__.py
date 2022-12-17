@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.import_utils import has_sklearn
 
 if has_sklearn():
     from sklearn.pipeline import Pipeline, make_pipeline

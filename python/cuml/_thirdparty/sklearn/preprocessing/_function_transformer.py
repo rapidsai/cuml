@@ -7,7 +7,7 @@
 import warnings
 
 import cuml
-from ....common.array_sparse import SparseCumlArray
+from ....internals.array_sparse import SparseCumlArray
 from ..utils.skl_dependencies import TransformerMixin, BaseEstimator
 from ..utils.validation import _allclose_dense_sparse
 from ....internals import _deprecate_pos_args

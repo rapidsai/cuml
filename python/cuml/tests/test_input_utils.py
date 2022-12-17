@@ -22,10 +22,9 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.common import input_to_host_array
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import has_cupy
-from cuml.common.input_utils import convert_dtype
-from cuml.common.memory_utils import _check_array_contiguity
+from cuml.internals.input_utils import convert_dtype
 from numba import cuda as nbcuda
 from pandas import DataFrame as pdDF
 from pandas import Series as pdSeries
@@ -173,8 +172,7 @@ def test_input_to_host_array(dtype, input_type, num_rows, num_cols, order):
     if input_type == 'cupy' and input_data is None:
         pytest.skip('cupy not installed')
 
-    X, X_ptr, n_rows, n_cols, dtype = input_to_host_array(input_data,
-                                                          order=order)
+    X, n_rows, n_cols, dtype = input_to_host_array(input_data, order=order)
 
     np.testing.assert_equal(X, real_data)
 
@@ -284,7 +282,7 @@ def test_non_contiguous_to_contiguous_input(dtype, input_type, order,
                                       force_contiguous=force_contiguous)
 
     if force_contiguous:
-        assert(_check_array_contiguity(cumlary))
+        assert(cumlary.is_contiguous)
 
     np.testing.assert_equal(real_data, cumlary.to_output('numpy'))
 

@@ -31,7 +31,7 @@ from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
-from cuml.common.input_utils import _typecast_will_lose_information
+from cuml.internals.array import elements_in_representable_range
 from cuml.testing.strategies import (
     regression_datasets,
     split_datasets,
@@ -119,8 +119,11 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
         X_train.shape[0] >= 2
         and X_train.shape[1] >= 1
         and np.isfinite(X_train).all()
-        and not any(_typecast_will_lose_information(x, np.float32)
-                    for x in (X_train, X_test, y_train) if x is not None)
+        and all(
+            elements_in_representable_range(x, np.float32)
+            for x in (X_train, X_test, y_train)
+            if x is not None
+        )
     )
 
 
@@ -283,7 +286,7 @@ def test_linear_regression_model_default(dataset):
 
 # TODO: Replace test_linear_regression_model_default with this test once #4963
 # is resolved.
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/4963")
+@pytest.mark.skip(reason="https://github.com/rapidsai/cuml/issues/4963")
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
