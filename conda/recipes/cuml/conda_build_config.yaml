@@ -13,9 +13,6 @@ cmake_version:
 sysroot_version:
   - "2.17"
 
-ucx_py_version:
-  - "0.30.*"
-
 # The CTK libraries below are missing from the conda-forge::cudatoolkit
 # package. The "*_host_*" version specifiers correspond to `11.5` packages and the
 # "*_run_*" version specifiers correspond to `11.x` packages.

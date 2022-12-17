@@ -75,7 +75,6 @@ requirements:
     - joblib >=0.11
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - nccl>=2.9.9
     - pylibraft {{ minor_version }}
     - python x.x
     - raft-dask {{ minor_version }}

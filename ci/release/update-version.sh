@@ -59,8 +59,5 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
 done
 
 # Update ucx-py version
-for PKG in cuml libcuml; do
-    sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" "conda/recipes/${PKG}/conda_build_config.yaml"
-done
 
 sed_runner "s|/branch-.*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
