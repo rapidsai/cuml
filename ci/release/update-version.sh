@@ -55,9 +55,6 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
    sed_runner "s/rapids-build-env=${CURRENT_SHORT_TAG}/rapids-build-env=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-notebook-env=${CURRENT_SHORT_TAG}/rapids-notebook-env=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-doc-env=${CURRENT_SHORT_TAG}/rapids-doc-env=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/ucx-py=.*/ucx-py=${NEXT_UCX_PY_VERSION}/g" ${FILE};
 done
-
-# Update ucx-py version
 
 sed_runner "s|/branch-.*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
