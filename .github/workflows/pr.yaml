@@ -16,7 +16,8 @@ jobs:
       - conda-cpp-build
       - conda-cpp-tests
       - conda-python-build
-      - conda-python-tests
+      - conda-python-tests-singlegpu
+      - conda-python-tests-dask
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@main
   checks:
