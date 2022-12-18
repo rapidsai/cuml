@@ -40,35 +40,6 @@ import math
 import numpy as np
 
 
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_multinomial_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
-    """
-    Cupy Test
-    """
-
-    X, y = nlp_20news
-
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
-    y = y.astype(y_dtype)
-
-    # Priming it seems to lower the end-to-end runtime
-    model = MultinomialNB()
-    model.fit(X, y)
-
-    cp.cuda.Stream.null.synchronize()
-
-    model = MultinomialNB()
-    model.fit(X, y)
-
-    y_hat = model.predict(X)
-
-    y_hat = cp.asnumpy(y_hat)
-    y = cp.asnumpy(y)
-
-    assert accuracy_score(y, y_hat) >= 0.924
-
-
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
@@ -77,7 +48,6 @@ def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
     X = X.astype(x_dtype)
     y = y.astype(y_dtype)
 
-    # Priming it seems to lower the end-to-end runtime
     model = MultinomialNB()
 
     with pytest.raises(ValueError):
@@ -102,8 +72,9 @@ def test_multinomial_basic_fit_predict_dense_numpy(x_dtype, y_dtype,
     """
     X, y = nlp_20news
     n_rows = 500
+    n_cols = 10000
 
-    X = sparse_scipy_to_cp(X, cp.float32).tocsr()[:n_rows]
+    X = sparse_scipy_to_cp(X, cp.float32).tocsr()[:n_rows, :n_cols]
     y = y[:n_rows].astype(y_dtype)
 
     model = MultinomialNB()
@@ -167,7 +138,7 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_multinomial_predict_proba(x_dtype, y_dtype, nlp_20news):
+def test_multinomial(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
@@ -182,67 +153,24 @@ def test_multinomial_predict_proba(x_dtype, y_dtype, nlp_20news):
     sk_model = skNB()
 
     cuml_model.fit(cu_X, cu_y)
-
     sk_model.fit(X, y)
 
+    cuml_log_proba = cuml_model.predict_log_proba(cu_X).get()
+    sk_log_proba = sk_model.predict_log_proba(X)
     cuml_proba = cuml_model.predict_proba(cu_X).get()
     sk_proba = sk_model.predict_proba(X)
-
-    assert_allclose(cuml_proba, sk_proba, atol=1e-6, rtol=1e-2)
-
-
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_multinomial_predict_log_proba(x_dtype, y_dtype, nlp_20news):
-
-    X, y = nlp_20news
-
-    cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
-    cu_y = y.astype(y_dtype)
-
-    cu_X = cu_X.tocsr()
-
-    y = y.get()
-
-    cuml_model = MultinomialNB()
-    sk_model = skNB()
-
-    cuml_model.fit(cu_X, cu_y)
-
-    sk_model.fit(X, y)
-
-    cuml_proba = cuml_model.predict_log_proba(cu_X).get()
-    sk_proba = sk_model.predict_log_proba(X)
-
-    assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
-
-
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_multinomial_score(x_dtype, y_dtype, nlp_20news):
-
-    X, y = nlp_20news
-
-    cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
-    cu_y = y.astype(y_dtype)
-
-    cu_X = cu_X.tocsr()
-
-    y = y.get()
-
-    cuml_model = MultinomialNB()
-    sk_model = skNB()
-
-    cuml_model.fit(cu_X, cu_y)
-
-    sk_model.fit(X, y)
-
     cuml_score = cuml_model.score(cu_X, cu_y)
     sk_score = sk_model.score(X, y)
 
-    THRES = 1e-4
+    y_hat = cuml_model.predict(cu_X)
+    y_hat = cp.asnumpy(y_hat)
+    cu_y = cp.asnumpy(cu_y)
 
+    THRES = 1e-4
+    assert_allclose(cuml_log_proba, sk_log_proba, atol=1e-2, rtol=1e-2)
+    assert_allclose(cuml_proba, sk_proba, atol=1e-6, rtol=1e-2)
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
+    assert accuracy_score(y, y_hat) >= 0.924
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
@@ -251,11 +179,12 @@ def test_multinomial_score(x_dtype, y_dtype, nlp_20news):
 def test_bernoulli(x_dtype, y_dtype, is_sparse, nlp_20news):
     X, y = nlp_20news
     n_rows = 500
+    n_cols = 20000
 
     X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[:n_rows]
+    X = X.tocsr()[:n_rows, :n_cols]
     y = y[:n_rows]
     if not is_sparse:
         X = X.todense()
@@ -330,11 +259,12 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
 def test_complement(x_dtype, y_dtype, is_sparse, norm, nlp_20news):
     X, y = nlp_20news
     n_rows = 500
+    n_cols = 20000
 
     X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[:n_rows]
+    X = X.tocsr()[:n_rows, :n_cols]
     y = y[:n_rows]
     if not is_sparse:
         X = X.todense()
@@ -444,7 +374,7 @@ def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse,
     X, y = nlp_20news
     model = GaussianNB()
     n_rows = 500
-    n_cols = int(2e5)
+    n_cols = 50000
     X = sparse_scipy_to_cp(X, x_dtype)
     X = X.tocsr()[:n_rows, :n_cols]
 
@@ -466,11 +396,12 @@ def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse,
 def test_gaussian_partial_fit(nlp_20news):
     chunk_size = 250
     n_rows = 1500
+    n_cols = 60000
     x_dtype, y_dtype = cp.float32, cp.int32
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:n_rows]
+    X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:n_rows, :n_cols]
     y = y.astype(y_dtype)[:n_rows]
 
     model = GaussianNB()
@@ -517,10 +448,11 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
     x_dtype = cp.float32
     y_dtype = cp.int32
     nrows = 150
+    ncols = 20000
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X[:nrows], x_dtype).todense()
+    X = sparse_scipy_to_cp(X[:nrows], x_dtype).todense()[:, :ncols]
     y = y.astype(y_dtype)[:nrows]
 
     if priors == 'balanced':
@@ -550,8 +482,8 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
     if x_dtype == cp.int32 and is_sparse:
         pytest.skip("Sparse matrices with integers dtype are not supported")
     X, y = nlp_20news
-    n_rows = 2000
-    n_cols = 500
+    n_rows = 500
+    n_cols = 400
 
     X = sparse_scipy_to_cp(X, dtype=cp.float32)
     X = X.tocsr()[:n_rows, :n_cols]
@@ -591,16 +523,15 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
     n_rows = 5000
     n_cols = 500
     chunk_size = 1000
+    expected_score = 0.1040
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, 'float32').tocsr()[:n_rows]
+    X = sparse_scipy_to_cp(X, 'float32').tocsr()[:n_rows, :n_cols]
     if is_sparse:
         X.data = X.data.astype(x_dtype)
-        expected_score = 0.5414
     else:
-        X = X[:, :n_cols].todense().astype(x_dtype)
-        expected_score = 0.1040
+        X = X.todense().astype(x_dtype)
     y = y.astype(y_dtype)[:n_rows]
 
     model = CategoricalNB()
