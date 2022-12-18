@@ -137,6 +137,9 @@ Feature and Label Encoding (Dask-based Multi-GPU)
  .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
     :members:
 
+ .. autoclass:: cuml.dask.preprocessing.LabelEncoder.LabelEncoder
+    :members:
+
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
     :members:
 
