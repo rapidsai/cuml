@@ -17,9 +17,8 @@
 import cupy as cp
 from pylibraft.common.handle import Handle
 
-from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.base import Base
 
 
 def get_tag_from_model_func(func, tag, default=None):
@@ -67,7 +66,7 @@ def get_handle_from_cuml_model_func(func, create_new=False):
     """
     owner = getattr(func, '__self__', None)
 
-    if owner is not None and isinstance(owner, (Base, experimentalBase)):
+    if owner is not None and isinstance(owner, Base):
         if owner.handle is not None:
             return owner.handle
 

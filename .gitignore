@@ -31,6 +31,7 @@ dask-worker-space/
 tmp/
 .hypothesis
 wheels/
+wheelhouse/
 _skbuild/
 
 ## files pickled in notebook when ran during python docstring generation

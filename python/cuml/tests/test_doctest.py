@@ -91,6 +91,8 @@ def test_docstring(docstring):
     # the use of an ellipsis "..." to match any string in the doctest
     # output. An ellipsis is useful for, e.g., memory addresses or
     # imprecise floating point values.
+    if docstring.name == "Handle":
+        pytest.skip("Docstring is tested in RAFT.")
     optionflags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
     runner = doctest.DocTestRunner(optionflags=optionflags)
 
@@ -104,7 +106,20 @@ def test_docstring(docstring):
     with contextlib.redirect_stdout(doctest_stdout):
         runner.run(docstring)
         results = runner.summarize()
-    assert not results.failed, (
-        f"{results.failed} of {results.attempted} doctests failed for "
-        f"{docstring.name}:\n{doctest_stdout.getvalue()}"
-    )
+    try:
+        assert not results.failed, (
+            f"{results.failed} of {results.attempted} doctests failed for "
+            f"{docstring.name}:\n{doctest_stdout.getvalue()}"
+        )
+    except AssertionError:
+        # If some failed but all the failures were due to lack of multiGPU
+        # support, we can skip. This code assumes that any MG-related failures
+        # mean that all doctests failed for that reason, which is heavy-handed
+        # and could miss a few things but is much easier than trying to
+        # identify every line corresponding to any Exception raised.
+        if (
+            "cuML has not been built with multiGPU support"
+            in doctest_stdout.getvalue()
+        ):
+            pytest.skip("Doctest requires MG support.")
+        raise

@@ -7,7 +7,6 @@
 {% set cuda_version = '.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
 {% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
-{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 
 package:
   name: libcuml-split
@@ -38,12 +37,8 @@ requirements:
     - {{ compiler('cuda') }} {{ cuda_version }}
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - nccl {{ nccl_version }}
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx {{ ucx_version }}
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - libraft-headers {{ minor_version }}
     - libraft-distance {{ minor_version }}
@@ -74,10 +69,6 @@ outputs:
         - libraft-distance {{ minor_version }}
         - libraft-nn {{ minor_version }}
         - cudf {{ minor_version }}
-        - nccl {{ nccl_version }}
-        - ucx >={{ ucx_version }}
-        - ucx-py {{ ucx_py_version }}
-        - ucx-proc=*=gpu
         - treelite {{ treelite_version }}
         - faiss-proc=*=cuda
         - libfaiss {{ libfaiss_version }} *_cuda

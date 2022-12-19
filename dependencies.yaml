@@ -1,0 +1,191 @@
+# Dependency list for https://github.com/rapidsai/dependency-file-generator
+files:
+  all:
+    output: conda
+    matrix:
+      cuda: ["11.5"]
+      arch: [x86_64]
+    includes:
+      - common_build
+      - cpp_build
+      - cpp_run
+      - cudatoolkit
+      - doc
+      - py_build
+      - py_run
+      - py_version
+      - test_python
+  cpp_all:
+    output: conda
+    matrix:
+      cuda: ["11.5"]
+      arch: [x86_64]
+    includes:
+      - common_build
+      - cpp_build
+      - cpp_run
+      - cudatoolkit
+channels:
+  - rapidsai
+  - rapidsai-nightly
+  - dask/label/dev
+  - conda-forge
+  - nvidia
+dependencies:
+  common_build:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - cmake>=3.23.1,!=3.25.0
+      - output_types: conda
+        packages:
+          - libcumlprims=23.02.*
+          - libraft-headers=23.02.*
+          - libraft-distance=23.02.*
+          - libraft-nn=23.02.*
+          - rmm=23.02.*
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+            packages:
+              - gcc_linux-64=9.*
+              - sysroot_linux-64==2.17
+          - matrix:
+              arch: aarch64
+            packages:
+              - gcc_linux-aarch64=9.*
+              - sysroot_linux-aarch64==2.17
+  cpp_build:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+              cuda: "11.5"
+            packages:
+              - nvcc_linux-64=11.5
+          - matrix:
+              arch: aarch64
+              cuda: "11.5"
+            packages:
+              - nvcc_linux-aarch64=11.5
+          - matrix:
+              arch: x86_64
+              cuda: "11.4"
+            packages:
+              - nvcc_linux-64=11.4
+          - matrix:
+              arch: aarch64
+              cuda: "11.4"
+            packages:
+              - nvcc_linux-aarch64=11.4
+          - matrix:
+              arch: x86_64
+              cuda: "11.2"
+            packages:
+              - nvcc_linux-64=11.2
+          - matrix:
+              arch: aarch64
+              cuda: "11.2"
+            packages:
+              - nvcc_linux-aarch64=11.2
+  py_build:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - cuda-python>=11.7.1,<12.0
+          - scikit-build>=0.13.1
+          - cython>=0.29,<0.30
+          - treelite=3.0.1
+      - output_types: conda
+        packages:
+          - cudf=23.02.*
+          - raft-dask=23.02.*
+          - pylibraft=23.02.*
+  py_run:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - dask>=2022.12.0
+          - distributed>=2022.12.0
+          - joblib>=0.11
+      - output_types: conda
+        packages:
+          - cupy>=7.8.0,<12.0.0a0
+          - dask-cuda=23.02.*
+          - dask-cudf=23.02.*
+    specific:
+      - output_types: requirements
+        matrices:
+          - matrix:
+              arch: x86_64
+            packages:
+              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
+          - matrix:
+              arch: aarch64
+            packages:
+              - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
+  cpp_run:
+    common:
+      - output_types: conda
+        packages:
+          - libfaiss>=1.7.0
+          - faiss-proc=*=cuda
+  cudatoolkit:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "11.5"
+            packages:
+              - cudatoolkit=11.5
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cudatoolkit=11.4
+          - matrix:
+              cuda: "11.2"
+            packages:
+              - cudatoolkit=11.2
+  doc:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - sphinx-markdown-tables
+      - output_types: conda
+        packages:
+          - doxygen=1.8.20 # pre-commit hook needs a specific version.
+  py_version:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              py: "3.8"
+            packages:
+              - python=3.8
+          - matrix:
+              py: "3.9"
+            packages:
+              - python=3.9
+          - matrix:
+            packages:
+              - python>=3.8,<3.10
+  test_python:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - dask-ml
+          - nltk
+          - seaborn
+          - scikit-learn=0.24
+          - statsmodels
+          - umap-learn
+      - output_types: conda
+        packages:
+          - pip
+          - pip:
+              - git+https://github.com/dask/dask-glm@main
+              - git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+              - sparse

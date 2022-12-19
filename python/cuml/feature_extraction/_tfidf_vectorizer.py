@@ -218,7 +218,7 @@ class TfidfVectorizer(CountVectorizer):
         self._tfidf.fit(X)
         return self
 
-    def fit_transform(self, raw_documents):
+    def fit_transform(self, raw_documents, y=None):
         """Learn vocabulary and idf, return document-term matrix.
         This is equivalent to fit followed by transform, but more efficiently
         implemented.
@@ -227,6 +227,8 @@ class TfidfVectorizer(CountVectorizer):
         ----------
         raw_documents : cudf.Series or pd.Series
            A Series of string documents
+        y : None
+            Ignored.
 
         Returns
         -------

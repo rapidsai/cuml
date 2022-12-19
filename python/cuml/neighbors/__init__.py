@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.common.import_utils import has_dask
+from cuml.internals.import_utils import has_dask
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.neighbors.nearest_neighbors import kneighbors_graph

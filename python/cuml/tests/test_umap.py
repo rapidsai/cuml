@@ -33,7 +33,7 @@ from sklearn.neighbors import NearestNeighbors
 
 import joblib
 
-from cuml.common import logger
+from cuml.internals import logger
 
 from sklearn import datasets
 from sklearn.cluster import KMeans

@@ -22,8 +22,8 @@ from math import ceil
 from cuml import ForestInference
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.common.import_utils import has_xgboost
-# from cuml.common.import_utils import has_lightgbm
+from cuml.internals.import_utils import has_xgboost
+# from cuml.internals.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import GradientBoostingClassifier, \

@@ -15,12 +15,12 @@ To install cuML from source, ensure the following dependencies are met:
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
-It is recommended to use conda for environment/package management. If doing so, a convenience environment .yml file is located in `conda/environments/cuml_dec_cudax.y.yml` (replace x.y for your CUDA version). This file contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To use it, for example to create an environment named `cuml_dev` for CUDA 10.2 and Python 3.7, you can use the follow command:
+It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
 
 ```bash
 conda create -n cuml_dev python=3.8
 conda activate cuml_dev
-conda env update --file=conda/environments/cuml_dev_cuda11.2.yml
+conda env update --file=conda/environments/all_cuda-115_arch-x86_64.yaml
 ```
 
 These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
