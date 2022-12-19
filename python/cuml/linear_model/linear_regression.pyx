@@ -28,19 +28,18 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml import Handle
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.common.base import Base
-from cuml.common.mixins import RegressorMixin, FMajorInputTagMixin
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
-
-from cuml.common.mixins import FMajorInputTagMixin
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.api_decorators import enable_device_interop
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -82,8 +81,12 @@ def divide_non_zero(x1, x2):
 
 
 def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
+    X = CumlArray.from_input(X)
+    y = CumlArray.from_input(y)
     assert X.ndim == 2
     assert y.ndim == 2
+    if sample_weight is not None:
+        sample_weight = CumlArray.from_input(sample_weight)
 
     x_rows, x_cols = X.shape
     if x_cols == 0:
@@ -94,33 +97,40 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
         raise ValueError(
             "Number of rows cannot be less than two"
         )
+    X_arr = X.to_output('array')
+    y_arr = y.to_output('array')
 
     if fit_intercept:
         # Add column containg ones to fit intercept.
         nrow, ncol = X.shape
-        X_wide = cp.empty_like(X, shape=(nrow, ncol + 1))
-        X_wide[:, :ncol] = X
+        X_wide = X.mem_type.xpy.empty_like(
+            X_arr, shape=(nrow, ncol + 1)
+        )
+        X_wide[:, :ncol] = X_arr
         X_wide[:, ncol] = 1.
-        X = X_wide
+        X_arr = X_wide
 
     if sample_weight is not None:
-        sample_weight = cp.sqrt(sample_weight)
-        X = sample_weight[:, None] * X
-        y = sample_weight[:, None] * y
+        sample_weight = X.mem_type.xpy.sqrt(sample_weight)
+        X_arr = sample_weight[:, None] * X_arr
+        y_arr = sample_weight[:, None] * y_arr
 
-    u, s, vh = cp.linalg.svd(X, full_matrices=False)
+    u, s, vh = X.mem_type.xpy.linalg.svd(X_arr, full_matrices=False)
 
-    params = vh.T @ divide_non_zero(u.T @ y, s[:, None])
+    params = vh.T @ divide_non_zero(u.T @ y_arr, s[:, None])
 
     coef = params[:-1] if fit_intercept else params
     intercept = params[-1] if fit_intercept else None
 
-    return coef, intercept
+    return (
+        CumlArray.from_input(coef),
+        None if intercept is None else CumlArray.from_input(intercept)
+    )
 
 
-class LinearRegression(Base,
+class LinearRegression(LinearPredictMixin,
+                       UniversalBase,
                        RegressorMixin,
-                       LinearPredictMixin,
                        FMajorInputTagMixin):
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -204,11 +214,12 @@ class LinearRegression(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -280,8 +291,9 @@ class LinearRegression(Base,
         }[algorithm]
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "LinearRegression":
+    @enable_device_interop
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -382,6 +394,19 @@ class LinearRegression(Base,
         # regression, i.e., a y vector with multiple columns.
         # We implement the regression in Python here.
 
+        X = CumlArray.from_input(
+            X,
+            convert_to_dtype=(self.dtype if convert_dtype else None)
+        )
+        y = CumlArray.from_input(
+            y,
+            convert_to_dtype=(self.dtype if convert_dtype else None)
+        )
+        try:
+            y_cols = y.shape[1]
+        except IndexError:
+            y_cols = 1
+
         if self.algo != 0:
             warnings.warn("Changing solver to 'svd' as this is the " +
                           "only solver that support multiple targets " +
@@ -393,35 +418,25 @@ class LinearRegression(Base,
                 "multiple columns."
             )
 
-        X_cupy = input_to_cupy_array(
-            X,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-        ).array
-        y_cupy, _, y_cols, _ = input_to_cupy_array(
-            y,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-        )
-        if sample_weight is None:
-            sample_weight_cupy = None
-        else:
-            sample_weight_cupy = input_to_cupy_array(
+        if sample_weight is not None:
+            sample_weight = CumlArray.from_input(
                 sample_weight,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
-            ).array
+            )
         coef, intercept = fit_multi_target(
-            X_cupy,
-            y_cupy,
+            X,
+            y,
             fit_intercept=self.fit_intercept,
-            sample_weight=sample_weight_cupy
+            sample_weight=sample_weight
         )
-        self.coef_, _, _, _ = input_to_cuml_array(
+        self.coef_ = CumlArray.from_input(
             coef,
             check_dtype=self.dtype,
             check_rows=self.n_features_in_,
             check_cols=y_cols
         )
         if self.fit_intercept:
-            self.intercept_, _, _, _ = input_to_cuml_array(
+            self.intercept_ = CumlArray.from_input(
                 intercept,
                 check_dtype=self.dtype,
                 check_rows=y_cols,
@@ -431,6 +446,14 @@ class LinearRegression(Base,
             self.intercept_ = CumlArray.zeros(y_cols, dtype=self.dtype)
 
         return self
+
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
+        self.dtype = self.coef_.dtype
+        self.features_in_ = self.coef_.shape[0]
+        # Adding UniversalBase here skips it in the Method Resolution Order
+        # (MRO) Since UniversalBase and LinearPredictMixin now both have a
+        # `predict` method
+        return super()._predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \

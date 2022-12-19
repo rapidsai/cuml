@@ -27,10 +27,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.decomposition.utils_mg cimport *

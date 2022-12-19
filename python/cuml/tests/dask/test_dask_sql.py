@@ -18,7 +18,7 @@ import cudf
 import dask_cudf
 import pytest
 import numpy as np
-from cuml.common.import_utils import has_dask_sql
+from cuml.internals.import_utils import has_dask_sql
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import make_classification

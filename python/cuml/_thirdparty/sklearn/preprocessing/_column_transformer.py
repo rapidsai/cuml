@@ -15,7 +15,7 @@ from joblib import Parallel
 import functools
 import timeit
 import numbers
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.import_utils import has_sklearn
 
 if has_sklearn():
     from sklearn.base import clone
@@ -35,8 +35,8 @@ import cudf
 
 import cuml
 from cuml.internals.global_settings import _global_settings_data
-from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.import_utils import has_sklearn
 from cuml.internals import _deprecate_pos_args
 from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
     BaseEstimator
