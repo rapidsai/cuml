@@ -38,22 +38,3 @@ rapids-logger "Check GPU usage"
 nvidia-smi
 
 set +e
-
-rapids-logger "pytest cuml"
-cd python/cuml/tests
-pytest \
-  --cache-clear \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
-  --cov-config=../../.coveragerc \
-  --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
-  --cov-report=term \
-  .
-exitcode=$?
-
-if (( ${exitcode} != 0 )); then
-    SUITEERROR=${exitcode}
-    echo "FAILED: 1 or more tests in cuml"
-fi
-
-exit ${SUITEERROR}

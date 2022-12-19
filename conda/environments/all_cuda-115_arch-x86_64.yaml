@@ -47,6 +47,7 @@ dependencies:
 - pytest
 - pytest-cases
 - pytest-cov
+- pytest-xdist
 - python>=3.8,<3.10
 - raft-dask=23.02.*
 - rmm=23.02.*

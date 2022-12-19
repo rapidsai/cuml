@@ -245,6 +245,7 @@ dependencies:
           - pytest
           - pytest-cases
           - pytest-cov
+          - pytest-xdist
           - &scikit_learn scikit-learn=0.24
           - seaborn
           - sparse
