@@ -42,7 +42,7 @@ set +e
 rapids-logger "pytest cuml"
 pushd python/cuml/tests
 pytest \
-  --ignore=cuml/tests/dask \
+  --ignore=dask \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
