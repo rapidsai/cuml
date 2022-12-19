@@ -142,12 +142,11 @@ class LogisticRegression(UniversalBase,
         See :ref:`verbosity-levels` for more info.
     l1_ratio : float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
-    solver : 'qn', 'lbfgs', 'owl' (default='qn').
+    solver : 'qn' (default='qn')
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the conditions of the l1 regularization described
-        above. Options 'lbfgs' and 'owl' are just convenience values that
-        end up using the same solver following the same rules.
+        above.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
