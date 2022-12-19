@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.common.import_utils import has_daskglm
+from cuml.internals.import_utils import has_daskglm
 import warnings
 
 if has_daskglm():

@@ -130,6 +130,27 @@ Finally, conversions between Numba<->CuPy<->CumlArray incur the least amount of 
 
 Internally, all arrays should be converted to `CumlArray` as much as possible since it is compatible with all output types and can be easily converted.
 
+### Host and Device Arrays
+
+Beginning with version 23.02, cuML provides support for executing at least
+some algorithms either on CPU or on GPU. Therefore, `CumlArray` objects can
+now be backed by either host or device memory.
+
+To ensure that arrays used by algorithms are backed by the correct memory
+type, two new global settings were introduced: `device_type` (`'cpu'` or
+`'gpu'`) and `memory_type` (`'host'` or `'device'`). The former indicates
+what sort of computational device will be used to execute an algorithm while
+the latter indicates where arrays should be stored if not otherwise
+specified. If the `device_type` is updated to a value incompatible with the
+current `memory_type`, the `memory_type` will be changed to something
+compatible with `device_type`, but the reverse is not true. This allows for
+e.g. allocating an array where results will ultimately be stored even if the
+actual computation will take place on a different device.
+
+New array output types were also introduced to take advantage of these
+settings by deferring where appropriate to the globally-set memory type. Read
+on for more details on how to take advantage of these types.
+
 ### Specifying the Array Output Type
 
 Users can choose which array type should be returned by cuml by either:
@@ -139,18 +160,57 @@ Users can choose which array type should be returned by cuml by either:
 
 **Note:** Setting `cuml.global_output_type` (either directly or via `cuml.set_output_type()` or `cuml.using_output_type()`) <u>will take precedence over any value in `Base.output_type`</u>
 
+In addition, for developers, it is sometimes useful to set the output memory
+type separately from the output type, as will be described in further
+detail below. **End-users will not typically use this setting
+themselves.** To set the output memory type, developers can:
+1. Individually setting the output_mem_type property on an estimator class that derives from `UniversalBase` (i.e `UniversalBase(output_mem_type="host")`)
+2. Globally setting the `cuml.global_settings.memory_type`
+3. Temporarily setting the `cuml.global_settings.memory_type` via the `cuml.using_memory_type` context manager
+
 Changing the array output type will alter the return value of estimator functions (i.e. `predict()`, `transform()`), and the return value for array-like estimator attributes (i.e. `my_estimator.classes_` or `my_estimator.coef_`)
 
 All output_types (including `cuml.global_output_type`) are specified using an all lowercase string. These strings can be passed in an estimators constructor or via `cuml.set_global_output_type` and `cuml.using_output_type`. Accepted values are:
 
  - `None`: (Default) No global value set. Will use individual values from estimators output_type
  - `"input"`: Similar to `None`. Will mirror the same type as any array passed into the estimator
+ - `"array"`: Returns Numpy or Cupy arrays depending on the current memory
+   type
  - `"numba"`: Returns Numba Device Arrays
+ - `"dataframe"`: Returns cuDF or Pandas DataFrames depending on the
+   current memory type
+ - `"series"`: Returns cuDF or Pandas Series depending on the current memory
+   type
+ - `"df_obj"`: Returns cuDF/Pandas Series if array is single-dimensional or
+   cuDF/Pandas DataFrames otherwise
+ - `"cupy"`: Returns CuPy Device Arrays
  - `"numpy"`: Returns Numpy Arrays
  - `"cudf"`: Returns cuDF DataFrame if cols > 1, else cuDF Series
- - `"cupy"`: Returns CuPy Device Arrays
+ - `"pandas"`: Returns Pandas DataFrame if cols > 1, else cuDF Series
 
 **Note:** There is an additional option `"mirror"` which can only be set by internal API calls and is not user accessible. This value is only used internally by the `CumlArrayDescriptor` to mirror any input value set.
+
+#### Deferring to the global memory type
+With the introduction of CPU-only algorithms, it is sometimes useful
+internally to generically request an "array" or a "dataframe" rather than
+specifying cupy/numpy or cudf/pandas. For example, imagine that a
+developer needs to briefly use a method which is specific to cupy/numpy and not
+available on the generic `CumlArray` interface. In the past, a developer might
+call `arr.to_output('cupy')` and proceed with the operation before converting
+back to a `CumlArray`. Now, if the device type is set to `cpu` and this pattern
+is used, we would attempt to execute a host-only operation on device memory.
+
+Instead, developers can use the generic `array`, `series`, `dataframe`, and
+`df_obj` output types to defer to the current globally-set memory type and
+ensure that the data memory location is compatible with the computational
+device. It is recommended that these generic output types be used for any
+internal conversion calls. Where we cannot defer to the global memory type,
+the memory type for that call should be specified directly to facilitate later
+rewrites for host/device interoperability.
+
+External users should not typically have to use these generic types unless
+they are specifically writing an application with host/device
+interoperability in mind.
 
 ### Ingesting Arrays
 
@@ -240,7 +300,7 @@ So this needs to be taken into account for tag resolution, for the case above, t
 
 ### Estimator Array-Like Attributes
 
-Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array_descriptor.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
+Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
 
 The `CumlArrayDescriptor` behaves different when accessed internally (from within one of `cuml`'s functions) vs. externally (for user code outside the cuml module). Internally, it behaves exactly like a normal attribute and will return the previous value set. Externally, the array will get converted to the user's desired output type lazily and repeated conversion will be cached.
 
@@ -607,7 +667,7 @@ my_est.fit(cp.ones((10,)))
 
 # Access the CumlArrayDescriptorMeta value directly. No array conversion will occur
 print(my_est.__dict__["my_cuml_array_"])
-# Output: CumlArrayDescriptorMeta(input_type='cupy', values={'cuml': <cuml.common.array.CumlArray object at 0x7fd39174ae20>, 'numpy': array([ 0,  1,  1,  2,  2, -1, -1, ...
+# Output: CumlArrayDescriptorMeta(input_type='cupy', values={'cuml': <cuml.internals.array.CumlArray object at 0x7fd39174ae20>, 'numpy': array([ 0,  1,  1,  2,  2, -1, -1, ...
 
 # Values from CumlArrayDescriptorMeta can be specifically read
 print(my_est.__dict__["my_cuml_array_"].input_type)

@@ -26,7 +26,7 @@ from libc.stdint cimport uintptr_t
 import cuml.internals
 from pylibraft.common.handle cimport handle_t
 from cuml.common import CumlArray
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from pylibraft.common.handle import Handle
 cimport cuml.common.cuda
 

@@ -17,7 +17,7 @@ import pytest
 
 import cupy as cp
 import numpy as np
-from cuml.common import logger
+from cuml.internals import logger
 from cuml.metrics import trustworthiness
 
 import math

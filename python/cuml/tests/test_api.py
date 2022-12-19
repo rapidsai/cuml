@@ -16,12 +16,12 @@
 
 import pytest
 import cuml
-import cuml.common.mixins as cumix
+import cuml.internals.mixins as cumix
 import cupy as cp
 import inspect
 import numpy as np
 
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.testing.utils import ClassEnumerator
 from sklearn.datasets import make_classification
 
@@ -53,7 +53,9 @@ def dataset():
     return X, y
 
 
-models_config = ClassEnumerator(module=cuml)
+models_config = ClassEnumerator(
+    module=cuml, exclude_classes=(cuml.UniversalBase,)
+)
 models = models_config.get_models()
 
 # tag system based on experimental tag system from Scikit-learn >=0.21
