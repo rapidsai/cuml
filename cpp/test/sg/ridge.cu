@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <glm/ols.cuh>
-#include <glm/ridge.cuh>
+#include <cuml/linear_model/glm.hpp>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 
 namespace ML {
@@ -27,9 +27,9 @@ namespace GLM {
 template <typename T>
 struct RidgeInputs {
   T tol;
-  int n_row;
-  int n_col;
-  int n_row_2;
+  size_t n_row;
+  size_t n_col;
+  size_t n_row_2;
   int algo;
   T alpha;
 };
@@ -137,17 +137,10 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept,
              false,
              false,
-             stream,
              params.algo);
 
-    gemmPredict(handle,
-                pred_data.data(),
-                params.n_row_2,
-                params.n_col,
-                coef.data(),
-                intercept,
-                pred.data(),
-                stream);
+    gemmPredict(
+      handle, pred_data.data(), params.n_row_2, params.n_col, coef.data(), intercept, pred.data());
 
     raft::update_device(data.data(), data_h, len, stream);
     raft::update_device(labels.data(), labels_h, params.n_row, stream);
@@ -164,7 +157,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept2,
              true,
              false,
-             stream,
              params.algo);
 
     gemmPredict(handle,
@@ -173,8 +165,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
                 params.n_col,
                 coef2.data(),
                 intercept2,
-                pred2.data(),
-                stream);
+                pred2.data());
 
     raft::update_device(data.data(), data_h, len, stream);
     raft::update_device(labels.data(), labels_h, params.n_row, stream);
@@ -191,7 +182,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept3,
              true,
              true,
-             stream,
              params.algo);
 
     gemmPredict(handle,
@@ -200,8 +190,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
                 params.n_col,
                 coef3.data(),
                 intercept3,
-                pred3.data(),
-                stream);
+                pred3.data());
   }
 
   void basicTest2()
@@ -237,7 +226,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept_sc,
              true,
              false,
-             stream,
              params.algo);
   }
 
@@ -279,7 +267,6 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
              &intercept_sw,
              true,
              false,
-             stream,
              params.algo,
              sample_weight.data());
   }
