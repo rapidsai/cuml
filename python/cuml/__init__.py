@@ -46,6 +46,7 @@ if (is_cuda_available()):
     from cuml.explainer.permutation_shap import PermutationExplainer
     from cuml.explainer.tree_shap import TreeExplainer
 
+    import cuml.feature_extraction
     from cuml.fil import fil
 
     from cuml.internals.global_settings import (
@@ -128,6 +129,7 @@ def __getattr__(name):
 __all__ = [
     # Modules
     "common",
+    "feature_extraction",
     "metrics",
     "multiclass",
     "naive_bayes",
