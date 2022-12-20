@@ -45,7 +45,7 @@ requirements:
   host:
     - cuda-python >=11.7.1,<12.0
     - cudatoolkit {{ cuda_version }}.*
-    - cudf {{ minor_version }}
+    - cudf={{ minor_version }}
     - cython>=0.29,<0.30
     # TODO start: Evaluate removing these libcu* packages after
     # the `raft` packages are updated for GH Actions
@@ -57,27 +57,27 @@ requirements:
     - libcusparse-dev {{ libcusparse_host_version }}
     # TODO end
     - libcuml={{ version }}
-    - libcumlprims {{ minor_version }}
-    - pylibraft {{ minor_version }}
+    - libcumlprims={{ minor_version }}
+    - pylibraft={{ minor_version }}
     - python x.x
-    - raft-dask {{ minor_version }}
+    - raft-dask={{ minor_version }}
     - scikit-build>=0.13.1
     - setuptools
     - treelite=3.0.1
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
-    - cudf {{ minor_version }}
+    - cudf={{ minor_version }}
     - cupy>=7.8.0,<12.0.0a0
-    - dask-cudf {{ minor_version }}
+    - dask-cudf={{ minor_version }}
     - dask>=2022.12.0
     - distributed>=2022.12.0
     - joblib >=0.11
     - libcuml={{ version }}
-    - libcumlprims {{ minor_version }}
-    - pylibraft {{ minor_version }}
+    - libcumlprims={{ minor_version }}
+    - pylibraft={{ minor_version }}
     - python x.x
-    - raft-dask {{ minor_version }}
+    - raft-dask={{ minor_version }}
     - treelite=3.0.1
 
 tests:                                 # [linux64]
