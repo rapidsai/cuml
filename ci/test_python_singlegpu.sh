@@ -5,7 +5,6 @@
 source "$(dirname "$0")/test_python_common.sh"
 
 rapids-logger "pytest cuml single GPU"
-pushd python/cuml/tests
 pytest \
   --numprocesses=8 \
   --ignore=dask \
@@ -15,4 +14,4 @@ pytest \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
   --cov-report=term \
-  .
+  python/cuml/tests
