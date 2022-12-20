@@ -36,5 +36,3 @@ rapids-mamba-retry install \
 
 rapids-logger "Check GPU usage"
 nvidia-smi
-
-set +e
