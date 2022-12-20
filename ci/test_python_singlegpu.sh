@@ -7,7 +7,7 @@ source "$(dirname "$0")/test_python_common.sh"
 rapids-logger "pytest cuml single GPU"
 pytest \
   --numprocesses=8 \
-  --ignore=dask \
+  --ignore=python/cuml/tests/dask \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
