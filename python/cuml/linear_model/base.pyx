@@ -42,16 +42,16 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void gemmPredict(handle_t& handle,
                           const float *input,
-                          int n_rows,
-                          int n_cols,
+                          size_t n_rows,
+                          size_t n_cols,
                           const float *coef,
                           float intercept,
                           float *preds) except +
 
     cdef void gemmPredict(handle_t& handle,
                           const double *input,
-                          int n_rows,
-                          int n_cols,
+                          size_t n_rows,
+                          size_t n_cols,
                           const double *coef,
                           double intercept,
                           double *preds) except +
@@ -109,16 +109,16 @@ class LinearPredictMixin:
         if dtype.type == np.float32:
             gemmPredict(handle_[0],
                         <float*>X_ptr,
-                        <int>n_rows,
-                        <int>n_cols,
+                        <size_t>n_rows,
+                        <size_t>n_cols,
                         <float*>coef_ptr,
                         <float>self.intercept_,
                         <float*>preds_ptr)
         else:
             gemmPredict(handle_[0],
                         <double*>X_ptr,
-                        <int>n_rows,
-                        <int>n_cols,
+                        <size_t>n_rows,
+                        <size_t>n_cols,
                         <double*>coef_ptr,
                         <double>self.intercept_,
                         <double*>preds_ptr)

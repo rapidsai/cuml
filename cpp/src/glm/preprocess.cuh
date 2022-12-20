@@ -53,8 +53,8 @@ namespace GLM {
 template <typename math_t>
 void preProcessData(const raft::handle_t& handle,
                     math_t* input,
-                    int n_rows,
-                    int n_cols,
+                    size_t n_rows,
+                    size_t n_cols,
                     math_t* labels,
                     math_t* intercept,
                     math_t* mu_input,
@@ -111,19 +111,20 @@ void preProcessData(const raft::handle_t& handle,
     }
 
     if (sample_weight != nullptr) {
-      raft::stats::weightedMean(mu_labels, labels, sample_weight, 1, n_rows, true, false, stream);
+      raft::stats::weightedMean(
+        mu_labels, labels, sample_weight, (size_t)1, n_rows, true, false, stream);
     } else {
-      raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+      raft::stats::mean(mu_labels, labels, (size_t)1, n_rows, false, false, stream);
     }
-    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+    raft::stats::meanCenter(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
   }
 }
 
 template <typename math_t>
 void postProcessData(const raft::handle_t& handle,
                      math_t* input,
-                     int n_rows,
-                     int n_cols,
+                     size_t n_rows,
+                     size_t n_cols,
                      math_t* labels,
                      math_t* coef,
                      math_t* intercept,
@@ -143,11 +144,20 @@ void postProcessData(const raft::handle_t& handle,
 
   if (normalize) {
     raft::matrix::matrixVectorBinaryDivSkipZero(
-      coef, norm2_input, 1, n_cols, false, true, stream, true);
+      coef, norm2_input, (size_t)1, n_cols, false, true, stream, true);
   }
 
-  raft::linalg::gemm(
-    handle, mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
+  raft::linalg::gemm(handle,
+                     mu_input,
+                     (size_t)1,
+                     n_cols,
+                     coef,
+                     d_intercept.data(),
+                     1,
+                     1,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_N,
+                     stream);
 
   raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1, stream);
   *intercept = d_intercept.value(stream);
@@ -166,7 +176,7 @@ void postProcessData(const raft::handle_t& handle,
   } else {
     raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
   }
-  raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+  raft::stats::meanAdd(labels, labels, mu_labels, (size_t)1, n_rows, false, true, stream);
 }
 
 };  // namespace GLM
