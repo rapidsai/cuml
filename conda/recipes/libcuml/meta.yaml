@@ -39,7 +39,7 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudatoolkit {{ cuda_version }}.*
+    - cudatoolkit={{ cuda_version }}
     - cudf={{ minor_version }}
     - faiss-proc=*=cuda
     - gmock

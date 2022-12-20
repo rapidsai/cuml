@@ -44,7 +44,7 @@ requirements:
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cuda-python >=11.7.1,<12.0
-    - cudatoolkit {{ cuda_version }}.*
+    - cudatoolkit={{ cuda_version }}
     - cudf={{ minor_version }}
     - cython>=0.29,<0.30
     # TODO start: Evaluate removing these libcu* packages after
@@ -82,7 +82,7 @@ requirements:
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]
-    - cudatoolkit {{ cuda_version }}.* # [linux64]
+    - cudatoolkit={{ cuda_version }}   # [linux64]
   imports:                             # [linux64]
     - cuml                             # [linux64]
 
