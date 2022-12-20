@@ -85,8 +85,6 @@ outputs:
         - libcumlprims={{ minor_version }}
         - libcurand {{ libcurand_run_version }}
         - libcurand-dev {{ libcurand_run_version }}
-        - libcusolver {{ libcusolver_run_version }}
-        - libcusolver-dev {{ libcusolver_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
         - libfaiss {{ libfaiss_version }} *_cuda
