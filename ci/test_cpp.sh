@@ -26,7 +26,7 @@ SUITEERROR=0
 rapids-print-env
 
 rapids-mamba-retry install \
-  -c "${CPP_CHANNEL}" \
+  --channel "${CPP_CHANNEL}" \
   libcuml libcuml-tests
 
 rapids-logger "Check GPU usage"

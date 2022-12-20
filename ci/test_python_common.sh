@@ -30,8 +30,8 @@ SUITEERROR=0
 rapids-print-env
 
 rapids-mamba-retry install \
-  -c "${CPP_CHANNEL}" \
-  -c "${PYTHON_CHANNEL}" \
+  --channel "${CPP_CHANNEL}" \
+  --channel "${PYTHON_CHANNEL}" \
   libcuml cuml
 
 rapids-logger "Check GPU usage"
