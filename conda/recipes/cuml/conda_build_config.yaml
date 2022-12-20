@@ -20,17 +20,11 @@ sysroot_version:
 libcublas_host_version:
   - ">=11.7.3.1,<=11.7.4.6"
 
-libcublas_run_version:
-  - ">=11.5.2.43,<=11.11.3.6"
+libcurand_host_version:
+  - ">=10.2.6.48,<=10.2.7.107"
 
 libcusolver_host_version:
   - ">=11.2.1.48,<=11.3.2.107"
 
-libcusolver_run_version:
-  - ">=11.2.0.43,<=11.4.1.48"
-
 libcusparse_host_version:
   - ">=11.7.0.31,<=11.7.0.107"
-
-libcusparse_run_version:
-  - ">=11.6.0.43,<=11.7.5.86"
