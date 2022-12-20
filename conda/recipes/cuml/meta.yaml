@@ -4,9 +4,9 @@
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version='.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
-{% set py_version=environ['CONDA_PY'] %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+{% set py_version = environ['CONDA_PY'] %}
 
 package:
   name: cuml
@@ -80,9 +80,10 @@ requirements:
     - raft-dask ={{ minor_version }}
     - treelite =3.0.1
 
+# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
 tests:                                 # [linux64]
   requirements:                        # [linux64]
-    - cudatoolkit ={{ cuda_version }}   # [linux64]
+    - cudatoolkit ={{ cuda_version }}  # [linux64]
   imports:                             # [linux64]
     - cuml                             # [linux64]
 
