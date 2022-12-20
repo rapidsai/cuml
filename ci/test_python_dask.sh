@@ -8,7 +8,7 @@ rapids-logger "pytest cuml-dask"
 pytest \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml" \
-  --cov-config=../../../.coveragerc \
+  --cov-config=python/.coveragerc \
   --cov=cuml_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-dask-coverage.xml" \
   --cov-report=term \
