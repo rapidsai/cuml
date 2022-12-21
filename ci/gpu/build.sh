@@ -24,6 +24,13 @@ export HOME=$WORKSPACE
 # Determine CUDA release version
 export CUDA_REL=${CUDA_VERSION%.*}
 
+# Workaround to keep Jenkins builds working
+# until we migrate fully to GitHub Actions
+export RAPIDS_CUDA_VERSION="${CUDA}"
+export SCCACHE_BUCKET=rapids-sccache
+export SCCACHE_REGION=us-west-2
+export SCCACHE_IDLE_TIMEOUT=32768
+
 # Switch to project root; also root of repo checkout
 cd $WORKSPACE
 
@@ -31,9 +38,6 @@ cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
-
-# ucx-py version
-export UCX_PY_VERSION='0.30.*'
 
 # configure numba threading library
 export NUMBA_THREADING_LAYER=workqueue

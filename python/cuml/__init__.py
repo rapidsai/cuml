@@ -19,7 +19,7 @@ from cuml.internals.available_devices import is_cuda_available
 
 # GPU only packages
 
-if(is_cuda_available()):
+if (is_cuda_available()):
     import cuml.common.cuda as cuda
     from cuml.common.handle import Handle
 

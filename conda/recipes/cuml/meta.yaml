@@ -3,10 +3,10 @@
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
-{% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
-{% set py_version=environ.get('CONDA_PY', 36) %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+{% set py_version = environ['CONDA_PY'] %}
 
 package:
   name: cuml
@@ -19,54 +19,75 @@ build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
-    - VERSION_SUFFIX
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - PARALLEL_LEVEL
+    - CMAKE_GENERATOR
+    - CMAKE_C_COMPILER_LAUNCHER
+    - CMAKE_CXX_COMPILER_LAUNCHER
+    - CMAKE_CUDA_COMPILER_LAUNCHER
+    - SCCACHE_S3_KEY_PREFIX=cuml-aarch64 # [aarch64]
+    - SCCACHE_S3_KEY_PREFIX=cuml-linux64 # [linux64]
+    - SCCACHE_BUCKET
+    - SCCACHE_REGION
+    - SCCACHE_IDLE_TIMEOUT
   ignore_run_exports_from:
     - {{ compiler('cuda') }}
 
 requirements:
   build:
-    - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
+    - cmake {{ cmake_version }}
+    - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - python x.x
-    - setuptools
-    - scikit-build>=0.13.1
-    - cython>=0.29,<0.30
-    - treelite=3.0.1
-    - cudf {{ minor_version }}
-    - libcuml={{ version }}
-    - libcumlprims {{ minor_version }}
-    - pylibraft {{ minor_version }}
-    - raft-dask {{ minor_version }}
-    - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.7.1,<12.0
-  run:
+    - cudatoolkit ={{ cuda_version }}
+    - cudf ={{ minor_version }}
+    - cython >=0.29,<0.30
+    - libcublas {{ libcublas_host_version }}
+    - libcublas-dev {{ libcublas_host_version }}
+    - libcuml ={{ version }}
+    - libcumlprims ={{ minor_version }}
+    - libcurand {{ libcurand_host_version }}
+    - libcurand-dev {{ libcurand_host_version }}
+    - libcusolver {{ libcusolver_host_version }}
+    - libcusolver-dev {{ libcusolver_host_version }}
+    - libcusparse {{ libcusparse_host_version }}
+    - libcusparse-dev {{ libcusparse_host_version }}
+    - pylibraft ={{ minor_version }}
     - python x.x
-    - cudf {{ minor_version }}
-    - dask-cudf {{ minor_version }}
-    - libcuml={{ version }}
-    - libcumlprims {{ minor_version }}
-    - pylibraft {{ minor_version }}
-    - raft-dask {{ minor_version }}
-    - cupy>=7.8.0,<12.0.0a0
-    - treelite=3.0.1
-    - dask>=2022.12.0
-    - distributed>=2022.12.0
-    - joblib >=0.11
+    - raft-dask ={{ minor_version }}
+    - scikit-build >=0.13.1
+    - setuptools
+    - treelite =3.0.1
+  run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
+    - cudf ={{ minor_version }}
+    - cupy >=7.8.0,<12.0.0a0
+    - dask-cudf ={{ minor_version }}
+    - dask >=2022.12.0
+    - distributed >=2022.12.0
+    - joblib >=0.11
+    - libcuml ={{ version }}
+    - libcumlprims ={{ minor_version }}
+    - pylibraft ={{ minor_version }}
+    - python x.x
+    - raft-dask ={{ minor_version }}
+    - treelite =3.0.1
 
+# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
 tests:                                 # [linux64]
   requirements:                        # [linux64]
-    - cudatoolkit {{ cuda_version }}.* # [linux64]
+    - cudatoolkit ={{ cuda_version }}  # [linux64]
   imports:                             # [linux64]
     - cuml                             # [linux64]
 
 about:
-  home: http://rapids.ai/
+  home: https://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
   summary: cuML library
