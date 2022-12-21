@@ -4,7 +4,7 @@
 #   conda build . -c conda-forge -c nvidia -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version = '.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
 {% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 
@@ -16,8 +16,9 @@ source:
 
 build:
   script_env:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
     - PARALLEL_LEVEL
-    - VERSION_SUFFIX
     - PROJECT_FLASH
     - CMAKE_GENERATOR
     - CMAKE_C_COMPILER_LAUNCHER
@@ -25,30 +26,41 @@ build:
     - CMAKE_CUDA_COMPILER_LAUNCHER
     - SCCACHE_S3_KEY_PREFIX=libcuml-aarch64 # [aarch64]
     - SCCACHE_S3_KEY_PREFIX=libcuml-linux64 # [linux64]
-    - SCCACHE_BUCKET=rapids-sccache
-    - SCCACHE_REGION=us-west-2
-    - SCCACHE_IDLE_TIMEOUT=32768
+    - SCCACHE_BUCKET
+    - SCCACHE_REGION
+    - SCCACHE_IDLE_TIMEOUT
 
 requirements:
   build:
-    - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
+    - cmake {{ cmake_version }}
+    - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudf {{ minor_version }}
-    - cudatoolkit {{ cuda_version }}.*
-    - libcumlprims {{ minor_version }}
-    - libraft-headers {{ minor_version }}
-    - libraft-distance {{ minor_version }}
-    - libraft-nn {{ minor_version }}
-    - lapack
-    - treelite {{ treelite_version }}
+    - cudatoolkit ={{ cuda_version }}
+    - cudf ={{ minor_version }}
     - faiss-proc=*=cuda
-    - gtest {{ gtest_version }}
     - gmock
+    - gtest {{ gtest_version }}
+    - lapack
+    - libcublas {{ libcublas_host_version }}
+    - libcublas-dev {{ libcublas_host_version }}
+    - libcufft {{ libcufft_host_version }}
+    - libcufft-dev {{ libcufft_host_version }}
+    - libcumlprims ={{ minor_version }}
+    - libcurand {{ libcurand_host_version }}
+    - libcurand-dev {{ libcurand_host_version }}
+    - libcusolver {{ libcusolver_host_version }}
+    - libcusolver-dev {{ libcusolver_host_version }}
+    - libcusparse {{ libcusparse_host_version }}
+    - libcusparse-dev {{ libcusparse_host_version }}
     - libfaiss {{ libfaiss_version }} *_cuda
+    - libraft-distance ={{ minor_version }}
+    - libraft-headers ={{ minor_version }}
+    - libraft-nn ={{ minor_version }}
+    - treelite {{ treelite_version }}
 
 outputs:
   - name: libcuml
@@ -64,17 +76,22 @@ outputs:
         - cmake {{ cmake_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcumlprims {{ minor_version }}
-        - libraft-headers {{ minor_version }}
-        - libraft-distance {{ minor_version }}
-        - libraft-nn {{ minor_version }}
-        - cudf {{ minor_version }}
-        - treelite {{ treelite_version }}
+        - cudf ={{ minor_version }}
         - faiss-proc=*=cuda
+        - libcublas {{ libcublas_run_version }}
+        - libcublas-dev {{ libcublas_run_version }}
+        - libcufft {{ libcufft_run_version }}
+        - libcumlprims ={{ minor_version }}
+        - libcurand {{ libcurand_run_version }}
+        - libcusparse {{ libcusparse_run_version }}
+        - libcusparse-dev {{ libcusparse_run_version }}
         - libfaiss {{ libfaiss_version }} *_cuda
-        - libcusolver {{ libcusolver_version }}
+        - libraft-distance ={{ minor_version }}
+        - libraft-headers ={{ minor_version }}
+        - libraft-nn ={{ minor_version }}
+        - treelite {{ treelite_version }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libcuml library
   - name: libcuml-tests
@@ -94,6 +111,6 @@ outputs:
         - gtest {{ gtest_version }}
         - gmock {{ gtest_version }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libcuml test & benchmark executables

@@ -17,3 +17,4 @@ ci/                @rapidsai/ops-codeowners
 conda/             @rapidsai/ops-codeowners
 **/Dockerfile      @rapidsai/ops-codeowners
 **/.dockerignore   @rapidsai/ops-codeowners
+dependencies.yaml   @rapidsai/ops-codeowners

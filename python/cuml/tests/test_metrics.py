@@ -84,6 +84,9 @@ from scipy.special import rel_entr as scipy_kl_divergence
 from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
 from cuml.metrics.cluster import v_measure_score
 
+import platform
+IS_ARM = platform.processor() == "aarch64"
+
 
 @pytest.fixture(scope='module')
 def random_state():
@@ -248,7 +251,10 @@ def test_rand_index_score(name, nrows):
     'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
 ))
 @pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+@pytest.mark.skipif(IS_ARM, reason="Test fails unexpectedly on ARM. "
+                                   "github.com/rapidsai/cuml/issues/5025")
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
+
     X, labels = labeled_clusters
     cuml_score = cu_silhouette_score(X, labels, metric=metric,
                                      chunksize=int(X.shape[0] / chunk_divider))
