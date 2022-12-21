@@ -5,13 +5,14 @@
 source "$(dirname "$0")/test_python_common.sh"
 
 rapids-logger "pytest cuml single GPU"
+cd python/cuml/tests
 pytest \
   --numprocesses=8 \
-  --ignore=python/cuml/tests/dask \
+  --ignore=dask \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
-  --cov-config=python/.coveragerc \
+  --cov-config=../../.coveragerc \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
   --cov-report=term \
-  python/cuml/tests
+  .
