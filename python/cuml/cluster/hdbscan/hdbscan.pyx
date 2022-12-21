@@ -297,14 +297,16 @@ def condense_hierarchy(dendrogram,
     condensed_sizes_ = _construct_condensed_tree_attribute(
         <size_t>condensed_tree.get_sizes(), n_condensed_tree_edges)
 
-    del condensed_tree
-
-    return _build_condensed_tree_plot_host(
-        condensed_parent_.to_output("numpy"),
+    condensed_tree_host = _build_condensed_tree_plot_host(
+        condensed_parent_.to_output('numpy'),
         condensed_child_.to_output("numpy"),
         condensed_lambdas_.to_output("numpy"),
         condensed_sizes_.to_output("numpy"), cluster_selection_epsilon,
         allow_single_cluster)
+
+    del condensed_tree
+
+    return condensed_tree_host
 
 
 def delete_hdbscan_output(obj):
@@ -469,6 +471,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     labels_ = CumlArrayDescriptor()
     probabilities_ = CumlArrayDescriptor()
     outlier_scores_ = CumlArrayDescriptor()
+    cluster_persistence_ = CumlArrayDescriptor()
 
     # Single Linkage Tree
     children_ = CumlArrayDescriptor()
