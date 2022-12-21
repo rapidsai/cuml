@@ -655,20 +655,26 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef hdbscan_output *hdbscan_output_ = \
-            <hdbscan_output*><size_t>self.hdbscan_output_
-
         cdef uintptr_t core_dists = self.core_dists.ptr
         cdef PredictionData[int, float] *prediction_data = new PredictionData(
             handle_[0], <int> self.n_rows, <int> self.n_cols,
             <float*> core_dists)
         self.prediction_data_ptr = <size_t>prediction_data
 
+        cdef uintptr_t condensed_tree_ptr = self.condensed_tree_ptr
+        cdef CondensedHierarchy[int, float] *condensed_tree = \
+            <CondensedHierarchy[int, float] *> condensed_tree_ptr
+        labels, _, _, _ = input_to_cuml_array(self.labels_,
+                                              order='C',
+                                              convert_to_dtype=np.int32)
+        cdef uintptr_t labels_ptr = labels.ptr
+        cdef uintptr_t inverse_label_map_ptr = self.inverse_label_map.ptr
+
         generate_prediction_data(handle_[0],
-                                 hdbscan_output_.get_condensed_tree(),
-                                 hdbscan_output_.get_labels(),
-                                 hdbscan_output_.get_inverse_label_map(),
-                                 hdbscan_output_.get_n_clusters(),
+                                 deref(condensed_tree),
+                                 <int*> labels_ptr,
+                                 <int*> inverse_label_map_ptr,
+                                 <int> self.n_clusters_,
                                  deref(prediction_data))
 
         self.handle.sync()
@@ -838,12 +844,12 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.condensed_tree_ptr = \
             <size_t> &linkage_output[0].get_condensed_tree()
 
+        self._construct_output_attributes()
+
         if self.prediction_data:
             self.generate_prediction_data()
 
         self.handle.sync()
-
-        self._construct_output_attributes()
 
         self.build_minimum_spanning_tree(X_m)
 
@@ -915,7 +921,24 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                           <int> self.max_cluster_size,
                           <float> self.cluster_selection_epsilon)
 
-    def __setstate__(self):
+    def __setstate__(self, state):
+        super(HDBSCAN, self).__init__(
+            handle=state["handle"],
+            verbose=state["verbose"]
+        )
+
+        self.condensed_parent_ = state["condensed_parent_"]
+        self.condensed_child_ = state["condensed_child_"]
+        self.condensed_lambdas_ = state["condensed_lambdas_"]
+        self.condensed_sizes_ = state["condensed_sizes_"]
+        self.X_m = state["X_m"]
+        self.n_rows = state["n_rows"]
+        self.n_cols = state["n_cols"]
+        self.labels_ = state["labels_"]
+        self.core_dists = state["core_dists"]
+        self.inverse_label_map = state["inverse_label_map"]
+        self.n_clusters_ = state["n_clusters_"]
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef uintptr_t parent_ptr = self.condensed_parent_.ptr
@@ -925,22 +948,23 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         cdef CondensedHierarchy[int, float] *condensed_tree = \
             new CondensedHierarchy[int, float](
-                handle_[0], <size_t>self.n_rows, <int>n_edges,
+                handle_[0], <size_t>self.n_rows,
+                <int>self.condensed_parent_.shape[0],
                 <int*> parent_ptr, <int*> child_ptr,
                 <float*> lambdas_ptr, <int*> sizes_ptr)
         self.condensed_tree_ptr = <size_t> condensed_tree
 
-        cdef core_dists_ptr = self.core_dists.ptr
+        cdef uintptr_t core_dists_ptr = self.core_dists.ptr
         cdef PredictionData[int, float] *prediction_data = new PredictionData(
             handle_[0], <int> self.n_rows, <int> self.n_cols,
             <float*> core_dists_ptr)
         self.prediction_data_ptr = <size_t>prediction_data
 
-        labels, _, _, _ = input_to_cuml_array(self.labels_,
-                                              order='C',
-                                              convert_to_dtype=np.int32)
-        cdef uintptr_t labels_ptr = labels.ptr
-        cdef inverse_label_map_ptr = self.inverse_label_map_ptr
+        self.labels, _, _, _ = input_to_cuml_array(self.labels_.values['cuml'],
+                                                   order='C',
+                                                   convert_to_dtype=np.int32)
+        cdef uintptr_t labels_ptr = self.labels.ptr
+        cdef uintptr_t inverse_label_map_ptr = self.inverse_label_map.ptr
 
         generate_prediction_data(handle_[0],
                                  deref(condensed_tree),
@@ -951,6 +975,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         self.handle.sync()
 
+        self.__dict__.update(state)
 
     def _prep_cpu_to_gpu_prediction(self, convert_dtype=True):
         """
