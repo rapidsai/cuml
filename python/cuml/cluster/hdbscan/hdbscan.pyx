@@ -179,7 +179,7 @@ def _cuml_array_from_ptr(ptr, buf_size, shape, dtype, owner):
 
     return CumlArray(data=cp.ndarray(shape=shape,
                                      dtype=dtype,
-                                     memptr=mem_ptr)).to_output('numpy')
+                                     memptr=mem_ptr))
 
 
 def _construct_condensed_tree_attribute(ptr,
@@ -300,8 +300,10 @@ def condense_hierarchy(dendrogram,
     del condensed_tree
 
     return _build_condensed_tree_plot_host(
-        condensed_parent_, condensed_child_, condensed_lambdas_,
-        condensed_sizes_, cluster_selection_epsilon,
+        condensed_parent_.to_output("numpy"),
+        condensed_child_.to_output("numpy"),
+        condensed_lambdas_.to_output("numpy"),
+        condensed_sizes_.to_output("numpy"), cluster_selection_epsilon,
         allow_single_cluster)
 
 
@@ -545,8 +547,10 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         if self.condensed_tree_obj is None:
 
             self.condensed_tree_obj = _build_condensed_tree_plot_host(
-                self.condensed_parent_, self.condensed_child_,
-                self.condensed_lambdas_, self.condensed_sizes_,
+                self.condensed_parent_.to_output("numpy"),
+                self.condensed_child_.to_output("numpy"),
+                self.condensed_lambdas_.to_output("numpy"),
+                self.condensed_sizes_.to_output("numpy"),
                 self.cluster_selection_method, self.allow_single_cluster)
 
         return self.condensed_tree_obj
@@ -720,6 +724,14 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.condensed_sizes_ = _construct_condensed_tree_attribute(
             <size_t>hdbscan_output_.get_condensed_tree().get_sizes(),
             n_condensed_tree_edges)
+
+        if self.n_clusters_ > 0:
+            self.inverse_label_map = _cuml_array_from_ptr(
+                <size_t>hdbscan_output_.get_inverse_label_map(),
+                self.n_clusters_ * sizeof(int),
+                (self.n_clusters_, ), "int32", self)
+        else:
+            self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
 
     @generate_docstring()
     @enable_cpu
@@ -902,6 +914,43 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                           <bool> self.allow_single_cluster,
                           <int> self.max_cluster_size,
                           <float> self.cluster_selection_epsilon)
+
+    def __setstate__(self):
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        cdef uintptr_t parent_ptr = self.condensed_parent_.ptr
+        cdef uintptr_t child_ptr = self.condensed_child_.ptr
+        cdef uintptr_t lambdas_ptr = self.condensed_lambdas_.ptr
+        cdef uintptr_t sizes_ptr = self.condensed_sizes_.ptr
+
+        cdef CondensedHierarchy[int, float] *condensed_tree = \
+            new CondensedHierarchy[int, float](
+                handle_[0], <size_t>self.n_rows, <int>n_edges,
+                <int*> parent_ptr, <int*> child_ptr,
+                <float*> lambdas_ptr, <int*> sizes_ptr)
+        self.condensed_tree_ptr = <size_t> condensed_tree
+
+        cdef core_dists_ptr = self.core_dists.ptr
+        cdef PredictionData[int, float] *prediction_data = new PredictionData(
+            handle_[0], <int> self.n_rows, <int> self.n_cols,
+            <float*> core_dists_ptr)
+        self.prediction_data_ptr = <size_t>prediction_data
+
+        labels, _, _, _ = input_to_cuml_array(self.labels_,
+                                              order='C',
+                                              convert_to_dtype=np.int32)
+        cdef uintptr_t labels_ptr = labels.ptr
+        cdef inverse_label_map_ptr = self.inverse_label_map_ptr
+
+        generate_prediction_data(handle_[0],
+                                 deref(condensed_tree),
+                                 <int*> labels_ptr,
+                                 <int*> inverse_label_map_ptr,
+                                 <int> self.n_clusters_,
+                                 deref(prediction_data))
+
+        self.handle.sync()
+
 
     def _prep_cpu_to_gpu_prediction(self, convert_dtype=True):
         """
