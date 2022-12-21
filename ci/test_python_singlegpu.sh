@@ -5,7 +5,7 @@
 source "$(dirname "$0")/test_python_common.sh"
 
 rapids-logger "pytest cuml single GPU"
-pushd python/cuml/tests
+cd python/cuml/tests
 pytest \
   --numprocesses=8 \
   --ignore=dask \

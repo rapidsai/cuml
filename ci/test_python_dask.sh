@@ -5,7 +5,7 @@
 source "$(dirname "$0")/test_python_common.sh"
 
 rapids-logger "pytest cuml-dask"
-pushd python/cuml/tests/dask
+cd python/cuml/tests/dask
 pytest \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml" \
