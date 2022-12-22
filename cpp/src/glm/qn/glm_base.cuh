@@ -32,6 +32,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 inline void linearFwd(const raft::handle_t& handle,
@@ -242,6 +243,6 @@ struct GLMWithData : GLMDims {
     return objective->gradNorm(grad, dev_scalar, stream);
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

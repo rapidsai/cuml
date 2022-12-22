@@ -29,6 +29,10 @@
 namespace ML {
 namespace GLM {
 
+using detail::GLMDims;
+using detail::LogisticLoss;
+using detail::Softmax;
+using detail::SquaredLoss;
 struct QuasiNewtonTest : ::testing::Test {
   static constexpr int N = 10;
   static constexpr int D = 2;
