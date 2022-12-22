@@ -37,9 +37,9 @@ template <typename T>
 inline void linearFwd(const raft::handle_t& handle,
                       SimpleDenseMat<T>& Z,
                       const SimpleMat<T>& X,
-                      const SimpleDenseMat<T>& W,
-                      cudaStream_t stream)
+                      const SimpleDenseMat<T>& W)
 {
+  cudaStream_t stream = handle.get_stream();
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
   const int D         = X.n;
@@ -66,9 +66,9 @@ inline void linearBwd(const raft::handle_t& handle,
                       SimpleDenseMat<T>& G,
                       const SimpleMat<T>& X,
                       const SimpleDenseMat<T>& dZ,
-                      bool setZero,
-                      cudaStream_t stream)
+                      bool setZero)
 {
+  cudaStream_t stream = handle.get_stream();
   // Backward pass:
   // - compute G <- dZ * X.T
   // - for bias: Gb = mean(dZ, 1)
@@ -193,10 +193,9 @@ struct GLMBase : GLMDims {
   {
     Loss* loss = static_cast<Loss*>(this);  // static polymorphism
 
-    linearFwd(handle, Zb, Xb, W, stream);          // linear part: forward pass
+    linearFwd(handle, Zb, Xb, W);                  // linear part: forward pass
     loss->getLossAndDZ(loss_val, Zb, yb, stream);  // loss specific part
-    linearBwd(handle, G, Xb, Zb, initGradZero,
-              stream);  // linear part: backward pass
+    linearBwd(handle, G, Xb, Zb, initGradZero);    // linear part: backward pass
   }
 };
 
