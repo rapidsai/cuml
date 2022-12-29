@@ -930,6 +930,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             verbose=state["verbose"]
         )
 
+        if not state["fit_called_"]:
+            return
+
         self.condensed_parent_ = state["condensed_parent_"]
         self.condensed_child_ = state["condensed_child_"]
         self.condensed_lambdas_ = state["condensed_lambdas_"]

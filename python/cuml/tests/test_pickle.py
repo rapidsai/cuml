@@ -554,6 +554,35 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', hdbscan_model.keys())
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
+                                       stress_param([500000, 1000, 500])])
+def test_hdbscan_pickle(tmpdir, datatype, keys, data_size):
+    result = {}
+    from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
+    from cuml.cluster.hdbscan.prediction import approximate_predict
+
+    def create_mod():
+        nrows, ncols, n_info = data_size
+        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
+        model = hdbscan_model[keys](prediction_data=True)
+        result["hdbscan"] = model.fit_predict(X_train)
+        result["hdbscan_all_points"] = all_points_membership_vectors(model)
+        result["hdbscan_approx"] = approximate_predict(model, X_train)
+        return model, X_train
+
+    def assert_model(pickled_model, X_train):
+        labels = pickled_model.fit_predict(X_train)
+        all_points = all_points_membership_vectors(pickled_model)
+        approx = approximate_predict(pickled_model, X_train)
+        assert array_equal(result["hdbscan"], labels)
+        assert array_equal(result["hdbscan_all_points"], all_points)
+        assert array_equal(result["hdbscan_approx"], approx)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
 def test_tsne_pickle(tmpdir):
     result = {}
 
