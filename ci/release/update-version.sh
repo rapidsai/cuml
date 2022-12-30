@@ -59,6 +59,8 @@ done
 
 sed_runner "s|/branch-.*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
 
-# Wheel builds clone cumlprims_mg, modify its branch in various wheel parameters
+# Wheel builds clone cumlprims_mg, update its branch
 sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
+
+# Wheel builds install dask-cuda from source, update its branch
 sed_runner "s/dask-cuda.git@branch-.*/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
