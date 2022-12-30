@@ -58,3 +58,7 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
 done
 
 sed_runner "s|/branch-.*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
+
+# Wheel builds clone cumlprims_mg, modify its branch in various wheel parameters
+sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
+sed_runner "s/dask-cuda.git@branch-.*/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
