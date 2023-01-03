@@ -72,6 +72,8 @@ dependencies:
           - libraft-distance=23.02.*
           - libraft-nn=23.02.*
           - rmm=23.02.*
+          - c-compiler
+          - cxx-compiler
     specific:
       - output_types: conda
         matrices:
