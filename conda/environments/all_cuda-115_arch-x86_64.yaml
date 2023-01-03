@@ -41,6 +41,7 @@ dependencies:
 - libraft-distance=23.02.*
 - libraft-headers=23.02.*
 - libraft-nn=23.02.*
+- ninja
 - nltk
 - numpydoc
 - nvcc_linux-64=11.5

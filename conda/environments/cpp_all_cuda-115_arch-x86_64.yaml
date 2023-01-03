@@ -28,6 +28,7 @@ dependencies:
 - libraft-distance=23.02.*
 - libraft-headers=23.02.*
 - libraft-nn=23.02.*
+- ninja
 - nvcc_linux-64=11.5
 - rmm=23.02.*
 - sysroot_linux-64==2.17
