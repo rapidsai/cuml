@@ -41,7 +41,6 @@ dependencies:
 - libraft-nn=23.02.*
 - nltk
 - numpydoc
-- nvcc_linux-64=11.5
 - pip
 - pylibraft=23.02.*
 - pytest

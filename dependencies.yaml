@@ -7,7 +7,6 @@ files:
       arch: [x86_64]
     includes:
       - common_build
-      - cpp_build
       - cpp_run
       - cudatoolkit
       - doc
@@ -22,7 +21,6 @@ files:
       arch: [x86_64]
     includes:
       - common_build
-      - cpp_build
       - cpp_run
       - cudatoolkit
   checks:
@@ -85,40 +83,6 @@ dependencies:
             packages:
               - gcc_linux-aarch64=9.*
               - sysroot_linux-aarch64==2.17
-  cpp_build:
-    specific:
-      - output_types: conda
-        matrices:
-          - matrix:
-              arch: x86_64
-              cuda: "11.5"
-            packages:
-              - nvcc_linux-64=11.5
-          - matrix:
-              arch: aarch64
-              cuda: "11.5"
-            packages:
-              - nvcc_linux-aarch64=11.5
-          - matrix:
-              arch: x86_64
-              cuda: "11.4"
-            packages:
-              - nvcc_linux-64=11.4
-          - matrix:
-              arch: aarch64
-              cuda: "11.4"
-            packages:
-              - nvcc_linux-aarch64=11.4
-          - matrix:
-              arch: x86_64
-              cuda: "11.2"
-            packages:
-              - nvcc_linux-64=11.2
-          - matrix:
-              arch: aarch64
-              cuda: "11.2"
-            packages:
-              - nvcc_linux-aarch64=11.2
   py_build:
     common:
       - output_types: [conda, requirements]
