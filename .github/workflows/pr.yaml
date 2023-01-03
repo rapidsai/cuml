@@ -18,6 +18,7 @@ jobs:
       - conda-python-build
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
+      - conda-notebook-tests
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@main
   checks:
