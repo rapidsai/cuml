@@ -15,7 +15,9 @@
 
 
 set(cython_sources
+    base.pyx
     internals.pyx
+    logger.pyx
 )
 
 rapids_cython_create_modules(

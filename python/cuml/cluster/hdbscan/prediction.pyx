@@ -22,18 +22,18 @@ from cython.operator cimport dereference as deref
 import numpy as np
 import cupy as cp
 
-import cuml
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
-from cuml.common import logger
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals import logger
+from cuml.internals.import_utils import has_hdbscan_plots
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType

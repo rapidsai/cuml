@@ -152,7 +152,6 @@ class RobustSingleLinkageParams {
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
-  bool prediction_data                              = false;
 };
 
 /**

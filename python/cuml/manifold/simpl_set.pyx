@@ -23,9 +23,9 @@ from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 import cuml.internals
-from cuml.common.base import Base
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.array import CumlArray
 
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle

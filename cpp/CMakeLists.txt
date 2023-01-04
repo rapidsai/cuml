@@ -51,7 +51,6 @@ option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
-option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
@@ -84,7 +83,6 @@ message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_
 message(VERBOSE "CUML_CPP: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
 message(VERBOSE "CUML_CPP: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
 message(VERBOSE "CUML_CPP: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
-message(VERBOSE "CUML_CPP: Building the standard NCCL+UCX Communicator: ${BUILD_CUML_STD_COMMS}")
 message(VERBOSE "CUML_CPP: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}")
 message(VERBOSE "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "CUML_CPP: Disabling OpenMP: ${DISABLE_OPENMP}")
@@ -193,7 +191,6 @@ if(SINGLEGPU)
   message(STATUS "CUML_CPP: Detected SINGLEGPU build option")
   message(STATUS "CUML_CPP: Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
-  set(BUILD_CUML_STD_COMMS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
   set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
@@ -234,11 +231,6 @@ if(all_algo OR treeshap_algo)
     rapids_export_package(BUILD GPUTreeShap cuml-exports)
     rapids_export_package(INSTALL GPUTreeShap cuml-exports)
   endif()
-endif()
-
-if(NOT SINGLEGPU)
-  include(cmake/thirdparty/get_nccl.cmake)
-  include(cmake/thirdparty/get_ucx.cmake)
 endif()
 
 if(ENABLE_CUMLPRIMS_MG)
@@ -426,6 +418,8 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/r2_score.cu
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
+        src/metrics/silhouette_score_batched_double.cu
+        src/metrics/silhouette_score_batched_float.cu
         src/metrics/trustworthiness.cu
         src/metrics/v_measure.cu)
   endif()
@@ -548,7 +542,6 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
-      $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:${NCCL_INCLUDE_DIRS}>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_INCLUDE_PATH}>
     INTERFACE
       $<INSTALL_INTERFACE:include>

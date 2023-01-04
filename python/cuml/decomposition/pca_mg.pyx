@@ -28,13 +28,13 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
 
 from pylibraft.common.handle cimport handle_t
 
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG, MGSolver
@@ -90,13 +90,14 @@ class PCAMG(BaseDecompositionMG, PCA):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCAMG *params = new paramsPCAMG()
-        params.n_components = self._n_components
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
         params.tol = self.tol
         params.algorithm = <mg_solver> (<underlying_type_t_solver> (
             self.c_algorithm))
+        self.n_features_ = n_cols
 
         return <size_t>params
 

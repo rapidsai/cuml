@@ -18,6 +18,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from itertools import dropwhile
 
 from numba import cuda
 from numbers import Number
@@ -34,9 +35,9 @@ from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
-from cuml.common.input_utils import input_to_cuml_array, is_array_like
-from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.mem_type import MemoryType
 import pytest
 
 
@@ -217,9 +218,14 @@ def as_type(type, *args):
             result.append(arg)
         else:
             # make sure X with a single feature remains 2 dimensional
-            if type == 'cudf' and len(arg.shape) > 1:
+            if type in ('cudf', 'pandas', 'df_obj') and len(arg.shape) > 1:
+                if type == 'pandas':
+                    mem_type = MemoryType.host
+                else:
+                    mem_type = None
                 result.append(input_to_cuml_array(
-                    arg).array.to_output('dataframe'))
+                    arg).array.to_output(output_type='dataframe',
+                                         output_mem_type=mem_type))
             else:
                 result.append(input_to_cuml_array(arg).array.to_output(type))
     if len(result) == 1:
@@ -403,7 +409,7 @@ class ClassEnumerator:
             for name,
             cls in classes
             if cls not in self.exclude_classes and
-            issubclass(cls, (Base, experimentalBase))
+            issubclass(cls, Base)
         }
         models.update(self.custom_constructors)
         return models
@@ -758,3 +764,24 @@ def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
         print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
               np.mean(b))
     return equal
+
+
+def normalized_shape(shape):
+    """Normalize shape to tuple."""
+    return (shape, ) if isinstance(shape, int) else shape
+
+
+def squeezed_shape(shape):
+    """Remove all trailing axes of length 1 from shape.
+
+    Similar to, but not exactly like np.squeeze().
+    """
+    return tuple(reversed(list(dropwhile(lambda d: d == 1, reversed(shape)))))
+
+
+def series_squeezed_shape(shape):
+    """Remove all but one axes of length 1 from shape."""
+    if shape:
+        return tuple([d for d in normalized_shape(shape) if d != 1]) or (1,)
+    else:
+        return ()

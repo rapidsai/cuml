@@ -25,9 +25,8 @@ import numpy as np
 import cupy as cp
 from warnings import warn
 
-from cuml.common.array import CumlArray
-from cuml.experimental.common.base import UniversalBase
-from cuml.experimental.common.base import enable_cpu
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from rmm._lib.device_uvector cimport device_uvector
@@ -35,11 +34,11 @@ from rmm._lib.device_uvector cimport device_uvector
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
-from cuml.common import logger
-from cuml.common.import_utils import has_hdbscan_plots
-from cuml.common.import_utils import has_hdbscan_prediction
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals import logger
+from cuml.internals.import_utils import has_hdbscan_plots
+from cuml.internals.import_utils import has_hdbscan_prediction
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -318,7 +317,7 @@ def delete_hdbscan_output(obj):
         del obj.hdbscan_output_
 
 
-class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
+class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     """
     HDBSCAN Clustering
@@ -420,11 +419,12 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         utilizing plotting tools. This requires the `hdbscan` CPU
         Python package t be installed.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     prediction_data : bool, optinal (default=False)
         Whether to generate extra cached data for predicting labels or

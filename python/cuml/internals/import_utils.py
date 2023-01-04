@@ -15,8 +15,11 @@
 #
 
 
-import numba
+from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 from distutils.version import LooseVersion
+
+
+numba = gpu_only_import('numba')
 
 
 def has_dask():
@@ -109,7 +112,10 @@ def check_min_dask_version(version):
 
 
 def check_min_numba_version(version):
-    return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
+    try:
+        return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
+    except UnavailableError:
+        return False
 
 
 def check_min_cupy_version(version):

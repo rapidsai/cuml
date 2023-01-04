@@ -15,9 +15,11 @@
 #
 
 from dataclasses import dataclass, field
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 import cuml
-from cuml.common.input_utils import input_to_cuml_array, determine_array_type
+from cuml.internals.input_utils import (
+    input_to_cuml_array, determine_array_type
+)
 
 
 @dataclass
@@ -54,8 +56,14 @@ class CumlArrayDescriptor():
     Python descriptor object to control getting/setting `CumlArray` attributes
     on `Base` objects. See the Estimator Guide for an in depth guide.
     """
+    def __init__(self, order='K'):
+        # order corresponds to the order that the CumlArray attribute
+        # should be in to work with the C++ algorithms.
+        self.order = order
+
     def __set_name__(self, owner, name):
         self.name = name
+        setattr(owner, name + '_order', self.order)
 
     def _get_meta(self,
                   instance,

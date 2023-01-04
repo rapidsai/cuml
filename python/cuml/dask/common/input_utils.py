@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 
 import cudf
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import cupy as cp
 import numpy as np
 import dask.array as da
 
 from collections.abc import Sequence
 
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
 from cudf import DataFrame
