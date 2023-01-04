@@ -785,6 +785,10 @@ def device_interop_preparation(init_func):
 
     @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
+        # if child class is already prepared for interop, skip
+        if hasattr(self, '_full_kwargs'):
+            return init_func(self, *args, **kwargs)
+
         # Save all kwargs
         self._full_kwargs = kwargs
         # Generate list of available cuML hyperparameters
