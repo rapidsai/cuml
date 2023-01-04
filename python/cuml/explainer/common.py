@@ -22,6 +22,7 @@ cp = gpu_only_import('cupy')
 
 
 
+
 def get_tag_from_model_func(func, tag, default=None):
     """
     Function returns the tags from the model that function `func` is bound to.
