@@ -23,7 +23,6 @@ import numpy as np
 import cupy as cp
 
 import cuml
-from cuml.common.device_selection import DeviceType
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
@@ -35,8 +34,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 from cuml.common import logger
-from cuml.common.import_utils import has_hdbscan_plots
-from cuml.common.import_utils import has_hdbscan_prediction
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -134,19 +131,7 @@ def all_points_membership_vectors(clusterer):
         The probability that point ``i`` of the original dataset is a member of
         cluster ``j`` is in ``membership_vectors[i, j]``.
     """
-    device_type = cuml.global_settings.device_type
 
-    # cpu/gpu train, cpu infer
-    if device_type == DeviceType.host:
-        assert has_hdbscan_prediction()
-        return
-
-    # cpu train, prep gpu infer
-    if device_type == DeviceType.device and hasattr(clusterer, "sk_model_"):
-        if not clusterer._cpu_to_gpu_interop_prepped:
-            clusterer._prep_cpu_to_gpu_prediction()
-
-    # gpu infer
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
                          "Please call clusterer.fit first")
