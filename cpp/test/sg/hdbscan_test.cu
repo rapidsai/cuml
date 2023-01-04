@@ -104,9 +104,6 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     hdbscan_params.min_cluster_size = params.min_cluster_size;
     hdbscan_params.min_samples      = params.min_pts;
 
-    // HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(handle, params.n_row,
-    // params.n_col);
-
     hdbscan(handle,
             data.data(),
             params.n_row,

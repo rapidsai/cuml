@@ -559,7 +559,8 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize('keys', hdbscan_model.keys())
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                                        stress_param([500000, 1000, 500])])
-def test_hdbscan_pickle(tmpdir, datatype, keys, data_size):
+@pytest.mark.parametrize('prediction_data', [True, False])
+def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
     result = {}
     from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
     from cuml.cluster.hdbscan.prediction import approximate_predict
@@ -567,19 +568,29 @@ def test_hdbscan_pickle(tmpdir, datatype, keys, data_size):
     def create_mod():
         nrows, ncols, n_info = data_size
         X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
-        model = hdbscan_model[keys](prediction_data=True)
+        model = hdbscan_model[keys](prediction_data=prediction_data)
         result["hdbscan"] = model.fit_predict(X_train)
-        result["hdbscan_all_points"] = all_points_membership_vectors(model)
-        result["hdbscan_approx"] = approximate_predict(model, X_train)
+        result["hdbscan_single_linkage_tree"] = \
+            model.single_linkage_tree_.to_numpy()
+        result["condensed_tree"] = model.condensed_tree_.to_numpy()
+        if prediction_data:
+            result["hdbscan_all_points"] = \
+                all_points_membership_vectors(model)
+            result["hdbscan_approx"] = approximate_predict(model, X_train)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
         labels = pickled_model.fit_predict(X_train)
-        all_points = all_points_membership_vectors(pickled_model)
-        approx = approximate_predict(pickled_model, X_train)
         assert array_equal(result["hdbscan"], labels)
-        assert array_equal(result["hdbscan_all_points"], all_points)
-        assert array_equal(result["hdbscan_approx"], approx)
+        assert np.all(result["hdbscan_single_linkage_tree"] ==
+                      pickled_model.single_linkage_tree_.to_numpy())
+        assert np.all(result["condensed_tree"] ==
+                      pickled_model.condensed_tree_.to_numpy())
+        if prediction_data:
+            all_points = all_points_membership_vectors(pickled_model)
+            approx = approximate_predict(pickled_model, X_train)
+            assert array_equal(result["hdbscan_all_points"], all_points)
+            assert array_equal(result["hdbscan_approx"], approx)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

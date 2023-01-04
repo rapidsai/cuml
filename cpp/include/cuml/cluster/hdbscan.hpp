@@ -471,21 +471,48 @@ void out_of_sample_predict(const raft::handle_t& handle,
                            int* out_labels,
                            float* out_probabilities);
 
-void _compute_core_dists(const raft::handle_t& handle,
-                         const float* X,
-                         float* core_dists,
-                         size_t m,
-                         size_t n,
-                         raft::distance::DistanceType metric,
-                         int min_samples);
+namespace HDBSCAN::HELPER {
 
-void _compute_inverse_label_map(const raft::handle_t& handle,
-                                HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-                                size_t n_leaves,
-                                HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
-                                rmm::device_uvector<int>& inverse_label_map,
-                                bool allow_single_cluster,
-                                int max_cluster_size,
-                                float cluster_selection_epsilon);
+/**
+ * @brief Compute the core distances for each point in the training matrix
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X array (size m, n) on device in row-major format
+ * @param[out] core_dists array (size m, 1) of core distances
+ * @param m number of rows in X
+ * @param n number of columns in X
+ * @param metric distance metric to use
+ * @param min_samples minimum number of samples to use for computing core distances
+ */
+void compute_core_dists(const raft::handle_t& handle,
+                        const float* X,
+                        float* core_dists,
+                        size_t m,
+                        size_t n,
+                        raft::distance::DistanceType metric,
+                        int min_samples);
 
+/**
+ * @brief Compute the map from final, normalize labels to the labels in the CondensedHierarchy
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree the Condensed Hiearchy object
+ * @param[in] n_leaves number of leaves in the input data
+ * @param[in] cluster_selection_method cluster selection method
+ * @param[out] inverse_label_map rmm::device_uvector of size 0. It will be resized during the
+ * computation
+ * @param[in] allow_single_cluster allow single cluster
+ * @param[in] max_cluster_size max cluster size
+ * @param[in] cluster_selection_epsilon cluster selection epsilon
+ */
+void compute_inverse_label_map(const raft::handle_t& handle,
+                               HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                               size_t n_leaves,
+                               HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                               rmm::device_uvector<int>& inverse_label_map,
+                               bool allow_single_cluster,
+                               int max_cluster_size,
+                               float cluster_selection_epsilon);
+
+}  // namespace HDBSCAN::HELPER
 }  // END namespace ML

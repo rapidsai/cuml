@@ -141,24 +141,26 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                            bool allow_single_cluster, int max_cluster_size,
                            float cluster_selection_epsilon)
 
-    void _compute_core_dists(const handle_t& handle,
-                             const float* X,
-                             float* core_dists,
-                             size_t m,
-                             size_t n,
-                             DistanceType metric,
-                             int min_samples)
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER":
 
-    void _compute_inverse_label_map(const handle_t& handle,
-                                    CondensedHierarchy[int, float]&
-                                    condensed_tree,
-                                    size_t n_leaves,
-                                    CLUSTER_SELECTION_METHOD
-                                    cluster_selection_method,
-                                    device_uvector[int]& inverse_label_map,
-                                    bool allow_single_cluster,
-                                    int max_cluster_size,
-                                    float cluster_selection_epsilon)
+    void compute_core_dists(const handle_t& handle,
+                            const float* X,
+                            float* core_dists,
+                            size_t m,
+                            size_t n,
+                            DistanceType metric,
+                            int min_samples)
+
+    void compute_inverse_label_map(const handle_t& handle,
+                                   CondensedHierarchy[int, float]&
+                                   condensed_tree,
+                                   size_t n_leaves,
+                                   CLUSTER_SELECTION_METHOD
+                                   cluster_selection_method,
+                                   device_uvector[int]& inverse_label_map,
+                                   bool allow_single_cluster,
+                                   int max_cluster_size,
+                                   float cluster_selection_epsilon)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -644,7 +646,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))
         return self.minimum_spanning_tree_
 
-    @enable_cpu
     def generate_prediction_data(self):
         """
         Create data that caches intermediate results used for predicting
@@ -743,7 +744,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
 
     @generate_docstring()
-    @enable_cpu
     def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
@@ -862,7 +862,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @enable_cpu
     def fit_predict(self, X, y=None) -> CumlArray:
         """
         Fit the HDBSCAN model from features and return
