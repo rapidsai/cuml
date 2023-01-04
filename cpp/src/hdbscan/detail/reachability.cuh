@@ -134,6 +134,34 @@ void compute_knn(const raft::handle_t& handle,
                     [] __device__(int64_t in) -> value_idx { return in; });
 }
 
+/*
+  @brief Internal function for CPU->GPU interop
+         to compute core_dists
+*/
+template <typename value_idx, typename value_t>
+void _compute_core_dists(const raft::handle_t& handle,
+                         const value_t* X,
+                         value_t* core_dists,
+                         size_t m,
+                         size_t n,
+                         raft::distance::DistanceType metric,
+                         int min_samples)
+{
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "Currently only L2 expanded distance is supported");
+
+  auto stream = handle.get_stream();
+
+  rmm::device_uvector<value_idx> inds(min_samples * m, stream);
+  rmm::device_uvector<value_t> dists(min_samples * m, stream);
+
+  // perform knn
+  compute_knn(handle, X, inds.data(), dists.data(), m, n, X, m, min_samples, metric);
+
+  // Slice core distances (distances to kth nearest neighbor)
+  core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
+}
+
 /**
  * Constructs a mutual reachability graph, which is a k-nearest neighbors
  * graph projected into mutual reachability space using the following
