@@ -27,8 +27,8 @@ from collections import OrderedDict
 from cython.operator cimport dereference as deref
 from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array

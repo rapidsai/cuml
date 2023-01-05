@@ -91,6 +91,8 @@ def test_docstring(docstring):
     # the use of an ellipsis "..." to match any string in the doctest
     # output. An ellipsis is useful for, e.g., memory addresses or
     # imprecise floating point values.
+    if docstring.name == "Handle":
+        pytest.skip("Docstring is tested in RAFT.")
     optionflags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
     runner = doctest.DocTestRunner(optionflags=optionflags)
 

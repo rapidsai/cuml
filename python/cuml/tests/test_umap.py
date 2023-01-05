@@ -34,7 +34,7 @@ from sklearn.neighbors import NearestNeighbors
 
 import joblib
 
-from cuml.common import logger
+from cuml.internals import logger
 
 from sklearn import datasets
 from sklearn.cluster import KMeans
@@ -496,8 +496,7 @@ def test_umap_knn_graph(n_neighbors):
                        init='random',
                        n_neighbors=n_neighbors)
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
-        return model.transform(data, knn_graph=knn_graph,
-                               convert_dtype=True)
+        return model.transform(data, convert_dtype=True)
 
     def test_trustworthiness(embedding):
         trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)

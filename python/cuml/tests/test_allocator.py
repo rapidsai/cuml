@@ -22,7 +22,7 @@ import numpy as np
 from cuml import LogisticRegression
 from cuml.naive_bayes import MultinomialNB
 from cuml.testing.utils import small_classification_dataset
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.input_utils import sparse_scipy_to_cp
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator

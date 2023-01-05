@@ -12,15 +12,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import cupy as cp
+import numpy as np
+from cuml.internals.array import CumlArray
 from cuml.testing.strategies import (
-    standard_regression_datasets,
+    create_cuml_array_input,
+    cuml_array_dtypes,
+    cuml_array_input_types,
+    cuml_array_inputs,
+    cuml_array_orders,
+    cuml_array_shapes,
     regression_datasets,
     split_datasets,
     standard_datasets,
+    standard_regression_datasets,
 )
+from cuml.testing.utils import normalized_shape, series_squeezed_shape
 from hypothesis import given, settings, HealthCheck
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import floating_dtypes
+
+
+@given(
+    input_type=cuml_array_input_types(),
+    dtype=cuml_array_dtypes(),
+    shape=cuml_array_shapes(),
+    order=cuml_array_orders())
+@settings(deadline=None)
+def test_cuml_array_input_elements(input_type, dtype, shape, order):
+    input_array = create_cuml_array_input(input_type, dtype, shape, order)
+    assert input_array.dtype == dtype
+    if input_type == "series":
+        assert input_array.shape == series_squeezed_shape(shape)
+    else:
+        assert input_array.shape == normalized_shape(shape)
+
+    layout_flag = f"{order}_CONTIGUOUS"
+    if input_type == "series":
+        assert input_array.values.flags[layout_flag]
+    else:
+        assert input_array.flags[layout_flag]
+
+
+@given(cuml_array_inputs())
+@settings(deadline=None)
+def test_cuml_array_inputs(array_input):
+    array = CumlArray(data=array_input)
+    assert cp.array_equal(
+        cp.asarray(array_input), array.to_output("cupy"), equal_nan=True)
+    assert np.array_equal(
+        cp.asnumpy(array_input), array.to_output("numpy"), equal_nan=True)
 
 
 @given(standard_datasets())
@@ -119,7 +160,9 @@ def test_regression_datasets(dataset):
 
 
 @given(split_datasets(regression_datasets()))
-@settings(suppress_health_check=[HealthCheck.too_slow])
+@settings(
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
+)
 def test_split_regression_datasets(split_dataset):
     X_train, X_test, y_train, y_test = split_dataset
 

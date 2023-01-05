@@ -34,6 +34,9 @@ from sklearn.preprocessing import StandardScaler
 
 import cudf
 
+import platform
+IS_ARM = platform.processor() == "aarch64"
+
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
     np.random.seed(137)
@@ -535,6 +538,8 @@ def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
     clf.predict(X_test.astype(test_dtype))
 
 
+@pytest.mark.skipif(IS_ARM, reason="Test fails unexpectedly on ARM. "
+                                   "github.com/rapidsai/cuml/issues/5100")
 def test_svm_no_support_vectors():
     n_rows = 10
     n_cols = 3

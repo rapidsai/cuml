@@ -1,5 +1,5 @@
-#=============================================================================
-# Copyright (c) 2021, NVIDIA CORPORATION.
+#
+# Copyright (c) 2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +12,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
-
-function(find_and_configure_ucx)
-
-    rapids_find_generate_module(ucx
-        HEADER_NAMES  ucp/api/ucp.h
-        LIBRARY_NAMES ucp
-    )
-
-    # Currently UCX has no CMake build-system so we require
-    # it built and installed on the machine already
-    rapids_find_package(ucx REQUIRED)
-
-endfunction()
-
-find_and_configure_ucx()
+#
+CUML_WRAPPED_FLAG = "__cuml_is_wrapped"

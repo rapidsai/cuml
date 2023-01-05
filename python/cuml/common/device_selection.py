@@ -15,38 +15,22 @@
 #
 
 
-import cuml
-import contextlib
-from enum import Enum, auto
-
-
-class DeviceType(Enum):
-    host = auto(),
-    device = auto()
-
-    @staticmethod
-    def from_str(device_type):
-        if isinstance(device_type, str):
-            device_type = device_type.lower()
-
-        if device_type in ['cpu', 'host']:
-            return DeviceType.host
-        elif device_type in ['gpu', 'device']:
-            return DeviceType.device
-        else:
-            raise ValueError('Parameter device_type must be one of "cpu" or '
-                             '"gpu"')
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.device_type import DeviceType
 
 
 def set_global_device_type(device_type):
-    cuml.global_settings.device_type = DeviceType.from_str(device_type)
+    GlobalSettings().device_type = DeviceType.from_str(device_type)
 
 
-@contextlib.contextmanager
-def using_device_type(device_type):
-    prev_device_type = cuml.global_settings.device_type
-    try:
-        set_global_device_type(device_type)
-        yield prev_device_type
-    finally:
-        cuml.global_settings.device_type = prev_device_type
+class using_device_type:
+    def __init__(self, device_type):
+        self.device_type = device_type
+        self.prev_device_type = None
+
+    def __enter__(self):
+        self.prev_device_type = GlobalSettings().device_type
+        set_global_device_type(self.device_type)
+
+    def __exit__(self, *_):
+        set_global_device_type(self.prev_device_type)

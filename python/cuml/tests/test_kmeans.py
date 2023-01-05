@@ -16,7 +16,7 @@
 import random
 
 import cuml
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import numpy as np
 import pytest
 
