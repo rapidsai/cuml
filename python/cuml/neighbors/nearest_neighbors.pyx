@@ -328,8 +328,8 @@ class NearestNeighbors(Base,
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
-        self.effective_metric_ = metric
-        self.effective_metric_params_ = metric_params if metric_params else {}
+        self.metric = metric
+        self.metric_params = metric_params
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
@@ -905,20 +905,21 @@ class NearestNeighbors(Base,
         return sparse_csr
 
     @property
-    def metric(self):
-        return self.effective_metric_
+    def effective_metric_(self):
+        return self.metric
 
-    @metric.setter
-    def metric(self, val):
-        self.effective_metric_ = val
+    @effective_metric_.setter
+    def effective_metric_(self, val):
+        self.metric = val
 
     @property
-    def metric_params(self):
-        return self.effective_metric_params_
+    def effective_metric_params_(self):
+        metric_params = self.metric_params
+        return metric_params if metric_params else {}
 
-    @metric_params.setter
-    def metric_params(self, val):
-        self.effective_metric_params_ = val
+    @effective_metric_params_.setter
+    def effective_metric_params_(self, val):
+        self.metric_params = val
 
     def __del__(self):
         cdef knnIndex* knn_index = <knnIndex*>0
