@@ -32,23 +32,24 @@ from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.experimental.common.base import Base
-from cuml.common.mixins import FMajorInputTagMixin, \
-    SparseInputTagMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.decomposition.utils cimport *
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -111,7 +112,7 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base,
+class PCA(UniversalBase,
           FMajorInputTagMixin,
           SparseInputTagMixin):
 
@@ -229,11 +230,12 @@ class PCA(Base,
         Whitening allows each component to have unit variance and removes
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -405,7 +407,8 @@ class PCA(Base,
         return self
 
     @generate_docstring(X='dense_sparse')
-    def _fit(self, X, y=None) -> "PCA":
+    @enable_device_interop
+    def fit(self, X, y=None) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
@@ -495,7 +498,8 @@ class PCA(Base,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_return_array_skipall
-    def _fit_transform(self, X, y=None) -> CumlArray:
+    @enable_device_interop
+    def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -540,8 +544,9 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    def _inverse_transform(self, X, convert_dtype=False,
-                           return_sparse=False, sparse_tol=1e-10) -> CumlArray:
+    @enable_device_interop
+    def inverse_transform(self, X, convert_dtype=False,
+                          return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
         Transform data back to its original space.
 
@@ -641,7 +646,8 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    def _transform(self, X, convert_dtype=False) -> CumlArray:
+    @enable_device_interop
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 

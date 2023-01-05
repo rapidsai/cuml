@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import time
 from dask.distributed import default_client, wait
 
 from cuml.common import device_of_gpu_matrix
-from cuml.common.import_utils import check_min_dask_version
+from cuml.internals.import_utils import check_min_dask_version
 
 from asyncio import InvalidStateError
 

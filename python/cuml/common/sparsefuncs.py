@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ import math
 import numpy as np
 import cupy as cp
 import cupyx
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common.import_utils import has_scipy
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.import_utils import has_scipy
 import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
@@ -185,7 +185,7 @@ def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
     if has_scipy():
         from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
     else:
-        from cuml.common.import_utils import DummyClass
+        from cuml.internals.import_utils import DummyClass
         csr_matrix = DummyClass
         coo_matrix = DummyClass
         csc_matrix = DummyClass
