@@ -18,6 +18,7 @@ jobs:
       - conda-python-build
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
+      - conda-notebook-tests
       - wheel-build-cuml
       - wheel-tests-cuml
     secrets: inherit
