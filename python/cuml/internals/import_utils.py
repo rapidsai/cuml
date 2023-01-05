@@ -15,8 +15,11 @@
 #
 
 
-import numba
+from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 from distutils.version import LooseVersion
+
+
+numba = gpu_only_import('numba')
 
 
 def has_dask():
@@ -109,7 +112,10 @@ def check_min_dask_version(version):
 
 
 def check_min_numba_version(version):
-    return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
+    try:
+        return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
+    except UnavailableError:
+        return False
 
 
 def check_min_cupy_version(version):
@@ -146,6 +152,18 @@ def has_hdbscan_plots(raise_if_unavailable=True):
     except ImportError:
         if(raise_if_unavailable):
             raise ImportError("hdbscan must be installed to use plots.")
+        else:
+            return False
+
+
+def has_hdbscan_prediction(raise_if_unavailable=True):
+    try:
+        from hdbscan.prediction import PredictionData  # NOQA
+        return True
+    except ImportError:
+        if(raise_if_unavailable):
+            raise ImportError("hdbscan.prediction must be installed "
+                              "to use prediction.")
         else:
             return False
 

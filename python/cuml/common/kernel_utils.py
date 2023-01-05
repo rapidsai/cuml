@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import functools
 
 from uuid import uuid1
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 
 # Mapping of common PyData dtypes to their corresponding C-primitive
 dtype_str_map = {cp.dtype("float32"): "float",

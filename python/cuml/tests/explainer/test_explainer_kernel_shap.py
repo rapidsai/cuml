@@ -23,8 +23,8 @@ import sklearn.neighbors
 
 from cuml import Lasso
 from cuml import KernelExplainer
-from cuml.common.import_utils import has_scipy
-from cuml.common.import_utils import has_shap
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.import_utils import has_shap
 from cuml.datasets import make_regression
 
 from cuml.testing.utils import create_synthetic_dataset, ClassEnumerator, \

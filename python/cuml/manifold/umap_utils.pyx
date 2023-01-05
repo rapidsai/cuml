@@ -116,7 +116,7 @@ def find_ab_params(spread, min_dist):
     def curve(x, a, b):
         return 1.0 / (1.0 + a * x ** (2 * b))
 
-    from cuml.common.import_utils import has_scipy
+    from cuml.internals.import_utils import has_scipy
     if has_scipy():
         from scipy.optimize import curve_fit
     else:

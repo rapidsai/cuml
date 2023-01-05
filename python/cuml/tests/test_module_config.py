@@ -20,6 +20,7 @@ import cudf
 import cuml
 import cupy as cp
 import numpy as np
+import pandas as pd
 
 from numba.cuda import is_cuda_array, as_cuda_array
 
@@ -40,7 +41,7 @@ test_output_types = {
     'numpy': np.ndarray,
     'cupy': cp.ndarray,
     'cudf': cudf.Series,
-    'pandas': np.ndarray
+    'pandas': pd.Series
 }
 
 

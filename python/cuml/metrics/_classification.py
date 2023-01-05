@@ -17,7 +17,7 @@
 import cupy as cp
 import numpy as np
 import cuml.internals
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 
 
 @cuml.internals.api_return_any()
