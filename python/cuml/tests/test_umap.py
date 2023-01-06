@@ -558,6 +558,7 @@ def test_umap_precomputed_knn(precomputed_type, sparse_input):
         nn = NearestNeighbors(n_neighbors=n_neighbors)
         nn.fit(data)
         precomputed_knn = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (precomputed_knn[1], precomputed_knn[0])
     elif precomputed_type == 'pairwise':
         precomputed_knn = pairwise_distances(data)
 

@@ -201,7 +201,7 @@ class TSNE(Base,
         other than 'euclidean' and 'l2'.
     precomputed_knn : array / sparse array / tuple, optional (device or host)
         Either one of :
-            - Tuple (distances, indices) of arrays of
+            - Tuple (indices, distances) of arrays of
               shape (n_samples, n_neighbors)
             - Pairwise distances dense array of shape (n_samples, n_samples)
             - KNN graph sparse array (preferably CSR/COO)
@@ -413,7 +413,7 @@ class TSNE(Base,
         ----------
         knn_graph : array / sparse array / tuple, optional (device or host)
         Either one of :
-            - Tuple (distances, indices) of arrays of
+            - Tuple (indices, distances) of arrays of
               shape (n_samples, n_neighbors)
             - Pairwise distances dense array of shape (n_samples, n_samples)
             - KNN graph sparse array (preferably CSR/COO)
@@ -459,10 +459,10 @@ class TSNE(Base,
         cdef uintptr_t knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
             if knn_graph is not None:
-                knn_dists, knn_indices = extract_knn_infos(knn_graph,
+                knn_indices, knn_dists = extract_knn_infos(knn_graph,
                                                            self.n_neighbors)
             elif self.precomputed_knn is not None:
-                knn_dists, knn_indices = self.precomputed_knn
+                knn_indices, knn_dists = self.precomputed_knn
 
             if self.sparse_fit:
                 knn_indices, _, _, _ = \

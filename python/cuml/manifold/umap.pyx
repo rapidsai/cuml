@@ -229,7 +229,7 @@ class UMAP(UniversalBase,
         computing the hash.
     precomputed_knn : array / sparse array / tuple, optional (device or host)
         Either one of :
-            - Tuple (distances, indices) of arrays of
+            - Tuple (indices, distances) of arrays of
               shape (n_samples, n_neighbors)
             - Pairwise distances dense array of shape (n_samples, n_samples)
             - KNN graph sparse array (preferably CSR/COO)
@@ -266,7 +266,7 @@ class UMAP(UniversalBase,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle
+    handle : pylibraft.common.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
@@ -508,7 +508,7 @@ class UMAP(UniversalBase,
         ----------
         knn_graph : array / sparse array / tuple, optional (device or host)
         Either one of :
-            - Tuple (distances, indices) of arrays of
+            - Tuple (indices, distances) of arrays of
               shape (n_samples, n_neighbors)
             - Pairwise distances dense array of shape (n_samples, n_samples)
             - KNN graph sparse array (preferably CSR/COO)
@@ -549,10 +549,10 @@ class UMAP(UniversalBase,
         cdef uintptr_t knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
             if knn_graph is not None:
-                knn_dists, knn_indices = extract_knn_infos(knn_graph,
+                knn_indices, knn_dists = extract_knn_infos(knn_graph,
                                                            self.n_neighbors)
             elif self.precomputed_knn is not None:
-                knn_dists, knn_indices = self.precomputed_knn
+                knn_indices, knn_dists = self.precomputed_knn
 
             if self.sparse_fit:
                 knn_indices, _, _, _ = \

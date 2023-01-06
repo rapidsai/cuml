@@ -211,7 +211,7 @@ def extract_knn_graph(knn_graph):
 
     if knn_indices is not None:
         knn_dists = knn_graph.data
-        return knn_dists, knn_indices
+        return knn_indices, knn_dists
     else:
         return None
 
@@ -219,6 +219,14 @@ def extract_knn_graph(knn_graph):
 @with_cupy_rmm
 def extract_pairwise_dists(pw_dists, n_neighbors):
     """
+    Extract the nearest neighbors distances and indices
+    from a pairwise distance matrix.
+
+    Parameters
+    ----------
+        pw_dists: paiwise distances matrix of shape (n_samples, n_samples)
+        n_neighbors: number of nearest neighbors
+
     (inspired from Scikit-Learn code)
     """
     pw_dists, _, _, _ = input_to_cupy_array(pw_dists)
@@ -230,11 +238,25 @@ def extract_pairwise_dists(pw_dists, n_neighbors):
     argdist = cp.argsort(pw_dists[sample_range, knn_indices])
     knn_indices = knn_indices[sample_range, argdist]
     knn_dists = pw_dists[sample_range, knn_indices]
-    return knn_dists, knn_indices
+    return knn_indices, knn_dists
 
 
 @with_cupy_rmm
 def extract_knn_infos(knn_info, n_neighbors):
+    """
+    Extract the nearest neighbors distances and indices
+    from the knn_info parameter.
+
+    Parameters
+    ----------
+        knn_info : array / sparse array / tuple, optional (device or host)
+        Either one of :
+            - Tuple (indices, distances) of arrays of
+              shape (n_samples, n_neighbors)
+            - Pairwise distances dense array of shape (n_samples, n_samples)
+            - KNN graph sparse array (preferably CSR/COO)
+        n_neighbors: number of nearest neighbors
+    """
     if knn_info is None:
         # no KNN was provided
         return None
@@ -256,14 +278,7 @@ def extract_knn_infos(knn_info, n_neighbors):
             results = extract_pairwise_dists(knn_info, n_neighbors)
 
     if results is not None:
-        knn_dists, knn_indices = results
-
-        knn_dists_m, _, _, _ = \
-            input_to_cuml_array(knn_dists.flatten(),
-                                order='C',
-                                deepcopy=deepcopy,
-                                check_dtype=np.float32,
-                                convert_to_dtype=np.float32)
+        knn_indices, knn_dists = results
 
         knn_indices_m, _, _, _ = \
             input_to_cuml_array(knn_indices.flatten(),
@@ -272,6 +287,13 @@ def extract_knn_infos(knn_info, n_neighbors):
                                 check_dtype=np.int64,
                                 convert_to_dtype=np.int64)
 
-        return knn_dists_m, knn_indices_m
+        knn_dists_m, _, _, _ = \
+            input_to_cuml_array(knn_dists.flatten(),
+                                order='C',
+                                deepcopy=deepcopy,
+                                check_dtype=np.float32,
+                                convert_to_dtype=np.float32)
+
+        return knn_indices_m, knn_dists_m
     else:
         return None
