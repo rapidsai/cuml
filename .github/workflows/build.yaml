@@ -20,12 +20,6 @@ on:
       build_type:
         type: string
         default: nightly
-      wheel_versioneer_override:
-        type: string
-        default: ''
-      wheel_build_tag:
-        type: string
-        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -69,7 +63,6 @@ jobs:
       date: ${{ inputs.date }}
       package-name: cuml
       package-dir: python
-      versioneer-override: ${{ inputs.wheel_versioneer_override }}
 
       # Note that this approach to cloning repos obviates any modification to
       # the CMake variables in get_cumlprims_mg.cmake since CMake will just use
@@ -90,4 +83,3 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: cuml
-      build-tag: ${{ inputs.wheel_build_tag }}
