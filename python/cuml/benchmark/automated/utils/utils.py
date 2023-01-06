@@ -34,10 +34,7 @@ import time
 import math
 import itertools as it
 import warnings
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 import pytest
 from cuml.benchmark import datagen, algorithms
@@ -51,6 +48,9 @@ from cuml.benchmark.bench_helper_funcs import pass_func, fit, predict, \
                                               transform, kneighbors, \
                                               fit_predict, fit_transform, \
                                               fit_kneighbors
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+cudf = gpu_only_import('cudf')
 
 
 def distribute(client, data):
