@@ -14,9 +14,11 @@
 #
 
 import pytest
-import numpy as np
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 from cuml.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 

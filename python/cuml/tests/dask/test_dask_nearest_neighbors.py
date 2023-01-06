@@ -15,12 +15,15 @@
 
 import pytest
 
-import cudf
-import dask_cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+dask_cudf = gpu_only_import('dask_cudf')
 
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+pd = cpu_only_import('pandas')
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.common import has_scipy
 

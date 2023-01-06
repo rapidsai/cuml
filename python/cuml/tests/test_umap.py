@@ -17,13 +17,15 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import pytest
 import umap
 import copy
 
-import cupyx
-import scipy.sparse
+from cuml.internals.safe_imports import gpu_only_import
+cupyx = gpu_only_import('cupyx')
+scipy_sparse = cpu_only_import('scipy.sparse')
 import cupy as cp
 
 from cuml.manifold.umap import UMAP as cuUMAP
@@ -159,10 +161,10 @@ def test_umap_transform_on_digits_sparse(target_metric, input_type,
     if input_type == 'cupy':
         sp_prefix = cupyx.scipy.sparse
     else:
-        sp_prefix = scipy.sparse
+        sp_prefix = scipy_sparse
 
     data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data[digits_selection]))
+        scipy_sparse.csr_matrix(digits.data[digits_selection]))
 
     fitter = cuUMAP(n_neighbors=15,
                     verbose=logger.level_info,
@@ -173,7 +175,7 @@ def test_umap_transform_on_digits_sparse(target_metric, input_type,
                     target_metric=target_metric)
 
     new_data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data[~digits_selection]))
+        scipy_sparse.csr_matrix(digits.data[~digits_selection]))
 
     if xform_method == 'fit':
         fitter.fit(data, convert_dtype=True)
@@ -610,7 +612,7 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
     if metric == 'jaccard':
         data = data >= 0
 
-    new_data = scipy.sparse.csr_matrix(data[~data_selection])
+    new_data = scipy_sparse.csr_matrix(data[~data_selection])
 
     umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
                            metric=metric, init='random')

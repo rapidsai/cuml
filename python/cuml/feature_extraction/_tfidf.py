@@ -15,8 +15,9 @@
 #
 import cuml.internals
 from cuml.common.exceptions import NotFittedError
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml.internals.array import CumlArray

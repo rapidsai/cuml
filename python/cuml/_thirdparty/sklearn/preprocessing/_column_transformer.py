@@ -24,14 +24,18 @@ from contextlib import contextmanager
 from collections import defaultdict
 import warnings
 
-from scipy import sparse as sp_sparse
-from cupyx.scipy import sparse as cu_sparse
-import numpy as cpu_np
-import cupy as np
-import numba
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
 
-import pandas as pd
-import cudf
+cpu_np = cpu_only_import('numpy')
+cu_sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+np = gpu_only_import('cupy')
+numba = gpu_only_import('numba')
+pd = cpu_only_import('pandas')
+sp_sparse = cpu_only_import_from('scipy', 'sparse')
+cudf = gpu_only_import('cudf')
 
 import cuml
 from cuml.internals.global_settings import _global_settings_data

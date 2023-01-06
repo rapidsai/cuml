@@ -15,9 +15,11 @@
 
 import pytest
 
-import numpy as np
-import cupy as cp
-import cupyx as cpx
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
 from cuml._thirdparty.sklearn.utils.validation import check_X_y
 
 from cuml._thirdparty.sklearn.utils.extmath import row_norms as cu_row_norms, \

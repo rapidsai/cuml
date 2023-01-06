@@ -25,9 +25,11 @@ from cuml.dask.neighbors import NearestNeighbors
 from dask.dataframe import Series as DaskSeries
 import dask.array as da
 from uuid import uuid1
-import numpy as np
-import pandas as pd
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 
 class KNeighborsClassifier(NearestNeighbors):

@@ -24,7 +24,8 @@ from sklearn.datasets import make_blobs
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.utils import get_pattern, array_equal
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.internals import logger
 
@@ -33,7 +34,8 @@ from hdbscan.plots import CondensedTree
 
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 test_datasets = {
  "digits": datasets.load_digits(),

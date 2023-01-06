@@ -29,7 +29,8 @@
 from cuml.feature_extraction._vectorizers import CountVectorizer
 from cuml.feature_extraction._tfidf import TfidfTransformer
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 class TfidfVectorizer(CountVectorizer):

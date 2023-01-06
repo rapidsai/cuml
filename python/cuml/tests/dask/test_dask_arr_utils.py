@@ -17,10 +17,13 @@ import pytest
 
 from cuml.testing.utils import array_equal
 
-import dask_cudf
-import cudf
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+dask_cudf = gpu_only_import('dask_cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 from cuml.dask.common.dask_arr_utils import validate_dask_array

@@ -16,7 +16,8 @@
 
 import pytest
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.tsa import auto_arima
 from cuml.internals.input_utils import input_to_cuml_array

@@ -15,7 +15,8 @@
 #
 
 import cuml.internals.logger as logger
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import nvtx
 
 from cuml.common import has_scipy

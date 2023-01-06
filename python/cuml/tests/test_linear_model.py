@@ -13,8 +13,10 @@
 # limitations under the License.
 #
 from functools import lru_cache
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import pytest
 from hypothesis import (
     assume,
@@ -26,7 +28,7 @@ from hypothesis import (
 )
 from hypothesis.extra.numpy import floating_dtypes
 from distutils.version import LooseVersion
-import cudf
+cudf = gpu_only_import('cudf')
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
@@ -46,9 +48,10 @@ from cuml.testing.utils import (
     quality_param,
     stress_param,
 )
-import rmm
+rmm = gpu_only_import('rmm')
 
-from scipy.sparse import csr_matrix
+from cuml.internals.safe_imports import cpu_only_import_from
+csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
 
 import sklearn
 from sklearn.datasets import make_regression, make_classification, load_digits

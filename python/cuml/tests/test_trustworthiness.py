@@ -19,8 +19,10 @@ from cuml.metrics import trustworthiness as cuml_trustworthiness
 from sklearn.datasets import make_blobs
 from umap import UMAP
 
-import cudf
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 @pytest.mark.parametrize('input_type', ['ndarray', 'dataframe'])

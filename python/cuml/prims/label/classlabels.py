@@ -15,7 +15,8 @@
 #
 
 import typing
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import math
 from cuml.internals.input_utils import input_to_cupy_array
 

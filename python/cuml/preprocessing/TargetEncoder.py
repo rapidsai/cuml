@@ -14,10 +14,14 @@
 # limitations under the License.
 #
 
-import cudf
-import pandas
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import
+pandas = cpu_only_import('pandas')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml.common.exceptions import NotFittedError
 import warnings
 

@@ -16,18 +16,21 @@
 
 import pytest
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 import cuml
 from cuml.neighbors import KNeighborsClassifier as cuKNN
 from sklearn.neighbors import KNeighborsClassifier as skKNN
 
 from sklearn.datasets import make_blobs
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml.testing.utils import array_equal
 
-import pandas as pd
-import cupy as cp
+pd = cpu_only_import('pandas')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 def _build_train_test_data(X, y, datatype, train_ratio=0.9):

@@ -15,9 +15,11 @@
 #
 
 
-import cupy as cp
-import cupyx as cpx
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 from math import ceil
 
 

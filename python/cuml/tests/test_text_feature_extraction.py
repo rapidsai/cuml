@@ -16,16 +16,20 @@
 from cuml.feature_extraction.text import CountVectorizer
 from cuml.feature_extraction.text import TfidfVectorizer
 from cuml.feature_extraction.text import HashingVectorizer
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import pytest
 from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
 from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
 
 from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
-from cudf import Series
-from numpy.testing import assert_array_equal
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import gpu_only_import_from
+Series = gpu_only_import_from('cudf', 'Series')
+from cuml.internals.safe_imports import cpu_only_import_from
+assert_array_equal = cpu_only_import_from('numpy.testing', 'assert_array_equal')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
 
 def test_count_vectorizer():

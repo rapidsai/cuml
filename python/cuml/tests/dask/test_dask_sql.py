@@ -14,10 +14,12 @@
 #
 
 import cuml
-import cudf
-import dask_cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+dask_cudf = gpu_only_import('dask_cudf')
 import pytest
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml.internals.import_utils import has_dask_sql
 
 from sklearn.linear_model import LogisticRegression

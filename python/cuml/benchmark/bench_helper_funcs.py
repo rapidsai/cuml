@@ -16,12 +16,15 @@
 import os
 import cuml
 from cuml.internals import input_utils
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 import pickle as pickle
 import sklearn.ensemble as skl_ensemble
-import cudf
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 from cuml.benchmark import datagen
 from cuml.manifold import UMAP
 

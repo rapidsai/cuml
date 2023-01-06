@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 import pytest
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml.testing.utils import array_equal, assert_array_equal
 from hypothesis import given, note
 from hypothesis import strategies as st

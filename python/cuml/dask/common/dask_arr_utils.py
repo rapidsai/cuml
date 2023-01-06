@@ -14,10 +14,12 @@
 #
 
 
-import numpy as np
-import cupy as cp
-import cupyx
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+cudf = gpu_only_import('cudf')
 import dask
 import dask.dataframe as dd
 

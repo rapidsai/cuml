@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from collections import OrderedDict
 
 from functools import reduce
@@ -25,7 +26,8 @@ from toolz import first
 from dask.array.core import Array as daskArray
 from dask.dataframe import DataFrame as daskDataFrame
 from dask.dataframe import Series as daskSeries
-from dask_cudf.core import DataFrame as dcDataFrame
+from cuml.internals.safe_imports import gpu_only_import_from
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import parse_host_port

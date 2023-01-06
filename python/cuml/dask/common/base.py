@@ -15,9 +15,11 @@
 #
 
 import cudf.comm.serialize  # noqa: F401
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import dask
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from toolz import first
 from collections.abc import Iterable
 
@@ -31,7 +33,8 @@ from cuml.dask.common import parts_to_ranks
 from cuml.internals import BaseMetaClass
 from cuml.internals.base import Base
 
-from dask_cudf.core import DataFrame as dcDataFrame
+from cuml.internals.safe_imports import gpu_only_import_from
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 from dask_cudf.core import Series as dcSeries
 from functools import wraps
 

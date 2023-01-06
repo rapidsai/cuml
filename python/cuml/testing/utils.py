@@ -14,13 +14,16 @@
 import inspect
 from textwrap import dedent, indent
 
-import cupy as cp
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 from copy import deepcopy
 from itertools import dropwhile
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 from numbers import Number
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
@@ -33,7 +36,7 @@ from sklearn.datasets import make_classification, make_regression
 from sklearn.metrics import mean_squared_error, brier_score_loss
 from sklearn.model_selection import train_test_split
 
-import cudf
+cudf = gpu_only_import('cudf')
 import cuml
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like

@@ -25,8 +25,10 @@ from cuml.common import with_cupy_rmm
 
 import dask.array as da
 
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 def _create_covariance(dims, seed, dtype='float32'):

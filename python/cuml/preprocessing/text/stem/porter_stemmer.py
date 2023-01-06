@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 
-import cudf
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 from .porter_stemmer_utils.suffix_utils import (
     get_stem_series,
     get_str_replacement_series,

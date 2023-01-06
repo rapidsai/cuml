@@ -17,8 +17,9 @@ import math
 import warnings
 import nvtx
 
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base

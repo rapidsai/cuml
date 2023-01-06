@@ -16,9 +16,11 @@
 
 
 import numbers
-import numpy as np
-import cupy as cp
-import cupyx.scipy.sparse as sp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+sp = gpu_only_import('cupyx.scipy.sparse')
 from inspect import isclass
 
 from ....common.exceptions import NotFittedError

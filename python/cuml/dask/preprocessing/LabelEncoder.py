@@ -19,7 +19,8 @@ from cuml.dask.common.base import DelayedInverseTransformMixin
 from toolz import first
 
 from collections.abc import Sequence
-from dask_cudf.core import DataFrame as dcDataFrame
+from cuml.internals.safe_imports import gpu_only_import_from
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 from dask_cudf.core import Series as daskSeries
 from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing import LabelEncoder as LE

@@ -16,11 +16,15 @@
 
 import pytest
 
-import cupy as cp
-import cupyx as cpx
-import numpy as np
-from cupyx.scipy.sparse import coo_matrix
-from scipy import stats
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import_from
+coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
+from cuml.internals.safe_imports import cpu_only_import_from
+stats = cpu_only_import_from('scipy', 'stats')
 
 from cuml.thirdparty_adapters.adapters import check_array, \
     _get_mask as cu_get_mask, \

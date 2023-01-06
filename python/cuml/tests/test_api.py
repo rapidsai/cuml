@@ -17,9 +17,11 @@
 import pytest
 import cuml
 import cuml.internals.mixins as cumix
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import inspect
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.internals.base import Base
 from cuml.testing.utils import ClassEnumerator

@@ -13,10 +13,13 @@
 import numbers
 import warnings
 
-import numpy
-import cupy as np
+from cuml.internals.safe_imports import cpu_only_import
+numpy = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+np = gpu_only_import('cupy')
 import cuml
-from cupyx.scipy import sparse
+from cuml.internals.safe_imports import gpu_only_import_from
+sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 
 from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_median,

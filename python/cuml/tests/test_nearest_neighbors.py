@@ -29,13 +29,17 @@ from cuml.metrics import pairwise_distances as cuPW
 
 from cuml.internals import logger
 
-import cupy as cp
-import cupyx
-import cudf
-import pandas as pd
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import
+pd = cpu_only_import('pandas')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from numpy.testing import assert_array_equal, assert_allclose
-from scipy.sparse import isspmatrix_csr
+from cuml.internals.safe_imports import cpu_only_import_from
+isspmatrix_csr = cpu_only_import_from('scipy.sparse', 'isspmatrix_csr')
 
 import sklearn
 import cuml

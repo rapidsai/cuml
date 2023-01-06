@@ -16,7 +16,8 @@
 
 # distutils: language = c++
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 import cuml.internals
 from cuml.metrics.utils import sorted_unique_labels

@@ -13,10 +13,12 @@
 # limitations under the License.
 #
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import pytest
-import scipy
-import cupyx
+scipy = cpu_only_import('scipy')
+from cuml.internals.safe_imports import gpu_only_import
+cupyx = gpu_only_import('cupyx')
 
 from cuml.manifold import TSNE
 from cuml.testing.utils import array_equal, stress_param

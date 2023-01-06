@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.dask.common.utils import get_client

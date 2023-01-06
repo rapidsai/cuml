@@ -14,10 +14,14 @@
 #
 
 import pytest
-import numpy as np
-import cupy as cp
-from scipy.sparse import csr_matrix as scipy_csr_matrix
-from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import_from
+scipy_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
+from cuml.internals.safe_imports import gpu_only_import_from
+cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
 import dask.array as da
 import dask
 

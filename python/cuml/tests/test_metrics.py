@@ -22,10 +22,12 @@ from functools import partial
 
 import cuml
 import cuml.internals.logger as logger
-import cupy as cp
-import cupyx
-import numpy as np
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cudf = gpu_only_import('cudf')
 
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
@@ -36,8 +38,10 @@ from cuml.testing.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
 
-from numba import cuda
-from numpy.testing import assert_almost_equal
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+from cuml.internals.safe_imports import cpu_only_import_from
+assert_almost_equal = cpu_only_import_from('numpy.testing', 'assert_almost_equal')
 
 from sklearn.metrics import hinge_loss as sk_hinge
 from sklearn.datasets import make_classification, make_blobs
@@ -79,7 +83,7 @@ from sklearn.metrics import precision_recall_curve \
 from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
     PAIRWISE_DISTANCE_METRICS, PAIRWISE_DISTANCE_SPARSE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
-from scipy.spatial import distance as scipy_pairwise_distances
+scipy_pairwise_distances = cpu_only_import_from('scipy.spatial', 'distance')
 from scipy.special import rel_entr as scipy_kl_divergence
 from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
 from cuml.metrics.cluster import v_measure_score

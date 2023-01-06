@@ -29,9 +29,12 @@ from sklearn.model_selection import train_test_split
 import dask.array as da
 import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cudf import DataFrame
-import numpy as np
-import cudf
+from cuml.internals.safe_imports import gpu_only_import_from
+DataFrame = gpu_only_import_from('cudf', 'DataFrame')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 
 def generate_dask_array(np_array, n_parts):

@@ -16,7 +16,8 @@
 
 import pytest
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 from cuml.neighbors import KNeighborsRegressor as cuKNN
 
@@ -24,13 +25,16 @@ from sklearn.datasets import make_blobs
 
 from sklearn.utils.validation import check_random_state
 from sklearn.model_selection import train_test_split
-from numpy.testing import assert_array_almost_equal
+from cuml.internals.safe_imports import cpu_only_import_from
+assert_array_almost_equal = cpu_only_import_from('numpy.testing', 'assert_array_almost_equal')
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.testing.utils import array_equal
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 def test_kneighbors_regressor(n_samples=40,

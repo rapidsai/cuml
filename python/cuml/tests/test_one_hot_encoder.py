@@ -13,11 +13,14 @@
 # limitations under the License.
 import math
 
-import cupy as cp
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 import pytest
-from cudf import DataFrame
+from cuml.internals.safe_imports import gpu_only_import_from
+DataFrame = gpu_only_import_from('cudf', 'DataFrame')
 from cuml.preprocessing import OneHotEncoder
 from cuml.testing.utils import \
     stress_param, \

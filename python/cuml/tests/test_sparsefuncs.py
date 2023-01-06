@@ -18,10 +18,12 @@ from sklearn.utils.sparsefuncs_fast import inplace_csr_row_normalize_l1
 from sklearn.utils.sparsefuncs_fast import inplace_csr_row_normalize_l2
 
 import pytest
-import numpy as np
-import scipy.sparse as sp
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+sp = cpu_only_import('scipy.sparse')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 @pytest.mark.parametrize('norm, ref_norm', [

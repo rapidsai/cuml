@@ -32,16 +32,19 @@
 
 import pytest
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import os
 import warnings
 
-import pandas as pd
-from scipy.optimize.optimize import approx_fprime
+pd = cpu_only_import('pandas')
+from cuml.internals.safe_imports import cpu_only_import_from
+approx_fprime = cpu_only_import_from('scipy.optimize.optimize', 'approx_fprime')
 from sklearn.model_selection import train_test_split
 import statsmodels.api as sm
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 import cuml.tsa.arima as arima
 from cuml.internals.input_utils import input_to_host_array
 

@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
-from cupy import linalg
-import numpy as np
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import gpu_only_import_from
+linalg = gpu_only_import_from('cupy', 'linalg')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cuda = gpu_only_import_from('numba', 'cuda')
 from cuml import KernelRidge as cuKernelRidge
 from cuml.metrics import pairwise_kernels, PAIRWISE_KERNEL_FUNCTIONS
 from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels

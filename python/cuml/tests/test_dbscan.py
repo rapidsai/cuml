@@ -13,8 +13,10 @@
 # limitations under the License.
 #
 
-import numpy as np
-from numpy.testing import assert_raises
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import cpu_only_import_from
+assert_raises = cpu_only_import_from('numpy.testing', 'assert_raises')
 import pytest
 
 from cuml.testing.utils import get_handle

@@ -21,7 +21,8 @@ from cuml.dask.linear_model import Lasso
 from cuml.metrics import r2_score
 from cuml.testing.utils import unit_param, quality_param, stress_param
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 @pytest.mark.mg

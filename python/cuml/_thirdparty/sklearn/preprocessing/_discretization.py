@@ -12,8 +12,10 @@
 
 
 import numbers
-import cupy as np
-import numpy as cpu_np
+from cuml.internals.safe_imports import gpu_only_import
+np = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+cpu_np = cpu_only_import('numpy')
 import warnings
 
 from cuml.preprocessing import OneHotEncoder

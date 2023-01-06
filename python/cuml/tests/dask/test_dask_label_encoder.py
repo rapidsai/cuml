@@ -13,12 +13,15 @@
 # limitations under the License.
 import cuml
 from cuml.dask.preprocessing.LabelEncoder import LabelEncoder
-import cudf
-import numpy as np
-import dask_cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+dask_cudf = gpu_only_import('dask_cudf')
 import pytest
 from cuml.common.exceptions import NotFittedError
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 def _arr_to_similarity_mat(arr):

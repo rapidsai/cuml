@@ -16,11 +16,14 @@
 
 import pytest
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 import cuml
-import cupy as cp
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
 from numba.cuda import is_cuda_array, as_cuda_array
 

@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-import cupy
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
 
 from dask_ml.wrappers import ParallelPostFit
 
@@ -24,10 +25,12 @@ from cuml.testing.dask.utils import load_text_corpus
 from cuml.dask.datasets import make_blobs
 
 import cuml
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import pytest
 
-from numpy.testing import assert_equal
+from cuml.internals.safe_imports import cpu_only_import_from
+assert_equal = cpu_only_import_from('numpy.testing', 'assert_equal')
 
 from cuml.dask.linear_model import LinearRegression
 

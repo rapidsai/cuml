@@ -17,8 +17,10 @@ import gc
 import multiprocessing as mp
 import time
 import math
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import pytest
 import cuml.datasets as data
 import cuml.model_selection as dsel

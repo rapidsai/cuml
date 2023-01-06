@@ -14,8 +14,10 @@
 # limitations under the License.
 #
 
-import cudf
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml.preprocessing.text.stem.porter_stemmer_utils.len_flags_utils import (
     len_eq_n,
     len_gt_n,

@@ -16,7 +16,8 @@
 
 import pytest
 import cuml
-import cupy
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
 
 from cuml.pipeline import Pipeline, make_pipeline
 from cuml.model_selection import GridSearchCV

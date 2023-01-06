@@ -18,8 +18,10 @@
 import nvtx
 import numbers
 from collections.abc import Iterable
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import cuml.internals
 from cuml.datasets.utils import _create_rs_generator
 

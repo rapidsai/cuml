@@ -30,14 +30,17 @@
 # limitations under the License.
 #
 
-import cudf
-import cupy as cp
-import dask_cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+dask_cudf = gpu_only_import('dask_cudf')
 import pytest
 import json
 
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
 from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg

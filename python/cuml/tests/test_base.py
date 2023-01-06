@@ -17,6 +17,7 @@ import inspect
 
 import cuml
 import pytest
+from cuml.internals.safe_imports import cpu_only_import
 import numpydoc.docscrape
 
 from pylibraft.common.cuda import Stream

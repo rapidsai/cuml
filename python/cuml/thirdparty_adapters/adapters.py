@@ -14,21 +14,25 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
 from cuml.internals.global_settings import GlobalSettings
-from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
-from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
+from cuml.internals.safe_imports import gpu_only_import_from
+gpu_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+gpu_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
-from scipy.sparse import csr_matrix as cpu_csr_matrix
+from cuml.internals.safe_imports import cpu_only_import_from
+cpu_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
 from scipy.sparse import csc_matrix as cpu_csc_matrix
 from scipy.sparse import csc_matrix as cpu_coo_matrix
 from scipy import sparse as cpu_sparse
 from cupyx.scipy import sparse as gpu_sparse
 
-from pandas import DataFrame as pdDataFrame
-from cudf import DataFrame as cuDataFrame
+pdDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+cuDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 
 numeric_types = [
     np.int8, np.int16, np.int32, np.int64,

@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
-from scipy.sparse import issparse
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import_from
+issparse = cpu_only_import_from('scipy.sparse', 'issparse')
 
 import cuml
 from cuml import KMeans

@@ -19,9 +19,11 @@ import pytest
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 
-import scipy.sparse
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+scipy_sparse = cpu_only_import('scipy.sparse')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 test_input_types = [
     'cupy', 'scipy'
@@ -34,7 +36,7 @@ test_input_types = [
 @pytest.mark.parametrize('convert_format', [True, False])
 def test_input(input_type, sparse_format, dtype, convert_format):
 
-    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
+    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy_sparse
 
     X = rand_func.random(100, 100, format=sparse_format,
                          density=0.5,
@@ -72,7 +74,7 @@ def test_nonsparse_input_fails():
 @pytest.mark.parametrize('input_type', test_input_types)
 def test_convert_to_dtype(input_type):
 
-    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
+    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy_sparse
 
     X = rand_func.random(100, 100, format='csr', density=0.5, dtype=cp.float64)
 
@@ -92,7 +94,7 @@ def test_convert_to_dtype(input_type):
 @pytest.mark.parametrize('input_type', test_input_types)
 def test_convert_index(input_type):
 
-    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
+    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy_sparse
 
     X = rand_func.random(100, 100, format='csr', density=0.5, dtype=cp.float64)
 
@@ -117,7 +119,7 @@ def test_convert_index(input_type):
 @pytest.mark.parametrize('output_format', [None, 'coo', 'csc'])
 def test_output(input_type, output_type, dtype, output_format):
 
-    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy.sparse
+    rand_func = cupyx.scipy.sparse if input_type == 'cupy' else scipy_sparse
 
     X = rand_func.random(100, 100, format='csr', density=0.5, dtype=dtype)
 
@@ -127,11 +129,11 @@ def test_output(input_type, output_type, dtype, output_format):
 
     if output_type == 'scipy':
         if output_format is None:
-            assert isinstance(output, scipy.sparse.csr_matrix)
+            assert isinstance(output, scipy_sparse.csr_matrix)
         elif output_format == 'coo':
-            assert isinstance(output, scipy.sparse.coo_matrix)
+            assert isinstance(output, scipy_sparse.coo_matrix)
         elif output_format == 'csc':
-            assert isinstance(output, scipy.sparse.csc_matrix)
+            assert isinstance(output, scipy_sparse.csc_matrix)
         else:
             pytest.fail("unecpected output format")
     else:

@@ -13,10 +13,11 @@
 # limitations under the License.
 #
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import pytest
 import os
-import pandas as pd
+pd = cpu_only_import('pandas')
 from math import ceil
 
 from cuml import ForestInference

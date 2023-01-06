@@ -29,7 +29,8 @@ import cuml.naive_bayes
 from cuml.dask import neighbors, cluster, manifold, \
     decomposition, linear_model  # noqa: F401
 from cuml.internals.import_utils import has_umap
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import tempfile
 
 from cuml.preprocessing import StandardScaler, MinMaxScaler, \

@@ -19,12 +19,15 @@ from cuml.benchmark.runners import AccuracyComparisonRunner, \
 from cuml.internals.import_utils import has_umap
 from cuml.internals.import_utils import has_xgboost
 
-import numpy as np
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 import pytest
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 from sklearn import metrics
-import pandas as pd
+pd = cpu_only_import('pandas')
 
 import time
 

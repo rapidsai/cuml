@@ -17,10 +17,12 @@
 import json
 import pytest
 import treelite
-import numpy as np
-import pandas as pd
-import cupy as cp
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cudf = gpu_only_import('cudf')
 from hypothesis import given, settings, assume, HealthCheck, strategies as st
 from cuml.explainer.tree_shap import TreeExplainer
 from cuml.internals.import_utils import has_lightgbm, has_shap

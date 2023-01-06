@@ -18,8 +18,9 @@
 # Based on
 # https://github.com/h2oai/h2o4gpu/blob/master/examples/py/demos/H2O4GPU_KMeans_Homesite.ipynb
 # as received on December 6th 2018
-import pandas as pd
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+pd = cpu_only_import('pandas')
+np = cpu_only_import('numpy')
 import sys
 import os
 

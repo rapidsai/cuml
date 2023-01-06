@@ -14,7 +14,8 @@
 # limitations under the License.
 #
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 

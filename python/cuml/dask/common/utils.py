@@ -16,7 +16,8 @@
 import dask
 import logging
 import os
-import numba.cuda
+from cuml.internals.safe_imports import gpu_only_import
+numba_cuda = gpu_only_import('numba.cuda')
 import random
 import time
 
@@ -73,14 +74,14 @@ def select_device(dev, close=True):
     :param dev: int device to select
     :param close: bool close the cuda context and create new one?
     """
-    if numba.cuda.get_current_device().id != dev:
+    if numba_cuda.get_current_device().id != dev:
         logging.warning("Selecting device " + str(dev))
         if close:
-            numba.cuda.close()
-        numba.cuda.select_device(dev)
-        if dev != numba.cuda.get_current_device().id:
+            numba_cuda.close()
+        numba_cuda.select_device(dev)
+        if dev != numba_cuda.get_current_device().id:
             logging.warning("Current device " +
-                            str(numba.cuda.get_current_device()) +
+                            str(numba_cuda.get_current_device()) +
                             " does not match expected " + str(dev))
 
 

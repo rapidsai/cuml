@@ -16,10 +16,13 @@
 
 # distutils: language = c++
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import warnings
-from cupy import linalg
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import_from
+linalg = gpu_only_import_from('cupy', 'linalg')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base

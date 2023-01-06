@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from sklearn.model_selection import train_test_split
 
 rng = np.random.RandomState(seed=2021)

@@ -15,10 +15,14 @@
 
 import pytest
 
-import cudf
-import numpy as np
-from pandas import DataFrame as pdDataFrame
-from cudf import DataFrame as cuDataFrame
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import cpu_only_import_from
+pdDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+from cuml.internals.safe_imports import gpu_only_import_from
+cuDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 
 from cuml.compose import \
     ColumnTransformer as cuColumnTransformer, \

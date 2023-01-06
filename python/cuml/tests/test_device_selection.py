@@ -17,9 +17,11 @@
 import itertools as it
 import pytest
 import cuml
-import numpy as np
-import pandas as pd
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 import pickle
 import inspect
 from importlib import import_module

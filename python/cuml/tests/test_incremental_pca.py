@@ -15,8 +15,9 @@
 #
 
 import pytest
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 from sklearn.decomposition import IncrementalPCA as skIPCA
 

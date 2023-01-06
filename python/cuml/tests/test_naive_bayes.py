@@ -14,7 +14,8 @@
 # limitations under the License.
 #
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 import pytest
 
@@ -37,7 +38,8 @@ from sklearn.naive_bayes import GaussianNB as skGNB
 
 import math
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])

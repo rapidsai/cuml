@@ -14,9 +14,12 @@
 # limitations under the License.
 #
 import inspect
-from numba import cuda
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import cuml.internals
 from cuml.metrics import pairwise_distances
 from cuml.internals.input_utils import input_to_cupy_array

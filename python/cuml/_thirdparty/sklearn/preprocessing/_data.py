@@ -20,10 +20,14 @@ import numbers
 import warnings
 from itertools import combinations_with_replacement as combinations_w_r
 
-import numpy as cpu_np
-import cupy as np
-from cupyx.scipy import sparse
-from scipy import stats
+from cuml.internals.safe_imports import cpu_only_import
+cpu_np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+np = gpu_only_import('cupy')
+from cuml.internals.safe_imports import gpu_only_import_from
+sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+from cuml.internals.safe_imports import cpu_only_import_from
+stats = cpu_only_import_from('scipy', 'stats')
 from scipy import optimize
 from scipy.special import boxcox
 
