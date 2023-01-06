@@ -75,6 +75,7 @@ class LabelBinarizer(BaseEstimator):
         >>> cluster.close()
 
     """
+
     def __init__(self, *, client=None, **kwargs):
 
         super().__init__(client=client, **kwargs)
@@ -218,7 +219,7 @@ class LabelBinarizer(BaseEstimator):
         f = [dask.array.from_delayed(
             inv_func(internal_model, part, threshold),
             dtype=dtype, shape=(cp.nan,), meta=meta)
-             for w, part in parts]
+            for w, part in parts]
 
         arr = dask.array.concatenate(f, axis=0,
                                      allow_unknown_chunksizes=True)

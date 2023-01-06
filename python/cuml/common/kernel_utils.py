@@ -14,16 +14,14 @@
 # limitations under the License.
 #
 
+import cuml.internals.logger as logger
+from uuid import uuid1
+import functools
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
-import functools
-
-from uuid import uuid1
-
-import cuml.internals.logger as logger
 
 # Mapping of common PyData dtypes to their corresponding C-primitive
 dtype_str_map = {cp.dtype("float32"): "float",

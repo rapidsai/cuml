@@ -13,34 +13,31 @@
 # limitations under the License.
 #
 
-import pytest
-
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cpx = gpu_only_import('cupyx')
-from cuml._thirdparty.sklearn.utils.validation import check_X_y
-
-from cuml._thirdparty.sklearn.utils.extmath import row_norms as cu_row_norms, \
-    _incremental_mean_and_var as cu_incremental_mean_and_var
-from sklearn.utils.extmath import row_norms as sk_row_norms, \
-    _incremental_mean_and_var as sk_incremental_mean_and_var
-
-from cuml._thirdparty.sklearn.utils.sparsefuncs import \
-    inplace_csr_column_scale as cu_inplace_csr_column_scale, \
-    inplace_csr_row_scale as cu_inplace_csr_row_scale, \
-    inplace_column_scale as cu_inplace_column_scale, \
-    mean_variance_axis as cu_mean_variance_axis, \
-    min_max_axis as cu_min_max_axis
+from cuml.testing.test_preproc_utils import assert_allclose
 from sklearn.utils.sparsefuncs import \
     inplace_csr_column_scale as sk_inplace_csr_column_scale, \
     inplace_csr_row_scale as sk_inplace_csr_row_scale, \
     inplace_column_scale as sk_inplace_column_scale, \
     mean_variance_axis as sk_mean_variance_axis, \
     min_max_axis as sk_min_max_axis
+from cuml._thirdparty.sklearn.utils.sparsefuncs import \
+    inplace_csr_column_scale as cu_inplace_csr_column_scale, \
+    inplace_csr_row_scale as cu_inplace_csr_row_scale, \
+    inplace_column_scale as cu_inplace_column_scale, \
+    mean_variance_axis as cu_mean_variance_axis, \
+    min_max_axis as cu_min_max_axis
+from sklearn.utils.extmath import row_norms as sk_row_norms, \
+    _incremental_mean_and_var as sk_incremental_mean_and_var
+from cuml._thirdparty.sklearn.utils.extmath import row_norms as cu_row_norms, \
+    _incremental_mean_and_var as cu_incremental_mean_and_var
+from cuml._thirdparty.sklearn.utils.validation import check_X_y
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
 
-from cuml.testing.test_preproc_utils import assert_allclose
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
 
 
 @pytest.fixture(scope="session")
@@ -186,15 +183,15 @@ def test_min_max_axis(failure_logger, sparse_random_dataset, axis, ignore_nan):
                 params=["cupy-csr", "cupy-csc"])
 def sparse_extremes(request, random_seed):
     X = cp.array([
-       [-0.9933658, 0.871748, 0.44418066],
-       [0.87808335, cp.nan, 0.18183318],
-       [cp.nan, 0.25030251, -0.7269053],
-       [cp.nan, 0.17725405, cp.nan],
-       [cp.nan, cp.nan, cp.nan],
-       [0.0, 0.0, 0.44418066],
-       [0.0, 0.0, 0.0],
-       [0.0, 0.0, cp.nan],
-       [0.0, cp.nan, cp.nan]])
+        [-0.9933658, 0.871748, 0.44418066],
+        [0.87808335, cp.nan, 0.18183318],
+        [cp.nan, 0.25030251, -0.7269053],
+        [cp.nan, 0.17725405, cp.nan],
+        [cp.nan, cp.nan, cp.nan],
+        [0.0, 0.0, 0.44418066],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, cp.nan],
+        [0.0, cp.nan, cp.nan]])
     if request.param == 'cupy-csr':
         X_sparse = cpx.scipy.sparse.csr_matrix(X)
     elif request.param == 'cupy-csc':

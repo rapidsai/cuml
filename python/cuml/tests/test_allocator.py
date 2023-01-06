@@ -14,17 +14,17 @@
 # limitations under the License.
 #
 
+from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.testing.utils import small_classification_dataset
+from cuml.naive_bayes import MultinomialNB
+from cuml import LogisticRegression
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
-from cuml import LogisticRegression
-from cuml.naive_bayes import MultinomialNB
-from cuml.testing.utils import small_classification_dataset
-from cuml.internals.input_utils import sparse_scipy_to_cp
 
 try:
     from cupy.cuda import using_allocator as cupy_using_allocator

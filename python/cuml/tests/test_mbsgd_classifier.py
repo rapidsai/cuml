@@ -12,19 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from cuml.datasets import make_classification
+from sklearn.linear_model import SGDClassifier
+from cuml.testing.utils import unit_param, quality_param, stress_param
+from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-
-from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
-from sklearn.linear_model import SGDClassifier
-from cuml.datasets import make_classification
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
 
 
 @pytest.fixture(scope="module", params=[

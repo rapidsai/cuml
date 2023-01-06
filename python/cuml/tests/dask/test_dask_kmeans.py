@@ -13,20 +13,16 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
+from cuml.metrics import adjusted_rand_score
+import dask.array as da
+from cuml.testing.utils import stress_param
+from cuml.testing.utils import quality_param
+from cuml.testing.utils import unit_param
+import pytest
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-import pytest
-
-from cuml.testing.utils import unit_param
-from cuml.testing.utils import quality_param
-from cuml.testing.utils import stress_param
-
-import dask.array as da
-
-from cuml.metrics import adjusted_rand_score
-from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
-
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg

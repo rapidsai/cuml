@@ -13,43 +13,39 @@
 # limitations under the License.
 #
 
-import pytest
-
-from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import cpu_only_import_from
-pdDataFrame = cpu_only_import_from('pandas', 'DataFrame')
-from cuml.internals.safe_imports import gpu_only_import_from
-cuDataFrame = gpu_only_import_from('cudf', 'DataFrame')
-
-from cuml.compose import \
-    ColumnTransformer as cuColumnTransformer, \
-    make_column_transformer as cu_make_column_transformer, \
-    make_column_selector as cu_make_column_selector
-
-from sklearn.compose import \
-    ColumnTransformer as skColumnTransformer, \
-    make_column_transformer as sk_make_column_transformer, \
-    make_column_selector as sk_make_column_selector
-
-from cuml.testing.test_preproc_utils import clf_dataset, \
-    sparse_clf_dataset  # noqa: F401
-
-from cuml.preprocessing import \
-    StandardScaler as cuStandardScaler, \
-    Normalizer as cuNormalizer, \
-    PolynomialFeatures as cuPolynomialFeatures, \
-    OneHotEncoder as cuOneHotEncoder
-
+from cuml.testing.test_preproc_utils import assert_allclose
 from sklearn.preprocessing import \
     StandardScaler as skStandardScaler, \
     Normalizer as skNormalizer, \
     PolynomialFeatures as skPolynomialFeatures, \
     OneHotEncoder as skOneHotEncoder
+from cuml.preprocessing import \
+    StandardScaler as cuStandardScaler, \
+    Normalizer as cuNormalizer, \
+    PolynomialFeatures as cuPolynomialFeatures, \
+    OneHotEncoder as cuOneHotEncoder
+from sklearn.compose import \
+    ColumnTransformer as skColumnTransformer, \
+    make_column_transformer as sk_make_column_transformer, \
+    make_column_selector as sk_make_column_selector
+from cuml.compose import \
+    ColumnTransformer as cuColumnTransformer, \
+    make_column_transformer as cu_make_column_transformer, \
+    make_column_selector as cu_make_column_selector
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
+import pytest
 
-from cuml.testing.test_preproc_utils import assert_allclose
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+np = cpu_only_import('numpy')
+pdDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+cuDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+
+
+from cuml.testing.test_preproc_utils import clf_dataset, \
+    sparse_clf_dataset  # noqa: F401
 
 
 @pytest.mark.parametrize('remainder', ['drop', 'passthrough'])

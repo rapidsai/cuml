@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml import Base
+from cuml.internals.array import CumlArray
+from cuml.common.sparsefuncs import csr_diag_mul
+from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 import cuml.internals
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
-from cuml.common.sparsefuncs import csr_diag_mul
-from cuml.internals.array import CumlArray
-from cuml import Base
 
 
 def _sparse_document_frequency(X):

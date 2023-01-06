@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
+from cuml.common.kernel_utils import cuda_kernel_factory
+import cuml.internals
+import math
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-import math
 
-import cuml.internals
-from cuml.common.kernel_utils import cuda_kernel_factory
 
 cov_kernel_str = r'''
 ({0} *cov_values, {0} *gram_matrix, {0} *mean_x, {0} *mean_y, int n_cols) {

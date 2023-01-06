@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
+from cuml.common.kernel_utils import cuda_kernel_factory
+import math
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-import math
-
-from cuml.common.kernel_utils import cuda_kernel_factory
 
 
 def _binarize_kernel(x_dtype):

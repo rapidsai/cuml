@@ -12,22 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.internals.safe_imports import cpu_only_import
+import cuml.internals.logger as logger
+from cudf.utils.dtypes import min_signed_type
+from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
+import numbers
+from cuml.internals.safe_imports import gpu_only_import
+from functools import partial
+from cuml.common.sparsefuncs import create_csr_matrix_from_count_df
+from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import gpu_only_import_from
 Series = gpu_only_import_from('cudf', 'Series')
-from cuml.common.exceptions import NotFittedError
-from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
-from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
-from cuml.common.sparsefuncs import create_csr_matrix_from_count_df
 
-from functools import partial
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-import numbers
 cudf = gpu_only_import('cudf')
-from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
-from cudf.utils.dtypes import min_signed_type
-import cuml.internals.logger as logger
-from cuml.internals.safe_imports import cpu_only_import
 pd = cpu_only_import('pandas')
 
 

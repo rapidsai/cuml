@@ -13,13 +13,12 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg

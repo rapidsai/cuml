@@ -17,9 +17,9 @@
 # DEPRECATED: to be removed once full migration to CumlArray is done
 # remaining usages: blobs.pyx, regression.pyx
 
+from numba.cuda.cudadrv.driver import driver
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
-from numba.cuda.cudadrv.driver import driver
 
 
 @cuda.jit

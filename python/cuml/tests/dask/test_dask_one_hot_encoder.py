@@ -12,22 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import gpu_only_import
-dask_cudf = gpu_only_import('dask_cudf')
-import pytest
-from cudf import DataFrame, Series
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-import dask.array as da
-from cuml.dask.preprocessing import OneHotEncoder
+from cuml.internals.safe_imports import cpu_only_import_from
+from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from cuml.testing.utils import \
     stress_param, \
     generate_inputs_from_categories, assert_inverse_equal, from_df_to_numpy
-from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
-from cuml.internals.safe_imports import cpu_only_import_from
-assert_frame_equal = cpu_only_import_from('pandas.testing', 'assert_frame_equal')
+from cuml.dask.preprocessing import OneHotEncoder
+import dask.array as da
+from cuml.internals.safe_imports import cpu_only_import
+from cudf import DataFrame, Series
+import pytest
+from cuml.internals.safe_imports import gpu_only_import
+dask_cudf = gpu_only_import('dask_cudf')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+assert_frame_equal = cpu_only_import_from(
+    'pandas.testing', 'assert_frame_equal')
 
 
 @pytest.mark.mg

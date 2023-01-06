@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 
 from cuml.internals.array import CumlArray
@@ -21,7 +22,6 @@ from cuml.internals.array_sparse import SparseCumlArray
 
 from cuml.internals.safe_imports import cpu_only_import
 scipy_sparse = cpu_only_import('scipy.sparse')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 

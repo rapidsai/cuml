@@ -133,6 +133,7 @@ class TfidfVectorizer(CountVectorizer):
     This class is largely based on scikit-learn 0.23.1's TfIdfVectorizer code,
     which is provided under the BSD-3 license.
     """
+
     def __init__(self, input=None, encoding=None, decode_error=None,
                  strip_accents=None, lowercase=True, preprocessor=None,
                  tokenizer=None, stop_words=None, token_pattern=None,

@@ -14,17 +14,15 @@
 # limitations under the License.
 #
 
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml import Base
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml import Base
-from cuml.internals.safe_imports import cpu_only_import_from
 pdSeries = cpu_only_import_from('pandas', 'Series')
-
-from cuml.common.exceptions import NotFittedError
 
 
 class LabelEncoder(Base):

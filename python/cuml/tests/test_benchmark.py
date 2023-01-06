@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.benchmark.bench_helper_funcs import fit, fit_predict
+import time
+from sklearn import metrics
+from cuml.internals.safe_imports import gpu_only_import_from
+import pytest
+from cuml.internals.safe_imports import gpu_only_import
 from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.bench_helper_funcs import _training_data_to_numpy
 from cuml.benchmark.runners import AccuracyComparisonRunner, \
@@ -21,17 +27,10 @@ from cuml.internals.import_utils import has_xgboost
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-import pytest
-from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
-from sklearn import metrics
 pd = cpu_only_import('pandas')
 
-import time
-
-from cuml.benchmark.bench_helper_funcs import fit, fit_predict
 
 pytestmark = pytest.mark.skip
 

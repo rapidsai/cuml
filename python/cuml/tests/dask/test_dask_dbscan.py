@@ -13,17 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-import pytest
-
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import pairwise_distances
+from sklearn.datasets import make_blobs
+from sklearn.cluster import DBSCAN as skDBSCAN
 from cuml.testing.utils import get_pattern, unit_param, \
     quality_param, stress_param, array_equal, assert_dbscan_equal
-
-from sklearn.cluster import DBSCAN as skDBSCAN
-from sklearn.datasets import make_blobs
-from sklearn.metrics import pairwise_distances
-from sklearn.preprocessing import StandardScaler
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 @pytest.mark.mg
@@ -113,9 +111,9 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype,
 
 @pytest.mark.mg
 @pytest.mark.parametrize("name", [
-                                 'noisy_moons',
-                                 'blobs',
-                                 'no_structure'])
+    'noisy_moons',
+    'blobs',
+    'no_structure'])
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(500000)])
 # Vary the eps to get a range of core point counts
@@ -160,9 +158,9 @@ def test_dbscan_sklearn_comparison(name, nrows, eps, client):
 
 @pytest.mark.mg
 @pytest.mark.parametrize("name", [
-                                 'noisy_moons',
-                                 'blobs',
-                                 'no_structure'])
+    'noisy_moons',
+    'blobs',
+    'no_structure'])
 def test_dbscan_default(name, client):
     from cuml.dask.cluster.dbscan import DBSCAN as cuDBSCAN
 

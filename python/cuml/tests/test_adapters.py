@@ -14,37 +14,34 @@
 # limitations under the License.
 #
 
-import pytest
-
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cpx = gpu_only_import('cupyx')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import_from
-coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
-from cuml.internals.safe_imports import cpu_only_import_from
-stats = cpu_only_import_from('scipy', 'stats')
-
-from cuml.thirdparty_adapters.adapters import check_array, \
-    _get_mask as cu_get_mask, \
-    _masked_column_median, \
-    _masked_column_mean, \
-    _masked_column_mode
-
-from sklearn.utils._mask import _get_mask as sk_get_mask
-
+import platform
+from sklearn.preprocessing import normalize as sk_normalize
+from cuml.testing.test_preproc_utils import assert_allclose
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
     csr_mean_variance_axis0, \
     csc_mean_variance_axis0, \
     _csc_mean_variance_axis0, \
     inplace_csr_row_normalize_l1, \
     inplace_csr_row_normalize_l2
+from sklearn.utils._mask import _get_mask as sk_get_mask
+from cuml.thirdparty_adapters.adapters import check_array, \
+    _get_mask as cu_get_mask, \
+    _masked_column_median, \
+    _masked_column_mean, \
+    _masked_column_mode
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
+import pytest
 
-from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.preprocessing import normalize as sk_normalize
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
+np = cpu_only_import('numpy')
+coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
+stats = cpu_only_import_from('scipy', 'stats')
 
-import platform
+
 IS_ARM = platform.processor() == "aarch64"
 
 

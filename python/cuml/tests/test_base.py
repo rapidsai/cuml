@@ -26,7 +26,7 @@ from cuml.testing.utils import \
     get_classes_from_package, \
     small_classification_dataset
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
-                                                            as sklBaseEstimator
+    as sklBaseEstimator
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
@@ -154,7 +154,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
 # ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
 def test_base_children_get_param_names(child_class: str):
-
     """
     This test ensures that the arguments in `Base.__init__` are available in
     all derived classes `get_param_names`

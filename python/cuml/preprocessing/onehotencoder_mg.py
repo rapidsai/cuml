@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.preprocessing.encoders import OneHotEncoder
 import dask
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import gpu_only_import_from
 DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 class OneHotEncoderMG(OneHotEncoder):

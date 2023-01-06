@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-import pytest
-
-from cuml import TruncatedSVD as cuTSVD
-from cuml.testing.utils import get_handle
+from sklearn.utils import check_random_state
+from sklearn.decomposition import TruncatedSVD as skTSVD
+from sklearn.datasets import make_blobs
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
-
-from sklearn.datasets import make_blobs
-from sklearn.decomposition import TruncatedSVD as skTSVD
-from sklearn.utils import check_random_state
+from cuml.testing.utils import get_handle
+from cuml import TruncatedSVD as cuTSVD
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])

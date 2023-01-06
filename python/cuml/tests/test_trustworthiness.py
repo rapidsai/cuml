@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
@@ -21,7 +22,6 @@ from umap import UMAP
 
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
 

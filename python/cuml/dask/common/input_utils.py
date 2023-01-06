@@ -15,40 +15,34 @@
 #
 
 
-from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
+import dask.dataframe as dd
+from functools import reduce
+from toolz import first
+from dask.distributed import default_client
+from dask.distributed import wait
+from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.utils import get_client
+from dask_cudf.core import Series as dcSeries
+from dask.dataframe import Series as daskSeries
+from dask.dataframe import DataFrame as daskDataFrame
+from cudf import Series
+from cuml.internals.safe_imports import gpu_only_import_from
+from collections import OrderedDict
+from cuml.internals.memory_utils import with_cupy_rmm
+from collections.abc import Sequence
+import dask.array as da
+from cuml.internals.safe_imports import cpu_only_import
 import cuml.internals.logger as logger
 from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import dask.array as da
 
-from collections.abc import Sequence
 
-from cuml.internals.memory_utils import with_cupy_rmm
-
-from collections import OrderedDict
-from cuml.internals.safe_imports import gpu_only_import_from
 DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-from cudf import Series
-from dask.dataframe import DataFrame as daskDataFrame
-from dask.dataframe import Series as daskSeries
 dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
-from dask_cudf.core import Series as dcSeries
-
-from cuml.dask.common.utils import get_client
-from cuml.dask.common.dask_df_utils import to_dask_cudf
-from cuml.dask.common.dask_arr_utils import validate_dask_array
-from cuml.dask.common.part_utils import _extract_partitions
-
-from dask.distributed import wait
-from dask.distributed import default_client
-from toolz import first
-
-from functools import reduce
-
-import dask.dataframe as dd
 
 
 class DistributedDataHandler:
@@ -152,7 +146,6 @@ class DistributedDataHandler:
 
 
 def _get_datatype_from_inputs(data):
-
     """
     Gets the datatype from a distributed data input.
 

@@ -14,14 +14,18 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from .porter_stemmer_utils.suffix_utils import (
-    get_stem_series,
-    get_str_replacement_series,
-    replace_suffix,
+from .porter_stemmer_utils.measure_utils import (
+    has_positive_measure,
+    measure_gt_n,
+    measure_eq_n,
+)
+from .porter_stemmer_utils.len_flags_utils import (
+    len_eq_n,
+    len_gt_n,
+)
+from .porter_stemmer_utils.consonant_vowel_utils import (
+    contains_vowel,
+    is_consonant,
 )
 from .porter_stemmer_utils.porter_stemmer_rules import (
     ends_with_suffix,
@@ -30,19 +34,14 @@ from .porter_stemmer_utils.porter_stemmer_rules import (
     last_char_in,
     ends_cvc,
 )
-from .porter_stemmer_utils.consonant_vowel_utils import (
-    contains_vowel,
-    is_consonant,
+from .porter_stemmer_utils.suffix_utils import (
+    get_stem_series,
+    get_str_replacement_series,
+    replace_suffix,
 )
-from .porter_stemmer_utils.len_flags_utils import (
-    len_eq_n,
-    len_gt_n,
-)
-from .porter_stemmer_utils.measure_utils import (
-    has_positive_measure,
-    measure_gt_n,
-    measure_eq_n,
-)
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
 
 
 # Implementation based on nltk//stem/porter.html

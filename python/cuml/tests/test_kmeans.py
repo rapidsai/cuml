@@ -13,24 +13,22 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import adjusted_rand_score
+from sklearn import cluster
+from cuml.testing.utils import get_pattern, unit_param, \
+    quality_param, stress_param, array_equal
+from cuml.datasets import make_blobs
+import pytest
 import random
 
 import cuml
 import cuml.internals.logger as logger
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import pytest
 
-from cuml.datasets import make_blobs
 
-from cuml.testing.utils import get_pattern, unit_param, \
-    quality_param, stress_param, array_equal
-
-from sklearn import cluster
-from sklearn.metrics import adjusted_rand_score
-from sklearn.preprocessing import StandardScaler
-
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 

@@ -14,10 +14,12 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 from cuml.testing.utils import unit_param, \
-                            quality_param, \
-                            stress_param
+    quality_param, \
+    stress_param
 
 from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
@@ -31,9 +33,7 @@ import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.internals.safe_imports import gpu_only_import_from
 DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
 
 

@@ -13,19 +13,18 @@
 # limitations under the License.
 #
 
+from typing import Union
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.common import input_to_cuml_array
+from cuml.internals.array import array_to_memory_order
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
-from cuml.internals.array import array_to_memory_order
-from cuml.common import input_to_cuml_array
-from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
-from typing import Union
 
 
 def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,

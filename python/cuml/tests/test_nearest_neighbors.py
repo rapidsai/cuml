@@ -14,6 +14,13 @@
 # limitations under the License.
 #
 
+import gc
+from cuml.common import has_scipy
+import cuml
+import sklearn
+from cuml.internals.safe_imports import cpu_only_import_from
+from numpy.testing import assert_array_equal, assert_allclose
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 import math
 
@@ -33,18 +40,9 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import cpu_only_import
 pd = cpu_only_import('pandas')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from numpy.testing import assert_array_equal, assert_allclose
-from cuml.internals.safe_imports import cpu_only_import_from
 isspmatrix_csr = cpu_only_import_from('scipy.sparse', 'isspmatrix_csr')
-
-import sklearn
-import cuml
-from cuml.common import has_scipy
-import gc
 
 
 pytestmark = pytest.mark.filterwarnings("ignore:((.|\n)*)#4020((.|\n)*):"
@@ -204,7 +202,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     (4, 10000, 128, 8),
     (8, 100, 512, 8),
     (8, 10000, 512, 16),
-    ])
+])
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
@@ -289,9 +287,9 @@ def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
 
 @pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
 @pytest.mark.parametrize("metric", [
-        "l2", "euclidean", "sqeuclidean",
-        "cosine", "correlation"
-    ])
+    "l2", "euclidean", "sqeuclidean",
+    "cosine", "correlation"
+])
 def test_ann_distances_metrics(algo, metric):
     X, y = make_blobs(n_samples=500, centers=2,
                       n_features=128, random_state=0)
@@ -479,7 +477,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     ("dataframe", "distance", "numpy", True),
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
-    ])
+])
 @pytest.mark.parametrize('nrows', [unit_param(100), stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), stress_param(100)])
 @pytest.mark.parametrize("p", [2, 5])

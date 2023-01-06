@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
 import contextlib
 import doctest
 import inspect
@@ -21,8 +23,6 @@ import io
 import cuml
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
 
 

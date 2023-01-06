@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.preprocessing import LabelBinarizer
 from cuml.testing.utils import array_equal
@@ -21,7 +22,6 @@ from sklearn.preprocessing import LabelBinarizer as skLB
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 

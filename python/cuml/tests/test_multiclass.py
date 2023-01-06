@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml import LogisticRegression as cuLog
+from cuml import multiclass as cu_multiclass
+import sys
+import pytest
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import pytest
-import sys
 
-from cuml import multiclass as cu_multiclass
-from cuml import LogisticRegression as cuLog
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, '.')

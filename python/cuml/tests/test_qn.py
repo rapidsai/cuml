@@ -13,16 +13,15 @@
 # limitations under the License.
 #
 
+from cuml.metrics import accuracy_score
+from cuml.datasets.classification import make_classification
+from cuml.model_selection import train_test_split
+from cuml.solvers import QN as cuQN
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-
-from cuml.solvers import QN as cuQN
-from cuml.model_selection import train_test_split
-from cuml.datasets.classification import make_classification
-from cuml.metrics import accuracy_score
 
 
 # todo: add util functions to better compare against precomputed solutions
@@ -432,16 +431,16 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
 
 precomputed_X = [
-  [-0.2047076594847130, 0.4789433380575482],
-  [-0.5194387150567381, -0.5557303043474900],
-  [1.9657805725027142, 1.3934058329729904],
-  [0.0929078767437177, 0.2817461528302025],
-  [0.7690225676118387, 1.2464347363862822],
-  [1.0071893575830049, -1.2962211091122635],
-  [0.2749916334321240, 0.2289128789353159],
-  [1.3529168351654497, 0.8864293405915888],
-  [-2.0016373096603974, -0.3718425371402544],
-  [1.6690253095248706, -0.4385697358355719]]
+    [-0.2047076594847130, 0.4789433380575482],
+    [-0.5194387150567381, -0.5557303043474900],
+    [1.9657805725027142, 1.3934058329729904],
+    [0.0929078767437177, 0.2817461528302025],
+    [0.7690225676118387, 1.2464347363862822],
+    [1.0071893575830049, -1.2962211091122635],
+    [0.2749916334321240, 0.2289128789353159],
+    [1.3529168351654497, 0.8864293405915888],
+    [-2.0016373096603974, -0.3718425371402544],
+    [1.6690253095248706, -0.4385697358355719]]
 
 
 precomputed_y_log = [1, 1, 1, 0, 1, 0, 1, 0, 1, 0]

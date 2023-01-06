@@ -13,31 +13,30 @@
 # limitations under the License.
 #
 
+import platform
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.datasets import make_classification, make_gaussian_quantiles
+from sklearn.datasets import make_regression, make_friedman1
+from sklearn.datasets import load_iris, make_blobs
+from sklearn import svm
+from cuml.testing.utils import unit_param, quality_param, stress_param, \
+    compare_svm, compare_probabilistic_svm, svm_array_equal
+from cuml.common import input_to_cuml_array
+import cuml.svm as cu_svm
+import cuml
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-import cuml
-import cuml.svm as cu_svm
-from cuml.common import input_to_cuml_array
-from cuml.testing.utils import unit_param, quality_param, stress_param, \
-    compare_svm, compare_probabilistic_svm, svm_array_equal
-
-from sklearn import svm
-from sklearn.datasets import load_iris, make_blobs
-from sklearn.datasets import make_regression, make_friedman1
-from sklearn.datasets import make_classification, make_gaussian_quantiles
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 cudf = gpu_only_import('cudf')
 
-import platform
 IS_ARM = platform.processor() == "aarch64"
 
 

@@ -9,6 +9,15 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
+from ..preprocessing import FunctionTransformer
+from ....thirdparty_adapters import check_array
+from ..utils.validation import check_is_fitted
+from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
+    BaseEstimator
+from cuml.internals import _deprecate_pos_args
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.global_settings import _global_settings_data
+import cuml
 from itertools import chain
 from itertools import compress
 from joblib import Parallel
@@ -36,17 +45,6 @@ numba = gpu_only_import('numba')
 pd = cpu_only_import('pandas')
 sp_sparse = cpu_only_import_from('scipy', 'sparse')
 cudf = gpu_only_import('cudf')
-
-import cuml
-from cuml.internals.global_settings import _global_settings_data
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals import _deprecate_pos_args
-from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
-    BaseEstimator
-from ..utils.validation import check_is_fitted
-from ....thirdparty_adapters import check_array
-from ..preprocessing import FunctionTransformer
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
@@ -365,6 +363,7 @@ def delayed(function):
 
 class _FuncWrapper:
     """"Load the global configuration before calling the function."""
+
     def __init__(self, function):
         self.function = function
         self.config = _global_settings_data.shared_state
@@ -829,7 +828,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                     message_clsname='ColumnTransformer',
                     message=self._log_message(name, idx, len(transformers)))
                 for idx, (name, trans, column, weight) in enumerate(
-                        self._iter(fitted=fitted, replace_strings=True), 1))
+                    self._iter(fitted=fitted, replace_strings=True), 1))
         except ValueError as e:
             if "Expected 2D array, got 1D array instead" in str(e):
                 raise ValueError(_ERR_MSG_1DCOLUMN) from e
@@ -1165,6 +1164,7 @@ class make_column_selector:
            [-0.30151134,  0.        ,  1.        ,  0.        ],
            [ 0.90453403,  0.        ,  0.        ,  1.        ]])
     """
+
     def __init__(self, pattern=None, *, dtype_include=None,
                  dtype_exclude=None):
         self.pattern = pattern

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.preprocessing import LabelEncoder as LE
+from cuml.common.exceptions import NotFittedError
+from dask_cudf.core import Series as daskSeries
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
@@ -21,9 +24,6 @@ from toolz import first
 from collections.abc import Sequence
 from cuml.internals.safe_imports import gpu_only_import_from
 dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
-from dask_cudf.core import Series as daskSeries
-from cuml.common.exceptions import NotFittedError
-from cuml.preprocessing import LabelEncoder as LE
 
 
 class LabelEncoder(BaseEstimator,
@@ -120,6 +120,7 @@ class LabelEncoder(BaseEstimator,
         >>> cluster.close()
 
     """
+
     def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client,
                          verbose=verbose,

@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
 import pytest
 from cuml.dask.datasets.blobs import make_blobs
 from cuml.dask.common.input_utils import DistributedDataHandler
 import dask.array as da
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
 @pytest.mark.mg
@@ -88,7 +88,7 @@ def test_extract_partitions_shape(nrows, ncols, n_parts, input_type,
         parts = [part.result() for worker, part in ddh.gpu_futures]
         for i in range(len(parts)):
             assert (parts[i][0].shape[0] == X_len_parts[i]) and (
-                    parts[i][1].shape[0] == y_len_parts[i])
+                parts[i][1].shape[0] == y_len_parts[i])
     else:
         ddh = DistributedDataHandler.create(X, client)
         parts = [part.result() for worker, part in ddh.gpu_futures]

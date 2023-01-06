@@ -13,18 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.common.kernel_utils import cuda_kernel_factory
+import cuml.internals
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.safe_imports import gpu_only_import
 import math
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.import_utils import has_scipy
-import cuml.internals
-from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.safe_imports import gpu_only_import_from
 cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
 cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
 cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')

@@ -14,10 +14,9 @@
 # limitations under the License.
 #
 
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
 def rosenbrock(x, a=1, b=100):

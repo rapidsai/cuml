@@ -11,25 +11,23 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
+from ....internals import _deprecate_pos_args
+from ....internals.memory_utils import using_output_type
+from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals.array_sparse import SparseCumlArray
+from ....thirdparty_adapters import check_array
+from ..utils.validation import FLOAT_DTYPES
+from ..utils.validation import check_is_fitted
+from cuml.internals.mixins import SparseInputTagMixin
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.cluster import KMeans
+from cuml.preprocessing import OneHotEncoder
+import warnings
+from cuml.internals.safe_imports import cpu_only_import
 import numbers
 from cuml.internals.safe_imports import gpu_only_import
 np = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 cpu_np = cpu_only_import('numpy')
-import warnings
-
-from cuml.preprocessing import OneHotEncoder
-from cuml.cluster import KMeans
-
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from cuml.internals.mixins import SparseInputTagMixin
-from ..utils.validation import check_is_fitted
-from ..utils.validation import FLOAT_DTYPES
-from ....thirdparty_adapters import check_array
-from ....internals.array_sparse import SparseCumlArray
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.memory_utils import using_output_type
-from ....internals import _deprecate_pos_args
 
 
 def digitize(x, bins):

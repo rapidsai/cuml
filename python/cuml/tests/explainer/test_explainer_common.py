@@ -14,27 +14,25 @@
 # limitations under the License.
 #
 
+from pylibraft.common.handle import Handle
+from sklearn.linear_model import LinearRegression as skreg
+from cuml.datasets import make_regression
+from cuml.testing.utils import ClassEnumerator
+from cuml.explainer.common import model_func_call
+from cuml.explainer.common import link_dict
+from cuml.explainer.common import get_tag_from_model_func
+from cuml.explainer.common import get_link_fn_from_str_or_fn
+from cuml.explainer.common import get_handle_from_cuml_model_func
+from cuml.explainer.common import get_dtype_from_model_func
+from cuml.explainer.common import get_cai_ptr
+from cuml import PCA
+from cuml import LinearRegression as reg
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 import cuml
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import pytest
-
-from cuml import LinearRegression as reg
-from cuml import PCA
-from cuml.explainer.common import get_cai_ptr
-from cuml.explainer.common import get_dtype_from_model_func
-from cuml.explainer.common import get_handle_from_cuml_model_func
-from cuml.explainer.common import get_link_fn_from_str_or_fn
-from cuml.explainer.common import get_tag_from_model_func
-from cuml.explainer.common import link_dict
-from cuml.explainer.common import model_func_call
-from cuml.testing.utils import ClassEnumerator
-from cuml.datasets import make_regression
-from sklearn.linear_model import LinearRegression as skreg
-
-from pylibraft.common.handle import Handle
 
 
 models_config = ClassEnumerator(module=cuml)

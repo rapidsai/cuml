@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 
 from cuml.preprocessing import \
@@ -81,7 +82,6 @@ from cuml.metrics import pairwise_kernels
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cpx = gpu_only_import('cupyx')
 scipy = cpu_only_import('scipy')

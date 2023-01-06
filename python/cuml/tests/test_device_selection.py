@@ -14,32 +14,10 @@
 #
 
 
-import itertools as it
-import pytest
-import cuml
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
-from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-import pickle
-import inspect
-from importlib import import_module
-from pytest_cases import fixture_union, pytest_fixture_plus
-from sklearn.datasets import make_regression, make_blobs
-from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
-from sklearn.decomposition import PCA as skPCA
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import LogisticRegression as skLogisticRegression
-from sklearn.linear_model import Lasso as skLasso
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
-from umap import UMAP as refUMAP
-from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.decomposition import PCA, TruncatedSVD
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import using_memory_type
+from cuml.testing.test_preproc_utils import to_output_type
+from cuml.neighbors import NearestNeighbors
+from cuml.metrics import trustworthiness
+from cuml.manifold import UMAP
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -47,10 +25,32 @@ from cuml.linear_model import (
     LogisticRegression,
     Ridge
 )
-from cuml.manifold import UMAP
-from cuml.metrics import trustworthiness
-from cuml.neighbors import NearestNeighbors
-from cuml.testing.test_preproc_utils import to_output_type
+from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.mem_type import MemoryType
+from cuml.decomposition import PCA, TruncatedSVD
+from cuml.common.device_selection import DeviceType, using_device_type
+from umap import UMAP as refUMAP
+from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import Lasso as skLasso
+from sklearn.linear_model import LogisticRegression as skLogisticRegression
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.decomposition import PCA as skPCA
+from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.datasets import make_regression, make_blobs
+from pytest_cases import fixture_union, pytest_fixture_plus
+from importlib import import_module
+import inspect
+import pickle
+from cuml.internals.safe_imports import gpu_only_import
+import itertools as it
+import pytest
+import cuml
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
@@ -154,11 +154,11 @@ def fixture_generation_helper(params):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True],
-                    'normalize': [False, True]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True],
+    'normalize': [False, True]
+}))
 def linreg_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -190,11 +190,11 @@ def linreg_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'penalty': ['none', 'l2'],
-                    'fit_intercept': [False, True]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'penalty': ['none', 'l2'],
+    'fit_intercept': [False, True]
+}))
 def logreg_test_data(request):
     kwargs = {
         'penalty': request.param['penalty'],
@@ -229,11 +229,11 @@ def logreg_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True],
-                    'selection': ['cyclic', 'random']
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True],
+    'selection': ['cyclic', 'random']
+}))
 def lasso_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -266,11 +266,11 @@ def lasso_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True],
-                    'selection': ['cyclic', 'random']
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True],
+    'selection': ['cyclic', 'random']
+}))
 def elasticnet_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -303,10 +303,10 @@ def elasticnet_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True]
+}))
 def ridge_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -338,10 +338,10 @@ def ridge_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['cupy'],
-                    'n_components': [2, 16],
-                    'init': ['spectral', 'random']
-                }))
+    'input_type': ['cupy'],
+    'n_components': [2, 16],
+    'init': ['spectral', 'random']
+}))
 def umap_test_data(request):
     kwargs = {
         'n_neighbors': 12,
@@ -377,10 +377,10 @@ def umap_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'n_components': [2, 8]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'n_components': [2, 8]
+}))
 def pca_test_data(request):
     kwargs = {
         'n_components': request.param['n_components'],
@@ -414,10 +414,10 @@ def pca_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'n_components': [2, 8]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'n_components': [2, 8]
+}))
 def tsvd_test_data(request):
     kwargs = {
         'n_components': request.param['n_components'],
@@ -450,11 +450,11 @@ def tsvd_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'metric': ['euclidean', 'cosine'],
-                    'n_neighbors': [3, 8]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'metric': ['euclidean', 'cosine'],
+    'n_neighbors': [3, 8]
+}))
 def nn_test_data(request):
     kwargs = {
         'metric': request.param['metric'],

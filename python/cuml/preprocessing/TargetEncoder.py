@@ -14,16 +14,14 @@
 # limitations under the License.
 #
 
+import warnings
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import cpu_only_import
 pandas = cpu_only_import('pandas')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.common.exceptions import NotFittedError
-import warnings
 
 
 def get_stat_func(stat):
@@ -92,6 +90,7 @@ class TargetEncoder:
     >>> print(test_encoded)
     [1.   0.75 0.5  1.  ]
     """
+
     def __init__(self, n_folds=4, smooth=0, seed=42,
                  split_method='interleaved', output_type='auto',
                  stat='mean'):

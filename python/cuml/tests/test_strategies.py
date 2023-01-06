@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-from cuml.internals.array import CumlArray
+from hypothesis.extra.numpy import floating_dtypes
+from hypothesis import strategies as st
+from hypothesis import given, settings, HealthCheck
+from cuml.testing.utils import normalized_shape, series_squeezed_shape
 from cuml.testing.strategies import (
     create_cuml_array_input,
     cuml_array_dtypes,
@@ -29,10 +28,11 @@ from cuml.testing.strategies import (
     standard_datasets,
     standard_regression_datasets,
 )
-from cuml.testing.utils import normalized_shape, series_squeezed_shape
-from hypothesis import given, settings, HealthCheck
-from hypothesis import strategies as st
-from hypothesis.extra.numpy import floating_dtypes
+from cuml.internals.array import CumlArray
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 @given(

@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
+import seaborn as sns
+import matplotlib.pyplot as plt
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import matplotlib.pyplot as plt
 pd = cpu_only_import('pandas')
-import seaborn as sns
 
 
 def plot_heatmap(df, col1, col2):

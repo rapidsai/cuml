@@ -17,31 +17,28 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-import pytest
-import umap
-import copy
-
-from cuml.internals.safe_imports import gpu_only_import
-cupyx = gpu_only_import('cupyx')
-scipy_sparse = cpu_only_import('scipy.sparse')
-import cupy as cp
-
-from cuml.manifold.umap import UMAP as cuUMAP
+from sklearn.metrics import adjusted_rand_score
+from sklearn.manifold import trustworthiness
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn import datasets
+from cuml.internals import logger
+import joblib
+from sklearn.neighbors import NearestNeighbors
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
-from sklearn.neighbors import NearestNeighbors
+from cuml.manifold.umap import UMAP as cuUMAP
+import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+import copy
+import umap
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import joblib
+cupyx = gpu_only_import('cupyx')
+scipy_sparse = cpu_only_import('scipy.sparse')
 
-from cuml.internals import logger
-
-from sklearn import datasets
-from sklearn.cluster import KMeans
-from sklearn.datasets import make_blobs
-from sklearn.manifold import trustworthiness
-from sklearn.metrics import adjusted_rand_score
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
@@ -300,7 +297,7 @@ def test_umap_fit_transform_score_default(target_metric):
 
     cuml_score = adjusted_rand_score(labels,
                                      KMeans(10).fit_predict(
-                                        cuml_embedding))
+                                         cuml_embedding))
     score = adjusted_rand_score(labels,
                                 KMeans(10).fit_predict(embedding))
 
@@ -607,7 +604,7 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
                               centers=5, random_state=42)
 
     data_selection = np.random.RandomState(42).choice(
-                       [True, False], 1000, replace=True, p=[0.75, 0.25])
+        [True, False], 1000, replace=True, p=[0.75, 0.25])
 
     if metric == 'jaccard':
         data = data >= 0

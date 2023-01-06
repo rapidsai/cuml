@@ -15,7 +15,19 @@
 #
 
 try:
-    from rapids_pytest_benchmark import setFixtureParamNames
+from cuml.benchmark.bench_helper_funcs import pass_func, fit, predict, \
+    transform, kneighbors, \
+    fit_predict, fit_transform, \
+    fit_kneighbors
+from copy import copy
+import dask.dataframe as df
+import dask.array as da
+from dask.distributed import wait
+from cuml.benchmark.nvtx_benchmark import Profiler
+from cuml.benchmark import datagen, algorithms
+import pytest
+from cuml.internals.safe_imports import gpu_only_import
+from rapids_pytest_benchmark import setFixtureParamNames
 except ImportError:
     print("\n\nWARNING: rapids_pytest_benchmark is not installed, "
           "falling back to pytest_benchmark fixtures.\n")
@@ -36,22 +48,8 @@ import itertools as it
 import warnings
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cudf = gpu_only_import('cudf')
-
-import pytest
-from cuml.benchmark import datagen, algorithms
-from cuml.benchmark.nvtx_benchmark import Profiler
-from dask.distributed import wait
-import dask.array as da
-import dask.dataframe as df
-from copy import copy
-
-from cuml.benchmark.bench_helper_funcs import pass_func, fit, predict, \
-                                              transform, kneighbors, \
-                                              fit_predict, fit_transform, \
-                                              fit_kneighbors
 
 
 def distribute(client, data):

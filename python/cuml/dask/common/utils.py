@@ -13,22 +13,18 @@
 # limitations under the License.
 #
 
+from threading import Lock
+from asyncio import InvalidStateError
+from cuml.internals.import_utils import check_min_dask_version
+from cuml.common import device_of_gpu_matrix
+from dask.distributed import default_client, wait
+import time
+import random
 import dask
 import logging
 import os
 from cuml.internals.safe_imports import gpu_only_import
 numba_cuda = gpu_only_import('numba.cuda')
-import random
-import time
-
-from dask.distributed import default_client, wait
-
-from cuml.common import device_of_gpu_matrix
-from cuml.internals.import_utils import check_min_dask_version
-
-from asyncio import InvalidStateError
-
-from threading import Lock
 
 
 def get_visible_devices():
@@ -151,7 +147,7 @@ def raise_exception_from_futures(futures):
     if errs:
         raise RuntimeError("%d of %d worker jobs failed: %s" % (
             len(errs), len(futures), ", ".join(map(str, errs))
-            ))
+        ))
 
 
 def wait_and_raise_from_futures(futures):

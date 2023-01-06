@@ -15,15 +15,15 @@
 #
 
 
+from cuml.datasets.utils import _create_rs_generator
+import cuml.internals
+from cuml.internals.safe_imports import cpu_only_import
 import nvtx
 import numbers
 from collections.abc import Iterable
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import cuml.internals
-from cuml.datasets.utils import _create_rs_generator
 
 
 def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
@@ -180,11 +180,11 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
         np_seed = int(generator.randint(n_samples, size=1))
         np.random.seed(np_seed)
         shuffled_sample_indices = cp.array(np.random.choice(
-                                            n_centers,
-                                            n_samples,
-                                            replace=True,
-                                            p=proba_samples_per_center
-                                            ))
+            n_centers,
+            n_samples,
+            replace=True,
+            p=proba_samples_per_center
+        ))
         for i, (n, std) in enumerate(zip(n_samples_per_center, cluster_std)):
             center_indices = cp.where(shuffled_sample_indices == i)
 

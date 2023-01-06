@@ -13,25 +13,24 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-import pytest
-import os
-pd = cpu_only_import('pandas')
-from math import ceil
-
-from cuml import ForestInference
-from cuml.testing.utils import array_equal, unit_param, \
-    quality_param, stress_param
-from cuml.internals.import_utils import has_xgboost
-# from cuml.internals.import_utils import has_lightgbm
-
-from sklearn.datasets import make_classification, make_regression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.ensemble import GradientBoostingClassifier, \
     GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor, \
     ExtraTreesClassifier, ExtraTreesRegressor
-from sklearn.metrics import accuracy_score, mean_squared_error
-from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_classification, make_regression
+from cuml.internals.import_utils import has_xgboost
+from cuml.testing.utils import array_equal, unit_param, \
+    quality_param, stress_param
+from cuml import ForestInference
+from math import ceil
+import os
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+
+# from cuml.internals.import_utils import has_lightgbm
 
 
 if has_xgboost():
@@ -367,7 +366,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
     ext = 'json' if request.param == 'json' else 'model'
     model_type = 'xgboost_json' if request.param == 'json' else 'xgboost'
     model_path = str(tmpdir_factory.mktemp("models").join(
-                 f"small_class.{ext}"))
+        f"small_class.{ext}"))
     bst = _build_and_save_xgboost(model_path, X, y)
     # just do within-sample since it's not an accuracy test
     dtrain = xgb.DMatrix(X, label=y)

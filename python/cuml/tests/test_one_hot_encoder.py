@@ -11,23 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import math
-
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
-import pytest
-from cuml.internals.safe_imports import gpu_only_import_from
-DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-from cuml.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 from cuml.testing.utils import \
     stress_param, \
     from_df_to_numpy, \
     assert_inverse_equal, \
     generate_inputs_from_categories
-from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
+from cuml.preprocessing import OneHotEncoder
+from cuml.internals.safe_imports import gpu_only_import_from
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+import math
+
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+DataFrame = gpu_only_import_from('cudf', 'DataFrame')
 
 
 def _from_df_to_cupy(df):

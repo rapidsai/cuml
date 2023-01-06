@@ -14,24 +14,24 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import as_type
+import cuml
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.import_utils import has_lightgbm, has_shap
+from cuml.explainer.tree_shap import TreeExplainer
+from hypothesis import given, settings, assume, HealthCheck, strategies as st
+from cuml.internals.safe_imports import gpu_only_import
 import json
 import pytest
 import treelite
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cudf = gpu_only_import('cudf')
-from hypothesis import given, settings, assume, HealthCheck, strategies as st
-from cuml.explainer.tree_shap import TreeExplainer
-from cuml.internals.import_utils import has_lightgbm, has_shap
-from cuml.internals.import_utils import has_sklearn
-from cuml.common.exceptions import NotFittedError
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.ensemble import RandomForestClassifier as curfc
-import cuml
-from cuml.testing.utils import as_type
 
 pytestmark = pytest.mark.skip
 

@@ -30,25 +30,25 @@
 # Note that there are significant differences between our implementation and
 # the reference, and perfect parity cannot be expected for integration tests.
 
+from cuml.testing.utils import stress_param
+from cuml.internals.input_utils import input_to_host_array
+import cuml.tsa.arima as arima
+from cuml.internals.safe_imports import gpu_only_import
+import statsmodels.api as sm
+from sklearn.model_selection import train_test_split
+from cuml.internals.safe_imports import cpu_only_import_from
+import warnings
+import os
 import pytest
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import os
-import warnings
 
 pd = cpu_only_import('pandas')
-from cuml.internals.safe_imports import cpu_only_import_from
-approx_fprime = cpu_only_import_from('scipy.optimize.optimize', 'approx_fprime')
-from sklearn.model_selection import train_test_split
-import statsmodels.api as sm
+approx_fprime = cpu_only_import_from(
+    'scipy.optimize.optimize', 'approx_fprime')
 
-from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-import cuml.tsa.arima as arima
-from cuml.internals.input_utils import input_to_host_array
-
-from cuml.testing.utils import stress_param
 
 
 ###############################################################################

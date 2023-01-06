@@ -13,6 +13,12 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+from sklearn.model_selection import train_test_split
+from sklearn import datasets
+from hdbscan.plots import CondensedTree
+import hdbscan
+from cuml.internals import logger
 import pytest
 
 
@@ -27,21 +33,14 @@ from cuml.testing.utils import get_pattern, array_equal
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
-from cuml.internals import logger
 
-import hdbscan
-from hdbscan.plots import CondensedTree
-
-from sklearn import datasets
-from sklearn.model_selection import train_test_split
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 test_datasets = {
- "digits": datasets.load_digits(),
- "boston": datasets.load_boston(),
- "diabetes": datasets.load_diabetes(),
- "cancer": datasets.load_breast_cancer(),
+    "digits": datasets.load_digits(),
+    "boston": datasets.load_boston(),
+    "diabetes": datasets.load_diabetes(),
+    "cancer": datasets.load_breast_cancer(),
 }
 
 dataset_names = ['noisy_circles', 'noisy_moons', 'varied']
@@ -203,7 +202,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
-           np.sort(cuml_agg.cluster_persistence_), rtol=0.01, atol=0.01)
+                       np.sort(cuml_agg.cluster_persistence_), rtol=0.01, atol=0.01)
 
 
 @pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020,
@@ -257,7 +256,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.85)
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
-           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
+                       np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
@@ -357,7 +356,7 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
-           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
+                       np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
 @pytest.mark.parametrize('nrows', [1000])

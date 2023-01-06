@@ -12,23 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-import pytest
-import sys
-
-from cuml.experimental.linear_model import Lars as cuLars
+from sklearn.linear_model import Lars as skLars
+from sklearn.datasets import load_boston
 from cuml.testing.utils import (
     array_equal,
     unit_param,
     quality_param,
     stress_param
 )
+from cuml.experimental.linear_model import Lars as cuLars
+import sys
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
-from sklearn.datasets import load_boston
-from sklearn.linear_model import Lars as skLars
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, '.')

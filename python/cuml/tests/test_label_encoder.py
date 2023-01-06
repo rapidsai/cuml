@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from cuml.common.exceptions import NotFittedError
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-
-import pytest
-from cuml.common.exceptions import NotFittedError
 
 
 def _df_to_similarity_mat(df):
@@ -85,23 +83,23 @@ def test_labelencoder_unfitted():
 
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
-        "orig_label, ord_label, expected_reverted, bad_ord_label",
-        [(cudf.Series(['a', 'b', 'c']),
-          cudf.Series([2, 1, 2, 0]),
-          cudf.Series(['c', 'b', 'c', 'a']),
-          cudf.Series([-1, 1, 2, 0])),
-         (cudf.Series(['Tokyo', 'Paris', 'Austin']),
-          cudf.Series([0, 2, 0]),
-          cudf.Series(['Austin', 'Tokyo', 'Austin']),
-          cudf.Series([0, 1, 2, 3])),
-         (cudf.Series(['a', 'b', 'c1']),
-          cudf.Series([2, 1]),
-          cudf.Series(['c1', 'b']),
-          cudf.Series([0, 1, 2, 3])),
-         (cudf.Series(['1.09', '0.09', '.09', '09']),
-          cudf.Series([0, 1, 2, 3]),
-          cudf.Series(['.09', '0.09', '09', '1.09']),
-          cudf.Series([0, 1, 2, 3, 4]))])
+    "orig_label, ord_label, expected_reverted, bad_ord_label",
+    [(cudf.Series(['a', 'b', 'c']),
+      cudf.Series([2, 1, 2, 0]),
+      cudf.Series(['c', 'b', 'c', 'a']),
+      cudf.Series([-1, 1, 2, 0])),
+     (cudf.Series(['Tokyo', 'Paris', 'Austin']),
+      cudf.Series([0, 2, 0]),
+      cudf.Series(['Austin', 'Tokyo', 'Austin']),
+      cudf.Series([0, 1, 2, 3])),
+     (cudf.Series(['a', 'b', 'c1']),
+      cudf.Series([2, 1]),
+      cudf.Series(['c1', 'b']),
+      cudf.Series([0, 1, 2, 3])),
+     (cudf.Series(['1.09', '0.09', '.09', '09']),
+      cudf.Series([0, 1, 2, 3]),
+      cudf.Series(['.09', '0.09', '09', '1.09']),
+      cudf.Series([0, 1, 2, 3, 4]))])
 def test_inverse_transform(orig_label, ord_label,
                            expected_reverted, bad_ord_label,
                            use_fit_transform):
@@ -198,15 +196,15 @@ def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
 
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
-        "orig_label, ord_label, expected_reverted, bad_ord_label",
-        [(cp.array([7, 5, 3, 1]),
-          cp.array([2, 1, 2, 3, 0]),
-          cp.array([5, 3, 5, 7, 1]),
-          cp.array([0, 1, 2, 3, 4])),
-         (np.array([1.09, .09, .09, .09]),
-          np.array([1, 1, 0, 0, 1]),
-          cp.array([1.09, 1.09, .09, .09, 1.09]),
-          np.array([0, 1, 1, 1, 2]))])
+    "orig_label, ord_label, expected_reverted, bad_ord_label",
+    [(cp.array([7, 5, 3, 1]),
+      cp.array([2, 1, 2, 3, 0]),
+      cp.array([5, 3, 5, 7, 1]),
+      cp.array([0, 1, 2, 3, 4])),
+     (np.array([1.09, .09, .09, .09]),
+      np.array([1, 1, 0, 0, 1]),
+      cp.array([1.09, 1.09, .09, .09, 1.09]),
+      np.array([0, 1, 1, 1, 2]))])
 def test_inverse_transform_cupy_numpy(orig_label, ord_label,
                                       expected_reverted,
                                       bad_ord_label,

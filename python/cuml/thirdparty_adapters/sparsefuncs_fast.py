@@ -15,12 +15,12 @@
 #
 
 
+from math import ceil
+from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cpx = gpu_only_import('cupyx')
-from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
-from math import ceil
 
 
 def csr_mean_variance_axis0(X):

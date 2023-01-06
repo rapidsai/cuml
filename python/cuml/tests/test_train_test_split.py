@@ -13,17 +13,16 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.datasets import make_classification
+from cuml.model_selection import train_test_split
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import pytest
 
-from cuml.model_selection import train_test_split
-from cuml.datasets import make_classification
-from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
 test_array_input_types = [
