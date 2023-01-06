@@ -68,12 +68,15 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_clusters()
         float *get_stabilities()
         int *get_labels()
+        int *get_inverse_label_map()
+        float *get_core_dists()
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass PredictionData[int, float]:
         PredictionData(const handle_t &handle,
                        int m,
-                       int n)
+                       int n,
+                       float *core_dists)
 
         size_t n_rows
         size_t n_cols
@@ -138,7 +141,8 @@ def all_points_membership_vectors(clusterer):
     if not clusterer.prediction_data:
         raise ValueError("PredictionData not generated. "
                          "Please call clusterer.fit again with "
-                         "prediction_data=True")
+                         "prediction_data=True or call "
+                         "clusterer.generate_prediction_data()")
 
     if clusterer.n_clusters_ == 0:
         return np.zeros(clusterer.n_rows, dtype=np.float32)
@@ -151,15 +155,15 @@ def all_points_membership_vectors(clusterer):
 
     cdef uintptr_t membership_vec_ptr = membership_vec.ptr
 
-    cdef hdbscan_output *hdbscan_output_ = \
-        <hdbscan_output*><size_t>clusterer.hdbscan_output_
-
     cdef PredictionData *prediction_data_ = \
         <PredictionData*><size_t>clusterer.prediction_data_ptr
 
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
     compute_all_points_membership_vectors(handle_[0],
-                                          hdbscan_output_.get_condensed_tree(),
+                                          deref(condensed_tree),
                                           deref(prediction_data_),
                                           <float*> input_ptr,
                                           _metrics_mapping[clusterer.metric],
@@ -245,19 +249,25 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     cdef uintptr_t prediction_probs_ptr = prediction_probs.ptr
 
-    cdef hdbscan_output *hdbscan_output_ = \
-        <hdbscan_output*><size_t>clusterer.hdbscan_output_
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
 
     cdef PredictionData *prediction_data_ = \
         <PredictionData*><size_t>clusterer.prediction_data_ptr
 
+    labels, _, _, _ = input_to_cuml_array(clusterer.labels_,
+                                          order="C",
+                                          convert_to_dtype=np.int32)
+
+    cdef uintptr_t labels_ptr = labels.ptr
+
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
 
     out_of_sample_predict(handle_[0],
-                          hdbscan_output_.get_condensed_tree(),
+                          deref(condensed_tree),
                           deref(prediction_data_),
                           <float*> input_ptr,
-                          <int*> hdbscan_output_.get_labels(),
+                          <int*> labels_ptr,
                           <float*> prediction_ptr,
                           n_prediction_points,
                           _metrics_mapping[clusterer.metric],

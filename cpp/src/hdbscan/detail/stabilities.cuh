@@ -161,7 +161,7 @@ void get_stability_scores(const raft::handle_t& handle,
   /**
    * 1. Populate cluster sizes
    */
-  rmm::device_uvector<value_idx> cluster_sizes(n_leaves, handle.get_stream());
+  rmm::device_uvector<value_idx> cluster_sizes(n_condensed_clusters, handle.get_stream());
   thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data() + cluster_sizes.size(), 0);
 
   value_idx* sizes = cluster_sizes.data();
