@@ -38,14 +38,13 @@ from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
+
+from cuml.testing.test_preproc_utils import clf_dataset, \
+    sparse_clf_dataset  # noqa: F401
 cudf = gpu_only_import('cudf')
 np = cpu_only_import('numpy')
 pdDataFrame = cpu_only_import_from('pandas', 'DataFrame')
 cuDataFrame = gpu_only_import_from('cudf', 'DataFrame')
-
-
-from cuml.testing.test_preproc_utils import clf_dataset, \
-    sparse_clf_dataset  # noqa: F401
 
 
 @pytest.mark.parametrize('remainder', ['drop', 'passthrough'])

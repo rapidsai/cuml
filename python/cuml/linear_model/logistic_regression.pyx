@@ -17,9 +17,7 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
 import pprint
 
 import cuml.internals
@@ -34,6 +32,8 @@ from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]

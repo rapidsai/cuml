@@ -15,12 +15,13 @@
 #
 
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
 import cuml.internals
 from cuml.internals.input_utils import determine_array_type
 from cuml.preprocessing import LabelEncoder, LabelBinarizer
+
+cp = gpu_only_import('cupy')
+cudf = gpu_only_import('cudf')
 
 
 @cuml.internals.api_return_any()

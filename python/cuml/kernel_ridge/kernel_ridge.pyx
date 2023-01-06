@@ -17,12 +17,9 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
 import warnings
 from cuml.internals.safe_imports import gpu_only_import_from
-linalg = gpu_only_import_from('cupy', 'linalg')
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
@@ -31,6 +28,10 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 
 from cuml.metrics import pairwise_kernels
+
+cp = gpu_only_import('cupy')
+linalg = gpu_only_import_from('cupy', 'linalg')
+np = cpu_only_import('numpy')
 
 
 # cholesky solve with fallback to least squares for singular problems
