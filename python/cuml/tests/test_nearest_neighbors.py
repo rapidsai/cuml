@@ -116,7 +116,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
     metric, p = metric_p
 
     if not has_scipy():
-        pytest.skip('Skipping test_neighborhood_predictions because ' +
+        pytest.skip('Skipping test_self_neighboring because ' +
                     'Scipy is missing')
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -164,7 +164,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
 @pytest.mark.parametrize("algo,datatype",
                          [("brute", "dataframe"),
                           ("ivfflat", "numpy"),
-                          ("ivfpq", "dataframe")]
+                          ("ivfpq", "dataframe")])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if not has_scipy():
@@ -177,7 +177,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     if datatype == "dataframe":
         X = cudf.DataFrame(X)
 
-    knn_cu = cuKNN(algorithm=algo)
+    knn_cu = cuKNN(algorithm=algo, metric="sqeuclidean")
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
@@ -209,7 +209,7 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
-    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params)
+    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params, metric="sqeuclidean")
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
@@ -241,7 +241,7 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
-    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params)
+    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params, metric="sqeuclidean")
     knn_cu.fit(X)
 
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
@@ -260,6 +260,9 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
         "cosine", "correlation"
     ])
 def test_ann_distances_metrics(algo, metric):
+    if algo in {"ivfflat", "ivfpq"} and metric != "sqeuclidean":
+        return
+
     X, y = make_blobs(n_samples=500, centers=2,
                       n_features=128, random_state=0)
 

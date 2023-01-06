@@ -74,7 +74,7 @@ cdef build_ivfpq_algo_params(params, automated, additional_info):
 
         # n_bits should be in set {4, 5, 6, 8} since FAISS 1.7
         params['n_bits'] = 4
-        for n_bits in [5, 6, 8]:
+        for n_bits in [4, 5, 6, 8]:
             min_train_points = (2 ** n_bits) * 39
             if N >= min_train_points:
                 params['n_bits'] = n_bits
