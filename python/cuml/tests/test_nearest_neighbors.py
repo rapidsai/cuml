@@ -209,7 +209,8 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
-    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params, metric="sqeuclidean")
+    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params,
+                   metric="sqeuclidean")
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
@@ -241,7 +242,8 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
-    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params, metric="sqeuclidean")
+    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params,
+                   metric="sqeuclidean")
     knn_cu.fit(X)
 
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
