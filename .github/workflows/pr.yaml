@@ -93,5 +93,5 @@ jobs:
       # because treelite needs to be compiled (no wheels available for arm).
       test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
       # skipped test context: https://github.com/rapidsai/cuml/issues/5025
-      test-unittest: "pytest -v ./python/cuml/tests -k 'not test_silhouette_score_batched'"
+      test-unittest: "pytest -v ./python/cuml/tests -k 'not test_silhouette_score_batched' -n 8 --ignore=dask && pytest -v ./python/cuml/tests/dask"
       test-smoketest: "" #"python ci/wheel_smoke_test_cuml.py"
