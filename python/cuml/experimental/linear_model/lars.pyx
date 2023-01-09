@@ -20,8 +20,10 @@
 # cython: language_level = 3
 
 import ctypes
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import warnings
 import cuml.internals.logger as logger
 import cuml.internals

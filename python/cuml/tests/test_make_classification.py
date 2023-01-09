@@ -14,13 +14,14 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import array_equal
+from cuml.datasets.classification import make_classification
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from functools import partial
-import numpy as np
-import cupy as cp
-
-from cuml.datasets.classification import make_classification
-from cuml.testing.utils import array_equal
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 @pytest.mark.parametrize('n_samples', [500, 1000])

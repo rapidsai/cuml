@@ -19,7 +19,8 @@
 import os
 import inspect
 from importlib import import_module
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import nvtx
 import typing
 

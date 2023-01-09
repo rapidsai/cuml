@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-import cudf
 from cuml.preprocessing.text.stem.porter_stemmer import PorterStemmer
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 
 def test_step1a():

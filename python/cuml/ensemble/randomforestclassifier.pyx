@@ -16,9 +16,11 @@
 #
 
 # distutils: language = c++
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import nvtx
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 import warnings
 
 import cuml.internals.logger as logger
@@ -45,7 +47,8 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 from cuml.prims.label.classlabels import check_labels, invert_labels
 
 from pylibraft.common.handle cimport handle_t
