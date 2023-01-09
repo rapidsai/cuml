@@ -15,7 +15,8 @@
 #
 
 from cuml.internals.import_utils import has_scipy
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cupyx = gpu_only_import('cupyx')
 
 if has_scipy():
     import scipy.sparse

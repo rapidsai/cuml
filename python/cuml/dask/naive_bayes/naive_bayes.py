@@ -14,27 +14,20 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import dask
-from toolz import first
-
-import dask.array
-
-
-from cuml.common import with_cupy_rmm
-
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-
-from cuml.dask.common.utils import wait_and_raise_from_futures
-
-from cuml.dask.common.func import reduce
-from cuml.dask.common.func import tree_reduce
-
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.common import rmm_cupy_ary
-
 from cuml.naive_bayes import MultinomialNB as MNB
+from cuml.common import rmm_cupy_ary
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.func import tree_reduce
+from cuml.dask.common.func import reduce
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import BaseEstimator
+from cuml.common import with_cupy_rmm
+import dask.array
+from toolz import first
+import dask
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 class MultinomialNB(BaseEstimator,
@@ -88,8 +81,8 @@ class MultinomialNB(BaseEstimator,
         >>> cluster.close()
 
     """
-    def __init__(self, *, client=None, verbose=False, **kwargs):
 
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Create new multinomial distributed Naive Bayes classifier instance
 
@@ -138,7 +131,6 @@ class MultinomialNB(BaseEstimator,
 
     @with_cupy_rmm
     def fit(self, X, y, classes=None):
-
         """
         Fit distributed Naive Bayes classifier model
 

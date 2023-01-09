@@ -14,10 +14,12 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 from cuml.testing.utils import unit_param, \
-                            quality_param, \
-                            stress_param
+    quality_param, \
+    stress_param
 
 from cuml.neighbors import KNeighborsRegressor as lKNNReg
 from cuml.dask.neighbors import KNeighborsRegressor as dKNNReg
@@ -30,9 +32,10 @@ from sklearn.metrics import r2_score
 import dask.array as da
 import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cudf.core.dataframe import DataFrame
-import numpy as np
-import cudf
+from cuml.internals.safe_imports import gpu_only_import_from
+DataFrame = gpu_only_import_from('cudf.core.dataframe', 'DataFrame')
+np = cpu_only_import('numpy')
+cudf = gpu_only_import('cudf')
 
 
 def generate_dask_array(np_array, n_parts):

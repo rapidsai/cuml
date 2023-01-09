@@ -13,24 +13,21 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import array_equal
+from sklearn.neighbors import KNeighborsClassifier
+from cuml.testing.utils import unit_param, quality_param, stress_param
+from cuml.dask.common import utils as dask_utils
+from cuml.common import has_scipy
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
-import cudf
-import dask_cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+dask_cudf = gpu_only_import('dask_cudf')
 
-import pandas as pd
+pd = cpu_only_import('pandas')
 
-import numpy as np
-
-from cuml.common import has_scipy
-
-from cuml.dask.common import utils as dask_utils
-
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
-from sklearn.neighbors import KNeighborsClassifier
-
-from cuml.testing.utils import array_equal
+np = cpu_only_import('numpy')
 
 
 def predict(neigh_ind, _y, n_neighbors):

@@ -13,13 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import inspect
-from numba import cuda
-import cupy as cp
-import numpy as np
-import cuml.internals
-from cuml.metrics import pairwise_distances
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.metrics import pairwise_distances
+import cuml.internals
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+import inspect
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 def linear_kernel(X, Y):
