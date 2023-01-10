@@ -17,11 +17,13 @@
 # distutils: language = c++
 
 import ctypes
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from enum import IntEnum
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -35,6 +37,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 from cython.operator cimport dereference as deref
 
@@ -299,7 +302,8 @@ class TruncatedSVD(UniversalBase,
                                                 dtype=self.dtype)
 
     @generate_docstring()
-    def _fit(self, X, y=None) -> "TruncatedSVD":
+    @enable_device_interop
+    def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit LSI model on training cudf DataFrame X. y is currently ignored.
 
@@ -313,7 +317,8 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    def _fit_transform(self, X, y=None) -> CumlArray:
+    @enable_device_interop
+    def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
         y is currently ignored.
@@ -377,7 +382,8 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
-    def _inverse_transform(self, X, convert_dtype=False) -> CumlArray:
+    @enable_device_interop
+    def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
         Returns X_original whose transform would be X.
@@ -426,7 +432,8 @@ class TruncatedSVD(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    def _transform(self, X, convert_dtype=False) -> CumlArray:
+    @enable_device_interop
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 

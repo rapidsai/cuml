@@ -13,16 +13,18 @@
 # limitations under the License.
 #
 
-import cuml
-import cudf
-import dask_cudf
-import pytest
-import numpy as np
-from cuml.internals.import_utils import has_dask_sql
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+from cuml.internals.import_utils import has_dask_sql
+from cuml.internals.safe_imports import cpu_only_import
+import pytest
+import cuml
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+dask_cudf = gpu_only_import('dask_cudf')
+np = cpu_only_import('numpy')
+
 
 if has_dask_sql():
     from dask_sql import Context

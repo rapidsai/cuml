@@ -19,12 +19,14 @@
 import copy
 import ctypes
 import math
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import warnings
-import pandas as pd
+pd = cpu_only_import('pandas')
 from inspect import getdoc
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t

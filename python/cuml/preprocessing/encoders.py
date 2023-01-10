@@ -12,18 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import numpy as np
-import cupy as cp
-import cupyx
-from cuml.common.exceptions import NotFittedError
-
-from cuml import Base
-from cuml.preprocessing import LabelEncoder
-from cudf import DataFrame, Series
-from cudf import GenericIndex
-import cuml.internals.logger as logger
-
 import warnings
+import cuml.internals.logger as logger
+from cuml.internals.safe_imports import gpu_only_import_from
+from cudf import DataFrame, Series
+from cuml.preprocessing import LabelEncoder
+from cuml import Base
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+
+GenericIndex = gpu_only_import_from('cudf', 'GenericIndex')
 
 
 class OneHotEncoder(Base):

@@ -12,24 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cudf
-import cupy as cp
-import numpy as np
+from cuml.internals.array import CumlArray
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from hypothesis import assume
 from hypothesis.extra.numpy import (array_shapes, arrays, floating_dtypes,
                                     integer_dtypes)
-from hypothesis.strategies import (
-    composite,
-    integers,
-    just,
-    none,
-    one_of,
-    sampled_from,
-)
+from hypothesis.strategies import (composite, integers, just, none, one_of,
+                                   sampled_from)
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
-from cuml.internals.array import CumlArray
 
 _CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
 

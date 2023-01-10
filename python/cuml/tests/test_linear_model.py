@@ -12,53 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import lru_cache
-import cupy as cp
-import numpy as np
-import pytest
-from hypothesis import (
-    assume,
-    example,
-    given,
-    note,
-    settings,
-    strategies as st,
-    target
-)
-from hypothesis.extra.numpy import floating_dtypes
 from distutils.version import LooseVersion
-import cudf
+from functools import lru_cache
+
+import pytest
+import sklearn
+from cuml.internals.array import elements_in_representable_range
+from cuml.internals.safe_imports import (cpu_only_import, cpu_only_import_from,
+                                         gpu_only_import)
+from cuml.testing.strategies import (regression_datasets, split_datasets,
+                                     standard_classification_datasets,
+                                     standard_regression_datasets)
+from cuml.testing.utils import (array_difference, array_equal, quality_param,
+                                small_classification_dataset,
+                                small_regression_dataset, stress_param,
+                                unit_param)
+from hypothesis import assume, example, given, note, settings
+from hypothesis import strategies as st
+from hypothesis import target
+from hypothesis.extra.numpy import floating_dtypes
+from sklearn.datasets import (load_breast_cancer, load_digits,
+                              make_classification, make_regression)
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import LogisticRegression as skLog
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.model_selection import train_test_split
+
 from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
-from cuml.internals.array import elements_in_representable_range
-from cuml.testing.strategies import (
-    regression_datasets,
-    split_datasets,
-    standard_classification_datasets,
-    standard_regression_datasets,
-)
-from cuml.testing.utils import (
-    array_difference,
-    array_equal,
-    small_regression_dataset,
-    small_classification_dataset,
-    unit_param,
-    quality_param,
-    stress_param,
-)
-import rmm
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+cudf = gpu_only_import('cudf')
+rmm = gpu_only_import('rmm')
 
-from scipy.sparse import csr_matrix
-
-import sklearn
-from sklearn.datasets import make_regression, make_classification, load_digits
-from sklearn.datasets import load_breast_cancer
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.linear_model import LogisticRegression as skLog
-from sklearn.model_selection import train_test_split
+csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
 
 
 def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):

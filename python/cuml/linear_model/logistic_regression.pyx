@@ -16,8 +16,8 @@
 
 # distutils: language = c++
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
 import pprint
 
 import cuml.internals
@@ -31,6 +31,9 @@ import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 supported_penalties = ["l1", "l2", "none", "elasticnet"]
@@ -141,12 +144,11 @@ class LogisticRegression(UniversalBase,
         See :ref:`verbosity-levels` for more info.
     l1_ratio : float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
-    solver : 'qn', 'lbfgs', 'owl' (default='qn').
+    solver : 'qn' (default='qn')
         Algorithm to use in the optimization problem. Currently only `qn` is
         supported, which automatically selects either L-BFGS or OWL-QN
         depending on the conditions of the l1 regularization described
-        above. Options 'lbfgs' and 'owl' are just convenience values that
-        end up using the same solver following the same rules.
+        above.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -262,8 +264,9 @@ class LogisticRegression(UniversalBase,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def _fit(self, X, y, sample_weight=None,
-             convert_dtype=True) -> "LogisticRegression":
+    @enable_device_interop
+    def fit(self, X, y, sample_weight=None,
+            convert_dtype=True) -> "LogisticRegression":
         """
         Fit the model with X and y.
 
@@ -363,7 +366,8 @@ class LogisticRegression(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
-    def _decision_function(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -379,7 +383,8 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -392,7 +397,8 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Predicted class \
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def _predict_proba(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
@@ -408,7 +414,8 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
-    def _predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 

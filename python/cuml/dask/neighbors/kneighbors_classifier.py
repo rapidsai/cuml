@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks
@@ -25,9 +26,10 @@ from cuml.dask.neighbors import NearestNeighbors
 from dask.dataframe import Series as DaskSeries
 import dask.array as da
 from uuid import uuid1
-import numpy as np
-import pandas as pd
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
 
 
 class KNeighborsClassifier(NearestNeighbors):
@@ -59,6 +61,7 @@ class KNeighborsClassifier(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
+
     def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
         super().__init__(client=client,
@@ -357,8 +360,8 @@ class KNeighborsClassifier(NearestNeighbors):
                             True,
                             key="%s-%s" % (key, idx),
                             workers=[worker]))
-                           for idx, worker in enumerate(comms.worker_addresses)
-                            ])
+            for idx, worker in enumerate(comms.worker_addresses)
+        ])
 
         wait_and_raise_from_futures(list(knn_prob_res.values()))
 

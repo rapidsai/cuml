@@ -14,18 +14,17 @@
 # limitations under the License.
 #
 
+from cuml.dask.common.part_utils import _extract_partitions
+from cuml.testing.utils import unit_param, quality_param, stress_param
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.datasets.blobs import make_blobs
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 
 import dask.array as da
-import numpy as np
-import cupy as cp
-
-from cuml.dask.datasets.blobs import make_blobs
-from cuml.dask.common.input_utils import DistributedDataHandler
-
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
-from cuml.dask.common.part_utils import _extract_partitions
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 @pytest.mark.parametrize('nrows', [unit_param(1e3), quality_param(1e5),
@@ -118,7 +117,7 @@ def test_make_regression(n_samples, n_features, n_informative,
 
     if n_targets > 1:
         assert values.shape == (n_samples, n_targets), \
-               "values shape mismatch"
+            "values shape mismatch"
     else:
         assert values.shape == (n_samples,), "values shape mismatch"
 
@@ -128,7 +127,7 @@ def test_make_regression(n_samples, n_features, n_informative,
     if coef:
         if n_targets > 1:
             assert coefs.shape == (n_features, n_targets), \
-                   "coefs shape mismatch"
+                "coefs shape mismatch"
             assert len(coefs.chunks[1]) == 1
         else:
             assert coefs.shape == (n_features,), "coefs shape mismatch"

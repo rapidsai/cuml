@@ -18,23 +18,27 @@
 
 import typing
 import ctypes
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 import warnings
 
 import joblib
 
-import cupy
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
-import numba.cuda as cuda
+cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 from cuml.common.sparsefuncs import extract_knn_graph
-from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
-    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
+from cuml.internals.safe_imports import gpu_only_import_from
+cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
+cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
 import cuml.internals
 from cuml.common import using_output_type
@@ -59,8 +63,9 @@ if has_scipy(True):
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
-import rmm
+rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
@@ -484,8 +489,9 @@ class UMAP(UniversalBase,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
-    def _fit(self, X, y=None, convert_dtype=True,
-             knn_graph=None) -> "UMAP":
+    @enable_device_interop
+    def fit(self, X, y=None, convert_dtype=True,
+            knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -615,8 +621,9 @@ class UMAP(UniversalBase,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
-    def _fit_transform(self, X, y=None, convert_dtype=True,
-                       knn_graph=None) -> CumlArray:
+    @enable_device_interop
+    def fit_transform(self, X, y=None, convert_dtype=True,
+                      knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -661,7 +668,8 @@ class UMAP(UniversalBase,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    def _transform(self, X, convert_dtype=True, knn_graph=None) -> CumlArray:
+    @enable_device_interop
+    def transform(self, X, convert_dtype=True, knn_graph=None) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.

@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 
-import typing
-import cupy as cp
-import math
-from cuml.internals.input_utils import input_to_cupy_array
-
-import cuml.internals
-from cuml.internals.array import CumlArray
-
 from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.array import CumlArray
+import cuml.internals
+from cuml.internals.input_utils import input_to_cupy_array
+import math
+import typing
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 map_kernel_str = r'''

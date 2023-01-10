@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
-import numpy as np
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.strategies import (create_cuml_array_input,
                                      cuml_array_dtypes, cuml_array_input_types,
                                      cuml_array_inputs, cuml_array_orders,
@@ -27,6 +26,8 @@ from cuml.testing.utils import normalized_shape, series_squeezed_shape
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 @given(

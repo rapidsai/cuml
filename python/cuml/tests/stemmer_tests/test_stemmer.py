@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
-import cudf
-
-from cuml.preprocessing.text import stem as rapids_stem
 from nltk import stem as nltk_stem
+from cuml.preprocessing.text import stem as rapids_stem
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 
 def get_words():
@@ -51,4 +51,4 @@ def test_same_results():
     cuml_stemmed = cuml_stemmer.stem(word_ser)
 
     assert all([a == b for a, b in
-           zip(nltk_stemmed, cuml_stemmed.to_pandas().values)])
+                zip(nltk_stemmed, cuml_stemmed.to_pandas().values)])

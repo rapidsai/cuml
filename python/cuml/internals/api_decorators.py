@@ -20,7 +20,6 @@ import inspect
 import typing
 from functools import wraps
 import warnings
-from importlib import import_module
 
 import cuml.internals.array
 import cuml.internals.array_sparse
@@ -779,38 +778,21 @@ class _deprecate_pos_args:
 
 def device_interop_preparation(init_func):
     """
-    This function serves as a decorator to cuML estimators that implement
-    the CPU/GPU interoperability feature. It imports the joint CPU estimator
-    and processes the hyperparameters.
+    This function serves as a decorator for cuML estimators that implement
+    the CPU/GPU interoperability feature. It processes the estimator's
+    hyperparameters by saving them and filtering them for GPU execution.
     """
 
     @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
-        # if child class (parent class was already decorated), skip
-        if hasattr(self, '_cpu_model_class'):
+        # if child class is already prepared for interop, skip
+        if hasattr(self, '_full_kwargs'):
             return init_func(self, *args, **kwargs)
-
-        if hasattr(self, '_cpu_estimator_import_path'):
-            # if import path differs from the one of sklearn
-            # look for _cpu_estimator_import_path
-            estimator_path = self._cpu_estimator_import_path.split('.')
-            model_path = '.'.join(estimator_path[:-1])
-            model_name = estimator_path[-1]
-        else:
-            # import from similar path to the current estimator
-            # class
-            model_path = 'sklearn' + self.__class__.__module__[4:]
-            model_name = self.__class__.__name__
-        self._cpu_model_class = getattr(import_module(model_path), model_name)
 
         # Save all kwargs
         self._full_kwargs = kwargs
         # Generate list of available cuML hyperparameters
         gpu_hyperparams = list(inspect.signature(init_func).parameters.keys())
-        # Save list of available CPU estimator hyperparameters
-        self._cpu_hyperparams = list(
-            inspect.signature(self._cpu_model_class.__init__).parameters.keys()
-        )
 
         # Filter provided parameters for cuML estimator initialization
         filtered_kwargs = {}
@@ -824,3 +806,15 @@ def device_interop_preparation(init_func):
 
         return init_func(self, *args, **filtered_kwargs)
     return processor
+
+
+def enable_device_interop(gpu_func):
+    @functools.wraps(gpu_func)
+    def dispatch(self, *args, **kwargs):
+        # check that the estimator implements CPU/GPU interoperability
+        if hasattr(self, 'dispatch_func'):
+            func_name = gpu_func.__name__
+            return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
+        else:
+            return gpu_func(self, *args, **kwargs)
+    return dispatch

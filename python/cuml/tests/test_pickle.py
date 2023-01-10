@@ -13,20 +13,19 @@
 # limitations under the License.
 #
 
-import cuml
-import numpy as np
-import pickle
-import pytest
-
-from cuml.tsa.arima import ARIMA
+from sklearn.model_selection import train_test_split
+from sklearn.manifold import trustworthiness
+from sklearn.datasets import load_iris, make_classification, make_regression
+from sklearn.base import clone
 from cuml.testing.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package, compare_svm, \
     compare_probabilistic_svm
-
-from sklearn.base import clone
-from sklearn.datasets import load_iris, make_classification, make_regression
-from sklearn.manifold import trustworthiness
-from sklearn.model_selection import train_test_split
+from cuml.tsa.arima import ARIMA
+import pytest
+import pickle
+import cuml
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
@@ -551,6 +550,46 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
     def assert_model(pickled_model, X_train):
         pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["agglomerative"], pickle_after_predict)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', hdbscan_model.keys())
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
+                                       stress_param([500000, 1000, 500])])
+@pytest.mark.parametrize('prediction_data', [True, False])
+def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
+    result = {}
+    from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
+    from cuml.cluster.hdbscan.prediction import approximate_predict
+
+    def create_mod():
+        nrows, ncols, n_info = data_size
+        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
+        model = hdbscan_model[keys](prediction_data=prediction_data)
+        result["hdbscan"] = model.fit_predict(X_train)
+        result["hdbscan_single_linkage_tree"] = \
+            model.single_linkage_tree_.to_numpy()
+        result["condensed_tree"] = model.condensed_tree_.to_numpy()
+        if prediction_data:
+            result["hdbscan_all_points"] = \
+                all_points_membership_vectors(model)
+            result["hdbscan_approx"] = approximate_predict(model, X_train)
+        return model, X_train
+
+    def assert_model(pickled_model, X_train):
+        labels = pickled_model.fit_predict(X_train)
+        assert array_equal(result["hdbscan"], labels)
+        assert np.all(result["hdbscan_single_linkage_tree"] ==
+                      pickled_model.single_linkage_tree_.to_numpy())
+        assert np.all(result["condensed_tree"] ==
+                      pickled_model.condensed_tree_.to_numpy())
+        if prediction_data:
+            all_points = all_points_membership_vectors(pickled_model)
+            approx = approximate_predict(pickled_model, X_train)
+            assert array_equal(result["hdbscan_all_points"], all_points)
+            assert array_equal(result["hdbscan_approx"], approx)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

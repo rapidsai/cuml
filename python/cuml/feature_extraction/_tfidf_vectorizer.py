@@ -29,7 +29,8 @@
 from cuml.feature_extraction._vectorizers import CountVectorizer
 from cuml.feature_extraction._tfidf import TfidfTransformer
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 class TfidfVectorizer(CountVectorizer):
@@ -132,6 +133,7 @@ class TfidfVectorizer(CountVectorizer):
     This class is largely based on scikit-learn 0.23.1's TfIdfVectorizer code,
     which is provided under the BSD-3 license.
     """
+
     def __init__(self, input=None, encoding=None, decode_error=None,
                  strip_accents=None, lowercase=True, preprocessor=None,
                  tokenizer=None, stop_words=None, token_pattern=None,
@@ -218,7 +220,7 @@ class TfidfVectorizer(CountVectorizer):
         self._tfidf.fit(X)
         return self
 
-    def fit_transform(self, raw_documents):
+    def fit_transform(self, raw_documents, y=None):
         """Learn vocabulary and idf, return document-term matrix.
         This is equivalent to fit followed by transform, but more efficiently
         implemented.
@@ -227,6 +229,8 @@ class TfidfVectorizer(CountVectorizer):
         ----------
         raw_documents : cudf.Series or pd.Series
            A Series of string documents
+        y : None
+            Ignored.
 
         Returns
         -------

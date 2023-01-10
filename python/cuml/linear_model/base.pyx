@@ -18,11 +18,14 @@
 
 import ctypes
 import cuml.internals
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import warnings
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 from collections import defaultdict
 
 from libcpp cimport bool
@@ -36,21 +39,22 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
+from cuml.internals.api_decorators import enable_device_interop
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void gemmPredict(handle_t& handle,
                           const float *input,
-                          int n_rows,
-                          int n_cols,
+                          size_t n_rows,
+                          size_t n_cols,
                           const float *coef,
                           float intercept,
                           float *preds) except +
 
     cdef void gemmPredict(handle_t& handle,
                           const double *input,
-                          int n_rows,
-                          int n_cols,
+                          size_t n_rows,
+                          size_t n_cols,
                           const double *coef,
                           double intercept,
                           double *preds) except +
@@ -62,7 +66,8 @@ class LinearPredictMixin:
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
-    def _predict(self, X, convert_dtype=True) -> CumlArray:
+    @enable_device_interop
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
@@ -107,16 +112,16 @@ class LinearPredictMixin:
         if dtype.type == np.float32:
             gemmPredict(handle_[0],
                         <float*>X_ptr,
-                        <int>n_rows,
-                        <int>n_cols,
+                        <size_t>n_rows,
+                        <size_t>n_cols,
                         <float*>coef_ptr,
                         <float>self.intercept_,
                         <float*>preds_ptr)
         else:
             gemmPredict(handle_[0],
                         <double*>X_ptr,
-                        <int>n_rows,
-                        <int>n_cols,
+                        <size_t>n_rows,
+                        <size_t>n_cols,
                         <double*>coef_ptr,
                         <double>self.intercept_,
                         <double*>preds_ptr)

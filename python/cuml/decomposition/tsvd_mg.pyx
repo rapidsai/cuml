@@ -16,9 +16,11 @@
 # distutils: language = c++
 
 import ctypes
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libc.stdlib cimport malloc, free
 

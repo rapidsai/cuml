@@ -18,9 +18,11 @@
 
 import typing
 
-import numpy as np
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 import ctypes
 import warnings
 import math
@@ -40,6 +42,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.neighbors.ann cimport *
 from pylibraft.common.handle cimport handle_t
@@ -54,8 +57,9 @@ from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
 
-from numba import cuda
-import rmm
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+rmm = gpu_only_import('rmm')
 
 cimport cuml.common.cuda
 
@@ -340,7 +344,8 @@ class NearestNeighbors(UniversalBase,
         self.knn_index = None
 
     @generate_docstring(X='dense_sparse')
-    def _fit(self, X, convert_dtype=True) -> "NearestNeighbors":
+    @enable_device_interop
+    def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -488,7 +493,8 @@ class NearestNeighbors(UniversalBase,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    def _kneighbors(
+    @enable_device_interop
+    def kneighbors(
         self,
         X=None,
         n_neighbors=None,
@@ -834,10 +840,11 @@ class NearestNeighbors(UniversalBase,
         return D_ndarr, I_ndarr
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    def _kneighbors_graph(self,
-                          X=None,
-                          n_neighbors=None,
-                          mode='connectivity') -> SparseCumlArray:
+    @enable_device_interop
+    def kneighbors_graph(self,
+                         X=None,
+                         n_neighbors=None,
+                         mode='connectivity') -> SparseCumlArray:
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.

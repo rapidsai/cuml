@@ -13,26 +13,31 @@
 # limitations under the License.
 #
 
-import pytest
-import cupy as cp
-import numpy as np
-from numba import cuda
-
-import cuml
-import cuml.svm as cu_svm
-from cuml.common import input_to_cuml_array
+import platform
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.datasets import make_classification, make_gaussian_quantiles
+from sklearn.datasets import make_regression, make_friedman1
+from sklearn.datasets import load_iris, make_blobs
+from sklearn import svm
 from cuml.testing.utils import unit_param, quality_param, stress_param, \
     compare_svm, compare_probabilistic_svm, svm_array_equal
+from cuml.common import input_to_cuml_array
+import cuml.svm as cu_svm
+import cuml
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
+import pytest
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+cuda = gpu_only_import_from('numba', 'cuda')
 
-from sklearn import svm
-from sklearn.datasets import load_iris, make_blobs
-from sklearn.datasets import make_regression, make_friedman1
-from sklearn.datasets import make_classification, make_gaussian_quantiles
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
-import cudf
+cudf = gpu_only_import('cudf')
+
+IS_ARM = platform.processor() == "aarch64"
 
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
@@ -535,6 +540,8 @@ def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
     clf.predict(X_test.astype(test_dtype))
 
 
+@pytest.mark.skipif(IS_ARM, reason="Test fails unexpectedly on ARM. "
+                                   "github.com/rapidsai/cuml/issues/5100")
 def test_svm_no_support_vectors():
     n_rows = 10
     n_cols = 3

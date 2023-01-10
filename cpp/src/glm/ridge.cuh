@@ -41,14 +41,14 @@ void ridgeSolve(const raft::handle_t& handle,
                 math_t* S,
                 math_t* V,
                 math_t* U,
-                int n_rows,
-                int n_cols,
+                size_t n_rows,
+                size_t n_cols,
                 math_t* b,
                 math_t* alpha,
                 int n_alpha,
-                math_t* w,
-                cudaStream_t stream)
+                math_t* w)
 {
+  auto stream    = handle.get_stream();
   auto cublasH   = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
 
@@ -64,7 +64,8 @@ void ridgeSolve(const raft::handle_t& handle,
   raft::copy(S_nnz, S, n_cols, stream);
   raft::matrix::power(S_nnz, n_cols, stream);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
-  raft::matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, stream, true);
+  raft::matrix::matrixVectorBinaryDivSkipZero(
+    S, S_nnz, (size_t)1, n_cols, false, true, stream, true);
 
   raft::matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
   raft::linalg::gemm(
@@ -77,22 +78,22 @@ void ridgeSolve(const raft::handle_t& handle,
 template <typename math_t>
 void ridgeSVD(const raft::handle_t& handle,
               math_t* A,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               math_t* b,
               math_t* alpha,
               int n_alpha,
-              math_t* w,
-              cudaStream_t stream)
+              math_t* w)
 {
+  auto stream    = handle.get_stream();
   auto cublasH   = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
 
   ASSERT(n_cols > 0, "ridgeSVD: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "ridgeSVD: number of rows cannot be less than two");
 
-  int U_len = n_rows * n_cols;
-  int V_len = n_cols * n_cols;
+  auto U_len = n_rows * n_cols;
+  auto V_len = n_cols * n_cols;
 
   rmm::device_uvector<math_t> S(n_cols, stream);
   rmm::device_uvector<math_t> V(V_len, stream);
@@ -100,28 +101,28 @@ void ridgeSVD(const raft::handle_t& handle,
 
   raft::linalg::svdQR(
     handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true, stream);
-  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w, stream);
+  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w);
 }
 
 template <typename math_t>
 void ridgeEig(const raft::handle_t& handle,
               math_t* A,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               math_t* b,
               math_t* alpha,
               int n_alpha,
-              math_t* w,
-              cudaStream_t stream)
+              math_t* w)
 {
+  auto stream    = handle.get_stream();
   auto cublasH   = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
 
   ASSERT(n_cols > 1, "ridgeEig: number of columns cannot be less than two");
   ASSERT(n_rows > 1, "ridgeEig: number of rows cannot be less than two");
 
-  int U_len = n_rows * n_cols;
-  int V_len = n_cols * n_cols;
+  auto U_len = n_rows * n_cols;
+  auto V_len = n_cols * n_cols;
 
   rmm::device_uvector<math_t> S(n_cols, stream);
   rmm::device_uvector<math_t> V(V_len, stream);
@@ -129,13 +130,13 @@ void ridgeEig(const raft::handle_t& handle,
 
   raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, stream);
 
-  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w, stream);
+  ridgeSolve(handle, S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w);
 }
 
 /**
  * @brief fit a ridge regression model (l2 regularized least squares)
  * @param handle        cuml handle
- * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param input         device pointer to feature matrix n_rows x n_cols (col-major)
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
@@ -145,7 +146,6 @@ void ridgeEig(const raft::handle_t& handle,
  * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
- * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
  * weights) This vector is modified during the computation
@@ -153,8 +153,8 @@ void ridgeEig(const raft::handle_t& handle,
 template <typename math_t>
 void ridgeFit(const raft::handle_t& handle,
               math_t* input,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               math_t* labels,
               math_t* alpha,
               int n_alpha,
@@ -207,9 +207,9 @@ void ridgeFit(const raft::handle_t& handle,
   }
 
   if (algo == 0 || n_cols == 1) {
-    ridgeSVD(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef, stream);
+    ridgeSVD(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef);
   } else if (algo == 1) {
-    ridgeEig(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef, stream);
+    ridgeEig(handle, input, n_rows, n_cols, labels, alpha, n_alpha, coef);
   } else if (algo == 2) {
     ASSERT(false, "ridgeFit: no algorithm with this id has been implemented");
   } else {
@@ -249,4 +249,3 @@ void ridgeFit(const raft::handle_t& handle,
 
 };  // namespace GLM
 };  // namespace ML
-// end namespace ML

@@ -28,8 +28,10 @@ from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 from cython.operator cimport dereference as deref
@@ -40,13 +42,14 @@ from libcpp.vector cimport vector
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-import rmm
+rmm = gpu_only_import('rmm')
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 import rmm
 
 cimport cuml.common.cuda
@@ -202,7 +205,7 @@ class KNeighborsClassifier(ClassifierMixin,
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
         classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
-                                  index=knn_indices.index)
+                                  index=inds.index)
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -272,7 +275,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
                                       order="C",
-                                      index=knn_indices.index)
+                                      index=inds.index)
             out_classes.append(classes)
             classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)
