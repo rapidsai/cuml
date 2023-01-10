@@ -14,20 +14,22 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import array_equal
+from cuml.internals.safe_imports import cpu_only_import
+from sklearn.datasets import make_blobs
+from sklearn.neighbors import KNeighborsClassifier as skKNN
+from cuml.neighbors import KNeighborsClassifier as cuKNN
+import cuml
 import pytest
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
-import cuml
-from cuml.neighbors import KNeighborsClassifier as cuKNN
-from sklearn.neighbors import KNeighborsClassifier as skKNN
 
-from sklearn.datasets import make_blobs
-import numpy as np
-from cuml.testing.utils import array_equal
+np = cpu_only_import('numpy')
 
-import pandas as pd
-import cupy as cp
+pd = cpu_only_import('pandas')
+cp = gpu_only_import('cupy')
 
 
 def _build_train_test_data(X, y, datatype, train_ratio=0.9):

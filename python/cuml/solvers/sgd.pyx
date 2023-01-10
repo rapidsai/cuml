@@ -18,10 +18,13 @@
 import typing
 
 import ctypes
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t

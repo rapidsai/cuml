@@ -14,16 +14,19 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
-import math
-from numba import cuda
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.base import Base
-from cuml.metrics import pairwise_distances
-from cuml.internals.import_utils import has_scipy
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.import_utils import has_scipy
+from cuml.metrics import pairwise_distances
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.safe_imports import gpu_only_import_from
+import math
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+cuda = gpu_only_import_from('numba', 'cuda')
 
 if has_scipy():
     from scipy.special import gammainc

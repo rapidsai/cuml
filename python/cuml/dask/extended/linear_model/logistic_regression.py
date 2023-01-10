@@ -13,14 +13,16 @@
 # limitations under the License.
 #
 
+from dask.utils import is_dataframe_like, is_series_like, is_arraylike
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.dask.common.base import BaseEstimator
 from cuml.common import with_cupy_rmm
 from cuml.internals.import_utils import has_daskglm
 
-import cupy as cp
-import numpy as np
-from dask.utils import is_dataframe_like, is_series_like, is_arraylike
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+cudf = gpu_only_import('cudf')
 
 
 class LogisticRegression(BaseEstimator):
