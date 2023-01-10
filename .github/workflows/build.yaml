@@ -57,7 +57,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
-      repo: rapidsai/cuml
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -78,7 +77,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
-      repo: rapidsai/cuml
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
