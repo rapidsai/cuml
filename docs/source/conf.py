@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -71,7 +71,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'cuml'
-copyright = '2023, NVIDIA Corporation'
+copyright = '2020-2023, NVIDIA Corporation'
 author = 'NVIDIA Corporation'
 
 # The version info for the project you're documenting, acts as replacement for
