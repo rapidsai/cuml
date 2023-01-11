@@ -240,7 +240,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        CUML_CMAKE_CUDA_ARCHITECTURES="ALL"
+        CUML_CMAKE_CUDA_ARCHITECTURES="RAPIDS"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
