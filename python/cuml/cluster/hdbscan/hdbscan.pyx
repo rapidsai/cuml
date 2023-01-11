@@ -929,7 +929,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         state = self.__dict__.copy()
         ptr_keys = []
         for k in state.keys():
-            if k.endswith("ptr"):
+            if "ptr" in k:
                 ptr_keys.append(k)
 
         for k in ptr_keys:
@@ -972,7 +972,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                 <int*> parent_ptr, <int*> child_ptr,
                 <float*> lambdas_ptr, <int*> sizes_ptr)
 
-        print("Setting condensed_tree_ptr")
         self.condensed_tree_ptr = <size_t> condensed_tree
 
         cdef uintptr_t core_dists_ptr = self.core_dists.ptr
