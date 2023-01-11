@@ -23,6 +23,7 @@ namespace opg {
 using namespace knn_common;
 
 template struct KNN_params<float, int64_t, float, int>;
+template struct KNN_SPARSE_params<float, int64_t, float, int>;
 
 void knn(raft::handle_t& handle,
          std::vector<Matrix::Data<int64_t>*>* out_I,
@@ -54,6 +55,46 @@ void knn(raft::handle_t& handle,
                                                 out_D,
                                                 out_I);
 
+  opg_knn(params, handle);
+}
+
+void knn_sparse(raft::handle_t& handle,
+                std::vector<Matrix::Data<int64_t>*>* out_I,
+                std::vector<Matrix::floatData_t*>* out_D,
+                std::vector<Matrix::floatData_t*>& idx_data,
+                std::vector<Matrix::floatData_t*>& idx_indices,
+                std::vector<Matrix::floatData_t*>& idx_indptr,
+                Matrix::PartDescriptor& idx_desc,
+                std::vector<Matrix::floatData_t*>& query_data,
+                std::vector<Matrix::floatData_t*>& query_indices,
+                std::vector<Matrix::floatData_t*>& query_indptr,
+                Matrix::PartDescriptor& query_desc,
+                bool rowMajorIndex,
+                bool rowMajorQuery,
+                int k,
+                raft::distance::DistanceType metric,
+                float p,
+                size_t batch_size,
+                bool verbose)
+{
+  KNN_SPARSE_params<float, int64_t, float, int> params(knn_operation::sparse_knn,
+                                                       &idx_data,
+                                                       &idx_indices,
+                                                       &idx_indptr,
+                                                       &idx_desc,
+                                                       &query_data,
+                                                       &query_indices,
+                                                       &query_indptr,
+                                                       &query_desc,
+                                                       rowMajorIndex,
+                                                       rowMajorQuery,
+                                                       k,
+                                                       metric,
+                                                       p,
+                                                       batch_size,
+                                                       verbose,
+                                                       out_D,
+                                                       out_I);
   opg_knn(params, handle);
 }
 };  // namespace opg

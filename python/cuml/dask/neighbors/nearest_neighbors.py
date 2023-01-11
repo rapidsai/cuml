@@ -98,11 +98,11 @@ class NearestNeighbors(BaseEstimator):
     @staticmethod
     def _func_kneighbors(model, index, index_parts_to_ranks, index_nrows,
                          query, query_parts_to_ranks, query_nrows,
-                         ncols, rank, n_neighbors, convert_dtype):
+                         ncols, rank, n_neighbors, sparse, convert_dtype):
         return model.kneighbors(
             index, index_parts_to_ranks, index_nrows, query,
             query_parts_to_ranks, query_nrows, ncols, rank,
-            n_neighbors, convert_dtype
+            n_neighbors, sparse, convert_dtype
         )
 
     @staticmethod
@@ -171,6 +171,14 @@ class NearestNeighbors(BaseEstimator):
         """
         Build inputs and outputs
         """
+        sparse = query_handler.datatype == 'cupy-sparse'
+        if sparse and index_handler.datatype != 'cupy-sparse':
+            raise ValueError("To run KNN in sparse mode, "
+                             "both the index and the query should be sparse.")
+        elif not sparse and index_handler.datatype == 'cupy-sparse':
+            raise ValueError("To run KNN in dense mode, "
+                             "both the index and the query should be dense.")
+
         index_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
@@ -200,6 +208,7 @@ class NearestNeighbors(BaseEstimator):
                         self.n_cols,
                         worker_info[worker]["rank"],
                         n_neighbors,
+                        sparse,
                         False,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))

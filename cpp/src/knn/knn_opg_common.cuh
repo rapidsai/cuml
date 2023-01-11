@@ -24,6 +24,7 @@
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 
+#include "raft/sparse/neighbors/knn.cuh"
 #include <raft/core/comms.hpp>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -43,7 +44,8 @@ namespace knn_common {
  * The enumeration of KNN distributed operations
  */
 enum knn_operation {
-  knn,            /**< Simple KNN */
+  knn,            /**< dense KNN */
+  sparse_knn,     /**< sparse KNN */
   classification, /**< KNN classification */
   class_proba,    /**< KNN classification probabilities */
   regression      /**< KNN regression */
@@ -81,16 +83,26 @@ struct opg_knn_param {
     this->verbose       = verbose;
   }
 
-  knn_operation knn_op;                                   /**< Type of KNN distributed operation */
-  std::vector<Matrix::Data<dist_t>*>* out_D    = nullptr; /**< KNN distances output array */
-  std::vector<Matrix::Data<ind_t>*>* out_I     = nullptr; /**< KNN indices output array */
-  std::vector<Matrix::Data<in_t>*>* idx_data   = nullptr; /**< Index input array */
-  Matrix::PartDescriptor* idx_desc             = nullptr; /**< Descriptor for index input array */
-  std::vector<Matrix::Data<in_t>*>* query_data = nullptr; /**< Query input array */
-  Matrix::PartDescriptor* query_desc           = nullptr; /**< Descriptor for query input array */
-  bool rowMajorIndex;                                     /**< Is index row major? */
-  bool rowMajorQuery;                                     /**< Is query row major? */
-  size_t k = 0;                                           /**< Number of nearest neighbors */
+  knn_operation knn_op;                                /**< Type of KNN distributed operation */
+  std::vector<Matrix::Data<dist_t>*>* out_D = nullptr; /**< KNN distances output array */
+  std::vector<Matrix::Data<ind_t>*>* out_I  = nullptr; /**< KNN indices output array */
+  std::vector<Matrix::Data<in_t>*>* idx_data =
+    nullptr; /**< Index input data array (dense and sparse) */
+  std::vector<Matrix::Data<in_t>*>* idx_indices =
+    nullptr; /**< Index input indices array (sparse only) */
+  std::vector<Matrix::Data<in_t>*>* idx_indptr =
+    nullptr;                                  /**< Index input indptr array (sparse only) */
+  Matrix::PartDescriptor* idx_desc = nullptr; /**< Descriptor for index input array */
+  std::vector<Matrix::Data<in_t>*>* query_data =
+    nullptr; /**< Query input data array (dense and sparse) */
+  std::vector<Matrix::Data<in_t>*>* query_indices =
+    nullptr; /**< Query input indices array (sparse only) */
+  std::vector<Matrix::Data<in_t>*>* query_indptr =
+    nullptr;                                    /**< Query input indptr array (sparse only) */
+  Matrix::PartDescriptor* query_desc = nullptr; /**< Descriptor for query input array */
+  bool rowMajorIndex;                           /**< Is index row major? */
+  bool rowMajorQuery;                           /**< Is query row major? */
+  size_t k = 0;                                 /**< Number of nearest neighbors */
   raft::distance::DistanceType metric =
     raft::distance::DistanceType::L2Expanded; /**< Distance metric */
   float p           = 2.0f;                   /**< Metric argument */
@@ -138,6 +150,48 @@ struct KNN_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
   {
     this->out_D = out_D;
     this->out_I = out_I;
+  }
+};
+
+template <typename in_t, typename ind_t, typename dist_t, typename out_t>
+struct KNN_SPARSE_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
+  KNN_SPARSE_params(knn_operation knn_op,
+                    std::vector<Matrix::Data<in_t>*>* idx_data,
+                    std::vector<Matrix::Data<in_t>*>* idx_indices,
+                    std::vector<Matrix::Data<in_t>*>* idx_indptr,
+                    Matrix::PartDescriptor* idx_desc,
+                    std::vector<Matrix::Data<in_t>*>* query_data,
+                    std::vector<Matrix::Data<in_t>*>* query_indices,
+                    std::vector<Matrix::Data<in_t>*>* query_indptr,
+                    Matrix::PartDescriptor* query_desc,
+                    bool rowMajorIndex,
+                    bool rowMajorQuery,
+                    size_t k,
+                    raft::distance::DistanceType metric,
+                    float p,
+                    size_t batch_size,
+                    bool verbose,
+                    std::vector<Matrix::Data<dist_t>*>* out_D,
+                    std::vector<Matrix::Data<ind_t>*>* out_I)
+    : opg_knn_param<in_t, ind_t, dist_t, out_t>(knn_op,
+                                                idx_data,
+                                                idx_desc,
+                                                query_data,
+                                                query_desc,
+                                                rowMajorIndex,
+                                                rowMajorQuery,
+                                                k,
+                                                metric,
+                                                p,
+                                                batch_size,
+                                                verbose)
+  {
+    this->idx_indices   = idx_indices;
+    this->idx_indptr    = idx_indptr;
+    this->query_indices = query_indices;
+    this->query_indptr  = query_indptr;
+    this->out_D         = out_D;
+    this->out_I         = out_I;
   }
 };
 
@@ -337,7 +391,7 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
 
         size_t batch_knn_elms = params.k * cur_batch_size;
 
-        if (params.knn_op != knn_operation::knn) {
+        if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
           // No labels for KNN only operation
           work.res.resize(batch_knn_elms * params.n_outputs, handle.get_stream());
         }
@@ -347,7 +401,7 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
         // Perform a local KNN search
         perform_local_knn(params, work, handle, cur_query_ptr, cur_batch_size);
 
-        if (params.knn_op != knn_operation::knn) {
+        if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
           // Get the right labels for indices obtained after a KNN merge
           copy_label_outputs_from_index_parts(params, work, handle, cur_batch_size);
         }
@@ -591,7 +645,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       work.res_D.data(), batch_elms, part_rank, 0, requests.data() + request_idx);
     ++request_idx;
 
-    if (params.knn_op != knn_operation::knn) {
+    if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
       requests.resize(2 + params.n_outputs);
       for (std::size_t o = 0; o < params.n_outputs; o++) {
         handle.get_comms().isend(work.res.data() + (o * batch_elms),
@@ -612,7 +666,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     work.res_I.resize(batch_elms * idx_rank_size, handle.get_stream());
     work.res_D.resize(batch_elms * idx_rank_size, handle.get_stream());
 
-    if (params.knn_op != knn_operation::knn) {
+    if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
       work.res.resize(batch_elms * params.n_outputs * idx_rank_size, handle.get_stream());
     }
 
@@ -634,7 +688,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
           raft::copy_async(
             work.res_D.data() + batch_offset, work.res_D.data(), batch_elms, handle.get_stream());
 
-          if (params.knn_op != knn_operation::knn) {
+          if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
             rmm::device_uvector<out_t> tmp_res(params.n_outputs * batch_elms, handle.get_stream());
             raft::copy_async(tmp_res.data(), work.res.data(), tmp_res.size(), handle.get_stream());
 
@@ -655,7 +709,9 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
     }
 
     size_t request_size = 2 * idx_rank_size;
-    if (params.knn_op != knn_operation::knn) request_size = (2 + params.n_outputs) * idx_rank_size;
+    if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
+      request_size = (2 + params.n_outputs) * idx_rank_size;
+    }
     requests.resize(request_size);
 
     int num_received = 0;
@@ -671,7 +727,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
           work.res_D.data() + batch_offset, batch_elms, rank, 0, requests.data() + request_idx);
         ++request_idx;
 
-        if (params.knn_op != knn_operation::knn) {
+        if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
           for (std::size_t o = 0; o < params.n_outputs; o++) {
             // Outputs are stored in target order and then in rank order
             out_t* r = work.res.data() + (o * work.idxRanks.size() * batch_elms) + batch_offset;
@@ -731,7 +787,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
   rmm::device_uvector<ind_t> indices_b(0, handle.get_stream());
   rmm::device_uvector<dist_t> distances_b(0, handle.get_stream());
 
-  if (params.knn_op == knn_operation::knn) {
+  if (params.knn_op == knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
     indices   = params.out_I->at(part_idx)->ptr + batch_offset;
     distances = params.out_D->at(part_idx)->ptr + batch_offset;
   } else {
@@ -754,7 +810,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
   handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  if (params.knn_op != knn_operation::knn) {
+  if (params.knn_op != knn_operation::knn && params.knn_op != knn_operation::sparse_knn) {
     rmm::device_uvector<out_t> merged_outputs_b(params.n_outputs * batch_size * params.k,
                                                 handle.get_stream());
     // Get the right labels for indices obtained after local KNN searches

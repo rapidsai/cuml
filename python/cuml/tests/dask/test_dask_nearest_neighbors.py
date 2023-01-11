@@ -32,6 +32,13 @@ from sklearn.neighbors import KNeighborsClassifier
 
 from cuml.testing.utils import array_equal
 
+from cuml.neighbors import NearestNeighbors
+from cuml.dask.neighbors import NearestNeighbors as daskNN
+from cuml.datasets import make_blobs
+import dask.array as da
+import cupy as cp
+from numpy.testing import assert_allclose
+
 
 def predict(neigh_ind, _y, n_neighbors):
     if has_scipy():
@@ -257,3 +264,46 @@ def test_one_query_partition(client):
     cumlModel = daskNN(n_neighbors=4)
     cumlModel.fit(X_train)
     cumlModel.kneighbors(X_test)
+
+
+@pytest.mark.parametrize("n_parts", [1, 2, 5, 7])
+@pytest.mark.parametrize("n_neighbors", [3, 16, 64])
+def test_sparse(n_parts, n_neighbors, client):
+    nrows = 1000
+    nrows = int(_scale_rows(client, nrows))
+
+    X, _ = make_blobs(n_samples=nrows,
+                      n_features=30,
+                      centers=500,
+                      random_state=0)
+    X = X.astype(np.float32)
+    sparsify = cp.random.choice(a=[0., 1.], size=X.shape, p=[0.3, 0.7])
+    X *= sparsify
+    X = cp.sparse.csr_matrix(X)
+
+    index_length = int(nrows * 0.7)
+    index = X[:index_length]
+    query = X[index_length:]
+
+    dask_index = da.from_array(index,
+                               chunks=(int(index.shape[0] / n_parts), -1),
+                               asarray=False, fancy=False)
+    dask_query = da.from_array(query,
+                               chunks=(int(query.shape[0] / n_parts), -1),
+                               asarray=False, fancy=False)
+
+    dask_nn = daskNN(n_neighbors=n_neighbors)
+    dask_nn.fit(dask_index)
+    result = dask_nn.kneighbors(dask_query)
+    dist, ind = result[0].compute().get(), result[1].compute().get()
+
+    nn = NearestNeighbors(n_neighbors=n_neighbors)
+    nn.fit(index.get())
+    ref_dist, ref_ind = nn.kneighbors(query.get())
+
+    assert_allclose(dist, ref_dist, rtol=0.1)
+
+    n_indices = ind.size
+    n_similar_indices = (ind == ref_ind).sum()
+    correct_indices_ratio = n_similar_indices / n_indices
+    assert correct_indices_ratio > 0.99

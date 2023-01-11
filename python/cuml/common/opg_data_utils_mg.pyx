@@ -19,7 +19,7 @@ import numpy as np
 from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, SparseCumlArray
 from cython.operator cimport dereference as deref
 from cuml.internals.array import CumlArray
 
@@ -242,3 +242,54 @@ def _build_part_inputs(cuda_arr_ifaces,
                            <int>local_rank)
 
     return cuml_arr_ifaces, <uintptr_t>local_parts, <uintptr_t>descriptor
+
+
+cdef floatData_t* generate_local_part(cuml_array):
+    data = <floatData_t*>malloc(sizeof(floatData_t))
+    data.ptr = <float*><uintptr_t>cuml_array.ptr
+    data.totalSize = <size_t>cuml_array.size*sizeof(float)
+    return data
+
+
+def _build_part_inputs_csr(cuda_arr_ifaces,
+                           parts_to_ranks,
+                           m, n, local_rank,
+                           convert_dtype):
+
+    cuml_arr_ifaces = []
+    for arr in cuda_arr_ifaces:
+        X_m = SparseCumlArray(arr,
+                              convert_to_dtype=(np.float32
+                                                if convert_dtype
+                                                else None),
+                              convert_format=False)
+        cuml_arr_ifaces.append(X_m)
+
+    cdef vector[floatData_t*] *data_parts = new vector[floatData_t*]()
+    cdef vector[floatData_t*] *indices_parts = new vector[floatData_t*]()
+    cdef vector[floatData_t*] *indptr_parts = new vector[floatData_t*]()
+    for sparse_array in cuml_arr_ifaces:
+        data = generate_local_part(sparse_array.data)
+        data_parts.push_back(data)
+        indices = generate_local_part(sparse_array.indices)
+        indices_parts.push_back(indices)
+        indptr = generate_local_part(sparse_array.indptr)
+        indptr_parts.push_back(indptr)
+
+    cdef vector[RankSizePair*] partsToRanks
+    for idx, rankToSize in enumerate(parts_to_ranks):
+        rank, size = rankToSize
+        rsp = <RankSizePair*>malloc(sizeof(RankSizePair))
+        rsp.rank = <int>rank
+        rsp.size = <size_t>size
+        partsToRanks.push_back(rsp)
+
+    cdef PartDescriptor *descriptor = \
+        new PartDescriptor(<size_t>m,
+                           <size_t>n,
+                           <vector[RankSizePair*]>partsToRanks,
+                           <int>local_rank)
+
+    return cuml_arr_ifaces, <uintptr_t>data_parts, \
+        <uintptr_t>indices_parts, <uintptr_t>indptr_parts, \
+        <uintptr_t>descriptor

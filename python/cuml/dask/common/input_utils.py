@@ -18,6 +18,7 @@
 import cudf
 import cuml.internals.logger as logger
 import cupy as cp
+from cupyx.scipy.sparse import issparse
 import numpy as np
 import dask.array as da
 
@@ -165,12 +166,16 @@ def _get_datatype_from_inputs(data):
     """
 
     multiple = isinstance(data, Sequence)
+    el = first(data) if multiple else data
 
-    if isinstance(first(data) if multiple else data,
-                  (daskSeries, daskDataFrame, dcDataFrame, dcSeries)):
+    if isinstance(el, (daskSeries, daskDataFrame,
+                       dcDataFrame, dcSeries)):
         datatype = 'cudf'
     else:
-        datatype = 'cupy'
+        if issparse(el._meta):
+            datatype = 'cupy-sparse'
+        else:
+            datatype = 'cupy'
         if multiple:
             for d in data:
                 validate_dask_array(d)
@@ -196,7 +201,7 @@ def concatenate(objs, axis=0):
 
 # TODO: This should be delayed.
 def to_output(futures, type, client=None):
-    if type == 'cupy':
+    if type in ['cupy', 'cupy-sparse']:
         return to_dask_cupy(futures, client=client)
     else:
         return to_dask_cudf(futures, client=client)

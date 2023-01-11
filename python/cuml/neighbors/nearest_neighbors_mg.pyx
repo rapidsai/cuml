@@ -27,8 +27,9 @@ from cuml.neighbors import NearestNeighbors
 
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common.opg_data_utils_mg import _build_part_inputs
-from cuml.metrics.distance_type cimport DistanceType
+from cuml.common.opg_data_utils_mg import _build_part_inputs, \
+    _build_part_inputs_csr
+from pylibraft.distance.distance_type cimport DistanceType
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -47,6 +48,27 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         vector[floatData_t*] &idx_data,
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
+        PartDescriptor &query_desc,
+        bool rowMajorIndex,
+        bool rowMajorQuery,
+        int k,
+        DistanceType metric,
+        float metricArg,
+        size_t batch_size,
+        bool verbose
+    ) except +
+
+    cdef void knn_sparse(
+        handle_t &handle,
+        vector[int64Data_t*] *out_I,
+        vector[floatData_t*] *out_D,
+        vector[floatData_t*] &idx_data,
+        vector[floatData_t*] &idx_indices,
+        vector[floatData_t*] &idx_indptr,
+        PartDescriptor &idx_desc,
+        vector[floatData_t*] &query_data,
+        vector[floatData_t*] &query_indices,
+        vector[floatData_t*] &query_indptr,
         PartDescriptor &query_desc,
         bool rowMajorIndex,
         bool rowMajorQuery,
@@ -86,6 +108,7 @@ class NearestNeighborsMG(NearestNeighbors):
         ncols,
         rank,
         n_neighbors,
+        sparse,
         convert_dtype
     ) -> typing.Tuple[typing.List[CumlArray], typing.List[CumlArray]]:
         """
@@ -102,6 +125,7 @@ class NearestNeighborsMG(NearestNeighbors):
         ncols: number of columns
         rank: rank of current worker
         n_neighbors: number of nearest neighbors to query
+        sparse: sparse input
         convert_dtype: since only float32 inputs are supported, should
                the input be automatically converted?
 
@@ -116,9 +140,26 @@ class NearestNeighborsMG(NearestNeighbors):
             else n_neighbors
 
         # Build input arrays and descriptors for native code interfacing
-        input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
-                                     query, query_parts_to_ranks, query_nrows,
-                                     ncols, rank, convert_dtype)
+        if sparse:
+            input = self.gen_local_input_sparse(index,
+                                                index_parts_to_ranks,
+                                                index_nrows,
+                                                query,
+                                                query_parts_to_ranks,
+                                                query_nrows,
+                                                ncols,
+                                                rank,
+                                                convert_dtype)
+        else:
+            input = self.gen_local_input(index,
+                                         index_parts_to_ranks,
+                                         index_nrows,
+                                         query,
+                                         query_parts_to_ranks,
+                                         query_nrows,
+                                         ncols,
+                                         rank,
+                                         convert_dtype)
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
@@ -131,24 +172,55 @@ class NearestNeighborsMG(NearestNeighbors):
 
         metric = self._build_metric_type(self.effective_metric_)
         # Launch distributed operations
-        knn(
-            handle_[0],
-            <vector[int64Data_t*]*><uintptr_t>result['indices'],
-            <vector[floatData_t*]*><uintptr_t>result['distances'],
-            deref(<vector[floatData_t*]*><uintptr_t>
-                  input['index']['local_parts']),
-            deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
-            deref(<vector[floatData_t*]*><uintptr_t>
-                  input['query']['local_parts']),
-            deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
-            <bool>False,  # column-major index
-            <bool>False,  # column-major query
-            <int>self.n_neighbors,
-            <DistanceType>metric,
-            <float>self.p,
-            <size_t>self.batch_size,
-            <bool>is_verbose
-        )
+
+        if sparse:
+            knn_sparse(
+                handle_[0],
+                <vector[int64Data_t*]*><uintptr_t>result['indices'],
+                <vector[floatData_t*]*><uintptr_t>result['distances'],
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['index']['data_parts']),
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['index']['indices_parts']),
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['index']['indptr_parts']),
+                deref(<PartDescriptor*><uintptr_t>
+                      input['index']['desc']),
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['query']['data_parts']),
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['query']['indices_parts']),
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['query']['indptr_parts']),
+                deref(<PartDescriptor*><uintptr_t>
+                      input['query']['desc']),
+                <bool>False,  # column-major index
+                <bool>False,  # column-major query
+                <int>self.n_neighbors,
+                <DistanceType>metric,
+                <float>self.p,
+                <size_t>self.batch_size,
+                <bool>is_verbose
+            )
+        else:
+            knn(
+                handle_[0],
+                <vector[int64Data_t*]*><uintptr_t>result['indices'],
+                <vector[floatData_t*]*><uintptr_t>result['distances'],
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['index']['local_parts']),
+                deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
+                deref(<vector[floatData_t*]*><uintptr_t>
+                      input['query']['local_parts']),
+                deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
+                <bool>False,  # column-major index
+                <bool>False,  # column-major query
+                <int>self.n_neighbors,
+                <DistanceType>metric,
+                <float>self.p,
+                <size_t>self.batch_size,
+                <bool>is_verbose
+            )
         self.handle.sync()
 
         # Release memory
@@ -184,6 +256,41 @@ class NearestNeighborsMG(NearestNeighbors):
             },
             'query': {
                 'local_parts': <uintptr_t>query_local_parts,
+                'desc': <uintptr_t>query_desc
+            },
+            'cais': {
+                'index': index_cai,
+                'query': query_cai
+            },
+        }
+
+    @staticmethod
+    def gen_local_input_sparse(index, index_parts_to_ranks, index_nrows,
+                               query, query_parts_to_ranks, query_nrows,
+                               ncols, rank, convert_dtype):
+        index_dask = [d[0] if isinstance(d, (list, tuple))
+                      else d for d in index]
+        index_cai, index_data_parts, index_indices_parts, \
+            index_indptr_parts, index_desc = \
+            _build_part_inputs_csr(index_dask, index_parts_to_ranks,
+                                   index_nrows, ncols, rank, convert_dtype)
+
+        query_cai, query_data_parts, query_indices_parts, \
+            query_indptr_parts, query_desc = \
+            _build_part_inputs_csr(query, query_parts_to_ranks,
+                                   query_nrows, ncols, rank, convert_dtype)
+
+        return {
+            'index': {
+                'data_parts': <uintptr_t>index_data_parts,
+                'indices_parts': <uintptr_t>index_indices_parts,
+                'indptr_parts': <uintptr_t>index_indptr_parts,
+                'desc': <uintptr_t>index_desc
+            },
+            'query': {
+                'data_parts': <uintptr_t>query_data_parts,
+                'indices_parts': <uintptr_t>query_indices_parts,
+                'indptr_parts': <uintptr_t>query_indptr_parts,
                 'desc': <uintptr_t>query_desc
             },
             'cais': {
@@ -277,14 +384,16 @@ class NearestNeighborsMG(NearestNeighbors):
         cdef vector[floatData_t*] *f_lp
 
         for input_type in ['index', 'query']:
-            ilp = input[input_type]['local_parts']
-            f_lp = <vector[floatData_t *]*><uintptr_t>ilp
-            for i in range(f_lp.size()):
-                f_ptr = f_lp.at(i)
-                free(<void*>f_ptr)
-            free(<void*><uintptr_t>f_lp)
-
             free(<void*><uintptr_t>input[input_type]['desc'])
+            for ilp_name in ['local_parts', 'data_parts',
+                             'indices_parts', 'indptr_parts']:
+                if ilp_name in input[input_type]:
+                    ilp = input[input_type][ilp_name]
+                    f_lp = <vector[floatData_t *]*><uintptr_t>ilp
+                    for i in range(f_lp.size()):
+                        f_ptr = f_lp.at(i)
+                        free(<void*>f_ptr)
+                    free(<void*><uintptr_t>f_lp)
 
         cdef int64Data_t *i64_ptr
         cdef vector[int64Data_t*] *i64_lp

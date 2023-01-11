@@ -25,7 +25,7 @@ from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.metrics.distance_type cimport DistanceType
+from pylibraft.distance.distance_type cimport DistanceType
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
