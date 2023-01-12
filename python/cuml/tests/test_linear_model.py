@@ -27,7 +27,7 @@ from cuml.testing.utils import (array_difference, array_equal, quality_param,
                                 small_classification_dataset,
                                 small_regression_dataset, stress_param,
                                 unit_param)
-from hypothesis import assume, example, given, note, settings
+from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
 from hypothesis.extra.numpy import floating_dtypes
@@ -246,7 +246,6 @@ def test_linear_regression_single_column():
 )
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
-@settings(deadline=5000)
 def test_linear_regression_model_default(dataset):
 
     X_train, X_test, y_train, _ = dataset
@@ -278,7 +277,6 @@ def test_linear_regression_model_default(dataset):
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
-@settings(deadline=5000)
 def test_linear_regression_model_default_generalized(dataset):
 
     X_train, X_test, y_train, _ = dataset
@@ -313,7 +311,6 @@ def test_linear_regression_model_default_generalized(dataset):
 )
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
-@settings(deadline=5000)
 def test_ridge_regression_model_default(dataset):
 
     assume(sklearn_compatible_dataset(* dataset))
@@ -530,7 +527,6 @@ def test_logistic_regression(
     penalty=st.sampled_from(("none", "l1", "l2", "elasticnet")),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
-@settings(deadline=5000)
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     if penalty == 'elasticnet':
         assume(l1_ratio is not None)
@@ -582,7 +578,6 @@ def test_logistic_regression_model_default(dtype):
     penalty=st.sampled_from(("none", "l1", "l2")),
 
 )
-@settings(deadline=5000)
 def test_logistic_regression_model_digits(
         dtype, order, sparse_input, fit_intercept, penalty):
 
@@ -609,7 +604,6 @@ def test_logistic_regression_model_digits(
 
 
 @given(dtype=floating_dtypes(sizes=(32, 64)))
-@settings(deadline=5000)
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -642,7 +636,6 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
     fit_intercept=st.booleans(),
     sparse_input=st.booleans(),
 )
-@settings(deadline=5000)
 def test_logistic_regression_decision_function(
         dataset, fit_intercept, sparse_input):
 
@@ -684,7 +677,6 @@ def test_logistic_regression_decision_function(
     fit_intercept=st.booleans(),
     sparse_input=st.booleans(),
 )
-@settings(deadline=5000)
 def test_logistic_regression_predict_proba(
         dataset, fit_intercept, sparse_input):
 
@@ -763,7 +755,6 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
     ),
     test_dtype=floating_dtypes(sizes=(32, 64)),
 )
-@settings(deadline=5000)
 def test_ridge_predict_convert_dtype(dataset, test_dtype):
     assume(cuml_compatible_dataset(*dataset))
     X_train, X_test, y_train, _ = dataset
@@ -781,7 +772,6 @@ def test_ridge_predict_convert_dtype(dataset, test_dtype):
     ),
     test_dtype=floating_dtypes(sizes=(32, 64)),
 )
-@settings(deadline=5000)
 def test_logistic_predict_convert_dtype(dataset, test_dtype):
     X_train, X_test, y_train, y_test = dataset
 
