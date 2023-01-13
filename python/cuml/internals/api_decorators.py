@@ -20,10 +20,8 @@ import inspect
 import typing
 import warnings
 
-import cuml.internals.array
-import cuml.internals.array_sparse
-import cuml.internals.input_utils
-from cuml.internals.type_utils import _DecoratorType, wraps_typed
+# TODO: Try to resolve circular import that makes this necessary:
+from cuml.internals import input_utils as iu
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
 from cuml.internals.api_context_managers import BaseReturnGenericCM
@@ -38,6 +36,7 @@ from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
+from cuml.internals.type_utils import _DecoratorType, wraps_typed
 from cuml.internals import logger
 
 
@@ -76,450 +75,159 @@ def _get_value(args, kwargs, name, index):
                 "were not found in args or kwargs.")
 
 
-class WithArgsDecoratorMixin(object):
-    """
-    This decorator mixin handles processing the input arguments for all api
-    decorators. It supplies the input_arg, target_arg properties
-    """
-    def __init__(self,
-                 *,
-                 input_arg: typing.Optional[str] = None,
-                 target_arg: typing.Optional[str] = None,
-                 needs_self=True,
-                 needs_input=False,
-                 needs_target=False):
+def _make_decorator_factory(
+    context_manager_cls: InternalAPIContextBase,
+    process_return=True,
+    needs_self: bool = False,
+    ** defaults,
+) -> typing.Callable[..., _DecoratorType]:
 
-        super().__init__()
+    def factory(
+        input_arg: str = ...,
+        target_arg: str = ...,
+        get_output_type: bool = False,
+        set_output_type: bool = False,
+        get_output_dtype: bool = False,
+        set_output_dtype: bool = False,
+        set_n_features_in: bool = False,
+    ) -> _DecoratorType:
 
-        self.input_arg = None if input_arg is ... else input_arg
-        self.target_arg = None if target_arg is ... else target_arg
+        def wrapper(func):
 
-        self.needs_self = needs_self
-        self.needs_input = needs_input
-        self.needs_target = needs_target
+            # Prepare arguments
+            sig = inspect.signature(func, follow_wrapped=True)
 
-    def prep_arg_to_use(self, func) -> tuple:
-        """"
-        Determine from function signature what processing needs to be done.
+            has_self = _has_self(sig)
+            if needs_self and not has_self:
+                raise Exception("No self found on function!")
 
-        This function is executed once per function definition.
-
-        Return tuple of:
-            - has_self
-            - input_arg (name, index)
-            - target_arg (name, index)
-        """
-
-        sig = inspect.signature(func, follow_wrapped=True)
-
-        has_self = _has_self(sig)
-
-        if self.needs_self and not has_self:
-            raise Exception("No self found on function!")
-
-        if self.needs_input:
-            input_arg = _find_arg(sig, self.input_arg or "X", 0)
-        else:
-            input_arg = (None, None)
-
-        if self.needs_target:
-            target_arg = _find_arg(sig, self.target_arg or "y", 1)
-        else:
-            target_arg = (None, None)
-
-        return has_self, input_arg, target_arg
-
-
-class HasSettersDecoratorMixin(object):
-    """
-    This mixin is responsible for handling any "set_XXX" methods used by api
-    decorators. Mostly used by `fit()` functions
-    """
-    def __init__(self,
-                 *,
-                 set_output_type=True,
-                 set_output_dtype=False,
-                 set_n_features_in=True) -> None:
-
-        super().__init__()
-
-        self.set_output_type = set_output_type
-        self.set_output_dtype = set_output_dtype
-        self.set_n_features_in = set_n_features_in
-
-        self.has_setters = (
-            set_output_type or set_output_dtype or set_n_features_in)
-
-    def do_setters(self, *, self_val, input_val, target_val):
-        if (self.set_output_type):
-            assert input_val is not None, \
-                "`set_output_type` is False but no input_arg detected"
-            self_val._set_output_type(input_val)
-
-        if (self.set_output_dtype):
-            assert target_val is not None, \
-                "`set_output_dtype` is True but no target_arg detected"
-            self_val._set_target_dtype(target_val)
-
-        if (self.set_n_features_in):
-            assert input_val is not None, \
-                "`set_n_features_in` is False but no input_arg detected"
-            if (len(input_val.shape) >= 2):
-                self_val._set_n_features_in(input_val)
-
-
-class HasGettersDecoratorMixin(object):
-    """
-    This mixin is responsible for handling any "get_XXX" methods used by api
-    decorators. Used for many functions like `predict()`, `transform()`, etc.
-    """
-    def __init__(self,
-                 *,
-                 get_output_type=False,
-                 get_output_dtype=False) -> None:
-
-        super().__init__()
-
-        self.get_output_type = get_output_type
-        self.get_output_dtype = get_output_dtype
-
-        self.has_getters = get_output_type or get_output_dtype
-
-    class _NOT_GIVEN:
-        """Sentinel that indicates the argument was not provided."""
-
-    def do_getters(self, *,
-                   self_val=_NOT_GIVEN,
-                   input_val=_NOT_GIVEN,
-                   target_val=_NOT_GIVEN):
-
-        if self.get_output_type:
-            if self_val is self._NOT_GIVEN:
-                assert input_val is not self._NOT_GIVEN
-                out_type = \
-                    cuml.common.input_utils.determine_array_type(input_val)
-            elif input_val is self._NOT_GIVEN:
-                out_type = self_val.output_type
-
-                if out_type == "input":
-                    out_type = self_val._input_type
+            if input_arg is not None and (
+                set_output_type
+                or set_output_dtype
+                or set_n_features_in
+                or get_output_type
+            ):
+                input_arg_ = _find_arg(sig, input_arg or "X", 0)
             else:
-                out_type = self_val._get_output_type(input_val)
+                input_arg_ = None
 
-            assert out_type is not None
-            set_api_output_type(out_type)
-
-        if self.get_output_dtype:
-            if self_val is self._NOT_GIVEN:
-                assert target_val is not self._NOT_GIVEN
-                output_dtype = \
-                    cuml.internals.input_utils.determine_array_dtype(target_val)
+            if set_output_dtype or (get_output_dtype and not has_self):
+                target_arg_ = _find_arg(sig, target_arg or "y", 1)
             else:
-                output_dtype = self_val._get_target_dtype()
-            set_api_output_dtype(output_dtype)
-
-    def has_getters_target(self, needs_self):
-        return False if needs_self else self.get_output_dtype
-
-
-class ReturnDirectDecorator():
-
-    cm_class = None
-
-    def __init__(self):
-        super().__init__()
-
-        self.do_autowrap = False
-
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
-
-        @_wrap_once(func)
-        def inner(*args, **kwargs):
-            with self._recreate_cm(func, args):
-                return func(*args, **kwargs)
-
-        return inner
-
-    @classmethod
-    def _recreate_cm(self, func, args) -> InternalAPIContextBase:
-        if self.cm_class is None:
-            raise NotImplementedError()
-        return self.cm_class(func, args)
-
-
-class ReturnUnwindDecorator(ReturnDirectDecorator):
-
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
-
-        @_wrap_once(func)
-        def inner(*args, **kwargs):
-            with self._recreate_cm(func, args) as cm:
-                ret_val = func(*args, **kwargs)
-
-            return cm.process_return(ret_val)
-
-        return inner
-
-
-class ReturnAnyDecorator(ReturnDirectDecorator):
-    cm_class = ReturnAnyCM
-
-
-class BaseReturnAnyDecorator(ReturnDirectDecorator,
-                             HasSettersDecoratorMixin,
-                             WithArgsDecoratorMixin):
-
-    cm_class = BaseReturnAnyCM
-
-    def __init__(self,
-                 *,
-                 input_arg: str = ...,
-                 target_arg: str = ...,
-                 set_output_type=True,
-                 set_output_dtype=False,
-                 set_n_features_in=True) -> None:
-
-        ReturnDirectDecorator.__init__(self)
-        HasSettersDecoratorMixin.__init__(self,
-                                          set_output_type=set_output_type,
-                                          set_output_dtype=set_output_dtype,
-                                          set_n_features_in=set_n_features_in)
-        WithArgsDecoratorMixin.__init__(self,
-                                        input_arg=input_arg,
-                                        target_arg=target_arg,
-                                        needs_self=True,
-                                        needs_input=set_output_type
-                                        or set_n_features_in,
-                                        needs_target=set_output_dtype)
-
-        self.do_autowrap = self.has_setters
-
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
-
-        has_self, input_arg, target_arg = self.prep_arg_to_use(func)
-
-        if self.has_setters:
+                target_arg_ = None
 
             @_wrap_once(func)
-            def inner_with_setters(*args, **kwargs):
+            def inner(*args, **kwargs):
 
-                with self._recreate_cm(func, args):
+                with context_manager_cls(func, args) as cm:
 
                     self_val = args[0] if has_self else None
-                    input_val = _get_value(args, kwargs, * input_arg) \
-                        if self.needs_input else None
-                    target_val = _get_value(args, kwargs, * target_arg) \
-                        if self.needs_target else None
 
-                    self.do_setters(self_val=self_val,
-                                    input_val=input_val,
-                                    target_val=target_val)
+                    if input_arg_:
+                        input_val = _get_value(args, kwargs, * input_arg_)
+                    if target_arg_:
+                        target_val = _get_value(args, kwargs, * target_arg_)
 
-                    return func(*args, **kwargs)
+                    if set_output_type:
+                        assert self_val is not None
+                        self_val._set_output_type(input_val)
+                    if set_output_dtype:
+                        assert self_val is not None
+                        self_val._set_target_dtype(target_val)
+                    if set_n_features_in and len(input_val.shape) >= 2:
+                        assert self_val is not None
+                        self_val._set_n_features_in(input_val)
 
-            return inner_with_setters
+                    if get_output_type:
+                        if self_val is None:
+                            assert input_val is not None
+                            out_type = iu.determine_array_type(input_val)
+                        elif input_val is None:
+                            out_type = self_val.output_type
+                            if out_type == "input":
+                                out_type = self_val._input_type
+                        else:
+                            out_type = self_val._get_output_type(input_val)
 
-        else:
-            return super().__call__(func)
+                        set_api_output_type(out_type)
 
+                    if get_output_dtype:
+                        if self_val is None:
+                            assert target_val is not None
+                            output_dtype = iu.determine_array_dtype(target_val)
+                        else:
+                            output_dtype = self_val._get_target_dtype()
 
-class ReturnArrayDecorator(ReturnUnwindDecorator,
-                           HasGettersDecoratorMixin,
-                           WithArgsDecoratorMixin):
+                        set_api_output_dtype(output_dtype)
 
-    cm_class = ReturnArrayCM
-
-    def __init__(self,
-                 *,
-                 input_arg: str = ...,
-                 target_arg: str = ...,
-                 get_output_type=False,
-                 get_output_dtype=False) -> None:
-
-        ReturnDirectDecorator.__init__(self)
-        HasGettersDecoratorMixin.__init__(self,
-                                          get_output_type=get_output_type,
-                                          get_output_dtype=get_output_dtype)
-        WithArgsDecoratorMixin.__init__(
-            self,
-            input_arg=input_arg,
-            target_arg=target_arg,
-            needs_self=False,
-            needs_input=get_output_type,
-            needs_target=self.has_getters_target(False))
-
-        self.do_autowrap = self.has_getters
-
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
-
-        _, input_arg, target_arg = self.prep_arg_to_use(func)
-
-        if self.has_getters:
-
-            @_wrap_once(func)
-            def inner_with_getters(*args, **kwargs):
-                with self._recreate_cm(func, args) as cm:
-
-                    # Get input/target values
-                    input_val = _get_value(args, kwargs, * input_arg) \
-                        if self.needs_input else None
-                    target_val = _get_value(args, kwargs, * target_arg) \
-                        if self.needs_target else None
-
-                    # Now execute the getters
-                    self.do_getters(input_val=input_val, target_val=target_val)
-
-                    # Call the function
-                    ret_val = func(*args, **kwargs)
-
-                return cm.process_return(ret_val)
-
-            return inner_with_getters
-
-        else:
-
-            return super().__call__(func)
-
-
-class ReturnSparseArrayDecorator(ReturnArrayDecorator):
-
-    cm_class = ReturnSparseArrayCM
-
-
-class BaseReturnArrayDecorator(ReturnUnwindDecorator,
-                               HasSettersDecoratorMixin,
-                               HasGettersDecoratorMixin,
-                               WithArgsDecoratorMixin):
-
-    cm_class = BaseReturnArrayCM
-
-    def __init__(self,
-                 *,
-                 input_arg: str = ...,
-                 target_arg: str = ...,
-                 get_output_type=True,
-                 get_output_dtype=False,
-                 set_output_type=False,
-                 set_output_dtype=False,
-                 set_n_features_in=False) -> None:
-
-        ReturnDirectDecorator.__init__(self)
-        HasSettersDecoratorMixin.__init__(self,
-                                          set_output_type=set_output_type,
-                                          set_output_dtype=set_output_dtype,
-                                          set_n_features_in=set_n_features_in)
-        HasGettersDecoratorMixin.__init__(self,
-                                          get_output_type=get_output_type,
-                                          get_output_dtype=get_output_dtype)
-        WithArgsDecoratorMixin.__init__(
-            self,
-            input_arg=input_arg,
-            target_arg=target_arg,
-            needs_self=True,
-            needs_input=input_arg is not None
-            and (set_output_type or set_n_features_in or get_output_type),
-            needs_target=set_output_dtype
-            or (False if True else get_output_dtype)
-        )
-
-        self.do_autowrap = self.has_setters or self.has_getters
-
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
-
-        has_self, input_arg, target_arg = self.prep_arg_to_use(func)
-
-        @_wrap_once(func)
-        def inner(*args, **kwargs):
-            # TODO: Check whether having branches in this function comes with
-            #       a performance penalty!
-            with self._recreate_cm(func, args) as cm:
-
-                # Get input/target values
-                self_val = args[0] if has_self else None
-
-                if self.has_getters or self.has_setters:
-                    input_val = _get_value(args, kwargs, * input_arg)
-
-                # Must do the setters first
-                if self.has_setters:
-                    target_val = _get_value(args, kwargs, * target_arg)
-                    self.do_setters(self_val=self_val,
-                                    input_val=input_val,
-                                    target_val=target_val)
-
-                # Now execute the getters
-                if self.has_getters:
-                    if (self.needs_input):
-                        self.do_getters(self_val=self_val, input_val=input_val)
+                    if process_return:
+                        ret = func(*args, **kwargs)
                     else:
-                        self.do_getters(self_val=self_val)
+                        return func(*args, **kwargs)
 
-                # Call the function
-                ret_val = func(*args, **kwargs)
+                return cm.process_return(ret)
 
-            return cm.process_return(ret_val)
-
-        if self.has_getters or self.has_setters:
             return inner
-        else:
-            return super().__call__(func)
+
+        return wrapper
+
+    return functools.partial(factory, **defaults)
 
 
-class BaseReturnSparseArrayDecorator(BaseReturnArrayDecorator):
-    cm_class = BaseReturnSparseArrayCM
+api_return_any = _make_decorator_factory(ReturnAnyCM, process_return=False)
+api_base_return_any = _make_decorator_factory(
+    BaseReturnAnyCM,
+    needs_self=True,
+    set_output_type=True,
+    set_n_features_in=True,
+)
+api_return_array = _make_decorator_factory(ReturnArrayCM, process_return=True)
+api_base_return_array = _make_decorator_factory(
+    BaseReturnArrayCM,
+    needs_self=True,
+    process_return=True,
+    get_output_type=True,
+)
+api_return_generic = _make_decorator_factory(
+    ReturnGenericCM, process_return=True
+)
+api_base_return_generic = _make_decorator_factory(
+    BaseReturnGenericCM,
+    needs_self=True,
+    process_return=True,
+    get_output_type=True,
+)
+api_base_fit_transform = _make_decorator_factory(
+    # TODO: add tests for this decorator(
+    BaseReturnArrayCM,
+    needs_self=True,
+    process_return=True,
+    get_output_type=True,
+    set_output_type=True,
+    set_n_features_in=True,
+)
 
+api_return_sparse_array = _make_decorator_factory(
+    ReturnSparseArrayCM, process_return=True
+)
+api_base_return_sparse_array = _make_decorator_factory(
+    BaseReturnSparseArrayCM,
+    needs_self=True,
+    process_return=True,
+    get_output_type=True,
+)
 
-class ReturnGenericDecorator(ReturnArrayDecorator):
-    cm_class = ReturnGenericCM
+# The decorator below appears to not be used:
+# api_return_array_skipall = ReturnArrayDecorator(get_output_dtype=False,
+#                                                 get_output_type=False)
 
-
-class BaseReturnGenericDecorator(BaseReturnArrayDecorator):
-    cm_class = BaseReturnGenericCM
-
-
-class BaseReturnArrayFitTransformDecorator(BaseReturnArrayDecorator):
-    """
-    Identical to `BaseReturnArrayDecorator`, however the defaults have been
-    changed to better suit `fit_transform` methods
-    """
-    def __init__(self,
-                 *,
-                 input_arg: str = ...,
-                 target_arg: str = ...,
-                 get_output_type=True,
-                 get_output_dtype=False,
-                 set_output_type=True,
-                 set_output_dtype=False,
-                 set_n_features_in=True) -> None:
-
-        super().__init__(input_arg=input_arg,
-                         target_arg=target_arg,
-                         get_output_type=get_output_type,
-                         get_output_dtype=get_output_dtype,
-                         set_output_type=set_output_type,
-                         set_output_dtype=set_output_dtype,
-                         set_n_features_in=set_n_features_in)
-
-
-api_return_any = ReturnAnyDecorator
-api_base_return_any = BaseReturnAnyDecorator
-api_return_array = ReturnArrayDecorator
-api_base_return_array = BaseReturnArrayDecorator
-api_return_generic = ReturnGenericDecorator
-api_base_return_generic = BaseReturnGenericDecorator
-api_base_fit_transform = BaseReturnArrayFitTransformDecorator
-
-api_return_sparse_array = ReturnSparseArrayDecorator
-api_base_return_sparse_array = BaseReturnSparseArrayDecorator
-
-api_return_array_skipall = ReturnArrayDecorator(get_output_dtype=False,
-                                                get_output_type=False)
-
-api_base_return_any_skipall = BaseReturnAnyDecorator(set_output_type=False,
-                                                     set_n_features_in=False)
-api_base_return_array_skipall = BaseReturnArrayDecorator(get_output_type=False)
-api_base_return_generic_skipall = BaseReturnGenericDecorator(
-    get_output_type=False)
+api_base_return_any_skipall = api_base_return_any(
+    set_output_type=False, set_n_features_in=False
+)
+api_base_return_array_skipall = api_base_return_array(get_output_type=False)
+api_base_return_generic_skipall = api_base_return_generic(
+    get_output_type=False
+)
 
 
 @contextlib.contextmanager
