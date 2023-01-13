@@ -34,22 +34,24 @@ GPU arrays directly instead.
 
 """
 
-import cudf
-import gzip
-import functools
-import os
-import numpy as np
-import cupy as cp
-import pandas as pd
-
-import cuml.datasets
-import sklearn.model_selection
-
-from urllib.request import urlretrieve
-from cuml.internals import input_utils
-from numba import cuda
-
 from cuml.internals.import_utils import has_scipy
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals import input_utils
+from urllib.request import urlretrieve
+import sklearn.model_selection
+import cuml.datasets
+from cuml.internals.safe_imports import cpu_only_import
+import os
+import functools
+import gzip
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+pd = cpu_only_import('pandas')
+
+
+cuda = gpu_only_import_from('numba', 'cuda')
 
 
 def _gen_data_regression(n_samples, n_features, random_state=42,

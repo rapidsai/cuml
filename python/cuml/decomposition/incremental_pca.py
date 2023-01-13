@@ -14,17 +14,19 @@
 # limitations under the License.
 #
 
+from cuml.decomposition import PCA
+from cuml.internals.array import CumlArray
+import cuml.internals
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.common import input_to_cuml_array
+from cuml import Base
+from cuml.internals.safe_imports import cpu_only_import
 import numbers
 
-import cupy as cp
-import cupyx
-import scipy
-from cuml import Base
-from cuml.common import input_to_cuml_array
-from cuml.internals.input_utils import input_to_cupy_array
-import cuml.internals
-from cuml.internals.array import CumlArray
-from cuml.decomposition import PCA
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+scipy = cpu_only_import('scipy')
 
 
 class IncrementalPCA(PCA):
@@ -191,6 +193,7 @@ class IncrementalPCA(PCA):
         >>> ipca.noise_variance_.item() # doctest: +SKIP
         0.0037122774558343763
     """
+
     def __init__(self, *, handle=None, n_components=None, whiten=False,
                  copy=True, batch_size=None, verbose=False,
                  output_type=None):

@@ -20,8 +20,9 @@ platform to support benchmark reporting.
 """
 from cuml.benchmark.runners import run_variations
 from cuml.benchmark import algorithms
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
 
 def log_range(start, end, n):

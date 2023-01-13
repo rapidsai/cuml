@@ -14,21 +14,22 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import create_synthetic_dataset
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.datasets import make_regression as skl_make_reg
+from sklearn.datasets import make_classification as skl_make_clas
+from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import fetch_20newsgroups
+from math import ceil
+import hypothesis
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 import os
 import subprocess
 
-import numpy as np
-import cupy as cp
-import hypothesis
-
-from math import ceil
-from sklearn.datasets import fetch_20newsgroups
-from sklearn.datasets import fetch_california_housing
-from sklearn.datasets import make_classification as skl_make_clas
-from sklearn.datasets import make_regression as skl_make_reg
-from sklearn.feature_extraction.text import CountVectorizer
-from cuml.testing.utils import create_synthetic_dataset
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 # Add the import here for any plugins that should be loaded EVERY TIME

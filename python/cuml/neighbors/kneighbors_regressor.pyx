@@ -26,7 +26,8 @@ from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 from cython.operator cimport dereference as deref
@@ -38,13 +39,15 @@ from pylibraft.common.handle cimport handle_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 import rmm
 
 cimport cuml.common.cuda

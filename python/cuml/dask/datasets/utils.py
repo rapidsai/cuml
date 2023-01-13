@@ -16,7 +16,8 @@
 
 import dask.array as da
 import dask.delayed
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 def _get_X(t):

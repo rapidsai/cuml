@@ -13,18 +13,20 @@
 # limitations under the License.
 #
 
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import determine_array_type
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array import CumlArray
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 import pickle
 
 import cuml
 import cuml.internals
-import cupy as cp
-import numpy as np
-import pytest
-from cuml.internals.array import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.input_utils import determine_array_dtype
-from cuml.internals.input_utils import determine_array_type
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
 

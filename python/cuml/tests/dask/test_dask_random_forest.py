@@ -30,29 +30,27 @@
 # limitations under the License.
 #
 
-import cudf
-import cupy as cp
-import dask_cudf
-import pytest
-import json
-
-import numpy as np
-import pandas as pd
-
-from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
-from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
-from cuml.dask.common import utils as dask_utils
-
-from cuml.ensemble import RandomForestClassifier as cuRFC_sg
-from cuml.ensemble import RandomForestRegressor as cuRFR_sg
-
-from dask.array import from_array
-from sklearn.datasets import make_regression, make_classification
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
-from sklearn.ensemble import RandomForestClassifier as skrfc
-
 from dask.distributed import Client
+from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_regression, make_classification
+from dask.array import from_array
+from cuml.ensemble import RandomForestRegressor as cuRFR_sg
+from cuml.ensemble import RandomForestClassifier as cuRFC_sg
+from cuml.dask.common import utils as dask_utils
+from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
+from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
+from cuml.internals.safe_imports import cpu_only_import
+import json
+import pytest
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+dask_cudf = gpu_only_import('dask_cudf')
+
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):

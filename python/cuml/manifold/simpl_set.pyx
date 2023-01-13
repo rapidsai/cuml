@@ -16,8 +16,10 @@
 
 # distutils: language = c++
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params

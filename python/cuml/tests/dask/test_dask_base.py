@@ -13,26 +13,25 @@
 # limitations under the License.
 #
 
-import cupy
-
-from dask_ml.wrappers import ParallelPostFit
-
-from cuml.dask.cluster import KMeans
-from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
-from cuml.testing.dask.utils import load_text_corpus
-
-from cuml.dask.datasets import make_blobs
-
-import cuml
-import numpy as np
-import pytest
-
-from numpy.testing import assert_equal
-
-from cuml.dask.linear_model import LinearRegression
-
-from cuml.dask.datasets import make_regression
 from sklearn.model_selection import train_test_split
+from cuml.dask.datasets import make_regression
+from cuml.dask.linear_model import LinearRegression
+from cuml.internals.safe_imports import cpu_only_import_from
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+import cuml
+from cuml.dask.datasets import make_blobs
+from cuml.testing.dask.utils import load_text_corpus
+from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
+from cuml.dask.cluster import KMeans
+from dask_ml.wrappers import ParallelPostFit
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
+
+
+np = cpu_only_import('numpy')
+
+assert_equal = cpu_only_import_from('numpy.testing', 'assert_equal')
 
 
 def make_dataset(datatype, nrows, ncols, n_info):
