@@ -18,9 +18,11 @@
 
 import typing
 
-import numpy as np
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 import ctypes
 import warnings
 import math
@@ -55,8 +57,9 @@ from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
 
-from numba import cuda
-import rmm
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+rmm = gpu_only_import('rmm')
 
 cimport cuml.common.cuda
 

@@ -13,21 +13,22 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
-import scipy
-import cupyx
-
+from sklearn.manifold import TSNE as skTSNE
+from sklearn import datasets
+from sklearn.manifold import trustworthiness
+from sklearn.datasets import make_blobs
+from sklearn.neighbors import NearestNeighbors
 from cuml.manifold import TSNE
+from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import array_equal, stress_param
-from cuml.neighbors import NearestNeighbors as cuKNN
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+np = cpu_only_import('numpy')
+scipy = cpu_only_import('scipy')
+cupyx = gpu_only_import('cupyx')
 
-from sklearn.datasets import make_blobs
-from sklearn.manifold import trustworthiness
-from sklearn import datasets
-from sklearn.manifold import TSNE as skTSNE
-from sklearn.neighbors import NearestNeighbors
 
 pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
                                         "experimental::")
@@ -36,10 +37,10 @@ DEFAULT_N_NEIGHBORS = 90
 DEFAULT_PERPLEXITY = 30
 
 test_datasets = {
-                 "digits": datasets.load_digits(),
-                 "boston": datasets.load_boston(),
-                 "diabetes": datasets.load_diabetes(),
-                 "cancer": datasets.load_breast_cancer(),
+    "digits": datasets.load_digits(),
+    "boston": datasets.load_boston(),
+    "diabetes": datasets.load_diabetes(),
+    "cancer": datasets.load_breast_cancer(),
 }
 
 

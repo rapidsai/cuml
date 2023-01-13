@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.preprocessing.TargetEncoder import TargetEncoder
-import cudf
-import pandas
-import numpy as np
-import cupy as cp
-from cuml.testing.utils import array_equal
 import pytest
+from cuml.testing.utils import array_equal
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.preprocessing.TargetEncoder import TargetEncoder
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+pandas = cpu_only_import('pandas')
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 def test_targetencoder_fit_transform():
@@ -268,10 +270,10 @@ def test_transform_with_index():
 
 def test_get_params():
     params = {
-         'n_folds': 5,
-         'smooth': 1,
-         'seed': 49,
-         'split_method': 'customize'
+        'n_folds': 5,
+        'smooth': 1,
+        'seed': 49,
+        'split_method': 'customize'
     }
     encoder = TargetEncoder(**params)
     p2 = encoder.get_params()

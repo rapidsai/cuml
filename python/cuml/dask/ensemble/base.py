@@ -13,21 +13,21 @@
 # limitations under the License.
 #
 
+from cuml.fil.fil import TreeliteModel
+from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
+from cuml.dask.common.input_utils import DistributedDataHandler, \
+    concatenate
+from dask.distributed import Future
+from collections.abc import Iterable
+from cuml import using_output_type
+import warnings
+from cuml.internals.safe_imports import gpu_only_import
 import dask
 import json
 import math
-import numpy as np
-import cupy as cp
-import warnings
-
-from cuml import using_output_type
-from collections.abc import Iterable
-from dask.distributed import Future
-
-from cuml.dask.common.input_utils import DistributedDataHandler, \
-    concatenate
-from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.fil.fil import TreeliteModel
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 class BaseRandomForestModel(object):
@@ -140,8 +140,8 @@ class BaseRandomForestModel(object):
         if len(self.workers) > len(self.active_workers):
             if self.ignore_empty_partitions:
                 curent_estimators = self.n_estimators / \
-                                    len(self.workers) * \
-                                    len(self.active_workers)
+                    len(self.workers) * \
+                    len(self.active_workers)
                 warn_text = (
                     f"Data was not split among all workers "
                     f"using only {self.active_workers} workers to fit."
@@ -174,8 +174,8 @@ class BaseRandomForestModel(object):
         last_worker = w
         model = self.rfs[last_worker].result()
         all_tl_mod_handles = [
-                model._tl_handle_from_bytes(indiv_worker_model_bytes)
-                for indiv_worker_model_bytes in mod_bytes
+            model._tl_handle_from_bytes(indiv_worker_model_bytes)
+            for indiv_worker_model_bytes in mod_bytes
         ]
 
         model._concatenate_treelite_handle(all_tl_mod_handles)

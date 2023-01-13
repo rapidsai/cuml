@@ -13,20 +13,19 @@
 # limitations under the License.
 #
 
-import cuml
-import numpy as np
-import pickle
-import pytest
-
-from cuml.tsa.arima import ARIMA
+from sklearn.model_selection import train_test_split
+from sklearn.manifold import trustworthiness
+from sklearn.datasets import load_iris, make_classification, make_regression
+from sklearn.base import clone
 from cuml.testing.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package, compare_svm, \
     compare_probabilistic_svm
-
-from sklearn.base import clone
-from sklearn.datasets import load_iris, make_classification, make_regression
-from sklearn.manifold import trustworthiness
-from sklearn.model_selection import train_test_split
+from cuml.tsa.arima import ARIMA
+import pytest
+import pickle
+import cuml
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 regression_config = ClassEnumerator(module=cuml.linear_model)

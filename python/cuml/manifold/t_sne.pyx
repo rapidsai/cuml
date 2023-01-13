@@ -19,11 +19,13 @@
 # cython: wraparound = False
 
 import ctypes
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import inspect
-import pandas as pd
+pd = cpu_only_import('pandas')
 import warnings
-import cupy
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -39,7 +41,7 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.metrics.distance_type cimport DistanceType
-import rmm
+rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t

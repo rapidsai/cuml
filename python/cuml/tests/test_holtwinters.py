@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
-import pytest
-
-from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
-
-from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
 from sklearn.metrics import r2_score
+from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
+from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+
 
 airpassengers = [112, 118, 132, 129, 121, 135, 148, 148, 136, 119, 104, 118,
                  115, 126, 141, 135, 125, 149, 170, 170, 158, 133, 114, 140,

@@ -13,22 +13,26 @@
 # limitations under the License.
 #
 
+from cuml.common import input_to_cuml_array
+from scipy.sparse import coo_matrix as cpu_coo_matrix
+from scipy.sparse import csc_matrix as cpu_csc_matrix
+from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 from cuml.datasets import make_classification, make_blobs
-from numpy.testing import assert_allclose as np_assert_allclose
+from cuml.internals.safe_imports import cpu_only_import_from
+np_assert_allclose = cpu_only_import_from('numpy.testing', 'assert_allclose')
 
-import numpy as np
-import cupy as cp
-import cupyx.scipy.sparse as gpu_sparse
-import scipy.sparse as cpu_sparse
-from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
-from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
-from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
-from scipy.sparse import csr_matrix as cpu_csr_matrix
-from scipy.sparse import csc_matrix as cpu_csc_matrix
-from scipy.sparse import coo_matrix as cpu_coo_matrix
-from cuml.common import input_to_cuml_array
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+gpu_sparse = gpu_only_import('cupyx.scipy.sparse')
+cpu_sparse = cpu_only_import('scipy.sparse')
+gpu_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+gpu_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
+cpu_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
 
 
 def to_output_type(array, output_type, order='F'):

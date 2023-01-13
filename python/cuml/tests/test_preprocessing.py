@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 
 from cuml.preprocessing import \
@@ -79,10 +80,11 @@ from cuml.testing.test_preproc_utils import \
 from cuml.testing.test_preproc_utils import assert_allclose
 from cuml.metrics import pairwise_kernels
 
-import numpy as np
-import cupy as cp
-import cupyx as cpx
-import scipy
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
+scipy = cpu_only_import('scipy')
 
 
 @pytest.mark.parametrize("feature_range", [(0, 1), (.1, 0.8)])

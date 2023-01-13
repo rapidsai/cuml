@@ -21,8 +21,10 @@ from libc.stdlib cimport free
 
 from cython.operator cimport dereference as deref
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 from warnings import warn
 
 from cuml.internals.array import CumlArray
@@ -923,6 +925,18 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                           <int> self.max_cluster_size,
                           <float> self.cluster_selection_epsilon)
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        ptr_keys = []
+        for k in state.keys():
+            if "ptr" in k:
+                ptr_keys.append(k)
+
+        for k in ptr_keys:
+            del state[k]
+
+        return state
+
     def __setstate__(self, state):
         super(HDBSCAN, self).__init__(
             handle=state["handle"],
@@ -957,6 +971,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                 <int>self.condensed_parent_.shape[0],
                 <int*> parent_ptr, <int*> child_ptr,
                 <float*> lambdas_ptr, <int*> sizes_ptr)
+
         self.condensed_tree_ptr = <size_t> condensed_tree
 
         cdef uintptr_t core_dists_ptr = self.core_dists.ptr

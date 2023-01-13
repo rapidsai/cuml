@@ -14,11 +14,14 @@
 # limitations under the License.
 #
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 import cuml.internals
-import cupy as cp
-import numpy as np
-import pandas
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pandas = cpu_only_import('pandas')
 
 import cuml.internals.logger as logger
 from cuml.internals.import_utils import has_shap
