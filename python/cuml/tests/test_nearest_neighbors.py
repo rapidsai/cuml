@@ -261,7 +261,8 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     [
         (algo, metric)
         for algo in ["brute", "ivfflat", "ivfpq"]
-        for metric in ["l2", "euclidean", "sqeuclidean", "cosine", "correlation"]
+        for metric in ["l2", "euclidean", "sqeuclidean", "cosine",
+                       "correlation"]
         if metric in cuml.neighbors.VALID_METRICS[algo]
     ],
 )
