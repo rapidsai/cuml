@@ -179,7 +179,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     if datatype == "dataframe":
         X = cudf.DataFrame(X)
 
-    knn_cu = cuKNN(algorithm=algo, metric="sqeuclidean")
+    knn_cu = cuKNN(algorithm=algo)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
@@ -205,14 +205,13 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nlist * 0.25
+        'nprobe': nlist * 0.5
     }
 
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
-    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params,
-                   metric="sqeuclidean")
+    knn_cu = cuKNN(algorithm="ivfflat", algo_params=algo_params)
     knn_cu.fit(X)
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
                                   return_distance=False)
@@ -244,8 +243,7 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     X, y = make_blobs(n_samples=nrows, centers=5,
                       n_features=ncols, random_state=0)
 
-    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params,
-                   metric="sqeuclidean")
+    knn_cu = cuKNN(algorithm="ivfpq", algo_params=algo_params)
     knn_cu.fit(X)
 
     neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
@@ -258,15 +256,16 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq"])
-@pytest.mark.parametrize("metric", [
-    "l2", "euclidean", "sqeuclidean",
-    "cosine", "correlation"
-])
+@pytest.mark.parametrize(
+    "algo, metric",
+    [
+        (algo, metric)
+        for algo in ["brute", "ivfflat", "ivfpq"]
+        for metric in ["l2", "euclidean", "sqeuclidean", "cosine", "correlation"]
+        if metric in cuml.neighbors.VALID_METRICS[algo]
+    ],
+)
 def test_ann_distances_metrics(algo, metric):
-    if algo in {"ivfflat", "ivfpq"} and metric != "sqeuclidean":
-        return
-
     X, y = make_blobs(n_samples=500, centers=2,
                       n_features=128, random_state=0)
 

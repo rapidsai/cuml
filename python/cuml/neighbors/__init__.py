@@ -41,11 +41,11 @@ VALID_METRICS = {
     ]),
     "ivfflat": set([
         "l2", "euclidean", "sqeuclidean",
-        "inner_product", "cosine", "correlation"
+        "inner_product",
     ]),
     "ivfpq": set([
         "l2", "euclidean", "sqeuclidean",
-        "inner_product", "cosine", "correlation"
+        "inner_product",
     ]),
 }
 
