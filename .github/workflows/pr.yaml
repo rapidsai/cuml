@@ -95,4 +95,4 @@ jobs:
       # skipped test context: https://github.com/rapidsai/cuml/issues/5025
       # parallelization is based on current test memory usage
       test-unittest: "pytest -v ./python/cuml/tests -k 'not test_silhouette_score_batched and not test_sparse_pca_inputs' -n 8 --ignore=dask && pytest -v ./python/cuml/tests -k 'test_sparse_pca_inputs' --ignore=dask && pytest -v ./python/cuml/tests/dask"
-      test-smoketest: "" #"python ci/wheel_smoke_test_cuml.py"
+      test-smoketest: "python ci/wheel_smoke_test_cuml.py"
