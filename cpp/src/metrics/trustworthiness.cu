@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <raft/stats/trustworthiness_score.hpp>
+#include <raft/stats/trustworthiness_score.cuh>
 
 #include <cuml/metrics/metrics.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <raft/distance/distance.cuh>

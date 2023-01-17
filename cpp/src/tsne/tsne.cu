@@ -18,7 +18,7 @@
 #include <cuml/manifold/tsne.h>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <raft/distance/distance_types.hpp>

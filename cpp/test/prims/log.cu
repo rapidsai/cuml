@@ -17,7 +17,7 @@
 #include "test_utils.h"
 #include <functions/log.cuh>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {

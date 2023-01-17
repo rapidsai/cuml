@@ -20,8 +20,8 @@
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/transform.h>

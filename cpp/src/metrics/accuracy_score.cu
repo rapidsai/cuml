@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/accuracy.hpp>
+#include <raft/stats/accuracy.cuh>
 
 namespace ML {
 

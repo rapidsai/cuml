@@ -18,8 +18,8 @@
 
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {

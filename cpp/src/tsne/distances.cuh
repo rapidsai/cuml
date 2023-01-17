@@ -17,12 +17,12 @@
 #pragma once
 
 #include <cuml/neighbors/knn_sparse.hpp>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/selection/knn.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <selection/knn.cuh>
 
 #include <cuml/manifold/common.hpp>

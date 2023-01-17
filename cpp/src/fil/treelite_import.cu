@@ -24,9 +24,9 @@
 #include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
 #include <cuml/fil/fnv_hash.h>  // for fowler_noll_vo_fingerprint64_32
 
-#include <raft/core/cudart_utils.hpp>  // for RAFT_CUDA_TRY
 #include <raft/core/error.hpp>         // for ASSERT
 #include <raft/core/handle.hpp>        // for handle_t
+#include <raft/util/cudart_utils.hpp>  // for RAFT_CUDA_TRY
 
 #include <treelite/base.h>   // for Operator, SplitFeatureType, kGE, kGT, kLE, kLT, kNumerical
 #include <treelite/c_api.h>  // for ModelHandle

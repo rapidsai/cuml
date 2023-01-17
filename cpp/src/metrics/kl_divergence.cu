@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/kl_divergence.hpp>
+#include <raft/stats/kl_divergence.cuh>
 
 namespace ML {
 

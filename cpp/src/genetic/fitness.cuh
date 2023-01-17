@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/strided_reduction.cuh>
@@ -24,6 +23,7 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -40,7 +40,7 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace cuml {
 namespace genetic {

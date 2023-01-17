@@ -18,7 +18,7 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 
 #include <raft/sparse/selection/knn.cuh>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 
 #include <cusparse_v2.h>
 

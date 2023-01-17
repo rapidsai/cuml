@@ -18,7 +18,7 @@
 #include <raft/core/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/rand_index.hpp>
+#include <raft/stats/rand_index.cuh>
 
 namespace ML {
 

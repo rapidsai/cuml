@@ -18,9 +18,9 @@
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <iostream>
 

@@ -16,7 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/entropy.hpp>
+#include <raft/stats/entropy.cuh>
 
 namespace ML {
 
