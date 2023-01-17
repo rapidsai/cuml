@@ -4,7 +4,7 @@ A simple test for cuML based on scikit-learn.
 Adapted from xgboost:
 https://raw.githubusercontent.com/rapidsai/xgboost-conda/branch-23.02/recipes/xgboost/test-py-xgboost.py
 """
-from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestClassifier
 import sklearn.datasets
 import sklearn.model_selection
 import sklearn.metrics
@@ -13,7 +13,7 @@ X, y = sklearn.datasets.load_iris(return_X_y=True)
 Xtrn, Xtst, ytrn, ytst = sklearn.model_selection.train_test_split(
     X, y, train_size=0.8, random_state=4)
 
-clf = curfc(
+clf = RandomForestClassifier(
     max_depth=2,
     n_estimators=10,
     n_bins=32,
