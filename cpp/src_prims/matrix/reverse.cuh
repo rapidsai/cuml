@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/util/cuda_utils.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/util/vectorized.cuh>
 
 namespace MLCommon {
 namespace Matrix {
