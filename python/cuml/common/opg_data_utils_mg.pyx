@@ -244,10 +244,16 @@ def _build_part_inputs(cuda_arr_ifaces,
     return cuml_arr_ifaces, <uintptr_t>local_parts, <uintptr_t>descriptor
 
 
-cdef floatData_t* generate_local_part(cuml_array):
+cdef floatData_t* generate_local_part_float(cuml_array):
     data = <floatData_t*>malloc(sizeof(floatData_t))
     data.ptr = <float*><uintptr_t>cuml_array.ptr
     data.totalSize = <size_t>cuml_array.size*sizeof(float)
+    return data
+
+cdef int64Data_t* generate_local_part_int64(cuml_array):
+    data = <int64Data_t*>malloc(sizeof(int64Data_t))
+    data.ptr = <int64_t*><uintptr_t>cuml_array.ptr
+    data.totalSize = <size_t>cuml_array.size*8
     return data
 
 
@@ -262,18 +268,21 @@ def _build_part_inputs_csr(cuda_arr_ifaces,
                               convert_to_dtype=(np.float32
                                                 if convert_dtype
                                                 else None),
+                              convert_index=(np.int64
+                                             if convert_dtype
+                                             else None),
                               convert_format=False)
         cuml_arr_ifaces.append(X_m)
 
     cdef vector[floatData_t*] *data_parts = new vector[floatData_t*]()
-    cdef vector[floatData_t*] *indices_parts = new vector[floatData_t*]()
-    cdef vector[floatData_t*] *indptr_parts = new vector[floatData_t*]()
+    cdef vector[int64Data_t*] *indices_parts = new vector[int64Data_t*]()
+    cdef vector[int64Data_t*] *indptr_parts = new vector[int64Data_t*]()
     for sparse_array in cuml_arr_ifaces:
-        data = generate_local_part(sparse_array.data)
+        data = generate_local_part_float(sparse_array.data)
         data_parts.push_back(data)
-        indices = generate_local_part(sparse_array.indices)
+        indices = generate_local_part_int64(sparse_array.indices)
         indices_parts.push_back(indices)
-        indptr = generate_local_part(sparse_array.indptr)
+        indptr = generate_local_part_int64(sparse_array.indptr)
         indptr_parts.push_back(indptr)
 
     cdef vector[RankSizePair*] partsToRanks

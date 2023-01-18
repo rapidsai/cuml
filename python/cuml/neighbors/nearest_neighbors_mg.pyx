@@ -63,12 +63,12 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
         vector[int64Data_t*] *out_I,
         vector[floatData_t*] *out_D,
         vector[floatData_t*] &idx_data,
-        vector[floatData_t*] &idx_indices,
-        vector[floatData_t*] &idx_indptr,
+        vector[int64Data_t*] &idx_indices,
+        vector[int64Data_t*] &idx_indptr,
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
-        vector[floatData_t*] &query_indices,
-        vector[floatData_t*] &query_indptr,
+        vector[int64Data_t*] &query_indices,
+        vector[int64Data_t*] &query_indptr,
         PartDescriptor &query_desc,
         bool rowMajorIndex,
         bool rowMajorQuery,
@@ -141,6 +141,9 @@ class NearestNeighborsMG(NearestNeighbors):
 
         # Build input arrays and descriptors for native code interfacing
         if sparse:
+            # setting batch size to 0 as it cannot be used in sparse mode
+            self.batch_size = 0
+
             input = self.gen_local_input_sparse(index,
                                                 index_parts_to_ranks,
                                                 index_nrows,
@@ -180,17 +183,17 @@ class NearestNeighborsMG(NearestNeighbors):
                 <vector[floatData_t*]*><uintptr_t>result['distances'],
                 deref(<vector[floatData_t*]*><uintptr_t>
                       input['index']['data_parts']),
-                deref(<vector[floatData_t*]*><uintptr_t>
+                deref(<vector[int64Data_t*]*><uintptr_t>
                       input['index']['indices_parts']),
-                deref(<vector[floatData_t*]*><uintptr_t>
+                deref(<vector[int64Data_t*]*><uintptr_t>
                       input['index']['indptr_parts']),
                 deref(<PartDescriptor*><uintptr_t>
                       input['index']['desc']),
                 deref(<vector[floatData_t*]*><uintptr_t>
                       input['query']['data_parts']),
-                deref(<vector[floatData_t*]*><uintptr_t>
+                deref(<vector[int64Data_t*]*><uintptr_t>
                       input['query']['indices_parts']),
-                deref(<vector[floatData_t*]*><uintptr_t>
+                deref(<vector[int64Data_t*]*><uintptr_t>
                       input['query']['indptr_parts']),
                 deref(<PartDescriptor*><uintptr_t>
                       input['query']['desc']),

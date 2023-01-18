@@ -29,17 +29,11 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
     cdef cppclass Data[T]:
         Data(T *ptr, size_t totalSize)
-
-    cdef cppclass floatData_t:
-        floatData_t(float *ptr, size_t totalSize)
-        float *ptr
+        T *ptr
         size_t totalSize
 
-    cdef cppclass doubleData_t:
-        doubleData_t(double *ptr, size_t totalSize)
-        double *ptr
-        size_t totalSize
-
+ctypedef Data[float] floatData_t
+ctypedef Data[double] doubleData_t
 ctypedef Data[int64_t] int64Data_t
 ctypedef Data[int] intData_t
 ctypedef vector[int*] int_ptr_vector
