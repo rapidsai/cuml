@@ -225,10 +225,6 @@ api_base_return_sparse_array = _make_decorator_factory(
     get_output_type=True,
 )
 
-# The decorator below appears to not be used:
-# api_return_array_skipall = ReturnArrayDecorator(get_output_dtype=False,
-#                                                 get_output_type=False)
-
 api_base_return_any_skipall = api_base_return_any(
     set_output_type=False, set_n_features_in=False
 )
