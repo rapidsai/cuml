@@ -13,22 +13,23 @@
 # limitations under the License.
 #
 
+import cuml.internals.logger as logger
+import cuml
+import cuml.svm as cu
+import sklearn.svm as sk
+from cuml.testing.utils import unit_param, quality_param, stress_param
+from queue import Empty
+import cuml.model_selection as dsel
+import cuml.datasets as data
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 import gc
 import multiprocessing as mp
 import time
 import math
-import cupy as cp
-import numpy as np
-import pytest
-import cuml.datasets as data
-import cuml.model_selection as dsel
-from queue import Empty
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
-import sklearn.svm as sk
-import cuml.svm as cu
-import cuml
-import cuml.internals.logger as logger
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 SEED = 42
@@ -104,22 +105,22 @@ def make_classification_dataset(datatype, nrows, ncols, nclasses):
         max(nclasses * 2, math.ceil(ncols / 10))))
     n_clusters_per_class = min(
         2, max(1, int(2**n_real_features / nclasses))
-        )
+    )
     n_redundant = min(
         ncols - n_real_features,
         max(2, math.ceil(ncols / 20)))
     try:
         X, y = data.make_classification(
-                dtype=datatype,
-                n_samples=nrows + 1000,
-                n_features=ncols,
-                random_state=SEED,
-                class_sep=1.0,
-                n_informative=n_real_features,
-                n_clusters_per_class=n_clusters_per_class,
-                n_redundant=n_redundant,
-                n_classes=nclasses
-            )
+            dtype=datatype,
+            n_samples=nrows + 1000,
+            n_features=ncols,
+            random_state=SEED,
+            class_sep=1.0,
+            n_informative=n_real_features,
+            n_clusters_per_class=n_clusters_per_class,
+            n_redundant=n_redundant,
+            n_classes=nclasses
+        )
 
         r = dsel.train_test_split(X, y, random_state=SEED, train_size=nrows)
 

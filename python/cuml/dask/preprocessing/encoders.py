@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from dask_cudf.core import Series as daskSeries
 from cuml.common import with_cupy_rmm
 
 from cuml.dask.common.base import BaseEstimator
@@ -21,8 +22,8 @@ from cuml.dask.common.base import DelayedInverseTransformMixin
 from toolz import first
 
 from collections.abc import Sequence
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as daskSeries
+from cuml.internals.safe_imports import gpu_only_import_from
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 
 
 class OneHotEncoder(BaseEstimator, DelayedTransformMixin,

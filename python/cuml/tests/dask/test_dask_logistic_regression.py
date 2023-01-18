@@ -13,16 +13,18 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import accuracy_score
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
-import pandas as pd
-import numpy as np
-import cupy as cp
-import dask_cudf
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+pd = cpu_only_import('pandas')
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+dask_cudf = gpu_only_import('dask_cudf')
+cudf = gpu_only_import('cudf')
 
 pytestmark = pytest.mark.mg
 
