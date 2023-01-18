@@ -14,23 +14,26 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import array_equal
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import_from
+from sklearn.model_selection import train_test_split
+from sklearn.utils.validation import check_random_state
+from sklearn.datasets import make_blobs
+from cuml.neighbors import KNeighborsRegressor as cuKNN
 import pytest
 
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
-from cuml.neighbors import KNeighborsRegressor as cuKNN
 
-from sklearn.datasets import make_blobs
+assert_array_almost_equal = cpu_only_import_from(
+    'numpy.testing', 'assert_array_almost_equal')
 
-from sklearn.utils.validation import check_random_state
-from sklearn.model_selection import train_test_split
-from numpy.testing import assert_array_almost_equal
+np = cpu_only_import('numpy')
 
-import numpy as np
 
-from cuml.testing.utils import array_equal
-
-import cupy as cp
+cp = gpu_only_import('cupy')
 
 
 def test_kneighbors_regressor(n_samples=40,

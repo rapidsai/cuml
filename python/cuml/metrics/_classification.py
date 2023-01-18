@@ -14,10 +14,12 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
-import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
+import cuml.internals
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 @cuml.internals.api_return_any()

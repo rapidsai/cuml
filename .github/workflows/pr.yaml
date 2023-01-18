@@ -19,6 +19,8 @@ jobs:
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
       - conda-notebook-tests
+      - wheel-build-cuml
+      - wheel-tests-cuml
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@cuda-118
   checks:
@@ -66,3 +68,31 @@ jobs:
       arch: "amd64"
       container_image: "rapidsai/ci:latest"
       run_script: "ci/test_notebooks.sh"
+  wheel-build-cuml:
+    needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@main
+    with:
+      build_type: pull-request
+      package-name: cuml
+      package-dir: python
+      extra-repo: rapidsai/cumlprims_mg
+      extra-repo-sha: branch-23.02
+      extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
+      skbuild-configure-options: "-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=/project/cumlprims_mg/"
+  wheel-tests-cuml:
+    needs: wheel-build-cuml
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@main
+    with:
+      build_type: pull-request
+      package-name: cuml
+      # Always want to test against latest dask/distributed.
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
+      # On arm also need to install cupy from the specific webpage and CMake
+      # because treelite needs to be compiled (no wheels available for arm).
+      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
+      # skipped test context: https://github.com/rapidsai/cuml/issues/5025
+      # parallelization is based on current test memory usage
+      test-unittest: "pytest -v ./python/cuml/tests -k 'not test_silhouette_score_batched and not test_sparse_pca_inputs' -n 8 --ignore=dask && pytest -v ./python/cuml/tests -k 'test_sparse_pca_inputs' --ignore=dask && pytest -v ./python/cuml/tests/dask"
+      test-smoketest: "python ci/wheel_smoke_test_cuml.py"
