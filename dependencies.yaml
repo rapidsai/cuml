@@ -126,7 +126,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libfaiss>=1.7.0
+          - libfaiss>=1.7.1
           - faiss-proc=*=cuda
   cudatoolkit:
     specific:

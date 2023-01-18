@@ -24,7 +24,7 @@ dependencies:
 - libcusolver=11.4.1.48
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
-- libfaiss>=1.7.0
+- libfaiss>=1.7.1
 - libraft-distance=23.02.*
 - libraft-headers=23.02.*
 - libraft-nn=23.02.*
