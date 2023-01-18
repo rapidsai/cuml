@@ -79,14 +79,27 @@ def _get_value(args, kwargs, name, index):
                 "were not found in args or kwargs.")
 
 
-def _make_decorator_factory(
+def _make_decorator_function(
     context_manager_cls: InternalAPIContextBase,
     process_return=True,
     needs_self: bool = False,
     ** defaults,
 ) -> typing.Callable[..., _DecoratorType]:
+    # This function generates a function to be applied as decorator to a
+    # wrapped function. For example:
+    #
+    #       a_decorator = _make_decorator_function(...)
+    #
+    #       ...
+    #
+    #       @a_decorator(...)  # apply decorator where appropriate
+    #       def fit(X, y):
+    #           ...
+    #
+    # Note: The decorator function can be partially closed by directly
+    # providing keyword arguments to this function to be used as defaults.
 
-    def factory(
+    def decorator_function(
         input_arg: str = ...,
         target_arg: str = ...,
         get_output_type: bool = False,
@@ -96,7 +109,11 @@ def _make_decorator_factory(
         set_n_features_in: bool = False,
     ) -> _DecoratorType:
 
-        def wrapper(func):
+        def decorator_closure(func):
+            # This function constitutes the closed decorator that will return
+            # the wrapped function. It performs function introspection at
+            # function definition time. The code within the wrapper function is
+            # executed at function execution time.
 
             # Prepare arguments
             sig = inspect.signature(func, follow_wrapped=True)
@@ -121,7 +138,8 @@ def _make_decorator_factory(
                 target_arg_ = None
 
             @_wrap_once(func)
-            def inner(*args, **kwargs):
+            def wrapper(*args, **kwargs):
+                # Wraps the decorated function, executed at runtime.
 
                 with context_manager_cls(func, args) as cm:
 
@@ -175,37 +193,37 @@ def _make_decorator_factory(
 
                 return cm.process_return(ret)
 
-            return inner
+            return wrapper
 
-        return wrapper
+        return decorator_closure
 
-    return functools.partial(factory, **defaults)
+    return functools.partial(decorator_function, **defaults)
 
 
-api_return_any = _make_decorator_factory(ReturnAnyCM, process_return=False)
-api_base_return_any = _make_decorator_factory(
+api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
+api_base_return_any = _make_decorator_function(
     BaseReturnAnyCM,
     needs_self=True,
     set_output_type=True,
     set_n_features_in=True,
 )
-api_return_array = _make_decorator_factory(ReturnArrayCM, process_return=True)
-api_base_return_array = _make_decorator_factory(
+api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
+api_base_return_array = _make_decorator_function(
     BaseReturnArrayCM,
     needs_self=True,
     process_return=True,
     get_output_type=True,
 )
-api_return_generic = _make_decorator_factory(
+api_return_generic = _make_decorator_function(
     ReturnGenericCM, process_return=True
 )
-api_base_return_generic = _make_decorator_factory(
+api_base_return_generic = _make_decorator_function(
     BaseReturnGenericCM,
     needs_self=True,
     process_return=True,
     get_output_type=True,
 )
-api_base_fit_transform = _make_decorator_factory(
+api_base_fit_transform = _make_decorator_function(
     # TODO: add tests for this decorator(
     BaseReturnArrayCM,
     needs_self=True,
@@ -215,10 +233,10 @@ api_base_fit_transform = _make_decorator_factory(
     set_n_features_in=True,
 )
 
-api_return_sparse_array = _make_decorator_factory(
+api_return_sparse_array = _make_decorator_function(
     ReturnSparseArrayCM, process_return=True
 )
-api_base_return_sparse_array = _make_decorator_factory(
+api_base_return_sparse_array = _make_decorator_function(
     BaseReturnSparseArrayCM,
     needs_self=True,
     process_return=True,
