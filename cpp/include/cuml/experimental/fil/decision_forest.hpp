@@ -196,7 +196,7 @@ struct decision_forest {
     return forest_type{
       nodes_.data(),
       root_node_indexes_.data(),
-      root_node_indexes_.size()
+      static_cast<index_type>(root_node_indexes_.size())
     };
   }
 

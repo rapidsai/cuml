@@ -208,9 +208,9 @@ struct decision_forest_builder {
       output_size_,
       row_postproc_,
       element_postproc_,
-      average_factor_,
-      bias_,
-      postproc_constant_
+      static_cast<typename node_type::threshold_type>(average_factor_),
+      static_cast<typename node_type::threshold_type>(bias_),
+      static_cast<typename node_type::threshold_type>(postproc_constant_)
     };
 #pragma GCC diagnostic pop
   }

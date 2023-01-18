@@ -33,6 +33,7 @@ if(BUILD_CUML_BENCH)
     sg/svr.cu
     sg/umap.cu
     sg/fil.cu
+    sg/filex.cu
   )
 
   target_compile_options(${CUML_CPP_BENCH_TARGET}

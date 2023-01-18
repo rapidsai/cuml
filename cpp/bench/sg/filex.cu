@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <cuml/fil/fil.h>
+#include <cuml/experimental/fil/treelite_importer.hpp>
+#include <cuml/experimental/kayak/device_type.hpp>
 
 #include "benchmark.cuh"
 #include <cuml/common/logger.hpp>
@@ -26,34 +27,24 @@
 
 namespace ML {
 namespace Bench {
-namespace fil {
+namespace filex {
 
 struct Params {
   DatasetParams data;
   RegressionParams blobs;
   ModelHandle model;
-  ML::fil::storage_type_t storage;
-  ML::fil::algo_t algo;
   RF_params rf;
   int predict_repetitions;
 };
 
-class FIL : public RegressionFixture<float> {
+class FILEX : public RegressionFixture<float> {
   typedef RegressionFixture<float> Base;
 
  public:
-  FIL(const std::string& name, const Params& p)
-  /*
-        fitting to linear combinations in "y" normally yields trees that check
-        values of all significant columns, as well as their linear
-        combinations in "X". During inference, the exact threshold
-        values do not affect speed. The distribution of column popularity does
-        not affect speed barring lots of uninformative columns in succession.
-        Hence, this method represents real datasets well enough for both
-        classification and regression.
-      */
+  FILEX(const std::string& name, const Params& p)
   : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
+    Iterations(100);
   }
 
   static void regression_to_classification(float* y, int nrows, int nclasses, cudaStream_t stream)
@@ -70,10 +61,10 @@ class FIL : public RegressionFixture<float> {
   void runBenchmark(::benchmark::State& state) override
   {
     if (!params.rowMajor) { state.SkipWithError("FIL only supports row-major inputs"); }
-    if (params.nclasses > 1) {
+    /* if (params.nclasses > 1) {
       // convert regression ranges into [0..nclasses-1]
       regression_to_classification(data.y.data(), params.nrows, params.nclasses, stream);
-    }
+    } */
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr         = &rf_model;
@@ -82,30 +73,26 @@ class FIL : public RegressionFixture<float> {
     handle->sync_stream(stream);
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
-    ML::fil::treelite_params_t tl_params = {
-      .algo              = p_rest.algo,
-      .output_class      = params.nclasses > 1,    // cuML RF forest
-      .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
-      .storage_type      = p_rest.storage,
-      .blocks_per_sm     = 8,
-      .threads_per_tree  = 1,
-      .n_items           = 0,
-      .pforest_shape_str = nullptr};
-    ML::fil::forest_variant forest_variant;
-    ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-    forest = std::get<ML::fil::forest_t<float>>(forest_variant);
+    auto filex_model = ML::experimental::fil::import_from_treelite_handle(
+      model,
+      128,
+      std::nullopt,
+      kayak::device_type::gpu,
+      0,
+      stream
+    );
 
     // only time prediction
-    this->loopOnState(state, [this]() {
-      // Dataset<D, L> allocates y assuming one output value per input row,
-      // so not supporting predict_proba yet
+    this->loopOnState(state, [this, &filex_model]() {
       for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        ML::fil::predict(*this->handle,
-                         this->forest,
-                         this->data.y.data(),
-                         this->data.X.data(),
-                         this->params.nrows,
-                         false);
+        filex_model.predict(
+          *handle,
+          this->data.y.data(),
+          this->data.X.data(),
+          this->params.nrows,
+          kayak::device_type::gpu,
+          kayak::device_type::gpu
+        );
       }
     });
   }
@@ -114,12 +101,10 @@ class FIL : public RegressionFixture<float> {
 
   void deallocateBuffers(const ::benchmark::State& state) override
   {
-    ML::fil::free(*handle, forest);
     Base::deallocateBuffers(state);
   }
 
  private:
-  ML::fil::forest_t<float> forest;
   ModelHandle model;
   Params p_rest;
 };
@@ -130,8 +115,6 @@ struct FilBenchParams {
   int nclasses;
   int max_depth;
   int ntrees;
-  ML::fil::storage_type_t storage;
-  ML::fil::algo_t algo;
 };
 
 std::vector<Params> getInputs()
@@ -163,11 +146,9 @@ std::vector<Params> getInputs()
                        128                 /* max_batch_size */
   );
 
-  using ML::fil::algo_t;
-  using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG},
-    {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG}};
+    {(int)1e6, 20, 1, 5, 1000},
+    {(int)1e6, 20, 2, 5, 1000}};
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
     p.data.ncols               = i.ncols;
@@ -176,15 +157,13 @@ std::vector<Params> getInputs()
     p.data.nclasses            = i.nclasses;
     p.rf.tree_params.max_depth = i.max_depth;
     p.rf.n_trees               = i.ntrees;
-    p.storage                  = i.storage;
-    p.algo                     = i.algo;
     p.predict_repetitions      = 10;
     out.push_back(p);
   }
   return out;
 }
 
-ML_BENCH_REGISTER(Params, FIL, "", getInputs());
+ML_BENCH_REGISTER(Params, FILEX, "", getInputs());
 
 }  // end namespace fil
 }  // end namespace Bench
