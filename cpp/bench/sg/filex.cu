@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/fil/fil.h>
 #include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
 
@@ -33,6 +34,9 @@ struct Params {
   DatasetParams data;
   RegressionParams blobs;
   ModelHandle model;
+  ML::fil::storage_type_t storage;
+  ML::fil::algo_t algo;
+  bool use_experimental;
   RF_params rf;
   int predict_repetitions;
 };
@@ -44,7 +48,6 @@ class FILEX : public RegressionFixture<float> {
   FILEX(const std::string& name, const Params& p)
   : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
-    Iterations(100);
   }
 
   static void regression_to_classification(float* y, int nrows, int nclasses, cudaStream_t stream)
@@ -73,10 +76,22 @@ class FILEX : public RegressionFixture<float> {
     handle->sync_stream(stream);
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
+    ML::fil::treelite_params_t tl_params = {
+      .algo              = p_rest.algo,
+      .output_class      = false,
+      .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
+      .storage_type      = p_rest.storage,
+      .blocks_per_sm     = 8,
+      .threads_per_tree  = 1,
+      .n_items           = 0,
+      .pforest_shape_str = nullptr};
+    ML::fil::forest_variant forest_variant;
+    ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
+    forest = std::get<ML::fil::forest_t<float>>(forest_variant);
     auto filex_model = ML::experimental::fil::import_from_treelite_handle(
       model,
       128,
-      std::nullopt,
+      false,
       kayak::device_type::gpu,
       0,
       stream
@@ -85,26 +100,37 @@ class FILEX : public RegressionFixture<float> {
     // only time prediction
     this->loopOnState(state, [this, &filex_model]() {
       for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        filex_model.predict(
-          *handle,
-          this->data.y.data(),
-          this->data.X.data(),
-          this->params.nrows,
-          kayak::device_type::gpu,
-          kayak::device_type::gpu
-        );
+        if (p_rest.use_experimental) {
+          filex_model.predict(
+            *handle,
+            this->data.y.data(),
+            this->data.X.data(),
+            this->params.nrows,
+            kayak::device_type::gpu,
+            kayak::device_type::gpu
+          );
+        } else {
+          ML::fil::predict(*this->handle,
+                           this->forest,
+                           this->data.y.data(),
+                           this->data.X.data(),
+                           this->params.nrows,
+                           false);
+        }
       }
-    });
+    }, false);
   }
 
   void allocateBuffers(const ::benchmark::State& state) override { Base::allocateBuffers(state); }
 
   void deallocateBuffers(const ::benchmark::State& state) override
   {
+    ML::fil::free(*handle, forest);
     Base::deallocateBuffers(state);
   }
 
  private:
+  ML::fil::forest_t<float> forest;
   ModelHandle model;
   Params p_rest;
 };
@@ -115,6 +141,9 @@ struct FilBenchParams {
   int nclasses;
   int max_depth;
   int ntrees;
+  ML::fil::storage_type_t storage;
+  ML::fil::algo_t algo;
+  bool use_experimental;
 };
 
 std::vector<Params> getInputs()
@@ -146,9 +175,20 @@ std::vector<Params> getInputs()
                        128                 /* max_batch_size */
   );
 
+  using ML::fil::algo_t;
+  using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 5, 1000},
-    {(int)1e6, 20, 2, 5, 1000}};
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true}
+    /* {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, false},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, true},
+    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
+    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
+    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
+    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true}, */
+  };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
     p.data.ncols               = i.ncols;
@@ -157,6 +197,9 @@ std::vector<Params> getInputs()
     p.data.nclasses            = i.nclasses;
     p.rf.tree_params.max_depth = i.max_depth;
     p.rf.n_trees               = i.ntrees;
+    p.storage                  = i.storage;
+    p.algo                     = i.algo;
+    p.use_experimental         = i.use_experimental;
     p.predict_repetitions      = 10;
     out.push_back(p);
   }

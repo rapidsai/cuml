@@ -55,7 +55,7 @@ struct CudaEventTimer {
     // flush L2?
     if (ptr != nullptr && l2CacheSize > 0) {
       RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, sizeof(char) * l2CacheSize, s));
-      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      RjFT_CUDA_TRY(cudaStreamSynchronize(stream));
     }
     RAFT_CUDA_TRY(cudaEventRecord(start, stream));
   }
