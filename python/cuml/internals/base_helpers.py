@@ -78,6 +78,8 @@ def _wrap_attribute(class_name: str,
     if (attribute.__dict__.get(CUML_WRAPPED_FLAG, False)):
         return attribute
 
+    # TODO: Can we use the same wrapper for all return types?
+
     return_type = _get_base_return_type(class_name, attribute)
 
     if (return_type == "generic"):
