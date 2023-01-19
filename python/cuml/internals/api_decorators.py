@@ -124,16 +124,13 @@ def api_context():
 
     try:
         # TODO: Refactor flow below to use contextlib.ExitStack
-        if _API_STACK_LEVEL == 1:
-            with cupy_using_allocator(rmm_cupy_allocator):
-                with _restore_dtype():
-                    current_output_type = GlobalSettings().output_type
-                    if current_output_type in (None, "input", "mirror"):
-                        with _using_mirror_output_type():
-                            yield
-                    else:
-                        yield
-        else:
+        with contextlib.ExitStack() as stack:
+            if _API_STACK_LEVEL == 1:
+                stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
+                stack.enter_context(_restore_dtype())
+                current_output_type = GlobalSettings().output_type
+                if current_output_type in (None, "input", "mirror"):
+                    stack.enter_context(_using_mirror_output_type())
             yield
     finally:
         _API_STACK_LEVEL -= 1
