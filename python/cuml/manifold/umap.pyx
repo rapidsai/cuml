@@ -456,7 +456,8 @@ class UMAP(UniversalBase,
             "hellinger": DistanceType.HellingerExpanded,
             "hamming": DistanceType.HammingUnexpanded,
             "jaccard": DistanceType.JaccardExpanded,
-            "canberra": DistanceType.Canberra
+            "canberra": DistanceType.Canberra,
+            "dice": DistanceType.DiceExpanded
         }
 
         if cls.metric.lower() in metric_parsing:

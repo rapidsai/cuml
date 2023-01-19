@@ -572,7 +572,7 @@ def test_fuzzy_simplicial_set(n_rows,
 @pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'l1',
                                     'manhattan', 'minkowski', 'chebyshev',
                                     'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
+                                    'hamming', 'canberra', 'dice'])
 def test_umap_distance_metrics_fit_transform_trust(metric):
     data, labels = make_blobs(n_samples=1000, n_features=64,
                               centers=5, random_state=42)
@@ -598,7 +598,7 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
 @pytest.mark.parametrize('metric', ['euclidean', 'l1', 'manhattan',
                                     'minkowski', 'chebyshev',
                                     'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
+                                    'hamming', 'canberra', 'dice'])
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
     data, labels = make_blobs(n_samples=1000, n_features=64,
                               centers=5, random_state=42)
