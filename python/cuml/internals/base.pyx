@@ -33,6 +33,7 @@ import pylibraft.common.handle
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
@@ -311,6 +312,7 @@ class Base(TagsMixin,
         else:
             raise AttributeError(attr)
 
+    # TODO: remove this function
     def _set_base_attributes(self,
                              output_type=None,
                              target_dtype=None,
@@ -370,7 +372,7 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = cuml.global_settings.output_type
+        output_type = GlobalSettings().output_type
 
         # If its None, default to our type
         if (output_type is None or output_type == "mirror"):

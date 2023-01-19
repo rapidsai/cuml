@@ -16,7 +16,7 @@
 
 from dataclasses import dataclass, field
 from cuml.internals.array import CumlArray
-import cuml
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     input_to_cuml_array, determine_array_type
 )
@@ -114,7 +114,7 @@ class CumlArrayDescriptor():
         assert len(existing.values) > 0
 
         # Get the global output type
-        output_type = cuml.global_settings.output_type
+        output_type = GlobalSettings().output_type
 
         # First, determine if we need to call to_output at all
         if (output_type == "mirror"):
