@@ -54,7 +54,7 @@ dependencies:
 - raft-dask=23.02.*
 - rmm=23.02.*
 - scikit-build>=0.13.1
-- scikit-learn=0.24
+- scikit-learn>=1.1
 - seaborn
 - sparse
 - sphinx-markdown-tables
