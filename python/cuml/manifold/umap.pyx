@@ -736,8 +736,7 @@ class UMAP(UniversalBase,
                 del X_m
                 return self.embedding_
 
-        embedding = CumlArray.zeros((X_m.shape[0],
-                                    self.n_components),
+        embedding = CumlArray.zeros((n_rows, self.n_components),
                                     order="C", dtype=np.float32,
                                     index=index)
         cdef uintptr_t xformed_ptr = embedding.ptr
@@ -756,26 +755,26 @@ class UMAP(UniversalBase,
                              <int*><uintptr_t> X_m.indices.ptr,
                              <float*><uintptr_t> X_m.data.ptr,
                              <size_t> X_m.nnz,
-                             <int> X_m.shape[0],
-                             <int> X_m.shape[1],
+                             <int> n_rows,
+                             <int> n_cols,
                              <int*><uintptr_t> self._raw_data.indptr.ptr,
                              <int*><uintptr_t> self._raw_data.indices.ptr,
                              <float*><uintptr_t> self._raw_data.data.ptr,
                              <size_t> self._raw_data.nnz,
                              <int> self._raw_data.shape[0],
                              <float*> embed_ptr,
-                             <int> self._raw_data.shape[0],
+                             <int> n_rows,
                              <UMAPParams*> umap_params,
                              <float*> xformed_ptr)
         else:
             transform(handle_[0],
                       <float*><uintptr_t> X_m.ptr,
-                      <int> X_m.shape[0],
-                      <int> X_m.shape[1],
+                      <int> n_rows,
+                      <int> n_cols,
                       <float*><uintptr_t>self._raw_data.ptr,
-                      <int> self.n_rows,
+                      <int> self._raw_data.shape[0],
                       <float*> embed_ptr,
-                      <int> self.n_rows,
+                      <int> n_rows,
                       <UMAPParams*> umap_params,
                       <float*> xformed_ptr)
         self.handle.sync()
