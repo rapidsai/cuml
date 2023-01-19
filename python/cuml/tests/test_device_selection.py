@@ -118,8 +118,8 @@ def make_blob_dataset():
                       centers=20, random_state=0)
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
-    return X_train.astype(np.float64), y_train.astype(np.float64), \
-        X_test.astype(np.float64)
+    return X_train.astype(np.float32), y_train.astype(np.float32), \
+        X_test.astype(np.float32)
 
 
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
