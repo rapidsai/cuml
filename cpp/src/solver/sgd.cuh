@@ -18,7 +18,6 @@
 
 #include "learning_rate.h"
 #include "shuffle.h"
-#include <raft/core/handle.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>

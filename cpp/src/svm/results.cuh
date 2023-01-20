@@ -22,7 +22,6 @@
 #include <memory>
 
 #include "ws_util.cuh"
-#include <raft/core/handle.hpp>
 #include <cub/device/device_select.cuh>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>

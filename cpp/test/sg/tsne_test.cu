@@ -19,7 +19,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 
-#include <raft/core/handle.hpp>
 #include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>

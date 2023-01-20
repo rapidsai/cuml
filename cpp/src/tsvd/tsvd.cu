@@ -15,7 +15,6 @@
  */
 
 #include "tsvd.cuh"
-#include <raft/core/handle.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <raft/core/handle.hpp>
 

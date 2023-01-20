@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 #include <vector>
-#include <raft/core/handle.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/datasets/make_blobs.hpp>

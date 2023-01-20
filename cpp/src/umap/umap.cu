@@ -15,7 +15,6 @@
  */
 
 #include "runner.cuh"
-#include <raft/core/handle.hpp>
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>

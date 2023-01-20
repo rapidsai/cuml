@@ -26,7 +26,6 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include <cublas_v2.h>
-#include <raft/core/handle.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <raft/core/handle.hpp>
