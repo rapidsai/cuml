@@ -39,6 +39,7 @@ rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
 _API_STACK_LEVEL = 0
+_API_OUTPUT_DTYPE_OVERRIDE = None
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -116,6 +117,7 @@ def in_internal_api():
 @contextlib.contextmanager
 def api_context():
     global _API_STACK_LEVEL
+    global _API_OUTPUT_DTYPE_OVERRIDE
 
     _API_STACK_LEVEL += 1
     # print("API STACK LEVEL", _API_STACK_LEVEL)
@@ -124,6 +126,7 @@ def api_context():
         # TODO: Refactor flow below to use contextlib.ExitStack
         with contextlib.ExitStack() as stack:
             if _API_STACK_LEVEL == 1:
+                _API_OUTPUT_DTYPE_OVERRIDE = None
                 stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
                 stack.enter_context(_restore_dtype())
                 current_output_type = GlobalSettings().output_type
@@ -136,11 +139,14 @@ def api_context():
 
 
 def set_api_output_type(output_type):
-    raise NotImplementedError()
+    # TODO: This function should probably be removed.
+    from cuml.internals.memory_utils import set_global_output_type
+    set_global_output_type(output_type)
 
 
 def set_api_output_dtype(output_dtype):
-    raise NotImplementedError()
+    global _API_OUTPUT_DTYPE_OVERRIDE
+    _API_OUTPUT_DTYPE_OVERRIDE = output_dtype
 
 
 def _convert_to_cumlarray(ret_val):
@@ -166,6 +172,12 @@ def _convert_to_cumlarray(ret_val):
 
 
 def process_single(value, output_type, output_dtype):
+    # TODO: Move the following logic up.
+    output_type_override = GlobalSettings().output_type
+    if output_type_override != "mirror":
+        output_type = output_type_override
+    output_dtype = _API_OUTPUT_DTYPE_OVERRIDE or output_dtype
+
     ca = _convert_to_cumlarray(value)
     ret = ca.to_output(
         output_type=output_type,
