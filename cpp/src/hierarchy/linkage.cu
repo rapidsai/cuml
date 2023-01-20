@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "pw_dist_graph.cuh"
+#include <raft/core/device_resources.hpp>
 #include <cuml/cluster/linkage.hpp>
+
+#include <raft/distance/specializations.cuh>
 #include <raft/cluster/single_linkage.cuh>
 
 namespace raft {
@@ -24,7 +26,7 @@ class handle_t;
 
 namespace ML {
 
-void single_linkage_pairwise(const raft::handle_t& handle,
+void single_linkage_pairwise(const raft::device_resources& handle,
                              const float* X,
                              size_t m,
                              size_t n,
@@ -36,7 +38,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
     handle, X, m, n, metric, out, 0, n_clusters);
 }
 
-void single_linkage_neighbors(const raft::handle_t& handle,
+void single_linkage_neighbors(const raft::device_resources& handle,
                               const float* X,
                               size_t m,
                               size_t n,

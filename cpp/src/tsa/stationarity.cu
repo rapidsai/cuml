@@ -16,6 +16,7 @@
 
 #include <cuml/tsa/stationarity.h>
 
+#include <raft/core/handle.hpp>
 #include <timeSeries/stationarity.cuh>
 
 namespace ML {

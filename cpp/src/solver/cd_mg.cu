@@ -25,6 +25,7 @@
 #include <cumlprims/opg/linalg/norm.hpp>
 
 #include "shuffle.h"
+#include <raft/core/handle.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>

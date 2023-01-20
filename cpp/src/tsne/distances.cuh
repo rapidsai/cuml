@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance_types.hpp>

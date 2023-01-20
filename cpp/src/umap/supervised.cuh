@@ -17,6 +17,7 @@
 #pragma once
 
 #include "optimize.cuh"
+#include <raft/core/handle.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>

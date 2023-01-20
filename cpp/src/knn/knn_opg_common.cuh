@@ -24,6 +24,7 @@
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>

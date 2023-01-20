@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/handle.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <raft/random/make_blobs.cuh>
 

@@ -16,6 +16,7 @@
 
 #include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/ball_cover.cuh>

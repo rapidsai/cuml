@@ -18,6 +18,7 @@
 
 #include <raft/label/classlabels.cuh>
 
+#include <raft/core/handle.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/distance/distance.cuh>
