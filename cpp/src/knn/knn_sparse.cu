@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/core/handle.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
+#include <raft/core/handle.hpp>
 
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/spatial/knn/specializations.hpp>

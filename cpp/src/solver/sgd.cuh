@@ -18,12 +18,12 @@
 
 #include "learning_rate.h"
 #include "shuffle.h"
-#include <raft/core/handle.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemv.cuh>

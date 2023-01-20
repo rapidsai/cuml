@@ -23,8 +23,8 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svr_impl.cuh"
-#include <raft/core/handle.hpp>
 #include <cuml/svm/svc.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <raft/core/device_resources.hpp>
 #include <cuml/cluster/linkage.hpp>
+#include <raft/core/device_resources.hpp>
 
-#include <raft/distance/specializations.cuh>
 #include <raft/cluster/single_linkage.cuh>
+#include <raft/distance/specializations.cuh>
 
 namespace raft {
 class handle_t;

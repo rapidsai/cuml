@@ -16,9 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
 #include <vector>
-#include <raft/core/handle.hpp>
 
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/datasets/make_blobs.hpp>

@@ -19,7 +19,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 
-#include <raft/core/handle.hpp>
 #include <cuml/common/logger.hpp>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
@@ -27,6 +26,7 @@
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/spatial/knn/specializations.hpp>

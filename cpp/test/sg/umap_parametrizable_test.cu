@@ -16,8 +16,8 @@
 
 #include <test_utils.h>
 
-#include <umap/runner.cuh>
 #include <raft/core/handle.hpp>
+#include <umap/runner.cuh>
 
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>

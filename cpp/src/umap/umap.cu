@@ -15,10 +15,10 @@
  */
 
 #include "runner.cuh"
-#include <raft/core/handle.hpp>
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <raft/core/handle.hpp>
 #include <raft/spatial/knn/specializations.hpp>
 
 #include <raft/cuda_utils.cuh>

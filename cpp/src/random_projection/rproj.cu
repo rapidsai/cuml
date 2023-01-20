@@ -15,8 +15,8 @@
  */
 
 #include "rproj.cuh"
-#include <raft/core/handle.hpp>
 #include <cuml/random_projection/rproj_c.h>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 

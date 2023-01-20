@@ -16,8 +16,8 @@
 
 #include <test_utils.h>
 
-#include <raft/core/handle.hpp>
 #include <cuml/fil/multi_sum.cuh>
+#include <raft/core/handle.hpp>
 
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
