@@ -4,6 +4,9 @@
 # Common setup steps shared by Python test jobs
 source "$(dirname "$0")/test_python_common.sh"
 
+rapids-mamba-retry install -c conda-forge scikit-learn=1.2
+pip install treelite==3.1
+
 rapids-logger "pytest cuml single GPU"
 cd python/cuml/tests
 pytest \
