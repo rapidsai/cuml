@@ -51,10 +51,6 @@ cdef extern from "raft/spatial/knn/ann_common.h" \
         int n_bits
         bool usePrecomputedTables
 
-    cdef cppclass IVFSQParam(IVFParam):
-        QuantizerType qtype
-        bool encodeResidual
-
 
 cdef check_algo_params(algo, params)
 
@@ -63,9 +59,6 @@ cdef build_ivfflat_algo_params(params, automated)
 
 
 cdef build_ivfpq_algo_params(params, automated, additional_info)
-
-
-cdef build_ivfsq_algo_params(params, automated)
 
 
 cdef build_algo_params(algo, params, additional_info)
