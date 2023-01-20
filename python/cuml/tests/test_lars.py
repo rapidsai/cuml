@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import skleran
+import sklearn
 
 from sklearn.linear_model import Lars as skLars
 from sklearn.datasets import fetch_california_housing
