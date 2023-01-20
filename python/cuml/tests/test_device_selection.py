@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
 # limitations under the License.
 #
 
-
 from cuml.testing.test_preproc_utils import to_output_type
+from cuml.testing.utils import array_equal
+
+from cuml.cluster.hdbscan import HDBSCAN
 from cuml.neighbors import NearestNeighbors
 from cuml.metrics import trustworthiness
+from cuml.metrics import adjusted_rand_score
 from cuml.manifold import UMAP
 from cuml.linear_model import (
     ElasticNet,
@@ -29,6 +32,7 @@ from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.common.device_selection import DeviceType, using_device_type
+from hdbscan import HDBSCAN as refHDBSCAN
 from umap import UMAP as refUMAP
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.linear_model import Ridge as skRidge
@@ -51,6 +55,21 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 cudf = gpu_only_import('cudf')
+
+
+def assert_membership_vectors(cu_vecs, sk_vecs):
+    """
+    Assert the membership vectors by taking the adjusted rand score
+    of the argsorted membership vectors.
+    """
+    if sk_vecs.shape == cu_vecs.shape:
+        cu_labels_sorted = np.argsort(cu_vecs)[::-1]
+        sk_labels_sorted = np.argsort(sk_vecs)[::-1]
+
+        k = min(sk_vecs.shape[1],  10)
+        for i in range(k):
+            assert adjusted_rand_score(cu_labels_sorted[:, i],
+                                       sk_labels_sorted[:, i]) >= 0.85
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
@@ -791,3 +810,40 @@ def test_nn_methods(train_device, infer_device):
     ref_output = ref_output.todense()
     output = output.todense()
     np.testing.assert_allclose(ref_output, output, rtol=0.15)
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_hdbscan_methods(train_device, infer_device):
+
+    if train_device == "gpu" and infer_device == "cpu":
+        pytest.skip("Can't transfer attributes to cpu for now")
+
+    ref_model = refHDBSCAN(prediction_data=True,
+                           approx_min_span_tree=False,
+                           max_cluster_size=0,
+                           min_cluster_size=30)
+    ref_trained_labels = ref_model.fit_predict(X_train_blob)
+
+    from hdbscan.prediction import all_points_membership_vectors \
+        as cpu_all_points_membership_vectors, approximate_predict \
+        as cpu_approximate_predict
+    ref_membership = cpu_all_points_membership_vectors(ref_model)
+    ref_labels, ref_probs = cpu_approximate_predict(ref_model, X_test_blob)
+
+    model = HDBSCAN(prediction_data=True,
+                    approx_min_span_tree=False,
+                    max_cluster_size=0,
+                    min_cluster_size=30)
+    with using_device_type(train_device):
+        trained_labels = model.fit_predict(X_train_blob)
+    with using_device_type(infer_device):
+        from cuml.cluster.hdbscan.prediction import \
+            all_points_membership_vectors, approximate_predict
+        membership = all_points_membership_vectors(model)
+        labels, probs = approximate_predict(model, X_test_blob)
+
+    assert(adjusted_rand_score(trained_labels, ref_trained_labels) >= 0.95)
+    assert_membership_vectors(membership, ref_membership)
+    assert(adjusted_rand_score(labels, ref_labels) >= 0.98)
+    assert(array_equal(probs, ref_probs, unit_tol=0.001, total_tol=0.006))
