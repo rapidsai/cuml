@@ -61,6 +61,7 @@ struct forest_model {
       "forest_model.predict"
     };
     std::visit([this, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
+      auto nvtx_range = raft::common::nvtx::range{"forest_model.predict (inside visit)"};
       if constexpr(std::is_same_v<typename std::remove_reference_t<decltype(concrete_forest)>::io_type, io_t>) {
         concrete_forest.predict(output, input, stream, specified_chunk_size);
       } else {
@@ -81,8 +82,14 @@ struct forest_model {
     };
     std::visit([this, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
       using model_io_t = typename std::remove_reference_t<decltype(concrete_forest)>::io_type;
+      auto nvtx_range = raft::common::nvtx::range{
+        "forest_model.predict (chunked inside visit)"
+      };
       if constexpr(std::is_same_v<model_io_t, io_t>) {
         if (output.memory_type() == memory_type() && input.memory_type() == memory_type()) {
+          auto nvtx_range = raft::common::nvtx::range{
+            "chunked memory type match"
+          };
           concrete_forest.predict(
             output,
             input,
@@ -90,6 +97,10 @@ struct forest_model {
             specified_chunk_size
           );
         } else {
+          auto nvtx_range = raft::common::nvtx::range{
+            "chunked memory type mismatch"
+          };
+          raft::common::nvtx::push_range("mismatch prep data");
           auto constexpr static const MIN_CHUNKS_PER_PARTITION = std::size_t{64};
           auto constexpr static const MAX_CHUNK_SIZE = std::size_t{64};
 
@@ -136,12 +147,16 @@ struct forest_model {
                 memory_type()
               };
             }
+            raft::common::nvtx::pop_range();
+            raft::common::nvtx::push_range("mismatch predict");
             concrete_forest.predict(
               partition_out,
               partition_in,
               stream,
               specified_chunk_size
             );
+            raft::common::nvtx::pop_range();
+            raft::common::nvtx::push_range("mismatch output");
             if (output.memory_type() != memory_type()) {
               kayak::copy<kayak::DEBUG_ENABLED>(
                 output,
@@ -152,6 +167,7 @@ struct forest_model {
                 stream
               );
             }
+            raft::common::nvtx::pop_range();
           }
         }
       } else {
@@ -174,17 +190,23 @@ struct forest_model {
       "forest_model.predict (pointers)"
     };
     // TODO(wphicks): Make sure buffer lands on same device as model
+    raft::common::nvtx::push_range("contruct out buffer");
     auto out_buffer = kayak::buffer{
       output,
       num_rows * num_outputs(),
       out_mem_type
     };
+    raft::common::nvtx::pop_range();
+    raft::common::nvtx::push_range("contruct in buffer");
     auto in_buffer = kayak::buffer{
       input,
       num_rows * num_feature(),
       in_mem_type
     };
+    raft::common::nvtx::pop_range();
+    raft::common::nvtx::push_range("begin predict on buffer");
     predict(handle, out_buffer, in_buffer, specified_chunk_size);
+    raft::common::nvtx::pop_range();
   }
 
  private:

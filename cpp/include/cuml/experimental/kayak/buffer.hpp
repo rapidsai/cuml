@@ -14,6 +14,7 @@
 #include <cuml/experimental/kayak/device_type.hpp>
 #include <cuml/experimental/kayak/exceptions.hpp>
 #include <cuml/experimental/kayak/gpu_support.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace kayak {
 /**
@@ -76,6 +77,9 @@ struct buffer {
          device_type mem_type = device_type::cpu,
          int device = 0)
     : device_{[mem_type, &device]() {
+      auto nvtx_range = raft::common::nvtx::range{
+        "buffer::buffer() data_"
+      };
       auto result = device_id_variant{};
       switch (mem_type) {
         case device_type::cpu:
@@ -88,6 +92,9 @@ struct buffer {
       return result;
     }()},
     data_{[this, input_data, mem_type]() {
+      auto nvtx_range = raft::common::nvtx::range{
+        "buffer::buffer() data_"
+      };
       auto result = data_store{};
       switch (mem_type) {
         case device_type::cpu:
@@ -101,6 +108,9 @@ struct buffer {
     }()},
     size_{size},
     cached_ptr {[this](){
+      auto nvtx_range = raft::common::nvtx::range{
+        "buffer::buffer() cached_ptr"
+      };
       auto result = static_cast<T*>(nullptr);
       switch(data_.index()) {
         case 0: result = std::get<0>(data_).get(); break;

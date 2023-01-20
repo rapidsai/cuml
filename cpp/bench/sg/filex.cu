@@ -36,6 +36,7 @@ struct Params {
   ModelHandle model;
   ML::fil::storage_type_t storage;
   ML::fil::algo_t algo;
+  int chunk_size;
   bool use_experimental;
   RF_params rf;
   int predict_repetitions;
@@ -48,6 +49,7 @@ class FILEX : public RegressionFixture<float> {
   FILEX(const std::string& name, const Params& p)
   : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
+    Iterations(100);
   }
 
   static void regression_to_classification(float* y, int nrows, int nclasses, cudaStream_t stream)
@@ -82,7 +84,7 @@ class FILEX : public RegressionFixture<float> {
       .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
       .storage_type      = p_rest.storage,
       .blocks_per_sm     = 8,
-      .threads_per_tree  = 1,
+      .threads_per_tree  = p_rest.chunk_size,
       .n_items           = 0,
       .pforest_shape_str = nullptr};
     ML::fil::forest_variant forest_variant;
@@ -96,20 +98,25 @@ class FILEX : public RegressionFixture<float> {
       0,
       stream
     );
+    handle->sync_stream(stream);
 
     // only time prediction
     this->loopOnState(state, [this, &filex_model]() {
       for (int i = 0; i < p_rest.predict_repetitions; i++) {
+        auto nvtx_range = raft::common::nvtx::range{"repetition_loop"};
         if (p_rest.use_experimental) {
+          auto nvtx_range2 = raft::common::nvtx::range{"filex_outer_predict"};
           filex_model.predict(
             *handle,
             this->data.y.data(),
             this->data.X.data(),
             this->params.nrows,
             kayak::device_type::gpu,
-            kayak::device_type::gpu
+            kayak::device_type::gpu,
+            p_rest.chunk_size
           );
         } else {
+          auto nvtx_range3 = raft::common::nvtx::range{"legacy_outer_predict"};
           ML::fil::predict(*this->handle,
                            this->forest,
                            this->data.y.data(),
@@ -117,6 +124,9 @@ class FILEX : public RegressionFixture<float> {
                            this->params.nrows,
                            false);
         }
+        auto nvtx_range4 = raft::common::nvtx::range{"syncup"};
+        handle->sync_stream();
+        handle->sync_stream_pool();
       }
     }, false);
   }
@@ -143,6 +153,7 @@ struct FilBenchParams {
   int ntrees;
   ML::fil::storage_type_t storage;
   ML::fil::algo_t algo;
+  int chunk_size;
   bool use_experimental;
 };
 
@@ -178,16 +189,26 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true}
-    /* {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, false},
-    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, true},
-    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
-    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
-    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true}, */
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 1, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 1, true},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 2, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 2, true},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 4, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 4, true},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 8, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 8, true},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, true},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 32, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 32, true},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, 16, false},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, 16, true},
+    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, false},
+    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, true},
+    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, false},
+    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, true},
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, false},
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, 16, true},
   };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
@@ -199,6 +220,7 @@ std::vector<Params> getInputs()
     p.rf.n_trees               = i.ntrees;
     p.storage                  = i.storage;
     p.algo                     = i.algo;
+    p.chunk_size               = i.chunk_size;
     p.use_experimental         = i.use_experimental;
     p.predict_repetitions      = 10;
     out.push_back(p);

@@ -108,10 +108,13 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   raft::common::nvtx::pop_range();
 
   raft::common::nvtx::push_range("fil_smem_selection");
+  raft::common::nvtx::push_range("fil_max_resblock");
   auto const max_resident_blocks = sm_count * (
     get_max_threads_per_sm(device) / threads_per_block
   );
+  raft::common::nvtx::pop_range();
 
+  raft::common::nvtx::push_range("fil_everything_else");
   // Compute shared memory usage based on minimum or specified
   // rows_per_block_iteration
   auto rows_per_block_iteration = specified_chunk_size.value_or(
@@ -147,6 +150,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   ) {
     rows_per_block_iteration = index_type{32};
   }
+  raft::common::nvtx::pop_range();
   raft::common::nvtx::pop_range();
 
   raft::common::nvtx::push_range("fil_smem_reduction");
