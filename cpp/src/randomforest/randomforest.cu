@@ -23,7 +23,6 @@
 #include <treelite/tree.h>
 
 #include <raft/core/error.hpp>
-#include <raft/core/handle.hpp>
 
 #include <cstddef>
 #include <cstdio>
