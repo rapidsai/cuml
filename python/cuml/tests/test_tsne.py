@@ -36,7 +36,7 @@ DEFAULT_PERPLEXITY = 30
 
 test_datasets = {
     "digits": datasets.load_digits(),
-    "boston": datasets.load_boston(),
+    "california": datasets.fetch_california_housing(),
     "diabetes": datasets.load_diabetes(),
     "cancer": datasets.load_breast_cancer(),
 }
@@ -334,7 +334,8 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
                          min_grad_norm=1e-12,
                          method='barnes_hut',
                          perplexity=DEFAULT_PERPLEXITY,
-                         metric=metric)
+                         metric=metric,
+                         init="random")
 
     else:
         sk_tsne = skTSNE(n_components=2,
@@ -342,7 +343,8 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
                          min_grad_norm=1e-12,
                          method=method,
                          perplexity=DEFAULT_PERPLEXITY,
-                         metric=metric)
+                         metric=metric,
+                         init="random")
 
     cuml_embedding = cuml_tsne.fit_transform(data_sparse)
     nans = np.sum(np.isnan(cuml_embedding))

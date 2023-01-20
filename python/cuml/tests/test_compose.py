@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import sklearn
+
 from cuml.testing.test_preproc_utils import assert_allclose
 from sklearn.preprocessing import \
     StandardScaler as skStandardScaler, \
@@ -197,6 +199,9 @@ def test_make_column_transformer_sparse(sparse_clf_dataset,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
+@pytest.mark.skipif(sklearn.__version__ >= "1.0",
+                    reason="scikit-learn replaced get_feature_names with "
+                           "get_feature_names_out")
 def test_column_transformer_get_feature_names(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 

@@ -160,7 +160,6 @@ def test_linear_regression_model(
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(fit_intercept=True,
-                               normalize=False,
                                algorithm=algorithm)
 
     # fit and predict cuml linear regression model
@@ -169,7 +168,7 @@ def test_linear_regression_model(
 
     if nrows < 500000:
         # sklearn linear regression model initialization, fit and predict
-        skols = skLinearRegression(fit_intercept=True, normalize=False)
+        skols = skLinearRegression(fit_intercept=True)
         skols.fit(X_train, y_train)
 
         skols_predict = skols.predict(X_test)
@@ -181,24 +180,22 @@ def test_linear_regression_model(
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
 @pytest.mark.parametrize(
-    "fit_intercept, normalize, distribution", [
-        (True, True, "lognormal"),
-        (True, True, "exponential"),
-        (True, False, "uniform"),
-        (True, False, "exponential"),
-        (False, True, "lognormal"),
-        (False, False, "uniform"),
+    "fit_intercept, distribution", [
+        (True, "lognormal"),
+        (True, "exponential"),
+        (True, "uniform"),
+        (True, "exponential"),
+        (False,"lognormal"),
+        (False, "uniform"),
     ]
 )
 def test_weighted_linear_regression(
-    ntargets, datatype, algorithm, fit_intercept, normalize, distribution
+    ntargets, datatype, algorithm, fit_intercept, distribution
 ):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
 
-    if 1 < ntargets and normalize:
-        pytest.skip("The multi-target fit does not support normalization.")
     if 1 < ntargets and algorithm != "svd":
         pytest.skip("The multi-target fit only supports using the svd solver.")
 
@@ -216,7 +213,6 @@ def test_weighted_linear_regression(
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(fit_intercept=fit_intercept,
-                               normalize=normalize,
                                algorithm=algorithm)
 
     # fit and predict cuml linear regression model
@@ -224,8 +220,7 @@ def test_weighted_linear_regression(
     cuols_predict = cuols.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skols = skLinearRegression(fit_intercept=fit_intercept,
-                               normalize=normalize)
+    skols = skLinearRegression(fit_intercept=fit_intercept)
     skols.fit(X_train, y_train, sample_weight=wt)
 
     skols_predict = skols.predict(X_test)
@@ -363,7 +358,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
     )
 
     # Initialization of cuML's ridge regression model
-    curidge = cuRidge(fit_intercept=False, normalize=False, solver=algorithm)
+    curidge = cuRidge(fit_intercept=False, solver=algorithm)
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
@@ -371,7 +366,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     if nrows < 500000:
         # sklearn ridge regression model initialization, fit and predict
-        skridge = skRidge(fit_intercept=False, normalize=False)
+        skridge = skRidge(fit_intercept=False)
         skridge.fit(X_train, y_train)
 
         skridge_predict = skridge.predict(X_test)
@@ -385,17 +380,17 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
-    "fit_intercept, normalize, distribution", [
-        (True, True, "lognormal"),
-        (True, True, "exponential"),
-        (True, False, "uniform"),
-        (True, False, "exponential"),
-        (False, True, "lognormal"),
-        (False, False, "uniform"),
+    "fit_intercept, distribution", [
+        (True, "lognormal"),
+        (True, "exponential"),
+        (True, "uniform"),
+        (True, "exponential"),
+        (False, "lognormal"),
+        (False, "uniform"),
     ]
 )
 def test_weighted_ridge(datatype, algorithm, fit_intercept,
-                        normalize, distribution):
+                        distribution):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
@@ -413,7 +408,6 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
 
     # Initialization of cuML's linear regression model
     curidge = cuRidge(fit_intercept=fit_intercept,
-                      normalize=normalize,
                       solver=algorithm)
 
     # fit and predict cuml linear regression model
@@ -421,8 +415,7 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
     curidge_predict = curidge.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skridge = skRidge(fit_intercept=fit_intercept,
-                      normalize=normalize)
+    skridge = skRidge(fit_intercept=fit_intercept)
     skridge.fit(X_train, y_train, sample_weight=wt)
 
     skridge_predict = skridge.predict(X_test)

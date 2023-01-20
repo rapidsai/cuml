@@ -38,7 +38,7 @@ cp = gpu_only_import('cupy')
 
 test_datasets = {
     "digits": datasets.load_digits(),
-    "boston": datasets.load_boston(),
+    "california": datasets.fetch_california_housing(),
     "diabetes": datasets.load_diabetes(),
     "cancer": datasets.load_breast_cancer(),
 }
