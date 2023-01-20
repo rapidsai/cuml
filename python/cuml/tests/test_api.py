@@ -160,8 +160,8 @@ def test_get_tags(model):
 
     if (hasattr(model, "_more_static_tags")):
         import inspect
-        assert(isinstance(inspect.getattr_static(model, "_more_static_tags"),
-                          staticmethod))
+        assert isinstance(inspect.getattr_static(model, "_more_static_tags"),
+                          staticmethod)
     for tag, tag_type in tags.items():
         # preferred input order can be None or a string
         if tag == 'preferred_input_order':
@@ -283,7 +283,9 @@ def test_fit_function(dataset, model_name):
             if n_pos_args_fit == 1:
                 # TODO: Try to fix this:
                 if model_name == "ExponentialSmoothing":
-                    pytest.skip("The ExponentialSmoothing model has a bug in the _check_dims implementation.")
+                    pytest.skip(
+                        "The ExponentialSmoothing model has a bug "
+                        "in the _check_dims implementation.")
                 assert model.fit() is model
             elif n_pos_args_fit == 2:
                 assert model.fit(X) is model
