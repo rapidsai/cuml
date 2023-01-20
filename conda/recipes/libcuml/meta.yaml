@@ -46,7 +46,7 @@ requirements:
     - lapack
     - libcublas {{ libcublas_host_version }}
     - libcublas-dev {{ libcublas_host_version }}
-    -   {{ libcufft_host_version }}
+    - {{ libcufft_host_version }}
     - libcufft-dev {{ libcufft_host_version }}
     - libcumlprims ={{ minor_version }}
     - libcurand {{ libcurand_host_version }}
