@@ -39,8 +39,6 @@ rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
 _API_STACK_LEVEL = 0
-_API_OUTPUT_TYPE = None
-_API_OUTPUT_DTYPE = None
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -138,13 +136,11 @@ def api_context():
 
 
 def set_api_output_type(output_type):
-    global _API_OUTPUT_TYPE
-    _API_OUTPUT_TYPE = output_type
+    raise NotImplementedError()
 
 
 def set_api_output_dtype(output_dtype):
-    global _API_OUTPUT_DTYPE
-    _API_OUTPUT_DTYPE = output_dtype
+    raise NotImplementedError()
 
 
 def _convert_to_cumlarray(ret_val):
@@ -169,34 +165,32 @@ def _convert_to_cumlarray(ret_val):
     return ret_val
 
 
-def process_single(value):
-    output_type = _API_OUTPUT_TYPE
-    output_dtype = _API_OUTPUT_DTYPE
-    try:
-        ca = _convert_to_cumlarray(value)
-        ret = ca.to_output(
-            output_type=output_type,
-            output_dtype=output_dtype,
-        )
-        return ret
-    except AttributeError:
-        raise
-        # return value
+def process_single(value, output_type, output_dtype):
+    ca = _convert_to_cumlarray(value)
+    ret = ca.to_output(
+        output_type=output_type,
+        output_dtype=output_dtype,
+    )
+    return ret
 
 
-def process_generic(value):
-    # TODO: Try to refactor to not use isinstance() checks but try-fail approach.
+def process_generic(value, output_type, output_dtype):
+    # TODO: Try to refactor to not use isinstance() checks but try-fail
+    # approach.
     if iu.is_array_like(value):
-        return process_single(value)
+        return process_single(value, output_type, output_dtype)
 
     if isinstance(value, tuple):
-        return tuple(process_generic(item) for item in value)
+        return tuple(process_generic(item, output_type, output_dtype)
+                     for item in value)
 
     if isinstance(value, dict):
-        return {key: process_generic(value) for key, value in value.items()}
+        return {key: process_generic(value, output_type, output_dtype)
+                for key, value in value.items()}
 
     if isinstance(value, list):
-        return list(process_generic(item) for item in value)
+        return list(process_generic(item, output_type, output_dtype)
+                    for item in value)
 
     return value
 
@@ -271,7 +265,6 @@ def _make_decorator_function(
             @_wrap_once(func)
             def wrapper(*args, **kwargs):
                 # Wraps the decorated function, executed at runtime.
-                # breakpoint()
 
                 with api_context():
 
@@ -306,10 +299,8 @@ def _make_decorator_function(
                                 out_type = self_val._input_type
                         else:
                             out_type = self_val._get_output_type(input_val)
-
-                        if base:
-                            self_val.output_type = out_type
-                        set_api_output_type(out_type)
+                    else:
+                        out_type = None
 
                     if get_output_dtype:
                         if self_val is None:
@@ -317,15 +308,15 @@ def _make_decorator_function(
                             output_dtype = iu.determine_array_dtype(target_val)
                         else:
                             output_dtype = self_val._get_target_dtype()
-
-                        set_api_output_dtype(output_dtype)
+                    else:
+                        output_dtype = None
 
                     if process_return:
                         ret = func(*args, **kwargs)
                     else:
                         return func(*args, **kwargs)
 
-                    return process_generic(ret)
+                    return process_generic(ret, out_type, output_dtype)
 
             return wrapper
 
