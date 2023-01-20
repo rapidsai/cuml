@@ -15,9 +15,10 @@
 #
 """Command-line ML benchmark runner"""
 
-from cuml.benchmark import algorithms, datagen, runners
-import numpy as np
 import json
+from cuml.benchmark import algorithms, datagen, runners
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 PrecisionMap = {

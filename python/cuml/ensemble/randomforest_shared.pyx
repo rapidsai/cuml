@@ -22,7 +22,8 @@ from cpython.object cimport PyObject
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport unique_ptr
 from typing import Tuple, Dict, List, Union
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 cdef extern from "treelite/tree.h" namespace "treelite":
     cdef struct PyBufferFrame:

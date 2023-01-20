@@ -19,7 +19,8 @@
 import typing
 import nvtx
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 import cuml.internals
 from cuml.internals.array import CumlArray

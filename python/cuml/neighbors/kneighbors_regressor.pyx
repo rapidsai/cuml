@@ -26,7 +26,8 @@ from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 from cython.operator cimport dereference as deref
@@ -38,13 +39,15 @@ from pylibraft.common.handle cimport handle_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 import rmm
 
 cimport cuml.common.cuda
@@ -96,10 +99,6 @@ class KNeighborsRegressor(RegressorMixin,
           in n_features/M sub-vectors that will be encoded thanks
           to intermediary k-means clusterings. This encoding provide
           partial information allowing faster distances calculations
-        - ``'ivfsq'``: for inverted file and scalar quantization,
-          same as inverted list, in addition vectors components
-          are quantized into reduced binary representation allowing
-          faster distances calculations
     metric : string (default='euclidean').
         Distance metric to use.
     weights : string (default='uniform')

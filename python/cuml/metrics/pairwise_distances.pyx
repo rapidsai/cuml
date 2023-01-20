@@ -22,12 +22,14 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
-import cupy as cp
-import numpy as np
-import pandas as pd
-import cudf
-import scipy
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
+scipy = cpu_only_import('scipy')
+cupyx = gpu_only_import('cupyx')
 import cuml.internals
 from cuml.internals.base import _determine_stateless_output_type
 from cuml.common import (input_to_cuml_array, CumlArray)

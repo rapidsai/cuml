@@ -18,7 +18,8 @@
 
 from libc.stdint cimport uintptr_t
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
