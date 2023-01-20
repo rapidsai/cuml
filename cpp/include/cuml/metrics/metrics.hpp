@@ -24,10 +24,6 @@ namespace raft {
 class handle_t;
 }
 
-namespace raft {
-    class device_resources;
-}
-
 namespace ML {
 
 namespace Metrics {
@@ -344,7 +340,7 @@ float accuracy_score_py(const raft::handle_t& handle,
  *                   type array) or col (F type array) major
  * @param metric_arg the value of `p` for Minkowski (l-p) distances.
  */
-void pairwise_distance(const raft::device_resources& handle,
+void pairwise_distance(const raft::handle_t& handle,
                        const double* x,
                        const double* y,
                        double* dist,
@@ -371,7 +367,7 @@ void pairwise_distance(const raft::device_resources& handle,
  *                   type array) or col (F type array) major
  * @param metric_arg the value of `p` for Minkowski (l-p) distances.
  */
-void pairwise_distance(const raft::device_resources& handle,
+void pairwise_distance(const raft::handle_t& handle,
                        const float* x,
                        const float* y,
                        float* dist,
