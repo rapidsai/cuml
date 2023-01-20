@@ -16,8 +16,7 @@
 import treelite
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression, load_iris, load_breast_cancer, \
-    fetch_california_housing
+    make_classification, make_regression, load_iris, load_breast_cancer
 from sklearn.metrics import accuracy_score, mean_squared_error, \
     mean_tweedie_deviance
 from sklearn.ensemble import RandomForestRegressor as skrfr

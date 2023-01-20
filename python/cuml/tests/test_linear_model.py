@@ -185,7 +185,7 @@ def test_linear_regression_model(
         (True, "exponential"),
         (True, "uniform"),
         (True, "exponential"),
-        (False,"lognormal"),
+        (False, "lognormal"),
         (False, "uniform"),
     ]
 )
