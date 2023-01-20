@@ -17,6 +17,7 @@
 #pragma once
 
 #include "shuffle.h"
+#include <raft/core/handle.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>

@@ -15,6 +15,7 @@
  */
 
 #include "lars_impl.cuh"
+#include <raft/core/handle.hpp>
 #include <cuml/solvers/lars.hpp>
 #include <raft/core/handle.hpp>
 

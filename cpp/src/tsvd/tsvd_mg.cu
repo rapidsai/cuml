@@ -20,6 +20,7 @@
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
 
+#include <raft/core/handle.hpp>
 #include <cumlprims/opg/linalg/mm_aTa.hpp>
 #include <cumlprims/opg/stats/mean.hpp>
 #include <cumlprims/opg/stats/mean_center.hpp>

@@ -16,6 +16,7 @@
 
 #include "cd.cuh"
 #include "sgd.cuh"
+#include <raft/core/handle.hpp>
 #include <cuml/solvers/params.hpp>
 #include <cuml/solvers/solver.hpp>
 #include <raft/core/handle.hpp>

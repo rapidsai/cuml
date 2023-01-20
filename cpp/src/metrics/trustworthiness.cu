@@ -16,6 +16,7 @@
 
 #include <raft/stats/trustworthiness_score.cuh>
 
+#include <raft/core/handle.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/core/handle.hpp>
 
