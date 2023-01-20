@@ -197,7 +197,6 @@ def process_generic(value, output_type, output_dtype):
 
 def _make_decorator_function(
     process_return=True,
-    base=False,
     ** defaults,
 ) -> typing.Callable[..., _DecoratorType]:
     # This function generates a function to be applied as decorator to a
@@ -340,7 +339,6 @@ api_base_return_array = _make_decorator_function(
     # BaseReturnArrayCM,
     process_return=True,
     get_output_type=True,
-    base=True,
 )
 api_return_generic = _make_decorator_function(
     # ReturnGenericCM,
