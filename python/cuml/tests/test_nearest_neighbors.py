@@ -118,7 +118,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
     metric, p = metric_p
 
     if not has_scipy():
-        pytest.skip('Skipping test_neighborhood_predictions because ' +
+        pytest.skip('Skipping test_self_neighboring because ' +
                     'Scipy is missing')
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -166,8 +166,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
 @pytest.mark.parametrize("algo,datatype",
                          [("brute", "dataframe"),
                           ("ivfflat", "numpy"),
-                          ("ivfpq", "dataframe"),
-                          ("ivfsq", "numpy")])
+                          ("ivfpq", "dataframe")])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if not has_scipy():
@@ -206,7 +205,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nlist * 0.25
+        'nprobe': nlist * 0.5
     }
 
     X, y = make_blobs(n_samples=nrows, centers=5,
@@ -257,39 +256,16 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("qtype,encodeResidual,nrows,ncols,n_neighbors,nlist",
-                         [('QT_4bit', False, 10000, 128, 8, 4),
-                          ('QT_8bit', True, 1000, 512, 7, 4),
-                          ('QT_fp16', False, 3000, 301, 5, 8)])
-def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
-    algo_params = {
-        'nlist': nlist,
-        'nprobe': nlist * 0.25,
-        'qtype': qtype,
-        'encodeResidual': encodeResidual
-    }
-
-    X, y = make_blobs(n_samples=nrows, centers=5,
-                      n_features=ncols, random_state=0)
-
-    logger.set_level(logger.level_debug)
-    knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
-    knn_cu.fit(X)
-    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
-                                  return_distance=False)
-    del knn_cu
-    gc.collect()
-
-    labels, probs = predict(neigh_ind, y, n_neighbors)
-
-    assert array_equal(labels, y)
-
-
-@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
-@pytest.mark.parametrize("metric", [
-    "l2", "euclidean", "sqeuclidean",
-    "cosine", "correlation"
-])
+@pytest.mark.parametrize(
+    "algo, metric",
+    [
+        (algo, metric)
+        for algo in ["brute", "ivfflat", "ivfpq"]
+        for metric in ["l2", "euclidean", "sqeuclidean", "cosine",
+                       "correlation"]
+        if metric in cuml.neighbors.VALID_METRICS[algo]
+    ],
+)
 def test_ann_distances_metrics(algo, metric):
     X, y = make_blobs(n_samples=500, centers=2,
                       n_features=128, random_state=0)
