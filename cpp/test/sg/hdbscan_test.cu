@@ -15,6 +15,7 @@
  */
 
 #include "hdbscan_inputs.hpp"
+#include <raft/core/handle.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/util/cuda_utils.cuh>

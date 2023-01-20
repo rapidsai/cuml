@@ -16,6 +16,8 @@
 
 #include "time_series_datasets.h"
 #include <algorithm>
+#include <raft/core/handle.hpp>
+
 #include <cuml/common/logger.hpp>
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>

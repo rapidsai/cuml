@@ -18,10 +18,10 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
 #include <vector>
+#include <raft/core/handle.hpp>
 
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/datasets/make_blobs.hpp>
-#include <hierarchy/pw_dist_graph.cuh>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>

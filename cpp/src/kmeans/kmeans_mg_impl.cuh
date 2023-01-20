@@ -17,6 +17,7 @@
 #pragma once
 #include <cuml/common/logger.hpp>
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>

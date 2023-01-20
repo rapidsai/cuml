@@ -20,6 +20,7 @@
 
 #include <cuml/fil/fil.h>
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
