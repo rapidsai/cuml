@@ -15,7 +15,6 @@
  */
 
 #include <cuml/cluster/linkage.hpp>
-#include <raft/core/device_resources.hpp>
 
 #include <raft/cluster/single_linkage.cuh>
 #include <raft/core/handle.hpp>
