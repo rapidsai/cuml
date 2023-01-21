@@ -331,7 +331,7 @@ class PCA(UniversalBase,
         return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsPCA *params = new paramsPCA()
+        cdef paramsPCA *params = new paramsPCA()
         params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -584,7 +584,7 @@ class PCA(UniversalBase,
         cdef uintptr_t _trans_input_ptr = X_m.ptr
 
         # todo: check n_cols and dtype
-        cpdef paramsPCA params
+        cdef paramsPCA params
         params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = self.n_features_
@@ -680,7 +680,7 @@ class PCA(UniversalBase,
         cdef uintptr_t input_ptr = X_m.ptr
 
         # todo: check dtype
-        cpdef paramsPCA params
+        cdef paramsPCA params
         params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
