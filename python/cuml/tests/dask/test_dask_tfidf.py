@@ -13,18 +13,21 @@
 # limitations under the License.
 #
 
-import pytest
-import numpy as np
-import cupy as cp
-from scipy.sparse import csr_matrix as scipy_csr_matrix
-from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix
-import dask.array as da
-import dask
-
-from cuml.dask.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import (
     TfidfTransformer as SkTfidfTransformer,
 )
+from cuml.dask.feature_extraction.text import TfidfTransformer
+import dask
+import dask.array as da
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+scipy_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
+cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
 
 
 # Testing Util Functions

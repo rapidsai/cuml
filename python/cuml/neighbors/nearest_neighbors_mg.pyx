@@ -17,7 +17,8 @@
 # distutils: language = c++
 
 import typing
-from cudf import DataFrame as cudfDataFrame
+from cuml.internals.safe_imports import gpu_only_import_from
+cudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall

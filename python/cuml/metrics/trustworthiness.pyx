@@ -16,10 +16,12 @@
 
 # distutils: language = c++
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import warnings
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from libc.stdint cimport uintptr_t
 import cuml.internals

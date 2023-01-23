@@ -13,25 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.prims.array import binarize
+from cuml.prims.label import invert_labels
+from cuml.prims.label import check_labels
+from cuml.prims.label import make_monotonic
+from cuml.internals.import_utils import has_scipy
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.base import Base
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArray
 import math
 import warnings
 import nvtx
 
-import cupy as cp
-import cupyx
-from cuml.common import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import Base
-from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.import_utils import has_scipy
-from cuml.prims.label import make_monotonic
-from cuml.prims.label import check_labels
-from cuml.prims.label import invert_labels
-from cuml.prims.array import binarize
-
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 def count_features_coo_kernel(float_dtype, int_dtype):
@@ -659,7 +659,7 @@ class GaussianNB(_BaseNB):
             [
                 "priors",
                 "var_smoothing"
-            ]
+        ]
 
 
 class _BaseDiscreteNB(_BaseNB):
@@ -966,7 +966,7 @@ class _BaseDiscreteNB(_BaseNB):
                 "alpha",
                 "fit_prior",
                 "class_prior"
-            ]
+        ]
 
 
 class MultinomialNB(_BaseDiscreteNB):
@@ -1069,6 +1069,7 @@ class MultinomialNB(_BaseDiscreteNB):
         0.9245...
 
     """
+
     def __init__(self, *,
                  alpha=1.0,
                  fit_prior=True,
@@ -1194,6 +1195,7 @@ class BernoulliNB(_BaseDiscreteNB):
     V. Metsis, I. Androutsopoulos and G. Paliouras (2006). Spam filtering with
     naive Bayes -- Which naive Bayes? 3rd Conf. on Email and Anti-Spam (CEAS).
     """
+
     def __init__(self, *, alpha=1.0, binarize=.0, fit_prior=True,
                  class_prior=None, output_type=None, handle=None,
                  verbose=False):
@@ -1259,7 +1261,7 @@ class BernoulliNB(_BaseDiscreteNB):
         return super().get_param_names() + \
             [
                 "binarize"
-            ]
+        ]
 
 
 class ComplementNB(_BaseDiscreteNB):
@@ -1342,6 +1344,7 @@ class ComplementNB(_BaseDiscreteNB):
     (Vol. 3, pp. 616-623).
     https://people.csail.mit.edu/jrennie/papers/icml03-nb.pdf
     """
+
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  norm=False, output_type=None, handle=None,
                  verbose=False):
@@ -1412,7 +1415,7 @@ class ComplementNB(_BaseDiscreteNB):
         return super().get_param_names() + \
             [
                 "norm"
-            ]
+        ]
 
 
 class CategoricalNB(_BaseDiscreteNB):
@@ -1488,6 +1491,7 @@ class CategoricalNB(_BaseDiscreteNB):
         >>> print(clf.predict(X[2:3]))
         [3]
     """
+
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  output_type=None, handle=None, verbose=False):
         super(CategoricalNB, self).__init__(alpha=alpha,

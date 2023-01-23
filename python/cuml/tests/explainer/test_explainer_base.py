@@ -14,15 +14,15 @@
 # limitations under the License.
 #
 
-import cudf
-import cupy as cp
-import numpy as np
-import pytest
-
-from pylibraft.common.handle import Handle
-
-from cuml.explainer.base import SHAPBase
 from cuml import LinearRegression as cuLR
+from cuml.explainer.base import SHAPBase
+from pylibraft.common.handle import Handle
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 @pytest.mark.parametrize("handle", [True, False])

@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@ from libc.stdint cimport uintptr_t
 
 from cython.operator cimport dereference as deref
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -28,12 +30,18 @@ from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 
 from pylibraft.common.handle import Handle
-from cuml.common import input_to_cuml_array
+from cuml.common import (
+    input_to_cuml_array,
+    input_to_host_array
+)
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.available_devices import is_cuda_available
+from cuml.internals.device_type import DeviceType
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals import logger
 from cuml.internals.import_utils import has_hdbscan_plots
+from cuml.internals.import_utils import has_hdbscan_prediction
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -132,6 +140,34 @@ def all_points_membership_vectors(clusterer):
         cluster ``j`` is in ``membership_vectors[i, j]``.
     """
 
+    device_type = cuml.global_settings.device_type
+
+    # cpu infer, cpu/gpu train
+    if device_type == DeviceType.host:
+        assert has_hdbscan_prediction()
+        from hdbscan.prediction import all_points_membership_vectors \
+            as cpu_all_points_membership_vectors
+
+        # trained on gpu
+        if not hasattr(clusterer, "_cpu_model"):
+            # the reference HDBSCAN implementations uses @property
+            # for attributes without setters available for them,
+            # so they can't be transferred from the GPU model
+            # to the CPU model
+            raise ValueError("Inferring on CPU is not supported yet when the "
+                             "model has been trained on GPU")
+
+        # this took a long debugging session to figure out, but
+        # this method on cpu does not work without this copy for some reason
+        clusterer._cpu_model.prediction_data_.raw_data = \
+            clusterer._cpu_model.prediction_data_.raw_data.copy()
+        return cpu_all_points_membership_vectors(clusterer._cpu_model)
+
+    elif device_type == DeviceType.device:
+        # trained on cpu
+        if hasattr(clusterer, "_cpu_model"):
+            clusterer._prep_cpu_to_gpu_prediction()
+
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
                          "Please call clusterer.fit first")
@@ -206,6 +242,32 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     probabilities : array (n_samples,)
         The soft cluster scores for each of the ``points_to_predict``
     """
+
+    device_type = cuml.global_settings.device_type
+
+    # cpu infer, cpu/gpu train
+    if device_type == DeviceType.host:
+        assert has_hdbscan_prediction()
+        from hdbscan.prediction import approximate_predict \
+            as cpu_approximate_predict
+
+        # trained on gpu
+        if not hasattr(clusterer, "_cpu_model"):
+            # the reference HDBSCAN implementations uses @property
+            # for attributes without setters available for them,
+            # so they can't be transferred from the GPU model
+            # to the CPU model
+            raise ValueError("Inferring on CPU is not supported yet when the "
+                             "model has been trained on GPU")
+
+        host_points_to_predict = input_to_host_array(points_to_predict).array
+        return cpu_approximate_predict(clusterer._cpu_model,
+                                       host_points_to_predict)
+
+    elif device_type == DeviceType.device:
+        # trained on cpu
+        if hasattr(clusterer, "_cpu_model"):
+            clusterer._prep_cpu_to_gpu_prediction()
 
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "

@@ -14,7 +14,8 @@
 # limitations under the License.
 #
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free

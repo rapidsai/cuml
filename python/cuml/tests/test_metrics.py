@@ -14,6 +14,56 @@
 # limitations under the License.
 #
 
+import platform
+from cuml.metrics.cluster import v_measure_score
+from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
+from scipy.special import rel_entr as scipy_kl_divergence
+from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
+    PAIRWISE_DISTANCE_METRICS, PAIRWISE_DISTANCE_SPARSE_METRICS
+from sklearn.metrics import precision_recall_curve \
+    as sklearn_precision_recall_curve
+from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
+from cuml.metrics import log_loss
+from cuml.metrics import precision_recall_curve
+from cuml.metrics import roc_auc_score
+from cuml.common.sparsefuncs import csr_row_normalize_l1
+from cuml.common import has_scipy
+from sklearn.metrics import mean_squared_log_error as sklearn_msle
+from sklearn.metrics import mean_absolute_error as sklearn_mae
+from cuml.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
+from sklearn.metrics import mean_squared_error as sklearn_mse
+from cuml.metrics.regression import mean_squared_error, \
+    mean_squared_log_error, mean_absolute_error
+from cuml.model_selection import train_test_split
+from cuml.metrics.cluster import entropy
+from cuml.metrics import kl_divergence as cu_kl_divergence
+from cuml.metrics import hinge_loss as cuml_hinge
+from cuml import LogisticRegression as cu_log
+from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
+from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
+from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import completeness_score as sk_completeness_score
+from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
+from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
+from sklearn.metrics import log_loss as sklearn_log_loss
+from sklearn.metrics import accuracy_score as sk_acc_score
+from sklearn.datasets import make_classification, make_blobs
+from sklearn.metrics import hinge_loss as sk_hinge
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.testing.utils import get_handle, get_pattern, array_equal, \
+    unit_param, quality_param, stress_param, generate_random_labels, \
+    score_labeling_with_handle
+from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
+from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
+from cuml.metrics import accuracy_score as cu_acc_score
+from cuml.metrics.cluster import adjusted_rand_score as cu_ars
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 import random
@@ -22,69 +72,20 @@ from functools import partial
 
 import cuml
 import cuml.internals.logger as logger
-import cupy as cp
-import cupyx
-import numpy as np
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+np = cpu_only_import('numpy')
+cudf = gpu_only_import('cudf')
 
-from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.metrics.cluster import adjusted_rand_score as cu_ars
-from cuml.metrics import accuracy_score as cu_acc_score
-from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
-from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
-from cuml.testing.utils import get_handle, get_pattern, array_equal, \
-    unit_param, quality_param, stress_param, generate_random_labels, \
-    score_labeling_with_handle
 
-from numba import cuda
-from numpy.testing import assert_almost_equal
+cuda = gpu_only_import_from('numba', 'cuda')
+assert_almost_equal = cpu_only_import_from(
+    'numpy.testing', 'assert_almost_equal')
 
-from sklearn.metrics import hinge_loss as sk_hinge
-from sklearn.datasets import make_classification, make_blobs
-from sklearn.metrics import accuracy_score as sk_acc_score
-from sklearn.metrics import log_loss as sklearn_log_loss
-from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
-from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
-from sklearn.metrics.cluster import completeness_score as sk_completeness_score
-from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
-from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
-from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
-from sklearn.preprocessing import StandardScaler
-from sklearn import preprocessing
 
-from cuml import LogisticRegression as cu_log
-from cuml.metrics import hinge_loss as cuml_hinge
-from cuml.metrics import kl_divergence as cu_kl_divergence
-from cuml.metrics.cluster import entropy
-from cuml.model_selection import train_test_split
-from cuml.metrics.regression import mean_squared_error, \
-    mean_squared_log_error, mean_absolute_error
-from sklearn.metrics import mean_squared_error as sklearn_mse
-from sklearn.metrics import confusion_matrix as sk_confusion_matrix
+scipy_pairwise_distances = cpu_only_import_from('scipy.spatial', 'distance')
 
-from cuml.metrics import confusion_matrix
-from sklearn.metrics import mean_absolute_error as sklearn_mae
-from sklearn.metrics import mean_squared_log_error as sklearn_msle
-
-from cuml.common import has_scipy
-from cuml.common.sparsefuncs import csr_row_normalize_l1
-
-from cuml.metrics import roc_auc_score
-from cuml.metrics import precision_recall_curve
-from cuml.metrics import log_loss
-from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
-from sklearn.metrics import precision_recall_curve \
-    as sklearn_precision_recall_curve
-
-from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
-    PAIRWISE_DISTANCE_METRICS, PAIRWISE_DISTANCE_SPARSE_METRICS
-from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
-from scipy.spatial import distance as scipy_pairwise_distances
-from scipy.special import rel_entr as scipy_kl_divergence
-from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
-from cuml.metrics.cluster import v_measure_score
-
-import platform
 IS_ARM = platform.processor() == "aarch64"
 
 
