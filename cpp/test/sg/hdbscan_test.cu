@@ -317,7 +317,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
     ASSERT_TRUE(MLCommon::devArrMatch(probabilities.data(),
                                   params.probabilities.data(),
                                   params.n_row,
-                                  raft::CompareApprox<float>(1e-4),
+                                  MLCommon::CompareApprox<float>(1e-4),
                                   handle.get_stream()));
 
     rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
@@ -463,7 +463,7 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                   params.expected_probabilities.data(),
                                   params.n_row * n_selected_clusters,
-                                  raft::CompareApprox<float>(1e-5),
+                                  MLCommon::CompareApprox<float>(1e-5),
                                   handle.get_stream()));
   }
 
@@ -610,13 +610,13 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     ASSERT_TRUE(MLCommon::devArrMatch(out_labels.data(),
                                   params.expected_labels.data(),
                                   params.n_points_to_predict,
-                                  raft::Compare<int>(),
+                                  MLCommon::Compare<int>(),
                                   handle.get_stream()));
 
     ASSERT_TRUE(MLCommon::devArrMatch(out_probabilities.data(),
                                   params.expected_probabilities.data(),
                                   params.n_points_to_predict,
-                                  raft::CompareApprox<float>(1e-2),
+                                  MLCommon::CompareApprox<float>(1e-2),
                                   handle.get_stream()));
   }
 

@@ -168,7 +168,7 @@ TEST_P(TsvdTestLeftVecF, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
                                 components_ref.data(),
                                 (params.n_col * params.n_col),
-                                raft::CompareApproxAbs<float>(params.tolerance),
+                                MLCommon::CompareApproxAbs<float>(params.tolerance),
                                 handle.get_stream()));
 }
 
@@ -178,7 +178,7 @@ TEST_P(TsvdTestLeftVecD, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
                                 components_ref.data(),
                                 (params.n_col * params.n_col),
-                                raft::CompareApproxAbs<double>(params.tolerance),
+                                MLCommon::CompareApproxAbs<double>(params.tolerance),
                                 handle.get_stream()));
 }
 
@@ -188,7 +188,7 @@ TEST_P(TsvdTestDataVecF, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
                                 data2_back.data(),
                                 (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<float>(params.tolerance),
+                                MLCommon::CompareApproxAbs<float>(params.tolerance),
                                 handle.get_stream()));
 }
 
@@ -198,7 +198,7 @@ TEST_P(TsvdTestDataVecD, Result)
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
                                 data2_back.data(),
                                 (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<double>(params.tolerance),
+                                MLCommon::CompareApproxAbs<double>(params.tolerance),
                                 handle.get_stream()));
 }
 

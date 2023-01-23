@@ -590,7 +590,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     ASSERT_TRUE(MLCommon::devArrMatch(want_proba_d.data(),
                                   proba_d.data(),
                                   ps.num_proba_outputs(),
-                                  raft::CompareApprox<real_t>(ps.tolerance),
+                                  MLCommon::CompareApprox<real_t>(ps.tolerance),
                                   stream));
     float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY
                         ? ps.tolerance
@@ -600,7 +600,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     ASSERT_TRUE(MLCommon::devArrMatch(want_preds_d.data(),
                                   preds_d.data(),
                                   ps.num_rows,
-                                  raft::CompareApprox<real_t>(tolerance),
+                                  MLCommon::CompareApprox<real_t>(tolerance),
                                   stream));
   }
 

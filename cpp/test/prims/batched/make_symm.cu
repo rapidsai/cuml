@@ -102,7 +102,7 @@ TEST_P(BatchMakeSymmTestF, Result)
 {
   int len = params.batchSize * params.n * params.n;
   ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), len, raft::CompareApprox<float>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), len, MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF, ::testing::ValuesIn(inputsf));
 
@@ -116,7 +116,7 @@ TEST_P(BatchMakeSymmTestD, Result)
 {
   int len = params.batchSize * params.n * params.n;
   ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), len, raft::CompareApprox<double>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), len, MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD, ::testing::ValuesIn(inputsd));
 

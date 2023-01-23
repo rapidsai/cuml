@@ -450,7 +450,7 @@ TEST_P(BatchedMatrixTestD, Result)
   ASSERT_TRUE(MLCommon::devArrMatchHost(res_h.data(),
                                         res_bM->raw_data(),
                                         res_h.size(),
-                                        raft::CompareApprox<double>(params.tolerance),
+                                        MLCommon::CompareApprox<double>(params.tolerance),
                                         stream));
 }
 TEST_P(BatchedMatrixTestF, Result)
@@ -458,7 +458,7 @@ TEST_P(BatchedMatrixTestF, Result)
   ASSERT_TRUE(MLCommon::devArrMatchHost(res_h.data(),
                                         res_bM->raw_data(),
                                         res_h.size(),
-                                        raft::CompareApprox<float>(params.tolerance),
+                                        MLCommon::CompareApprox<float>(params.tolerance),
                                         stream));
 }
 
