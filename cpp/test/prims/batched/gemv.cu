@@ -120,8 +120,8 @@ typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result)
 {
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), vecleny, MLCommon::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), vecleny, MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF, ::testing::ValuesIn(inputsf));
 

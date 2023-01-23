@@ -333,11 +333,15 @@ TEST_P(RidgeTestD, Fit)
   ASSERT_TRUE(MLCommon::devArrMatch(
     pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    pred2_ref.data(), pred2.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred2_ref.data(),
+                                    pred2.data(),
+                                    params.n_row_2,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred3_ref.data(),
+                                    pred3.data(),
+                                    params.n_row_2,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(
     coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<double>(params.tol)));

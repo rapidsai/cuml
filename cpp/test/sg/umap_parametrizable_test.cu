@@ -352,8 +352,8 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     ASSERT_TRUE(equal);
 #else
-    ASSERT_TRUE(
-      MLCommon::devArrMatch(e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
+    ASSERT_TRUE(MLCommon::devArrMatch(
+      e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
 #endif
   }
 

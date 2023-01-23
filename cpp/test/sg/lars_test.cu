@@ -81,8 +81,8 @@ class LarsTest : public ::testing::Test {
 
     EXPECT_TRUE(
       MLCommon::devArrMatchHost(cor_exp, cor.data(), n_cols, MLCommon::Compare<math_t>(), stream));
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(G_exp, G.data(), n_cols * n_cols, MLCommon::Compare<math_t>(), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      G_exp, G.data(), n_cols * n_cols, MLCommon::Compare<math_t>(), stream));
     EXPECT_TRUE(MLCommon::devArrMatch(
       (math_t)1.0, sign.data() + n_active - 1, 1, MLCommon::Compare<math_t>(), stream));
 
@@ -101,8 +101,8 @@ class LarsTest : public ::testing::Test {
                                    n_cols,
                                    sign.data(),
                                    stream);
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(X_exp, X.data(), n_rows * n_cols, MLCommon::Compare<math_t>(), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      X_exp, X.data(), n_rows * n_cols, MLCommon::Compare<math_t>(), stream));
   }
 
   void calcUExp(math_t* G, int n_cols, math_t* U_dev_exp)
@@ -301,8 +301,8 @@ class LarsTest : public ::testing::Test {
                                          (math_t)-1,
                                          stream);
 
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(u_eq_exp, u_eq.data(), 1, MLCommon::CompareApprox<math_t>(1e-3), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      u_eq_exp, u_eq.data(), 1, MLCommon::CompareApprox<math_t>(1e-3), stream));
   }
 
   void testCalcMaxStep()
@@ -345,8 +345,8 @@ class LarsTest : public ::testing::Test {
                                   a_vec.data(),
                                   stream);
     math_t gamma_exp = 0.20095407186830386;
-    EXPECT_TRUE(
-      MLCommon::devArrMatch(gamma_exp, gamma.data(), 1, MLCommon::CompareApprox<math_t>(1e-6), stream));
+    EXPECT_TRUE(MLCommon::devArrMatch(
+      gamma_exp, gamma.data(), 1, MLCommon::CompareApprox<math_t>(1e-6), stream));
     math_t a_vec_exp[2] = {24.69447886, -139.66289908};
     EXPECT_TRUE(MLCommon::devArrMatchHost(
       a_vec_exp, a_vec.data(), a_vec.size(), MLCommon::CompareApprox<math_t>(1e-4), stream));
@@ -371,8 +371,8 @@ class LarsTest : public ::testing::Test {
                                   gamma.data(),
                                   a_vec.data(),
                                   stream);
-    EXPECT_TRUE(
-      MLCommon::devArrMatch(gamma_exp, gamma.data(), 1, MLCommon::CompareApprox<math_t>(1e-6), stream));
+    EXPECT_TRUE(MLCommon::devArrMatch(
+      gamma_exp, gamma.data(), 1, MLCommon::CompareApprox<math_t>(1e-6), stream));
     EXPECT_TRUE(MLCommon::devArrMatchHost(
       a_vec_exp, a_vec.data(), a_vec.size(), MLCommon::CompareApprox<math_t>(1e-4), stream));
 
@@ -397,8 +397,8 @@ class LarsTest : public ::testing::Test {
                                   a_vec.data(),
                                   stream);
     gamma_exp = 11.496044516528272;
-    EXPECT_TRUE(
-      MLCommon::devArrMatch(gamma_exp, gamma.data(), 1, MLCommon::CompareApprox<math_t>(1e-6), stream));
+    EXPECT_TRUE(MLCommon::devArrMatch(
+      gamma_exp, gamma.data(), 1, MLCommon::CompareApprox<math_t>(1e-6), stream));
   }
 
   raft::handle_t handle;
@@ -501,8 +501,8 @@ class LarsTestFitPredict : public ::testing::Test {
       beta_exp, beta.data(), n_cols, MLCommon::CompareApprox<math_t>(1e-5), stream));
     EXPECT_TRUE(MLCommon::devArrMatchHost(
       alphas_exp, alphas.data(), n_cols + 1, MLCommon::CompareApprox<math_t>(1e-4), stream));
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(indices_exp, active_idx.data(), n_cols, MLCommon::Compare<int>(), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      indices_exp, active_idx.data(), n_cols, MLCommon::Compare<int>(), stream));
   }
 
   void testFitX()
@@ -532,8 +532,8 @@ class LarsTestFitPredict : public ::testing::Test {
       beta_exp, beta.data(), n_cols, MLCommon::CompareApprox<math_t>(2e-4), stream));
     EXPECT_TRUE(MLCommon::devArrMatchHost(
       alphas_exp, alphas.data(), n_cols + 1, MLCommon::CompareApprox<math_t>(1e-4), stream));
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(indices_exp, active_idx.data(), n_cols, MLCommon::Compare<int>(), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      indices_exp, active_idx.data(), n_cols, MLCommon::Compare<int>(), stream));
   }
 
   void testPredictV1()
@@ -555,8 +555,8 @@ class LarsTestFitPredict : public ::testing::Test {
                                   active_idx.data(),
                                   intercept,
                                   y.data());
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(pred_exp, y.data(), n_rows, MLCommon::CompareApprox<math_t>(1e-5), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      pred_exp, y.data(), n_rows, MLCommon::CompareApprox<math_t>(1e-5), stream));
   }
 
   void testPredictV2()
@@ -582,8 +582,8 @@ class LarsTestFitPredict : public ::testing::Test {
                                   active_idx.data(),
                                   intercept,
                                   y.data());
-    EXPECT_TRUE(
-      MLCommon::devArrMatchHost(pred_exp, y.data(), n_rows, MLCommon::CompareApprox<math_t>(1e-5), stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(
+      pred_exp, y.data(), n_rows, MLCommon::CompareApprox<math_t>(1e-5), stream));
   }
 
   void testFitLarge()

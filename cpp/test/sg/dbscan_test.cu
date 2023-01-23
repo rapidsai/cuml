@@ -250,10 +250,10 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     }
 
     EXPECT_TRUE(MLCommon::devArrMatchHost(params.core_indices,
-                                      core_sample_indices_d.data(),
-                                      params.n_row,
-                                      MLCommon::Compare<int>(),
-                                      stream));
+                                          core_sample_indices_d.data(),
+                                          params.n_row,
+                                          MLCommon::Compare<int>(),
+                                          stream));
   }
 
   void SetUp() override { basicTest(); }

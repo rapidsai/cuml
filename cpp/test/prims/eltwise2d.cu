@@ -132,8 +132,10 @@ const std::vector<Eltwise2dInputs<double>> inputsd2 = {{0.00000001, 1024, 1024, 
 typedef Eltwise2dTest<float> Eltwise2dTestF;
 TEST_P(Eltwise2dTestF, Result)
 {
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    out_ref.data(), out.data(), params.w * params.h, MLCommon::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(out_ref.data(),
+                                    out.data(),
+                                    params.w * params.h,
+                                    MLCommon::CompareApprox<float>(params.tolerance)));
 }
 
 typedef Eltwise2dTest<double> Eltwise2dTestD;

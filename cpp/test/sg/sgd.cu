@@ -304,11 +304,15 @@ TEST_P(SgdTestF, Fit)
   ASSERT_TRUE(MLCommon::devArrMatch(
     coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    pred_log_ref.data(), pred_log.data(), params.n_row, MLCommon::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred_log_ref.data(),
+                                    pred_log.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    pred_svm_ref.data(), pred_svm.data(), params.n_row, MLCommon::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred_svm_ref.data(),
+                                    pred_svm.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef SgdTest<double> SgdTestD;
@@ -321,14 +325,14 @@ TEST_P(SgdTestD, Fit)
     coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(pred_log_ref.data(),
-                                pred_log.data(),
-                                params.n_row,
-                                MLCommon::CompareApproxAbs<double>(params.tol)));
+                                    pred_log.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(MLCommon::devArrMatch(pred_svm_ref.data(),
-                                pred_svm.data(),
-                                params.n_row,
-                                MLCommon::CompareApproxAbs<double>(params.tol)));
+                                    pred_svm.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(SgdTests, SgdTestF, ::testing::ValuesIn(inputsf2));

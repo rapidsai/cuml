@@ -123,13 +123,19 @@ TYPED_TEST(WorkingSetTest, Select)
   EXPECT_EQ(this->ws->GetSize(), 4);
   this->ws->SimpleSelect(
     this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
-  ASSERT_TRUE(devArrMatchHost(
-    this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), MLCommon::Compare<int>(), stream));
+  ASSERT_TRUE(devArrMatchHost(this->expected_idx,
+                              this->ws->GetIndices(),
+                              this->ws->GetSize(),
+                              MLCommon::Compare<int>(),
+                              stream));
 
   this->ws->Select(
     this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
-  ASSERT_TRUE(devArrMatchHost(
-    this->expected_idx, this->ws->GetIndices(), this->ws->GetSize(), MLCommon::Compare<int>(), stream));
+  ASSERT_TRUE(devArrMatchHost(this->expected_idx,
+                              this->ws->GetIndices(),
+                              this->ws->GetSize(),
+                              MLCommon::Compare<int>(),
+                              stream));
   this->ws->Select(
     this->f_dev.data(), this->alpha_dev.data(), this->y_dev.data(), this->C_dev.data());
 
@@ -211,8 +217,8 @@ class KernelCacheTest : public ::testing::Test {
       int kidx                = kidx_h[i];
       const math_t* cache_row = tile_dev + kidx * n_rows;
       const math_t* row_exp   = tile_host_all + widx * n_rows;
-      EXPECT_TRUE(
-        devArrMatchHost(row_exp, cache_row, n_rows, MLCommon::CompareApprox<math_t>(1e-6f), stream));
+      EXPECT_TRUE(devArrMatchHost(
+        row_exp, cache_row, n_rows, MLCommon::CompareApprox<math_t>(1e-6f), stream));
     }
   }
 
@@ -502,10 +508,10 @@ class SmoBlockSolverTest : public ::testing::Test {
       [] __device__(math_t a, math_t b) { return a * b; },
       stream);
     MLCommon::devArrMatch(delta_alpha_dev.data(),
-                      delta_alpha_calc.data(),
-                      n_rows,
-                      MLCommon::CompareApprox<math_t>(1e-6),
-                      stream);
+                          delta_alpha_calc.data(),
+                          n_rows,
+                          MLCommon::CompareApprox<math_t>(1e-6),
+                          stream);
     math_t alpha_expected[] = {0, 0.1f, 0.1f, 0};
     MLCommon::devArrMatch(
       alpha_expected, alpha_dev.data(), n_rows, MLCommon::CompareApprox<math_t>(1e-6), stream);
@@ -639,8 +645,8 @@ void checkResults(SvmModel<math_t> model,
   }
 
   if (idx_exp) {
-    EXPECT_TRUE(
-      devArrMatchHost(idx_exp, model.support_idx, model.n_support, MLCommon::Compare<int>(), stream));
+    EXPECT_TRUE(devArrMatchHost(
+      idx_exp, model.support_idx, model.n_support, MLCommon::Compare<int>(), stream));
   }
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
@@ -743,10 +749,10 @@ class SmoSolverTest : public ::testing::Test {
       [] __device__(math_t a, math_t b) { return a * b; },
       stream);
     MLCommon::devArrMatch(delta_alpha_dev.data(),
-                      delta_alpha_calc.data(),
-                      n_rows,
-                      MLCommon::CompareApprox<math_t>(1e-6),
-                      stream);
+                          delta_alpha_calc.data(),
+                          n_rows,
+                          MLCommon::CompareApprox<math_t>(1e-6),
+                          stream);
 
     math_t alpha_expected[] = {0.6f, 0, 1, 1, 0, 0.6f};
     // for C=10: {0.25f, 0, 2.25f, 3.75f, 0, 1.75f};
@@ -810,7 +816,8 @@ class SmoSolverTest : public ::testing::Test {
     EXPECT_LT(return_buff[1], 10) << return_buff[1];
 
     math_t alpha_exp[] = {0, 0.8, 0.8, 0};
-    MLCommon::devArrMatch(alpha_exp, alpha_dev.data(), 4, MLCommon::CompareApprox<math_t>(1e-6), stream);
+    MLCommon::devArrMatch(
+      alpha_exp, alpha_dev.data(), 4, MLCommon::CompareApprox<math_t>(1e-6), stream);
 
     math_t dalpha_exp[] = {-0.8, 0.8};
     MLCommon::devArrMatch(
@@ -1016,10 +1023,10 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     if (p.predict) {
       svc.predict(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
       EXPECT_TRUE(MLCommon::devArrMatch(this->y_dev.data(),
-                                    y_pred.data(),
-                                    p.n_rows,
-                                    MLCommon::CompareApprox<TypeParam>(1e-6f),
-                                    stream));
+                                        y_pred.data(),
+                                        p.n_rows,
+                                        MLCommon::CompareApprox<TypeParam>(1e-6f),
+                                        stream));
     }
     if (exp.decision_function.size() > 0) {
       svc.decisionFunction(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
@@ -1370,8 +1377,11 @@ class SvrTest : public ::testing::Test {
                                 stream));
 
     int idx_exp[] = {0, 1, 2, 4, 5};
-    EXPECT_TRUE(devArrMatchHost(
-      idx_exp, model.support_idx, model.n_support, MLCommon::CompareApprox<math_t>(1.0e-6), stream));
+    EXPECT_TRUE(devArrMatchHost(idx_exp,
+                                model.support_idx,
+                                model.n_support,
+                                MLCommon::CompareApprox<math_t>(1.0e-6),
+                                stream));
   }
 
   void TestSvrFitPredict()

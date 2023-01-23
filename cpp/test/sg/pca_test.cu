@@ -294,10 +294,10 @@ typedef PcaTest<double> PcaTestDataVecD;
 TEST_P(PcaTestDataVecD, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
-                                data2_back.data(),
-                                (params.n_col2 * params.n_col2),
-                                MLCommon::CompareApproxAbs<double>(params.tolerance),
-                                handle.get_stream()));
+                                    data2_back.data(),
+                                    (params.n_col2 * params.n_col2),
+                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 INSTANTIATE_TEST_CASE_P(PcaTests, PcaTestValF, ::testing::ValuesIn(inputsf2));

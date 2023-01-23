@@ -166,40 +166,40 @@ typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
-                                components_ref.data(),
-                                (params.n_col * params.n_col),
-                                MLCommon::CompareApproxAbs<float>(params.tolerance),
-                                handle.get_stream()));
+                                    components_ref.data(),
+                                    (params.n_col * params.n_col),
+                                    MLCommon::CompareApproxAbs<float>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 typedef TsvdTest<double> TsvdTestLeftVecD;
 TEST_P(TsvdTestLeftVecD, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
-                                components_ref.data(),
-                                (params.n_col * params.n_col),
-                                MLCommon::CompareApproxAbs<double>(params.tolerance),
-                                handle.get_stream()));
+                                    components_ref.data(),
+                                    (params.n_col * params.n_col),
+                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 typedef TsvdTest<float> TsvdTestDataVecF;
 TEST_P(TsvdTestDataVecF, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
-                                data2_back.data(),
-                                (params.n_col2 * params.n_col2),
-                                MLCommon::CompareApproxAbs<float>(params.tolerance),
-                                handle.get_stream()));
+                                    data2_back.data(),
+                                    (params.n_col2 * params.n_col2),
+                                    MLCommon::CompareApproxAbs<float>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 typedef TsvdTest<double> TsvdTestDataVecD;
 TEST_P(TsvdTestDataVecD, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
-                                data2_back.data(),
-                                (params.n_col2 * params.n_col2),
-                                MLCommon::CompareApproxAbs<double>(params.tolerance),
-                                handle.get_stream()));
+                                    data2_back.data(),
+                                    (params.n_col2 * params.n_col2),
+                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF, ::testing::ValuesIn(inputsf2));

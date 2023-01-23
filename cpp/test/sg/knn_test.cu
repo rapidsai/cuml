@@ -275,9 +275,9 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                 params.n_neighbors);
 
     ASSERT_TRUE(MLCommon::devArrMatch(query_labels_float.data(),
-                                  actual_labels_float.data(),
-                                  params.n_query_row,
-                                  MLCommon::Compare<float>()));
+                                      actual_labels_float.data(),
+                                      params.n_query_row,
+                                      MLCommon::Compare<float>()));
   }
 
  private:

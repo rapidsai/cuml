@@ -74,8 +74,10 @@ const std::vector<LogInputs<double>> inputsd2 = {{0.001, 4}};
 typedef LogTest<float> LogTestValF;
 TEST_P(LogTestValF, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    result_ref.data(), result.data(), params.len, MLCommon::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(result_ref.data(),
+                          result.data(),
+                          params.len,
+                          MLCommon::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef LogTest<double> LogTestValD;

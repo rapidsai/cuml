@@ -74,8 +74,10 @@ const std::vector<SigmoidInputs<double>> inputsd2 = {{0.001, 4}};
 typedef SigmoidTest<float> SigmoidTestValF;
 TEST_P(SigmoidTestValF, Result)
 {
-  ASSERT_TRUE(MLCommon::devArrMatch(
-    result_ref.data(), result.data(), params.len, MLCommon::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(result_ref.data(),
+                                    result.data(),
+                                    params.len,
+                                    MLCommon::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SigmoidTest<double> SigmoidTestValD;
