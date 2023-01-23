@@ -50,7 +50,6 @@ class FILEX : public RegressionFixture<float> {
   FILEX(const std::string& name, const Params& p)
   : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
-    Iterations(100);
   }
 
   static void regression_to_classification(float* y, int nrows, int nclasses, cudaStream_t stream)
@@ -186,7 +185,7 @@ class FILEX : public RegressionFixture<float> {
         handle->sync_stream();
         handle->sync_stream_pool();
       }
-    }, false);
+    }, true);
   }
 
   void allocateBuffers(const ::benchmark::State& state) override { Base::allocateBuffers(state); }
