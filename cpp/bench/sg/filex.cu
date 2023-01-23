@@ -20,6 +20,7 @@
 
 #include "benchmark.cuh"
 #include <chrono>
+#include <cstdint>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
@@ -99,7 +100,7 @@ class FILEX : public RegressionFixture<float> {
       .pforest_shape_str = nullptr};
     ML::fil::forest_variant forest_variant;
     auto optimal_chunk_size = 1;
-    auto min_time = std::numeric_limits<std::size_t>::max();
+    auto min_time = std::numeric_limits<std::int64_t>::max();
 
     // Iterate through chunk sizes and find optimum
     for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
@@ -148,7 +149,6 @@ class FILEX : public RegressionFixture<float> {
         ML::fil::free(*handle, forest);
       }
     }
-    std::cout << p_rest.use_experimental << ": " << optimal_chunk_size;
 
     // Build optimal FIL tree
     tl_params.threads_per_tree = optimal_chunk_size;
@@ -211,7 +211,6 @@ struct FilBenchParams {
   int ntrees;
   ML::fil::storage_type_t storage;
   ML::fil::algo_t algo;
-  int chunk_size;
   bool use_experimental;
 };
 
@@ -249,15 +248,14 @@ std::vector<Params> getInputs()
   std::vector<FilBenchParams> var_params = {
     {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
     {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
-    /* {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, 16, false},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, false},
     {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, true},
     {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
     {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
     {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
     {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
     {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE,
-      algo_t::BATCH_TREE_REORG, true}, */
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true}
   };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
