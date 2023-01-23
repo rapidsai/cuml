@@ -314,14 +314,20 @@ def test_return_array(input_arg: str,
 
         return X
 
-    if (input_arg == "bad" or target_arg == "bad"):
-        pytest.xfail("Expected error with bad arg name")
+    expected_to_fail = (input_arg == "bad" and get_output_type) \
+        or (target_arg == "bad" and get_output_dtype)
 
-    test_func = cuml.internals.api_return_array(
-        input_arg=input_arg,
-        target_arg=target_arg,
-        get_output_type=get_output_type,
-        get_output_dtype=get_output_dtype)(test_func)
+    try:
+        test_func = cuml.internals.api_return_array(
+            input_arg=input_arg,
+            target_arg=target_arg,
+            get_output_type=get_output_type,
+            get_output_dtype=get_output_dtype)(test_func)
+    except ValueError:
+        assert expected_to_fail
+        return
+    else:
+        assert not expected_to_fail
 
     X_out = test_func(X=X_in, y=Y_in)
 
