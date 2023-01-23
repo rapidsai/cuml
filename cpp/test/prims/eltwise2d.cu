@@ -140,9 +140,9 @@ typedef Eltwise2dTest<double> Eltwise2dTestD;
 TEST_P(Eltwise2dTestD, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(out_ref.data(),
-                                out.data(),
-                                params.w * params.h,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                    out.data(),
+                                    params.w * params.h,
+                                    raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(Eltwise2dTests, Eltwise2dTestF, ::testing::ValuesIn(inputsf2));

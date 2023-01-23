@@ -243,13 +243,13 @@ typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(d_golden_ar_trans.data(),
-                                d_computed_ar_trans.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                    d_computed_ar_trans.data(),
+                                    nElements,
+                                    raft::CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(MLCommon::devArrMatch(d_golden_ma_trans.data(),
-                                d_computed_ma_trans.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                    d_computed_ma_trans.data(),
+                                    nElements,
+                                    raft::CompareApprox<double>(params.tolerance)));
   /*
   Test verifying the inversion property:
   initially generated random coefficients -> ar_param_transform() / ma_param_transform() ->
@@ -257,13 +257,13 @@ TEST_P(JonesTransTestClass, Result)
   initially generated random coefficients
   */
   ASSERT_TRUE(MLCommon::devArrMatch(d_computed_ma_invtrans.data(),
-                                d_params.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                    d_params.data(),
+                                    nElements,
+                                    raft::CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(MLCommon::devArrMatch(d_computed_ar_invtrans.data(),
-                                d_params.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
+                                    d_params.data(),
+                                    nElements,
+                                    raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(JonesTrans, JonesTransTestClass, ::testing::ValuesIn(inputs));
 

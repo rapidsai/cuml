@@ -82,9 +82,9 @@ typedef SigmoidTest<double> SigmoidTestValD;
 TEST_P(SigmoidTestValD, Result)
 {
   ASSERT_TRUE(MLCommon::devArrMatch(result_ref.data(),
-                                result.data(),
-                                params.len,
-                                raft::CompareApproxAbs<double>(params.tolerance)));
+                                    result.data(),
+                                    params.len,
+                                    raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SigmoidTests, SigmoidTestValF, ::testing::ValuesIn(inputsf2));

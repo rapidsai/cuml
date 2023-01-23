@@ -254,4 +254,4 @@ testing::AssertionResult match(const T expected, T actual, L eq_compare)
     ms /= args.runs;                                       \
   } while (0)
 
-};  // end namespace raft
+};  // namespace MLCommon
