@@ -276,22 +276,22 @@ TEST_P(OlsTestF, Fit)
 typedef OlsTest<double> OlsTestD;
 TEST_P(OlsTestD, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     pred_ref.data(), pred.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
     pred2_ref.data(), pred2.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     pred3_ref.data(), pred3.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(

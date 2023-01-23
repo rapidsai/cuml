@@ -92,7 +92,7 @@ template <typename T, class Comp>
   raft::update_device(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) { raft::update_device(&w_ref.data[C * D], host_bias, C, stream); }
   handle.sync_stream(stream);
-  return raft::devArrMatch(w_ref.data, w, w_ref.len, comp);
+  return MLCommon::devArrMatch(w_ref.data, w, w_ref.len, comp);
 }
 
 template <typename T, class LossFunction>

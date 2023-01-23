@@ -501,13 +501,13 @@ class SmoBlockSolverTest : public ::testing::Test {
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
       stream);
-    raft::devArrMatch(delta_alpha_dev.data(),
+    MLCommon::devArrMatch(delta_alpha_dev.data(),
                       delta_alpha_calc.data(),
                       n_rows,
                       raft::CompareApprox<math_t>(1e-6),
                       stream);
     math_t alpha_expected[] = {0, 0.1f, 0.1f, 0};
-    raft::devArrMatch(
+    MLCommon::devArrMatch(
       alpha_expected, alpha_dev.data(), n_rows, raft::CompareApprox<math_t>(1e-6), stream);
   }
 
@@ -742,7 +742,7 @@ class SmoSolverTest : public ::testing::Test {
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
       stream);
-    raft::devArrMatch(delta_alpha_dev.data(),
+    MLCommon::devArrMatch(delta_alpha_dev.data(),
                       delta_alpha_calc.data(),
                       n_rows,
                       raft::CompareApprox<math_t>(1e-6),
@@ -750,7 +750,7 @@ class SmoSolverTest : public ::testing::Test {
 
     math_t alpha_expected[] = {0.6f, 0, 1, 1, 0, 0.6f};
     // for C=10: {0.25f, 0, 2.25f, 3.75f, 0, 1.75f};
-    raft::devArrMatch(
+    MLCommon::devArrMatch(
       alpha_expected, alpha_dev.data(), n_rows, raft::CompareApprox<math_t>(1e-6), stream);
 
     math_t host_alpha[6];
@@ -810,10 +810,10 @@ class SmoSolverTest : public ::testing::Test {
     EXPECT_LT(return_buff[1], 10) << return_buff[1];
 
     math_t alpha_exp[] = {0, 0.8, 0.8, 0};
-    raft::devArrMatch(alpha_exp, alpha_dev.data(), 4, raft::CompareApprox<math_t>(1e-6), stream);
+    MLCommon::devArrMatch(alpha_exp, alpha_dev.data(), 4, raft::CompareApprox<math_t>(1e-6), stream);
 
     math_t dalpha_exp[] = {-0.8, 0.8};
-    raft::devArrMatch(
+    MLCommon::devArrMatch(
       dalpha_exp, delta_alpha_dev.data(), 2, raft::CompareApprox<math_t>(1e-6), stream);
   }
 
@@ -1015,7 +1015,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
     if (p.predict) {
       svc.predict(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
-      EXPECT_TRUE(raft::devArrMatch(this->y_dev.data(),
+      EXPECT_TRUE(MLCommon::devArrMatch(this->y_dev.data(),
                                     y_pred.data(),
                                     p.n_rows,
                                     raft::CompareApprox<TypeParam>(1e-6f),

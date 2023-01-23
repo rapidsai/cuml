@@ -293,7 +293,7 @@ TEST_P(PcaTestDataVecF, Result)
 typedef PcaTest<double> PcaTestDataVecD;
 TEST_P(PcaTestDataVecD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(data2.data(),
+  ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
                                 data2_back.data(),
                                 (params.n_col2 * params.n_col2),
                                 raft::CompareApproxAbs<double>(params.tolerance),

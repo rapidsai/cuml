@@ -240,13 +240,13 @@ const std::vector<CdInputs<double>> inputsd2 = {{0.01, 4, 2}};
 typedef CdTest<float> CdTestF;
 TEST_P(CdTestF, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
   rmm::device_uvector<float> means_1(params.n_col, stream);
@@ -260,28 +260,28 @@ TEST_P(CdTestF, Fit)
   raft::stats::meanvar(
     means_2.data(), vars_2.data(), data.data(), params.n_col, params.n_row, false, false, stream);
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     means_1.data(), means_2.data(), params.n_col, raft::CompareApprox<float>(0.0001)));
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     vars_1.data(), vars_2.data(), params.n_col, raft::CompareApprox<float>(0.0001)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef5_ref.data(), coef5.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef CdTest<double> CdTestD;
 TEST_P(CdTestD, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
   rmm::device_uvector<double> means_1(params.n_col, stream);
@@ -295,15 +295,15 @@ TEST_P(CdTestD, Fit)
   raft::stats::meanvar(
     means_2.data(), vars_2.data(), data.data(), params.n_col, params.n_row, false, false, stream);
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     means_1.data(), means_2.data(), params.n_col, raft::CompareApprox<double>(0.0001)));
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     vars_1.data(), vars_2.data(), params.n_col, raft::CompareApprox<double>(0.0001)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef4_ref.data(), coef4.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     coef5_ref.data(), coef5.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 }
 

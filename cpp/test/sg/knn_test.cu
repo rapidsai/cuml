@@ -274,7 +274,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                 params.n_query_row,
                 params.n_neighbors);
 
-    ASSERT_TRUE(raft::devArrMatch(query_labels_float.data(),
+    ASSERT_TRUE(MLCommon::devArrMatch(query_labels_float.data(),
                                   actual_labels_float.data(),
                                   params.n_query_row,
                                   raft::Compare<float>()));

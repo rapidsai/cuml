@@ -249,7 +249,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
-    EXPECT_TRUE(raft::devArrMatchHost(params.core_indices,
+    EXPECT_TRUE(MLCommon::devArrMatchHost(params.core_indices,
                                       core_sample_indices_d.data(),
                                       params.n_row,
                                       raft::Compare<int>(),

@@ -314,7 +314,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     handle.sync_stream(handle.get_stream());
 
-    ASSERT_TRUE(raft::devArrMatch(probabilities.data(),
+    ASSERT_TRUE(MLCommon::devArrMatch(probabilities.data(),
                                   params.probabilities.data(),
                                   params.n_row,
                                   raft::CompareApprox<float>(1e-4),
@@ -460,7 +460,7 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
                                               raft::distance::DistanceType::L2SqrtExpanded,
                                               membership_vec.data());
 
-    ASSERT_TRUE(raft::devArrMatch(membership_vec.data(),
+    ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                   params.expected_probabilities.data(),
                                   params.n_row * n_selected_clusters,
                                   raft::CompareApprox<float>(1e-5),
@@ -607,13 +607,13 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     handle.sync_stream(handle.get_stream());
     cudaDeviceSynchronize();
 
-    ASSERT_TRUE(raft::devArrMatch(out_labels.data(),
+    ASSERT_TRUE(MLCommon::devArrMatch(out_labels.data(),
                                   params.expected_labels.data(),
                                   params.n_points_to_predict,
                                   raft::Compare<int>(),
                                   handle.get_stream()));
 
-    ASSERT_TRUE(raft::devArrMatch(out_probabilities.data(),
+    ASSERT_TRUE(MLCommon::devArrMatch(out_probabilities.data(),
                                   params.expected_probabilities.data(),
                                   params.n_points_to_predict,
                                   raft::CompareApprox<float>(1e-2),
