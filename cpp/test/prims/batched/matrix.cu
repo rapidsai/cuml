@@ -447,7 +447,7 @@ using BatchedMatrixTestD = MatrixTest<double>;
 using BatchedMatrixTestF = MatrixTest<float>;
 TEST_P(BatchedMatrixTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatchHost(res_h.data(),
+  ASSERT_TRUE(MLCommon::devArrMatchHost(res_h.data(),
                                     res_bM->raw_data(),
                                     res_h.size(),
                                     raft::CompareApprox<double>(params.tolerance),
@@ -455,7 +455,7 @@ TEST_P(BatchedMatrixTestD, Result)
 }
 TEST_P(BatchedMatrixTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatchHost(res_h.data(),
+  ASSERT_TRUE(MLCommon::devArrMatchHost(res_h.data(),
                                     res_bM->raw_data(),
                                     res_h.size(),
                                     raft::CompareApprox<float>(params.tolerance),

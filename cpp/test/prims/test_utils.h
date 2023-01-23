@@ -18,11 +18,12 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
+#include <raft/core/math.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
 
-namespace raft {
+namespace MLCommon {
 
 template <typename T>
 struct Compare {
@@ -34,8 +35,8 @@ struct CompareApprox {
   CompareApprox(T eps_) : eps(eps_) {}
   bool operator()(const T& a, const T& b) const
   {
-    T diff  = abs(a - b);
-    T m     = std::max(abs(a), abs(b));
+    T diff  = raft::abs(a - b);
+    T m     = std::max(raft::abs(a), raft::abs(b));
     T ratio = diff >= eps ? diff / m : diff;
 
     return (ratio <= eps);
@@ -50,8 +51,8 @@ struct CompareApproxAbs {
   CompareApproxAbs(T eps_) : eps(eps_) {}
   bool operator()(const T& a, const T& b) const
   {
-    T diff  = abs(abs(a) - abs(b));
-    T m     = std::max(abs(a), abs(b));
+    T diff  = raft::abs(raft::abs(a) - raft::abs(b));
+    T m     = std::max(raft::abs(a), raft::abs(b));
     T ratio = diff >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
@@ -60,11 +61,6 @@ struct CompareApproxAbs {
   T eps;
 };
 
-template <typename T>
-HDI T abs(const T& a)
-{
-  return a > T(0) ? a : -a;
-}
 
 /*
  * @brief Helper function to compare 2 device n-D arrays with custom comparison

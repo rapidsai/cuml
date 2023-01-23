@@ -74,14 +74,14 @@ const std::vector<SigmoidInputs<double>> inputsd2 = {{0.001, 4}};
 typedef SigmoidTest<float> SigmoidTestValF;
 TEST_P(SigmoidTestValF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
+  ASSERT_TRUE(MLCommon::devArrMatch(
     result_ref.data(), result.data(), params.len, raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SigmoidTest<double> SigmoidTestValD;
 TEST_P(SigmoidTestValD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(result_ref.data(),
+  ASSERT_TRUE(MLCommon::devArrMatch(result_ref.data(),
                                 result.data(),
                                 params.len,
                                 raft::CompareApproxAbs<double>(params.tolerance)));
