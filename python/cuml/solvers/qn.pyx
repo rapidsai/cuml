@@ -441,9 +441,9 @@ class QN(Base,
             val = self._coef_[0:-1]
         else:
             val = self._coef_
+        # TODO: Try to avoid this conversion loop
         val = val.to_output('array')
-        val = val.T
-        return val
+        return input_to_cuml_array(val.T).array
 
     @coef_.setter
     def coef_(self, value):
