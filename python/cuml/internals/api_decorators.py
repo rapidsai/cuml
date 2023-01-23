@@ -172,12 +172,6 @@ def _convert_to_cumlarray(ret_val):
 
 
 def process_single(value, output_type, output_dtype):
-    # TODO: Move the following logic up.
-    output_type_override = GlobalSettings().output_type
-    if output_type_override != "mirror":
-        output_type = output_type_override
-    output_dtype = _API_OUTPUT_DTYPE_OVERRIDE or output_dtype
-
     ca = _convert_to_cumlarray(value)
     ret = ca.to_output(
         output_type=output_type,
@@ -326,6 +320,14 @@ def _make_decorator_function(
                         ret = func(*args, **kwargs)
                     else:
                         return func(*args, **kwargs)
+
+                    # Check for global output type override
+                    global_output_type = GlobalSettings().output_type
+                    if global_output_type not in (None, "mirror", "input"):
+                        out_type = global_output_type
+
+                    # Check for global output dtype override
+                    output_dtype = _API_OUTPUT_DTYPE_OVERRIDE or output_dtype
 
                     return process_generic(ret, out_type, output_dtype)
 
