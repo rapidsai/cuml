@@ -17,7 +17,7 @@ dependencies:
 - libcublas>=11.7.3.1,<=11.7.4.6
 - libcufft-dev>=10.6.0.54,<=10.6.0.107
 - libcufft>=10.6.0.54,<=10.6.0.107
-- libcumlprims=23.02.*
+- libcumlprims=23.04.*
 - libcurand-dev>=10.2.6.48,<=10.2.7.107
 - libcurand>=10.2.6.48,<=10.2.7.107
 - libcusolver-dev>=11.2.1.48,<=11.3.2.107
@@ -25,10 +25,10 @@ dependencies:
 - libcusparse-dev>=11.7.0.31,<=11.7.0.107
 - libcusparse>=11.7.0.31,<=11.7.0.107
 - libfaiss>=1.7.0
-- libraft-distance=23.02.*
-- libraft-headers=23.02.*
-- libraft-nn=23.02.*
+- libraft-distance=23.04.*
+- libraft-headers=23.04.*
+- libraft-nn=23.04.*
 - ninja
-- rmm=23.02.*
+- rmm=23.04.*
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-115_arch-x86_64
