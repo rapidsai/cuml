@@ -37,7 +37,6 @@ project(
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
-option(CUML_GPU "Build only cuML GPU Python components. Not supported yet, defaulting to CUML_UNIVERSAL" OFF)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
@@ -117,6 +116,20 @@ if(CUML_CPU)
   set(SINGLEGPU ON)
 
   set(CUML_ALGORITHMS "linearregression")
+  list(APPEND CUML_ALGORITHMS "pca")
+  list(APPEND CUML_ALGORITHMS "tsvd")
+  list(APPEND CUML_ALGORITHMS "elasticnet")
+  list(APPEND CUML_ALGORITHMS "logisticregression")
+  list(APPEND CUML_ALGORITHMS "ridge")
+  list(APPEND CUML_ALGORITHMS "lasso")
+  list(APPEND CUML_ALGORITHMS "umap")
+  list(APPEND CUML_ALGORITHMS "knn")
+  list(APPEND CUML_ALGORITHMS "hdbscan")
+
+  # this won't be needed when we add CPU libcuml++ (FIL)
+  set(cuml_sg_libraries "")
+else()
+  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 endif()
 
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
@@ -130,9 +143,18 @@ if(NOT SINGLEGPU)
   )
 endif()
 
+ ################################################################################
+ # - Build Cython artifacts -----------------------------------------------------
+
 rapids_cython_init()
 
-include(cmake/ConfigureAlgorithmsHelpers.cmake)
+include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
+include(cmake/ConfigureCythonAlgorithms.cmake)
+
+if(${CUML_UNIVERSAL})
+  list(APPEND CYTHON_FLAGS
+     "--compile-time-env GPUBUILD=1")
+endif()
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)

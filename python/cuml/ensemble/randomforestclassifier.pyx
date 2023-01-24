@@ -23,8 +23,6 @@ from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
 import warnings
 
-import cuml.internals.logger as logger
-
 from cuml import ForestInference
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin

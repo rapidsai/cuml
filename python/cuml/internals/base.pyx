@@ -29,7 +29,6 @@ import cuml.common
 import cuml.common.cuda
 import cuml.internals.logger as logger
 import cuml.internals
-import pylibraft.common.handle
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
@@ -56,6 +55,9 @@ from cuml.internals.mixins import TagsMixin
 
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
 cp = gpu_only_import('cupy')
+
+IF GPUBUILD:
+    import pylibraft.common.handle
 
 
 class Base(TagsMixin,
@@ -198,8 +200,11 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = pylibraft.common.handle.Handle() if handle is None \
-            else handle
+        if GPUBUILD:
+            self.handle = pylibraft.common.handle.Handle() if handle is None \
+                else handle
+        else:
+            self.handle = None
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.

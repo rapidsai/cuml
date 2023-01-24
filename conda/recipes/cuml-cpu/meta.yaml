@@ -1,0 +1,47 @@
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+
+# Usage:
+#   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set py_version=environ.get('CONDA_PY', 36) %}
+
+package:
+  name: cuml-cpu
+  version: {{ version }}
+
+source:
+  git_url: ../../..
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: _py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  script_env:
+    - VERSION_SUFFIX
+
+requirements:
+  build:
+    - cmake {{ cmake_version }}
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
+  host:
+    - python x.x
+    - setuptools
+    - scikit-build>=0.13.1
+    - cython>=0.29,<0.30
+  run:
+    - python x.x
+    - scikit-learn=1.1
+
+# tests:                                 # [linux64]
+#   requirements:                        # [linux64]
+#     - cudatoolkit {{ cuda_version }}.* # [linux64]
+#   imports:                             # [linux64]
+#     - cuml                             # [linux64]
+
+about:
+  home: http://rapids.ai/
+  license: Apache-2.0
+  # license_file: LICENSE
+  summary: cuML library

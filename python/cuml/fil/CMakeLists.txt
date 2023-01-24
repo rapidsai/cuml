@@ -13,10 +13,9 @@
 # =============================================================================
 
 
+set(cython_sources "")
+add_module_gpu_default("fil.pyx" ${fil_algo} ${randomforestclassifier_algo} ${randomforestregressor_algo})
 
-set(cython_sources
-    fil.pyx
-)
 set(linked_libraries
   "${cuml_sg_libraries}"
   "${CUML_PYTHON_TREELITE_TARGET}"
