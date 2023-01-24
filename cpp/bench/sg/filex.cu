@@ -52,28 +52,14 @@ class FILEX : public RegressionFixture<float> {
   {
   }
 
-  static void regression_to_classification(float* y, int nrows, int nclasses, cudaStream_t stream)
-  {
-    raft::linalg::unaryOp(
-      y,
-      y,
-      nrows,
-      [=] __device__(float a) { return float(lroundf(fabsf(a) * 1000. * nclasses) % nclasses); },
-      stream);
-  }
-
  protected:
   void runBenchmark(::benchmark::State& state) override
   {
     if (!params.rowMajor) { state.SkipWithError("FIL only supports row-major inputs"); }
-    /* if (params.nclasses > 1) {
-      // convert regression ranges into [0..nclasses-1]
-      regression_to_classification(data.y.data(), params.nrows, params.nclasses, stream);
-    } */
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr         = &rf_model;
-    size_t train_nrows = std::min(params.nrows, 1000);
+    auto train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
     handle->sync_stream(stream);
 
