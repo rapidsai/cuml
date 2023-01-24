@@ -303,6 +303,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
+            cpu_args=dict(n_jobs=-1),
             shared_args={"max_features": 1.0, "n_estimators": 10},
             name="RandomForestClassifier",
             accepts_labels=True,
@@ -313,6 +314,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
             cuml.ensemble.RandomForestRegressor,
+            cpu_args=dict(n_jobs=-1),
             shared_args={"max_features": 1.0, "n_estimators": 10},
             name="RandomForestRegressor",
             accepts_labels=True,
@@ -344,9 +346,9 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
-            sklearn.svm.SVC,
-            cuml.svm.SVC,
-            shared_args={"kernel": "linear"},
+            sklearn.svm.LinearSVC,
+            cuml.svm.LinearSVC,
+            shared_args={},
             cuml_args={},
             name="SVC-Linear",
             accepts_labels=True,
