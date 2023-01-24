@@ -99,10 +99,6 @@ class KNeighborsRegressor(RegressorMixin,
           in n_features/M sub-vectors that will be encoded thanks
           to intermediary k-means clusterings. This encoding provide
           partial information allowing faster distances calculations
-        - ``'ivfsq'``: for inverted file and scalar quantization,
-          same as inverted list, in addition vectors components
-          are quantized into reduced binary representation allowing
-          faster distances calculations
     metric : string (default='euclidean').
         Distance metric to use.
     weights : string (default='uniform')
