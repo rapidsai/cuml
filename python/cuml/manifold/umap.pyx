@@ -70,7 +70,7 @@ from libc.stdlib cimport free
 from libcpp.memory cimport shared_ptr
 
 
-if GPUBUILD == 1:
+IF GPUBUILD == 1:
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
 
