@@ -380,6 +380,7 @@ class DBSCAN(Base,
             "int64", np.int64}.
 
         """
+        self._set_output_type(X)
         return self._fit(X, out_dtype, False)
 
     @generate_docstring(skip_parameters_heading=True,
