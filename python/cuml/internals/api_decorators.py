@@ -39,8 +39,13 @@ rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
 # TODO: Avoid use of globals here - probably better to move into
-# GlobalSettings() context.
+# GlobalSettings() context. Consider namedtuple or dataclass.
+
+# I think instead of all of these globals we can just use one stack
+# that contains the actual types.
 _API_STACK_LEVEL = 0
+_API_PREVIOUS_OUTPUT_TYPE = None
+_API_STACK_OVERRIDE = False
 _API_OUTPUT_DTYPE_OVERRIDE = None
 _API_OUTPUT_TYPE_OVERRIDE = None
 
@@ -120,7 +125,7 @@ def _restore_dtype():
 
 
 def in_internal_api():
-    return _API_STACK_LEVEL > 1
+    return _API_STACK_LEVEL > 1 and not _API_STACK_OVERRIDE
 
 
 @contextlib.contextmanager
@@ -128,6 +133,7 @@ def api_context():
     global _API_STACK_LEVEL
     global _API_OUTPUT_TYPE_OVERRIDE
     global _API_OUTPUT_DTYPE_OVERRIDE
+    global _API_PREVIOUS_OUTPUT_TYPE
 
     _API_STACK_LEVEL += 1
 
@@ -141,7 +147,8 @@ def api_context():
                 stack.enter_context(_restore_dtype())
                 current_output_type = GlobalSettings().output_type
                 if current_output_type in (None, "input", "mirror"):
-                    stack.enter_context(_using_mirror_output_type())
+                    _API_PREVIOUS_OUTPUT_TYPE =\
+                         stack.enter_context(_using_mirror_output_type())
                 yield
         else:
             yield
@@ -405,23 +412,13 @@ api_base_return_generic_skipall = api_base_return_generic(
 
 @contextlib.contextmanager
 def exit_internal_api():
-    raise NotImplementedError()
-
-    assert (GlobalSettings().root_cm is not None)
-
+    global _API_STACK_OVERRIDE
     try:
-        old_root_cm = GlobalSettings().root_cm
-
-        GlobalSettings().root_cm = None
-
-        # Set the global output type to the previous value to pretend we never
-        # entered the API
-        with using_output_type(old_root_cm.prev_output_type):
-
+        _API_STACK_OVERRIDE = True
+        with using_output_type(_API_PREVIOUS_OUTPUT_TYPE):
             yield
-
     finally:
-        GlobalSettings().root_cm = old_root_cm
+        _API_STACK_OVERRIDE = False
 
 
 def mirror_args(
