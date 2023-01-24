@@ -9,7 +9,7 @@ files:
       - common_build
       - cpp_run
       - cudatoolkit
-      - doc
+      - docs
       - py_build
       - py_run
       - py_version
@@ -27,6 +27,12 @@ files:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs
       - py_version
   test_cpp:
     output: none
@@ -176,7 +182,7 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
-  doc:
+  docs:
     common:
       - output_types: [conda, requirements]
         packages:
@@ -186,7 +192,7 @@ dependencies:
           - numpydoc
           - pydata-sphinx-theme
           - recommonmark
-          - sklearn
+          - scikit-learn=0.24
           - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables

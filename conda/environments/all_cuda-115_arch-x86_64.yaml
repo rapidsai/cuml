@@ -61,7 +61,6 @@ dependencies:
 - scikit-build>=0.13.1
 - scikit-learn=0.24
 - seaborn
-- sklearn
 - sparse
 - sphinx
 - sphinx-copybutton
