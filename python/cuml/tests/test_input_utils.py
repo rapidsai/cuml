@@ -333,7 +333,8 @@ def check_numpy_order(ary, order):
 def check_ptr(a, b, input_type):
     if input_type == 'cudf':
         for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
-            assert col_a.base_data.ptr == col_b.base_data.ptr
+            with cudf.core.buffer.acquire_spill_lock():
+                assert col_a.base_data.get_ptr() == col_b.base_data.get_ptr()
     else:
         def get_ptr(x):
             try:

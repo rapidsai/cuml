@@ -231,6 +231,6 @@ def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
                                                   if convert_dtype
                                                   else None))
 
-        return (knn_indices_m, knn_indices_m.ptr),\
-            (knn_dists_m, knn_dists_m.ptr)
+        return (knn_indices_m, knn_indices_m.get_ptr()),\
+            (knn_dists_m, knn_dists_m.get_ptr())
     return (None, None), (None, None)

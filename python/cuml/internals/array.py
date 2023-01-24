@@ -255,7 +255,7 @@ class CumlArray():
                     self._mem_type = GlobalSettings().memory_type
 
                 try:
-                    data = data.ptr
+                    data = data.get_ptr()
                     if shape is None:
                         shape = (data.size,)
                     self._owner = data
