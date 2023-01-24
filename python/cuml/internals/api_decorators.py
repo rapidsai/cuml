@@ -38,8 +38,11 @@ cupy_using_allocator = gpu_only_import_from(
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
+# TODO: Avoid use of globals here - probably better to move into
+# GlobalSettings() context.
 _API_STACK_LEVEL = 0
 _API_OUTPUT_DTYPE_OVERRIDE = None
+_API_OUTPUT_TYPE_OVERRIDE = None
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -117,6 +120,7 @@ def in_internal_api():
 @contextlib.contextmanager
 def api_context():
     global _API_STACK_LEVEL
+    global _API_OUTPUT_TYPE_OVERRIDE
     global _API_OUTPUT_DTYPE_OVERRIDE
 
     _API_STACK_LEVEL += 1
@@ -126,6 +130,7 @@ def api_context():
         # TODO: Refactor flow below to use contextlib.ExitStack
         with contextlib.ExitStack() as stack:
             if _API_STACK_LEVEL == 1:
+                _API_OUTPUT_TYPE_OVERRIDE = None
                 _API_OUTPUT_DTYPE_OVERRIDE = None
                 stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
                 stack.enter_context(_restore_dtype())
@@ -139,9 +144,8 @@ def api_context():
 
 
 def set_api_output_type(output_type):
-    # TODO: This function should probably be removed.
-    from cuml.internals.memory_utils import set_global_output_type
-    set_global_output_type(output_type)
+    global _API_OUTPUT_TYPE_OVERRIDE
+    _API_OUTPUT_TYPE_OVERRIDE = output_type
 
 
 def set_api_output_dtype(output_dtype):
@@ -323,7 +327,9 @@ def _make_decorator_function(
 
                     # Check for global output type override
                     global_output_type = GlobalSettings().output_type
-                    if global_output_type not in (None, "mirror", "input"):
+                    if global_output_type in (None, "mirror", "input"):
+                        out_type = _API_OUTPUT_TYPE_OVERRIDE or out_type
+                    else:
                         out_type = global_output_type
 
                     # Check for global output dtype override
