@@ -497,7 +497,6 @@ class PCA(UniversalBase,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_return_array_skipall
     @enable_device_interop
     def fit_transform(self, X, y=None) -> CumlArray:
         """
