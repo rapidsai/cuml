@@ -27,6 +27,7 @@
 #include <cuml/svm/svr.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/math.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>

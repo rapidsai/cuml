@@ -22,11 +22,11 @@
 #include <raft/linalg/add.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <gtest/gtest.h>
+#include <raft/core/math.hpp>
 #include <random>
 #include <vector>
 
