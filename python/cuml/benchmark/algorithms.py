@@ -304,7 +304,7 @@ def all_algorithms():
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
             cpu_args=dict(n_jobs=-1),
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": "sqrt", "n_estimators": 100},
             name="RandomForestClassifier",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
