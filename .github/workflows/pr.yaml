@@ -16,6 +16,7 @@ jobs:
       - conda-cpp-build
       - conda-cpp-tests
       - conda-python-build
+      - conda-python-cpu-build-test
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
       - conda-notebook-tests
@@ -42,6 +43,12 @@ jobs:
     needs: conda-cpp-build
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-matrix-build.yaml@main
+    with:
+      build_type: pull-request
+  conda-python-cpu-build-test:
+    needs: checks
+    secrets: inherit
+    uses: shared-action-workflows/.github/workflows/conda-python-build.yaml.yaml@main
     with:
       build_type: pull-request
   conda-python-tests-singlegpu:

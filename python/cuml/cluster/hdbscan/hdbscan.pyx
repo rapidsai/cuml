@@ -251,7 +251,7 @@ def condense_hierarchy(dendrogram,
     condensed_tree : hdbscan.plots.CondensedTree object
     """
 
-     children, n_rows, _, _ = \
+    children, n_rows, _, _ = \
         input_to_cuml_array(dendrogram[:, 0:2].astype('int32'), order='C',
                             check_dtype=[np.int32],
                             convert_to_dtype=(np.int32))

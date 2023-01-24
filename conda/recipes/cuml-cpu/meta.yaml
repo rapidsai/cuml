@@ -32,13 +32,11 @@ requirements:
     - cython>=0.29,<0.30
   run:
     - python x.x
-    - scikit-learn=1.1
+    - scikit-learn=1.2
 
-# tests:                                 # [linux64]
-#   requirements:                        # [linux64]
-#     - cudatoolkit {{ cuda_version }}.* # [linux64]
-#   imports:                             # [linux64]
-#     - cuml                             # [linux64]
+tests:                                 # [linux64]
+  imports:                             # [linux64]
+    - cuml-cpu                         # [linux64]
 
 about:
   home: http://rapids.ai/

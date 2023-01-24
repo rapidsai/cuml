@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDTARGETS="clean libcuml cuml cuml-cpu cpp-mgtests prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
                        around the C++ code.
    cuml              - build the cuml Python package
+   cuml-cpu          - build the cuml CPU Python package
    cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims             - build the ml-prims tests
    bench             - build the libcuml C++ benchmark
@@ -300,5 +301,13 @@ if completeBuild || hasArg cuml || hasArg pydocs; then
     if hasArg pydocs; then
         cd ${REPODIR}/docs
         make html
+    fi
+fi
+
+if hasarg cuml-cpu; then
+    cd ${REPODIR}/python
+    python setup.py build_ext --inplace -- -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     fi
 fi
