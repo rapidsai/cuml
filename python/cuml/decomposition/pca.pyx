@@ -466,7 +466,7 @@ class PCA(UniversalBase,
         cdef uintptr_t noise_vars_ptr = \
             self.noise_variance_.ptr
 
-        if GPUBUILD == 1:
+        IF GPUBUILD == 1:
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
                 pcaFit(handle_[0],
