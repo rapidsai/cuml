@@ -41,6 +41,6 @@ popd
 if [[ "${RAPIDS_BUILD_TYPE}" == "branch" ]]; then
   rapids-logger "Upload Docs to S3"
   aws s3 sync --no-progress --delete cpp/html "s3://rapidsai-docs/libcuml/${VERSION_NUMBER}/html"
-  aws s3 sync --no-progress --delete python/docs/_html "s3://rapidsai-docs/cuml/${VERSION_NUMBER}/html"
-  aws s3 sync --no-progress --delete python/docs/_text "s3://rapidsai-docs/cuml/${VERSION_NUMBER}/txt"
+  aws s3 sync --no-progress --delete docs/_html "s3://rapidsai-docs/cuml/${VERSION_NUMBER}/html"
+  aws s3 sync --no-progress --delete docs/_text "s3://rapidsai-docs/cuml/${VERSION_NUMBER}/txt"
 fi

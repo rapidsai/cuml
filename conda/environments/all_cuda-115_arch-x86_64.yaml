@@ -62,9 +62,9 @@ dependencies:
 - scikit-learn=0.24
 - seaborn
 - sparse
-- sphinx
 - sphinx-copybutton
 - sphinx-markdown-tables
+- sphinx<6
 - statsmodels
 - sysroot_linux-64==2.17
 - treelite=3.0.1
