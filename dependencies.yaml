@@ -180,6 +180,15 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
+          - ipython
+          - ipykernel
+          - nbsphinx
+          - numpydoc
+          - pydata-sphinx-theme
+          - recommonmark
+          - sklearn
+          - sphinx
+          - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda
         packages:
