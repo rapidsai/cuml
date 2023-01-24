@@ -85,11 +85,10 @@ def _get_value(args, kwargs, name, index):
 
 
 @contextlib.contextmanager
-def _using_mirror_output_type():
+def _using_output_type(output_type):
     """
-    Sets global_settings.output_type to "mirror" for internal API
-    handling. We need a separate function since `cuml.using_output_type()`
-    doesn't accept "mirror"
+    Sets global_settings.output_type to output_type for internal API
+    handling.
 
     Yields
     -------
@@ -98,10 +97,17 @@ def _using_mirror_output_type():
     """
     prev_output_type = GlobalSettings().output_type
     try:
-        GlobalSettings().output_type = "mirror"
+        GlobalSettings().output_type = output_type
         yield prev_output_type
     finally:
         GlobalSettings().output_type = prev_output_type
+
+
+
+@contextlib.contextmanager
+def _using_mirror_output_type():
+    with _using_output_type("mirror") as output_type:
+        yield output_type
 
 
 @contextlib.contextmanager
@@ -124,12 +130,11 @@ def api_context():
     global _API_OUTPUT_DTYPE_OVERRIDE
 
     _API_STACK_LEVEL += 1
-    # print("API STACK LEVEL", _API_STACK_LEVEL)
 
     try:
         # TODO: Refactor flow below to use contextlib.ExitStack
-        with contextlib.ExitStack() as stack:
-            if _API_STACK_LEVEL == 1:
+        if _API_STACK_LEVEL == 1:
+            with contextlib.ExitStack() as stack:
                 _API_OUTPUT_TYPE_OVERRIDE = None
                 _API_OUTPUT_DTYPE_OVERRIDE = None
                 stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
@@ -137,10 +142,11 @@ def api_context():
                 current_output_type = GlobalSettings().output_type
                 if current_output_type in (None, "input", "mirror"):
                     stack.enter_context(_using_mirror_output_type())
+                yield
+        else:
             yield
     finally:
         _API_STACK_LEVEL -= 1
-        # print("API STACK LEVEL", _API_STACK_LEVEL)
 
 
 def set_api_output_type(output_type):
