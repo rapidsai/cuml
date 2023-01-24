@@ -30,7 +30,6 @@ from libc.stdint cimport uintptr_t
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -42,61 +41,63 @@ from cuml.internals.api_decorators import enable_device_interop
 from cython.operator cimport dereference as deref
 
 
-cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
+IF GPUBUILD == 1:
+    from pylibraft.common.handle cimport handle_t
+    cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
-    cdef void tsvdFit(handle_t& handle,
-                      float *input,
-                      float *components,
-                      float *singular_vals,
-                      const paramsTSVD &prms) except +
+        cdef void tsvdFit(handle_t& handle,
+                          float *input,
+                          float *components,
+                          float *singular_vals,
+                          const paramsTSVD &prms) except +
 
-    cdef void tsvdFit(handle_t& handle,
-                      double *input,
-                      double *components,
-                      double *singular_vals,
-                      const paramsTSVD &prms) except +
+        cdef void tsvdFit(handle_t& handle,
+                          double *input,
+                          double *components,
+                          double *singular_vals,
+                          const paramsTSVD &prms) except +
 
-    cdef void tsvdFitTransform(handle_t& handle,
-                               float *input,
-                               float *trans_input,
-                               float *components,
-                               float *explained_var,
-                               float *explained_var_ratio,
-                               float *singular_vals,
-                               const paramsTSVD &prms) except +
-
-    cdef void tsvdFitTransform(handle_t& handle,
-                               double *input,
-                               double *trans_input,
-                               double *components,
-                               double *explained_var,
-                               double *explained_var_ratio,
-                               double *singular_vals,
-                               const paramsTSVD &prms) except +
-
-    cdef void tsvdInverseTransform(handle_t& handle,
+        cdef void tsvdFitTransform(handle_t& handle,
+                                   float *input,
                                    float *trans_input,
                                    float *components,
-                                   float *input,
+                                   float *explained_var,
+                                   float *explained_var_ratio,
+                                   float *singular_vals,
                                    const paramsTSVD &prms) except +
 
-    cdef void tsvdInverseTransform(handle_t& handle,
+        cdef void tsvdFitTransform(handle_t& handle,
+                                   double *input,
                                    double *trans_input,
                                    double *components,
-                                   double *input,
+                                   double *explained_var,
+                                   double *explained_var_ratio,
+                                   double *singular_vals,
                                    const paramsTSVD &prms) except +
 
-    cdef void tsvdTransform(handle_t& handle,
-                            float *input,
-                            float *components,
-                            float *trans_input,
-                            const paramsTSVD &prms) except +
+        cdef void tsvdInverseTransform(handle_t& handle,
+                                       float *trans_input,
+                                       float *components,
+                                       float *input,
+                                       const paramsTSVD &prms) except +
 
-    cdef void tsvdTransform(handle_t& handle,
-                            double *input,
-                            double *components,
-                            double *trans_input,
-                            const paramsTSVD &prms) except +
+        cdef void tsvdInverseTransform(handle_t& handle,
+                                       double *trans_input,
+                                       double *components,
+                                       double *input,
+                                       const paramsTSVD &prms) except +
+
+        cdef void tsvdTransform(handle_t& handle,
+                                float *input,
+                                float *components,
+                                float *trans_input,
+                                const paramsTSVD &prms) except +
+
+        cdef void tsvdTransform(handle_t& handle,
+                                double *input,
+                                double *components,
+                                double *trans_input,
+                                const paramsTSVD &prms) except +
 
 
 class Solver(IntEnum):
@@ -352,25 +353,26 @@ class TruncatedSVD(UniversalBase,
         if self.n_components> self.n_features_in_:
             raise ValueError(' n_components must be < n_features')
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if self.dtype == np.float32:
-            tsvdFitTransform(handle_[0],
-                             <float*> input_ptr,
-                             <float*> t_input_ptr,
-                             <float*> comp_ptr,
-                             <float*> explained_var_ptr,
-                             <float*> explained_var_ratio_ptr,
-                             <float*> singular_vals_ptr,
-                             deref(params))
-        else:
-            tsvdFitTransform(handle_[0],
-                             <double*> input_ptr,
-                             <double*> t_input_ptr,
-                             <double*> comp_ptr,
-                             <double*> explained_var_ptr,
-                             <double*> explained_var_ratio_ptr,
-                             <double*> singular_vals_ptr,
-                             deref(params))
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            if self.dtype == np.float32:
+                tsvdFitTransform(handle_[0],
+                                 <float*> input_ptr,
+                                 <float*> t_input_ptr,
+                                 <float*> comp_ptr,
+                                 <float*> explained_var_ptr,
+                                 <float*> explained_var_ratio_ptr,
+                                 <float*> singular_vals_ptr,
+                                 deref(params))
+            else:
+                tsvdFitTransform(handle_[0],
+                                 <double*> input_ptr,
+                                 <double*> t_input_ptr,
+                                 <double*> comp_ptr,
+                                 <double*> explained_var_ptr,
+                                 <double*> explained_var_ratio_ptr,
+                                 <double*> singular_vals_ptr,
+                                 deref(params))
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -409,18 +411,19 @@ class TruncatedSVD(UniversalBase,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        if dtype.type == np.float32:
-            tsvdInverseTransform(handle_[0],
-                                 <float*> trans_input_ptr,
-                                 <float*> components_ptr,
-                                 <float*> input_ptr,
-                                 params)
-        else:
-            tsvdInverseTransform(handle_[0],
-                                 <double*> trans_input_ptr,
-                                 <double*> components_ptr,
-                                 <double*> input_ptr,
-                                 params)
+        IF GPUBUILD == 1:
+            if dtype.type == np.float32:
+                tsvdInverseTransform(handle_[0],
+                                     <float*> trans_input_ptr,
+                                     <float*> components_ptr,
+                                     <float*> input_ptr,
+                                     params)
+            else:
+                tsvdInverseTransform(handle_[0],
+                                     <double*> trans_input_ptr,
+                                     <double*> components_ptr,
+                                     <double*> input_ptr,
+                                     params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -462,18 +465,19 @@ class TruncatedSVD(UniversalBase,
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        if dtype.type == np.float32:
-            tsvdTransform(handle_[0],
-                          <float*> input_ptr,
-                          <float*> components_ptr,
-                          <float*> trans_input_ptr,
-                          params)
-        else:
-            tsvdTransform(handle_[0],
-                          <double*> input_ptr,
-                          <double*> components_ptr,
-                          <double*> trans_input_ptr,
-                          params)
+        IF GPUBUILD == 1:
+            if dtype.type == np.float32:
+                tsvdTransform(handle_[0],
+                              <float*> input_ptr,
+                              <float*> components_ptr,
+                              <float*> trans_input_ptr,
+                              params)
+            else:
+                tsvdTransform(handle_[0],
+                              <double*> input_ptr,
+                              <double*> components_ptr,
+                              <double*> trans_input_ptr,
+                              params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start

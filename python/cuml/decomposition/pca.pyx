@@ -37,8 +37,6 @@ import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
-from pylibraft.common.handle cimport handle_t
-from pylibraft.common.handle import Handle
 import cuml.internals.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.internals.input_utils import input_to_cuml_array
@@ -54,59 +52,61 @@ from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
 
-cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
+IF GPUBUILD == 1:
+    from pylibraft.common.handle cimport handle_t
+    cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
-    cdef void pcaFit(handle_t& handle,
-                     float *input,
-                     float *components,
-                     float *explained_var,
-                     float *explained_var_ratio,
-                     float *singular_vals,
-                     float *mu,
-                     float *noise_vars,
-                     const paramsPCA &prms) except +
+        cdef void pcaFit(handle_t& handle,
+                         float *input,
+                         float *components,
+                         float *explained_var,
+                         float *explained_var_ratio,
+                         float *singular_vals,
+                         float *mu,
+                         float *noise_vars,
+                         const paramsPCA &prms) except +
 
-    cdef void pcaFit(handle_t& handle,
-                     double *input,
-                     double *components,
-                     double *explained_var,
-                     double *explained_var_ratio,
-                     double *singular_vals,
-                     double *mu,
-                     double *noise_vars,
-                     const paramsPCA &prms) except +
+        cdef void pcaFit(handle_t& handle,
+                         double *input,
+                         double *components,
+                         double *explained_var,
+                         double *explained_var_ratio,
+                         double *singular_vals,
+                         double *mu,
+                         double *noise_vars,
+                         const paramsPCA &prms) except +
 
-    cdef void pcaInverseTransform(handle_t& handle,
-                                  float *trans_input,
-                                  float *components,
-                                  float *singular_vals,
-                                  float *mu,
-                                  float *input,
-                                  const paramsPCA &prms) except +
+        cdef void pcaInverseTransform(handle_t& handle,
+                                      float *trans_input,
+                                      float *components,
+                                      float *singular_vals,
+                                      float *mu,
+                                      float *input,
+                                      const paramsPCA &prms) except +
 
-    cdef void pcaInverseTransform(handle_t& handle,
-                                  double *trans_input,
-                                  double *components,
-                                  double *singular_vals,
-                                  double *mu,
-                                  double *input,
-                                  const paramsPCA &prms) except +
+        cdef void pcaInverseTransform(handle_t& handle,
+                                      double *trans_input,
+                                      double *components,
+                                      double *singular_vals,
+                                      double *mu,
+                                      double *input,
+                                      const paramsPCA &prms) except +
 
-    cdef void pcaTransform(handle_t& handle,
-                           float *input,
-                           float *components,
-                           float *trans_input,
-                           float *singular_vals,
-                           float *mu,
-                           const paramsPCA &prms) except +
+        cdef void pcaTransform(handle_t& handle,
+                               float *input,
+                               float *components,
+                               float *trans_input,
+                               float *singular_vals,
+                               float *mu,
+                               const paramsPCA &prms) except +
 
-    cdef void pcaTransform(handle_t& handle,
-                           double *input,
-                           double *components,
-                           double *trans_input,
-                           double *singular_vals,
-                           double *mu,
-                           const paramsPCA &prms) except +
+        cdef void pcaTransform(handle_t& handle,
+                               double *input,
+                               double *components,
+                               double *trans_input,
+                               double *singular_vals,
+                               double *mu,
+                               const paramsPCA &prms) except +
 
 
 class Solver(IntEnum):
@@ -466,27 +466,28 @@ class PCA(UniversalBase,
         cdef uintptr_t noise_vars_ptr = \
             self.noise_variance_.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if self.dtype == np.float32:
-            pcaFit(handle_[0],
-                   <float*> input_ptr,
-                   <float*> comp_ptr,
-                   <float*> explained_var_ptr,
-                   <float*> explained_var_ratio_ptr,
-                   <float*> singular_vals_ptr,
-                   <float*> _mean_ptr,
-                   <float*> noise_vars_ptr,
-                   deref(params))
-        else:
-            pcaFit(handle_[0],
-                   <double*> input_ptr,
-                   <double*> comp_ptr,
-                   <double*> explained_var_ptr,
-                   <double*> explained_var_ratio_ptr,
-                   <double*> singular_vals_ptr,
-                   <double*> _mean_ptr,
-                   <double*> noise_vars_ptr,
-                   deref(params))
+        if GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            if self.dtype == np.float32:
+                pcaFit(handle_[0],
+                       <float*> input_ptr,
+                       <float*> comp_ptr,
+                       <float*> explained_var_ptr,
+                       <float*> explained_var_ratio_ptr,
+                       <float*> singular_vals_ptr,
+                       <float*> _mean_ptr,
+                       <float*> noise_vars_ptr,
+                       deref(params))
+            else:
+                pcaFit(handle_[0],
+                       <double*> input_ptr,
+                       <double*> comp_ptr,
+                       <double*> explained_var_ptr,
+                       <double*> explained_var_ratio_ptr,
+                       <double*> singular_vals_ptr,
+                       <double*> _mean_ptr,
+                       <double*> noise_vars_ptr,
+                       deref(params))
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -598,23 +599,24 @@ class PCA(UniversalBase,
         cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
         cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-        cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
-        if dtype.type == np.float32:
-            pcaInverseTransform(h_[0],
-                                <float*> _trans_input_ptr,
-                                <float*> components_ptr,
-                                <float*> singular_vals_ptr,
-                                <float*> _mean_ptr,
-                                <float*> input_ptr,
-                                params)
-        else:
-            pcaInverseTransform(h_[0],
-                                <double*> _trans_input_ptr,
-                                <double*> components_ptr,
-                                <double*> singular_vals_ptr,
-                                <double*> _mean_ptr,
-                                <double*> input_ptr,
-                                params)
+        IF GPUBUILD == 1:
+            cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
+            if dtype.type == np.float32:
+                pcaInverseTransform(h_[0],
+                                    <float*> _trans_input_ptr,
+                                    <float*> components_ptr,
+                                    <float*> singular_vals_ptr,
+                                    <float*> _mean_ptr,
+                                    <float*> input_ptr,
+                                    params)
+            else:
+                pcaInverseTransform(h_[0],
+                                    <double*> _trans_input_ptr,
+                                    <double*> components_ptr,
+                                    <double*> singular_vals_ptr,
+                                    <double*> _mean_ptr,
+                                    <double*> input_ptr,
+                                    params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -696,23 +698,24 @@ class PCA(UniversalBase,
             self.singular_values_.ptr
         cdef uintptr_t _mean_ptr = self.mean_.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        if dtype.type == np.float32:
-            pcaTransform(handle_[0],
-                         <float*> input_ptr,
-                         <float*> components_ptr,
-                         <float*> _trans_input_ptr,
-                         <float*> singular_vals_ptr,
-                         <float*> _mean_ptr,
-                         params)
-        else:
-            pcaTransform(handle_[0],
-                         <double*> input_ptr,
-                         <double*> components_ptr,
-                         <double*> _trans_input_ptr,
-                         <double*> singular_vals_ptr,
-                         <double*> _mean_ptr,
-                         params)
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            if dtype.type == np.float32:
+                pcaTransform(handle_[0],
+                             <float*> input_ptr,
+                             <float*> components_ptr,
+                             <float*> _trans_input_ptr,
+                             <float*> singular_vals_ptr,
+                             <float*> _mean_ptr,
+                             params)
+            else:
+                pcaTransform(handle_[0],
+                             <double*> input_ptr,
+                             <double*> components_ptr,
+                             <double*> _trans_input_ptr,
+                             <double*> singular_vals_ptr,
+                             <double*> _mean_ptr,
+                             params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start

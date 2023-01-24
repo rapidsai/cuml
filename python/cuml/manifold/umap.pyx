@@ -29,8 +29,6 @@ from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 
-cuda = gpu_only_import('numba.cuda')
-
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
@@ -43,7 +41,6 @@ cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 import cuml.internals
 from cuml.common import using_output_type
 from cuml.internals.base import UniversalBase
-from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
 from cuml.internals.input_utils import input_to_cuml_array
@@ -72,63 +69,63 @@ from libc.stdlib cimport free
 
 from libcpp.memory cimport shared_ptr
 
-cimport cuml.common.cuda
 
+if GPUBUILD == 1:
+    from pylibraft.common.handle cimport handle_t
+    cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
 
-cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
+        void fit(handle_t & handle,
+                 float * X,
+                 float * y,
+                 int n,
+                 int d,
+                 int64_t * knn_indices,
+                 float * knn_dists,
+                 UMAPParams * params,
+                 float * embeddings,
+                 COO * graph) except +
 
-    void fit(handle_t & handle,
-             float * X,
-             float * y,
-             int n,
-             int d,
-             int64_t * knn_indices,
-             float * knn_dists,
-             UMAPParams * params,
-             float * embeddings,
-             COO * graph) except +
+        void fit_sparse(handle_t &handle,
+                        int *indptr,
+                        int *indices,
+                        float *data,
+                        size_t nnz,
+                        float *y,
+                        int n,
+                        int d,
+                        UMAPParams *params,
+                        float *embeddings,
+                        COO * graph) except +
 
-    void fit_sparse(handle_t &handle,
-                    int *indptr,
-                    int *indices,
-                    float *data,
-                    size_t nnz,
-                    float *y,
-                    int n,
-                    int d,
-                    UMAPParams *params,
-                    float *embeddings,
-                    COO * graph) except +
+        void transform(handle_t & handle,
+                       float * X,
+                       int n,
+                       int d,
+                       int64_t * knn_indices,
+                       float * knn_dists,
+                       float * orig_X,
+                       int orig_n,
+                       float * embedding,
+                       int embedding_n,
+                       UMAPParams * params,
+                       float * out) except +
 
-    void transform(handle_t & handle,
-                   float * X,
-                   int n,
-                   int d,
-                   int64_t * knn_indices,
-                   float * knn_dists,
-                   float * orig_X,
-                   int orig_n,
-                   float * embedding,
-                   int embedding_n,
-                   UMAPParams * params,
-                   float * out) except +
-
-    void transform_sparse(handle_t &handle,
-                          int *indptr,
-                          int *indices,
-                          float *data,
-                          size_t nnz,
-                          int n,
-                          int d,
-                          int *orig_x_indptr,
-                          int *orig_x_indices,
-                          float *orig_x_data,
-                          size_t orig_nnz,
-                          int orig_n,
-                          float *embedding,
-                          int embedding_n,
-                          UMAPParams *params,
-                          float *transformed) except +
+        void transform_sparse(handle_t &handle,
+                              int *indptr,
+                              int *indices,
+                              float *data,
+                              size_t nnz,
+                              int n,
+                              int d,
+                              int *orig_x_indptr,
+                              int *orig_x_indices,
+                              float *orig_x_data,
+                              size_t orig_nnz,
+                              int orig_n,
+                              float *embedding,
+                              int embedding_n,
+                              UMAPParams *params,
+                              float *transformed) except +
 
 
 class UMAP(UniversalBase,
@@ -579,30 +576,31 @@ class UMAP(UniversalBase,
             y_raw = y_m.ptr
 
         fss_graph = GraphHolder.new_graph(handle_.get_stream())
-        if self.sparse_fit:
-            fit_sparse(handle_[0],
-                       <int*><uintptr_t> self._raw_data.indptr.ptr,
-                       <int*><uintptr_t> self._raw_data.indices.ptr,
-                       <float*><uintptr_t> self._raw_data.data.ptr,
-                       <size_t> self._raw_data.nnz,
-                       <float*> y_raw,
-                       <int> self.n_rows,
-                       <int> self.n_dims,
-                       <UMAPParams*> umap_params,
-                       <float*> embed_raw,
-                       <COO*> fss_graph.get())
+        IF GPUBUILD == 1:
+            if self.sparse_fit:
+                fit_sparse(handle_[0],
+                           <int*><uintptr_t> self._raw_data.indptr.ptr,
+                           <int*><uintptr_t> self._raw_data.indices.ptr,
+                           <float*><uintptr_t> self._raw_data.data.ptr,
+                           <size_t> self._raw_data.nnz,
+                           <float*> y_raw,
+                           <int> self.n_rows,
+                           <int> self.n_dims,
+                           <UMAPParams*> umap_params,
+                           <float*> embed_raw,
+                           <COO*> fss_graph.get())
 
-        else:
-            fit(handle_[0],
-                <float*><uintptr_t> self._raw_data.ptr,
-                <float*> y_raw,
-                <int> self.n_rows,
-                <int> self.n_dims,
-                <int64_t*> knn_indices_raw,
-                <float*> knn_dists_raw,
-                <UMAPParams*>umap_params,
-                <float*>embed_raw,
-                <COO*> fss_graph.get())
+            else:
+                fit(handle_[0],
+                    <float*><uintptr_t> self._raw_data.ptr,
+                    <float*> y_raw,
+                    <int> self.n_rows,
+                    <int> self.n_dims,
+                    <int64_t*> knn_indices_raw,
+                    <float*> knn_dists_raw,
+                    <UMAPParams*>umap_params,
+                    <float*>embed_raw,
+                    <COO*> fss_graph.get())
 
         self.graph_ = fss_graph.get_cupy_coo()
 
@@ -753,44 +751,44 @@ class UMAP(UniversalBase,
         cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
-        cdef handle_t * handle_ = \
-            <handle_t*> <size_t> self.handle.getHandle()
-
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
             <UMAPParams*> <size_t> UMAP._build_umap_params(self)
 
-        if self.sparse_fit:
-            transform_sparse(handle_[0],
-                             <int*><uintptr_t> X_m.indptr.ptr,
-                             <int*><uintptr_t> X_m.indices.ptr,
-                             <float*><uintptr_t> X_m.data.ptr,
-                             <size_t> X_m.nnz,
-                             <int> X_m.shape[0],
-                             <int> X_m.shape[1],
-                             <int*><uintptr_t> self._raw_data.indptr.ptr,
-                             <int*><uintptr_t> self._raw_data.indices.ptr,
-                             <float*><uintptr_t> self._raw_data.data.ptr,
-                             <size_t> self._raw_data.nnz,
-                             <int> self._raw_data.shape[0],
-                             <float*> embed_ptr,
-                             <int> self._raw_data.shape[0],
-                             <UMAPParams*> umap_params,
-                             <float*> xformed_ptr)
-        else:
-            transform(handle_[0],
-                      <float*><uintptr_t> X_m.ptr,
-                      <int> X_m.shape[0],
-                      <int> X_m.shape[1],
-                      <int64_t*> knn_indices_raw,
-                      <float*> knn_dists_raw,
-                      <float*><uintptr_t>self._raw_data.ptr,
-                      <int> self._raw_data.shape[0],
-                      <float*> embed_ptr,
-                      <int> self._raw_data.shape[0],
-                      <UMAPParams*> umap_params,
-                      <float*> xformed_ptr)
+        IF GPUBUILD == 1:
+            cdef handle_t * handle_ = \
+                <handle_t*> <size_t> self.handle.getHandle()
+            if self.sparse_fit:
+                transform_sparse(handle_[0],
+                                 <int*><uintptr_t> X_m.indptr.ptr,
+                                 <int*><uintptr_t> X_m.indices.ptr,
+                                 <float*><uintptr_t> X_m.data.ptr,
+                                 <size_t> X_m.nnz,
+                                 <int> X_m.shape[0],
+                                 <int> X_m.shape[1],
+                                 <int*><uintptr_t> self._raw_data.indptr.ptr,
+                                 <int*><uintptr_t> self._raw_data.indices.ptr,
+                                 <float*><uintptr_t> self._raw_data.data.ptr,
+                                 <size_t> self._raw_data.nnz,
+                                 <int> self._raw_data.shape[0],
+                                 <float*> embed_ptr,
+                                 <int> self._raw_data.shape[0],
+                                 <UMAPParams*> umap_params,
+                                 <float*> xformed_ptr)
+            else:
+                transform(handle_[0],
+                          <float*><uintptr_t> X_m.ptr,
+                          <int> X_m.shape[0],
+                          <int> X_m.shape[1],
+                          <int64_t*> knn_indices_raw,
+                          <float*> knn_dists_raw,
+                          <float*><uintptr_t>self._raw_data.ptr,
+                          <int> self._raw_data.shape[0],
+                          <float*> embed_ptr,
+                          <int> self._raw_data.shape[0],
+                          <UMAPParams*> umap_params,
+                          <float*> xformed_ptr)
         self.handle.sync()
 
         UMAP._destroy_umap_params(<size_t>umap_params)
