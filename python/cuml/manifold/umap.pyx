@@ -270,7 +270,7 @@ class UMAP(UniversalBase,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : pylibraft.common.Handle
+    handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
         stream that will be used for the model's computations, so users can
@@ -807,7 +807,8 @@ class UMAP(UniversalBase,
             "random_state",
             "callback",
             "metric",
-            "metric_kwds"
+            "metric_kwds",
+            "precomputed_knn"
         ]
 
     def get_attr_names(self):
