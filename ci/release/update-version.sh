@@ -41,6 +41,9 @@ sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cma
 sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py
 sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.py
 
+# Update project_number (RAPIDS_VERSION) in the CPP doxygen file
+sed_runner 's/PROJECT_NUMBER         = .*/PROJECT_NUMBER         = '"'${NEXT_SHORT_TAG}'"'/g' Doxyfile.in
+
 for FILE in dependencies.yaml conda/environments/*.yaml; do
    sed_runner "s/cudf=${CURRENT_SHORT_TAG}/cudf=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rmm=${CURRENT_SHORT_TAG}/rmm=${NEXT_SHORT_TAG}/g" ${FILE};
