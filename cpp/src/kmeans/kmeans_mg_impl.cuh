@@ -637,7 +637,7 @@ void fit(const raft::handle_t& handle,
       centroids.extent(0),
       itr_wt,
       itr_wt,
-      wtInCluster.size(),
+      wtInCluster.extent(0),
       newCentroids.data_handle(),
       [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
         // copy when the # of samples in the cluster is 0
