@@ -20,6 +20,7 @@ from sklearn.datasets import make_regression as skl_make_reg
 from sklearn.datasets import make_classification as skl_make_clas
 from sklearn.datasets import fetch_california_housing
 from sklearn.datasets import fetch_20newsgroups
+from datetime import timedelta
 from math import ceil
 import hypothesis
 from cuml.internals.safe_imports import gpu_only_import
@@ -48,6 +49,7 @@ HEALTH_CHECKS_SUPPRESSED_BY_DEFAULT = \
 
 hypothesis.settings.register_profile(
     name="unit",
+    deadline=None if CI else timedelta(milliseconds=2000),
     parent=hypothesis.settings.get_profile("default"),
     max_examples=20,
     suppress_health_check=HEALTH_CHECKS_SUPPRESSED_BY_DEFAULT,
