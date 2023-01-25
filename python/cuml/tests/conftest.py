@@ -189,7 +189,7 @@ def deprecated_boston_dataset():
 
     df = pd.read_csv('https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv', header=None)  # noqa: E501
     n_samples = int(df[0][0])
-    data = df[0: 12].values[2:n_samples].astype(np.float64)
+    data = df[list(np.arange(13))].values[2:n_samples].astype(np.float64)
     targets = df[13].values[2:n_samples].astype(np.float64)
 
     return Bunch(
