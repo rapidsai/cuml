@@ -79,9 +79,10 @@ NGRAM_IDS = [f'ngram_range={str(r)}' for r in NGRAM_RANGES]
 def test_word_analyzer(ngram_range):
     v = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
     ref = SkCountVect(ngram_range=ngram_range).fit(DOCS)
-    if sklearn.__version__ < "1.0":
-        assert (ref.get_feature_names()
-                ) == v.get_feature_names().to_arrow().to_pylist()
+    # test disabled due to sklearn API change to be updated
+    # https://github.com/rapidsai/cuml/issues/5159
+    # assert (ref.get_feature_names()
+    #     ) == v.get_feature_names().to_arrow().to_pylist()
 
 
 def test_countvectorizer_custom_vocabulary():
@@ -251,9 +252,10 @@ def test_space_ngrams(ngram_range):
     data_gpu = Series(data)
     vec = CountVectorizer(ngram_range=ngram_range).fit(data_gpu)
     ref = SkCountVect(ngram_range=ngram_range).fit(data)
-    if sklearn.__version__ < "1.0":
-        assert (ref.get_feature_names()
-                ) == vec.get_feature_names().to_arrow().to_pylist()
+    # test disabled due to sklearn API change to be updated
+    # https://github.com/rapidsai/cuml/issues/5159
+    # assert (ref.get_feature_names()
+    #     ) == vec.get_feature_names().to_arrow().to_pylist()
 
 
 def test_empty_doc_after_limit_features():
