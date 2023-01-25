@@ -19,6 +19,7 @@ import functools
 import inspect
 import typing
 import warnings
+from dataclasses import dataclass
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
@@ -36,18 +37,6 @@ cupy_using_allocator = gpu_only_import_from(
     'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
-
-
-# TODO: Avoid use of globals here - probably better to move into
-# GlobalSettings() context. Consider namedtuple or dataclass.
-
-# I think instead of all of these globals we can just use one stack
-# that contains the actual types.
-_API_STACK_LEVEL = 0
-_API_PREVIOUS_OUTPUT_TYPE = None
-_API_STACK_OVERRIDE = False
-_API_OUTPUT_DTYPE_OVERRIDE = None
-_API_OUTPUT_TYPE_OVERRIDE = None
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -108,7 +97,6 @@ def _using_output_type(output_type):
         GlobalSettings().output_type = prev_output_type
 
 
-
 @contextlib.contextmanager
 def _using_mirror_output_type():
     with _using_output_type("mirror") as output_type:
@@ -124,43 +112,52 @@ def _restore_dtype():
         GlobalSettings().output_dtype = prev_output_dtype
 
 
-def in_internal_api():
-    return _API_STACK_LEVEL > 1 and not _API_STACK_OVERRIDE
+@dataclass
+class ApiContext:
+
+    stack_level: int = 0
+    previous_output_type = None
+    output_type_override = None
+    output_dtype_override = None
+
+
+_API_CONTEXT = ApiContext()
 
 
 @contextlib.contextmanager
 def api_context():
-    global _API_STACK_LEVEL
-    global _API_OUTPUT_TYPE_OVERRIDE
-    global _API_OUTPUT_DTYPE_OVERRIDE
-    global _API_PREVIOUS_OUTPUT_TYPE
+    global _API_CONTEXT
 
-    _API_STACK_LEVEL += 1
+    _API_CONTEXT.stack_level += 1
 
     try:
-        if _API_STACK_LEVEL == 1:
+        if _API_CONTEXT.stack_level == 1:
             with contextlib.ExitStack() as stack:
-                _API_OUTPUT_TYPE_OVERRIDE = None
-                _API_OUTPUT_DTYPE_OVERRIDE = None
+                _API_CONTEXT.output_type_override = None
+                _API_CONTEXT.output_dtype_override = None
                 stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
                 stack.enter_context(_restore_dtype())
-                _API_PREVIOUS_OUTPUT_TYPE =\
+                _API_CONTEXT.previous_output_type =\
                     stack.enter_context(_using_mirror_output_type())
                 yield
         else:
             yield
     finally:
-        _API_STACK_LEVEL -= 1
+        _API_CONTEXT.stack_level -= 1
+
+
+def in_internal_api():
+    return _API_CONTEXT.stack_level > 1
 
 
 def set_api_output_type(output_type):
-    global _API_OUTPUT_TYPE_OVERRIDE
-    _API_OUTPUT_TYPE_OVERRIDE = output_type
+    global _API_CONTEXT
+    _API_CONTEXT.output_type_override = output_type
 
 
 def set_api_output_dtype(output_dtype):
-    global _API_OUTPUT_DTYPE_OVERRIDE
-    _API_OUTPUT_DTYPE_OVERRIDE = output_dtype
+    global _API_CONTEXT
+    _API_CONTEXT.output_dtype_override = output_dtype
 
 
 def _convert_to_cumlarray(ret_val):
@@ -338,13 +335,15 @@ def _make_decorator_function(
                     # Check for global output type override
                     global_output_type = GlobalSettings().output_type
                     assert global_output_type in (None, "mirror", "input")
-                    out_type_override = _API_PREVIOUS_OUTPUT_TYPE or _API_OUTPUT_TYPE_OVERRIDE
+                    out_type_override = _API_CONTEXT.previous_output_type \
+                        or _API_CONTEXT.output_type_override
                     if out_type_override not in (None, "mirror", "input"):
                         out_type = out_type_override
                     assert not out_type == "input"
 
                     # Check for global output dtype override
-                    output_dtype = _API_OUTPUT_DTYPE_OVERRIDE or output_dtype
+                    output_dtype = _API_CONTEXT.output_dtype_override \
+                        or output_dtype
 
                     return process_generic(ret, out_type, output_dtype)
 
@@ -410,13 +409,14 @@ api_base_return_generic_skipall = api_base_return_generic(
 
 @contextlib.contextmanager
 def exit_internal_api():
-    global _API_STACK_OVERRIDE
+    global _API_CONTEXT
     try:
-        _API_STACK_OVERRIDE = True
-        with using_output_type(_API_PREVIOUS_OUTPUT_TYPE):
+        previous_context = _API_CONTEXT
+        with using_output_type(_API_CONTEXT.previous_output_type):
+            _API_CONTEXT = ApiContext()
             yield
     finally:
-        _API_STACK_OVERRIDE = False
+        _API_CONTEXT = previous_context
 
 
 def mirror_args(
