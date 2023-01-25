@@ -23,6 +23,7 @@ dependencies:
 - doxygen=1.8.20
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
+- graphviz
 - hdbscan
 - hypothesis>=6.0,<7
 - ipykernel
