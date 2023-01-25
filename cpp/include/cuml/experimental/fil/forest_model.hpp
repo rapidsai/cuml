@@ -7,7 +7,6 @@
 #include <cuml/experimental/kayak/buffer.hpp>
 #include <cuml/experimental/kayak/gpu_support.hpp>
 #include <cuml/experimental/kayak/handle.hpp>
-#include <raft/core/nvtx.hpp>
 
 namespace ML {
 namespace experimental {
@@ -57,9 +56,6 @@ struct forest_model {
     kayak::cuda_stream stream = kayak::cuda_stream{},
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    auto nvtx_range = raft::common::nvtx::range{
-      "forest_model.predict"
-    };
     std::visit([this, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
       if constexpr(std::is_same_v<typename std::remove_reference_t<decltype(concrete_forest)>::io_type, io_t>) {
         concrete_forest.predict(output, input, stream, specified_chunk_size);
@@ -76,9 +72,6 @@ struct forest_model {
     kayak::buffer<io_t> const& input,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    auto nvtx_range = raft::common::nvtx::range{
-      "forest_model.predict (chunked)"
-    };
     std::visit([this, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
       using model_io_t = typename std::remove_reference_t<decltype(concrete_forest)>::io_type;
       if constexpr(std::is_same_v<model_io_t, io_t>) {
@@ -166,13 +159,10 @@ struct forest_model {
     io_t* output,
     io_t* input,
     std::size_t num_rows,
-    kayak::device_type in_mem_type,
     kayak::device_type out_mem_type,
+    kayak::device_type in_mem_type,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    auto nvtx_range = raft::common::nvtx::range{
-      "forest_model.predict (pointers)"
-    };
     // TODO(wphicks): Make sure buffer lands on same device as model
     auto out_buffer = kayak::buffer{
       output,

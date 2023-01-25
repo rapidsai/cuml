@@ -299,8 +299,8 @@ cdef class ForestInference_impl():
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
-                in_dev,
                 out_dev,
+                in_dev,
                 chunk_specification
             )
         else:

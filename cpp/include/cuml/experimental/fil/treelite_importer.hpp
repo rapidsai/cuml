@@ -606,7 +606,7 @@ auto import_from_treelite_handle(
   ModelHandle tl_handle,
   index_type align_bytes = index_type{},
   std::optional<bool> use_double_precision = std::nullopt,
-  kayak::device_type mem_type=kayak::device_type::cpu,
+  kayak::device_type dev_type=kayak::device_type::cpu,
   int device=0,
   kayak::cuda_stream stream=kayak::cuda_stream{}
 ) {
@@ -614,7 +614,25 @@ auto import_from_treelite_handle(
     *static_cast<treelite::Model*>(tl_handle),
     align_bytes,
     use_double_precision,
-    mem_type,
+    dev_type,
+    device,
+    stream
+  );
+}
+
+auto import_from_treelite_model(
+  treelite::Model const& tl_model,
+  index_type align_bytes = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  kayak::device_type dev_type=kayak::device_type::cpu,
+  int device=0,
+  kayak::cuda_stream stream=kayak::cuda_stream{}
+) {
+  return treelite_importer<preferred_tree_layout>{}.import(
+    tl_model,
+    align_bytes,
+    use_double_precision,
+    dev_type,
     device,
     stream
   );
