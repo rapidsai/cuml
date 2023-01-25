@@ -138,17 +138,14 @@ def api_context():
     _API_STACK_LEVEL += 1
 
     try:
-        # TODO: Refactor flow below to use contextlib.ExitStack
         if _API_STACK_LEVEL == 1:
             with contextlib.ExitStack() as stack:
                 _API_OUTPUT_TYPE_OVERRIDE = None
                 _API_OUTPUT_DTYPE_OVERRIDE = None
                 stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
                 stack.enter_context(_restore_dtype())
-                current_output_type = GlobalSettings().output_type
-                if current_output_type in (None, "input", "mirror"):
-                    _API_PREVIOUS_OUTPUT_TYPE =\
-                         stack.enter_context(_using_mirror_output_type())
+                _API_PREVIOUS_OUTPUT_TYPE =\
+                    stack.enter_context(_using_mirror_output_type())
                 yield
         else:
             yield
@@ -340,10 +337,11 @@ def _make_decorator_function(
 
                     # Check for global output type override
                     global_output_type = GlobalSettings().output_type
-                    if global_output_type in (None, "mirror", "input"):
-                        out_type = _API_OUTPUT_TYPE_OVERRIDE or out_type
-                    else:
-                        out_type = global_output_type
+                    assert global_output_type in (None, "mirror", "input")
+                    out_type_override = _API_PREVIOUS_OUTPUT_TYPE or _API_OUTPUT_TYPE_OVERRIDE
+                    if out_type_override not in (None, "mirror", "input"):
+                        out_type = out_type_override
+                    assert not out_type == "input"
 
                     # Check for global output dtype override
                     output_dtype = _API_OUTPUT_DTYPE_OVERRIDE or output_dtype
