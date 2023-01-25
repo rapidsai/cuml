@@ -16,7 +16,8 @@
 """Command-line ML benchmark runner"""
 
 import json
-from cuml.benchmark import algorithms, datagen, runners
+# from cuml.benchmark import algorithms, datagen, runners
+import algorithms, datagen, runners
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
