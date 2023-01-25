@@ -199,9 +199,9 @@ def test_make_column_transformer_sparse(sparse_clf_dataset,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
-@pytest.mark.skipif(sklearn.__version__ >= "1.0",
-                    reason="scikit-learn replaced get_feature_names with "
-                           "get_feature_names_out")
+@pytest.mark.skip(reason="scikit-learn replaced get_feature_names with "
+                         "get_feature_names_out"
+                         "https://github.com/rapidsai/cuml/issues/5159")
 def test_column_transformer_get_feature_names(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 

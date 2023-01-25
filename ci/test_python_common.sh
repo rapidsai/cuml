@@ -35,3 +35,5 @@ rapids-mamba-retry install \
 
 rapids-logger "Check GPU usage"
 nvidia-smi
+
+rapids-mamba-retry install -c conda-forge scikit-learn=1.2
