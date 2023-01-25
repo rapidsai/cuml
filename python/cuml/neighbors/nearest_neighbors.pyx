@@ -1023,7 +1023,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         metric=metric,
         p=p,
         metric_params=metric_params,
-        output_type=cuml.global_settings.root_cm.output_type
+        output_type="cupy",
     ).fit(X)
 
     if include_self == 'auto':
