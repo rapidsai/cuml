@@ -187,10 +187,8 @@ def deprecated_boston_dataset():
     # better dataset for tests, see
     # https://github.com/rapidsai/cuml/issues/5158
 
-    df = pd.read_csv('https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv',
-           header=None)
+    df = pd.read_csv('https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv', header=None)  #noqa E501
     n_samples = int(df[0][0])
-    n_features = int(df[1][0])
     data = df[0: 12].values[2:n_samples].astype(np.float64)
     targets = df[13].values[2:n_samples].astype(np.float64)
 
@@ -213,6 +211,7 @@ def test_datasets(request, deprecated_boston_dataset):
     }
 
     return test_datasets_dict[request.param]
+
 
 @pytest.fixture(scope="session")
 def random_seed(request):
