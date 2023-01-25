@@ -36,12 +36,6 @@ np = cpu_only_import('numpy')
 
 cp = gpu_only_import('cupy')
 
-test_datasets = {
-    "digits": datasets.load_digits(),
-    "california": datasets.fetch_california_housing(),
-    "diabetes": datasets.load_diabetes(),
-    "cancer": datasets.load_breast_cancer(),
-}
 
 dataset_names = ['noisy_circles', 'noisy_moons', 'varied']
 
