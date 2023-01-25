@@ -341,8 +341,8 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result)
 {
-  EXPECT_TRUE(
-    raft::devArrMatch(labels.data(), labels_ref.data(), params.n_row, raft::Compare<int>()));
+  EXPECT_TRUE(MLCommon::devArrMatch(
+    labels.data(), labels_ref.data(), params.n_row, MLCommon::Compare<int>()));
 }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int, ::testing::ValuesIn(linkage_inputsf2));
