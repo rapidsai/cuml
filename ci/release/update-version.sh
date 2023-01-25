@@ -42,7 +42,7 @@ sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf
 sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.py
 
 # Update project_number (RAPIDS_VERSION) in the CPP doxygen file
-sed_runner 's/PROJECT_NUMBER         = .*/PROJECT_NUMBER         = '"'${NEXT_SHORT_TAG}'"'/g' Doxyfile.in
+sed_runner "s/\(PROJECT_NUMBER.*=\).*/\1 \"${NEXT_SHORT_TAG}\"/g" cpp/Doxyfile.in
 
 for FILE in dependencies.yaml conda/environments/*.yaml; do
    sed_runner "s/cudf=${CURRENT_SHORT_TAG}/cudf=${NEXT_SHORT_TAG}/g" ${FILE};
