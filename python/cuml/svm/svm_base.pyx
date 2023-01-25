@@ -330,7 +330,7 @@ class SVMBase(Base,
             raise NotFittedError(msg)
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.api_base_return_array(input_arg=None)
     def coef_(self):
         if self._c_kernel != LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
@@ -346,7 +346,7 @@ class SVMBase(Base,
         self._internal_coef_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.api_base_return_array(input_arg=None)
     def intercept_(self):
         if self._intercept_ is None:
             raise AttributeError("intercept_ called before fit.")
