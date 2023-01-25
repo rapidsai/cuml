@@ -183,6 +183,10 @@ def housing_dataset():
 
 @pytest.fixture(scope="module")
 def deprecated_boston_dataset():
+    # dataset was removed in Scikit-learn 1.2, we should change it for a
+    # better dataset for tests, see
+    # https://github.com/rapidsai/cuml/issues/5158
+
     df = pd.read_csv('https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv',
            header=None)
     n_samples = int(df[0][0])
