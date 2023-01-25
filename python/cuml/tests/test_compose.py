@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import sklearn
 
 from cuml.testing.test_preproc_utils import assert_allclose
 from sklearn.preprocessing import \
