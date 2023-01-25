@@ -16,16 +16,19 @@
 
 from cuml.testing.utils import create_synthetic_dataset
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn import datasets
 from sklearn.datasets import make_regression as skl_make_reg
 from sklearn.datasets import make_classification as skl_make_clas
 from sklearn.datasets import fetch_california_housing
 from sklearn.datasets import fetch_20newsgroups
+from sklearn.utils import Bunch
 from math import ceil
 import hypothesis
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 import os
 import subprocess
+import pandas as pd
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -177,6 +180,35 @@ def housing_dataset():
 
     return X, y, feature_names
 
+
+@pytest.fixture(scope="module")
+def deprecated_boston_dataset():
+    df = pd.read_csv('https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv',
+           header=None)
+    n_samples = int(df[0][0])
+    n_features = int(df[1][0])
+    data = df[0: 12].values[2:n_samples].astype(np.float64)
+    targets = df[13].values[2:n_samples].astype(np.float64)
+
+    return Bunch(
+        data=data,
+        target=targets,
+    )
+
+
+@pytest.fixture(scope="module", params=["digits",
+                                        "deprecated_boston_dataset",
+                                        "diabetes",
+                                        "cancer"])
+def test_datasets(request, deprecated_boston_dataset):
+    test_datasets_dict = {
+        "digits": datasets.load_digits(),
+        "deprecated_boston_dataset": deprecated_boston_dataset,
+        "diabetes": datasets.load_diabetes(),
+        "cancer": datasets.load_breast_cancer(),
+    }
+
+    return test_datasets_dict[request.param]
 
 @pytest.fixture(scope="session")
 def random_seed(request):
