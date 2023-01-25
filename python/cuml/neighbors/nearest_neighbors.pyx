@@ -192,10 +192,6 @@ class NearestNeighbors(UniversalBase,
           in n_features/M sub-vectors that will be encoded thanks
           to intermediary k-means clusterings. This encoding provide
           partial information allowing faster distances calculations
-        - ``'ivfsq'``: for inverted file and scalar quantization,
-          same as inverted list, in addition vectors components
-          are quantized into reduced binary representation allowing
-          faster distances calculations
 
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
@@ -227,15 +223,6 @@ class NearestNeighbors(UniversalBase,
             - M: (int) number of subquantizers
             - n_bits: (int) bits allocated per subquantizer
             - usePrecomputedTables : (bool) wether to use precomputed tables
-
-        Parameters for algorithm ``'ivfsq'``:
-
-            - nlist: (int) number of cells to partition dataset into
-            - nprobe: (int) at query time, number of cells used for search
-            - qtype: (string) quantizer type (among QT_8bit, QT_4bit,
-              QT_8bit_uniform, QT_4bit_uniform, QT_fp16, QT_8bit_direct,
-              QT_6bit)
-            - encodeResidual: (bool) wether to encode residuals
 
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
@@ -397,7 +384,7 @@ class NearestNeighbors(UniversalBase,
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        if self._fit_method in ['ivfflat', 'ivfpq', 'ivfsq']:
+        if self._fit_method in ['ivfflat', 'ivfpq']:
             warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
                           "might be unstable in this version of cuML. "
                           "This is due to a known issue in the FAISS "
@@ -919,7 +906,7 @@ class NearestNeighbors(UniversalBase,
         kidx = self.__dict__['knn_index'] \
             if 'knn_index' in self.__dict__ else None
         if kidx is not None:
-            if self._fit_method in ["ivfflat", "ivfpq", "ivfsq"]:
+            if self._fit_method in ["ivfflat", "ivfpq"]:
                 knn_index = <knnIndex*><uintptr_t>kidx
                 del knn_index
             else:
@@ -979,10 +966,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
           in n_features/M sub-vectors that will be encoded thanks
           to intermediary k-means clusterings. This encoding provide
           partial information allowing faster distances calculations
-        - ``'ivfsq'``: for inverted file and scalar quantization,
-          same as inverted list, in addition vectors components
-          are quantized into reduced binary representation allowing
-          faster distances calculations
 
     metric : string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
