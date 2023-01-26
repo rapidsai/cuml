@@ -295,7 +295,7 @@ class CumlArray:
                         if len(shape) == 0:
                             strides = None
                         elif len(shape) == 1:
-                            strides == (dtype.itemsize,)
+                            strides = (dtype.itemsize,)
                     except TypeError:  # Shape given as integer
                         strides = (dtype.itemsize,)
                 if strides is None:
