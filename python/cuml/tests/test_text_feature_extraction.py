@@ -310,6 +310,9 @@ def test_only_delimiters():
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
 
+@pytest.mark.skip(reason="scikit-learn replaced get_feature_names with "
+                         "get_feature_names_out"
+                         "https://github.com/rapidsai/cuml/issues/5159")
 @pytest.mark.parametrize('analyzer', ['char', 'char_wb'])
 @pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_character_ngrams(analyzer, ngram_range):

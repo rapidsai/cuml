@@ -815,6 +815,8 @@ def test_precision_recall_curve_at_limits():
         precision_recall_curve(y_true, y_pred)
 
 
+@pytest.mark.skip(reason="shape discrepancy with sklearn 1.2"
+                         "https://github.com/rapidsai/cuml/issues/5164")
 @pytest.mark.parametrize('n_samples', [50, 500000])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
 def test_precision_recall_curve_random(n_samples, dtype):
