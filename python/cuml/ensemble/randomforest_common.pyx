@@ -290,6 +290,7 @@ class BaseRandomForestModel(Base):
                 y_m, cp.arange(self.num_classes, dtype=np.int32))
             if self.use_monotonic:
                 y_m, _ = make_monotonic(y_m)
+                y_m = input_to_cuml_array(y_m).array
 
         else:
             y_m, _, _, y_dtype = \
