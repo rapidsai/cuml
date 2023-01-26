@@ -229,7 +229,7 @@ dependencies:
           - pytest-cases
           - pytest-cov
           - pytest-xdist
-          - &scikit_learn scikit-learn=0.24
+          - &scikit_learn scikit-learn=1.2
           - seaborn
           - sparse
           - statsmodels

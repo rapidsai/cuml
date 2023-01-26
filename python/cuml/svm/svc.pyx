@@ -618,7 +618,7 @@ class SVC(SVMBase,
 
             with cuml.internals.exit_internal_api():
                 for clf in self.prob_svc.calibrated_classifiers_:
-                    df = df + clf.base_estimator.decision_function(X)
+                    df = df + clf.estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
             return df
         elif self.n_classes_ > 2:
