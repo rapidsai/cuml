@@ -16,6 +16,7 @@
 
 #include <cuml/linear_model/glm.hpp>
 #include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -293,57 +294,61 @@ const std::vector<RidgeInputs<double>> inputsd2 = {{0.001, 3, 2, 2, 0, 0.5},
 typedef RidgeTest<float> RidgeTestF;
 TEST_P(RidgeTestF, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred_ref.data(), pred.data(), params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred2_ref.data(), pred2.data(), params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    pred2_ref.data(), pred2.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    pred3_ref.data(), pred3.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_sc_ref.data(), coef_sc.data(), 1, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_sw_ref.data(), coef_sw.data(), 1, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_sw_ref.data(), coef_sw.data(), 1, MLCommon::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef RidgeTest<double> RidgeTestD;
 TEST_P(RidgeTestD, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred_ref.data(), pred.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred2_ref.data(), pred2.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred2_ref.data(),
+                                    pred2.data(),
+                                    params.n_row_2,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred3_ref.data(),
+                                    pred3.data(),
+                                    params.n_row_2,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_sc_ref.data(), coef_sc.data(), 1, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_sw_ref.data(), coef_sw.data(), 1, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_sw_ref.data(), coef_sw.data(), 1, MLCommon::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(RidgeTests, RidgeTestF, ::testing::ValuesIn(inputsf2));

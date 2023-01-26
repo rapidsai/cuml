@@ -232,76 +232,76 @@ typedef LinRegLossTest<float> LinRegLossTestF;
 TEST_P(LinRegLossTestF, Result)
 {
   ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), 1, raft::CompareApprox<float>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), 1, MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(
-    out_lasso_ref.data(), out_lasso.data(), 1, raft::CompareApprox<float>(params.tolerance)));
+    out_lasso_ref.data(), out_lasso.data(), 1, MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(
-    out_ridge_ref.data(), out_ridge.data(), 1, raft::CompareApprox<float>(params.tolerance)));
+    out_ridge_ref.data(), out_ridge.data(), 1, MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref.data(),
                           out_elasticnet.data(),
                           1,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_grad_ref.data(),
                           out_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref.data(),
                           out_lasso_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref.data(),
                           out_ridge_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref.data(),
                           out_elasticnet_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 }
 
 typedef LinRegLossTest<double> LinRegLossTestD;
 TEST_P(LinRegLossTestD, Result)
 {
   ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), 1, raft::CompareApprox<double>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), 1, MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(
-    out_lasso_ref.data(), out_lasso.data(), 1, raft::CompareApprox<double>(params.tolerance)));
+    out_lasso_ref.data(), out_lasso.data(), 1, MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(
-    out_ridge_ref.data(), out_ridge.data(), 1, raft::CompareApprox<double>(params.tolerance)));
+    out_ridge_ref.data(), out_ridge.data(), 1, MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref.data(),
                           out_elasticnet.data(),
                           1,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_grad_ref.data(),
                           out_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref.data(),
                           out_lasso_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref.data(),
                           out_ridge_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref.data(),
                           out_elasticnet_grad.data(),
                           params.n_cols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(LinRegLossTests, LinRegLossTestF, ::testing::ValuesIn(inputsf));

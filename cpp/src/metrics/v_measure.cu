@@ -16,6 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/stats/v_measure.cuh>
 
 namespace ML {
