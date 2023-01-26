@@ -28,3 +28,6 @@ libcusolver_host_version:
 
 libcusparse_host_version:
   - ">=11.7.0.31,<=11.7.0.107"
+
+treelite_version:
+  - "=3.1.0"
