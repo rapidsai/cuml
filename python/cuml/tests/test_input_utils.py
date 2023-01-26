@@ -335,7 +335,7 @@ def check_ptr(a, b, input_type):
         for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
             with cudf.core.buffer.acquire_spill_lock():
                 assert (
-                    col_a.base_data.get_ptr(mode="read") == \
+                    col_a.base_data.get_ptr(mode="read") ==
                     col_b.base_data.get_ptr(mode="read")
                 )
     else:
