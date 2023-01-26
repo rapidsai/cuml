@@ -16,8 +16,7 @@
 import treelite
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression, load_iris, load_breast_cancer, \
-    load_boston
+    make_classification, make_regression, load_iris, load_breast_cancer
 from sklearn.metrics import accuracy_score, mean_squared_error, \
     mean_tweedie_deviance
 from sklearn.ensemble import RandomForestRegressor as skrfr
@@ -1283,7 +1282,7 @@ def test_rf_regression_with_identical_labels(split_criterion):
 
 
 def test_rf_regressor_gtil_integration(tmpdir):
-    X, y = load_boston(return_X_y=True)
+    X, y = fetch_california_housing(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
