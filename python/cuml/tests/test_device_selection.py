@@ -176,12 +176,10 @@ def fixture_generation_helper(params):
     'input_type': ['numpy', 'dataframe', 'cupy',
                    'cudf', 'numba'],
     'fit_intercept': [False, True],
-    'normalize': [False, True]
 }))
 def linreg_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
-        'normalize': request.param['normalize'],
     }
 
     sk_model = skLinearRegression(**kwargs)

@@ -58,7 +58,7 @@ def make_dataset(request):
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
     ('lrate', 'penalty'), [
-        ('constant', 'none'),
+        ('constant', None),
         ('invscaling', 'l1'),
         ('adaptive', 'l2'),
         ('constant', 'elasticnet'),
