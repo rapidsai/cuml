@@ -15,8 +15,34 @@
 #
 
 
-import dask.dataframe as dd
+import cudf
+import cuml.internals.logger as logger
+import cupy as cp
+from cupyx.scipy.sparse import issparse
+import numpy as np
+import dask.array as da
+
+from collections.abc import Sequence
+
+from cuml.internals.memory_utils import with_cupy_rmm
+
 from functools import reduce
+from collections import OrderedDict
+from cudf import DataFrame
+from cudf import Series
+import dask.dataframe as dd
+from dask.dataframe import DataFrame as daskDataFrame
+from dask.dataframe import Series as daskSeries
+from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as dcSeries
+
+from cuml.dask.common.utils import get_client
+from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.part_utils import _extract_partitions
+
+from dask.distributed import wait
+from dask.distributed import default_client
 from toolz import first
 from dask.distributed import default_client
 from dask.distributed import wait
@@ -162,12 +188,16 @@ def _get_datatype_from_inputs(data):
     """
 
     multiple = isinstance(data, Sequence)
+    el = first(data) if multiple else data
 
-    if isinstance(first(data) if multiple else data,
-                  (daskSeries, daskDataFrame, dcDataFrame, dcSeries)):
+    if isinstance(el, (daskSeries, daskDataFrame,
+                       dcDataFrame, dcSeries)):
         datatype = 'cudf'
     else:
-        datatype = 'cupy'
+        if issparse(el._meta):
+            datatype = 'cupy-sparse'
+        else:
+            datatype = 'cupy'
         if multiple:
             for d in data:
                 validate_dask_array(d)
@@ -193,7 +223,7 @@ def concatenate(objs, axis=0):
 
 # TODO: This should be delayed.
 def to_output(futures, type, client=None):
-    if type == 'cupy':
+    if type in ['cupy', 'cupy-sparse']:
         return to_dask_cupy(futures, client=client)
     else:
         return to_dask_cudf(futures, client=client)
