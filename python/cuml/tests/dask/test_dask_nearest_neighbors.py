@@ -263,10 +263,10 @@ def test_one_query_partition(client):
     cumlModel.kneighbors(X_test)
 
 
-@pytest.mark.parametrize("n_parts", [1, 2, 5, 7])
+@pytest.mark.parametrize("n_parts", [8, 16])
 @pytest.mark.parametrize("n_neighbors", [3, 16, 64])
 def test_sparse(n_parts, n_neighbors, client):
-    nrows = 1000
+    nrows = 10000
     nrows = int(_scale_rows(client, nrows))
 
     X, _ = make_blobs(n_samples=nrows,

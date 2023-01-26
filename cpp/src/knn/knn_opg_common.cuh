@@ -343,7 +343,10 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
     int part_rank                   = partition->rank;
     size_t part_n_rows              = partition->size;
 
-    size_t total_batches     = raft::ceildiv(part_n_rows, params.batch_size);
+    uint64_t total_batches = 1;
+    if (params.knn_op != knn_operation::sparse_knn) {
+      total_batches = raft::ceildiv(part_n_rows, params.batch_size);
+    }
     size_t total_n_processed = 0;
 
     // For each batch in a query partition
@@ -360,22 +363,26 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
        */
       CUML_LOG_DEBUG("Rank %d: Performing Broadcast", work.my_rank);
 
-      size_t batch_input_elms   = cur_batch_size * params.query_desc->N;
-      size_t batch_input_offset = batch_input_elms * cur_batch;
+      size_t batch_input_elms = cur_batch_size * params.query_desc->N;
 
       rmm::device_uvector<in_t> part_data(0, handle.get_stream());
       rmm::device_uvector<ind_t> part_indices(0, handle.get_stream());
       rmm::device_uvector<ind_t> part_indptr(0, handle.get_stream());
       rmm::device_uvector<in_t> tmp_batch_buf(0, handle.get_stream());
 
+      std::array<ind_t, 3> part_csr_desc;
+
       opg_knn_query<in_t, ind_t> query;
       query.nrows = cur_batch_size;
       query.ncols = params.query_desc->N;
 
+      bool my_rank_is_idx = work.idxRanks.find(work.my_rank) != work.idxRanks.end();
+
       if (params.knn_op != knn_operation::sparse_knn) {
-        Matrix::Data<in_t>* query_data = params.query_data->at(local_parts_completed);
         // current partition's owner rank broadcasts
         if (part_rank == work.my_rank) {
+          Matrix::Data<in_t>* query_data = params.query_data->at(local_parts_completed);
+
           // If query is column major and total_batches > 0, create a
           // temporary buffer for the batch so that we can stack rows.
           if (!params.rowMajorQuery && total_batches > 1) {
@@ -387,49 +394,59 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
                          handle.get_stream());
             }
             query.data = tmp_batch_buf.data();
-
           } else {
-            query.data = query_data->ptr + batch_input_offset;
+            size_t batch_input_offset = batch_input_elms * cur_batch;
+            query.data                = query_data->ptr + batch_input_offset;
           }
 
           // all other (index) ranks receive
-        } else if (work.idxRanks.find(work.my_rank) != work.idxRanks.end()) {
+        } else if (my_rank_is_idx) {
+          part_data.resize(batch_input_elms, handle.get_stream());
           query.data = part_data.data();
         }
-      } else {
-        Matrix::Data<in_t>* query_data     = params.query_data->at(local_parts_completed);
-        Matrix::Data<ind_t>* query_indices = params.query_indices->at(local_parts_completed);
-        Matrix::Data<ind_t>* query_indptr  = params.query_indptr->at(local_parts_completed);
 
-        query.nnz       = query_data->totalSize;
-        query.n_indices = query_indices->totalSize;
-        query.n_indptr  = query_indptr->totalSize;
+      } else {
         if (part_rank == work.my_rank) {
-          query.data    = query_data->ptr;
-          query.indices = query_indices->ptr;
-          query.indptr  = query_indptr->ptr;
-        } else if (work.idxRanks.find(work.my_rank) != work.idxRanks.end()) {
-          part_data.resize(query.nnz, handle.get_stream());
-          part_indices.resize(query.n_indices, handle.get_stream());
-          part_indptr.resize(query.n_indptr, handle.get_stream());
-          query.data    = part_data.data();
-          query.indices = part_indices.data();
-          query.indptr  = part_indptr.data();
+          Matrix::Data<in_t>* query_data     = params.query_data->at(local_parts_completed);
+          Matrix::Data<ind_t>* query_indices = params.query_indices->at(local_parts_completed);
+          Matrix::Data<ind_t>* query_indptr  = params.query_indptr->at(local_parts_completed);
+
+          query.nnz       = query_data->numElements();
+          query.n_indices = query_indices->numElements();
+          query.n_indptr  = query_indptr->numElements();
+          query.data      = query_data->ptr;
+          query.indices   = query_indices->ptr;
+          query.indptr    = query_indptr->ptr;
+
+          part_csr_desc[0] = query.nnz;
+          part_csr_desc[1] = query.n_indices;
+          part_csr_desc[2] = query.data;
         }
       }
-
-      bool my_rank_is_idx = work.idxRanks.find(work.my_rank) != work.idxRanks.end();
 
       /**
        * Send query to index partitions
        */
       if (work.my_rank == part_rank || my_rank_is_idx) {
         if (params.knn_op != knn_operation::sparse_knn) {
-          broadcast_query(work, handle, part_rank, query.data, batch_input_elms);
+          broadcast_query(work, handle, part_rank, query.data, batch_input_elms * sizeof(in_t));
         } else {
-          broadcast_query(work, handle, part_rank, query.data, query.nnz);
-          broadcast_query(work, handle, part_rank, query.indices, query.n_indices);
-          broadcast_query(work, handle, part_rank, query.indptr, query.n_indptr);
+          broadcast_query(
+            work, handle, part_rank, part_csr_desc.data(), part_csr_desc.size() * sizeof(ind_t));
+          if (part_rank != work.my_rank && my_rank_is_idx) {
+            query.nnz = part_csr_desc[0];
+            part_data.resize(query.nnz, handle.get_stream());
+            query.data      = part_data.data();
+            query.n_indices = part_csr_desc[1];
+            part_indices.resize(query.n_indices, handle.get_stream());
+            query.n_indptr = part_csr_desc[2];
+            query.indices  = part_indices.data();
+            part_indptr.resize(query.n_indptr, handle.get_stream());
+            query.indptr = part_indptr.data();
+          }
+          broadcast_query(work, handle, part_rank, query.data, query.nnz * sizeof(in_t));
+          broadcast_query(work, handle, part_rank, query.indices, query.n_indices * sizeof(ind_t));
+          broadcast_query(work, handle, part_rank, query.indptr, query.n_indptr * sizeof(ind_t));
         }
       }
 
@@ -545,11 +562,6 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                        opg_knn_query<in_t, ind_t>& query,
                        raft::handle_t& handle)
 {
-  // Offset nearest neighbor index matrix by partition indices
-  std::vector<size_t> start_indices = params.idx_desc->startIndices(work.my_rank);
-
-  // ID ranges need to be offset by each local partition's
-  // starting indices.
   if (params.knn_op != knn_operation::sparse_knn) {
     std::vector<in_t*> ptrs(params.idx_data->size());
     std::vector<std::size_t> sizes(params.idx_data->size());
@@ -559,11 +571,17 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       sizes[cur_idx] = work.local_idx_parts[cur_idx]->size;
     }
 
+    // Offset nearest neighbor index matrix by partition indices
+    std::vector<size_t> start_indices = params.idx_desc->startIndices(work.my_rank);
     // PartDescriptor uses size_t while FAISS uses int64_t
     // so we need to do a quick conversion.
     std::vector<int64_t> start_indices_long;
-    for (size_t start_index : start_indices)
+    for (size_t start_index : start_indices) {
       start_indices_long.push_back((int64_t)start_index);
+    }
+
+    // ID ranges need to be offset by each local partition's
+    // starting indices.
     raft::spatial::knn::brute_force_knn<std::int64_t, float, std::size_t>(handle,
                                                                           ptrs,
                                                                           sizes,

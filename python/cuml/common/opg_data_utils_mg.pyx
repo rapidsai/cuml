@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import math
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
@@ -225,7 +226,8 @@ def _build_part_inputs(cuda_arr_ifaces,
     for arr in cuml_arr_ifaces:
         data = <floatData_t*>malloc(sizeof(floatData_t))
         data.ptr = <float*><uintptr_t>arr.ptr
-        data.totalSize = <size_t>arr.shape[0]*arr.shape[1]*sizeof(float)
+        n_elements = math.prod(arr.shape)
+        data.totalSize = <size_t>n_elements*sizeof(float)
         local_parts.push_back(data)
 
     cdef vector[RankSizePair*] partsToRanks
@@ -248,13 +250,15 @@ def _build_part_inputs(cuda_arr_ifaces,
 cdef floatData_t* generate_local_part_float(cuml_array):
     data = <floatData_t*>malloc(sizeof(floatData_t))
     data.ptr = <float*><uintptr_t>cuml_array.ptr
-    data.totalSize = <size_t>cuml_array.size*sizeof(float)
+    n_elements = math.prod(cuml_array.shape)
+    data.totalSize = <size_t>n_elements*sizeof(float)
     return data
 
 cdef int64Data_t* generate_local_part_int64(cuml_array):
     data = <int64Data_t*>malloc(sizeof(int64Data_t))
     data.ptr = <int64_t*><uintptr_t>cuml_array.ptr
-    data.totalSize = <size_t>cuml_array.size*8
+    n_elements = math.prod(cuml_array.shape)
+    data.totalSize = <size_t>n_elements*8
     return data
 
 

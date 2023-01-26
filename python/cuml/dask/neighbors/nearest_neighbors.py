@@ -209,7 +209,7 @@ class NearestNeighbors(BaseEstimator):
                         worker_info[worker]["rank"],
                         n_neighbors,
                         sparse,
-                        False,
+                        True,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
                        for idx, worker in enumerate(comms.worker_addresses)])
