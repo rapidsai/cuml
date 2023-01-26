@@ -21,6 +21,7 @@ HOST DEVICE auto evaluate_tree(
     io_t const* __restrict__ row
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, typename node_t::index_type const>;
+  // TODO(wphicks): FIX THIS BEFORE MERGE
 #ifndef __CUDACC__
   using float2 = node_t;
 #endif
