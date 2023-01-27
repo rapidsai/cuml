@@ -6,5 +6,4 @@ User Guide
 
    estimator_intro.ipynb
    pickling_cuml_models.ipynb
-   device_selection_support.rst
 
