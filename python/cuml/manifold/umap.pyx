@@ -278,6 +278,11 @@ class UMAP(UniversalBase,
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Device Selection (Experimental)
+    -------------------------------
+    This estimator supports cuML's device selection capabilities. It can be configured
+    to run on either the CPU or the GPU. To learn more, please see :ref:`device-selection`.
+
     Notes
     -----
     This module is heavily based on Leland McInnes' reference UMAP package.

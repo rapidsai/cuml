@@ -471,6 +471,10 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         be available if `gen_min_span_tree` was set to True on object creation.
         Even then in some optimized cases a tree may not be generated.
 
+    Device Selection (Experimental)
+    -------------------------------
+    This estimator supports cuML's device selection capabilities. It can be configured
+    to run on either the CPU or the GPU. To learn more, please see :ref:`device-selection`.
     """
     _cpu_estimator_import_path = 'hdbscan.HDBSCAN'
 

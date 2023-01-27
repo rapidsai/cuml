@@ -231,6 +231,11 @@ class LinearRegression(LinearPredictMixin,
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
 
+    Device Selection (Experimental)
+    -------------------------------
+    This estimator supports cuML's device selection capabilities. It can be configured
+    to run on either the CPU or the GPU. To learn more, please see :ref:`device-selection`.
+
     Notes
     -----
     LinearRegression suffers from multicollinearity (when columns are
