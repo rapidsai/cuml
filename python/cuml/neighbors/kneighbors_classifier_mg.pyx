@@ -112,7 +112,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
+        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
@@ -221,7 +221,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
+        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
