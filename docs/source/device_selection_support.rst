@@ -13,8 +13,6 @@ cuML provides experimental support for running selected estimators and operators
      - Operator
    * - Clustering
      - HDBSCAN
-   * - Clustering
-     - KMeans
    * - Dimensionality Reduction and Manifold Learning
      - PCA
    * - Dimensionality Reduction and Manifold Learning
@@ -22,22 +20,14 @@ cuML provides experimental support for running selected estimators and operators
    * - Dimensionality Reduction and Manifold Learning
      - UMAP
    * - Neighbors
-     - KNeighborsClassifier
-   * - Neighbors
-     - KNeighborsRegressor
-   * - Neighbors
      - NearestNeighbors
+   * - Regression and Classification
+     - ElasticNet
+   * - Regression and Classification
+     - Lasso
    * - Regression and Classification
      - LinearRegression
    * - Regression and Classification
      - LogisticRegression
    * - Regression and Classification
-     - Lasso
-   * - Regression and Classification
      - Ridge
-   * - Regression and Classification
-     - ElasticNet
-   * - Regression and Classification
-     - KNeighborsRegressor
-   * - Regression and Classification
-     - KNeighborsClassifier
