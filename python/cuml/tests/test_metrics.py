@@ -780,6 +780,8 @@ def test_roc_auc_score_at_limits():
         roc_auc_score(y_true, y_pred)
 
 
+@pytest.mark.skip(reason="shape discrepancy with sklearn 1.2"
+                         "https://github.com/rapidsai/cuml/issues/5164")
 def test_precision_recall_curve():
     y_true = np.array([0, 0, 1, 1])
     y_score = np.array([0.1, 0.4, 0.35, 0.8])
@@ -815,6 +817,8 @@ def test_precision_recall_curve_at_limits():
         precision_recall_curve(y_true, y_pred)
 
 
+@pytest.mark.skip(reason="shape discrepancy with sklearn 1.2"
+                         "https://github.com/rapidsai/cuml/issues/5164")
 @pytest.mark.parametrize('n_samples', [50, 500000])
 @pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32, np.float64])
 def test_precision_recall_curve_random(n_samples, dtype):
