@@ -52,7 +52,24 @@ cuML provides experimental support for running selected estimators and operators
    * - Regression and Classification
      - Ridge
 
-If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution via context managers or global configuration.
+If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration. 
+
+.. code-block:: python
+
+   import cuml.linear_model.Lasso
+   from cuml.common.device_selection import using_device_type, set_global_device_type
+
+   with using_device_type("CPU"): # Alternatively, using_device_type("GPU")
+       model = Lasso()
+       model.fit(X_train, y_train)
+       predictions = model.predict(X_test)
+
+    # All operators supporting CPU execution will run on the CPU after this configuration
+    set_global_device_type("CPU")
+    
+    model = Lasso()
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
 
 .. _verbosity-levels:
 
