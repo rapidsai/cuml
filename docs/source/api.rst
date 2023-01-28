@@ -56,7 +56,7 @@ If a CUDA-enabled GPU is available on the system, cuML will default to using it.
 
 .. code-block:: python
 
-   import cuml.linear_model.Lasso
+   from cuml.linear_model import Lasso
    from cuml.common.device_selection import using_device_type, set_global_device_type
 
    with using_device_type("CPU"): # Alternatively, using_device_type("GPU")
