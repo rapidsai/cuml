@@ -36,12 +36,6 @@ np = cpu_only_import('numpy')
 
 cp = gpu_only_import('cupy')
 
-test_datasets = {
-    "digits": datasets.load_digits(),
-    "boston": datasets.load_boston(),
-    "diabetes": datasets.load_diabetes(),
-    "cancer": datasets.load_breast_cancer(),
-}
 
 dataset_names = ['noisy_circles', 'noisy_moons', 'varied']
 
@@ -208,14 +202,13 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
 @pytest.mark.skipif(cp.cuda.driver.get_build_version() <= 11020,
                     reason="Test failing on driver 11.2")
-@pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
 @pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 150, 0),
                                                              (50, 25, 0)])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
-def test_hdbscan_sklearn_datasets(dataset,
+def test_hdbscan_sklearn_datasets(test_datasets,
                                   connectivity,
                                   cluster_selection_epsilon,
                                   cluster_selection_method,
@@ -225,7 +218,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     min_samples, min_cluster_size, max_cluster_size = \
         min_samples_cluster_size_bounds
 
-    X = dataset.data
+    X = test_datasets.data
 
     cuml_agg = HDBSCAN(verbose=logger.level_info,
                        allow_single_cluster=allow_single_cluster,
@@ -261,7 +254,6 @@ def test_hdbscan_sklearn_datasets(dataset,
                        rtol=0.1, atol=0.1)
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
 @pytest.mark.parametrize('min_samples', [150, 50, 5, 400])
 @pytest.mark.parametrize('min_cluster_size', [150, 25, 5, 250])
@@ -269,7 +261,7 @@ def test_hdbscan_sklearn_datasets(dataset,
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
-def test_hdbscan_sklearn_extract_clusters(dataset,
+def test_hdbscan_sklearn_extract_clusters(test_datasets,
                                           connectivity,
                                           cluster_selection_epsilon,
                                           cluster_selection_method,
@@ -277,9 +269,7 @@ def test_hdbscan_sklearn_extract_clusters(dataset,
                                           min_cluster_size,
                                           max_cluster_size,
                                           allow_single_cluster):
-
-    X = dataset.data
-
+    X = test_datasets.data
     cuml_agg = HDBSCAN(verbose=logger.level_info,
                        allow_single_cluster=allow_single_cluster,
                        gen_min_span_tree=True,
