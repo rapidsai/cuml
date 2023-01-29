@@ -50,8 +50,10 @@ PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray', alt=np_ndarray)
 CudfSeries = gpu_only_import_from('cudf', 'Series', alt=PandasSeries)
 CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame', alt=PandasDataFrame)
-DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series', alt=PandasSeries)
-DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame', alt=PandasDataFrame)
+DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series',
+                                      alt=PandasSeries)
+DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame',
+                                         alt=PandasDataFrame)
 scipy_isspmatrix = safe_import_from(
     'scipy.sparse',
     'isspmatrix',

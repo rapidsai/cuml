@@ -14,17 +14,15 @@
 # limitations under the License.
 #
 
-# GPU_ENABLED = True
-# CPU_ENABLED = True
 
 try:
-    import rmm
+    import rmm  # noqa: F401
     GPU_ENABLED = True
 except ImportError:
     GPU_ENABLED = False
 
 try:
-    import sklearn
+    import sklearn  # noqa: F401
     CPU_ENABLED = True
 except ImportError:
     CPU_ENABLED = False
