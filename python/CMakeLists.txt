@@ -18,25 +18,31 @@ include(../fetch_rapids.cmake)
 
 set(CUML_VERSION 23.02.00)
 
-# We always need CUDA for cuML because the raft dependency brings in a
-# header-only cuco dependency that enables CUDA unconditionally.
-include(rapids-cuda)
-rapids_cuda_init_architectures(cuml-python)
+option(CUML_CPU "Build only cuML CPU Python components." OFF)
+
+set(language_list "C;CXX")
+
+if(NOT CUML_CPU)
+  # We always need CUDA for cuML because the raft dependency brings in a
+  # header-only cuco dependency that enables CUDA unconditionally.
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(cuml-python)
+  list(APPEND language_list "CUDA")
+endif()
 
 project(
-  cuml-python
-  VERSION ${CUML_VERSION}
-  LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
-            # language to be enabled here. The test project that is built in scikit-build to verify
-            # various linking options for the python library is hardcoded to build with C, so until
-            # that is fixed we need to keep C.
-            C CXX CUDA
+    cuml-python
+    VERSION ${CUML_VERSION}
+    LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
+              # language to be enabled here. The test project that is built in scikit-build to verify
+              # various linking options for the python library is hardcoded to build with C, so until
+              # that is fixed we need to keep C.
+              ${language_list}
 )
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
-option(CUML_CPU "Build only cuML CPU Python components." OFF)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
