@@ -19,6 +19,7 @@ import copy
 import operator
 import pickle
 
+from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
@@ -619,7 +620,7 @@ class CumlArray():
 
         if output_type == 'array':
             if output_mem_type == MemoryType.host:
-                if self._mem_type == MemoryType.host:
+                if self._mem_type == MemoryType.host or not GPU_ENABLED:
                     return np.asarray(
                         self, dtype=output_dtype, order=self.order
                     )

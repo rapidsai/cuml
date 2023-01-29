@@ -17,10 +17,12 @@ import functools
 import typing
 
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.device_support import GPU_ENABLED
 cp = gpu_only_import('cupy')
 
-# Those are the only data types supported by cupyx.scipy.sparse matrices.
-CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
+if GPU_ENABLED:
+    # Those are the only data types supported by cupyx.scipy.sparse matrices.
+    CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
 
 # Use _DecoratorType as a type variable for decorators. See:
 # https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260

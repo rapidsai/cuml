@@ -19,82 +19,87 @@
 
 import sys
 
-from libcpp.string cimport string
-from libcpp cimport bool
+IF GPUBUILD == 0:
+    import logging
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
-    cdef cppclass Logger:
-        @staticmethod
-        Logger& get()
-        void setLevel(int level)
-        void setPattern(const string& pattern)
-        void setCallback(void(*callback)(int, char*))
-        void setFlush(void(*flush)())
-        bool shouldLogFor(int level) const
-        int getLevel() const
-        string getPattern() const
-        void flush()
+IF GPUBUILD == 1:
+    from libcpp.string cimport string
+    from libcpp cimport bool
 
 
-cdef extern from "cuml/common/logger.hpp" nogil:
-    void CUML_LOG_TRACE(const char* fmt, ...)
-    void CUML_LOG_DEBUG(const char* fmt, ...)
-    void CUML_LOG_INFO(const char* fmt, ...)
-    void CUML_LOG_WARN(const char* fmt, ...)
-    void CUML_LOG_ERROR(const char* fmt, ...)
-    void CUML_LOG_CRITICAL(const char* fmt, ...)
-
-    cdef int CUML_LEVEL_TRACE
-    cdef int CUML_LEVEL_DEBUG
-    cdef int CUML_LEVEL_INFO
-    cdef int CUML_LEVEL_WARN
-    cdef int CUML_LEVEL_ERROR
-    cdef int CUML_LEVEL_CRITICAL
-    cdef int CUML_LEVEL_OFF
+    cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+        cdef cppclass Logger:
+            @staticmethod
+            Logger& get()
+            void setLevel(int level)
+            void setPattern(const string& pattern)
+            void setCallback(void(*callback)(int, char*))
+            void setFlush(void(*flush)())
+            bool shouldLogFor(int level) const
+            int getLevel() const
+            string getPattern() const
+            void flush()
 
 
-"""Enables all log messages upto and including `trace()`"""
-level_trace = CUML_LEVEL_TRACE
+    cdef extern from "cuml/common/logger.hpp" nogil:
+        void CUML_LOG_TRACE(const char* fmt, ...)
+        void CUML_LOG_DEBUG(const char* fmt, ...)
+        void CUML_LOG_INFO(const char* fmt, ...)
+        void CUML_LOG_WARN(const char* fmt, ...)
+        void CUML_LOG_ERROR(const char* fmt, ...)
+        void CUML_LOG_CRITICAL(const char* fmt, ...)
 
-"""Enables all log messages upto and including `debug()`"""
-level_debug = CUML_LEVEL_DEBUG
-
-"""Enables all log messages upto and including `info()`"""
-level_info = CUML_LEVEL_INFO
-
-"""Enables all log messages upto and including `warn()`"""
-level_warn = CUML_LEVEL_WARN
-
-"""Enables all log messages upto and include `error()`"""
-level_error = CUML_LEVEL_ERROR
-
-"""Enables only `critical()` messages"""
-level_critical = CUML_LEVEL_CRITICAL
-
-"""Disables all log messages"""
-level_off = CUML_LEVEL_OFF
-
-cdef void _log_callback(int lvl, const char * msg) with gil:
-    """
-    Default spdlogs callback function to redirect logs correctly to sys.stdout
-
-    Parameters
-    ----------
-    lvl : int
-        Level of the logging message as defined by spdlogs
-    msg : char *
-        Message to be logged
-    """
-    print(msg.decode('utf-8'), end='')
+        cdef int CUML_LEVEL_TRACE
+        cdef int CUML_LEVEL_DEBUG
+        cdef int CUML_LEVEL_INFO
+        cdef int CUML_LEVEL_WARN
+        cdef int CUML_LEVEL_ERROR
+        cdef int CUML_LEVEL_CRITICAL
+        cdef int CUML_LEVEL_OFF
 
 
-cdef void _log_flush() with gil:
-    """
-    Default spdlogs callback function to flush logs
-    """
-    if sys.stdout is not None:
-        sys.stdout.flush()
+    """Enables all log messages upto and including `trace()`"""
+    level_trace = CUML_LEVEL_TRACE
+
+    """Enables all log messages upto and including `debug()`"""
+    level_debug = CUML_LEVEL_DEBUG
+
+    """Enables all log messages upto and including `info()`"""
+    level_info = CUML_LEVEL_INFO
+
+    """Enables all log messages upto and including `warn()`"""
+    level_warn = CUML_LEVEL_WARN
+
+    """Enables all log messages upto and include `error()`"""
+    level_error = CUML_LEVEL_ERROR
+
+    """Enables only `critical()` messages"""
+    level_critical = CUML_LEVEL_CRITICAL
+
+    """Disables all log messages"""
+    level_off = CUML_LEVEL_OFF
+
+    cdef void _log_callback(int lvl, const char * msg) with gil:
+        """
+        Default spdlogs callback function to redirect logs correctly to sys.stdout
+
+        Parameters
+        ----------
+        lvl : int
+            Level of the logging message as defined by spdlogs
+        msg : char *
+            Message to be logged
+        """
+        print(msg.decode('utf-8'), end='')
+
+
+    cdef void _log_flush() with gil:
+        """
+        Default spdlogs callback function to flush logs
+        """
+        if sys.stdout is not None:
+            sys.stdout.flush()
 
 
 class LogLevelSetter:
@@ -107,7 +112,8 @@ class LogLevelSetter:
         pass
 
     def __exit__(self, a, b, c):
-        Logger.get().setLevel(<int>self.prev_log_level)
+        IF GPUBUILD == 1:
+            Logger.get().setLevel(<int>self.prev_log_level)
 
 
 def set_level(level):
@@ -140,10 +146,11 @@ def set_level(level):
         This is useful if one wants to temporarily set a different logging
         level for a code section, as described in the example section above.
     """
-    cdef int prev = Logger.get().getLevel()
-    context_object = LogLevelSetter(prev)
-    Logger.get().setLevel(<int>level)
-    return context_object
+    IF GPUBUILD == 1:
+        cdef int prev = Logger.get().getLevel()
+        context_object = LogLevelSetter(prev)
+        Logger.get().setLevel(<int>level)
+        return context_object
 
 
 class PatternSetter:
@@ -156,8 +163,9 @@ class PatternSetter:
         pass
 
     def __exit__(self, a, b, c):
-        cdef string s = self.prev_pattern.encode("utf-8")
-        Logger.get().setPattern(s)
+        IF GPUBUILD == 1:
+            cdef string s = self.prev_pattern.encode("utf-8")
+            Logger.get().setPattern(s)
 
 
 def set_pattern(pattern):
@@ -189,11 +197,12 @@ def set_pattern(pattern):
         This is useful if one wants to temporarily set a different logging
         pattern for a code section, as described in the example section above.
     """
-    cdef string prev = Logger.get().getPattern()
-    context_object = PatternSetter(prev.decode("UTF-8"))
-    cdef string s = pattern.encode("UTF-8")
-    Logger.get().setPattern(s)
-    return context_object
+    IF GPUBUILD == 1:
+        cdef string prev = Logger.get().getPattern()
+        context_object = PatternSetter(prev.decode("UTF-8"))
+        cdef string s = pattern.encode("UTF-8")
+        Logger.get().setPattern(s)
+        return context_object
 
 
 def should_log_for(level):
@@ -217,7 +226,8 @@ def should_log_for(level):
         Logging level to be set. \
         It must be one of cuml.common.logger.level_*
     """
-    return Logger.get().shouldLogFor(<int>level)
+    IF GPUBUILD == 1:
+        return Logger.get().shouldLogFor(<int>level)
 
 
 def trace(msg):
@@ -236,8 +246,11 @@ def trace(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg.encode("UTF-8")
-    CUML_LOG_TRACE(s.c_str())
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        CUML_LOG_TRACE(s.c_str())
+    ELSE:
+        logging.debug(msg)
 
 
 def debug(msg):
@@ -256,8 +269,11 @@ def debug(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg.encode("UTF-8")
-    CUML_LOG_DEBUG(s.c_str())
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        CUML_LOG_DEBUG(s.c_str())
+    ELSE:
+        logging.debug(msg)
 
 
 def info(msg):
@@ -276,8 +292,11 @@ def info(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg.encode("UTF-8")
-    CUML_LOG_INFO(s.c_str())
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        CUML_LOG_INFO(s.c_str())
+    ELSE:
+        logging.info(msg)
 
 
 def warn(msg):
@@ -296,8 +315,11 @@ def warn(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg.encode("UTF-8")
-    CUML_LOG_WARN(s.c_str())
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        CUML_LOG_WARN(s.c_str())
+    ELSE:
+        logging.warning(msg)
 
 
 def error(msg):
@@ -316,8 +338,11 @@ def error(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg.encode("UTF-8")
-    CUML_LOG_ERROR(s.c_str())
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        CUML_LOG_ERROR(s.c_str())
+    ELSE:
+        logging.error(msg)
 
 
 def critical(msg):
@@ -336,17 +361,22 @@ def critical(msg):
     msg : str
         Message to be logged.
     """
-    cdef string s = msg.encode("UTF-8")
-    CUML_LOG_CRITICAL(s.c_str())
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        CUML_LOG_CRITICAL(s.c_str())
+    ELSE:
+        logging.critical(msg)
 
 
 def flush():
     """
     Flush the logs.
     """
-    Logger.get().flush()
+    IF GPUBUILD == 1:
+        Logger.get().flush()
 
 
-# Set callback functions to handle redirected sys.stdout in Python
-Logger.get().setCallback(_log_callback)
-Logger.get().setFlush(_log_flush)
+IF GPUBUILD == 1:
+    # Set callback functions to handle redirected sys.stdout in Python
+    Logger.get().setCallback(_log_callback)
+    Logger.get().setFlush(_log_flush)

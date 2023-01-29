@@ -39,8 +39,6 @@ from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.common.device_selection import using_device_type
 
 
-from cuml.common.pointer_utils import device_of_gpu_matrix
-
 # legacy to be removed after complete CumlAray migration
 
 from cuml.internals.input_utils import sparse_scipy_to_cp

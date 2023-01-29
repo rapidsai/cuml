@@ -26,7 +26,6 @@ if (is_cuda_available()):
     from cuml.cluster.dbscan import DBSCAN
     from cuml.cluster.kmeans import KMeans
     from cuml.cluster.agglomerative import AgglomerativeClustering
-    from cuml.cluster.hdbscan import HDBSCAN
 
     from cuml.datasets.arima import make_arima
     from cuml.datasets.blobs import make_blobs
@@ -49,20 +48,12 @@ if (is_cuda_available()):
     import cuml.feature_extraction
     from cuml.fil import fil
 
-    from cuml.internals.global_settings import (
-        GlobalSettings, _global_settings_data)
-
     from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
-    from cuml.linear_model.elastic_net import ElasticNet
-    from cuml.linear_model.lasso import Lasso
-    from cuml.linear_model.logistic_regression import LogisticRegression
     from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
     from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
-    from cuml.linear_model.ridge import Ridge
 
     from cuml.manifold.t_sne import TSNE
-    from cuml.manifold.umap import UMAP
     from cuml.metrics.accuracy import accuracy_score
     from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
     from cuml.metrics.regression import r2_score
@@ -83,9 +74,6 @@ if (is_cuda_available()):
     from cuml.random_projection.random_projection import \
         johnson_lindenstrauss_min_dim
 
-    from cuml.solvers.cd import CD
-    from cuml.solvers.sgd import SGD
-    from cuml.solvers.qn import QN
     from cuml.svm import SVC
     from cuml.svm import SVR
     from cuml.svm import LinearSVC
@@ -97,17 +85,32 @@ if (is_cuda_available()):
     from cuml.tsa.holtwinters import ExponentialSmoothing
 
     from cuml.common.pointer_utils import device_of_gpu_matrix
-    from cuml.internals.memory_utils import (
-        set_global_output_type, using_output_type
-    )
 
 # Universal packages
 
+from cuml.internals.global_settings import (
+        GlobalSettings, _global_settings_data)
+
+from cuml.internals.memory_utils import (
+    set_global_output_type, using_output_type
+)
+
+from cuml.cluster.hdbscan import HDBSCAN
+
+from cuml.linear_model.elastic_net import ElasticNet
+from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
+from cuml.linear_model.logistic_regression import LogisticRegression
+from cuml.linear_model.ridge import Ridge
+
+from cuml.manifold.umap import UMAP
+
+from cuml.solvers.cd import CD
+from cuml.solvers.sgd import SGD
+from cuml.solvers.qn import QN
 
 # Import verion. Remove at end of file
 from ._version import get_versions
-
 
 # Version configuration
 __version__ = get_versions()['version']

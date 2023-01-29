@@ -38,7 +38,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 import cuml.internals.logger as logger
-from cuml.decomposition.utils cimport *
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -53,6 +52,7 @@ from cuml.internals.api_decorators import enable_device_interop
 
 
 IF GPUBUILD == 1:
+    from cuml.decomposition.utils cimport *
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 
@@ -109,9 +109,9 @@ IF GPUBUILD == 1:
                                const paramsPCA &prms) except +
 
 
-class Solver(IntEnum):
-    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
-    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+    class Solver(IntEnum):
+        COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+        COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
 class PCA(UniversalBase,
@@ -317,31 +317,33 @@ class PCA(UniversalBase,
         self._sparse_model = None
 
     def _get_algorithm_c_name(self, algorithm):
-        algo_map = {
-            'full': Solver.COV_EIG_DQ,
-            'auto': Solver.COV_EIG_DQ,
-            # 'arpack': NOT_SUPPORTED,
-            # 'randomized': NOT_SUPPORTED,
-            'jacobi': Solver.COV_EIG_JACOBI
-        }
-        if algorithm not in algo_map:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(algorithm))
+        IF GPUBUILD == 1:
+            algo_map = {
+                'full': Solver.COV_EIG_DQ,
+                'auto': Solver.COV_EIG_DQ,
+                # 'arpack': NOT_SUPPORTED,
+                # 'randomized': NOT_SUPPORTED,
+                'jacobi': Solver.COV_EIG_JACOBI
+            }
+            if algorithm not in algo_map:
+                msg = "algorithm {!r} is not supported"
+                raise TypeError(msg.format(algorithm))
 
-        return algo_map[algorithm]
+            return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsPCA *params = new paramsPCA()
-        params.n_components = self.n_components_
-        params.n_rows = n_rows
-        params.n_cols = n_cols
-        params.whiten = self.whiten
-        params.n_iterations = self.iterated_power
-        params.tol = self.tol
-        params.algorithm = <solver> (<underlying_type_t_solver> (
-            self.c_algorithm))
+        IF GPUBUILD == 1:
+            cpdef paramsPCA *params = new paramsPCA()
+            params.n_components = self.n_components_
+            params.n_rows = n_rows
+            params.n_cols = n_cols
+            params.whiten = self.whiten
+            params.n_iterations = self.iterated_power
+            params.tol = self.tol
+            params.algorithm = <solver> (<underlying_type_t_solver> (
+                self.c_algorithm))
 
-        return <size_t>params
+            return <size_t>params
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -437,34 +439,34 @@ class PCA(UniversalBase,
         cdef uintptr_t input_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
-        cdef paramsPCA *params = <paramsPCA*><size_t> \
-            self._build_params(self.n_samples_, self.n_features_in_)
-
-        if params.n_components > self.n_features_in_:
-            raise ValueError('Number of components should not be greater than'
-                             'the number of columns in the data')
-
-        # Calling _initialize_arrays, guarantees everything is CumlArray
-        self._initialize_arrays(params.n_components,
-                                params.n_rows, params.n_cols)
-
-        cdef uintptr_t comp_ptr = self.components_.ptr
-
-        cdef uintptr_t explained_var_ptr = \
-            self.explained_variance_.ptr
-
-        cdef uintptr_t explained_var_ratio_ptr = \
-            self.explained_variance_ratio_.ptr
-
-        cdef uintptr_t singular_vals_ptr = \
-            self.singular_values_.ptr
-
-        cdef uintptr_t _mean_ptr = self.mean_.ptr
-
-        cdef uintptr_t noise_vars_ptr = \
-            self.noise_variance_.ptr
-
         IF GPUBUILD == 1:
+            cdef paramsPCA *params = <paramsPCA*><size_t> \
+                self._build_params(self.n_samples_, self.n_features_in_)
+
+            if params.n_components > self.n_features_in_:
+                raise ValueError('Number of components should not be greater than'
+                                 'the number of columns in the data')
+
+            # Calling _initialize_arrays, guarantees everything is CumlArray
+            self._initialize_arrays(params.n_components,
+                                    params.n_rows, params.n_cols)
+
+            cdef uintptr_t comp_ptr = self.components_.ptr
+
+            cdef uintptr_t explained_var_ptr = \
+                self.explained_variance_.ptr
+
+            cdef uintptr_t explained_var_ratio_ptr = \
+                self.explained_variance_ratio_.ptr
+
+            cdef uintptr_t singular_vals_ptr = \
+                self.singular_values_.ptr
+
+            cdef uintptr_t _mean_ptr = self.mean_.ptr
+
+            cdef uintptr_t noise_vars_ptr = \
+                self.noise_variance_.ptr
+
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
                 pcaFit(handle_[0],
@@ -582,22 +584,22 @@ class PCA(UniversalBase,
 
         cdef uintptr_t _trans_input_ptr = X_m.ptr
 
-        # todo: check n_cols and dtype
-        cpdef paramsPCA params
-        params.n_components = self.n_components_
-        params.n_rows = n_rows
-        params.n_cols = self.n_features_in_
-        params.whiten = self.whiten
-
-        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=dtype.type)
-
-        cdef uintptr_t input_ptr = input_data.ptr
-        cdef uintptr_t components_ptr = self.components_.ptr
-        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
-        cdef uintptr_t _mean_ptr = self.mean_.ptr
-
         IF GPUBUILD == 1:
+            # todo: check n_cols and dtype
+            cpdef paramsPCA params
+            params.n_components = self.n_components_
+            params.n_rows = n_rows
+            params.n_cols = self.n_features_in_
+            params.whiten = self.whiten
+
+            input_data = CumlArray.zeros((params.n_rows, params.n_cols),
+                                         dtype=dtype.type)
+
+            cdef uintptr_t input_ptr = input_data.ptr
+            cdef uintptr_t components_ptr = self.components_.ptr
+            cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
+            cdef uintptr_t _mean_ptr = self.mean_.ptr
+
             cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
                 pcaInverseTransform(h_[0],
@@ -616,11 +618,11 @@ class PCA(UniversalBase,
                                     <double*> input_ptr,
                                     params)
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
+            # make sure the previously scheduled gpu tasks are complete before the
+            # following transfers start
+            self.handle.sync()
 
-        return input_data
+            return input_data
 
     @cuml.internals.api_base_return_array_skipall
     def _sparse_transform(self, X) -> CumlArray:
@@ -679,24 +681,24 @@ class PCA(UniversalBase,
 
         cdef uintptr_t input_ptr = X_m.ptr
 
-        # todo: check dtype
-        cpdef paramsPCA params
-        params.n_components = self.n_components_
-        params.n_rows = n_rows
-        params.n_cols = n_cols
-        params.whiten = self.whiten
-
-        t_input_data = \
-            CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype.type, index=X_m.index)
-
-        cdef uintptr_t _trans_input_ptr = t_input_data.ptr
-        cdef uintptr_t components_ptr = self.components_.ptr
-        cdef uintptr_t singular_vals_ptr = \
-            self.singular_values_.ptr
-        cdef uintptr_t _mean_ptr = self.mean_.ptr
-
         IF GPUBUILD == 1:
+            # todo: check dtype
+            cpdef paramsPCA params
+            params.n_components = self.n_components_
+            params.n_rows = n_rows
+            params.n_cols = n_cols
+            params.whiten = self.whiten
+
+            t_input_data = \
+                CumlArray.zeros((params.n_rows, params.n_components),
+                                dtype=dtype.type, index=X_m.index)
+
+            cdef uintptr_t _trans_input_ptr = t_input_data.ptr
+            cdef uintptr_t components_ptr = self.components_.ptr
+            cdef uintptr_t singular_vals_ptr = \
+                self.singular_values_.ptr
+            cdef uintptr_t _mean_ptr = self.mean_.ptr
+
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
                 pcaTransform(handle_[0],
@@ -715,11 +717,11 @@ class PCA(UniversalBase,
                              <double*> _mean_ptr,
                              params)
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
+            # make sure the previously scheduled gpu tasks are complete before the
+            # following transfers start
+            self.handle.sync()
 
-        return t_input_data
+            return t_input_data
 
     def get_param_names(self):
         return super().get_param_names() + \

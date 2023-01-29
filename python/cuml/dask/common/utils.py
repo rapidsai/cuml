@@ -16,7 +16,7 @@
 from threading import Lock
 from asyncio import InvalidStateError
 from cuml.internals.import_utils import check_min_dask_version
-from cuml.common import device_of_gpu_matrix
+from cuml.common.pointer_utils import device_of_gpu_matrix
 from dask.distributed import default_client, wait
 import time
 import random

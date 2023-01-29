@@ -30,7 +30,6 @@ from warnings import warn
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
-from rmm._lib.device_uvector cimport device_uvector
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -43,10 +42,11 @@ from cuml.internals.import_utils import has_hdbscan_plots
 from cuml.internals.import_utils import has_hdbscan_prediction
 
 import cuml
-from cuml.metrics.distance_type cimport DistanceType
 
 
 IF GPUBUILD == 1:
+    from cuml.metrics.distance_type cimport DistanceType
+    from rmm._lib.device_uvector cimport device_uvector
     from pylibraft.common.handle import Handle
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
@@ -167,14 +167,14 @@ IF GPUBUILD == 1:
                                        int max_cluster_size,
                                        float cluster_selection_epsilon)
 
-_metrics_mapping = {
-    'l1': DistanceType.L1,
-    'cityblock': DistanceType.L1,
-    'manhattan': DistanceType.L1,
-    'l2': DistanceType.L2SqrtExpanded,
-    'euclidean': DistanceType.L2SqrtExpanded,
-    'cosine': DistanceType.CosineExpanded
-}
+    _metrics_mapping = {
+        'l1': DistanceType.L1,
+        'cityblock': DistanceType.L1,
+        'manhattan': DistanceType.L1,
+        'l2': DistanceType.L2SqrtExpanded,
+        'euclidean': DistanceType.L2SqrtExpanded,
+        'cosine': DistanceType.CosineExpanded
+    }
 
 
 def _cuml_array_from_ptr(ptr, buf_size, shape, dtype, owner):
@@ -313,16 +313,17 @@ def condense_hierarchy(dendrogram,
 
         del condensed_tree
 
-    return condensed_tree_host
+        return condensed_tree_host
 
 
 def delete_hdbscan_output(obj):
-    cdef hdbscan_output *output
-    if hasattr(obj, "hdbscan_output_"):
-        output = <hdbscan_output*>\
-                  <uintptr_t> obj.hdbscan_output_
-        del output
-        del obj.hdbscan_output_
+    IF GPUBUILD == 1:
+        cdef hdbscan_output *output
+        if hasattr(obj, "hdbscan_output_"):
+            output = <hdbscan_output*>\
+                      <uintptr_t> obj.hdbscan_output_
+            del output
+            del obj.hdbscan_output_
 
 
 class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
@@ -693,68 +694,69 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
     def __dealloc__(self):
         delete_hdbscan_output(self)
-        cdef CondensedHierarchy[int, float]* condensed_tree_ptr
-        if hasattr(self, "condensed_tree_ptr"):
-            condensed_tree_ptr = <CondensedHierarchy[int, float]*> \
-                                     <uintptr_t> self.condensed_tree_ptr
-            free(condensed_tree_ptr)
-            del self.condensed_tree_ptr
-        cdef PredictionData* prediction_data_ptr
-        if hasattr(self, "prediction_data_ptr"):
-            prediction_data_ptr = \
-                <PredictionData*> <uintptr_t> self.prediction_data_ptr
-            free(prediction_data_ptr)
-            del self.prediction_data_ptr
-        # this is only constructed when trying to gpu predict
-        # with a cpu model
-        if hasattr(self, "inverse_label_map_ptr"):
-            inverse_label_map_ptr = \
-                <device_uvector[int]*> <uintptr_t> self.inverse_label_map_ptr
-            free(inverse_label_map_ptr)
-            del self.inverse_label_map_ptr
+        IF GPUBUILD == 1:
+            cdef CondensedHierarchy[int, float]* condensed_tree_ptr
+            if hasattr(self, "condensed_tree_ptr"):
+                condensed_tree_ptr = <CondensedHierarchy[int, float]*> \
+                                         <uintptr_t> self.condensed_tree_ptr
+                free(condensed_tree_ptr)
+                del self.condensed_tree_ptr
+            cdef PredictionData* prediction_data_ptr
+            if hasattr(self, "prediction_data_ptr"):
+                prediction_data_ptr = \
+                    <PredictionData*> <uintptr_t> self.prediction_data_ptr
+                free(prediction_data_ptr)
+                del self.prediction_data_ptr
+            # this is only constructed when trying to gpu predict
+            # with a cpu model
+            if hasattr(self, "inverse_label_map_ptr"):
+                inverse_label_map_ptr = \
+                    <device_uvector[int]*> <uintptr_t> self.inverse_label_map_ptr
+                free(inverse_label_map_ptr)
+                del self.inverse_label_map_ptr
 
     def _construct_output_attributes(self):
+        IF GPUBUILD == 1:
+            cdef hdbscan_output *hdbscan_output_ = \
+                    <hdbscan_output*><size_t>self.hdbscan_output_
 
-        cdef hdbscan_output *hdbscan_output_ = \
-                <hdbscan_output*><size_t>self.hdbscan_output_
+            self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
-        self.n_clusters_ = hdbscan_output_.get_n_clusters()
+            if self.n_clusters_ > 0:
+                self.cluster_persistence_ = _cuml_array_from_ptr(
+                    <size_t>hdbscan_output_.get_stabilities(),
+                    hdbscan_output_.get_n_clusters() * sizeof(float),
+                    (1, hdbscan_output_.get_n_clusters()), "float32", self)
+            else:
+                self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
 
-        if self.n_clusters_ > 0:
-            self.cluster_persistence_ = _cuml_array_from_ptr(
-                <size_t>hdbscan_output_.get_stabilities(),
-                hdbscan_output_.get_n_clusters() * sizeof(float),
-                (1, hdbscan_output_.get_n_clusters()), "float32", self)
-        else:
-            self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
+            n_condensed_tree_edges = \
+                hdbscan_output_.get_condensed_tree().get_n_edges()
 
-        n_condensed_tree_edges = \
-            hdbscan_output_.get_condensed_tree().get_n_edges()
+            self.condensed_parent_ = _construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_parents(),
+                n_condensed_tree_edges)
 
-        self.condensed_parent_ = _construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_parents(),
-            n_condensed_tree_edges)
+            self.condensed_child_ = _construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_children(),
+                n_condensed_tree_edges)
 
-        self.condensed_child_ = _construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_children(),
-            n_condensed_tree_edges)
+            self.condensed_lambdas_ = \
+                _construct_condensed_tree_attribute(
+                    <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(),
+                    n_condensed_tree_edges, "float32")
 
-        self.condensed_lambdas_ = \
-            _construct_condensed_tree_attribute(
-                <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(),
-                n_condensed_tree_edges, "float32")
+            self.condensed_sizes_ = _construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_sizes(),
+                n_condensed_tree_edges)
 
-        self.condensed_sizes_ = _construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_sizes(),
-            n_condensed_tree_edges)
-
-        if self.n_clusters_ > 0:
-            self.inverse_label_map = _cuml_array_from_ptr(
-                <size_t>hdbscan_output_.get_inverse_label_map(),
-                self.n_clusters_ * sizeof(int),
-                (self.n_clusters_, ), "int32", self)
-        else:
-            self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
+            if self.n_clusters_ > 0:
+                self.inverse_label_map = _cuml_array_from_ptr(
+                    <size_t>hdbscan_output_.get_inverse_label_map(),
+                    self.n_clusters_ * sizeof(int),
+                    (self.n_clusters_, ), "int32", self)
+            else:
+                self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
 
     @generate_docstring()
     @enable_device_interop
@@ -918,13 +920,11 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t lambdas_ptr = lambdas.ptr
         cdef uintptr_t probabilities_ptr = self.probabilities_test.ptr
 
-        if self.cluster_selection_method == 'eom':
-            cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
-        elif self.cluster_selection_method == 'leaf':
-            cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
-
         IF GPUBUILD == 1:
-
+            if self.cluster_selection_method == 'eom':
+                cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+            elif self.cluster_selection_method == 'leaf':
+                cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
             _extract_clusters(handle_[0],

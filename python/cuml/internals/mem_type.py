@@ -23,9 +23,9 @@ from cuml.internals.safe_imports import (
 )
 
 cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
 cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
 np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy', alt=np)
 pandas = cpu_only_import('pandas')
 scipy_sparse = cpu_only_import('scipy.sparse')
 

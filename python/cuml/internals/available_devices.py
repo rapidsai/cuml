@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     gpu_only_import_from, UnavailableError
 )
@@ -30,6 +29,6 @@ get_cuda_count = gpu_only_import_from('rmm._cuda.gpu', 'getDeviceCount')
 @cache
 def is_cuda_available():
     try:
-        return GPU_ENABLED and get_cuda_count() >= 1
+        return get_cuda_count() >= 1
     except UnavailableError:
         return False
