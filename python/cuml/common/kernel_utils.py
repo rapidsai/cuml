@@ -19,8 +19,8 @@ from uuid import uuid1
 import functools
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy', alt=np)
 
 
 # Mapping of common PyData dtypes to their corresponding C-primitive

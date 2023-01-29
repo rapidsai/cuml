@@ -32,7 +32,11 @@ requirements:
     - cython>=0.29,<0.30
   run:
     - python x.x
+    - numpy
     - scikit-learn=1.2
+    - hdbscan=0.8.29
+    - umap-learn=0.5.3
+    - nvtx
 
 tests:                                 # [linux64]
   imports:                             # [linux64]

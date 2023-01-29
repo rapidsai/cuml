@@ -78,7 +78,7 @@ else()
   set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 endif()
 
-if(NOT cuml_FOUND)
+if(NOT cuml_FOUND AND NOT ${CUML_CPU})
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_PRIMS_TESTS OFF)
   set(BUILD_CUML_C_LIBRARY OFF)
@@ -111,7 +111,7 @@ if(NOT cuml_FOUND)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
-if(CUML_CPU)
+if(${CUML_CPU})
   set(CUML_UNIVERSAL OFF)
   set(SINGLEGPU ON)
 
@@ -128,12 +128,16 @@ if(CUML_CPU)
 
   # this won't be needed when we add CPU libcuml++ (FIL)
   set(cuml_sg_libraries "")
+
+  list(APPEND CYTHON_FLAGS
+  "--compile-time-env GPUBUILD=0")
 else()
   set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
-endif()
+  set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
-set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
-set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
+  list(APPEND CYTHON_FLAGS
+  "--compile-time-env GPUBUILD=1")
+endif()
 
 if(NOT SINGLEGPU)
   include("${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake")
@@ -151,9 +155,10 @@ rapids_cython_init()
 include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
 include(cmake/ConfigureCythonAlgorithms.cmake)
 
-if(${CUML_UNIVERSAL})
-  list(APPEND CYTHON_FLAGS
-     "--compile-time-env GPUBUILD=1")
+if(${CUML_CPU})
+  # libcuml requires metrics built if HDSCAN is built, which is not the case
+  # for cuml-cpu
+  unset(metrics_algo)
 endif()
 
 add_subdirectory(cuml/common)

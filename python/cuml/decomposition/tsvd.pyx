@@ -30,7 +30,6 @@ from libc.stdint cimport uintptr_t
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -42,6 +41,7 @@ from cython.operator cimport dereference as deref
 
 
 IF GPUBUILD == 1:
+    from cuml.decomposition.utils cimport *
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
@@ -100,9 +100,9 @@ IF GPUBUILD == 1:
                                 const paramsTSVD &prms) except +
 
 
-class Solver(IntEnum):
-    COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
-    COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+    class Solver(IntEnum):
+        COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
+        COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
 class TruncatedSVD(UniversalBase,
@@ -269,27 +269,29 @@ class TruncatedSVD(UniversalBase,
         self.singular_values_ = None
 
     def _get_algorithm_c_name(self, algorithm):
-        algo_map = {
-            'full': Solver.COV_EIG_DQ,
-            'auto': Solver.COV_EIG_DQ,
-            'jacobi': Solver.COV_EIG_JACOBI
-        }
-        if algorithm not in algo_map:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(algorithm))
-        return algo_map[algorithm]
+        IF GPUBUILD == 1:
+            algo_map = {
+                'full': Solver.COV_EIG_DQ,
+                'auto': Solver.COV_EIG_DQ,
+                'jacobi': Solver.COV_EIG_JACOBI
+            }
+            if algorithm not in algo_map:
+                msg = "algorithm {!r} is not supported"
+                raise TypeError(msg.format(algorithm))
+            return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsTSVD *params = new paramsTSVD()
-        params.n_components = self.n_components
-        params.n_rows = n_rows
-        params.n_cols = n_cols
-        params.n_iterations = self.n_iter
-        params.tol = self.tol
-        params.algorithm = <solver> (<underlying_type_t_solver> (
-            self.c_algorithm))
+        IF GPUBUILD == 1:
+            cpdef paramsTSVD *params = new paramsTSVD()
+            params.n_components = self.n_components
+            params.n_rows = n_rows
+            params.n_cols = n_cols
+            params.n_iterations = self.n_iter
+            params.tol = self.tol
+            params.algorithm = <solver> (<underlying_type_t_solver> (
+                self.c_algorithm))
 
-        return <size_t>params
+            return <size_t>params
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -329,9 +331,6 @@ class TruncatedSVD(UniversalBase,
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef paramsTSVD *params = <paramsTSVD*><size_t> \
-            self._build_params(self.n_rows, self.n_features_in_)
-
         self._initialize_arrays(self.n_components, self.n_rows,
                                 self.n_features_in_)
 
@@ -346,14 +345,16 @@ class TruncatedSVD(UniversalBase,
         cdef uintptr_t singular_vals_ptr = \
             self.singular_values_.ptr
 
-        _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
-                                        dtype=self.dtype, index=X_m.index)
-        cdef uintptr_t t_input_ptr = _trans_input_.ptr
-
         if self.n_components> self.n_features_in_:
             raise ValueError(' n_components must be < n_features')
 
         IF GPUBUILD == 1:
+            _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
+                                            dtype=self.dtype, index=X_m.index)
+            cdef uintptr_t t_input_ptr = _trans_input_.ptr
+            cdef paramsTSVD *params = <paramsTSVD*><size_t> \
+                self._build_params(self.n_rows, self.n_features_in_)
+
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
                 tsvdFitTransform(handle_[0],
@@ -374,11 +375,11 @@ class TruncatedSVD(UniversalBase,
                                  <double*> singular_vals_ptr,
                                  deref(params))
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
+            # make sure the previously scheduled gpu tasks are complete before the
+            # following transfers start
+            self.handle.sync()
 
-        return _trans_input_
+            return _trans_input_
 
     @generate_docstring(return_values={'name': 'X_original',
                                        'type': 'dense',
@@ -397,21 +398,20 @@ class TruncatedSVD(UniversalBase,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None))
 
-        cpdef paramsTSVD params
-        params.n_components = self.n_components
-        params.n_rows = n_rows
-        params.n_cols = self.n_features_in_
-
-        input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=dtype, index=X_m.index)
-
-        cdef uintptr_t trans_input_ptr = X_m.ptr
-        cdef uintptr_t input_ptr = input_data.ptr
-        cdef uintptr_t components_ptr = self.components_.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         IF GPUBUILD == 1:
+            cpdef paramsTSVD params
+            params.n_components = self.n_components
+            params.n_rows = n_rows
+            params.n_cols = self.n_features_in_
+
+            input_data = CumlArray.zeros((params.n_rows, params.n_cols),
+                                         dtype=dtype, index=X_m.index)
+
+            cdef uintptr_t trans_input_ptr = X_m.ptr
+            cdef uintptr_t input_ptr = input_data.ptrgi
+            cdef uintptr_t components_ptr = self.components_.ptr
+
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
                 tsvdInverseTransform(handle_[0],
                                      <float*> trans_input_ptr,
@@ -425,11 +425,11 @@ class TruncatedSVD(UniversalBase,
                                      <double*> input_ptr,
                                      params)
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
+            # make sure the previously scheduled gpu tasks are complete before the
+            # following transfers start
+            self.handle.sync()
 
-        return input_data
+            return input_data
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
@@ -450,22 +450,21 @@ class TruncatedSVD(UniversalBase,
                                                   else None),
                                 check_cols=self.n_features_in_)
 
-        cpdef paramsTSVD params
-        params.n_components = self.n_components
-        params.n_rows = n_rows
-        params.n_cols = self.n_features_in_
-
-        t_input_data = \
-            CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=dtype, index=X_m.index)
-
-        cdef uintptr_t input_ptr = X_m.ptr
-        cdef uintptr_t trans_input_ptr = t_input_data.ptr
-        cdef uintptr_t components_ptr = self.components_.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         IF GPUBUILD == 1:
+            cpdef paramsTSVD params
+            params.n_components = self.n_components
+            params.n_rows = n_rows
+            params.n_cols = self.n_features_in_
+
+            t_input_data = \
+                CumlArray.zeros((params.n_rows, params.n_components),
+                                dtype=dtype, index=X_m.index)
+
+            cdef uintptr_t input_ptr = X_m.ptr
+            cdef uintptr_t trans_input_ptr = t_input_data.ptr
+            cdef uintptr_t components_ptr = self.components_.ptr
+
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
                 tsvdTransform(handle_[0],
                               <float*> input_ptr,
@@ -479,11 +478,11 @@ class TruncatedSVD(UniversalBase,
                               <double*> trans_input_ptr,
                               params)
 
-        # make sure the previously scheduled gpu tasks are complete before the
-        # following transfers start
-        self.handle.sync()
+            # make sure the previously scheduled gpu tasks are complete before the
+            # following transfers start
+            self.handle.sync()
 
-        return t_input_data
+            return t_input_data
 
     def get_param_names(self):
         return super().get_param_names() + \

@@ -14,5 +14,9 @@
 # limitations under the License.
 #
 
+from cuml.internals.device_support import GPU_ENABLED
+
 from cuml.manifold.umap import UMAP
-from cuml.manifold.t_sne import TSNE
+
+if GPU_ENABLED:
+    from cuml.manifold.t_sne import TSNE

@@ -34,40 +34,42 @@ from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void ridgeFit(handle_t& handle,
-                       float *input,
-                       size_t n_rows,
-                       size_t n_cols,
-                       float *labels,
-                       float *alpha,
-                       int n_alpha,
-                       float *coef,
-                       float *intercept,
-                       bool fit_intercept,
-                       bool normalize,
-                       int algo,
-                       float *sample_weight) except +
+IF GPUBUILD == 1:
+    from pylibraft.common.handle cimport handle_t
+    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void ridgeFit(handle_t& handle,
-                       double *input,
-                       size_t n_rows,
-                       size_t n_cols,
-                       double *labels,
-                       double *alpha,
-                       int n_alpha,
-                       double *coef,
-                       double *intercept,
-                       bool fit_intercept,
-                       bool normalize,
-                       int algo,
-                       double *sample_weight) except +
+        cdef void ridgeFit(handle_t& handle,
+                           float *input,
+                           size_t n_rows,
+                           size_t n_cols,
+                           float *labels,
+                           float *alpha,
+                           int n_alpha,
+                           float *coef,
+                           float *intercept,
+                           bool fit_intercept,
+                           bool normalize,
+                           int algo,
+                           float *sample_weight) except +
+
+        cdef void ridgeFit(handle_t& handle,
+                           double *input,
+                           size_t n_rows,
+                           size_t n_cols,
+                           double *labels,
+                           double *alpha,
+                           int n_alpha,
+                           double *coef,
+                           double *intercept,
+                           bool fit_intercept,
+                           bool normalize,
+                           int algo,
+                           double *sample_weight) except +
 
 
 class Ridge(UniversalBase,
@@ -297,42 +299,44 @@ class Ridge(UniversalBase,
         cdef double c_intercept2
         cdef float c_alpha1
         cdef double c_alpha2
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        if self.dtype == np.float32:
-            c_alpha1 = self.alpha
-            ridgeFit(handle_[0],
-                     <float*>X_ptr,
-                     <size_t>n_rows,
-                     <size_t>self.n_features_in_,
-                     <float*>y_ptr,
-                     <float*>&c_alpha1,
-                     <int>self.n_alpha,
-                     <float*>coef_ptr,
-                     <float*>&c_intercept1,
-                     <bool>self.fit_intercept,
-                     <bool>self.normalize,
-                     <int>self.algo,
-                     <float*>sample_weight_ptr)
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            self.intercept_ = c_intercept1
-        else:
-            c_alpha2 = self.alpha
-            ridgeFit(handle_[0],
-                     <double*>X_ptr,
-                     <size_t>n_rows,
-                     <size_t>self.n_features_in_,
-                     <double*>y_ptr,
-                     <double*>&c_alpha2,
-                     <int>self.n_alpha,
-                     <double*>coef_ptr,
-                     <double*>&c_intercept2,
-                     <bool>self.fit_intercept,
-                     <bool>self.normalize,
-                     <int>self.algo,
-                     <double*>sample_weight_ptr)
+            if self.dtype == np.float32:
+                c_alpha1 = self.alpha
+                ridgeFit(handle_[0],
+                         <float*>X_ptr,
+                         <size_t>n_rows,
+                         <size_t>self.n_features_in_,
+                         <float*>y_ptr,
+                         <float*>&c_alpha1,
+                         <int>self.n_alpha,
+                         <float*>coef_ptr,
+                         <float*>&c_intercept1,
+                         <bool>self.fit_intercept,
+                         <bool>self.normalize,
+                         <int>self.algo,
+                         <float*>sample_weight_ptr)
 
-            self.intercept_ = c_intercept2
+                self.intercept_ = c_intercept1
+            else:
+                c_alpha2 = self.alpha
+                ridgeFit(handle_[0],
+                         <double*>X_ptr,
+                         <size_t>n_rows,
+                         <size_t>self.n_features_in_,
+                         <double*>y_ptr,
+                         <double*>&c_alpha2,
+                         <int>self.n_alpha,
+                         <double*>coef_ptr,
+                         <double*>&c_intercept2,
+                         <bool>self.fit_intercept,
+                         <bool>self.normalize,
+                         <int>self.algo,
+                         <double*>sample_weight_ptr)
+
+                self.intercept_ = c_intercept2
 
         self.handle.sync()
 

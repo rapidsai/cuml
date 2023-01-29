@@ -14,12 +14,10 @@
 
 
 set(cython_sources
-    logger.pyx
+     base.pyx
+     internals.pyx
+     logger.pyx
 )
-
-set(cython_sources "")
-add_module_gpu_default("base.pyx")
-add_module_gpu_default("internals.pyx")
 
 rapids_cython_create_modules(
   CXX

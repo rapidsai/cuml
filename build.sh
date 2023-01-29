@@ -304,10 +304,10 @@ if completeBuild || hasArg cuml || hasArg pydocs; then
     fi
 fi
 
-if hasarg cuml-cpu; then
+if hasArg cuml-cpu; then
     cd ${REPODIR}/python
-    python setup.py build_ext --inplace -- -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+    python setup.py build_ext --inplace -- -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} -DCUML_CPU=ON -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} -DCUML_CPU=ON -- -j${PARALLEL_LEVEL:-1}
     fi
 fi

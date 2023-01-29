@@ -26,7 +26,6 @@ import typing
 
 import cuml
 import cuml.common
-import cuml.common.cuda
 import cuml.internals.logger as logger
 import cuml.internals
 import cuml.internals.input_utils
@@ -56,8 +55,9 @@ from cuml.internals.mixins import TagsMixin
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
 cp = gpu_only_import('cupy')
 
-IF GPUBUILD:
+IF GPUBUILD == 1:
     import pylibraft.common.handle
+    import cuml.common.cuda
 
 
 class Base(TagsMixin,
@@ -200,20 +200,23 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        if GPUBUILD:
+        if GPUBUILD == 1:
             self.handle = pylibraft.common.handle.Handle() if handle is None \
                 else handle
         else:
             self.handle = None
 
-        # Internally, self.verbose follows the spdlog/c++ standard of
-        # 0 is most logging, and logging decreases from there.
-        # So if the user passes an int value for logging, we convert it.
-        if verbose is True:
-            self.verbose = logger.level_debug
-        elif verbose is False:
-            self.verbose = logger.level_info
-        else:
+        IF GPUBUILD == 1:
+            # Internally, self.verbose follows the spdlog/c++ standard of
+            # 0 is most logging, and logging decreases from there.
+            # So if the user passes an int value for logging, we convert it.
+            if verbose is True:
+                self.verbose = logger.level_debug
+            elif verbose is False:
+                self.verbose = logger.level_info
+            else:
+                self.verbose = verbose
+        ELSE:
             self.verbose = verbose
 
         self.output_type = _check_output_type_str(

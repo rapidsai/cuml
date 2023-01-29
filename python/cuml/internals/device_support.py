@@ -14,5 +14,17 @@
 # limitations under the License.
 #
 
-GPU_ENABLED = True
-CPU_ENABLED = True
+# GPU_ENABLED = True
+# CPU_ENABLED = True
+
+try:
+    import rmm
+    GPU_ENABLED = True
+except ImportError:
+    GPU_ENABLED = False
+
+try:
+    import sklearn
+    CPU_ENABLED = True
+except ImportError:
+    CPU_ENABLED = False

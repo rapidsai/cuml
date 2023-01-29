@@ -109,9 +109,8 @@ class LinearPredictMixin:
         preds = CumlArray.zeros(n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
                 gemmPredict(handle_[0],
                             <float*>X_ptr,
