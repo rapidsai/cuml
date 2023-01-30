@@ -13,7 +13,7 @@ namespace detail {
 
 template<typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 auto constexpr get_node_alignment() {
-  auto total = (
+  auto total = index_type(
     std::max(sizeof(threshold_t), sizeof(index_t))
     + sizeof(metadata_storage_t)
     + sizeof(offset_t)

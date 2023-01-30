@@ -3,7 +3,7 @@
 namespace ML {
 namespace experimental {
 namespace fil {
-using index_type = uint32_t;
+using index_type = int32_t;
 }
 }
 }

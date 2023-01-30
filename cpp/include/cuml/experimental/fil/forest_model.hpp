@@ -24,9 +24,9 @@ struct forest_model {
   }
 
   auto num_outputs() {
-    return std::size_t{std::visit([](auto&& concrete_forest) {
+    return std::visit([](auto&& concrete_forest) {
       return concrete_forest.num_outputs();
-    }, decision_forest_)};
+    }, decision_forest_);
   }
 
   auto memory_type() {

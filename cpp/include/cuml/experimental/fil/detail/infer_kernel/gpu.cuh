@@ -72,7 +72,7 @@ __global__ void infer_kernel(
     auto task_count = chunk_size * forest.tree_count();
 
     auto num_grove = kayak::ceildiv(
-      min(index_type{blockDim.x}, task_count),
+      min(index_type(blockDim.x), task_count),
       chunk_size
     );
 
