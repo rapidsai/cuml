@@ -79,7 +79,9 @@ auto constexpr get_node_alignment() {
  * the largest such offset in the forest model.
  */
 template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
-struct alignas(8) node {
+struct alignas(
+  detail::get_node_alignment<threshold_t, index_t, metadata_storage_t, offset_t>()
+) node {
   /// @brief An alias for layout_v
   auto constexpr static const layout = layout_v;
   /// @brief An alias for threshold_t
