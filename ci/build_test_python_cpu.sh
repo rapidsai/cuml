@@ -15,6 +15,8 @@ rapids-mamba-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
 
+. /opt/conda/etc/profile.d/conda.sh
+
 rapids-mamba-retry create -n test python=${RAPIDS_PY_VERSION}
 
 # Temporarily allow unbound variables for conda activation.

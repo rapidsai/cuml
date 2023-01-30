@@ -23,7 +23,7 @@ option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "C;CXX")
 
 if(NOT CUML_CPU)
-  # We always need CUDA for cuML because the raft dependency brings in a
+  # We always need CUDA for cuML GPU because the raft dependency brings in a
   # header-only cuco dependency that enables CUDA unconditionally.
   include(rapids-cuda)
   rapids_cuda_init_architectures(cuml-python)
