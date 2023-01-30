@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -298,37 +299,41 @@ const std::vector<SgdInputs<double>> inputsd2 = {{0.01, 4, 2, 4, 3, 2}};
 typedef SgdTest<float> SgdTestF;
 TEST_P(SgdTestF, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred_log_ref.data(), pred_log.data(), params.n_row, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred_log_ref.data(),
+                                    pred_log.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred_svm_ref.data(), pred_svm.data(), params.n_row, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred_svm_ref.data(),
+                                    pred_svm.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef SgdTest<double> SgdTestD;
 TEST_P(SgdTestD, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred_log_ref.data(),
-                                pred_log.data(),
-                                params.n_row,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred_log_ref.data(),
+                                    pred_log.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred_svm_ref.data(),
-                                pred_svm.data(),
-                                params.n_row,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(pred_svm_ref.data(),
+                                    pred_svm.data(),
+                                    params.n_row,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(SgdTests, SgdTestF, ::testing::ValuesIn(inputsf2));

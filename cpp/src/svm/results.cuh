@@ -23,6 +23,7 @@
 
 #include "ws_util.cuh"
 #include <cub/device/device_select.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map_then_reduce.cuh>

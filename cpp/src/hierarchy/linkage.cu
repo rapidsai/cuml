@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "pw_dist_graph.cuh"
 #include <cuml/cluster/linkage.hpp>
-#include <raft/cluster/single_linkage.cuh>
 
-namespace raft {
-class handle_t;
-}
+#include <raft/cluster/single_linkage.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/distance/specializations.cuh>
 
 namespace ML {
 
