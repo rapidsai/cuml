@@ -110,7 +110,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
                                      ncols, rank, convert_dtype)
 
         # Build input labels arrays and descriptors for native code interfacing
-        labels = self.gen_local_labels(index, convert_dtype, dtype='float32')
+        labels = type(self).gen_local_labels(index, convert_dtype, dtype='float32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
