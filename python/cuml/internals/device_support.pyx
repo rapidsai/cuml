@@ -15,10 +15,10 @@
 #
 
 
-try:
-    import rmm  # noqa: F401
+IF GPUBUILD == 1:
     GPU_ENABLED = True
-except ImportError:
+
+ELSE:
     GPU_ENABLED = False
 
 try:

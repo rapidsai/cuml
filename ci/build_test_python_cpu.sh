@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+. /opt/conda/etc/profile.d/conda.sh
+
 source rapids-env-update
 
 export CMAKE_GENERATOR=Ninja
@@ -14,8 +16,6 @@ rapids-logger "Begin py-cpu build"
 rapids-mamba-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
-
-. /opt/conda/etc/profile.d/conda.sh
 
 rapids-mamba-retry create -n test python=${RAPIDS_PY_VERSION}
 
