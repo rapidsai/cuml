@@ -50,6 +50,7 @@ class FILEX : public RegressionFixture<float> {
   FILEX(const std::string& name, const Params& p)
   : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
+    Iterations(100);
   }
 
  protected:
