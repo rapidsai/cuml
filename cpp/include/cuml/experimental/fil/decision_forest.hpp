@@ -18,7 +18,6 @@
 #include <cuml/experimental/kayak/tree_layout.hpp>
 #include <limits>
 #include <optional>
-#include <raft/core/nvtx.hpp>
 #include <variant>
 
 namespace ML {
@@ -115,7 +114,6 @@ struct decision_forest {
     kayak::cuda_stream stream = kayak::cuda_stream{},
     std::optional<index_type> specified_rows_per_block_iter=std::nullopt
   ) {
-    auto nvtx_range = raft::common::nvtx::range{"decision_forest.predict"};
     if (output.memory_type() != memory_type() || input.memory_type() != memory_type()) {
       throw kayak::wrong_device_type{
         "Tried to use host I/O data with model on device or vice versa"

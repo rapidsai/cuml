@@ -137,4 +137,95 @@ the current implementation, this task is defined in
 `detail/evaluate_tree.hpp`.
 
 Looking at this header, we should note that there is no logic specific to the
-GPU or CPU. Instead we defer this to `infer_kernel`, which provides
+GPU or CPU. Instead we defer this to `infer_kernel`, which specifies how our
+fundamental task gets assigned to individual "workers" (CPU threads for the CPU
+or CUDA threads for the GPU). This is not a necessary constraint (i.e. we could
+refactor later for CPU and GPU specific versions of `evaluate_tree`), but
+re-using code in this way and providing a clean separation from the parallelism
+model does offer advantages.
+
+Beyond just the reduced maintenance of a single codebase and more modular
+design, this gives us the opportunity to benefit from improvements in the CPU
+implementation on GPU and vice versa. For instance, during the initial
+development, only CPU tests were used to check for correctness, but GPU results
+were shown to be correct as soon as they were added to the tests. Similarly,
+during optimization, only GPU runtime and instructions were analyzed, but the
+process of optimizing for the GPU resulted in significant speedups (over 50% on
+a standard benchmark) on the CPU.
+
+## Code Walkthrough
+
+With some motivation for the general approach to CPU-GPU interoperability, we
+now offer an overview of the layout of the codebase to help guide future
+improvements. Because `kayak` utilities are going to be moved to RAFT or other
+general-purpose libraries, we will not review anything within the `kayak`
+directory here.
+
+### Public Headers
+* `constants.hpp`: Contains constant values that may be useful in working
+  with FIL in other C++ applications
+* `decision_forest.hpp`: Provides `decision_forest`, a template which provides
+  concrete implementations of a decision forest. Because different types may
+  be optimal for different sizes of models or models with different features,
+  we implement this template on many different combinations of template
+  parameters. This is provided in a public header in case other
+  applications have more specialized use cases and can afford to work directly
+  with this concrete underlying object.
+* `forest_model.hpp`: Provides `forest_model`, a wrapper for a `std::variant`
+  of all `decision_forest` implementations. This wrapper handles
+  dispatching `predict` calls to the right underlying type.
+* `exceptions.hpp`: Provides definitions for all custom exceptions that
+  might be thrown within FIL and need to be handled by an external
+  application.
+* `postproc_ops.hpp`: Provides enums used to specify how leaf outputs should be
+  processed.
+* `treelite_importer.hpp`: Provides `import_from_treelite_model` and
+  `import_from_treelite_handle`, either of which can be used to convert a
+  Treelite model to a `forest_model` object to be used for accelerated
+  inference.
+
+### Detail Headers
+* `cpu_introspection.hpp`: Provides constants and utilities to evaluate
+  CPU capabilities for optimized performance.
+* `decision_forest_builder.hpp`: Provides generic tools for building
+  FIL forests from some other source. In the current FIL codebase, the
+  Treelite import code is the only place this is used, but it could be used
+  to create import utilities for other sources as well.
+* `device_initialization.hpp`: Contains code for anything that must be done
+  to initialize execution on a device. For GPUs, this may mean setting
+  specific CUDA options.
+* `evaluate_tree.hpp`: Contains code for evaluating a single tree on input
+  data.
+* `forest.hpp`: Provide the storage struct `forest` whose *sole*
+  responsibility is to hold model data to be used for inference.
+* `gpu_introspection.hpp`: Provides constants and utilities to evaluate
+  GPU capabilities for optimized performance.
+* `infer.hpp`: Contains wrapper code for performing inference on a `forest`
+  object (either on CPU or GPU). This wrapper takes data that has been
+  extracted from the `forest_model` object if necessary to control details
+  of forest evaluation.
+* `node.hpp`: Provides template for an individual node of a tree.
+* `postprocessor.hpp`: Provides device-agnostic code for postprocessing
+  the output of model leaves.
+* `specialization_types.hpp`: Defines all specializations that are used to
+  construct instantiations of the `decision_forest` template.
+* `infer_kernel/`: This directory contains device-specific code that
+  determines how `evaluate_tree` calls will be performed in parallel.
+* `specializations/`: Because there is a large matrix of
+  specializations for `decision_forest`, it would be tedious and
+  error-prone to list out all the implementations in source files.
+  Furthermore, because these templates are complex we wish to avoid
+  recompiling them unnecessarily. Therefore, this directory contains headers
+  with macros for declaring the necessary implementations in source files and
+  declaring the corresponding templates as `extern` elsewhere. Because
+  these specializations need to be explicitly declared, this must be
+  implemented as a macro.
+
+### Source Files
+The experimental FIL source files contain no implementation details. They
+merely use the macros defined in
+`include/cuml/experimental/fil/detail/specializations` to indicate the template
+instantiations that must be compiled. These are broken up into an arbitrary
+number of source files. To improve build parallelization, they could be broken
+up further, or to reduce the number of source files, they could be
+consolidated.
