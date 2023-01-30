@@ -54,13 +54,13 @@ dependencies:
 - raft-dask=23.02.*
 - rmm=23.02.*
 - scikit-build>=0.13.1
-- scikit-learn=0.24
+- scikit-learn=1.2
 - seaborn
 - sparse
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-64==2.17
-- treelite=3.0.1
+- treelite=3.1.0
 - umap-learn
 - pip:
   - git+https://github.com/dask/dask-glm@main
