@@ -13,19 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
+from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
+from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
+import pytest
 from cuml.feature_extraction.text import CountVectorizer
 from cuml.feature_extraction.text import TfidfVectorizer
 from cuml.feature_extraction.text import HashingVectorizer
-import cupy as cp
-import pytest
-from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
-from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
-from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
-from cudf import Series
-from numpy.testing import assert_array_equal
-import numpy as np
-import pandas as pd
+Series = gpu_only_import_from('cudf', 'Series')
+assert_array_equal = cpu_only_import_from(
+    'numpy.testing', 'assert_array_equal')
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
 
 def test_count_vectorizer():
@@ -67,6 +74,9 @@ NGRAM_RANGES = [(1, 1), (1, 2), (2, 3)]
 NGRAM_IDS = [f'ngram_range={str(r)}' for r in NGRAM_RANGES]
 
 
+@pytest.mark.skip(reason="scikit-learn replaced get_feature_names with "
+                         "get_feature_names_out"
+                         "https://github.com/rapidsai/cuml/issues/5159")
 @pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_word_analyzer(ngram_range):
     v = CountVectorizer(ngram_range=ngram_range).fit(DOCS_GPU)
@@ -237,6 +247,9 @@ def test_vectorizer_inverse_transform():
         assert_array_equal(doc, sk_doc)
 
 
+@pytest.mark.skip(reason="scikit-learn replaced get_feature_names with "
+                         "get_feature_names_out"
+                         "https://github.com/rapidsai/cuml/issues/5159")
 @pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_space_ngrams(ngram_range):
     data = ['abc      def. 123 456    789']
@@ -297,6 +310,9 @@ def test_only_delimiters():
     cp.testing.assert_array_equal(res.todense(), ref.toarray())
 
 
+@pytest.mark.skip(reason="scikit-learn replaced get_feature_names with "
+                         "get_feature_names_out"
+                         "https://github.com/rapidsai/cuml/issues/5159")
 @pytest.mark.parametrize('analyzer', ['char', 'char_wb'])
 @pytest.mark.parametrize('ngram_range', NGRAM_RANGES, ids=NGRAM_IDS)
 def test_character_ngrams(analyzer, ngram_range):

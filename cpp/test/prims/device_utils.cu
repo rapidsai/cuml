@@ -117,7 +117,7 @@ const std::vector<BatchedBlockReduceInputs> inputs = {
 
 TEST_P(BBTest8, Result)
 {
-  ASSERT_TRUE(devArrMatch(refOut.data(), out.data(), 8, raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatch(refOut.data(), out.data(), 8, MLCommon::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8, ::testing::ValuesIn(inputs));
 

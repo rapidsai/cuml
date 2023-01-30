@@ -3,11 +3,10 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.8"]
       arch: [x86_64]
     includes:
       - common_build
-      - cpp_build
       - cpp_run
       - cudatoolkit
       - doc
@@ -18,11 +17,10 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.8"]
       arch: [x86_64]
     includes:
       - common_build
-      - cpp_build
       - cpp_run
       - cudatoolkit
   checks:
@@ -65,8 +63,11 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - cmake>=3.23.1,!=3.25.0
+          - ninja
       - output_types: conda
         packages:
+          - c-compiler
+          - cxx-compiler
           - libcumlprims=23.02.*
           - libraft-headers=23.02.*
           - libraft-distance=23.02.*
@@ -85,40 +86,6 @@ dependencies:
             packages:
               - gcc_linux-aarch64=9.*
               - sysroot_linux-aarch64==2.17
-  cpp_build:
-    specific:
-      - output_types: conda
-        matrices:
-          - matrix:
-              arch: x86_64
-              cuda: "11.5"
-            packages:
-              - nvcc_linux-64=11.5
-          - matrix:
-              arch: aarch64
-              cuda: "11.5"
-            packages:
-              - nvcc_linux-aarch64=11.5
-          - matrix:
-              arch: x86_64
-              cuda: "11.4"
-            packages:
-              - nvcc_linux-64=11.4
-          - matrix:
-              arch: aarch64
-              cuda: "11.4"
-            packages:
-              - nvcc_linux-aarch64=11.4
-          - matrix:
-              arch: x86_64
-              cuda: "11.2"
-            packages:
-              - nvcc_linux-64=11.2
-          - matrix:
-              arch: aarch64
-              cuda: "11.2"
-            packages:
-              - nvcc_linux-aarch64=11.2
   py_build:
     common:
       - output_types: [conda, requirements]
@@ -126,7 +93,7 @@ dependencies:
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
-          - treelite=3.0.1
+          - treelite=3.1.0
       - output_types: conda
         packages:
           - cudf=23.02.*
@@ -159,12 +126,26 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libfaiss>=1.7.0
+          - libfaiss>=1.7.1
           - faiss-proc=*=cuda
   cudatoolkit:
     specific:
       - output_types: conda
         matrices:
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cudatoolkit=11.8
+              - libcublas-dev=11.11.3.6
+              - libcublas=11.11.3.6
+              - libcufft-dev=10.9.0.58
+              - libcufft=10.9.0.58
+              - libcurand-dev=10.3.0.86
+              - libcurand=10.3.0.86
+              - libcusolver-dev=11.4.1.48
+              - libcusolver=11.4.1.48
+              - libcusparse-dev=11.7.5.86
+              - libcusparse=11.7.5.86
           - matrix:
               cuda: "11.5"
             packages:
@@ -230,8 +211,12 @@ dependencies:
             packages:
               - python=3.9
           - matrix:
+              py: "3.10"
             packages:
-              - python>=3.8,<3.10
+              - python=3.10
+          - matrix:
+            packages:
+              - python>=3.8,<3.11
   test_python:
     common:
       - output_types: [conda, requirements]
@@ -246,7 +231,7 @@ dependencies:
           - pytest-cases
           - pytest-cov
           - pytest-xdist
-          - &scikit_learn scikit-learn=0.24
+          - &scikit_learn scikit-learn=1.2
           - seaborn
           - sparse
           - statsmodels

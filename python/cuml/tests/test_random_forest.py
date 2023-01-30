@@ -13,35 +13,34 @@
 # limitations under the License.
 #
 
+import treelite
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import fetch_california_housing, \
+    make_classification, make_regression, load_iris, load_breast_cancer
+from sklearn.metrics import accuracy_score, mean_squared_error, \
+    mean_tweedie_deviance
+from sklearn.ensemble import RandomForestRegressor as skrfr
+from sklearn.ensemble import RandomForestClassifier as skrfc
+import cuml.internals.logger as logger
+from cuml.testing.utils import get_handle, unit_param, quality_param, \
+    stress_param
+from cuml.metrics import r2_score
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.ensemble import RandomForestClassifier as curfc
+import cuml
+from cuml.internals.safe_imports import gpu_only_import_from
+import os
+import json
+import random
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 import warnings
-import cudf
-import numpy as np
-import random
-import json
-import os
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+np = cpu_only_import('numpy')
 
-from numba import cuda
-
-import cuml
-from cuml.ensemble import RandomForestClassifier as curfc
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.metrics import r2_score
-from cuml.testing.utils import get_handle, unit_param, quality_param, \
-    stress_param
-import cuml.internals.logger as logger
-
-from sklearn.ensemble import RandomForestClassifier as skrfc
-from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.metrics import accuracy_score, mean_squared_error, \
-    mean_tweedie_deviance
-from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression, load_iris, load_breast_cancer, \
-    load_boston
-from sklearn.model_selection import train_test_split
-
-import treelite
+cuda = gpu_only_import_from('numba', 'cuda')
 
 
 pytestmark = pytest.mark.filterwarnings("ignore: For reproducible results(.*)"
@@ -312,7 +311,7 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_unorder(
-                small_clf, datatype, max_samples, max_features=1, a=2, b=5):
+        small_clf, datatype, max_samples, max_features=1, a=2, b=5):
     use_handle = True
 
     X, y = small_clf
@@ -1283,7 +1282,7 @@ def test_rf_regression_with_identical_labels(split_criterion):
 
 
 def test_rf_regressor_gtil_integration(tmpdir):
-    X, y = load_boston(return_X_y=True)
+    X, y = fetch_california_housing(return_X_y=True)
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)

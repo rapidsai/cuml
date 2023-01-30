@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
-import pytest
-import cupy as cp
-
-from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
-from cuml.metrics import r2_score
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
-from sklearn.linear_model import SGDRegressor
-from cuml.datasets import make_regression
 from sklearn.model_selection import train_test_split
+from cuml.datasets import make_regression
+from sklearn.linear_model import SGDRegressor
+from cuml.testing.utils import unit_param, quality_param, stress_param
+from cuml.metrics import r2_score
+from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 @pytest.fixture(scope="module", params=[
@@ -58,7 +58,7 @@ def make_dataset(request):
     # Grouped those tests to reduce the total number of individual tests
     # while still keeping good coverage of the different features of MBSGD
     ('lrate', 'penalty'), [
-        ('constant', 'none'),
+        ('constant', None),
         ('invscaling', 'l1'),
         ('adaptive', 'l2'),
         ('constant', 'elasticnet'),

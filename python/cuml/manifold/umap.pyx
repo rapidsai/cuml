@@ -18,23 +18,27 @@
 
 import typing
 import ctypes
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 import warnings
 
 import joblib
 
-import cupy
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
-import numba.cuda as cuda
+cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 from cuml.common.sparsefuncs import extract_knn_graph
-from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
-    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
+from cuml.internals.safe_imports import gpu_only_import_from
+cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
+cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
 import cuml.internals
 from cuml.common import using_output_type
@@ -61,7 +65,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
-import rmm
+rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
@@ -351,7 +355,7 @@ class UMAP(UniversalBase,
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is None or b is None:
-            a, b = self.find_ab_params(spread, min_dist)
+            a, b = type(self).find_ab_params(spread, min_dist)
 
         self.a = a
         self.b = b

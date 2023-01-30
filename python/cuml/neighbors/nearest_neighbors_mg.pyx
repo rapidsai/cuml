@@ -17,7 +17,8 @@
 # distutils: language = c++
 
 import typing
-from cudf import DataFrame as cudfDataFrame
+from cuml.internals.safe_imports import gpu_only_import_from
+cudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
@@ -113,7 +114,7 @@ class NearestNeighborsMG(NearestNeighbors):
             else n_neighbors
 
         # Build input arrays and descriptors for native code interfacing
-        input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
+        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
@@ -121,7 +122,7 @@ class NearestNeighborsMG(NearestNeighbors):
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
 
         # Build indices and distances outputs for native code interfacing
-        result = self.alloc_local_output(local_query_rows, self.n_neighbors)
+        result = type(self).alloc_local_output(local_query_rows, self.n_neighbors)
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_debug)
@@ -146,7 +147,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.handle.sync()
 
         # Release memory
-        self.free_mem(input, result)
+        type(self).free_mem(input, result)
 
         return result['cais']['distances'], result['cais']['indices']
 

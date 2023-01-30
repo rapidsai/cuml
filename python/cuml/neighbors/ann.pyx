@@ -32,9 +32,6 @@ cdef check_algo_params(algo, params):
     elif algo == "ivfpq":
         check_param_list(params, ['nlist', 'nprobe', 'M', 'n_bits',
                                   'usePrecomputedTables'])
-    elif algo == "ivfsq":
-        check_param_list(params, ['nlist', 'nprobe', 'qtype',
-                                  'encodeResidual'])
 
 
 cdef build_ivfflat_algo_params(params, automated):
@@ -77,7 +74,7 @@ cdef build_ivfpq_algo_params(params, automated, additional_info):
 
         # n_bits should be in set {4, 5, 6, 8} since FAISS 1.7
         params['n_bits'] = 4
-        for n_bits in [5, 6, 8]:
+        for n_bits in [4, 5, 6, 8]:
             min_train_points = (2 ** n_bits) * 39
             if N >= min_train_points:
                 params['n_bits'] = n_bits
@@ -89,33 +86,6 @@ cdef build_ivfpq_algo_params(params, automated, additional_info):
     algo_params.n_bits = <int> params['n_bits']
     algo_params.usePrecomputedTables = \
         <bool> params['usePrecomputedTables']
-    return <uintptr_t>algo_params
-
-
-cdef build_ivfsq_algo_params(params, automated):
-    cdef IVFSQParam* algo_params = new IVFSQParam()
-    if automated:
-        params = {
-            'nlist': 8,
-            'nprobe': 2,
-            'qtype': 'QT_8bit',
-            'encodeResidual': True
-        }
-
-    quantizer_type = {
-        'QT_8bit': <int> QuantizerType.QT_8bit,
-        'QT_4bit': <int> QuantizerType.QT_4bit,
-        'QT_8bit_uniform': <int> QuantizerType.QT_8bit_uniform,
-        'QT_4bit_uniform': <int> QuantizerType.QT_4bit_uniform,
-        'QT_fp16': <int> QuantizerType.QT_fp16,
-        'QT_8bit_direct': <int> QuantizerType.QT_8bit_direct,
-        'QT_6bit': <int> QuantizerType.QT_6bit,
-    }
-
-    algo_params.nlist = <int> params['nlist']
-    algo_params.nprobe = <int> params['nprobe']
-    algo_params.qtype = <QuantizerType> quantizer_type[params['qtype']]
-    algo_params.encodeResidual = <bool> params['encodeResidual']
     return <uintptr_t>algo_params
 
 
@@ -131,9 +101,6 @@ cdef build_algo_params(algo, params, additional_info):
     if algo == 'ivfpq':
         algo_params = <knnIndexParam*><uintptr_t> \
             build_ivfpq_algo_params(params, automated, additional_info)
-    elif algo == 'ivfsq':
-        algo_params = <knnIndexParam*><uintptr_t> \
-            build_ivfsq_algo_params(params, automated)
 
     return <uintptr_t>algo_params
 

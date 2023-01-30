@@ -11,34 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.base import Base
+import cuml
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, brier_score_loss
+from sklearn.datasets import make_classification, make_regression
+from sklearn import datasets
+from pylibraft.common.cuda import Stream
+from sklearn.datasets import make_regression as skl_make_reg
+from numba.cuda.cudadrv.devicearray import DeviceNDArray
+from numbers import Number
+from cuml.internals.safe_imports import gpu_only_import_from
+from itertools import dropwhile
+from copy import deepcopy
+from cuml.internals.safe_imports import cpu_only_import
 import inspect
 from textwrap import dedent, indent
 
-import cupy as cp
-import numpy as np
-import pandas as pd
-from copy import deepcopy
-from itertools import dropwhile
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
-from numba import cuda
-from numbers import Number
-from numba.cuda.cudadrv.devicearray import DeviceNDArray
+cuda = gpu_only_import_from('numba', 'cuda')
 
-from sklearn.datasets import make_regression as skl_make_reg
 
-from pylibraft.common.cuda import Stream
-
-from sklearn import datasets
-from sklearn.datasets import make_classification, make_regression
-from sklearn.metrics import mean_squared_error, brier_score_loss
-from sklearn.model_selection import train_test_split
-
-import cudf
-import cuml
-from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.internals.mem_type import MemoryType
-import pytest
+cudf = gpu_only_import('cudf')
 
 
 def array_difference(a, b, with_sign=True):
@@ -104,7 +105,7 @@ class array_equal:
                 f"total_tol={self.total_tol} ",
                 f"with_sign={self.with_sign}",
                 ">"
-            ]
+        ]
 
     def __repr__(self):
         return "".join(self._repr(threshold=5))
@@ -353,6 +354,7 @@ class ClassEnumerator:
         Instructs the class to recursively search submodules when True,
         otherwise only classes in the specified model will be enumerated
     """
+
     def __init__(self,
                  module,
                  exclude_classes=None,

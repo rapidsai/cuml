@@ -18,11 +18,15 @@
 import typing
 
 import ctypes
-import cudf
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -614,7 +618,7 @@ class SVC(SVMBase,
 
             with cuml.internals.exit_internal_api():
                 for clf in self.prob_svc.calibrated_classifiers_:
-                    df = df + clf.base_estimator.decision_function(X)
+                    df = df + clf.estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
             return df
         elif self.n_classes_ > 2:

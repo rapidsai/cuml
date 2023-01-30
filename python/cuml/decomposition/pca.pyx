@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,16 @@
 # distutils: language = c++
 
 import ctypes
-import numpy as np
-import cupy as cp
-import cupyx
-import scipy
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+scipy = cpu_only_import('scipy')
 
 from enum import IntEnum
 
-import rmm
+rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -360,8 +362,7 @@ class PCA(UniversalBase,
         self._sparse_model = True
 
         self.n_samples_ = X.shape[0]
-        self.n_features_ = X.shape[1] if X.ndim == 2 else 1
-        self.n_features_in_ = self.n_features_
+        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
         self.dtype = X.dtype
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
@@ -385,7 +386,7 @@ class PCA(UniversalBase,
         self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
             self.explained_variance_)
 
-        if self.n_components_ < min(self.n_samples_, self.n_features_):
+        if self.n_components_ < min(self.n_samples_, self.n_features_in_):
             self.noise_variance_ = \
                 self.explained_variance_[self.n_components_:].mean()
         else:
@@ -431,16 +432,15 @@ class PCA(UniversalBase,
             X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_fit(X)
 
-        X_m, self.n_samples_, self.n_features_, self.dtype = \
+        X_m, self.n_samples_, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
-        self.n_features_in_ = self.n_features_
         self.feature_names_in_ = X_m.index
 
         cdef paramsPCA *params = <paramsPCA*><size_t> \
-            self._build_params(self.n_samples_, self.n_features_)
+            self._build_params(self.n_samples_, self.n_features_in_)
 
-        if params.n_components > self.n_features_:
+        if params.n_components > self.n_features_in_:
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
@@ -585,7 +585,7 @@ class PCA(UniversalBase,
         cpdef paramsPCA params
         params.n_components = self.n_components_
         params.n_rows = n_rows
-        params.n_cols = self.n_features_
+        params.n_cols = self.n_features_in_
         params.whiten = self.whiten
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
@@ -673,7 +673,7 @@ class PCA(UniversalBase,
             input_to_cuml_array(X, check_dtype=dtype,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_features_)
+                                check_cols=self.n_features_in_)
 
         cdef uintptr_t input_ptr = X_m.ptr
 
@@ -733,5 +733,4 @@ class PCA(UniversalBase,
         return ['components_', 'explained_variance_',
                 'explained_variance_ratio_', 'singular_values_',
                 'mean_', 'n_components_', 'noise_variance_',
-                'n_samples_', 'n_features_', 'n_features_in_',
-                'feature_names_in_']
+                'n_samples_', 'n_features_in_', 'feature_names_in_']

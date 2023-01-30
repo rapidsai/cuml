@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,31 +13,14 @@
 # limitations under the License.
 #
 
+from cuml.testing.test_preproc_utils import to_output_type
+from cuml.testing.utils import array_equal
 
-import itertools as it
-import pytest
-import cuml
-import numpy as np
-import pandas as pd
-import cudf
-import pickle
-import inspect
-from importlib import import_module
-from pytest_cases import fixture_union, pytest_fixture_plus
-from sklearn.datasets import make_regression, make_blobs
-from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
-from sklearn.decomposition import PCA as skPCA
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import LogisticRegression as skLogisticRegression
-from sklearn.linear_model import Lasso as skLasso
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
-from umap import UMAP as refUMAP
-from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.decomposition import PCA, TruncatedSVD
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import using_memory_type
+from cuml.cluster.hdbscan import HDBSCAN
+from cuml.neighbors import NearestNeighbors
+from cuml.metrics import trustworthiness
+from cuml.metrics import adjusted_rand_score
+from cuml.manifold import UMAP
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -45,10 +28,48 @@ from cuml.linear_model import (
     LogisticRegression,
     Ridge
 )
-from cuml.manifold import UMAP
-from cuml.metrics import trustworthiness
-from cuml.neighbors import NearestNeighbors
-from cuml.testing.test_preproc_utils import to_output_type
+from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.mem_type import MemoryType
+from cuml.decomposition import PCA, TruncatedSVD
+from cuml.common.device_selection import DeviceType, using_device_type
+from hdbscan import HDBSCAN as refHDBSCAN
+from umap import UMAP as refUMAP
+from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import Lasso as skLasso
+from sklearn.linear_model import LogisticRegression as skLogisticRegression
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.decomposition import PCA as skPCA
+from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.datasets import make_regression, make_blobs
+from pytest_cases import fixture_union, pytest_fixture_plus
+from importlib import import_module
+import inspect
+import pickle
+from cuml.internals.safe_imports import gpu_only_import
+import itertools as it
+import pytest
+import cuml
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
+
+
+def assert_membership_vectors(cu_vecs, sk_vecs):
+    """
+    Assert the membership vectors by taking the adjusted rand score
+    of the argsorted membership vectors.
+    """
+    if sk_vecs.shape == cu_vecs.shape:
+        cu_labels_sorted = np.argsort(cu_vecs)[::-1]
+        sk_labels_sorted = np.argsort(sk_vecs)[::-1]
+
+        k = min(sk_vecs.shape[1],  10)
+        for i in range(k):
+            assert adjusted_rand_score(cu_labels_sorted[:, i],
+                                       sk_labels_sorted[:, i]) >= 0.85
 
 
 @pytest.mark.parametrize('input', [('cpu', DeviceType.host),
@@ -152,15 +173,13 @@ def fixture_generation_helper(params):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True],
-                    'normalize': [False, True]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True],
+}))
 def linreg_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
-        'normalize': request.param['normalize'],
     }
 
     sk_model = skLinearRegression(**kwargs)
@@ -188,11 +207,11 @@ def linreg_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'penalty': ['none', 'l2'],
-                    'fit_intercept': [False, True]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'penalty': ['none', 'l2'],
+    'fit_intercept': [False, True]
+}))
 def logreg_test_data(request):
     kwargs = {
         'penalty': request.param['penalty'],
@@ -227,11 +246,11 @@ def logreg_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True],
-                    'selection': ['cyclic', 'random']
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True],
+    'selection': ['cyclic', 'random']
+}))
 def lasso_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -264,11 +283,11 @@ def lasso_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True],
-                    'selection': ['cyclic', 'random']
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True],
+    'selection': ['cyclic', 'random']
+}))
 def elasticnet_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -301,10 +320,10 @@ def elasticnet_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'fit_intercept': [False, True]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'fit_intercept': [False, True]
+}))
 def ridge_test_data(request):
     kwargs = {
         'fit_intercept': request.param['fit_intercept'],
@@ -336,10 +355,10 @@ def ridge_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['cupy'],
-                    'n_components': [2, 16],
-                    'init': ['spectral', 'random']
-                }))
+    'input_type': ['cupy'],
+    'n_components': [2, 16],
+    'init': ['spectral', 'random']
+}))
 def umap_test_data(request):
     kwargs = {
         'n_neighbors': 12,
@@ -375,10 +394,10 @@ def umap_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'n_components': [2, 8]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'n_components': [2, 8]
+}))
 def pca_test_data(request):
     kwargs = {
         'n_components': request.param['n_components'],
@@ -412,10 +431,10 @@ def pca_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'n_components': [2, 8]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'n_components': [2, 8]
+}))
 def tsvd_test_data(request):
     kwargs = {
         'n_components': request.param['n_components'],
@@ -448,11 +467,11 @@ def tsvd_test_data(request):
 
 
 @pytest_fixture_plus(**fixture_generation_helper({
-                    'input_type': ['numpy', 'dataframe', 'cupy',
-                                   'cudf', 'numba'],
-                    'metric': ['euclidean', 'cosine'],
-                    'n_neighbors': [3, 8]
-                }))
+    'input_type': ['numpy', 'dataframe', 'cupy',
+                   'cudf', 'numba'],
+    'metric': ['euclidean', 'cosine'],
+    'n_neighbors': [3, 8]
+}))
 def nn_test_data(request):
     kwargs = {
         'metric': request.param['metric'],
@@ -791,3 +810,40 @@ def test_nn_methods(train_device, infer_device):
     ref_output = ref_output.todense()
     output = output.todense()
     np.testing.assert_allclose(ref_output, output, rtol=0.15)
+
+
+@pytest.mark.parametrize('train_device', ['cpu', 'gpu'])
+@pytest.mark.parametrize('infer_device', ['cpu', 'gpu'])
+def test_hdbscan_methods(train_device, infer_device):
+
+    if train_device == "gpu" and infer_device == "cpu":
+        pytest.skip("Can't transfer attributes to cpu for now")
+
+    ref_model = refHDBSCAN(prediction_data=True,
+                           approx_min_span_tree=False,
+                           max_cluster_size=0,
+                           min_cluster_size=30)
+    ref_trained_labels = ref_model.fit_predict(X_train_blob)
+
+    from hdbscan.prediction import all_points_membership_vectors \
+        as cpu_all_points_membership_vectors, approximate_predict \
+        as cpu_approximate_predict
+    ref_membership = cpu_all_points_membership_vectors(ref_model)
+    ref_labels, ref_probs = cpu_approximate_predict(ref_model, X_test_blob)
+
+    model = HDBSCAN(prediction_data=True,
+                    approx_min_span_tree=False,
+                    max_cluster_size=0,
+                    min_cluster_size=30)
+    with using_device_type(train_device):
+        trained_labels = model.fit_predict(X_train_blob)
+    with using_device_type(infer_device):
+        from cuml.cluster.hdbscan.prediction import \
+            all_points_membership_vectors, approximate_predict
+        membership = all_points_membership_vectors(model)
+        labels, probs = approximate_predict(model, X_test_blob)
+
+    assert(adjusted_rand_score(trained_labels, ref_trained_labels) >= 0.95)
+    assert_membership_vectors(membership, ref_membership)
+    assert(adjusted_rand_score(labels, ref_labels) >= 0.98)
+    assert(array_equal(probs, ref_probs, unit_tol=0.001, total_tol=0.006))

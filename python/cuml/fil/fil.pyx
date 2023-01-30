@@ -19,12 +19,14 @@
 import copy
 import ctypes
 import math
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import warnings
-import pandas as pd
+pd = cpu_only_import('pandas')
 from inspect import getdoc
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -742,8 +744,8 @@ class ForestInference(Base,
         self.shape_str = self._impl.get_shape_str()
         return self
 
-    @staticmethod
-    def load_from_sklearn(skl_model,
+    @classmethod
+    def load_from_sklearn(cls, skl_model,
                           output_class=False,
                           threshold=0.50,
                           algo='auto',
@@ -822,14 +824,23 @@ class ForestInference(Base,
             model passed.
 
         """
-        kwargs = locals()
-        [kwargs.pop(key) for key in ['skl_model', 'handle']]
         cuml_fm = ForestInference(handle=handle)
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
-        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
+        cuml_fm.load_from_treelite_model(
+            model=tl_model,
+            output_class=output_class,
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str,
+            precision=precision
+        )
         return cuml_fm
 
     @staticmethod

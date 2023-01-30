@@ -13,21 +13,18 @@
 # limitations under the License.
 #
 
+from threading import Lock
+from asyncio import InvalidStateError
+from cuml.internals.import_utils import check_min_dask_version
+from cuml.common import device_of_gpu_matrix
+from dask.distributed import default_client, wait
+import time
+import random
 import dask
 import logging
 import os
-import numba.cuda
-import random
-import time
-
-from dask.distributed import default_client, wait
-
-from cuml.common import device_of_gpu_matrix
-from cuml.internals.import_utils import check_min_dask_version
-
-from asyncio import InvalidStateError
-
-from threading import Lock
+from cuml.internals.safe_imports import gpu_only_import
+numba_cuda = gpu_only_import('numba.cuda')
 
 
 def get_visible_devices():
@@ -73,14 +70,14 @@ def select_device(dev, close=True):
     :param dev: int device to select
     :param close: bool close the cuda context and create new one?
     """
-    if numba.cuda.get_current_device().id != dev:
+    if numba_cuda.get_current_device().id != dev:
         logging.warning("Selecting device " + str(dev))
         if close:
-            numba.cuda.close()
-        numba.cuda.select_device(dev)
-        if dev != numba.cuda.get_current_device().id:
+            numba_cuda.close()
+        numba_cuda.select_device(dev)
+        if dev != numba_cuda.get_current_device().id:
             logging.warning("Current device " +
-                            str(numba.cuda.get_current_device()) +
+                            str(numba_cuda.get_current_device()) +
                             " does not match expected " + str(dev))
 
 
@@ -150,7 +147,7 @@ def raise_exception_from_futures(futures):
     if errs:
         raise RuntimeError("%d of %d worker jobs failed: %s" % (
             len(errs), len(futures), ", ".join(map(str, errs))
-            ))
+        ))
 
 
 def wait_and_raise_from_futures(futures):

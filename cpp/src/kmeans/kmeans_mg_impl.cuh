@@ -19,6 +19,7 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -636,7 +637,7 @@ void fit(const raft::handle_t& handle,
       centroids.extent(0),
       itr_wt,
       itr_wt,
-      wtInCluster.size(),
+      wtInCluster.extent(0),
       newCentroids.data_handle(),
       [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
         // copy when the # of samples in the cluster is 0

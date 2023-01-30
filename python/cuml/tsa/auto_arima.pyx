@@ -23,9 +23,11 @@ import itertools
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 import cuml.internals
 from cuml.internals import logger
