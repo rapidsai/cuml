@@ -12,57 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from sklearn.model_selection import train_test_split
+from distutils.version import LooseVersion
+from functools import lru_cache
+
+import pytest
+import sklearn
+from cuml.internals.array import elements_in_representable_range
+from cuml.internals.safe_imports import (cpu_only_import, cpu_only_import_from,
+                                         gpu_only_import)
+from cuml.testing.strategies import (regression_datasets, split_datasets,
+                                     standard_classification_datasets,
+                                     standard_regression_datasets)
+from cuml.testing.utils import (array_difference, array_equal, quality_param,
+                                small_classification_dataset,
+                                small_regression_dataset, stress_param,
+                                unit_param)
+from hypothesis import assume, example, given, note
+from hypothesis import strategies as st
+from hypothesis import target
+from hypothesis.extra.numpy import floating_dtypes
+from sklearn.datasets import (load_breast_cancer, load_digits,
+                              make_classification, make_regression)
+from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.datasets import load_breast_cancer
-from sklearn.datasets import make_regression, make_classification, load_digits
-import sklearn
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.testing.utils import (
-    array_difference,
-    array_equal,
-    small_regression_dataset,
-    small_classification_dataset,
-    unit_param,
-    quality_param,
-    stress_param,
-)
-from cuml.testing.strategies import (
-    regression_datasets,
-    split_datasets,
-    standard_regression_datasets,
-)
-from cuml.internals.array import elements_in_representable_range
-from cuml import Ridge as cuRidge
-from cuml import LogisticRegression as cuLog
-from cuml import LinearRegression as cuLinearRegression
+from sklearn.model_selection import train_test_split
+
 from cuml import ElasticNet as cuElasticNet
-from distutils.version import LooseVersion
-from hypothesis.extra.numpy import floating_dtypes
-from hypothesis import (
-    assume,
-    example,
-    given,
-    settings,
-    strategies as st,
-    target
-)
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from functools import lru_cache
-from cuml.internals.safe_imports import gpu_only_import
+from cuml import LinearRegression as cuLinearRegression
+from cuml import LogisticRegression as cuLog
+from cuml import Ridge as cuRidge
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 cudf = gpu_only_import('cudf')
 rmm = gpu_only_import('rmm')
 
 csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
-
-
-pytestmark = pytest.mark.filterwarnings("ignore: Regressors in active "
-                                        "set degenerate(.*)::sklearn[.*]")
 
 
 def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
@@ -160,7 +145,6 @@ def test_linear_regression_model(
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(fit_intercept=True,
-                               normalize=False,
                                algorithm=algorithm)
 
     # fit and predict cuml linear regression model
@@ -169,7 +153,7 @@ def test_linear_regression_model(
 
     if nrows < 500000:
         # sklearn linear regression model initialization, fit and predict
-        skols = skLinearRegression(fit_intercept=True, normalize=False)
+        skols = skLinearRegression(fit_intercept=True)
         skols.fit(X_train, y_train)
 
         skols_predict = skols.predict(X_test)
@@ -181,24 +165,22 @@ def test_linear_regression_model(
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd", "qr", "svd-qr"])
 @pytest.mark.parametrize(
-    "fit_intercept, normalize, distribution", [
-        (True, True, "lognormal"),
-        (True, True, "exponential"),
-        (True, False, "uniform"),
-        (True, False, "exponential"),
-        (False, True, "lognormal"),
-        (False, False, "uniform"),
+    "fit_intercept, distribution", [
+        (True, "lognormal"),
+        (True, "exponential"),
+        (True, "uniform"),
+        (True, "exponential"),
+        (False, "lognormal"),
+        (False, "uniform"),
     ]
 )
 def test_weighted_linear_regression(
-    ntargets, datatype, algorithm, fit_intercept, normalize, distribution
+    ntargets, datatype, algorithm, fit_intercept, distribution
 ):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
 
-    if 1 < ntargets and normalize:
-        pytest.skip("The multi-target fit does not support normalization.")
     if 1 < ntargets and algorithm != "svd":
         pytest.skip("The multi-target fit only supports using the svd solver.")
 
@@ -216,7 +198,6 @@ def test_weighted_linear_regression(
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(fit_intercept=fit_intercept,
-                               normalize=normalize,
                                algorithm=algorithm)
 
     # fit and predict cuml linear regression model
@@ -224,8 +205,7 @@ def test_weighted_linear_regression(
     cuols_predict = cuols.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skols = skLinearRegression(fit_intercept=fit_intercept,
-                               normalize=normalize)
+    skols = skLinearRegression(fit_intercept=fit_intercept)
     skols.fit(X_train, y_train, sample_weight=wt)
 
     skols_predict = skols.predict(X_test)
@@ -254,13 +234,13 @@ def test_linear_regression_single_column():
         standard_regression_datasets(
             dtypes=floating_dtypes(sizes=(32, 64)),
             n_samples=st.just(1000),
+            n_targets=st.integers(1, 10),
         ),
         test_sizes=st.just(0.2)
     )
 )
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
-@settings(deadline=5000)
 def test_linear_regression_model_default(dataset):
 
     X_train, X_test, y_train, _ = dataset
@@ -292,7 +272,6 @@ def test_linear_regression_model_default(dataset):
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
-@settings(deadline=5000)
 def test_linear_regression_model_default_generalized(dataset):
 
     X_train, X_test, y_train, _ = dataset
@@ -318,10 +297,20 @@ def test_linear_regression_model_default_generalized(dataset):
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_ridge_regression_model_default(datatype):
+@given(
+    split_datasets(
+        standard_regression_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+        ),
+    ),
+)
+@example(small_regression_dataset(np.float32))
+@example(small_regression_dataset(np.float64))
+def test_ridge_regression_model_default(dataset):
 
-    X_train, X_test, y_train, y_test = small_regression_dataset(datatype)
+    assume(sklearn_compatible_dataset(* dataset))
+    assume(cuml_compatible_dataset(* dataset))
+    X_train, X_test, y_train, _ = dataset
 
     curidge = cuRidge()
 
@@ -334,7 +323,10 @@ def test_ridge_regression_model_default(datatype):
     skridge.fit(X_train, y_train)
     skridge_predict = skridge.predict(X_test)
 
-    assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+    equal = array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+    note(equal)
+    target(float(np.abs(equal.compute_difference())))
+    assert equal
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -363,7 +355,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
     )
 
     # Initialization of cuML's ridge regression model
-    curidge = cuRidge(fit_intercept=False, normalize=False, solver=algorithm)
+    curidge = cuRidge(fit_intercept=False, solver=algorithm)
 
     # fit and predict cuml ridge regression model
     curidge.fit(X_train, y_train)
@@ -371,7 +363,7 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 
     if nrows < 500000:
         # sklearn ridge regression model initialization, fit and predict
-        skridge = skRidge(fit_intercept=False, normalize=False)
+        skridge = skRidge(fit_intercept=False)
         skridge.fit(X_train, y_train)
 
         skridge_predict = skridge.predict(X_test)
@@ -385,17 +377,17 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
-    "fit_intercept, normalize, distribution", [
-        (True, True, "lognormal"),
-        (True, True, "exponential"),
-        (True, False, "uniform"),
-        (True, False, "exponential"),
-        (False, True, "lognormal"),
-        (False, False, "uniform"),
+    "fit_intercept, distribution", [
+        (True, "lognormal"),
+        (True, "exponential"),
+        (True, "uniform"),
+        (True, "exponential"),
+        (False, "lognormal"),
+        (False, "uniform"),
     ]
 )
 def test_weighted_ridge(datatype, algorithm, fit_intercept,
-                        normalize, distribution):
+                        distribution):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
@@ -413,7 +405,6 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
 
     # Initialization of cuML's linear regression model
     curidge = cuRidge(fit_intercept=fit_intercept,
-                      normalize=normalize,
                       solver=algorithm)
 
     # fit and predict cuml linear regression model
@@ -421,8 +412,7 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept,
     curidge_predict = curidge.predict(X_test)
 
     # sklearn linear regression model initialization, fit and predict
-    skridge = skRidge(fit_intercept=fit_intercept,
-                      normalize=normalize)
+    skridge = skRidge(fit_intercept=fit_intercept)
     skridge.fit(X_train, y_train, sample_weight=wt)
 
     skridge_predict = skridge.predict(X_test)
@@ -525,13 +515,15 @@ def test_logistic_regression(
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
 
-@pytest.mark.parametrize("dtype, penalty, l1_ratio", [
-    (np.float32, "none", 1.0),
-    (np.float64, "l2", 0.0),
-    (np.float32, "elasticnet", 1.0),
-    (np.float64, "l1", None),
-])
+@given(
+    dtype=floating_dtypes(sizes=(32, 64)),
+    penalty=st.sampled_from(("none", "l1", "l2", "elasticnet")),
+    l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
+)
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
+    if penalty == 'elasticnet':
+        assume(l1_ratio is not None)
+
     # Test logistic regression on the breast cancer dataset. We do not scale
     # the dataset which could lead to numerical problems (fixed in PR #2543).
     X, y = load_breast_cancer(return_X_y=True)
@@ -543,11 +535,17 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     culog = cuLog(**params)
     culog.fit(X_train, y_train)
 
-    score_test = 0.94
-    score_train = 0.94
+    score_train = culog.score(X_train, y_train)
+    score_test = culog.score(X_test, y_test)
 
-    assert culog.score(X_train, y_train) >= score_train
-    assert culog.score(X_test, y_test) >= score_test
+    target(1 / score_train, label="inverse train score")
+    target(1 / score_test, label="inverse test score")
+
+    # TODO: Use a more rigorous approach to determine expected minimal scores
+    # here. The values here are selected empirically and passed during test
+    # development.
+    assert score_train >= 0.94
+    assert score_test >= 0.94
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -565,11 +563,14 @@ def test_logistic_regression_model_default(dtype):
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("order", ["C", "F"])
-@pytest.mark.parametrize("sparse_input", [False, True])
-@pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("penalty", ["none", "l1", "l2"])
+@given(
+    dtype=floating_dtypes(sizes=(32, 64)),
+    order=st.sampled_from(("C", "F")),
+    sparse_input=st.booleans(),
+    fit_intercept=st.booleans(),
+    penalty=st.sampled_from(("none", "l1", "l2")),
+
+)
 def test_logistic_regression_model_digits(
         dtype, order, sparse_input, fit_intercept, penalty):
 
@@ -595,7 +596,7 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@given(dtype=floating_dtypes(sizes=(32, 64)))
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -616,83 +617,85 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
     assert score >= acceptable_score
 
 
-@pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
-    (np.float32, 10, 2, True),
-    (np.float64, 100, 10, False),
-    (np.float64, 100, 2, True)
-])
-@pytest.mark.parametrize("column_info", [(20, 10)])
-@pytest.mark.parametrize("sparse_input", [False, True])
+@given(
+    dataset=split_datasets(
+        standard_classification_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+            n_classes=st.sampled_from((2, 10)),
+            n_features=st.just(20),
+            n_informative=st.just(10),
+        )
+    ),
+    fit_intercept=st.booleans(),
+    sparse_input=st.booleans(),
+)
 def test_logistic_regression_decision_function(
-    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
-):
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols,
-        n_info=n_info, num_classes=num_classes
-    )
-    X_train = csr_matrix(X_train) if sparse_input else X_train
-    X_test = csr_matrix(X_test) if sparse_input else X_test
+        dataset, fit_intercept, sparse_input):
 
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
+    X_train, X_test, y_train, y_test = dataset
+
+    # Assumption needed to avoid qn.h: logistic loss invalid C error.
+    assume(set(np.unique(y_train)) == set(np.unique(y_test)))
+    num_classes = len(np.unique(np.concatenate((y_train, y_test))))
+
+    if sparse_input:
+        X_train = csr_matrix(X_train)
+        X_test = csr_matrix(X_test)
 
     culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
     sklog = skLog(fit_intercept=fit_intercept)
     sklog.coef_ = culog.coef_
-    if fit_intercept:
-        sklog.intercept_ = culog.intercept_
-    else:
-        skLog.intercept_ = 0
+    sklog.intercept_ = culog.intercept_ if fit_intercept else 0
     sklog.classes_ = np.arange(num_classes)
 
     cu_dec_func = culog.decision_function(X_test)
-    if num_classes > 2:
+    if cu_dec_func.shape[0] > 2:  # num_classes
         cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
 
     assert array_equal(cu_dec_func, sk_dec_func)
 
 
-@pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
-    (np.float32, 10, 2, True),
-    (np.float64, 100, 10, False),
-    (np.float64, 100, 2, True)
-])
-@pytest.mark.parametrize("column_info", [(20, 10)])
-@pytest.mark.parametrize("sparse_input", [False, True])
+@given(
+    dataset=split_datasets(
+        standard_classification_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64)),
+            n_classes=st.sampled_from((2, 10)),
+            n_features=st.just(20),
+            n_informative=st.just(10),
+        )
+    ),
+    fit_intercept=st.booleans(),
+    sparse_input=st.booleans(),
+)
 def test_logistic_regression_predict_proba(
-    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
-):
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols,
-        n_info=n_info, num_classes=num_classes
-    )
-    X_train = csr_matrix(X_train) if sparse_input else X_train
-    X_test = csr_matrix(X_test) if sparse_input else X_test
+        dataset, fit_intercept, sparse_input):
 
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
+    X_train, X_test, y_train, y_test = dataset
+
+    # Assumption needed to avoid qn.h: logistic loss invalid C error.
+    assume(set(np.unique(y_train)) == set(np.unique(y_test)))
+    num_classes = len(np.unique(y_train))
+
+    if sparse_input:
+        X_train = csr_matrix(X_train)
+        X_test = csr_matrix(X_test)
 
     culog = cuLog(fit_intercept=fit_intercept, output_type="numpy")
     culog.fit(X_train, y_train)
 
-    if num_classes > 2:
-        sklog = skLog(
-            fit_intercept=fit_intercept,
-            solver="lbfgs",
-            multi_class="multinomial"
+    sklog = skLog(
+        fit_intercept=fit_intercept,
+        **(
+            {"solver": "lbfgs", "multi_class": "multinomial"}
+            if num_classes > 2
+            else {}
         )
-    else:
-        sklog = skLog(fit_intercept=fit_intercept)
+    )
     sklog.coef_ = culog.coef_
-    if fit_intercept:
-        sklog.intercept_ = culog.intercept_
-    else:
-        skLog.intercept_ = 0
+    sklog.intercept_ = culog.intercept_ if fit_intercept else 0
     sklog.classes_ = np.arange(num_classes)
 
     cu_proba = culog.predict_proba(X_test)
@@ -737,28 +740,36 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
-def test_ridge_predict_convert_dtype(train_dtype, test_dtype):
-    X, y = make_regression(n_samples=50, n_features=10,
-                           n_informative=5, random_state=0)
-    X = X.astype(train_dtype)
-    y = y.astype(train_dtype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+@given(
+    dataset=split_datasets(
+        standard_regression_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64))
+        )
+    ),
+    test_dtype=floating_dtypes(sizes=(32, 64)),
+)
+def test_ridge_predict_convert_dtype(dataset, test_dtype):
+    assume(cuml_compatible_dataset(*dataset))
+    X_train, X_test, y_train, _ = dataset
 
     clf = cuRidge()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
-def test_logistic_predict_convert_dtype(train_dtype, test_dtype):
-    X, y = make_classification(n_samples=50, n_features=10, random_state=0)
-    X = X.astype(train_dtype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+@given(
+    dataset=split_datasets(
+        standard_classification_datasets(
+            dtypes=floating_dtypes(sizes=(32, 64))
+        )
+    ),
+    test_dtype=floating_dtypes(sizes=(32, 64)),
+)
+def test_logistic_predict_convert_dtype(dataset, test_dtype):
+    X_train, X_test, y_train, y_test = dataset
+
+    # Assumption needed to avoid qn.h: logistic loss invalid C error.
+    assume(set(np.unique(y_train)) == set(np.unique(y_test)))
 
     clf = cuLog()
     clf.fit(X_train, y_train)

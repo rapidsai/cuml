@@ -237,6 +237,8 @@ class SGD(Base,
             msg = "loss {!r} is not supported"
             raise TypeError(msg.format(loss))
 
+        if penalty is None:
+            penalty = 'none'
         if penalty in ['none', 'l1', 'l2', 'elasticnet']:
             self.penalty = penalty
         else:
