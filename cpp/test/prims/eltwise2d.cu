@@ -132,17 +132,19 @@ const std::vector<Eltwise2dInputs<double>> inputsd2 = {{0.00000001, 1024, 1024, 
 typedef Eltwise2dTest<float> Eltwise2dTestF;
 TEST_P(Eltwise2dTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref.data(), out.data(), params.w * params.h, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(out_ref.data(),
+                                    out.data(),
+                                    params.w * params.h,
+                                    MLCommon::CompareApprox<float>(params.tolerance)));
 }
 
 typedef Eltwise2dTest<double> Eltwise2dTestD;
 TEST_P(Eltwise2dTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
-                                out.data(),
-                                params.w * params.h,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(out_ref.data(),
+                                    out.data(),
+                                    params.w * params.h,
+                                    MLCommon::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(Eltwise2dTests, Eltwise2dTestF, ::testing::ValuesIn(inputsf2));

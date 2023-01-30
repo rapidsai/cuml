@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <vector>
@@ -249,11 +250,11 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
-    EXPECT_TRUE(raft::devArrMatchHost(params.core_indices,
-                                      core_sample_indices_d.data(),
-                                      params.n_row,
-                                      raft::Compare<int>(),
-                                      stream));
+    EXPECT_TRUE(MLCommon::devArrMatchHost(params.core_indices,
+                                          core_sample_indices_d.data(),
+                                          params.n_row,
+                                          MLCommon::Compare<int>(),
+                                          stream));
   }
 
   void SetUp() override { basicTest(); }

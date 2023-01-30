@@ -124,7 +124,7 @@ typedef KNNClassifyTest KNNClassifyTestF;
 TEST_P(KNNClassifyTestF, Fit)
 {
   ASSERT_TRUE(
-    devArrMatch(train_labels.data(), pred_labels.data(), params.rows, raft::Compare<int>()));
+    devArrMatch(train_labels.data(), pred_labels.data(), params.rows, MLCommon::Compare<int>()));
 }
 
 const std::vector<KNNClassifyInputs> inputsf = {{100, 10, 2, 0.01f, 2},

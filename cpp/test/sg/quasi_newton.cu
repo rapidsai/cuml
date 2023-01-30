@@ -92,7 +92,7 @@ template <typename T, class Comp>
   raft::update_device(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) { raft::update_device(&w_ref.data[C * D], host_bias, C, stream); }
   handle.sync_stream(stream);
-  return raft::devArrMatch(w_ref.data, w, w_ref.len, comp);
+  return MLCommon::devArrMatch(w_ref.data, w, w_ref.len, comp);
 }
 
 template <typename T, class LossFunction>
@@ -197,7 +197,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 #if CUDART_VERSION >= 11020
   GTEST_SKIP();
 #endif
-  raft::CompareApprox<double> compApprox(tol);
+  MLCommon::CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
   raft::update_device(ydev->data, &y[0], ydev->len, stream);
@@ -319,7 +319,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   // The data seems to small for the objective to be strongly convex
   // leaving out exact param checks
 
-  raft::CompareApprox<double> compApprox(tol);
+  MLCommon::CompareApprox<double> compApprox(tol);
   double y[N] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
   raft::update_device(ydev->data, &y[0], ydev->len, stream);
   handle.sync_stream(stream);
@@ -423,7 +423,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
 
 TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
 {
-  raft::CompareApprox<double> compApprox(tol);
+  MLCommon::CompareApprox<double> compApprox(tol);
   double y[N] = {0.2675836026202781,
                  -0.0678277759663704,
                  -0.6334027174275105,
@@ -543,7 +543,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
 
 TEST_F(QuasiNewtonTest, predict)
 {
-  raft::CompareApprox<double> compApprox(1e-8);
+  MLCommon::CompareApprox<double> compApprox(1e-8);
   std::vector<double> w_host(D);
   w_host[0] = 1;
   std::vector<double> preds_host(N);
@@ -576,7 +576,7 @@ TEST_F(QuasiNewtonTest, predict)
 
 TEST_F(QuasiNewtonTest, predict_softmax)
 {
-  raft::CompareApprox<double> compApprox(1e-8);
+  MLCommon::CompareApprox<double> compApprox(1e-8);
   int C = 4;
   std::vector<double> w_host(C * D);
   w_host[0]         = 1;
@@ -631,7 +631,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
   SimpleSparseMat<double> X_sparse(
     Xdev->data, mem_X_cols.data(), mem_X_row_ids.data(), N * D, N, D);
 
-  raft::CompareApprox<double> compApprox(tol);
+  MLCommon::CompareApprox<double> compApprox(tol);
   double y[N] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
   raft::update_device(ydev->data, &y[0], ydev->len, stream);
   handle.sync_stream(stream);

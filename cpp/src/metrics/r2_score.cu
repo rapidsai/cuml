@@ -15,6 +15,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/stats/r2_score.hpp>
 
 namespace ML {

@@ -26,6 +26,7 @@
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/spatial/knn/specializations.hpp>
