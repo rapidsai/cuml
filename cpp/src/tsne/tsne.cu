@@ -16,6 +16,7 @@
 
 #include "tsne_runner.cuh"
 #include <cuml/manifold/tsne.h>
+#include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/spatial/knn/specializations.hpp>

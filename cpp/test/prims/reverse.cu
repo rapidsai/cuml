@@ -84,7 +84,7 @@ TEST_P(ReverseTestF, Result)
                           out.data(),
                           params.nrows,
                           params.ncols,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestF, ::testing::ValuesIn(inputsf));
 
@@ -104,7 +104,7 @@ TEST_P(ReverseTestD, Result)
                           out.data(),
                           params.nrows,
                           params.ncols,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD, ::testing::ValuesIn(inputsd));
 

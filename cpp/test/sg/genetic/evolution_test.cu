@@ -262,7 +262,7 @@ class GeneticEvolutionTest : public ::testing::Test {
 
 TEST_F(GeneticEvolutionTest, SymReg)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
   program_t final_progs;
   final_progs = (program_t)rmm::mr::get_current_device_resource()->allocate(
     hyper_params.population_size * sizeof(program), stream);
