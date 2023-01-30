@@ -22,6 +22,8 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
+#include <raft/core/handle.hpp>
+
 #include <gtest/gtest.h>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>

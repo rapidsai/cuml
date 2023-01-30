@@ -206,7 +206,7 @@ TEST_P(BatchedCSRTestD, Result)
   ASSERT_TRUE(devArrMatchHost(res_h.data(),
                               res_bM->raw_data(),
                               res_h.size(),
-                              raft::CompareApprox<double>(params.tolerance),
+                              MLCommon::CompareApprox<double>(params.tolerance),
                               stream));
 }
 TEST_P(BatchedCSRTestF, Result)
@@ -214,7 +214,7 @@ TEST_P(BatchedCSRTestF, Result)
   ASSERT_TRUE(devArrMatchHost(res_h.data(),
                               res_bM->raw_data(),
                               res_h.size(),
-                              raft::CompareApprox<float>(params.tolerance),
+                              MLCommon::CompareApprox<float>(params.tolerance),
                               stream));
 }
 

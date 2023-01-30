@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.8"]
       arch: [x86_64]
     includes:
       - common_build
@@ -17,7 +17,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.8"]
       arch: [x86_64]
     includes:
       - common_build
@@ -126,12 +126,26 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libfaiss>=1.7.0
+          - libfaiss>=1.7.1
           - faiss-proc=*=cuda
   cudatoolkit:
     specific:
       - output_types: conda
         matrices:
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cudatoolkit=11.8
+              - libcublas-dev=11.11.3.6
+              - libcublas=11.11.3.6
+              - libcufft-dev=10.9.0.58
+              - libcufft=10.9.0.58
+              - libcurand-dev=10.3.0.86
+              - libcurand=10.3.0.86
+              - libcusolver-dev=11.4.1.48
+              - libcusolver=11.4.1.48
+              - libcusparse-dev=11.7.5.86
+              - libcusparse=11.7.5.86
           - matrix:
               cuda: "11.5"
             packages:
@@ -197,8 +211,12 @@ dependencies:
             packages:
               - python=3.9
           - matrix:
+              py: "3.10"
             packages:
-              - python>=3.8,<3.10
+              - python=3.10
+          - matrix:
+            packages:
+              - python>=3.8,<3.11
   test_python:
     common:
       - output_types: [conda, requirements]
