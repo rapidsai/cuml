@@ -150,7 +150,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.handle.sync()
 
         # Release memory
-        self.free_mem(input)
+        type(self).free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))

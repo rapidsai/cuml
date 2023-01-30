@@ -178,9 +178,9 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         self.handle.sync()
 
         # Release memory
-        self.free_mem(input)
+        type(self).free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-        self._free_unique(<uintptr_t>uniq_labels_vec,
+        type(self)._free_unique(<uintptr_t>uniq_labels_vec,
                           <uintptr_t>n_unique_vec)
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))
@@ -291,9 +291,9 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         self.handle.sync()
 
         # Release memory
-        self.free_mem(input)
+        type(self).free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-        self._free_unique(<uintptr_t>uniq_labels_vec,
+        type(self)._free_unique(<uintptr_t>uniq_labels_vec,
                           <uintptr_t>n_unique_vec)
         free(<void*><uintptr_t>probas_local_parts)
 
