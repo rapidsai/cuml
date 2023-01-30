@@ -40,8 +40,6 @@ auto constexpr get_node_alignment() {
   return result;
 }
 
-}
-
 /** @brief A single node in a forest model
  *
  * Note that this implementation includes NO error checking for poorly-chosen
@@ -223,6 +221,66 @@ struct alignas(
   // to save bytes
   offset_type distant_offset;
   metadata_storage_type metadata;
+};
+
+} // namespace detail
+
+
+
+template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+union alignas(
+  detail::get_node_alignment<threshold_t, index_t, metadata_storage_t, offset_t>()
+) node {
+  /// @brief The inner node implementation type
+  using impl_t = detail::node<layout_v, threshold_t, index_t, metadata_storage_t, offset_t>;
+  /// @brief An alias for layout_v
+  auto constexpr static const layout = layout_v;
+  /// @brief An alias for threshold_t
+  using threshold_type = threshold_t;
+  /// @brief An alias for index_t
+  using index_type = index_t;
+  /** @brief A union to hold either a threshold value or index
+   *
+   * All nodes will need EITHER a threshold value, an output value, OR an index
+   * to data elsewhere that wil be used either for evaluating the node (e.g. an
+   * index to a categorical set) or creating an output (e.g. an index to vector
+   * leaf output). This union allows us to store either of these values without
+   * using additional space for the unused value.
+   */
+  union value_type {
+    threshold_t value;
+    index_t index;
+  };
+  /// @brief An alias for metadata_storage_t
+  using metadata_storage_type = metadata_storage_t;
+  /// @brief An alias for offset_t
+  using offset_type = offset_t;
+
+  HOST DEVICE constexpr node(
+    threshold_type value = threshold_type{},
+    bool is_leaf_node = true,
+    bool default_to_distant_child = false,
+    bool is_categorical_node = false,
+    metadata_storage_type feature = metadata_storage_type{},
+    offset_type distant_child_offset = offset_type{}
+  ) : impl_{value, is_leaf_node, default_to_distant_child, is_categorical_node, feature, distant_child_offset} {}
+
+  HOST DEVICE constexpr node(
+    index_type index,
+    bool is_leaf_node = true,
+    bool default_to_distant_child = false,
+    bool is_categorical_node = false,
+    metadata_storage_type feature = metadata_storage_type{},
+    offset_type distant_child_offset = offset_type{}
+  ) : impl_{index, is_leaf_node, default_to_distant_child, is_categorical_node, feature, distant_child_offset} {}
+
+
+  HOST DEVICE auto const& data() const {
+    return impl_;
+  }
+ private:
+   impl_t impl_;
+   char spacer[detail::get_node_alignment<threshold_t, index_t, metadata_storage_t, offset_t>()];
 };
 
 }

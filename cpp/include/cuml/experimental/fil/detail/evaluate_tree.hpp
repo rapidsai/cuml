@@ -22,7 +22,7 @@ HOST DEVICE auto evaluate_tree(
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, typename node_t::index_type const>;
   auto* node = root;
-  auto cur_node = *node;
+  auto cur_node = node->data();
   do {
     auto input_val = row[cur_node.feature_index()];
     auto condition = true;
@@ -43,7 +43,7 @@ HOST DEVICE auto evaluate_tree(
       condition = isnan(input_val);
     }
     node += cur_node.child_offset(condition);
-    cur_node = *node;
+    cur_node = node->data();
   } while (!cur_node.is_leaf());
   return cur_node.template output<has_vector_leaves>();
 }
@@ -60,7 +60,7 @@ HOST DEVICE auto evaluate_tree(
     categorical_storage_t const* __restrict__ categorical_storage
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, categorical_storage_t const>;
-  auto cur_node = *node;
+  auto cur_node = node->data();
   do {
     auto input_val = row[cur_node.feature_index()];
     auto condition = cur_node.default_distant();
@@ -76,7 +76,7 @@ HOST DEVICE auto evaluate_tree(
       }
     }
     node += cur_node.child_offset(condition);
-    cur_node = *node;
+    cur_node = node->data();
   } while (!cur_node.is_leaf());
   return cur_node.template output<has_vector_leaves>();
 }
