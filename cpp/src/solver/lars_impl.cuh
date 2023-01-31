@@ -23,6 +23,7 @@
 
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/util/cache_util.cuh>

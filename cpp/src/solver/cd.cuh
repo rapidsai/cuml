@@ -22,6 +22,7 @@
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
