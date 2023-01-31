@@ -40,7 +40,6 @@ requirements:
   host:
     - cudatoolkit ={{ cuda_version }}
     - cudf ={{ minor_version }}
-    - faiss-proc=*=cuda
     - gmock
     - gtest {{ gtest_version }}
     - lapack
@@ -55,7 +54,6 @@ requirements:
     - libcusolver-dev {{ libcusolver_host_version }}
     - libcusparse {{ libcusparse_host_version }}
     - libcusparse-dev {{ libcusparse_host_version }}
-    - libfaiss {{ libfaiss_version }}
     - libraft-distance ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - libraft-nn ={{ minor_version }}
@@ -76,7 +74,6 @@ outputs:
       run:
         - cudatoolkit {{ cuda_spec }}
         - cudf ={{ minor_version }}
-        - faiss-proc=*=cuda
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcufft {{ libcufft_run_version }}
@@ -84,7 +81,6 @@ outputs:
         - libcurand {{ libcurand_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
-        - libfaiss {{ libfaiss_version }}
         - libraft-distance ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
         - libraft-nn ={{ minor_version }}
