@@ -22,6 +22,7 @@
 
 #include <raft/random/permute.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.cuh>
