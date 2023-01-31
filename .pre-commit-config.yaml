@@ -27,6 +27,10 @@ repos:
             entry: '(category=|\s)DeprecationWarning[,)]'
             language: pygrep
             types_or: [python, cython]
+          - id: clang-format
+            name: clang-format
+            entry: python ./cpp/scripts/run-clang-format.py
+            language: python
           # - id: cmake-format
           #   name: cmake-format
           #   entry: ./cpp/scripts/run-cmake-format.sh cmake-format
