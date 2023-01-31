@@ -73,3 +73,4 @@ NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; prin
 
 # Wheel builds install intra-RAPIDS dependencies from same release
 sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/_custom_build/backend.py
