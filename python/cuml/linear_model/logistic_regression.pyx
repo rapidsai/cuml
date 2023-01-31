@@ -67,6 +67,10 @@ class LogisticRegression(UniversalBase,
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Examples
     --------
 
@@ -169,12 +173,6 @@ class LogisticRegression(UniversalBase,
         The estimated coefficients for the linear regression model.
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
-
-    Device Selection (Experimental)
-    -------------------------------
-    This estimator supports cuML's device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Notes
     -----

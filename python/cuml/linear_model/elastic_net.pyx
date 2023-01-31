@@ -45,6 +45,10 @@ class ElasticNet(UniversalBase,
     cuML's ElasticNet an array-like object or cuDF DataFrame, uses coordinate
     descent to fit a linear model.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Examples
     --------
 
@@ -140,7 +144,7 @@ class ElasticNet(UniversalBase,
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
-
+    
     Notes
     -----
     For additional docs, see `scikitlearn's ElasticNet

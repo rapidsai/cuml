@@ -161,6 +161,10 @@ class NearestNeighbors(UniversalBase,
     datapoints. Currently, cuML supports k-NN queries, which define
     the neighborhood as the closest `k` neighbors to each query point.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Parameters
     ----------
     n_neighbors : int (default=5)
@@ -277,12 +281,6 @@ class NearestNeighbors(UniversalBase,
         2  0.007812   5.458400  27.051241
         3  0.000000  26.399996  27.543869
         4  0.000000   5.458400  29.583437
-
-    Device Selection (Experimental)
-    -------------------------------
-    This estimator supports cuML's device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Notes
     -----

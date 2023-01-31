@@ -144,6 +144,10 @@ class UMAP(UniversalBase,
     The UMAP algorithm is outlined in [1]. This implementation follows the
     GPU-accelerated version as described in [2].
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Parameters
     ----------
     n_neighbors: float (optional, default 15)
@@ -277,12 +281,6 @@ class UMAP(UniversalBase,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-
-    Device Selection (Experimental)
-    -------------------------------
-    This estimator supports cuML's device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Notes
     -----

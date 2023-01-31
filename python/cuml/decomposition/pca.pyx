@@ -131,6 +131,10 @@ class PCA(UniversalBase,
     as it iteratively tries to correct the top K eigenvectors, but might be
     less accurate.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Examples
     --------
 
@@ -254,12 +258,6 @@ class PCA(UniversalBase,
     noise_variance_ : float
         From Bishop 1999's Textbook. Used in later tasks like calculating the
         estimated covariance of X.
-
-    Device Selection (Experimental)
-    -------------------------------
-    This estimator supports cuML's device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Notes
     -----
