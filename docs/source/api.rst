@@ -64,12 +64,12 @@ If a CUDA-enabled GPU is available on the system, cuML will default to using it.
        model.fit(X_train, y_train)
        predictions = model.predict(X_test)
 
-    # All operators supporting CPU execution will run on the CPU after this configuration
-    set_global_device_type("CPU")
+   # All operators supporting CPU execution will run on the CPU after this configuration
+   set_global_device_type("CPU")
     
-    model = Lasso()
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
+   model = Lasso()
+   model.fit(X_train, y_train)
+   predictions = model.predict(X_test)
 
 .. _verbosity-levels:
 
