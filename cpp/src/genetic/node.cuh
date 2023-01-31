@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/genetic/node.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace cuml {
 namespace genetic {
