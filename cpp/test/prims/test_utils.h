@@ -22,7 +22,7 @@
 #include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
 
-namespace raft {
+namespace MLCommon {
 
 template <typename T>
 struct Compare {
@@ -254,4 +254,4 @@ testing::AssertionResult match(const T expected, T actual, L eq_compare)
     ms /= args.runs;                                       \
   } while (0)
 
-};  // end namespace raft
+};  // namespace MLCommon

@@ -16,6 +16,7 @@
 
 #include "lars_impl.cuh"
 #include <cuml/solvers/lars.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Solver {
