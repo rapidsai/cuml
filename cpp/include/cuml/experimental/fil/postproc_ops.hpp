@@ -3,14 +3,14 @@ namespace ML {
 namespace experimental {
 namespace fil {
 
-/* Enum representing possible row-wise operations on output */
+/** Enum representing possible row-wise operations on output */
 enum struct row_op : unsigned char {
   disable=0b00100000,
   softmax=0b01000000,
   max_index=0b10000000
 };
 
-/* Enum representing possible element-wise operations on output */
+/** Enum representing possible element-wise operations on output */
 enum struct element_op : unsigned char {
   disable=0b00000000,
   signed_square=0b00000001,

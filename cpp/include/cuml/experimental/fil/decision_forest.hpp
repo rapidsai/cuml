@@ -358,6 +358,7 @@ using preset_decision_forest = decision_forest<
 
 }
 
+/** A variant containing all standard decision_forest instantiations */
 using decision_forest_variant = std::variant<
   detail::preset_decision_forest<preferred_tree_layout, false, false>,
   detail::preset_decision_forest<preferred_tree_layout, false, true>,
@@ -365,6 +366,21 @@ using decision_forest_variant = std::variant<
   detail::preset_decision_forest<preferred_tree_layout, true, true>
 >;
 
+/**
+ * Determine the variant index of the decision_forest type to used based on
+ * model characteristics
+ *
+ * @param use_double_thresholds Whether single or double-precision floating
+ * point values should be used for quantitative splits
+ * @param num_features The number of input features per row
+ * @param num_categorical_nodes The total number of categorical nodes in the
+ * forest
+ * @param max_num_categories The maximum number of categories in any
+ * categorical feature used by the model
+ * @param num_vector_leaves The total number of leaf nodes which produce vector
+ * outputs. For non-vector-leaf models, this should be 0. For vector-leaf
+ * models, this should be the total number of leaf nodes.
+ */
 inline auto get_forest_variant_index(
   bool use_double_thresholds,
   index_type max_node_offset,

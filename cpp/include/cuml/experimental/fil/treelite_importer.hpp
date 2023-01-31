@@ -18,6 +18,9 @@ namespace ML {
 namespace experimental {
 namespace fil {
 
+namespace detail {
+/** A template for storing nodes in either a depth or breadth-first traversal
+ */
 template <kayak::tree_layout layout, typename T>
 struct traversal_container {
   using backing_container_t = std::conditional_t<
@@ -65,14 +68,18 @@ struct traversal_container {
   backing_container_t data_;
 };
 
-namespace detail {
   struct postproc_params_t {
     element_op element = element_op::disable;
     row_op row = row_op::disable;
     double constant = 1.0;
   };
-}
+} // namespace detail
 
+/**
+ * Struct used to import a model from Treelite to FIL
+ *
+ * @tparam layout The in-memory layout for nodes to be loaded into FIL
+ */
 template<kayak::tree_layout layout>
 struct treelite_importer {
   template<typename tl_threshold_t, typename tl_output_t>
@@ -149,10 +156,10 @@ struct treelite_importer {
   template<typename tl_threshold_t, typename tl_output_t, typename lambda_t>
   void node_for_each(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree, lambda_t&& lambda) {
     using node_index_t = decltype(tl_tree.LeftChild(0));
-    auto to_be_visited = traversal_container<layout, node_index_t>{};
+    auto to_be_visited = detail::traversal_container<layout, node_index_t>{};
     to_be_visited.add(node_index_t{});
 
-    auto parent_indices = traversal_container<layout, index_type>{};
+    auto parent_indices = detail::traversal_container<layout, index_type>{};
     auto cur_index = index_type{};
     parent_indices.add(cur_index);
 
@@ -453,6 +460,10 @@ struct treelite_importer {
     return result;
   }
 
+  /**
+   * Assuming that the correct decision_forest variant has been
+   * identified, import to that variant
+   */
   template<index_type variant_index>
   auto import_to_specific_variant(
     index_type target_variant_index,
@@ -544,11 +555,29 @@ struct treelite_importer {
     return result;
   }
 
+  /**
+   * Import a treelite model to FIL
+   *
+   * Load a model from Treelite to a FIL forest_model. The model will be
+   * inspected to determine the correct underlying decision_forest variant to
+   * use within the forest_model object.
+   *
+   * @param tl_model The Treelite Model to load
+   * @param align_bytes If non-zero, ensure that each tree is stored in a
+   * multiple of this value of bytes by padding with empty nodes. This can
+   * be useful for increasing the likelihood that successive reads will take
+   * place within a single cache line. On GPU, a value of 128 can be used for
+   * this purpose. On CPU, a value of either 0 or 64 typically produces
+   * optimal performance.
+   * @param dev_type Which device type to use for inference (CPU or GPU)
+   * @param stream The CUDA stream to use for loading this model (can be
+   * omitted for CPU).
+   */
   auto import(
     treelite::Model const& tl_model,
     index_type align_bytes = index_type{},
     std::optional<bool> use_double_precision = std::nullopt,
-    kayak::device_type mem_type=kayak::device_type::cpu,
+    kayak::device_type dev_type=kayak::device_type::cpu,
     int device=0,
     kayak::cuda_stream stream=kayak::cuda_stream{}
   ) {
@@ -595,13 +624,32 @@ struct treelite_importer {
       max_num_categories,
       offsets,
       align_bytes,
-      mem_type,
+      dev_type,
       device,
       stream
     )};
   }
 };
 
+/**
+ * Import a treelite model handle to FIL
+ *
+ * Load a model from a Treelite model handle (type-erased treelite::Model
+ * object) to a FIL forest_model. The model will be inspected to determine the
+ * correct underlying decision_forest variant to use within the forest_model
+ * object.
+ *
+ * @param tl_handle The Treelite ModelHandle to load
+ * @param align_bytes If non-zero, ensure that each tree is stored in a
+ * multiple of this value of bytes by padding with empty nodes. This can
+ * be useful for increasing the likelihood that successive reads will take
+ * place within a single cache line. On GPU, a value of 128 can be used for
+ * this purpose. On CPU, a value of either 0 or 64 typically produces
+ * optimal performance.
+ * @param dev_type Which device type to use for inference (CPU or GPU)
+ * @param stream The CUDA stream to use for loading this model (can be
+ * omitted for CPU).
+ */
 auto import_from_treelite_handle(
   ModelHandle tl_handle,
   index_type align_bytes = index_type{},
@@ -620,6 +668,24 @@ auto import_from_treelite_handle(
   );
 }
 
+  /**
+   * Import a treelite model to FIL
+   *
+   * Load a model from Treelite to a FIL forest_model. The model will be
+   * inspected to determine the correct underlying decision_forest variant to
+   * use within the forest_model object.
+   *
+   * @param tl_model The Treelite Model to load
+   * @param align_bytes If non-zero, ensure that each tree is stored in a
+   * multiple of this value of bytes by padding with empty nodes. This can
+   * be useful for increasing the likelihood that successive reads will take
+   * place within a single cache line. On GPU, a value of 128 can be used for
+   * this purpose. On CPU, a value of either 0 or 64 typically produces
+   * optimal performance.
+   * @param dev_type Which device type to use for inference (CPU or GPU)
+   * @param stream The CUDA stream to use for loading this model (can be
+   * omitted for CPU).
+   */
 auto import_from_treelite_model(
   treelite::Model const& tl_model,
   index_type align_bytes = index_type{},
