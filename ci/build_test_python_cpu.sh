@@ -20,5 +20,4 @@ rapids-mamba-retry mambabuild \
 # todo: use dependenncies file
 rapids-mamba-retry install "scikit-learn=1.2" "hdbscan=0.8.29" "umap-learn=0.5.3" "nvtx"
 
-rapids-mamba-retry install --use-local cuml-cpu
-
+rapids-mamba-retry install -c file://${CONDA_PREFIX}/conda-bld/cuml-cpu

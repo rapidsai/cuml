@@ -712,7 +712,7 @@ class QN(Base,
                     penalty_normalized=self.penalty_normalized
                 )
 
-            _num_classcles = self.get_num_classes(_num_classes_dim)
+            _num_classes = self.get_num_classes(_num_classes_dim)
 
             cdef qn_params qnpams = self.qnparams.params
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
