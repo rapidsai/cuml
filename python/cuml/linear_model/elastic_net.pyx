@@ -144,7 +144,7 @@ class ElasticNet(UniversalBase,
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
-    
+
     Notes
     -----
     For additional docs, see `scikitlearn's ElasticNet
