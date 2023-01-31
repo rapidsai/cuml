@@ -19,9 +19,6 @@ treelite_version:
 gtest_version:
   - "=1.10.0"
 
-libfaiss_version:
-  - "=1.7.2 *_cuda"
-
 # The CTK libraries below are missing from the conda-forge::cudatoolkit
 # package. The "*_host_*" version specifiers correspond to `11.8` packages and the
 # "*_run_*" version specifiers correspond to `11.x` packages.
