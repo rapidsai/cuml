@@ -30,8 +30,8 @@
 #include <hdbscan/detail/soft_clustering.cuh>
 #include <hdbscan/detail/utils.h>
 
-#include <raft/spatial/knn/specializations.hpp>
-#include <raft/stats/adjusted_rand_index.hpp>
+#include <raft/spatial/knn/specializations.cuh>
+#include <raft/stats/adjusted_rand_index.cuh>
 
 #include <raft/cluster/detail/agglomerative.cuh>
 

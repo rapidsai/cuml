@@ -24,7 +24,7 @@
 #include <string>
 
 #include <cuml/fil/fil.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include "internal.cuh"
 

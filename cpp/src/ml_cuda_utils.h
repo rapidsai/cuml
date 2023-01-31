@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuda_runtime.h>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 

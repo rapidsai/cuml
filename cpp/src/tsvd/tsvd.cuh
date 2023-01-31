@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/decomposition/params.hpp>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eig.cuh>
@@ -30,6 +29,7 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
