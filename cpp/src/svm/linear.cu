@@ -26,6 +26,7 @@
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <omp.h>
+#include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
