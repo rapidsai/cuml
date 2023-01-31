@@ -16,7 +16,7 @@
 
 #include <cuml/genetic/node.h>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace cuml {
 namespace genetic {

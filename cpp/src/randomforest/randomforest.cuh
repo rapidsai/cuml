@@ -20,7 +20,7 @@
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 
-#include <raft/random/permute.hpp>
+#include <raft/random/permute.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>

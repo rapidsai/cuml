@@ -20,7 +20,7 @@
 
 #include <cuml/common/logger.hpp>
 #include <limits>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {

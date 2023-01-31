@@ -20,8 +20,8 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
