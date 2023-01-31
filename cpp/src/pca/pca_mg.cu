@@ -27,6 +27,7 @@
 #include <cumlprims/opg/stats/mean_center.hpp>
 
 #include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/stats/mean_center.cuh>

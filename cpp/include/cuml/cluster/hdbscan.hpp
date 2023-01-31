@@ -419,6 +419,7 @@ void generate_prediction_data(const raft::handle_t& handle,
  * @param metric distance metric to use
  * @param params struct of configuration hyper-parameters
  * @param out struct of output data and arrays on device
+ * @param core_dists array (size m, 1) of core distances
  */
 void hdbscan(const raft::handle_t& handle,
              const float* X,

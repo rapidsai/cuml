@@ -16,6 +16,7 @@
 
 #include <test_utils.h>
 
+#include <raft/core/handle.hpp>
 #include <umap/runner.cuh>
 
 #include <cuml/datasets/make_blobs.hpp>
@@ -352,8 +353,8 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     ASSERT_TRUE(equal);
 #else
-    ASSERT_TRUE(
-      raft::devArrMatch(e1, e2, n_samples * umap_params.n_components, raft::Compare<float>{}));
+    ASSERT_TRUE(MLCommon::devArrMatch(
+      e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
 #endif
   }
 

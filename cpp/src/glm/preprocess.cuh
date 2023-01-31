@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
