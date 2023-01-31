@@ -55,7 +55,7 @@ requirements:
     - libcusolver-dev {{ libcusolver_host_version }}
     - libcusparse {{ libcusparse_host_version }}
     - libcusparse-dev {{ libcusparse_host_version }}
-    - libfaiss {{ libfaiss_version }} *_cuda
+    - libfaiss {{ libfaiss_version }}
     - libraft-distance ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - libraft-nn ={{ minor_version }}
@@ -84,7 +84,7 @@ outputs:
         - libcurand {{ libcurand_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
-        - libfaiss {{ libfaiss_version }} *_cuda
+        - libfaiss {{ libfaiss_version }}
         - libraft-distance ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
         - libraft-nn ={{ minor_version }}

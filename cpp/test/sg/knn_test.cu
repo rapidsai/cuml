@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/handle.hpp>
+
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -188,7 +190,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     ASSERT_TRUE(devArrMatch(expected_labels.data(),
                             actual_labels.data(),
                             params.n_query_row * params.n_neighbors,
-                            raft::Compare<int>()));
+                            MLCommon::Compare<int>()));
   }
 
   void testClassification()
@@ -226,7 +228,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                  params.n_neighbors);
 
     ASSERT_TRUE(devArrMatch(
-      search_labels.data(), actual_labels.data(), params.n_query_row, raft::Compare<int>()));
+      search_labels.data(), actual_labels.data(), params.n_query_row, MLCommon::Compare<int>()));
   }
 
   void testRegression()
@@ -274,10 +276,10 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                 params.n_query_row,
                 params.n_neighbors);
 
-    ASSERT_TRUE(raft::devArrMatch(query_labels_float.data(),
-                                  actual_labels_float.data(),
-                                  params.n_query_row,
-                                  raft::Compare<float>()));
+    ASSERT_TRUE(MLCommon::devArrMatch(query_labels_float.data(),
+                                      actual_labels_float.data(),
+                                      params.n_query_row,
+                                      MLCommon::Compare<float>()));
   }
 
  private:

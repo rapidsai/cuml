@@ -120,8 +120,8 @@ typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result)
 {
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), vecleny, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), vecleny, MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF, ::testing::ValuesIn(inputsf));
 
@@ -141,7 +141,7 @@ TEST_P(BatchGemvTestD, Result)
 {
   int vecleny = params.batchSize * params.m;
   ASSERT_TRUE(devArrMatch(
-    out_ref.data(), out.data(), vecleny, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), out.data(), vecleny, MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD, ::testing::ValuesIn(inputsd));
 
