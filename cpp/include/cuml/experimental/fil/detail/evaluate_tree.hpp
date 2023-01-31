@@ -55,11 +55,12 @@ template<
   typename categorical_storage_t
 >
 HOST DEVICE auto evaluate_tree(
-    node_t const* __restrict__ node,
+    node_t const* __restrict__ root,
     io_t const* __restrict__ row,
     categorical_storage_t const* __restrict__ categorical_storage
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, categorical_storage_t const>;
+  auto* node = root;
   auto cur_node = node->data();
   do {
     auto input_val = row[cur_node.feature_index()];

@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
@@ -24,10 +39,40 @@ namespace ML {
 namespace experimental {
 namespace fil {
 
+/**
+ * A general-purpose decision forest implementation
+ *
+ * This template provides an optimized but generic implementation of a decision
+ * forest. Template parameters are used to specialize the
+ * implementation based on the size and characteristics of the forest.
+ * For instance, the smallest integer that can express the offset between a
+ * parent and child node within a tree is used in order to minimize the size
+ * of a node, increasing the number that can fit within the L2 or L1 cache.
+ *
+ * @tparam layout_v The in-memory layout of nodes in this forest
+ * @tparam threshold_t The floating-point type used for quantitative splits
+ * @tparam index_t The integer type used for storing many things within a
+ * forest, including the category value of categorical nodes and the index at
+ * which vector output for a leaf node is stored.
+ * @tparam metadata_storage_t The type used for storing node metadata.
+ * The first several bits will be used to store flags indicating various
+ * characteristics of the node, and the remaining bits provide the integer
+ * index of the feature for this node's split
+ * @tparam offset_t An integer used to indicate the offset between a node and
+ * its most distant child. This type must be large enough to store the
+ * largest such offset in the entire forest.
+ */
 template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct decision_forest {
 
+  /**
+   * The in-memory layout of nodes in this forest
+   */
   auto constexpr static const layout = layout_v;
+  /**
+   * The type of the forest object which is actually passed to the CPU/GPU
+   * for inference
+   */
   using forest_type = forest<
     layout,
     threshold_t,
@@ -35,19 +80,37 @@ struct decision_forest {
     metadata_storage_t,
     offset_t
   >;
+  /**
+   * The type of nodes within the forest
+   */
   using node_type = typename forest_type::node_type;
+  /**
+   * The type used for input and output to the model
+   */
   using io_type = typename forest_type::io_type;
+  /**
+   * The type used for quantitative splits within the model
+   */
   using threshold_type = threshold_t;
+  /**
+   * The type used to indicate how leaf output should be post-processed
+   */
   using postprocessor_type = postprocessor<io_type>;
+  /**
+   * The type used for storing data on categorical nodes
+   */
   using categorical_storage_type = typename node_type::index_type;
 
+  /**
+   * Construct an empty decision forest
+   */
   decision_forest() :
     nodes_{},
     root_node_indexes_{},
     vector_output_{},
     categorical_storage_{},
     num_feature_{},
-    num_class_{},
+    num_outputs_{},
     leaf_size_{},
     has_categorical_nodes_{false},
     row_postproc_{},
@@ -56,11 +119,45 @@ struct decision_forest {
     bias_{},
     postproc_constant_{} {}
 
+  /**
+   * Construct a decision forest with the indicated data
+   *
+   * @param nodes A buffer containing all nodes within the forest
+   * @param root_node_indexes A buffer containing the index of the root node
+   * of every tree in the forest
+   * @param num_feature The number of features per input sample for this model
+   * @param num_outputs The number of outputs per row from this model
+   * @param has_categorical_nodes Whether this forest contains any
+   * categorical nodes
+   * @param vector_output A buffer containing the output from all vector
+   * leaves for this model. Each leaf node will specify the offset within
+   * this buffer at which its vector output begins, and leaf_size will be
+   * used to determine how many subsequent entries from the buffer should be
+   * used to construct the vector output. A value of std::nullopt indicates
+   * that this is not a vector leaf model.
+   * @param categorical_storage For models with inputs on too many categories
+   * to be stored in the bits of an `index_t`, it may be necessary to store
+   * categorical information external to the node itself. This buffer
+   * contains the necessary storage for this information.
+   * @param leaf_size The number of output values per leaf (1 for non-vector
+   * leaves; >1 for vector leaves)
+   * @param row_postproc The post-processing operation to be applied to an
+   * entire row of the model output
+   * @param elem_postproc The per-element post-processing operation to be
+   * applied to the model output
+   * @param average_factor A factor which is used for output
+   * normalization
+   * @param bias The bias term that is applied to the output after
+   * normalization
+   * @param postproc_constant A constant used by some post-processing
+   * operations, including sigmoid, exponential, and
+   * logarithm_one_plus_exp
+   */
   decision_forest(
     kayak::buffer<node_type>&& nodes,
     kayak::buffer<index_type>&& root_node_indexes,
     index_type num_feature,
-    index_type num_class=index_type{2},
+    index_type num_outputs=index_type{2},
     bool has_categorical_nodes = false,
     std::optional<kayak::buffer<io_type>>&& vector_output=std::nullopt,
     std::optional<kayak::buffer<typename node_type::index_type>>&& categorical_storage=std::nullopt,
@@ -76,7 +173,7 @@ struct decision_forest {
     vector_output_{vector_output},
     categorical_storage_{categorical_storage},
     num_feature_{num_feature},
-    num_class_{num_class},
+    num_outputs_{num_outputs},
     leaf_size_{leaf_size},
     has_categorical_nodes_{has_categorical_nodes},
     row_postproc_{row_postproc},
@@ -98,16 +195,37 @@ struct decision_forest {
     detail::initialize_device<forest_type>(nodes.device());
   }
 
+  /** The number of features per row expected by the model */
   auto num_feature() const { return num_feature_; }
-  auto num_outputs() const { return num_class_; }
+  /** The number of outputs per row generated by the model */
+  auto num_outputs() const { return num_outputs_; }
 
+  /** The type of memory (device/host) where the model is stored */
   auto memory_type() {
     return nodes_.memory_type();
   }
+  /** The ID of the device on which this model is loaded */
   auto device_index() {
     return nodes_.device_index();
   }
 
+  /**
+   * Perform inference with this model
+   *
+   * @param[out] output The buffer where the model output should be stored.
+   * This must be of size ROWS x num_outputs().
+   * @param[in] input The buffer containing the input data
+   * @param[in] stream For GPU execution, the CUDA stream. For CPU execution,
+   * this optional parameter can be safely omitted.
+   * @param[in] specified_rows_per_block_iter If non-nullopt, this value is
+   * used to determine how many rows are evaluated for each inference
+   * iteration within a CUDA block. Runtime performance is quite sensitive
+   * to this value, but it is difficult to predict a priori, so it is
+   * recommended to perform a search over possible values with realistic
+   * batch sizes in order to determine the optimal value. Any power of 2 from
+   * 1 to 32 is a valid value, and in general larger batches benefit from
+   * larger values.
+   */
   void predict(
     kayak::buffer<typename forest_type::io_type>& output,
     kayak::buffer<typename forest_type::io_type> const& input,
@@ -139,7 +257,7 @@ struct decision_forest {
           input.data(),
           index_type(input.size() / num_feature_),
           num_feature_,
-          num_class_,
+          num_outputs_,
           has_categorical_nodes_,
           vector_output_data,
           categorical_storage_data,
@@ -156,7 +274,7 @@ struct decision_forest {
           input.data(),
           index_type(input.size() / num_feature_),
           num_feature_,
-          num_class_,
+          num_outputs_,
           has_categorical_nodes_,
           vector_output_data,
           categorical_storage_data,
@@ -180,7 +298,7 @@ struct decision_forest {
 
   // Metadata
   index_type num_feature_;
-  index_type num_class_;
+  index_type num_outputs_;
   index_type leaf_size_;
   bool has_categorical_nodes_ = false;
   // Postprocessing constants
@@ -212,6 +330,19 @@ struct decision_forest {
 };
 
 namespace detail {
+/**
+ * A convenience wrapper to simplify template instantiation of
+ * decision_forest
+ *
+ * This template takes the large range of available template parameters
+ * and reduces them to just three standard choices.
+ *
+ * @tparam layout The in-memory layout of nodes in this forest
+ * @tparam double_precision Whether this model should use double-precision
+ * for floating-point evaluation and 64-bit integers for indexes
+ * @tparam large_trees Whether this forest expects more than 2**(16 -3) - 1 =
+ * 8191 features or contains nodes whose child is offset more than 2**16 - 1 = 65535 nodes away.
+ */
 template<
   kayak::tree_layout layout,
   bool double_precision,
