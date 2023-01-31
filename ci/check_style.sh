@@ -46,9 +46,6 @@ function setup_and_run_clang_tidy() {
 }
 TIDY=$(setup_and_run_clang_tidy 2>&1)
 TIDY_RETVAL=$?
-if [ "$RETVAL" = "0" ]; then
-  RETVAL=$TIDY_RETVAL
-fi
 
 # Output results if failure otherwise show pass
 if [ "$TIDY_RETVAL" != "0" ]; then
@@ -60,4 +57,4 @@ else
 fi
 
 
-exit $RETVAL
+exit $TIDY_RETVAL
