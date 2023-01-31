@@ -91,7 +91,7 @@ typedef DevScalarTest<float, int> DevScalarTestF_i32;
 TEST_P(DevScalarTestF_i32, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    out_ref.data(), out.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i32, ::testing::ValuesIn(inputsf_i32));
 
@@ -101,7 +101,7 @@ typedef DevScalarTest<float, size_t> DevScalarTestF_i64;
 TEST_P(DevScalarTestF_i64, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    out_ref.data(), out.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i64, ::testing::ValuesIn(inputsf_i64));
 
@@ -111,7 +111,7 @@ typedef DevScalarTest<double, int> DevScalarTestD_i32;
 TEST_P(DevScalarTestD_i32, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    out_ref.data(), out.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i32, ::testing::ValuesIn(inputsd_i32));
 
@@ -121,7 +121,7 @@ typedef DevScalarTest<double, size_t> DevScalarTestD_i64;
 TEST_P(DevScalarTestD_i64, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    out_ref.data(), out.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64, ::testing::ValuesIn(inputsd_i64));
 

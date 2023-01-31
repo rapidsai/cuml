@@ -132,7 +132,8 @@ setup(name=f'cuml{cuda_suffix}',
           "Intended Audience :: Developers",
           "Programming Language :: Python",
           "Programming Language :: Python :: 3.8",
-          "Programming Language :: Python :: 3.9"
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: 3.10",
       ],
       cmdclass=versioneer.get_cmdclass(),
       include_package_data=True,
@@ -163,7 +164,7 @@ setup(name=f'cuml{cuda_suffix}',
               "numpydoc",
               "umap-learn",
               "statsmodels",
-              "scikit-learn==0.24",
+              "scikit-learn==1.2",
               "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
               "dask-glm @ git+https://github.com/dask/dask-glm@main",
               "dask-cuda"

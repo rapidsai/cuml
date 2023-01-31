@@ -17,6 +17,7 @@
 #include <raft/stats/trustworthiness_score.hpp>
 
 #include <cuml/metrics/metrics.hpp>
+#include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.hpp>

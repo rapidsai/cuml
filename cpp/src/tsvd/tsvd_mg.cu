@@ -24,6 +24,7 @@
 #include <cumlprims/opg/stats/mean.hpp>
 #include <cumlprims/opg/stats/mean_center.hpp>
 #include <cumlprims/opg/stats/stddev.hpp>
+#include <raft/core/handle.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/linalg/eltwise.cuh>

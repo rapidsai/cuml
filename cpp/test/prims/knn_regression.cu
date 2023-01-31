@@ -146,7 +146,7 @@ typedef KNNRegressionTest KNNRegressionTestF;
 TEST_P(KNNRegressionTestF, Fit)
 {
   ASSERT_TRUE(devArrMatch(
-    train_labels.data(), pred_labels.data(), params.rows, raft::CompareApprox<float>(0.3)));
+    train_labels.data(), pred_labels.data(), params.rows, MLCommon::CompareApprox<float>(0.3)));
 }
 
 const std::vector<KNNRegressionInputs> inputsf = {{100, 10, 2, 0.01f, 2},
