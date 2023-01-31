@@ -37,7 +37,6 @@ struct Params {
   RegressionParams blobs;
   ModelHandle model;
   ML::fil::storage_type_t storage;
-  ML::fil::algo_t algo;
   bool use_experimental;
   RF_params rf;
   int predict_repetitions;
@@ -76,7 +75,7 @@ class FILEX : public RegressionFixture<float> {
     );
 
     ML::fil::treelite_params_t tl_params = {
-      .algo              = p_rest.algo,
+      .algo              = ML::fil::algo_t::NAIVE,
       .output_class      = false,
       .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
       .storage_type      = p_rest.storage,
@@ -86,57 +85,91 @@ class FILEX : public RegressionFixture<float> {
       .pforest_shape_str = nullptr};
     ML::fil::forest_variant forest_variant;
     auto optimal_chunk_size = 1;
+    auto optimal_storage_type = p_rest.storage;
+    auto optimal_algo_type = ML::fil::algo_t::NAIVE;
+    auto allowed_storage_types = std::vector<ML::fil::storage_type_t>{};
+    if (p_rest.storage == ML::fil::storage_type_t::DENSE) {
+      allowed_storage_types.push_back(ML::fil::storage_type_t::DENSE);
+      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
+      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
+    } else {
+      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
+      allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
+    }
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
-    // Iterate through chunk sizes and find optimum
-    for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
-      if (!p_rest.use_experimental) {
-        tl_params.threads_per_tree = chunk_size;
-        ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-        forest = std::get<ML::fil::forest_t<float>>(forest_variant);
+    // Iterate through storage type, algorithm type, and chunk sizes and find optimum
+    for (auto storage_type : allowed_storage_types) {
+      auto allowed_algo_types = std::vector<ML::fil::algo_t>{};
+      allowed_algo_types.push_back(ML::fil::algo_t::NAIVE);
+      if (storage_type == ML::fil::storage_type_t::DENSE) {
+        allowed_algo_types.push_back(ML::fil::algo_t::TREE_REORG);
+        allowed_algo_types.push_back(ML::fil::algo_t::BATCH_TREE_REORG);
       }
-      handle->sync_stream();
-      handle->sync_stream_pool();
-      auto start = std::chrono::high_resolution_clock::now();
-      for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        // Create FIL forest
-        if (p_rest.use_experimental) {
-          filex_model.predict(
-            *handle,
-            data.y.data(),
-            data.X.data(),
-            params.nrows,
-            kayak::device_type::gpu,
-            kayak::device_type::gpu,
-            chunk_size
-          );
-        } else {
-          ML::fil::predict(*handle,
-                           forest,
-                           data.y.data(),
-                           data.X.data(),
-                           params.nrows,
-                           false);
-        }
-        handle->sync_stream();
-        handle->sync_stream_pool();
-      }
-      auto end = std::chrono::high_resolution_clock::now();
-      auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        end - start
-      ).count();
-      if (elapsed < min_time) {
-        min_time = elapsed;
-        optimal_chunk_size = chunk_size;
-      }
+      tl_params.storage_type = storage_type;
 
-      // Clean up from FIL
-      if (!p_rest.use_experimental) {
-        ML::fil::free(*handle, forest);
+      for (auto algo_type : allowed_algo_types) {
+        tl_params.algo = algo_type;
+        for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
+          if (!p_rest.use_experimental) {
+            tl_params.threads_per_tree = chunk_size;
+            ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
+            forest = std::get<ML::fil::forest_t<float>>(forest_variant);
+          }
+          handle->sync_stream();
+          handle->sync_stream_pool();
+          auto start = std::chrono::high_resolution_clock::now();
+          for (int i = 0; i < p_rest.predict_repetitions; i++) {
+            // Create FIL forest
+            if (p_rest.use_experimental) {
+              filex_model.predict(
+                *handle,
+                data.y.data(),
+                data.X.data(),
+                params.nrows,
+                kayak::device_type::gpu,
+                kayak::device_type::gpu,
+                chunk_size
+              );
+            } else {
+              ML::fil::predict(*handle,
+                               forest,
+                               data.y.data(),
+                               data.X.data(),
+                               params.nrows,
+                               false);
+            }
+            handle->sync_stream();
+            handle->sync_stream_pool();
+          }
+          auto end = std::chrono::high_resolution_clock::now();
+          auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            end - start
+          ).count();
+          if (elapsed < min_time) {
+            min_time = elapsed;
+            optimal_chunk_size = chunk_size;
+            optimal_storage_type = storage_type;
+            optimal_algo_type = algo_type;
+          }
+
+          // Clean up from FIL
+          if (!p_rest.use_experimental) {
+            ML::fil::free(*handle, forest);
+          }
+        }
+        if (p_rest.use_experimental) {
+          break;
+        }
+      }
+      if (p_rest.use_experimental) {
+        break;
       }
     }
 
     // Build optimal FIL tree
+    tl_params.storage_type = optimal_storage_type;
+    tl_params.algo = optimal_algo_type;
     tl_params.threads_per_tree = optimal_chunk_size;
     ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
     forest = std::get<ML::fil::forest_t<float>>(forest_variant);
@@ -196,7 +229,6 @@ struct FilBenchParams {
   int max_depth;
   int ntrees;
   ML::fil::storage_type_t storage;
-  ML::fil::algo_t algo;
   bool use_experimental;
 };
 
@@ -232,16 +264,16 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    // {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
-    // {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, false},
-    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, algo_t::NAIVE, true},
-    // {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
-    // {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true},
-    // {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, false},
-    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG, true}
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
+    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, true},
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, true}
   };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
@@ -252,7 +284,6 @@ std::vector<Params> getInputs()
     p.rf.tree_params.max_depth = i.max_depth;
     p.rf.n_trees               = i.ntrees;
     p.storage                  = i.storage;
-    p.algo                     = i.algo;
     p.use_experimental         = i.use_experimental;
     p.predict_repetitions      = 10;
     out.push_back(p);
