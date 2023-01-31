@@ -264,16 +264,16 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, false},
+    // {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, false},
     {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, true},
-    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
-    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
-    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, true},
-    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, true},
-    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, true}
+    // {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
+    // {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
+    // {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, false},
+    // {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, true},
+    // {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, false},
+    // {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, true},
+    // {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, false},
+    // {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, true}
   };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
