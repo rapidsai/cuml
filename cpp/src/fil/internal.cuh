@@ -23,7 +23,7 @@
 #include <iostream>
 #include <numeric>
 #include <raft/core/error.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>

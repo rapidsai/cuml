@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 #include <mpi.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Test {
