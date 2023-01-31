@@ -135,7 +135,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     match = devArrMatchHost(h_y.data(),
                             y.data(),
                             params.n_obs * params.batch_size,
-                            raft::CompareApprox<T>(params.tolerance),
+                            MLCommon::CompareApprox<T>(params.tolerance),
                             handle.get_stream());
   }
 

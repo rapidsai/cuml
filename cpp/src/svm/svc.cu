@@ -24,6 +24,7 @@
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
 #include <cuml/svm/svc.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
