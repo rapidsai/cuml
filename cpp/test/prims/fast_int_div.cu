@@ -92,7 +92,7 @@ TEST(FastIntDiv, GpuTest)
     fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(
       computed.data(), correct.data(), in.data(), fid, divisor, len);
     RAFT_CUDA_TRY(cudaStreamSynchronize(0));
-    ASSERT_TRUE(devArrMatch(correct.data(), computed.data(), len * 2, raft::Compare<int>()))
+    ASSERT_TRUE(devArrMatch(correct.data(), computed.data(), len * 2, MLCommon::Compare<int>()))
       << " divisor=" << divisor;
   }
 }

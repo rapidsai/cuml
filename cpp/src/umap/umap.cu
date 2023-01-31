@@ -18,8 +18,8 @@
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
+#include <raft/core/handle.hpp>
 #include <raft/spatial/knn/specializations.cuh>
-
 #include <raft/util/cuda_utils.cuh>
 
 #include <iostream>

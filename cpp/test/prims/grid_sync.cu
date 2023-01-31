@@ -123,9 +123,9 @@ TEST_P(GridSyncTest, Result)
                                          : params.gridDim.x * params.gridDim.y * params.gridDim.z;
   int nthreads = params.blockDim.x * params.blockDim.y * params.blockDim.z;
   int expected = (nblks * nthreads) + 1;
-  ASSERT_TRUE(raft::devArrMatch(expected, out.data(), len, raft::Compare<int>()));
+  ASSERT_TRUE(MLCommon::devArrMatch(expected, out.data(), len, MLCommon::Compare<int>()));
   if (params.checkWorkspaceReuse) {
-    ASSERT_TRUE(raft::devArrMatch(expected, out1.data(), len, raft::Compare<int>()));
+    ASSERT_TRUE(MLCommon::devArrMatch(expected, out1.data(), len, MLCommon::Compare<int>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(GridSyncTests, GridSyncTest, ::testing::ValuesIn(inputs));

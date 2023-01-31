@@ -18,6 +18,7 @@
 
 #include "penalty.cuh"
 #include "sigmoid.cuh"
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>

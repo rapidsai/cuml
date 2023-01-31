@@ -359,7 +359,7 @@ class GeneticProgramTest : public ::testing::Test {
 
 TEST_F(GeneticProgramTest, PearsonCoeff)
 {
-  raft::CompareApproxAbs<float> compApprox(tolerance);
+  MLCommon::CompareApproxAbs<float> compApprox(tolerance);
   float h_expected_score[2] = {0.09528403f, 0.08269963f};
   float h_score[2]          = {0.0f, 0.0f};
   rmm::device_uvector<float> d_score(2, stream);
@@ -407,7 +407,7 @@ TEST_F(GeneticProgramTest, PearsonCoeff)
 
 TEST_F(GeneticProgramTest, SpearmanCoeff)
 {
-  raft::CompareApproxAbs<float> compApprox(tolerance);
+  MLCommon::CompareApproxAbs<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   rmm::device_uvector<float> d_score(2, stream);
   hyper_params.metric = metric_t::spearman;
@@ -455,7 +455,7 @@ TEST_F(GeneticProgramTest, SpearmanCoeff)
 
 TEST_F(GeneticProgramTest, MeanSquareLoss)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   rmm::device_uvector<float> d_score(2, stream);
   hyper_params.metric = metric_t::mse;
@@ -502,7 +502,7 @@ TEST_F(GeneticProgramTest, MeanSquareLoss)
 
 TEST_F(GeneticProgramTest, MeanAbsoluteLoss)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   rmm::device_uvector<float> d_score(2, stream);
   hyper_params.metric = metric_t::mae;
@@ -551,7 +551,7 @@ TEST_F(GeneticProgramTest, MeanAbsoluteLoss)
 
 TEST_F(GeneticProgramTest, RMSLoss)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   rmm::device_uvector<float> d_score(2, stream);
   hyper_params.metric = metric_t::rmse;
@@ -600,7 +600,7 @@ TEST_F(GeneticProgramTest, RMSLoss)
 
 TEST_F(GeneticProgramTest, LogLoss)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   rmm::device_uvector<float> d_score(2, stream);
   hyper_params.metric = metric_t::logloss;
@@ -634,7 +634,7 @@ TEST_F(GeneticProgramTest, LogLoss)
 
 TEST_F(GeneticProgramTest, ProgramExecution)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
 
   // Enable debug logging
   ML::Logger::get().setLevel(CUML_LEVEL_INFO);
@@ -666,7 +666,7 @@ TEST_F(GeneticProgramTest, ProgramExecution)
 
 TEST_F(GeneticProgramTest, ProgramFitnessScore)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
 
   std::vector<metric_t> all_metrics = {
     metric_t::mae, metric_t::mse, metric_t::rmse, metric_t::pearson, metric_t::spearman};

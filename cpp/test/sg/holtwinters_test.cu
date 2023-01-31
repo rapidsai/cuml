@@ -16,10 +16,13 @@
 
 #include "time_series_datasets.h"
 #include <algorithm>
+#include <raft/core/handle.hpp>
+
 #include <cuml/common/logger.hpp>
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
 #include <raft/core/handle.hpp>
+#include <raft/core/math.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>

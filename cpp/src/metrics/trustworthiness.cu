@@ -17,6 +17,7 @@
 #include <raft/stats/trustworthiness_score.cuh>
 
 #include <cuml/metrics/metrics.hpp>
+#include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
@@ -27,8 +28,6 @@
 #endif
 
 #include <raft/distance/distance.cuh>
-
-#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Metrics {
