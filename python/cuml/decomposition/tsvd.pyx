@@ -217,6 +217,12 @@ class TruncatedSVD(UniversalBase,
     singular_values_ : array
         The top K singular values. Remember all singular values >= 0
 
+    Device Selection (Experimental)
+    -------------------------------
+    This estimator supports cuML's device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+    
     Notes
     -----
     TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number

@@ -172,8 +172,9 @@ class LogisticRegression(UniversalBase,
 
     Device Selection (Experimental)
     -------------------------------
-    This estimator supports cuML's device selection capabilities. It can be configured
-    to run on either the CPU or the GPU. To learn more, please see :ref:`device-selection`.
+    This estimator supports cuML's device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
 
     Notes
     -----

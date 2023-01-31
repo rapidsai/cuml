@@ -255,6 +255,12 @@ class PCA(UniversalBase,
         From Bishop 1999's Textbook. Used in later tasks like calculating the
         estimated covariance of X.
 
+    Device Selection (Experimental)
+    -------------------------------
+    This estimator supports cuML's device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Notes
     -----
     PCA considers linear combinations of features, specifically those that
