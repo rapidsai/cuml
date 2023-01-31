@@ -355,7 +355,7 @@ class UMAP(UniversalBase,
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is None or b is None:
-            a, b = self.find_ab_params(spread, min_dist)
+            a, b = type(self).find_ab_params(spread, min_dist)
 
         self.a = a
         self.b = b
