@@ -9,7 +9,7 @@ files:
       - common_build
       - cpp_run
       - cudatoolkit
-      - doc
+      - docs
       - py_build
       - py_run
       - py_version
@@ -27,6 +27,12 @@ files:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs
       - py_version
   test_cpp:
     output: none
@@ -190,10 +196,20 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
-  doc:
+  docs:
     common:
       - output_types: [conda, requirements]
         packages:
+          - graphviz
+          - ipython
+          - ipykernel
+          - nbsphinx
+          - numpydoc
+          - pydata-sphinx-theme
+          - recommonmark
+          - &scikit_learn scikit-learn=1.2
+          - sphinx<6
+          - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda
         packages:
@@ -231,7 +247,7 @@ dependencies:
           - pytest-cases
           - pytest-cov
           - pytest-xdist
-          - &scikit_learn scikit-learn=1.2
+          - *scikit_learn
           - seaborn
           - sparse
           - statsmodels
