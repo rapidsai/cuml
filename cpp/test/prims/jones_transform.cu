@@ -242,28 +242,28 @@ const std::vector<JonesTransParam> inputs = {{500, 4, 0.001},
 typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(d_golden_ar_trans.data(),
-                                d_computed_ar_trans.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(raft::devArrMatch(d_golden_ma_trans.data(),
-                                d_computed_ma_trans.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(d_golden_ar_trans.data(),
+                                    d_computed_ar_trans.data(),
+                                    nElements,
+                                    MLCommon::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(d_golden_ma_trans.data(),
+                                    d_computed_ma_trans.data(),
+                                    nElements,
+                                    MLCommon::CompareApprox<double>(params.tolerance)));
   /*
   Test verifying the inversion property:
   initially generated random coefficients -> ar_param_transform() / ma_param_transform() ->
   transformed coefficients -> ar_param_inverse_transform()/ma_param_inverse_transform() ->
   initially generated random coefficients
   */
-  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_invtrans.data(),
-                                d_params.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_invtrans.data(),
-                                d_params.data(),
-                                nElements,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(d_computed_ma_invtrans.data(),
+                                    d_params.data(),
+                                    nElements,
+                                    MLCommon::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(MLCommon::devArrMatch(d_computed_ar_invtrans.data(),
+                                    d_params.data(),
+                                    nElements,
+                                    MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(JonesTrans, JonesTransTestClass, ::testing::ValuesIn(inputs));
 
