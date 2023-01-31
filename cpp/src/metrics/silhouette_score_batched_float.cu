@@ -16,6 +16,7 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #ifdef RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>

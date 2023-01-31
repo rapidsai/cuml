@@ -24,7 +24,6 @@ import sys
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
 sys.path.insert(0, os.path.abspath('sphinxext'))
-sys.path.insert(0, os.path.abspath('../../python'))
 
 from github_link import make_linkcode_resolve # noqa
 
@@ -179,8 +178,8 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    "python": ('https://docs.python.org/', None),
-    "scipy": ('https://docs.scipy.org/doc/scipy/reference', None)
+    "python": ("https://docs.python.org/3", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
 }
 
 # Config numpydoc

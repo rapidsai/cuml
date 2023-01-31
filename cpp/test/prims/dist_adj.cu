@@ -147,7 +147,7 @@ TEST_P(DistanceAdjTestF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, MLCommon::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF, ::testing::ValuesIn(inputsf));
 
@@ -166,7 +166,7 @@ TEST_P(DistanceAdjTestD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, MLCommon::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD, ::testing::ValuesIn(inputsd));
 
