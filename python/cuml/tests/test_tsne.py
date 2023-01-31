@@ -175,7 +175,6 @@ def test_tsne_precomputed_knn(precomputed_type, sparse_input):
     assert trust >= 0.92
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne(test_datasets, method):
     """
