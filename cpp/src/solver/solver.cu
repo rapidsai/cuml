@@ -18,6 +18,7 @@
 #include "sgd.cuh"
 #include <cuml/solvers/params.hpp>
 #include <cuml/solvers/solver.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace Solver {

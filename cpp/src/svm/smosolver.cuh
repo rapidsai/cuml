@@ -25,6 +25,7 @@
 
 #include <iostream>
 #include <limits>
+#include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <string>

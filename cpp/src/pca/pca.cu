@@ -16,6 +16,7 @@
 
 #include "pca.cuh"
 #include <cuml/decomposition/pca.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 
