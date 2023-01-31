@@ -24,34 +24,6 @@ export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.
 mkdir -p $(dirname ${RAPIDS_CMAKE_FORMAT_FILE})
 wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
 
-# Check for a consistent #include syntax
-# TODO: keep adding more dirs as and when we update the syntax
-HASH_INCLUDE=$(python cpp/scripts/include_checker.py \
-                     cpp/bench \
-                     cpp/comms/mpi/include \
-                     cpp/comms/mpi/src \
-                     cpp/comms/std/include \
-                     cpp/comms/std/src \
-                     cpp/include \
-                     cpp/examples \
-                     cpp/src \
-                     cpp/src_prims \
-                     cpp/test \
-                     2>&1)
-HASH_RETVAL=$?
-if [ "$RETVAL" = "0" ]; then
-  RETVAL=$HASH_RETVAL
-fi
-
-# Output results if failure otherwise show pass
-if [ "$HASH_RETVAL" != "0" ]; then
-  echo -e "\n\n>>>> FAILED: #include check; begin output\n\n"
-  echo -e "$HASH_INCLUDE"
-  echo -e "\n\n>>>> FAILED: #include check; end output\n\n"
-else
-  echo -e "\n\n>>>> PASSED: #include check\n\n"
-fi
-
 # Check for a consistent code format
 FORMAT=$(python cpp/scripts/run-clang-format.py 2>&1)
 FORMAT_RETVAL=$?

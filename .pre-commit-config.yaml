@@ -57,11 +57,22 @@ repos:
             language: python
             pass_filenames: true
             additional_dependencies: [gitpython]
-          # - id: include-check
-          #   name: include-check
-          #   entry: python ./cpp/scripts/include_checker.py cpp/bench cpp/include cpp/test
-          #   pass_filenames: false
-          #   language: python
+          - id: include-check
+            name: include-check
+            entry: python cpp/scripts/include_checker.py
+            args:
+                - cpp/bench
+                - cpp/comms/mpi/include
+                - cpp/comms/mpi/src
+                - cpp/comms/std/include
+                - cpp/comms/std/src
+                - cpp/include
+                - cpp/examples
+                - cpp/src
+                - cpp/src_prims
+                - cpp/test
+            pass_filenames: false
+            language: python
 
 default_language_version:
     python: python3
