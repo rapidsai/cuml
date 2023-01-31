@@ -26,7 +26,7 @@ namespace fil {
    * this layout, but other applications can compile FIL functions and
    * methods for other layouts if desired.
    */
-  auto constexpr static const preferred_tree_layout = kayak::tree_layout::depth_first;
+  auto constexpr static const preferred_tree_layout = kayak::tree_layout::breadth_first;
   /**
    * The number of bits used for flags in node metadata
    *
