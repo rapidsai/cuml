@@ -19,9 +19,9 @@
 #include <thrust/device_vector.h>
 
 #include "test_utils.h"
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random/make_arima.cuh>
 
 namespace MLCommon {

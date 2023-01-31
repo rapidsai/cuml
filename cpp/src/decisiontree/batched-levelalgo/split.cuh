@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace DT {
