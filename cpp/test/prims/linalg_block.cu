@@ -139,7 +139,7 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
     match = devArrMatchHost(h_c_ref.data(),
                             c.data(),
                             params.m * params.n * params.batch_size,
-                            raft::CompareApprox<T>(params.eps),
+                            MLCommon::CompareApprox<T>(params.eps),
                             handle.get_stream());
   }
 
@@ -351,7 +351,7 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     match = devArrMatchHost(h_y_ref.data(),
                             y.data(),
                             params.m * params.batch_size,
-                            raft::CompareApprox<T>(params.eps),
+                            MLCommon::CompareApprox<T>(params.eps),
                             handle.get_stream());
   }
 
@@ -483,7 +483,7 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
     match = devArrMatchHost(h_dot_ref.data(),
                             dot_dev.data(),
                             params.batch_size,
-                            raft::CompareApprox<T>(params.eps),
+                            MLCommon::CompareApprox<T>(params.eps),
                             handle.get_stream());
   }
 
@@ -617,7 +617,7 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
     match = devArrMatchHost(h_res_ref.data(),
                             res_dev.data(),
                             params.batch_size,
-                            raft::CompareApprox<T>(params.eps),
+                            MLCommon::CompareApprox<T>(params.eps),
                             handle.get_stream());
   }
 
@@ -719,7 +719,7 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
     match = devArrMatchHost(h_y_ref.data(),
                             y.data(),
                             params.n * params.batch_size,
-                            raft::CompareApprox<T>(params.eps),
+                            MLCommon::CompareApprox<T>(params.eps),
                             handle.get_stream());
   }
 
@@ -823,7 +823,7 @@ class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityI
     match = devArrMatchHost(h_out.data(),
                             d_out.data(),
                             params.n * params.n * params.batch_size,
-                            raft::CompareApprox<T>(params.eps),
+                            MLCommon::CompareApprox<T>(params.eps),
                             handle.get_stream());
   }
 

@@ -45,7 +45,7 @@ def test_lasso(datatype, X_type, alpha, algorithm,
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
                                                         random_state=0)
     cu_lasso = cuLasso(alpha=np.array([alpha]), fit_intercept=True,
-                       normalize=False, max_iter=1000,
+                       max_iter=1000,
                        selection=algorithm, tol=1e-10)
 
     cu_lasso.fit(X_train, y_train)
@@ -55,8 +55,8 @@ def test_lasso(datatype, X_type, alpha, algorithm,
     cu_r2 = r2_score(y_test, cu_predict)
 
     if nrows < 500000:
-        sk_lasso = Lasso(alpha=np.array([alpha]), fit_intercept=True,
-                         normalize=False, max_iter=1000,
+        sk_lasso = Lasso(alpha=alpha, fit_intercept=True,
+                         max_iter=1000,
                          selection=algorithm, tol=1e-10)
         sk_lasso.fit(X_train, y_train)
         sk_predict = sk_lasso.predict(X_test)
@@ -162,7 +162,7 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
                                                         random_state=0)
 
     elastic_cu = cuElasticNet(alpha=np.array([alpha]), fit_intercept=True,
-                              normalize=False, max_iter=1000,
+                              max_iter=1000,
                               selection=algorithm, tol=1e-10)
 
     elastic_cu.fit(X_train, y_train)
@@ -171,8 +171,8 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
     cu_r2 = r2_score(y_test, cu_predict)
 
     if nrows < 500000:
-        elastic_sk = ElasticNet(alpha=np.array([alpha]), fit_intercept=True,
-                                normalize=False, max_iter=1000,
+        elastic_sk = ElasticNet(alpha=alpha, fit_intercept=True,
+                                max_iter=1000,
                                 selection=algorithm, tol=1e-10)
         elastic_sk.fit(X_train, y_train)
         sk_predict = elastic_sk.predict(X_test)

@@ -107,60 +107,60 @@ typedef PenaltyTest<float> PenaltyTestF;
 TEST_P(PenaltyTestF, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    out_lasso_ref.data(), out_lasso.data(), 1, raft::CompareApprox<float>(params.tolerance)));
+    out_lasso_ref.data(), out_lasso.data(), 1, MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref.data(),
                           out_lasso_grad.data(),
                           params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(
-    out_ridge_ref.data(), out_ridge.data(), 1, raft::CompareApprox<float>(params.tolerance)));
+    out_ridge_ref.data(), out_ridge.data(), 1, MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref.data(),
                           out_ridge_grad.data(),
                           params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref.data(),
                           out_elasticnet.data(),
                           1,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref.data(),
                           out_elasticnet_grad.data(),
                           params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+                          MLCommon::CompareApprox<float>(params.tolerance)));
 }
 
 typedef PenaltyTest<double> PenaltyTestD;
 TEST_P(PenaltyTestD, Result)
 {
   ASSERT_TRUE(devArrMatch(
-    out_lasso_ref.data(), out_lasso.data(), 1, raft::CompareApprox<double>(params.tolerance)));
+    out_lasso_ref.data(), out_lasso.data(), 1, MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref.data(),
                           out_lasso_grad.data(),
                           params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(
-    out_ridge_ref.data(), out_ridge.data(), 1, raft::CompareApprox<double>(params.tolerance)));
+    out_ridge_ref.data(), out_ridge.data(), 1, MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref.data(),
                           out_ridge_grad.data(),
                           params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref.data(),
                           out_elasticnet.data(),
                           1,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref.data(),
                           out_elasticnet_grad.data(),
                           params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+                          MLCommon::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(PenaltyTests, PenaltyTestF, ::testing::ValuesIn(inputsf));
