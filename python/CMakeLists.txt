@@ -117,6 +117,8 @@ if(NOT cuml_FOUND AND NOT ${CUML_CPU})
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
+rapids_cython_init()
+
 if(${CUML_CPU})
   set(CUML_UNIVERSAL OFF)
   set(SINGLEGPU ON)
@@ -155,8 +157,6 @@ endif()
 
  ################################################################################
  # - Build Cython artifacts -----------------------------------------------------
-
-rapids_cython_init()
 
 include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
 include(cmake/ConfigureCythonAlgorithms.cmake)
