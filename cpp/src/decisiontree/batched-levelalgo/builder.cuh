@@ -25,7 +25,7 @@
 #include <common/Timer.h>
 #include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/flatnode.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <deque>
 #include <raft/core/nvtx.hpp>

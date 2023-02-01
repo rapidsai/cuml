@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/core/kvp.hpp>

@@ -26,7 +26,7 @@
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
 #include "simpl_set_embed/runner.cuh"
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
@@ -43,7 +43,7 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/filter.cuh>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 
