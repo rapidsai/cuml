@@ -17,7 +17,7 @@
 
 #include <cuml/metrics/metrics.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/stats/homogeneity_score.hpp>
+#include <raft/stats/homogeneity_score.cuh>
 
 namespace ML {
 

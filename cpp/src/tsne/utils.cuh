@@ -39,7 +39,7 @@
 #include <iostream>
 #include <unistd.h>
 
-#include <raft/device_atomics.cuh>
+#include <raft/util/device_atomics.cuh>
 
 /**
  * @brief Performs P + P.T.
