@@ -46,18 +46,18 @@ scipy_sparse = safe_import(
     msg='Optional dependency scipy is not installed'
 )
 
-cp_ndarray = gpu_only_import_from('cupy', 'ndarray', 
+cp_ndarray = gpu_only_import_from('cupy', 'ndarray',
                                   alt=UnavailableObject)
-CudfSeries = gpu_only_import_from('cudf', 'Series', 
+CudfSeries = gpu_only_import_from('cudf', 'Series',
                                   alt=UnavailableObject)
-CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame', 
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame',
                                      alt=UnavailableObject)
-DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series', 
+DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series',
                                       alt=UnavailableObject)
-DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame', 
+DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame',
                                          alt=UnavailableObject)
 np_ndarray = cpu_only_import_from('numpy', 'ndarray')
-numba_devicearray = gpu_only_import_from('numba.cuda', 'devicearray', 
+numba_devicearray = gpu_only_import_from('numba.cuda', 'devicearray',
                                          alt=UnavailableObject)
 try:
     if GPU_ENABLED:
