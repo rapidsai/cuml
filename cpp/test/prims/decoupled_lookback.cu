@@ -17,8 +17,8 @@
 #include "test_utils.h"
 #include <decoupled_lookback.cuh>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -92,7 +92,7 @@ template <typename T, typename L>
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
 TEST_P(DlbTest, Result)
 {
-  ASSERT_TRUE(devArrMatchCustom(out.data(), params.len, raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatchCustom(out.data(), params.len, MLCommon::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 

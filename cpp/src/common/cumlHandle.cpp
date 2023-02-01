@@ -17,7 +17,7 @@
 #include "cumlHandle.hpp"
 
 #include <cuml/common/logger.hpp>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 // #TODO: Replace with public header when ready

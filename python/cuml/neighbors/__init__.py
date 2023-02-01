@@ -47,10 +47,6 @@ VALID_METRICS = {
         "l2", "euclidean", "sqeuclidean",
         "inner_product", "cosine", "correlation"
     ]),
-    "ivfsq": set([
-        "l2", "euclidean", "sqeuclidean",
-        "inner_product", "cosine", "correlation"
-    ])
 }
 
 VALID_METRICS_SPARSE = {

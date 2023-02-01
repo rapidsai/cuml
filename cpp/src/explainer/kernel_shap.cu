@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cuml/explainer/kernel_shap.hpp>
 

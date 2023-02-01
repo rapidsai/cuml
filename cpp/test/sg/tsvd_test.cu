@@ -16,6 +16,7 @@
 
 #include <cuml/decomposition/params.hpp>
 #include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <test_utils.h>
@@ -165,41 +166,41 @@ const std::vector<TsvdInputs<double>> inputsd2 = {{0.01, 4, 3, 1024, 128, 0.25f,
 typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(components.data(),
-                                components_ref.data(),
-                                (params.n_col * params.n_col),
-                                raft::CompareApproxAbs<float>(params.tolerance),
-                                handle.get_stream()));
+  ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
+                                    components_ref.data(),
+                                    (params.n_col * params.n_col),
+                                    MLCommon::CompareApproxAbs<float>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 typedef TsvdTest<double> TsvdTestLeftVecD;
 TEST_P(TsvdTestLeftVecD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(components.data(),
-                                components_ref.data(),
-                                (params.n_col * params.n_col),
-                                raft::CompareApproxAbs<double>(params.tolerance),
-                                handle.get_stream()));
+  ASSERT_TRUE(MLCommon::devArrMatch(components.data(),
+                                    components_ref.data(),
+                                    (params.n_col * params.n_col),
+                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 typedef TsvdTest<float> TsvdTestDataVecF;
 TEST_P(TsvdTestDataVecF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(data2.data(),
-                                data2_back.data(),
-                                (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<float>(params.tolerance),
-                                handle.get_stream()));
+  ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
+                                    data2_back.data(),
+                                    (params.n_col2 * params.n_col2),
+                                    MLCommon::CompareApproxAbs<float>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 typedef TsvdTest<double> TsvdTestDataVecD;
 TEST_P(TsvdTestDataVecD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(data2.data(),
-                                data2_back.data(),
-                                (params.n_col2 * params.n_col2),
-                                raft::CompareApproxAbs<double>(params.tolerance),
-                                handle.get_stream()));
+  ASSERT_TRUE(MLCommon::devArrMatch(data2.data(),
+                                    data2_back.data(),
+                                    (params.n_col2 * params.n_col2),
+                                    MLCommon::CompareApproxAbs<double>(params.tolerance),
+                                    handle.get_stream()));
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF, ::testing::ValuesIn(inputsf2));
