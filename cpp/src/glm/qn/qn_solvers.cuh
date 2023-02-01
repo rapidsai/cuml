@@ -44,7 +44,7 @@
 #include "qn_util.cuh"
 #include "simple_mat.cuh"
 #include <cuml/common/logger.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {

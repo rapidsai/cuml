@@ -23,7 +23,7 @@
 
 #include <raft/comms/mpi_comms.hpp>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {

@@ -44,7 +44,7 @@
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <common/nvtx.hpp>
 #include <cuda_runtime.h>
