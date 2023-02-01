@@ -44,16 +44,17 @@ scipy_sparse = safe_import(
     msg='Optional dependency scipy is not installed'
 )
 
+cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
+CudfSeries = gpu_only_import_from('cudf', 'Series')
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
+DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 np_ndarray = cpu_only_import_from('numpy', 'ndarray')
-PandasSeries = cpu_only_import_from('pandas', 'Series')
-PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
-cp_ndarray = gpu_only_import_from('cupy', 'ndarray', alt=np_ndarray)
-CudfSeries = gpu_only_import_from('cudf', 'Series', alt=PandasSeries)
-CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame', alt=PandasDataFrame)
-DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series',
-                                      alt=PandasSeries)
-DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame',
-                                         alt=PandasDataFrame)
+numba_devicearray = gpu_only_import_from('numba.cuda', 'devicearray')
+try:
+    NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
+except UnavailableError:
+    NumbaDeviceNDArrayBase = numba_devicearray
 scipy_isspmatrix = safe_import_from(
     'scipy.sparse',
     'isspmatrix',
@@ -70,6 +71,9 @@ nvtx_annotate = gpu_only_import_from(
     'annotate',
     alt=null_decorator
 )
+PandasSeries = cpu_only_import_from('pandas', 'Series')
+PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -82,6 +86,7 @@ _input_type_to_str = {
     CudfDataFrame: "cudf",
     PandasSeries: "pandas",
     PandasDataFrame: "pandas",
+    NumbaDeviceNDArrayBase: "numba"
 }
 
 _input_type_to_mem_type = {
@@ -91,6 +96,7 @@ _input_type_to_mem_type = {
     CudfDataFrame: MemoryType.device,
     PandasSeries: MemoryType.host,
     PandasDataFrame: MemoryType.host,
+    NumbaDeviceNDArrayBase: MemoryType.device
 }
 
 _SPARSE_TYPES = [SparseCumlArray]
