@@ -349,11 +349,11 @@ class TruncatedSVD(UniversalBase,
             raise ValueError(' n_components must be < n_features')
 
         IF GPUBUILD == 1:
+            cdef paramsTSVD *params = <paramsTSVD*><size_t> \
+                self._build_params(self.n_rows, self.n_features_in_)
             _trans_input_ = CumlArray.zeros((params.n_rows, params.n_components),
                                             dtype=self.dtype, index=X_m.index)
             cdef uintptr_t t_input_ptr = _trans_input_.ptr
-            cdef paramsTSVD *params = <paramsTSVD*><size_t> \
-                self._build_params(self.n_rows, self.n_features_in_)
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
@@ -408,7 +408,7 @@ class TruncatedSVD(UniversalBase,
                                          dtype=dtype, index=X_m.index)
 
             cdef uintptr_t trans_input_ptr = X_m.ptr
-            cdef uintptr_t input_ptr = input_data.ptrgi
+            cdef uintptr_t input_ptr = input_data.ptr
             cdef uintptr_t components_ptr = self.components_.ptr
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()

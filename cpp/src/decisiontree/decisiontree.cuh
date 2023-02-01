@@ -19,8 +19,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include "treelite_util.h"
 #include <treelite/c_api.h>

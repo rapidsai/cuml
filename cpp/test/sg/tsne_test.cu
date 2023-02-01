@@ -29,7 +29,7 @@
 #include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <raft/util/cudart_utils.hpp>
