@@ -18,7 +18,7 @@
 #include <raft/core/handle.hpp>
 
 #include <raft/sparse/selection/knn.cuh>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 
 namespace ML {
 namespace Sparse {

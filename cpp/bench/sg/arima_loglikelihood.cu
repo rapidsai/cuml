@@ -25,7 +25,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include "benchmark.cuh"
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace Bench {

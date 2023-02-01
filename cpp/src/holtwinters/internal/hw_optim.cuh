@@ -19,7 +19,7 @@
 #include "hw_eval.cuh"
 #include "hw_utils.cuh"
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c)

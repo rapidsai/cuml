@@ -18,7 +18,7 @@
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>

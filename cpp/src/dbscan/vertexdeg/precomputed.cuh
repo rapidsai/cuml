@@ -19,11 +19,11 @@
 #include <cub/cub.cuh>
 #include <cuda_runtime.h>
 #include <math.h>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/device_atomics.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/device_atomics.cuh>
 
 #include "pack.h"
 
