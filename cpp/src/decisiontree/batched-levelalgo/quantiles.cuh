@@ -20,7 +20,7 @@
 #include <iostream>
 #include <memory>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/fill.h>

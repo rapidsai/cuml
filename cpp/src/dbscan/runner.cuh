@@ -23,10 +23,10 @@
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
 #include <common/nvtx.hpp>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/sparse/csr.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cuml/common/logger.hpp>
 

@@ -17,7 +17,7 @@
 #include <cuml/cluster/dbscan.hpp>
 
 #include "dbscan.cuh"
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace Dbscan {
