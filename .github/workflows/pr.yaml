@@ -16,7 +16,7 @@ jobs:
       - conda-cpp-build
       - conda-cpp-tests
       - conda-python-build
-      - conda-python-cpu-build-test
+      - conda-python-tests-cpu
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
       - conda-notebook-tests
