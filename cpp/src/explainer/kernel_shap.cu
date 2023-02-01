@@ -164,7 +164,6 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
       if (curr_X == 0) {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
       } else {
-        // if(threadIdx.x == 0) printf("tid bg_row_idx: %d %d\n", tid, bg_row_idx);
         dataset[bg_row_idx * ncols + col_idx] = background[r * ncols + col_idx];
       }
     }
