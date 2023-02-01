@@ -202,14 +202,13 @@ class TSNE(Base,
         Note: This argument should likely be set to False for distance metrics
         other than 'euclidean' and 'l2'.
     precomputed_knn : array / sparse array / tuple, optional (device or host)
-        Either one of :
-            - Tuple (indices, distances) of arrays of
-              shape (n_samples, n_neighbors)
-            - Pairwise distances dense array of shape (n_samples, n_samples)
-            - KNN graph sparse array (preferably CSR/COO)
-        This feature allows the precomputation of the KNN outside of UMAP
+        Either one of a tuple (indices, distances) of
+        arrays of shape (n_samples, n_neighbors), a pairwise distances
+        dense array of shape (n_samples, n_samples) or a KNN graph
+        sparse array (preferably CSR/COO). This feature allows
+        the precomputation of the KNN outside of TSNE
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings.
+        should match the metric used to train the TSNE embeedings.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -414,14 +413,13 @@ class TSNE(Base,
         Parameters
         ----------
         knn_graph : array / sparse array / tuple, optional (device or host)
-        Either one of :
-            - Tuple (indices, distances) of arrays of
-              shape (n_samples, n_neighbors)
-            - Pairwise distances dense array of shape (n_samples, n_samples)
-            - KNN graph sparse array (preferably CSR/COO)
-        This feature allows the precomputation of the KNN outside of UMAP
+        Either one of a tuple (indices, distances) of
+        arrays of shape (n_samples, n_neighbors), a pairwise distances
+        dense array of shape (n_samples, n_samples) or a KNN graph
+        sparse array (preferably CSR/COO). This feature allows
+        the precomputation of the KNN outside of TSNE
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings.
+        should match the metric used to train the TSNE embeedings.
         Takes precedence over the precomputed_knn parameter.
         """
         cdef int n, p
