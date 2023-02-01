@@ -23,8 +23,8 @@
 #include <cuml/genetic/program.h>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>

@@ -20,7 +20,7 @@
 #include <linalg/batched/matrix.cuh>
 #include <sparse/batched/csr.cuh>
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 

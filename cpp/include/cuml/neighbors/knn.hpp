@@ -18,7 +18,7 @@
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/ann_common.h>
-#include <raft/spatial/knn/ball_cover_common.h>
+#include <raft/spatial/knn/ball_cover_types.hpp>
 
 namespace raft {
 class handle_t;
