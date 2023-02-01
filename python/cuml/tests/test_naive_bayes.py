@@ -346,7 +346,7 @@ def test_gaussian_basic():
     clf.fit(X, y)
 
     assert_array_almost_equal(clf.theta_.get(), skclf.theta_, 6)
-    assert_array_almost_equal(clf.sigma_.get(), skclf.sigma_, 6)
+    assert_array_almost_equal(clf.sigma_.get(), skclf.var_, 6)
 
     y_pred = clf.predict(X)
     y_pred_proba = clf.predict_proba(X)

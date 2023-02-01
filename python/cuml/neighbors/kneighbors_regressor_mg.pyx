@@ -105,12 +105,12 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = self.gen_local_input(index, index_parts_to_ranks, index_nrows,
+        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
                                      query, query_parts_to_ranks, query_nrows,
                                      ncols, rank, convert_dtype)
 
         # Build input labels arrays and descriptors for native code interfacing
-        labels = self.gen_local_labels(index, convert_dtype, dtype='float32')
+        labels = type(self).gen_local_labels(index, convert_dtype, dtype='float32')
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
@@ -150,7 +150,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.handle.sync()
 
         # Release memory
-        self.free_mem(input)
+        type(self).free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))

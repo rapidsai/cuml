@@ -26,6 +26,7 @@
 
 #include "shuffle.h"
 #include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
