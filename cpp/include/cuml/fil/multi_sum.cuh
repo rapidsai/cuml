@@ -15,7 +15,7 @@
  */
 /** @file multi_sum.cuh */
 #pragma once
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 /**
  template parameters: data [T]ype, reduction [R]adix
  function parameters:

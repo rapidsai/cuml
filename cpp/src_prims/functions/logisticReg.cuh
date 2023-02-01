@@ -19,7 +19,6 @@
 #include "penalty.cuh"
 #include "sigmoid.cuh"
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -29,6 +28,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
