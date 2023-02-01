@@ -25,6 +25,11 @@ class UnavailableError(Exception):
     '''Error thrown if a symbol is unavailable due to an issue importing it'''
 
 
+class UnavailableObject():
+    '''Object to use to always get False in isinstance calls when needed '''
+    pass
+
+
 def return_false(*args, **kwargs):
     '''A placeholder function that always returns False'''
     return False

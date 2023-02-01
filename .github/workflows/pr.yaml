@@ -46,13 +46,13 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@cuda-118
     with:
       build_type: pull-request
-  conda-python-cpu-build-test:
+  conda-python-tests-cpu:
     needs: checks
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@cuda-118
     with:
       build_type: pull-request
-      build_script: ci/build_test_python_cpu.sh
+      build_script: ci/test_python_cpu.sh
   conda-python-tests-singlegpu:
     needs: conda-python-build
     secrets: inherit

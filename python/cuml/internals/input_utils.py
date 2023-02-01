@@ -16,6 +16,7 @@
 
 from collections import namedtuple
 
+from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
@@ -29,7 +30,8 @@ from cuml.internals.safe_imports import (
     safe_import_from,
     null_decorator,
     return_false,
-    UnavailableError
+    UnavailableError,
+    UnavailableObject
 )
 
 cudf = gpu_only_import('cudf')
@@ -44,15 +46,18 @@ scipy_sparse = safe_import(
     msg='Optional dependency scipy is not installed'
 )
 
-cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
-CudfSeries = gpu_only_import_from('cudf', 'Series')
-CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
-DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
-DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
+cp_ndarray = gpu_only_import_from('cupy', 'ndarray', alt=UnavailableObject)
+CudfSeries = gpu_only_import_from('cudf', 'Series', alt=UnavailableObject)
+CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame', alt=UnavailableObject)
+DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series', alt=UnavailableObject)
+DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame', alt=UnavailableObject)
 np_ndarray = cpu_only_import_from('numpy', 'ndarray')
-numba_devicearray = gpu_only_import_from('numba.cuda', 'devicearray')
+numba_devicearray = gpu_only_import_from('numba.cuda', 'devicearray', alt=UnavailableObject)
 try:
-    NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
+    if GPU_ENABLED:
+        NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
+    else:
+        NumbaDeviceNDArrayBase = numba_devicearray
 except UnavailableError:
     NumbaDeviceNDArrayBase = numba_devicearray
 scipy_isspmatrix = safe_import_from(
