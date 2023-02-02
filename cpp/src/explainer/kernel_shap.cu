@@ -66,10 +66,8 @@ __global__ void exact_rows_kernel(float* X,
     // Iterate over nrows_background
     int row_idx_base = blockIdx.x * nrows_background;
 
-    for (int r = 0, row_idx = row_idx_base;
-         row_idx < blockIdx.x * nrows_background + nrows_background;
-         r++) {
-      row_idx = row_idx_base + r;
+    for (int r = 0; r < nrows_background; r++) {
+      int row_idx = row_idx_base + r;
       if (curr_X == 0) {
         dataset[row_idx * ncols + col] = background[r * ncols + col];
       } else {
@@ -142,12 +140,10 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     int curr_X                                = (int)X[2 * blockIdx.x * ncols + col_idx];
     X[(2 * blockIdx.x + 1) * ncols + col_idx] = 1 - curr_X;
 
-    int row_idx_base = 2 * blockIdx.x * nrows_background;
+    int bg_row_idx_base = 2 * blockIdx.x * nrows_background;
 
-    for (int r = 0, bg_row_idx = row_idx_base;
-         bg_row_idx < 2 * blockIdx.x * nrows_background + nrows_background;
-         r++) {
-      bg_row_idx = row_idx_base + r;
+    for (int r = 0; r < nrows_background; r++) {
+      int bg_row_idx = bg_row_idx_base + r;
       if (curr_X == 0) {
         dataset[bg_row_idx * ncols + col_idx] = background[r * ncols + col_idx];
       } else {
@@ -155,12 +151,10 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
       }
     }
 
-    row_idx_base = 2 * (blockIdx.x + 1) * nrows_background;
+    bg_row_idx_base = 2 * (blockIdx.x + 1) * nrows_background;
 
-    for (int r = 0, bg_row_idx = row_idx_base;
-         bg_row_idx < (2 * blockIdx.x + 1) * nrows_background + nrows_background;
-         r++) {
-      bg_row_idx = row_idx_base + r;
+    for (int r = 0; r < nrows_background; r++) {
+      int bg_row_idx = bg_row_idx_base + r;
       if (curr_X == 0) {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
       } else {
