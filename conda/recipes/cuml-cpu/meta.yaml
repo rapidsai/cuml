@@ -25,6 +25,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - ninja
   host:
     - python x.x
     - setuptools
