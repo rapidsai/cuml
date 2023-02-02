@@ -279,7 +279,7 @@ class TruncatedSVD(UniversalBase,
         return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsTSVD *params = new paramsTSVD()
+        cdef paramsTSVD *params = new paramsTSVD()
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -395,7 +395,7 @@ class TruncatedSVD(UniversalBase,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None))
 
-        cpdef paramsTSVD params
+        cdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = self.n_features_in_
@@ -447,7 +447,7 @@ class TruncatedSVD(UniversalBase,
                                                   else None),
                                 check_cols=self.n_features_in_)
 
-        cpdef paramsTSVD params
+        cdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = self.n_features_in_

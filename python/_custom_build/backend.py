@@ -19,10 +19,10 @@ def replace_requirements(func):
     @wraps(func)
     def wrapper(config_settings=None):
         orig_list = getattr(_orig, func.__name__)(config_settings)
-        suffix = os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')
+        cuda_suffix = os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')
         append_list = [
-            f"rmm{suffix}",
-            f"pylibraft{suffix}",
+            f"rmm{cuda_suffix}==23.2.*",
+            f"pylibraft{cuda_suffix}==23.2.*",
         ]
         return orig_list + append_list
 

@@ -79,8 +79,8 @@ cdef class TreeliteModel():
     handle : ModelHandle
         Opaque pointer to Treelite model
     """
-    cpdef ModelHandle handle
-    cpdef bool owns_handle
+    cdef ModelHandle handle
+    cdef bool owns_handle
 
     def __cinit__(self, owns_handle=True):
         """If owns_handle is True, free the handle's model in destructor.
