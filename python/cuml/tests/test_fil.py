@@ -305,6 +305,7 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                           (5, GradientBoostingRegressor, 10)])
 @pytest.mark.parametrize('max_depth', [2, 10, 20])
 @pytest.mark.parametrize('storage_type', [False, True])
+@pytest.mark.skip('https://github.com/rapidsai/cuml/issues/5138')
 def test_fil_skl_regression(n_rows, n_columns, n_classes, model_class,
                             n_estimators, max_depth, storage_type):
 
