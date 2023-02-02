@@ -91,7 +91,7 @@ class PCAMG(BaseDecompositionMG, PCA):
         return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsPCAMG *params = new paramsPCAMG()
+        cdef paramsPCAMG *params = new paramsPCAMG()
         params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
