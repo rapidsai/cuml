@@ -49,7 +49,6 @@ class FILEX : public RegressionFixture<float> {
   FILEX(const std::string& name, const Params& p)
   : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
-    Iterations(100);
   }
 
  protected:
@@ -139,9 +138,9 @@ class FILEX : public RegressionFixture<float> {
                                params.nrows,
                                false);
             }
-            handle->sync_stream();
-            handle->sync_stream_pool();
           }
+          handle->sync_stream();
+          handle->sync_stream_pool();
           auto end = std::chrono::high_resolution_clock::now();
           auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
             end - start
@@ -180,9 +179,7 @@ class FILEX : public RegressionFixture<float> {
     // only time prediction
     this->loopOnState(state, [this, &filex_model, optimal_chunk_size]() {
       for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        auto nvtx_range = raft::common::nvtx::range{"repetition_loop"};
         if (p_rest.use_experimental) {
-          auto nvtx_range2 = raft::common::nvtx::range{"filex_outer_predict"};
           filex_model.predict(
             *handle,
             this->data.y.data(),
@@ -192,18 +189,18 @@ class FILEX : public RegressionFixture<float> {
             kayak::device_type::gpu,
             optimal_chunk_size
           );
+          handle->sync_stream();
+          handle->sync_stream_pool();
         } else {
-          auto nvtx_range3 = raft::common::nvtx::range{"legacy_outer_predict"};
           ML::fil::predict(*this->handle,
                            this->forest,
                            this->data.y.data(),
                            this->data.X.data(),
                            this->params.nrows,
                            false);
+          handle->sync_stream();
+          handle->sync_stream_pool();
         }
-        auto nvtx_range4 = raft::common::nvtx::range{"syncup"};
-        handle->sync_stream();
-        handle->sync_stream_pool();
       }
     }, true);
   }
@@ -264,16 +261,18 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    // {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, true},
-    // {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
-    // {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
-    // {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, false},
-    // {(int)1e6, 20, 1, 5, 100, storage_type_t::DENSE, true},
-    // {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, false},
-    // {(int)1e6, 20, 1, 5, 10000, storage_type_t::DENSE, true},
-    // {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, false},
-    // {(int)1e6, 200, 1, 5, 1000, storage_type_t::DENSE, true}
+    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
+    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, true},
+    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}
   };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
