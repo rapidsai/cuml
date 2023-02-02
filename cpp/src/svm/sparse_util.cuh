@@ -17,6 +17,7 @@
 #pragma once
 #include <cuml/matrix/cumlmatrix.hpp>
 #include <raft/util/cuda_utils.cuh>
+
 #include <thrust/transform_scan.h>
 
 namespace ML {
@@ -145,7 +146,12 @@ static void copySparseRowsToMatrix(const int* indptr,
       break;
     }
     case MLCommon::Matrix::MatrixType::CSR: {
-      MLCommon::Matrix::CsrMatrix<math_t>* csr_out = matrix_out.asCsr();
+      MLCommon::Matrix::CsrMatrix<math_t>* csr_out            = matrix_out.asCsr();
+      MLCommon::Matrix::ResizableCsrMatrix<math_t>* resizable = matrix_out.asResizableCsr();
+
+      ASSERT(resizable != nullptr || csr_out->row_capacity >= csr_out->n_rows,
+             "Matrix row capacity not sufficient.");
+      if (resizable != nullptr) resizable->reserveRows(num_indices);
 
       // row sizes + exclusive_scan -> row start positions
       thrust::device_ptr<int> row_sizes_ptr(csr_out->indptr);  // store size in target for now
@@ -157,6 +163,13 @@ static void copySparseRowsToMatrix(const int* indptr,
                                        0,
                                        thrust::plus<int>());
 
+      // retrieve nnz from indptr[num_indices]
+      raft::update_host(&(csr_out->nnz), csr_out->indptr + num_indices, 1, stream);
+
+      ASSERT(resizable != nullptr || csr_out->nnz_capacity >= csr_out->nnz,
+             "Matrix nnz capacity not sufficient.");
+      if (resizable != nullptr) resizable->reserveNnz(csr_out->nnz);
+
       extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(csr_out->indptr,
                                                            csr_out->indices,
                                                            csr_out->data,
@@ -166,8 +179,6 @@ static void copySparseRowsToMatrix(const int* indptr,
                                                            row_indices,
                                                            num_indices);
 
-      // retrieve nnz from indptr[num_indices]
-      raft::update_host(&(csr_out->nnz), csr_out->indptr + num_indices, 1, stream);
       break;
     }
     default: THROW("Solve not implemented for matrix type %d", matrix_out.getType());

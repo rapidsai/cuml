@@ -156,7 +156,8 @@ void svcPredictX(const raft::handle_t& handle,
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
     raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, cublas_handle);
-  if (kernel_params.kernel == raft::distance::kernels::RBF) {
+  if (kernel_params.kernel == raft::distance::kernels::RBF ||
+      matrix.getType() != MLCommon::Matrix::DENSE) {
     // Temporary buffers for the RBF kernel, see below
     x_rbf.resize(n_batch * n_cols, stream);
     idx.resize(n_batch, stream);

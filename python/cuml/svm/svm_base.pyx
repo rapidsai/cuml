@@ -604,7 +604,9 @@ class SVMBase(Base,
         
         cdef uintptr_t X_ptr = X_m.data.ptr if is_sparse else X_m.ptr 
 
-        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols 
+        cdef int X_rows = n_rows
+        cdef int X_cols = n_cols
+        cdef int X_nnz = X_m.nnz if is_sparse else n_rows * n_cols 
         cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr 
         cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr 
         cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr
@@ -612,7 +614,7 @@ class SVMBase(Base,
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><size_t> self._model
             if is_sparse:
-                matrix_f = new CsrMatrix[float](<int*>X_indptr, <int*>X_indices, <float*>X_data, n_nnz, n_rows, n_cols)
+                matrix_f = new CsrMatrix[float](<int*>X_indptr, <int*>X_indices, <float*>X_data, X_nnz, X_rows, X_cols)
             else:
                 matrix_f = new DenseMatrix[float](<float*>X_data, n_rows, n_cols)
             svcPredictX(handle_[0], deref(matrix_f), 
@@ -622,7 +624,7 @@ class SVMBase(Base,
         else:
             model_d = <SvmModel[double]*><size_t> self._model
             if is_sparse:
-                matrix_d = new CsrMatrix[double](<int*>X_indptr, <int*>X_indices, <double*>X_data, n_nnz, n_rows, n_cols)
+                matrix_d = new CsrMatrix[double](<int*>X_indptr, <int*>X_indices, <double*>X_data, X_nnz, X_rows, X_cols)
             else:
                 matrix_d = new DenseMatrix[double](<double*>X_data, n_rows, n_cols)
             svcPredictX(handle_[0], deref(matrix_d), 
