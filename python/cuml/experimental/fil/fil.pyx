@@ -9,7 +9,7 @@ from libc.stdint cimport uint32_t, uintptr_t
 
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
 from cuml.experimental.kayak.device_type cimport device_type as kayak_device_t
 from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
@@ -17,7 +17,7 @@ from cuml.experimental.kayak.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType
-from cuml.internals.global_settings import global_settings
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
@@ -198,7 +198,7 @@ cdef class ForestInference_impl():
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
         if mem_type is None:
-            mem_type = global_settings.memory_type
+            mem_type = GlobalSettings().memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -251,7 +251,7 @@ cdef class ForestInference_impl():
         cdef kayak_device_t in_dev
         if in_arr.is_device_accessible:
             if (
-                global_settings.device_type == DeviceType.host
+                GlobalSettings().device_type == DeviceType.host
                 and in_arr.is_host_accessible
             ):
                 in_dev = kayak_device_t.cpu
@@ -276,7 +276,7 @@ cdef class ForestInference_impl():
         cdef kayak_device_t out_dev
         if preds.is_device_accessible:
             if (
-                global_settings.device_type == DeviceType.host
+                GlobalSettings().device_type == DeviceType.host
                 and preds.is_host_accessible
             ):
                 out_dev = kayak_device_t.cpu
@@ -392,7 +392,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle, verbose=verbose, output_type=output_type
         )
         if mem_type is None:
-            mem_type = global_settings.memory_type
+            mem_type = GlobalSettings().memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -415,7 +415,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     def _load_to_fil(self, mem_type=None, device_id=0):
         if mem_type is None:
-            mem_type = global_settings.memory_type
+            mem_type = GlobalSettings().memory_type
         else:
             mem_type = MemoryType.from_str(mem_type)
 
@@ -452,7 +452,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @property
     def forest(self):
-        if global_settings.device_type == DeviceType.device:
+        if GlobalSettings().device_type == DeviceType.device:
             return self.gpu_forest
         else:
             return self.cpu_forest
@@ -632,7 +632,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                     proba.to_output(output_type='array') > threshold
                 ).astype('int')
             else:
-                return global_settings.xpy.argmax(
+                return GlobalSettings().xpy.argmax(
                     proba.to_output(output_type='array'), axis=1
                 )
         else:
