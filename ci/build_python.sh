@@ -20,5 +20,9 @@ rapids-mamba-retry mambabuild \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
 
+rapids-mamba-retry mambabuild \
+  --no-test \
+  conda/recipes/cuml-cpu
+
 rapids-upload-conda-to-s3 python
 
