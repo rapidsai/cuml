@@ -282,7 +282,7 @@ class TruncatedSVD(UniversalBase,
 
     def _build_params(self, n_rows, n_cols):
         IF GPUBUILD == 1:
-            cpdef paramsTSVD *params = new paramsTSVD()
+            cdef paramsTSVD *params = new paramsTSVD()
             params.n_components = self.n_components
             params.n_rows = n_rows
             params.n_cols = n_cols
@@ -399,7 +399,7 @@ class TruncatedSVD(UniversalBase,
                                                   else None))
 
         IF GPUBUILD == 1:
-            cpdef paramsTSVD params
+            cdef paramsTSVD params
             params.n_components = self.n_components
             params.n_rows = n_rows
             params.n_cols = self.n_features_in_
@@ -451,7 +451,7 @@ class TruncatedSVD(UniversalBase,
                                 check_cols=self.n_features_in_)
 
         IF GPUBUILD == 1:
-            cpdef paramsTSVD params
+            cdef paramsTSVD params
             params.n_components = self.n_components
             params.n_rows = n_rows
             params.n_cols = self.n_features_in_

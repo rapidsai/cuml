@@ -332,6 +332,7 @@ class PCA(UniversalBase,
             return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
+<<<<<<< HEAD
         IF GPUBUILD == 1:
             cpdef paramsPCA *params = new paramsPCA()
             params.n_components = self.n_components_
@@ -344,6 +345,19 @@ class PCA(UniversalBase,
                 self.c_algorithm))
 
             return <size_t>params
+=======
+        cdef paramsPCA *params = new paramsPCA()
+        params.n_components = self.n_components_
+        params.n_rows = n_rows
+        params.n_cols = n_cols
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = <solver> (<underlying_type_t_solver> (
+            self.c_algorithm))
+
+        return <size_t>params
+>>>>>>> branch-23.02
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -586,7 +600,7 @@ class PCA(UniversalBase,
 
         IF GPUBUILD == 1:
             # todo: check n_cols and dtype
-            cpdef paramsPCA params
+            cdef paramsPCA params
             params.n_components = self.n_components_
             params.n_rows = n_rows
             params.n_cols = self.n_features_in_
@@ -683,7 +697,7 @@ class PCA(UniversalBase,
 
         IF GPUBUILD == 1:
             # todo: check dtype
-            cpdef paramsPCA params
+            cdef paramsPCA params
             params.n_components = self.n_components_
             params.n_rows = n_rows
             params.n_cols = n_cols
