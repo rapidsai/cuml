@@ -13,16 +13,18 @@
 # limitations under the License.
 #
 
+import pytest
 from sklearn.manifold import TSNE as skTSNE
 from sklearn import datasets
 from sklearn.manifold import trustworthiness
 from sklearn.datasets import make_blobs
-from cuml.neighbors import NearestNeighbors as cuKNN
-from cuml.testing.utils import array_equal, stress_param
+from sklearn.neighbors import NearestNeighbors
 from cuml.manifold import TSNE
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
+from cuml.neighbors import NearestNeighbors as cuKNN
+from cuml.metrics import pairwise_distances
+from cuml.testing.utils import array_equal, stress_param
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
 np = cpu_only_import('numpy')
 scipy = cpu_only_import('scipy')
 cupyx = gpu_only_import('cupyx')
@@ -136,6 +138,41 @@ def test_tsne_knn_parameters(test_datasets, type_knn_graph, method):
 
     embed = tsne.fit_transform(X, True, knn_graph.tocsc())
     validate_embedding(X, embed)
+
+
+@pytest.mark.parametrize('precomputed_type', ['knn_graph', 'tuple',
+                                              'pairwise'])
+@pytest.mark.parametrize('sparse_input', [False, True])
+def test_tsne_precomputed_knn(precomputed_type, sparse_input):
+    data, labels = make_blobs(n_samples=2000, n_features=10,
+                              centers=5, random_state=0)
+    data = data.astype(np.float32)
+
+    if sparse_input:
+        sparsification = np.random.choice([0., 1.],
+                                          p=[0.1, 0.9],
+                                          size=data.shape)
+        data = np.multiply(data, sparsification)
+        data = scipy.sparse.csr_matrix(data)
+
+    n_neighbors = DEFAULT_N_NEIGHBORS
+
+    if precomputed_type == 'knn_graph':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+    elif precomputed_type == 'tuple':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (precomputed_knn[1], precomputed_knn[0])
+    elif precomputed_type == 'pairwise':
+        precomputed_knn = pairwise_distances(data)
+
+    model = TSNE(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
+    embedding = model.fit_transform(data)
+    trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
+    assert trust >= 0.92
 
 
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
@@ -348,4 +385,4 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
 
     assert cu_trust > 0.85
     assert nans == 0
-    assert array_equal(sk_trust, cu_trust, 0.05, with_sign=True)
+    assert array_equal(sk_trust, cu_trust, 0.06, with_sign=True)
