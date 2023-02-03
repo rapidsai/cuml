@@ -47,7 +47,7 @@ static __global__ void extractDenseRowsFromCSR(math_t* out,
 }
 
 template <typename math_t>
-static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds start positions
+static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds end positions
                                              int* indices_out,
                                              math_t* data_out,
                                              const int* indptr_in,
@@ -61,6 +61,9 @@ static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds 
   int idx = blockIdx.x * blockDim.y + threadIdx.y;
   if (idx >= num_indices) return;
 
+  // the first row has to set the indptr_out[0] value to 0
+  if (threadIdx.x == 0 && idx == 0) { indptr_out[0] = 0; }
+
   int row_idx = row_indices[idx];
 
   int in_offset  = indptr_in[row_idx];
@@ -69,12 +72,6 @@ static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds 
   for (int pos = threadIdx.x; pos < row_length; pos += blockDim.x) {
     indices_out[out_offset + pos] = indices_in[in_offset + pos];
     data_out[out_offset + pos]    = data_in[in_offset + pos];
-  }
-
-  // the last row has to set the indptr_out[num_indices] value
-  // as it was not a start position
-  if (threadIdx.x == 0 && idx == num_indices - 1) {
-    indptr_out[num_indices] = out_offset + row_length;
   }
 }
 
@@ -120,12 +117,6 @@ static void copySparseRowsToMatrix(const int* indptr,
                                    int num_indices,
                                    cudaStream_t stream)
 {
-  // TODO
-  // matrix_out should to be allocated in advance to prevent costly allocs
-  // however, nnz size cannot be acurately guessed in advance
-  // we should introduce a fallback in case data is too large to fit
-  // i.e. return error to allow caller to increase buffer
-
   // initialize dense target
   if (matrix_out.getType() == MLCommon::Matrix::MatrixType::DENSE) {
     thrust::device_ptr<math_t> output_ptr(matrix_out.asDense()->data);
@@ -151,24 +142,28 @@ static void copySparseRowsToMatrix(const int* indptr,
 
       ASSERT(resizable != nullptr || csr_out->row_capacity >= csr_out->n_rows,
              "Matrix row capacity not sufficient.");
-      if (resizable != nullptr) resizable->reserveRows(num_indices);
+      if (resizable != nullptr) { resizable->reserveRows(num_indices); }
 
-      // row sizes + exclusive_scan -> row start positions
+      // row sizes + inclusive_scan -> row end positions
       thrust::device_ptr<int> row_sizes_ptr(csr_out->indptr);  // store size in target for now
       thrust::device_ptr<const int> row_new_indices_ptr(row_indices);
-      thrust::transform_exclusive_scan(row_new_indices_ptr,
+      // thrust::fill(thrust::cuda::par.on(stream), row_sizes_ptr, row_sizes_ptr + 1, 0); // will be
+      // done inside kernel
+      thrust::transform_inclusive_scan(thrust::cuda::par.on(stream),
+                                       row_new_indices_ptr,
                                        row_new_indices_ptr + num_indices,
-                                       row_sizes_ptr,
+                                       row_sizes_ptr + 1,
                                        rowsize(indptr),
-                                       0,
                                        thrust::plus<int>());
+
+      cudaDeviceSynchronize();
 
       // retrieve nnz from indptr[num_indices]
       raft::update_host(&(csr_out->nnz), csr_out->indptr + num_indices, 1, stream);
 
       ASSERT(resizable != nullptr || csr_out->nnz_capacity >= csr_out->nnz,
              "Matrix nnz capacity not sufficient.");
-      if (resizable != nullptr) resizable->reserveNnz(csr_out->nnz);
+      if (resizable != nullptr) { resizable->reserveNnz(csr_out->nnz); }
 
       extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(csr_out->indptr,
                                                            csr_out->indices,

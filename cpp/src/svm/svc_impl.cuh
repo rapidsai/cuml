@@ -84,7 +84,7 @@ void svcFitX(const raft::handle_t& handle,
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
     raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
                                                            handle_impl.get_cublas_handle());
-  SmoSolver<math_t> smo(handle_impl, param, kernel);
+  SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(matrix,
             n_rows,
             n_cols,
@@ -210,17 +210,17 @@ void svcPredictX(const raft::handle_t& handle,
       x_ptr = matrix.asDense()->data + i;
       ld1   = n_rows;
     }
-    kernel->evaluate(x_ptr,
-                     n_batch,
-                     n_cols,
-                     model.x_support,
-                     model.n_support,
-                     K.data(),
-                     false,
-                     stream,
-                     ld1,
-                     model.n_support,
-                     n_batch);
+    (*kernel)(x_ptr,
+              n_batch,
+              n_cols,
+              model.x_support,
+              model.n_support,
+              K.data(),
+              false,
+              stream,
+              ld1,
+              model.n_support,
+              n_batch);
     math_t one  = 1;
     math_t null = 0;
     // #TODO: Call from public API when ready

@@ -429,7 +429,7 @@ class SmoUpdateTest : public ::testing::Test {
   void RunTest()
   {
     SvmParameter param = getDefaultSvmParameter();
-    SmoSolver<float> smo(handle, param, nullptr);
+    SmoSolver<float> smo(handle, param, LINEAR, nullptr);
     smo.UpdateF(f_dev.data(), n_rows, delta_alpha_dev.data(), n_ws, kernel_dev.data());
 
     float f_host_expected[] = {0.1f, 7.4505806e-9f, 0.3f, 0.2f, 0.5f, 0.4f};
@@ -905,7 +905,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     // param.max_iter = p.max_iter;
     GramMatrixBase<TypeParam>* kernel =
       KernelFactory<TypeParam>::create(p.kernel_params, this->handle.get_cublas_handle());
-    SmoSolver<TypeParam> smo(this->handle, param, kernel);
+    SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     SvmModel<TypeParam> model{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
     smo.Solve(this->x_dev.data(),
               this->n_rows,
@@ -1314,7 +1314,7 @@ class SvrTest : public ::testing::Test {
     auto stream        = this->handle.get_stream();
     SvmParameter param = getDefaultSvmParameter();
     param.svmType      = EPSILON_SVR;
-    SmoSolver<math_t> smo(handle, param, nullptr);
+    SmoSolver<math_t> smo(handle, param, LINEAR, nullptr);
     smo.SvrInit(y_dev.data(), n_rows, yc.data(), f.data());
 
     EXPECT_TRUE(

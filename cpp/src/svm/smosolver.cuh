@@ -92,11 +92,13 @@ class SmoSolver {
  public:
   SmoSolver(const raft::handle_t& handle,
             SvmParameter param,
+            raft::distance::kernels::KernelType kernel_type,
             raft::distance::kernels::GramMatrixBase<math_t>* kernel)
     : handle(handle),
       C(param.C),
       tol(param.tol),
       kernel(kernel),
+      kernel_type(kernel_type),
       cache_size(param.cache_size),
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
@@ -181,10 +183,10 @@ class SmoSolver {
     bool keep_going       = true;
 
     // 1. SOLVE:
-    //    * for now keep x_ws dense (even for sparse input)!
+    //    * keep x_ws dense (even for sparse input) as long as possible!
     //      * this should work for a decent amount of cols
     //      * allows for much faster dot-product compute via cuSparse
-    //    * we might want to allow CSR/CSR kernels later if (n_ws x cols) grows too large
+    //    * switch to CSR/CSR kernels if (n_ws x cols) grows too large
     // 2. UPDATE:
     //    * batching *might* be required if (n_ws x rows) grows too large (for kernel_big storage)
     //    * (almost) same restriction as for SOLVE regarding (n_nnz x cols)
@@ -203,7 +205,7 @@ class SmoSolver {
 
     // TODO/FIXME choose something based on user input/device information?
     bool batching_enabled = false;
-    bool dense_input      = (matrix.getType() == MLCommon::Matrix::MatrixType::DENSE);
+    bool is_csr           = (matrix.getType() == MLCommon::Matrix::MatrixType::CSR);
     bool sparse_extract   = false;
     int batch_size_base   = n_rows;
 
@@ -218,7 +220,7 @@ class SmoSolver {
     // enable sparse row extraction for sparse input where n_ws * n_cols > 1 GB
     // Warning: kernel computation will be much slower!
     size_t extract_rows_max_bytes = 1 << 30;
-    if (!dense_input && (n_cols * n_ws * sizeof(math_t) > extract_rows_max_bytes)) {
+    if (is_csr && (n_cols * n_ws * sizeof(math_t) > extract_rows_max_bytes)) {
       sparse_extract = true;
     }
 
@@ -234,16 +236,44 @@ class SmoSolver {
 
     // store matrix dot product for RBF kernels if applicable
     rmm::device_uvector<math_t> row_norm_l2(0, stream);
-    if (matrix.getType() == MLCommon::Matrix::MatrixType::CSR && !sparse_extract) {
+    if (kernel_type == raft::distance::kernels::KernelType::RBF &&
+        ((is_csr && !sparse_extract) || (!is_csr && batching_enabled))) {
       row_norm_l2.reserve(n_rows, stream);
+      switch (matrix.getType()) {
+        case MLCommon::Matrix::MatrixType::CSR: {
+          const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
+          raft::sparse::linalg::rowNormCsr(row_norm_l2.data(),
+                                           csr_matrix->indptr,
+                                           csr_matrix->data,
+                                           csr_matrix->nnz,
+                                           n_rows,
+                                           raft::linalg::NormType::L2Norm,
+                                           stream);
+          break;
+        }
+        case MLCommon::Matrix::MatrixType::DENSE: {
+          raft::linalg::rowNorm(row_norm_l2.data(),
+                                matrix.asDense()->data,
+                                n_cols,
+                                n_rows,
+                                raft::linalg::NormType::L2Norm,
+                                false,
+                                stream);
+          break;
+        }
+        default: THROW("Solve not implemented for matrix type %d", matrix.getType());
+      }
+    }
+
+    // additional row pointer information needed for batched CSR access
+    // copy matrix row pointer to host to compute partial nnz on the fly
+    std::vector<int> host_indptr;
+    rmm::device_uvector<int> indptr_batched(0, stream);
+    if (is_csr && batching_enabled) {
+      host_indptr.reserve(n_rows + 1);
+      indptr_batched.reserve(batch_size_base + 1, stream);
       const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
-      raft::sparse::linalg::rowNormCsr(row_norm_l2.data(),
-                                       csr_matrix->indptr,
-                                       csr_matrix->data,
-                                       csr_matrix->nnz,
-                                       n_rows,
-                                       raft::linalg::NormType::L2Norm,
-                                       stream);
+      raft::update_host(host_indptr.data(), csr_matrix->indptr, n_rows + 1, stream);
     }
 
     while (n_iter < max_outer_iter && keep_going) {
@@ -379,12 +409,26 @@ class SmoSolver {
                 raft::common::nvtx::push_range("SmoSolver::UpdateF::generateBatchKernel");
                 // compute batch kernel
                 // (batch_size x n_cols) x (n_cols x nnz_da) --> (batch_size x nnz_da)
+                int batch_nnz = host_indptr[offset + batch_size] - host_indptr[offset];
+                // create indptr array for batch interval
+                // indptr_batched = indices[offset, offset+batch_size+1] - indices[offset]
+                {
+                  thrust::device_ptr<int> inptr_src(csr_matrix->indptr + offset);
+                  thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
+                  thrust::transform(thrust::cuda::par.on(stream),
+                                    inptr_src,
+                                    inptr_src + batch_size + 1,
+                                    thrust::make_constant_iterator(host_indptr[offset]),
+                                    inptr_tgt,
+                                    thrust::minus<int>());
+                }
+
                 if (sparse_extract) {
                   (*kernel)(handle,
-                            csr_matrix->indptr + offset,
-                            csr_matrix->indices,
-                            csr_matrix->data,
-                            csr_matrix->nnz,
+                            indptr_batched.data(),
+                            csr_matrix->indices + host_indptr[offset],
+                            csr_matrix->data + host_indptr[offset],
+                            batch_nnz,
                             batch_size,
                             n_cols,
                             x_ws_csr.indptr,
@@ -397,10 +441,10 @@ class SmoSolver {
                             stream);
                 } else {
                   (*kernel)(handle,
-                            csr_matrix->indptr + offset,
-                            csr_matrix->indices,
-                            csr_matrix->data,
-                            csr_matrix->nnz,
+                            indptr_batched.data(),
+                            csr_matrix->indices + host_indptr[offset],
+                            csr_matrix->data + host_indptr[offset],
+                            batch_nnz,
                             batch_size,
                             n_cols,
                             x_ws.data(),
@@ -502,9 +546,12 @@ class SmoSolver {
                           kernel_tile_big.data(),
                           false,
                           stream,
-                          n_rows,  // override leading dimension
-                          0,
-                          0);
+                          n_rows,      // override ld input1
+                          nnz_da,      // default minor input2
+                          batch_size,  // default minor output
+                          row_norm_l2.data(),
+                          offset,
+                          nz_da_idx.data());
                 RAFT_CUDA_TRY(cudaPeekAtLastError());
                 raft::common::nvtx::pop_range();
 
@@ -807,6 +854,7 @@ class SmoSolver {
   math_t epsilon;  //!< epsilon parameter for epsiolon-SVR
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel;
+  raft::distance::kernels::KernelType kernel_type;
   float cache_size;  //!< size of kernel cache in MiB
 
   SvmType svmType;  ///!< Type of the SVM problem to solve

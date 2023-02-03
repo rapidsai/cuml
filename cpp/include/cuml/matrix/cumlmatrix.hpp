@@ -119,18 +119,12 @@ class CsrMatrix : public Matrix<math_t> {
             int nnz,
             int rows,
             int cols,
-            int row_capacity = -1,
-            int nnz_capacity = -1)
-    : Matrix<math_t>(rows, cols),
-      indptr(indptr),
-      indices(indices),
-      data(data),
-      nnz(nnz),
-      row_capacity(row_capacity),
-      nnz_capacity(nnz_capacity)
+            int row_capacity_in = 0,
+            int nnz_capacity_in = 0)
+    : Matrix<math_t>(rows, cols), indptr(indptr), indices(indices), data(data), nnz(nnz)
   {
-    if (row_capacity == -1) row_capacity = rows;
-    if (nnz_capacity == -1) nnz_capacity = nnz;
+    row_capacity = (row_capacity_in <= 0) ? rows : row_capacity_in;
+    nnz_capacity = (nnz_capacity_in <= 0) ? nnz : nnz_capacity_in;
   }
   virtual MatrixType getType() const { return MatrixType::CSR; }
 

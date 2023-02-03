@@ -63,7 +63,7 @@ void svrFit(const raft::handle_t& handle,
     raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
                                                            handle_impl.get_cublas_handle());
 
-  SmoSolver<math_t> smo(handle_impl, param, kernel);
+  SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(X,
             n_rows,
             n_cols,
