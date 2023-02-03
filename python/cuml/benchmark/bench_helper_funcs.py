@@ -23,6 +23,7 @@ import os
 import cuml
 from cuml.internals import input_utils
 from cuml.internals.safe_imports import cpu_only_import
+from time import perf_counter
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 cudf = gpu_only_import('cudf')
@@ -149,6 +150,109 @@ def _build_fil_classifier(m, data, args, tmpdir):
             pass
 
     return m.load(model_path, **fil_kwargs)
+
+
+class OptimizedFilWrapper:
+    '''Helper class to make use of optimized parameters in both FIL and
+    experimental FIL through a uniform interface'''
+    def __init__(self, fil_model, optimal_chunk_size, experimental):
+        self.fil_model = fil_model
+        self.predict_kwargs = {}
+        if experimental:
+            self.predict_kwargs = {'chunk_size': optimal_chunk_size}
+
+    def predict(self, X):
+        return self.fil_model.predict(X, **self.predict_kwargs)
+
+
+def _build_optimized_fil_classifier(m, data, args, tmpdir):
+    """Setup function for FIL classification benchmarking with optimal
+    parameters"""
+    from cuml.internals.import_utils import has_xgboost
+    if has_xgboost():
+        import xgboost as xgb
+    else:
+        raise ImportError("No XGBoost package found")
+
+    train_data, train_label = _training_data_to_numpy(data[0], data[1])
+
+    dtrain = xgb.DMatrix(train_data, label=train_label)
+
+    params = {
+        "silent": 1, "eval_metric": "error",
+        "objective": "binary:logistic", "tree_method": "gpu_hist",
+    }
+    params.update(args)
+    max_depth = args["max_depth"]
+    num_rounds = args["num_rounds"]
+    n_feature = data[0].shape[1]
+    train_size = data[0].shape[0]
+    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+    model_path = os.path.join(tmpdir, model_name)
+    bst = xgb.train(params, dtrain, num_rounds)
+    bst.save_model(model_path)
+
+    fil_kwargs = {}
+    for param, input_name in (
+        ('algo', 'fil_algo'),
+        ('output_class', 'output_class'),
+        ('threshold', 'threshold'),
+        ('storage_type', 'storage_type'),
+        ('precision', 'precision')
+    ):
+        try:
+            fil_kwargs[param] = args[input_name]
+        except KeyError:
+            pass
+    experimental = (m == cuml.experimental.ForestInference)
+    if experimental:
+        allowed_storage_types = ['sparse']
+    else:
+        allowed_storage_types = ['sparse', 'sparse8']
+        if args['storage_type'] == 'dense':
+            allowed_storage_types.append('dense')
+
+    optimal_storage_type = 'sparse'
+    optimal_algo = 'NAIVE'
+    optimal_chunk_size = 1
+    best_time = None
+    OPTIMIZATION_CYCLES = 5
+    for storage_type in allowed_storage_types:
+        fil_kwargs['storage_type'] = storage_type
+        allowed_algo_types = ['NAIVE']
+        if not experimental and storage_type == 'dense':
+            allowed_algo_types.extend((
+                'TREE_REORG', 'BATCH_TREE_REORG'
+            ))
+        for algo in allowed_algo_types:
+            fil_kwargs['algo'] = algo
+            for chunk_size in (1, 2, 4, 8, 16, 32):
+                fil_kwargs['threads_per_tree'] = chunk_size
+                call_args = {}
+                if experimental:
+                    call_args = {'chunk_size': chunk_size}
+                fil_model = m.load(model_path, **fil_kwargs)
+                fil_model.predict(train_data, **call_args)
+                begin = perf_counter()
+                for _ in range(OPTIMIZATION_CYCLES):
+                    fil_model.predict(train_data, **call_args)
+                end = perf_counter()
+                elapsed = end - begin
+                if best_time is None or elapsed < best_time:
+                    best_time = elapsed
+                    optimal_storage_type = storage_type
+                    optimal_algo = algo
+                    optimal_chunk_size = chunk_size
+
+    fil_kwargs['storage_type'] = optimal_storage_type
+    fil_kwargs['algo'] = optimal_algo
+    fil_kwargs['threads_per_tree'] = optimal_chunk_size
+
+    return OptimizedFilWrapper(
+        m.load(model_path, **fil_kwargs),
+        optimal_chunk_size,
+        experimental
+    )
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
