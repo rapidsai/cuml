@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 ########################
 # cuML Version Updater #
 ########################
@@ -67,3 +67,10 @@ sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}
 
 # Wheel builds install dask-cuda from source, update its branch
 sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
+
+# Need to distutils-normalize the original version
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+
+# Wheel builds install intra-RAPIDS dependencies from same release
+sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/_custom_build/backend.py
