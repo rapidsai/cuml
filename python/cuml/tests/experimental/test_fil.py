@@ -22,7 +22,7 @@ from math import ceil
 from cuml.experimental import ForestInference
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
-from cuml.common.import_utils import has_xgboost
+from cuml.internals.import_utils import has_xgboost
 from cuml.common.device_selection import using_device_type
 # from cuml.common.import_utils import has_lightgbm
 
