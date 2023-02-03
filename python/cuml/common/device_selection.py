@@ -23,7 +23,7 @@ def set_global_device_type(device_type):
     GlobalSettings().device_type = DeviceType.from_str(device_type)
 
 
-def get_current_device_type():
+def get_global_device_type():
     return GlobalSettings().device_type
 
 
