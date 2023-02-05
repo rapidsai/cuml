@@ -188,6 +188,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             **kwargs
         )
 
+    @staticmethod
+    def _predict_model_on_cpu(model, X, convert_dtype):
+        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
+
     def get_summary_text(self):
         """
         Obtain the text summary of the random forest model
