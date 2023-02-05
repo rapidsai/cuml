@@ -116,6 +116,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                              |
 |                                                       | SHAP Permutation Explainer                       
 | [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                               |
+| **Execution device interoperability** | | Run estimators interchangeably from host/cpu or device/gpu with minimal code change [demo](https://docs.rapids.ai/api/cuml/stable/execution_device_interoperability.html) |
 | **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 
 ---
