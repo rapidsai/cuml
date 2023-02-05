@@ -23,6 +23,10 @@ def set_global_device_type(device_type):
     GlobalSettings().device_type = DeviceType.from_str(device_type)
 
 
+def get_global_device_type():
+    return GlobalSettings().device_type
+
+
 class using_device_type:
     def __init__(self, device_type):
         self.device_type = device_type
