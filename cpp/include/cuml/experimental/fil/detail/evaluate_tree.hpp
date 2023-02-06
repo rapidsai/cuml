@@ -21,8 +21,13 @@ HOST DEVICE auto evaluate_tree(
     io_t const* __restrict__ row
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, typename node_t::index_type const>;
-  auto* node = root;
-  auto cur_node = node->data();
+  // TODO(wphicks): FIX THIS BEFORE MERGE
+#ifndef __CUDACC__
+  using float2 = node_t;
+#endif
+  auto* node = reinterpret_cast<float2 const*>(root);
+  auto alias = *node;
+  auto cur_node = *reinterpret_cast<node_t*>(&alias);
   do {
     auto input_val = row[cur_node.feature_index()];
     auto condition = true;
@@ -43,7 +48,8 @@ HOST DEVICE auto evaluate_tree(
       condition = isnan(input_val);
     }
     node += cur_node.child_offset(condition);
-    cur_node = node->data();
+    alias = *node;
+    cur_node = *reinterpret_cast<node_t*>(&alias);
   } while (!cur_node.is_leaf());
   return cur_node.template output<has_vector_leaves>();
 }
@@ -55,13 +61,12 @@ template<
   typename categorical_storage_t
 >
 HOST DEVICE auto evaluate_tree(
-    node_t const* __restrict__ root,
+    node_t const* __restrict__ node,
     io_t const* __restrict__ row,
     categorical_storage_t const* __restrict__ categorical_storage
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, categorical_storage_t const>;
-  auto* node = root;
-  auto cur_node = node->data();
+  auto cur_node = *node;
   do {
     auto input_val = row[cur_node.feature_index()];
     auto condition = cur_node.default_distant();
@@ -77,7 +82,7 @@ HOST DEVICE auto evaluate_tree(
       }
     }
     node += cur_node.child_offset(condition);
-    cur_node = node->data();
+    cur_node = *node;
   } while (!cur_node.is_leaf());
   return cur_node.template output<has_vector_leaves>();
 }
