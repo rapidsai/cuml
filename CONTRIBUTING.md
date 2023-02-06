@@ -71,16 +71,16 @@ implementation of the issue, ask them in the issue instead of the PR.
 
 ### Branches and Versions
 
-The cuML repository has two main branches: 
+The cuML repository has two main branches:
 
-1. `main` branch: it contains the last released version. Only hotfixes are targeted and merged into it.  
+1. `main` branch: it contains the last released version. Only hotfixes are targeted and merged into it.
 2. `branch-x.y`: it is the development branch which contains the upcoming release. All the new features should be based on this branch and Merge/Pull request should target this branch (with the exception of hotfixes).
-    
+
 ### Additional details
 
-For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `main` branch, which target critical issues raised by Github users and are directly merged to `main` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR. 
+For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `main` branch, which target critical issues raised by Github users and are directly merged to `main` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR.
 
-For all development, your changes should be pushed into a branch (created using the naming instructions below) in your own fork of cuML and then create a pull request when the code is ready. 
+For all development, your changes should be pushed into a branch (created using the naming instructions below) in your own fork of cuML and then create a pull request when the code is ready.
 
 A few days before releasing version `x.y` the code of the current development branch (`branch-x.y`) will be frozen and a new branch, 'branch-x+1.y' will be created to continue development.
 
@@ -88,18 +88,13 @@ A few days before releasing version `x.y` the code of the current development br
 
 Branches used to create PRs should have a name of the form `<type>-<name>`
 which conforms to the following conventions:
-- Type: 
+- Type:
     - fea - For if the branch is for a new feature(s)
     - enh - For if the branch is an enhancement of an existing feature(s)
     - bug - For if the branch is for fixing a bug(s) or regression(s)
-- Name: 
+- Name:
     - A name to convey what is being worked on
     - Please use dashes or underscores between words as opposed to spaces.
-
-### Building and Testing on a gpuCI image locally
-
-Before submitting a pull request, you can do a local build and test on your machine that mimics our gpuCI environment using the `ci/local/build.sh` script.
-For detailed information on usage of this script, see [here](ci/local/README.md).
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
