@@ -14,10 +14,15 @@
 # limitations under the License.
 #
 from cuml.internals.array import CumlArray
+# breakpoint()
 from cuml.internals.global_settings import GlobalSettings
+# breakpoint()
 from cuml.internals.mem_type import MemoryType
+# breakpoint()
 from cuml.internals.memory_utils import class_with_cupy_rmm
+# breakpoint()
 from cuml.internals.logger import debug
+# breakpoint()
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -25,25 +30,18 @@ from cuml.internals.safe_imports import (
     null_decorator,
     UnavailableError
 )
+# breakpoint()
 
 cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
+# breakpoint()
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
     'annotate',
     alt=null_decorator
 )
+# breakpoint()
 scipy_sparse = cpu_only_import('scipy.sparse')
-
-sparse_matrix_classes = []
-try:
-    sparse_matrix_classes.append(cpx_sparse.csr_matrix)
-except UnavailableError:
-    pass
-try:
-    sparse_matrix_classes.append(scipy_sparse.csr_matrix)
-except UnavailableError:
-    pass
-sparse_matrix_classes = tuple(sparse_matrix_classes)
+# breakpoint()
 
 
 @class_with_cupy_rmm()
@@ -112,7 +110,16 @@ class SparseCumlArray():
         if not is_sparse:
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
-
+        sparse_matrix_classes = []
+        try:
+            sparse_matrix_classes.append(cpx_sparse.csr_matrix)
+        except UnavailableError:
+            pass
+        try:
+            sparse_matrix_classes.append(scipy_sparse.csr_matrix)
+        except UnavailableError:
+            pass
+        sparse_matrix_classes = tuple(sparse_matrix_classes)
         if not isinstance(data, sparse_matrix_classes):
             if convert_format:
                 debug('Received sparse matrix in {} format but CSR is '
