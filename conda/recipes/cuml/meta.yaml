@@ -78,12 +78,11 @@ requirements:
     - raft-dask ={{ minor_version }}
     - treelite {{ treelite_version }}
 
-# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
-tests:                                 # [linux64]
-  requirements:                        # [linux64]
-    - cudatoolkit ={{ cuda_version }}  # [linux64]
-  imports:                             # [linux64]
-    - cuml                             # [linux64]
+tests:
+  requirements:
+    - cudatoolkit ={{ cuda_version }}
+  imports:
+    - cuml
 
 about:
   home: https://rapids.ai/
