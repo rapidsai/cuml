@@ -43,10 +43,10 @@ unset GIT_DESCRIBE_TAG
 export NUMBA_THREADING_LAYER=workqueue
 
 # Whether to install dask nightly or stable packages
-export INSTALL_DASK_MAIN=1
+export INSTALL_DASK_MAIN=0
 
 # Dask version to install when `INSTALL_DASK_MAIN=0`
-export DASK_STABLE_VERSION="2022.12.0"
+export DASK_STABLE_VERSION="2023.1.1"
 
 ################################################################################
 # SETUP - Check environment
