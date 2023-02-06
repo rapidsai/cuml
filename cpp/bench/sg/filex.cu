@@ -21,7 +21,6 @@
 #include "benchmark.cuh"
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
@@ -67,7 +66,7 @@ class FILEX : public RegressionFixture<float> {
 
     auto filex_model = ML::experimental::fil::import_from_treelite_handle(
       model,
-      0,
+      128,
       false,
       kayak::device_type::gpu,
       0,
@@ -167,33 +166,6 @@ class FILEX : public RegressionFixture<float> {
       }
     }
 
-    switch (optimal_storage_type) {
-      case ML::fil::storage_type_t::DENSE:
-        std::cout << "DENSE\n";
-        break;
-      case ML::fil::storage_type_t::SPARSE:
-        std::cout << "SPARSE\n";
-        break;
-      case ML::fil::storage_type_t::SPARSE8:
-        std::cout << "SPARSE8\n";
-        break;
-      default:
-        break;
-    }
-    switch (optimal_algo_type) {
-      case ML::fil::algo_t::NAIVE:
-        std::cout << "NAIVE\n";
-        break;
-      case ML::fil::algo_t::TREE_REORG:
-        std::cout << "TREE_REORG\n";
-        break;
-      case ML::fil::algo_t::BATCH_TREE_REORG:
-        std::cout << "BATCH_TREE_REORG\n";
-        break;
-      default:
-        break;
-    }
-
     // Build optimal FIL tree
     tl_params.storage_type = optimal_storage_type;
     tl_params.algo = optimal_algo_type;
@@ -289,18 +261,18 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, false},
-    //{(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, true},
-    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, false},
-    // {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, true},
+    // {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, true},
+    /*{(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, true},
     {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
-    // {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
     {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, false},
-    // {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, true},
     {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, false},
-    // {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, true},
     {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, false},
-    // {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}
+    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}*/
   };
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
