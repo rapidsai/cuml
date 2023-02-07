@@ -932,11 +932,20 @@ class ForestInference(Base,
             inferencing on the model read from the file.
 
         """
-        kwargs = locals()
-        [kwargs.pop(key) for key in ['filename', 'handle', 'model_type']]
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
-        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
+        cuml_fm.load_from_treelite_model(
+            model=tl_model,
+            output_class=output_class,
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str,
+            precision=precision
+        )
         return cuml_fm
 
     @common_load_params_docstring
