@@ -15,6 +15,7 @@
 #
 from cuml.manifold import UMAP
 from cuml.benchmark import datagen
+from cuml.common.device_selection import using_device_type
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 import sklearn.ensemble as skl_ensemble
@@ -155,14 +156,21 @@ def _build_fil_classifier(m, data, args, tmpdir):
 class OptimizedFilWrapper:
     '''Helper class to make use of optimized parameters in both FIL and
     experimental FIL through a uniform interface'''
-    def __init__(self, fil_model, optimal_chunk_size, experimental):
+    def __init__(
+            self,
+            fil_model,
+            optimal_chunk_size,
+            experimental,
+            device='gpu'):
         self.fil_model = fil_model
         self.predict_kwargs = {}
         if experimental:
             self.predict_kwargs = {'chunk_size': optimal_chunk_size}
+        self.device = device
 
     def predict(self, X):
-        return self.fil_model.predict(X, **self.predict_kwargs)
+        with using_device_type(self.device):
+            return self.fil_model.predict(X, **self.predict_kwargs)
 
 
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
@@ -192,61 +200,62 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
-    fil_kwargs = {}
-    for param, input_name in (
-        ('algo', 'fil_algo'),
-        ('output_class', 'output_class'),
-        ('threshold', 'threshold'),
-        ('storage_type', 'storage_type'),
-        ('precision', 'precision')
-    ):
-        try:
-            fil_kwargs[param] = args[input_name]
-        except KeyError:
-            pass
-    experimental = (m == cuml.experimental.ForestInference)
-    if experimental:
-        allowed_storage_types = ['sparse']
-    else:
-        allowed_storage_types = ['sparse', 'sparse8']
-        if args['storage_type'] == 'dense':
-            allowed_storage_types.append('dense')
+    with using_device_type(args['device']):
+        fil_kwargs = {}
+        for param, input_name in (
+            ('algo', 'fil_algo'),
+            ('output_class', 'output_class'),
+            ('threshold', 'threshold'),
+            ('storage_type', 'storage_type'),
+            ('precision', 'precision')
+        ):
+            try:
+                fil_kwargs[param] = args[input_name]
+            except KeyError:
+                pass
+        experimental = (m == cuml.experimental.ForestInference)
+        if experimental:
+            allowed_storage_types = ['sparse']
+        else:
+            allowed_storage_types = ['sparse', 'sparse8']
+            if args['storage_type'] == 'dense':
+                allowed_storage_types.append('dense')
 
-    optimal_storage_type = 'sparse'
-    optimal_algo = 'NAIVE'
-    optimal_chunk_size = 1
-    best_time = None
-    OPTIMIZATION_CYCLES = 5
-    for storage_type in allowed_storage_types:
-        fil_kwargs['storage_type'] = storage_type
-        allowed_algo_types = ['NAIVE']
-        if not experimental and storage_type == 'dense':
-            allowed_algo_types.extend((
-                'TREE_REORG', 'BATCH_TREE_REORG'
-            ))
-        for algo in allowed_algo_types:
-            fil_kwargs['algo'] = algo
-            for chunk_size in (1, 2, 4, 8, 16, 32):
-                fil_kwargs['threads_per_tree'] = chunk_size
-                call_args = {}
-                if experimental:
-                    call_args = {'chunk_size': chunk_size}
-                fil_model = m.load(model_path, **fil_kwargs)
-                fil_model.predict(train_data, **call_args)
-                begin = perf_counter()
-                for _ in range(OPTIMIZATION_CYCLES):
+        optimal_storage_type = 'sparse'
+        optimal_algo = 'NAIVE'
+        optimal_chunk_size = 1
+        best_time = None
+        OPTIMIZATION_CYCLES = 5
+        for storage_type in allowed_storage_types:
+            fil_kwargs['storage_type'] = storage_type
+            allowed_algo_types = ['NAIVE']
+            if not experimental and storage_type == 'dense':
+                allowed_algo_types.extend((
+                    'TREE_REORG', 'BATCH_TREE_REORG'
+                ))
+            for algo in allowed_algo_types:
+                fil_kwargs['algo'] = algo
+                for chunk_size in (1, 2, 4, 8, 16, 32):
+                    fil_kwargs['threads_per_tree'] = chunk_size
+                    call_args = {}
+                    if experimental:
+                        call_args = {'chunk_size': chunk_size}
+                    fil_model = m.load(model_path, **fil_kwargs)
                     fil_model.predict(train_data, **call_args)
-                end = perf_counter()
-                elapsed = end - begin
-                if best_time is None or elapsed < best_time:
-                    best_time = elapsed
-                    optimal_storage_type = storage_type
-                    optimal_algo = algo
-                    optimal_chunk_size = chunk_size
+                    begin = perf_counter()
+                    for _ in range(OPTIMIZATION_CYCLES):
+                        fil_model.predict(train_data, **call_args)
+                    end = perf_counter()
+                    elapsed = end - begin
+                    if best_time is None or elapsed < best_time:
+                        best_time = elapsed
+                        optimal_storage_type = storage_type
+                        optimal_algo = algo
+                        optimal_chunk_size = chunk_size
 
-    fil_kwargs['storage_type'] = optimal_storage_type
-    fil_kwargs['algo'] = optimal_algo
-    fil_kwargs['threads_per_tree'] = optimal_chunk_size
+        fil_kwargs['storage_type'] = optimal_storage_type
+        fil_kwargs['algo'] = optimal_algo
+        fil_kwargs['threads_per_tree'] = optimal_chunk_size
 
     return OptimizedFilWrapper(
         m.load(model_path, **fil_kwargs),

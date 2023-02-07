@@ -459,7 +459,8 @@ def all_algorithms():
                 fil_algo='NAIVE',
                 storage_type='DENSE',
                 output_class=False,
-                precision='float32'
+                precision='float32',
+                device='gpu'
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
@@ -478,9 +479,29 @@ def all_algorithms():
                 storage_type='DENSE',
                 output_class=False,
                 threshold=0.5,
-                precision='float32'
+                precision='float32',
+                device='gpu'
             ),
             name="FIL-Optimized",
+            accepts_labels=False,
+            setup_cpu_func=_build_treelite_classifier,
+            setup_cuml_func=_build_optimized_fil_classifier,
+            cpu_data_prep_hook=_treelite_format_hook,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite,
+            cuml.experimental.ForestInference,
+            shared_args=dict(num_rounds=100, max_depth=10),
+            cuml_args=dict(
+                fil_algo='NAIVE',
+                storage_type='DENSE',
+                output_class=False,
+                precision='float32',
+                device='cpu'
+            ),
+            name="FILEX-CPU-Optimized",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
             setup_cuml_func=_build_optimized_fil_classifier,
