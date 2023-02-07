@@ -91,7 +91,6 @@ def with_cupy_rmm(func):
     return cupy_rmm_wrapper
 
 
-
 def class_with_cupy_rmm(skip_init=False,
                         skip_private=True,
                         skip_dunder=True,

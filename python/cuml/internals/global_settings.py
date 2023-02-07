@@ -75,7 +75,7 @@ class GlobalSettings:
     thread. This additional layer of indirection on top of an ordinary
     `threading.local` object is to facilitate debugging of global settings
     changes. New global setting attributes can be added as properties to this
-    object, and # breakpoints or debugging statements can be added to a
+    object, and breakpoints or debugging statements can be added to a
     property's method to track when and how those properties change.
 
     In general, cuML developers should simply access `cuml.global_settings`
