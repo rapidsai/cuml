@@ -606,12 +606,12 @@ def test_fuzzy_simplicial_set(n_rows,
 @pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'l1',
                                     'manhattan', 'minkowski', 'chebyshev',
                                     'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
+                                    'hamming', 'canberra', 'dice'])
 def test_umap_distance_metrics_fit_transform_trust(metric):
     data, labels = make_blobs(n_samples=1000, n_features=64,
                               centers=5, random_state=42)
 
-    if metric == 'jaccard':
+    if metric in ('jaccard', 'dice',):
         data = data >= 0
 
     umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
@@ -632,7 +632,7 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
 @pytest.mark.parametrize('metric', ['euclidean', 'l1', 'manhattan',
                                     'minkowski', 'chebyshev',
                                     'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
+                                    'hamming', 'canberra', 'dice'])
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
     data, labels = make_blobs(n_samples=1000, n_features=64,
                               centers=5, random_state=42)
@@ -640,7 +640,7 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
     data_selection = np.random.RandomState(42).choice(
         [True, False], 1000, replace=True, p=[0.75, 0.25])
 
-    if metric == 'jaccard':
+    if metric in ('jaccard', 'dice'):
         data = data >= 0
 
     new_data = scipy_sparse.csr_matrix(data[~data_selection])
