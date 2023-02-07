@@ -228,14 +228,14 @@ struct alignas(
     threshold_t, index_t, metadata_storage_t, offset_t
   >();
 
-  struct inner_data_type alignas(byte_size) {
+  struct inner_data_type {
     value_type stored_value;
     // TODO (wphicks): It may be possible to store both of the following together
     // to save bytes
     offset_type distant_offset;
     metadata_storage_type metadata;
   };
-  union aligned_data_type alignas(byte_size) {
+  union aligned_data_type {
     inner_data_type inner_data;
     char spacer_data[byte_size];
   };
