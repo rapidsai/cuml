@@ -225,8 +225,6 @@ class UMAPParametrizableTest : public ::testing::Test {
                           X,
                           n_samples,
                           umap_params.n_components,
-                          knn_indices,
-                          knn_dists,
                           X,
                           n_samples,
                           model_embedding,

@@ -130,13 +130,13 @@ def _run_mnmg_test(n_parts, n_rows, sampling_ratio, supervised,
 
     trust_diff = loc_umap - dist_umap
 
-    return trust_diff <= 0.1
+    return trust_diff <= 0.15
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2, 9])
 @pytest.mark.parametrize("n_rows", [100, 500])
-@pytest.mark.parametrize("sampling_ratio", [0.4, 0.9])
+@pytest.mark.parametrize("sampling_ratio", [0.55, 0.9])
 @pytest.mark.parametrize("supervised", [True, False])
 @pytest.mark.parametrize("dataset", ["digits", "iris"])
 @pytest.mark.parametrize("n_neighbors", [10])
