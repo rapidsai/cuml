@@ -72,9 +72,8 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   // preferred value unless we cannot handle at least 1 row per block iteration
   // with available shared memory, in which case we must reduce the threads per
   // block.
-  auto constexpr const preferred_tpb = index_type{256};
   auto threads_per_block = min(
-    preferred_tpb,
+    MAX_THREADS_PER_BLOCK,
     kayak::downpadded_size(
       (max_shared_mem_per_block  - row_size_bytes) / row_output_size_bytes,
       WARP_SIZE
@@ -86,7 +85,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   if (threads_per_block < WARP_SIZE) {
     row_size_bytes = index_type{};  // Do not store input rows in shared mem
     threads_per_block = min(
-      preferred_tpb,
+      MAX_THREADS_PER_BLOCK,
       kayak::downpadded_size(
         max_shared_mem_per_block / row_output_size_bytes,
         WARP_SIZE
@@ -136,7 +135,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   // the following heuristic to identify an approximately optimal value
   if (
     !specified_chunk_size.has_value()
-    && resident_blocks_per_sm >= 2
+    && resident_blocks_per_sm >= MIN_BLOCKS_PER_SM
   ) {
     rows_per_block_iteration = index_type{32};
   }

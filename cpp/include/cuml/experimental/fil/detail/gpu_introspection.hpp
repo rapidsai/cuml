@@ -132,6 +132,18 @@ auto get_max_active_blocks_per_sm(
 auto constexpr static const MAX_READ_CHUNK = index_type{128};
 auto constexpr static const MAX_BLOCKS = index_type{65536};
 auto constexpr static const WARP_SIZE = index_type{32};
+auto constexpr static const MAX_THREADS_PER_BLOCK = index_type{256};
+#ifdef __CUDACC__
+#if __CUDA_ARCH__ == 750
+auto constexpr static const MAX_THREADS_PER_SM = index_type{1024};
+#else
+auto constexpr static const MAX_THREADS_PER_SM = index_type{2048};
+#endif
+#else
+auto constexpr static const MAX_THREADS_PER_SM = index_type{2048};
+#endif
+
+auto constexpr static const MIN_BLOCKS_PER_SM = MAX_THREADS_PER_SM / MAX_THREADS_PER_BLOCK;
 
 }
 }

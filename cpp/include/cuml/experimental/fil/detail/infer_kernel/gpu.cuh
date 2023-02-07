@@ -21,7 +21,8 @@ template<
   typename vector_output_t=std::nullptr_t,
   typename categorical_data_t=std::nullptr_t
 >
-__global__ void infer_kernel(
+__global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM)
+infer_kernel(
     forest_t forest,
     postprocessor<typename forest_t::io_type> postproc,
     typename forest_t::io_type* output,
