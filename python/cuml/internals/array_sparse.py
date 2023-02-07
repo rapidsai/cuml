@@ -14,15 +14,10 @@
 # limitations under the License.
 #
 from cuml.internals.array import CumlArray
-# breakpoint()
 from cuml.internals.global_settings import GlobalSettings
-# breakpoint()
 from cuml.internals.mem_type import MemoryType
-# breakpoint()
 from cuml.internals.memory_utils import class_with_cupy_rmm
-# breakpoint()
 from cuml.internals.logger import debug
-# breakpoint()
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -30,18 +25,25 @@ from cuml.internals.safe_imports import (
     null_decorator,
     UnavailableError
 )
-# breakpoint()
 
 cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
-# breakpoint()
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
     'annotate',
     alt=null_decorator
 )
-# breakpoint()
 scipy_sparse = cpu_only_import('scipy.sparse')
-# breakpoint()
+
+sparse_matrix_classes = []
+try:
+    sparse_matrix_classes.append(cpx_sparse.csr_matrix)
+except UnavailableError:
+    pass
+try:
+    sparse_matrix_classes.append(scipy_sparse.csr_matrix)
+except UnavailableError:
+    pass
+sparse_matrix_classes = tuple(sparse_matrix_classes)
 
 
 @class_with_cupy_rmm()
@@ -92,8 +94,8 @@ class SparseCumlArray():
                    domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
-                 convert_to_mem_type=GlobalSettings().memory_type,
-                 convert_index=GlobalSettings().xpy.int32,
+                 convert_to_mem_type=None,
+                 convert_index=None,
                  convert_format=True):
         is_sparse = False
         try:
@@ -110,16 +112,7 @@ class SparseCumlArray():
         if not is_sparse:
             raise ValueError("A sparse matrix is expected as input. "
                              "Received %s" % type(data))
-        sparse_matrix_classes = []
-        try:
-            sparse_matrix_classes.append(cpx_sparse.csr_matrix)
-        except UnavailableError:
-            pass
-        try:
-            sparse_matrix_classes.append(scipy_sparse.csr_matrix)
-        except UnavailableError:
-            pass
-        sparse_matrix_classes = tuple(sparse_matrix_classes)
+
         if not isinstance(data, sparse_matrix_classes):
             if convert_format:
                 debug('Received sparse matrix in {} format but CSR is '
@@ -139,12 +132,16 @@ class SparseCumlArray():
 
         if convert_to_mem_type:
             convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
+        else:
+            convert_to_mem_type = GlobalSettings().memory_type
 
         if convert_to_mem_type is MemoryType.mirror or not convert_to_mem_type:
             convert_to_mem_type = from_mem_type
 
         self._mem_type = convert_to_mem_type
 
+        if convert_index is None:
+            convert_index = GlobalSettings().xpy.int32
         if not convert_index:
             convert_index = data.indptr.dtype
 
