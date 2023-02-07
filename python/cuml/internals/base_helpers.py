@@ -82,6 +82,9 @@ def _wrap_attribute(class_name: str,
 
     return_type = _get_base_return_type(class_name, attribute)
 
+    if attribute_name in ("fit", "fit_transform", "fit_predict"):
+        kwargs.setdefault("set_output_type", True)
+
     if (return_type == "generic"):
         attribute = api_base_return_generic(**kwargs)(attribute)
     elif (return_type == "array"):
