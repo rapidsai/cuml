@@ -115,7 +115,6 @@ except UnavailableError:
     pass
 
 
-
 def get_supported_input_type(X):
     """
     Determines if the input object is a supported input array-like object or
