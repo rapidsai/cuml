@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-
 from cuml.internals.base import Base, UniversalBase
 
 # GPU only packages

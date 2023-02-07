@@ -19,7 +19,6 @@ import copy
 import operator
 import pickle
 
-
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
