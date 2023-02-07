@@ -116,11 +116,14 @@ struct alignas(
     bool is_categorical_node = false,
     metadata_storage_type feature = metadata_storage_type{},
     offset_type distant_child_offset = offset_type{}
-  ) : stored_value{.value=value},
-    distant_offset{distant_child_offset},
-    metadata{construct_metadata(
-      is_leaf_node, default_to_distant_child, is_categorical_node, feature
-    )} {}
+  ) : aligned_data{
+    .inner_data={
+      {.value=value},
+      distant_child_offset,
+      construct_metadata(
+        is_leaf_node, default_to_distant_child, is_categorical_node, feature
+      )
+    }} {}
 
   HOST DEVICE constexpr node(
     index_type index,
@@ -129,47 +132,50 @@ struct alignas(
     bool is_categorical_node = false,
     metadata_storage_type feature = metadata_storage_type{},
     offset_type distant_child_offset = offset_type{}
-  ) : stored_value{.index=index},
-    distant_offset{distant_child_offset},
-    metadata{construct_metadata(
-      is_leaf_node, default_to_distant_child, is_categorical_node, feature
-    )} {}
+  ) : aligned_data{
+    .inner_data={
+      {.index=index},
+      distant_child_offset,
+      construct_metadata(
+        is_leaf_node, default_to_distant_child, is_categorical_node, feature
+      )
+    }} {}
 #pragma GCC diagnostic pop
 
   /** The index of the feature for this node */
   HOST DEVICE auto constexpr feature_index() const {
-    return metadata & FEATURE_MASK;
+    return aligned_data.inner_data.metadata & FEATURE_MASK;
   }
   /** Whether or not this node is a leaf node */
   HOST DEVICE auto constexpr is_leaf() const {
-    return !bool(distant_offset);
+    return !bool(aligned_data.inner_data.distant_offset);
   }
   /** Whether or not to default to distant child in case of missing values */
   HOST DEVICE auto constexpr default_distant() const {
-    return bool(metadata & DEFAULT_DISTANT_MASK);
+    return bool(aligned_data.inner_data.metadata & DEFAULT_DISTANT_MASK);
   }
   /** Whether or not this node is a categorical node */
   HOST DEVICE auto constexpr is_categorical() const {
-    return bool(metadata & CATEGORICAL_MASK);
+    return bool(aligned_data.inner_data.metadata & CATEGORICAL_MASK);
   }
   /** The offset to the child of this node if it evaluates to given condition */
   HOST DEVICE auto constexpr child_offset(bool condition) const {
     if constexpr (layout == kayak::tree_layout::depth_first) {
-      return offset_type{1} + condition * (distant_offset - offset_type{1});
+      return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
     } else if constexpr (layout == kayak::tree_layout::breadth_first) {
-      return condition * offset_type{1} + (distant_offset - offset_type{1});
+      return condition * offset_type{1} + (aligned_data.inner_data.distant_offset - offset_type{1});
     } else {
       static_assert(layout == kayak::tree_layout::depth_first);
     }
   }
   /** The threshold value for this node */
   HOST DEVICE auto constexpr threshold() const {
-    return stored_value.value;
+    return aligned_data.inner_data.stored_value.value;
   }
 
   /** The index value for this node */
   HOST DEVICE auto const& index() const {
-    return stored_value.index;
+    return aligned_data.inner_data.stored_value.index;
   }
   /** The output value for this node
    *
@@ -178,9 +184,9 @@ struct alignas(
   template <bool has_vector_leaves>
   HOST DEVICE auto constexpr output() const {
     if constexpr (has_vector_leaves) {
-      return stored_value.index;
+      return aligned_data.inner_data.stored_value.index;
     } else {
-      return stored_value.value;
+      return aligned_data.inner_data.stored_value.value;
     }
   }
 
@@ -218,11 +224,23 @@ struct alignas(
     );
   }
 
-  value_type stored_value;
-  // TODO (wphicks): It may be possible to store both of the following together
-  // to save bytes
-  offset_type distant_offset;
-  metadata_storage_type metadata;
+  auto static constexpr const byte_size = detail::get_node_alignment<
+    threshold_t, index_t, metadata_storage_t, offset_t
+  >();
+
+  struct inner_data_type {
+    value_type stored_value;
+    // TODO (wphicks): It may be possible to store both of the following together
+    // to save bytes
+    offset_type distant_offset;
+    metadata_storage_type metadata;
+  };
+  union aligned_data_type {
+    inner_data_type inner_data;
+    char spacer_data[byte_size];
+  };
+
+  aligned_data_type aligned_data;
 };
 
 }
