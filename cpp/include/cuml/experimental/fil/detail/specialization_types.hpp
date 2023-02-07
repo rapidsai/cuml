@@ -12,16 +12,16 @@ namespace detail {
 template <kayak::tree_layout layout_v, bool double_precision, bool large_trees>
 struct specialization_types {
   using threshold_type = std::conditional_t<
-    double_precision, float, float
+    double_precision, double, float
   >;
   using index_type = std::conditional_t<
-    double_precision, std::uint32_t, std::uint32_t
+    double_precision, std::uint64_t, std::uint32_t
   >;
   using metadata_type = std::conditional_t<
-    large_trees, std::uint16_t, std::uint16_t
+    large_trees, std::uint32_t, std::uint16_t
   >;
   using offset_type = std::conditional_t<
-    large_trees, std::uint16_t, std::uint16_t
+    large_trees, std::uint32_t, std::uint16_t
   >;
   auto static constexpr const layout = layout_v;
 };
