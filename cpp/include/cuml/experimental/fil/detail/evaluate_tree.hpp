@@ -17,7 +17,7 @@ template<
   typename io_t
 >
 HOST DEVICE auto evaluate_tree(
-    node_t const* __restrict__ root,
+    node_t const* __restrict__ node,
     io_t const* __restrict__ row
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, typename node_t::index_type const>;
