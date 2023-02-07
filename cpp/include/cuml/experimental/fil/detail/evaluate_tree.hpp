@@ -25,9 +25,9 @@ HOST DEVICE auto evaluate_tree(
 #ifndef __CUDACC__
   using float2 = node_t;
 #endif
-  auto* node = reinterpret_cast<float2 const*>(root);
+  auto* node = reinterpret_cast<float2 const*>(reinterpret_cast<void const*>(root));
   auto alias = *node;
-  auto cur_node = *reinterpret_cast<node_t*>(&alias);
+  auto cur_node = *reinterpret_cast<node_t*>(reinterpret_cast<void*>(&alias));
   do {
     auto input_val = row[cur_node.feature_index()];
     auto condition = true;

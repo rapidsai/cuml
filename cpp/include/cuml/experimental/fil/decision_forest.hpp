@@ -350,20 +350,24 @@ template<
 >
 using preset_decision_forest = decision_forest<
   layout,
-  typename specialization_types<double_precision, large_trees>::threshold_type,
-  typename specialization_types<double_precision, large_trees>::index_type,
-  typename specialization_types<double_precision, large_trees>::metadata_type,
-  typename specialization_types<double_precision, large_trees>::offset_type
+  typename specialization_types<layout, double_precision, large_trees>::threshold_type,
+  typename specialization_types<layout, double_precision, large_trees>::index_type,
+  typename specialization_types<layout, double_precision, large_trees>::metadata_type,
+  typename specialization_types<layout, double_precision, large_trees>::offset_type
 >;
 
 }
 
 /** A variant containing all standard decision_forest instantiations */
 using decision_forest_variant = std::variant<
-  detail::preset_decision_forest<preferred_tree_layout, false, false>,
-  detail::preset_decision_forest<preferred_tree_layout, false, true>,
-  detail::preset_decision_forest<preferred_tree_layout, true, false>,
-  detail::preset_decision_forest<preferred_tree_layout, true, true>
+  detail::preset_decision_forest<kayak::tree_layout::depth_first, false, false>,
+  detail::preset_decision_forest<kayak::tree_layout::depth_first, false, true>,
+  detail::preset_decision_forest<kayak::tree_layout::depth_first, true, false>,
+  detail::preset_decision_forest<kayak::tree_layout::depth_first, true, true>,
+  detail::preset_decision_forest<kayak::tree_layout::breadth_first, false, false>,
+  detail::preset_decision_forest<kayak::tree_layout::breadth_first, false, true>,
+  detail::preset_decision_forest<kayak::tree_layout::breadth_first, true, false>,
+  detail::preset_decision_forest<kayak::tree_layout::breadth_first, true, true>
 >;
 
 /**
@@ -387,9 +391,10 @@ inline auto get_forest_variant_index(
   index_type num_features,
   index_type num_categorical_nodes = index_type{},
   index_type max_num_categories = index_type{},
-  index_type num_vector_leaves = index_type{}
+  index_type num_vector_leaves = index_type{},
+  kayak::tree_layout layout = preferred_tree_layout
 ) {
-  using small_index_t = typename detail::specialization_types<false, false>::index_type;
+  using small_index_t = typename detail::specialization_types<preferred_tree_layout, false, false>::index_type;
   auto max_local_categories = index_type(sizeof(small_index_t) * 8);
   // If the index required for pointing to categorical storage bins or vector
   // leaf output exceeds what we can store in a uint32_t, uint64_t will be used
@@ -407,8 +412,8 @@ inline auto get_forest_variant_index(
 
   auto double_precision = use_double_thresholds || double_indexes_required;
 
-  using small_metadata_t = typename detail::specialization_types<false, false>::metadata_type;
-  using small_offset_t = typename detail::specialization_types<false, false>::offset_type;
+  using small_metadata_t = typename detail::specialization_types<preferred_tree_layout, false, false>::metadata_type;
+  using small_offset_t = typename detail::specialization_types<preferred_tree_layout, false, false>::offset_type;
 
   auto large_trees = (
     num_features > (
@@ -416,8 +421,11 @@ inline auto get_forest_variant_index(
     ) || max_node_offset > std::numeric_limits<small_offset_t>::max()
   );
 
+  auto layout_value = static_cast<std::underlying_type_t<kayak::tree_layout>>(layout);
+
   return (
-    (index_type{double_precision} << index_type{1})
+    (index_type{layout_value} << index_type{2})
+    + (index_type{double_precision} << index_type{1})
     + index_type{large_trees}
   );
 }

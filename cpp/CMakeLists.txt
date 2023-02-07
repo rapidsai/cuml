@@ -354,7 +354,15 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/experimental/fil/infer2.cpp
         src/experimental/fil/infer2.cu
         src/experimental/fil/infer3.cpp
-        src/experimental/fil/infer3.cu)
+        src/experimental/fil/infer3.cu
+        src/experimental/fil/infer4.cpp
+        src/experimental/fil/infer4.cu
+        src/experimental/fil/infer5.cpp
+        src/experimental/fil/infer5.cu
+        src/experimental/fil/infer6.cpp
+        src/experimental/fil/infer6.cu
+        src/experimental/fil/infer7.cpp
+        src/experimental/fil/infer7.cu)
   endif()
 
   # todo: organize linear models better

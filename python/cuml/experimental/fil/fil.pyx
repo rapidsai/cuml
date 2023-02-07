@@ -13,6 +13,9 @@ from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
 from cuml.experimental.kayak.device_type cimport device_type as kayak_device_t
 from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
+from cuml.experimental.kayak.tree_layout cimport tree_layout as \
+    kayak_tree_layout
+from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
 from cuml.experimental.kayak.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
@@ -170,6 +173,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
         ModelHandle,
+        kayak_tree_layout,
         uint32_t,
         optional[bool],
         kayak_device_t,
@@ -187,6 +191,7 @@ cdef class ForestInference_impl():
             raft_handle,
             tl_model,
             *,
+            tree_layout='breadth_first',
             align_bytes=0,
             use_double_precision=None,
             mem_type=None,
@@ -218,9 +223,16 @@ cdef class ForestInference_impl():
             dev_type = kayak_device_t.gpu
         else:
             dev_type = kayak_device_t.cpu
+        # TODO: layout pass-through
+        cdef kayak_tree_layout tree_layout
+        if layout.lower() == 'breadth_first':
+            tree_layout = kayak_tree_layout.breadth_first
+        else:
+            tree_layout = kayak_tree_layout.depth_first
 
         self.model = import_from_treelite_handle(
             <ModelHandle><uintptr_t>model_handle,
+            tree_layout,
             align_bytes,
             use_double_precision_c,
             dev_type,

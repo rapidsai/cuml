@@ -17,6 +17,7 @@
 #include <cuml/fil/fil.h>
 #include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/kayak/tree_layout.hpp>
 
 #include "benchmark.cuh"
 #include <chrono>
@@ -66,6 +67,7 @@ class FILEX : public RegressionFixture<float> {
 
     auto filex_model = ML::experimental::fil::import_from_treelite_handle(
       model,
+      kayak::tree_layout::breadth_first,
       128,
       false,
       kayak::device_type::gpu,
@@ -86,6 +88,7 @@ class FILEX : public RegressionFixture<float> {
     auto optimal_chunk_size = 1;
     auto optimal_storage_type = p_rest.storage;
     auto optimal_algo_type = ML::fil::algo_t::NAIVE;
+    auto optimal_layout = kayak::tree_layout::breadth_first;
     auto allowed_storage_types = std::vector<ML::fil::storage_type_t>{};
     if (p_rest.storage == ML::fil::storage_type_t::DENSE) {
       allowed_storage_types.push_back(ML::fil::storage_type_t::DENSE);
@@ -95,6 +98,10 @@ class FILEX : public RegressionFixture<float> {
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
     }
+    auto allowed_layouts = std::vector<kayak::tree_layout>{
+      kayak::tree_layout::breadth_first,
+      kayak::tree_layout::depth_first,
+    };
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
     // Iterate through storage type, algorithm type, and chunk sizes and find optimum
@@ -109,52 +116,67 @@ class FILEX : public RegressionFixture<float> {
 
       for (auto algo_type : allowed_algo_types) {
         tl_params.algo = algo_type;
-        for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
-          if (!p_rest.use_experimental) {
-            tl_params.threads_per_tree = chunk_size;
-            ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-            forest = std::get<ML::fil::forest_t<float>>(forest_variant);
-          }
-          handle->sync_stream();
-          handle->sync_stream_pool();
-          auto start = std::chrono::high_resolution_clock::now();
-          for (int i = 0; i < p_rest.predict_repetitions; i++) {
-            // Create FIL forest
-            if (p_rest.use_experimental) {
-              filex_model.predict(
-                *handle,
-                data.y.data(),
-                data.X.data(),
-                params.nrows,
-                kayak::device_type::gpu,
-                kayak::device_type::gpu,
-                chunk_size
-              );
-            } else {
-              ML::fil::predict(*handle,
-                               forest,
-                               data.y.data(),
-                               data.X.data(),
-                               params.nrows,
-                               false);
+        for (auto layout : allowed_layouts) {
+          filex_model = ML::experimental::fil::import_from_treelite_handle(
+            model,
+            layout,
+            128,
+            false,
+            kayak::device_type::gpu,
+            0,
+            stream
+          );
+          for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
+            if (!p_rest.use_experimental) {
+              tl_params.threads_per_tree = chunk_size;
+              ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
+              forest = std::get<ML::fil::forest_t<float>>(forest_variant);
+            }
+            handle->sync_stream();
+            handle->sync_stream_pool();
+            auto start = std::chrono::high_resolution_clock::now();
+            for (int i = 0; i < p_rest.predict_repetitions; i++) {
+              // Create FIL forest
+              if (p_rest.use_experimental) {
+                filex_model.predict(
+                  *handle,
+                  data.y.data(),
+                  data.X.data(),
+                  params.nrows,
+                  kayak::device_type::gpu,
+                  kayak::device_type::gpu,
+                  chunk_size
+                );
+              } else {
+                ML::fil::predict(*handle,
+                                 forest,
+                                 data.y.data(),
+                                 data.X.data(),
+                                 params.nrows,
+                                 false);
+              }
+            }
+            handle->sync_stream();
+            handle->sync_stream_pool();
+            auto end = std::chrono::high_resolution_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+              end - start
+            ).count();
+            if (elapsed < min_time) {
+              min_time = elapsed;
+              optimal_chunk_size = chunk_size;
+              optimal_storage_type = storage_type;
+              optimal_algo_type = algo_type;
+              optimal_layout = layout;
+            }
+
+            // Clean up from FIL
+            if (!p_rest.use_experimental) {
+              ML::fil::free(*handle, forest);
             }
           }
-          handle->sync_stream();
-          handle->sync_stream_pool();
-          auto end = std::chrono::high_resolution_clock::now();
-          auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            end - start
-          ).count();
-          if (elapsed < min_time) {
-            min_time = elapsed;
-            optimal_chunk_size = chunk_size;
-            optimal_storage_type = storage_type;
-            optimal_algo_type = algo_type;
-          }
-
-          // Clean up from FIL
           if (!p_rest.use_experimental) {
-            ML::fil::free(*handle, forest);
+            break;
           }
         }
         if (p_rest.use_experimental) {
@@ -172,6 +194,15 @@ class FILEX : public RegressionFixture<float> {
     tl_params.threads_per_tree = optimal_chunk_size;
     ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
     forest = std::get<ML::fil::forest_t<float>>(forest_variant);
+    filex_model = ML::experimental::fil::import_from_treelite_handle(
+      model,
+      optimal_layout,
+      128,
+      false,
+      kayak::device_type::gpu,
+      0,
+      stream
+    );
 
     handle->sync_stream();
     handle->sync_stream_pool();

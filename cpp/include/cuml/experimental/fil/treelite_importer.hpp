@@ -631,6 +631,59 @@ struct treelite_importer {
   }
 };
 
+  /**
+   * Import a treelite model to FIL
+   *
+   * Load a model from Treelite to a FIL forest_model. The model will be
+   * inspected to determine the correct underlying decision_forest variant to
+   * use within the forest_model object.
+   *
+   * @param tl_model The Treelite Model to load
+   * @param align_bytes If non-zero, ensure that each tree is stored in a
+   * multiple of this value of bytes by padding with empty nodes. This can
+   * be useful for increasing the likelihood that successive reads will take
+   * place within a single cache line. On GPU, a value of 128 can be used for
+   * this purpose. On CPU, a value of either 0 or 64 typically produces
+   * optimal performance.
+   * @param dev_type Which device type to use for inference (CPU or GPU)
+   * @param stream The CUDA stream to use for loading this model (can be
+   * omitted for CPU).
+   */
+auto import_from_treelite_model(
+  treelite::Model const& tl_model,
+  kayak::tree_layout layout=preferred_tree_layout,
+  index_type align_bytes = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  kayak::device_type dev_type=kayak::device_type::cpu,
+  int device=0,
+  kayak::cuda_stream stream=kayak::cuda_stream{}
+) {
+  auto result = forest_model{};
+  switch(layout) {
+    case kayak::tree_layout::depth_first:
+      result = treelite_importer<kayak::tree_layout::depth_first>{}.import(
+        tl_model,
+        align_bytes,
+        use_double_precision,
+        dev_type,
+        device,
+        stream
+      );
+      break;
+    case kayak::tree_layout::breadth_first:
+      result = treelite_importer<kayak::tree_layout::breadth_first>{}.import(
+        tl_model,
+        align_bytes,
+        use_double_precision,
+        dev_type,
+        device,
+        stream
+      );
+      break;
+  }
+  return result;
+}
+
 /**
  * Import a treelite model handle to FIL
  *
@@ -652,50 +705,16 @@ struct treelite_importer {
  */
 auto import_from_treelite_handle(
   ModelHandle tl_handle,
+  kayak::tree_layout layout=preferred_tree_layout,
   index_type align_bytes = index_type{},
   std::optional<bool> use_double_precision = std::nullopt,
   kayak::device_type dev_type=kayak::device_type::cpu,
   int device=0,
   kayak::cuda_stream stream=kayak::cuda_stream{}
 ) {
-  return treelite_importer<preferred_tree_layout>{}.import(
+  return import_from_treelite_model(
     *static_cast<treelite::Model*>(tl_handle),
-    align_bytes,
-    use_double_precision,
-    dev_type,
-    device,
-    stream
-  );
-}
-
-  /**
-   * Import a treelite model to FIL
-   *
-   * Load a model from Treelite to a FIL forest_model. The model will be
-   * inspected to determine the correct underlying decision_forest variant to
-   * use within the forest_model object.
-   *
-   * @param tl_model The Treelite Model to load
-   * @param align_bytes If non-zero, ensure that each tree is stored in a
-   * multiple of this value of bytes by padding with empty nodes. This can
-   * be useful for increasing the likelihood that successive reads will take
-   * place within a single cache line. On GPU, a value of 128 can be used for
-   * this purpose. On CPU, a value of either 0 or 64 typically produces
-   * optimal performance.
-   * @param dev_type Which device type to use for inference (CPU or GPU)
-   * @param stream The CUDA stream to use for loading this model (can be
-   * omitted for CPU).
-   */
-auto import_from_treelite_model(
-  treelite::Model const& tl_model,
-  index_type align_bytes = index_type{},
-  std::optional<bool> use_double_precision = std::nullopt,
-  kayak::device_type dev_type=kayak::device_type::cpu,
-  int device=0,
-  kayak::cuda_stream stream=kayak::cuda_stream{}
-) {
-  return treelite_importer<preferred_tree_layout>{}.import(
-    tl_model,
+    layout,
     align_bytes,
     use_double_precision,
     dev_type,

@@ -3,12 +3,13 @@
 #include <cstdint>
 #include <type_traits>
 #include <variant>
+#include <cuml/experimental/kayak/tree_layout.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
 namespace detail {
 
-template <bool double_precision, bool large_trees>
+template <kayak::tree_layout layout_v, bool double_precision, bool large_trees>
 struct specialization_types {
   using threshold_type = std::conditional_t<
     double_precision, float, float
@@ -22,13 +23,18 @@ struct specialization_types {
   using offset_type = std::conditional_t<
     large_trees, std::uint16_t, std::uint16_t
   >;
+  auto static constexpr const layout = layout_v;
 };
 
 using specialization_variant = std::variant<
-  specialization_types<false, false>,
-  specialization_types<false, true>,
-  specialization_types<true, false>,
-  specialization_types<true, true>
+  specialization_types<kayak::tree_layout::depth_first, false, false>,
+  specialization_types<kayak::tree_layout::depth_first, false, true>,
+  specialization_types<kayak::tree_layout::depth_first, true, false>,
+  specialization_types<kayak::tree_layout::depth_first, true, true>,
+  specialization_types<kayak::tree_layout::breadth_first, false, false>,
+  specialization_types<kayak::tree_layout::breadth_first, false, true>,
+  specialization_types<kayak::tree_layout::breadth_first, true, false>,
+  specialization_types<kayak::tree_layout::breadth_first, true, true>
 >;
 
 }
