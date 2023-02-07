@@ -48,8 +48,7 @@ HOST DEVICE auto evaluate_tree(
       condition = isnan(input_val);
     }
     node += cur_node.child_offset(condition);
-    alias = *node;
-    cur_node = *reinterpret_cast<node_t*>(&alias);
+    cur_node = *node;
   } while (!cur_node.is_leaf());
   return cur_node.template output<has_vector_leaves>();
 }
