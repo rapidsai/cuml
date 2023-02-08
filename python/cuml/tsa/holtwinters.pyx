@@ -244,7 +244,6 @@ class ExponentialSmoothing(Base):
         # Set up attributes:
         self.eps = eps
         self.endog = endog
-        self._set_output_type(endog)
         self.forecasted_points = []  # list for final forecast output
         self.level = []  # list for level values for each time series in batch
         self.trend = []  # list for trend values for each time series in batch
