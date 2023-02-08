@@ -16,6 +16,7 @@
 
 import os
 import threading
+from cuml.internals.api_context import ApiContext
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.logger import warn
@@ -44,17 +45,15 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
                 default_device_type = DeviceType.host
                 default_memory_type = MemoryType.host
             self.shared_state = {
+                '_api_context': ApiContext(),
                 '_output_type': None,
-                '_output_dtype': None,
                 '_device_type': default_device_type,
                 '_memory_type': default_memory_type,
-                'root_cm': None
             }
         else:
             self.shared_state = {
+                '_api_context': ApiContext(),
                 '_output_type': None,
-                '_output_dtype': None,
-                'root_cm': None
             }
 
 

@@ -19,11 +19,11 @@ import functools
 import inspect
 import typing
 import warnings
-from dataclasses import dataclass
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
 from cuml.internals import logger
+from cuml.internals.api_context import ApiContext
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
@@ -104,60 +104,34 @@ def _using_mirror_output_type():
 
 
 @contextlib.contextmanager
-def _restore_dtype():
-    prev_output_dtype = GlobalSettings().output_dtype
-    try:
-        yield
-    finally:
-        GlobalSettings().output_dtype = prev_output_dtype
-
-
-@dataclass
-class ApiContext:
-
-    stack_level: int = 0
-    previous_output_type = None
-    output_type_override = None
-    output_dtype_override = None
-
-
-_API_CONTEXT = ApiContext()
-
-
-@contextlib.contextmanager
 def api_context():
-    global _API_CONTEXT
-
-    _API_CONTEXT.stack_level += 1
+    GlobalSettings()._api_context.stack_level += 1
 
     try:
-        if _API_CONTEXT.stack_level == 1:
+        if GlobalSettings()._api_context.stack_level == 1:
             with contextlib.ExitStack() as stack:
-                _API_CONTEXT.output_type_override = None
-                _API_CONTEXT.output_dtype_override = None
+                GlobalSettings()._api_context.output_type = None
+                GlobalSettings()._api_context.output_dtype = None
                 stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
-                stack.enter_context(_restore_dtype())
-                _API_CONTEXT.previous_output_type =\
+                GlobalSettings()._api_context.previous_output_type =\
                     stack.enter_context(_using_mirror_output_type())
                 yield
         else:
             yield
     finally:
-        _API_CONTEXT.stack_level -= 1
+        GlobalSettings()._api_context.stack_level -= 1
 
 
 def in_internal_api():
-    return _API_CONTEXT.stack_level > 1
+    return GlobalSettings()._api_context.stack_level > 1
 
 
 def set_api_output_type(output_type):
-    global _API_CONTEXT
-    _API_CONTEXT.output_type_override = output_type
+    GlobalSettings()._api_context.output_type = output_type
 
 
 def set_api_output_dtype(output_dtype):
-    global _API_CONTEXT
-    _API_CONTEXT.output_dtype_override = output_dtype
+    GlobalSettings()._api_context.output_dtype = output_dtype
 
 
 def _convert_to_cumlarray(ret_val):
@@ -333,16 +307,19 @@ def _make_decorator_function(
                         return func(*args, **kwargs)
 
                     # Check for global output type override
+                    global_api_context = GlobalSettings()._api_context
                     global_output_type = GlobalSettings().output_type
                     assert global_output_type in (None, "mirror", "input")
-                    out_type_override = _API_CONTEXT.previous_output_type \
-                        or _API_CONTEXT.output_type_override
+                    out_type_override = \
+                        global_api_context.previous_output_type \
+                        or global_api_context.output_type
+
                     if out_type_override not in (None, "mirror", "input"):
                         out_type = out_type_override
                     assert not out_type == "input"
 
                     # Check for global output dtype override
-                    output_dtype = _API_CONTEXT.output_dtype_override \
+                    output_dtype = global_api_context.output_dtype \
                         or output_dtype
 
                     return process_generic(ret, out_type, output_dtype)
@@ -409,14 +386,13 @@ api_base_return_generic_skipall = api_base_return_generic(
 
 @contextlib.contextmanager
 def exit_internal_api():
-    global _API_CONTEXT
     try:
-        previous_context = _API_CONTEXT
-        with using_output_type(_API_CONTEXT.previous_output_type):
-            _API_CONTEXT = ApiContext()
+        previous_context = GlobalSettings()._api_context
+        with using_output_type(previous_context.previous_output_type):
+            GlobalSettings()._api_context = ApiContext()
             yield
     finally:
-        _API_CONTEXT = previous_context
+        GlobalSettings()._api_context = previous_context
 
 
 def mirror_args(
