@@ -18,11 +18,11 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/interruptible.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-namespace raft {
+namespace MLCommon {
 
 template <typename T>
 struct Compare {
@@ -254,4 +254,4 @@ testing::AssertionResult match(const T expected, T actual, L eq_compare)
     ms /= args.runs;                                       \
   } while (0)
 
-};  // end namespace raft
+};  // namespace MLCommon

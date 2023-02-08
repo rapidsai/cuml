@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
-
+#include <raft/core/handle.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/util/cache.cuh>

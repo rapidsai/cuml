@@ -15,6 +15,7 @@
  */
 
 #include <cuml/datasets/make_arima.hpp>
+#include <raft/core/handle.hpp>
 #include <random/make_arima.cuh>
 
 namespace ML {

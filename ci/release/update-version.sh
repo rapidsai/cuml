@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 ########################
 # cuML Version Updater #
 ########################
@@ -41,6 +41,9 @@ sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cma
 sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py
 sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.py
 
+# Update project_number (RAPIDS_VERSION) in the CPP doxygen file
+sed_runner "s/\(PROJECT_NUMBER.*=\).*/\1 \"${NEXT_SHORT_TAG}\"/g" cpp/Doxyfile.in
+
 for FILE in dependencies.yaml conda/environments/*.yaml; do
    sed_runner "s/cudf=${CURRENT_SHORT_TAG}/cudf=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rmm=${CURRENT_SHORT_TAG}/rmm=${NEXT_SHORT_TAG}/g" ${FILE};
@@ -57,10 +60,21 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
    sed_runner "s/rapids-doc-env=${CURRENT_SHORT_TAG}/rapids-doc-env=${NEXT_SHORT_TAG}/g" ${FILE};
 done
 
-sed_runner "s|/branch-.*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
+sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
 
 # Wheel builds clone cumlprims_mg, update its branch
 sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
 
 # Wheel builds install dask-cuda from source, update its branch
 sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
+
+# Need to distutils-normalize the original version
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+
+# Wheel builds install intra-RAPIDS dependencies from same release
+sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/_custom_build/backend.py
+
+for FILE in .github/workflows/*.yaml; do
+  sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
+done

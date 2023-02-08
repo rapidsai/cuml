@@ -18,6 +18,7 @@
 #include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>

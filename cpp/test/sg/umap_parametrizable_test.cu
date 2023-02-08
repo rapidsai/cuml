@@ -16,6 +16,7 @@
 
 #include <test_utils.h>
 
+#include <raft/core/handle.hpp>
 #include <umap/runner.cuh>
 
 #include <cuml/datasets/make_blobs.hpp>
@@ -26,7 +27,7 @@
 #include <datasets/digits.h>
 
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <test_utils.h>
@@ -224,8 +225,6 @@ class UMAPParametrizableTest : public ::testing::Test {
                           X,
                           n_samples,
                           umap_params.n_components,
-                          knn_indices,
-                          knn_dists,
                           X,
                           n_samples,
                           model_embedding,
@@ -352,8 +351,8 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     ASSERT_TRUE(equal);
 #else
-    ASSERT_TRUE(
-      raft::devArrMatch(e1, e2, n_samples * umap_params.n_components, raft::Compare<float>{}));
+    ASSERT_TRUE(MLCommon::devArrMatch(
+      e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
 #endif
   }
 

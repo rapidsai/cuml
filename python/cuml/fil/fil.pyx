@@ -79,8 +79,8 @@ cdef class TreeliteModel():
     handle : ModelHandle
         Opaque pointer to Treelite model
     """
-    cpdef ModelHandle handle
-    cpdef bool owns_handle
+    cdef ModelHandle handle
+    cdef bool owns_handle
 
     def __cinit__(self, owns_handle=True):
         """If owns_handle is True, free the handle's model in destructor.
@@ -116,13 +116,13 @@ cdef class TreeliteModel():
         TreeliteQueryNumFeature(self.handle, &out)
         return out
 
-    @staticmethod
-    def free_treelite_model(model_handle):
+    @classmethod
+    def free_treelite_model(cls, model_handle):
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
         TreeliteFreeModel(<ModelHandle> model_ptr)
 
-    @staticmethod
-    def from_filename(filename, model_type="xgboost"):
+    @classmethod
+    def from_filename(cls, filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
 
@@ -173,8 +173,9 @@ cdef class TreeliteModel():
         filename_bytes = filename.encode("UTF-8")
         TreeliteSerializeModel(filename_bytes, self.handle)
 
-    @staticmethod
-    def from_treelite_model_handle(treelite_handle,
+    @classmethod
+    def from_treelite_model_handle(cls,
+                                   treelite_handle,
                                    take_handle_ownership=False):
         cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
         model = TreeliteModel(owns_handle=take_handle_ownership)
@@ -744,8 +745,8 @@ class ForestInference(Base,
         self.shape_str = self._impl.get_shape_str()
         return self
 
-    @staticmethod
-    def load_from_sklearn(skl_model,
+    @classmethod
+    def load_from_sklearn(cls, skl_model,
                           output_class=False,
                           threshold=0.50,
                           algo='auto',
@@ -824,18 +825,28 @@ class ForestInference(Base,
             model passed.
 
         """
-        kwargs = locals()
-        [kwargs.pop(key) for key in ['skl_model', 'handle']]
         cuml_fm = ForestInference(handle=handle)
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
-        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
+        cuml_fm.load_from_treelite_model(
+            model=tl_model,
+            output_class=output_class,
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str,
+            precision=precision
+        )
         return cuml_fm
 
-    @staticmethod
-    def load(filename,
+    @classmethod
+    def load(cls,
+             filename,
              output_class=False,
              threshold=0.50,
              algo='auto',
@@ -921,11 +932,20 @@ class ForestInference(Base,
             inferencing on the model read from the file.
 
         """
-        kwargs = locals()
-        [kwargs.pop(key) for key in ['filename', 'handle', 'model_type']]
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
-        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
+        cuml_fm.load_from_treelite_model(
+            model=tl_model,
+            output_class=output_class,
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str,
+            precision=precision
+        )
         return cuml_fm
 
     @common_load_params_docstring
