@@ -322,6 +322,10 @@ HERRING_INITIALIZE_DEVICE(extern template, 0)
 HERRING_INITIALIZE_DEVICE(extern template, 1)
 HERRING_INITIALIZE_DEVICE(extern template, 2)
 HERRING_INITIALIZE_DEVICE(extern template, 3)
+HERRING_INITIALIZE_DEVICE(extern template, 4)
+HERRING_INITIALIZE_DEVICE(extern template, 5)
+HERRING_INITIALIZE_DEVICE(extern template, 6)
+HERRING_INITIALIZE_DEVICE(extern template, 7)
 
 }
 }

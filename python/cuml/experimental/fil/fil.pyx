@@ -191,7 +191,7 @@ cdef class ForestInference_impl():
             raft_handle,
             tl_model,
             *,
-            tree_layout='breadth_first',
+            layout='breadth_first',
             align_bytes=0,
             use_double_precision=None,
             mem_type=None,

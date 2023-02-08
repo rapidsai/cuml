@@ -62,6 +62,10 @@ HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 0)
 HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 1)
 HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 2)
 HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 3)
+HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 4)
+HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 5)
+HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 6)
+HERRING_INFER_ALL(extern template, kayak::device_type::cpu, 7)
 
 }
 }

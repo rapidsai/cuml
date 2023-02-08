@@ -286,6 +286,10 @@ HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 0)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 1)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 2)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 3)
+HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 4)
+HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 5)
+HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 6)
+HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 7)
 
 }
 }
