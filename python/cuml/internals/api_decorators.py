@@ -158,6 +158,12 @@ def _convert_to_cumlarray(ret_val):
 
 def process_single(value, output_type, output_dtype):
     ca = _convert_to_cumlarray(value)
+
+    # We need to special-case sparse cuml arrays since unlike CumlArray a
+    # conversion is performed even when output_type is None.
+    if isinstance(ca, SparseCumlArray) and output_type is None:
+        return ca
+
     ret = ca.to_output(
         output_type=output_type,
         output_dtype=output_dtype,
