@@ -276,7 +276,7 @@ class SVC(SVMBase,
         self.multiclass_strategy = multiclass_strategy
 
     @property
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @cuml.internals.api_base_return_array_skipall
     def classes_(self):
         if self.probability:
             return self.prob_svc.classes_
@@ -286,7 +286,7 @@ class SVC(SVMBase,
             return self._unique_labels_
 
     @property
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @cuml.internals.api_base_return_array_skipall
     def support_(self):
         if self.n_classes_ > 2:
             estimators = self.multiclass_svc.multiclass_estimator.estimators_
@@ -297,10 +297,10 @@ class SVC(SVMBase,
 
     @support_.setter
     def support_(self, value):
-        self._support_ = input_to_cuml_array(value).array if value is not None else None
+        self._support_ = value
 
     @property
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
         if self.n_classes_ > 2:
             estimators = self.multiclass_svc.multiclass_estimator.estimators_

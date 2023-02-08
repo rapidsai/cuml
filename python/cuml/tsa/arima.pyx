@@ -1170,7 +1170,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.api_return_any()
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
 

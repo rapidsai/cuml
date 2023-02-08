@@ -24,7 +24,7 @@ np = cpu_only_import('numpy')
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
 from cuml.internals.base import Base
@@ -279,7 +279,7 @@ class ExponentialSmoothing(Base):
                 raise ValueError(err_mess + str(d2))
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
-        return input_to_cuml_array(mod_ts_input).array
+        return mod_ts_input
 
     @cuml.internals.api_base_return_any_skipall
     def fit(self) -> "ExponentialSmoothing":

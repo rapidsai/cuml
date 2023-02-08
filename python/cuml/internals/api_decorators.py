@@ -165,7 +165,7 @@ def process_single(value, output_type, output_dtype):
     return ret
 
 
-def process_generic(value, output_type, output_dtype):
+def process_generic(value, output_type=None, output_dtype=None):
     # TODO: Try to refactor to not use isinstance() checks but try-fail
     # approach.
     if iu.is_array_like(value):
@@ -259,7 +259,11 @@ def _make_decorator_function(
                 with api_context():
 
                     if in_internal_api():
-                        return func(*args, **kwargs)
+                        if process_return:
+                            # Converts to CumlArray if possible.
+                            return process_generic(func(*args, **kwargs))
+                        else:
+                            return func(*args, **kwargs)
 
                     self_val = args[0] if has_self else None
 

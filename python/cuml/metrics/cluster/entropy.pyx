@@ -28,7 +28,7 @@ from libc.stdint cimport uintptr_t
 import cuml.internals
 from pylibraft.common.handle cimport handle_t
 from cuml.common import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from pylibraft.common.handle import Handle
 cimport cuml.common.cuda
 
@@ -52,8 +52,7 @@ def _prepare_cluster_input(cluster) -> typing.Tuple[CumlArray, int, int, int]:
     lower_class_range = cp.min(cluster_m).item()
     upper_class_range = cp.max(cluster_m).item()
 
-    cluster_m_array = input_to_cuml_array(cluster_m).array
-    return cluster_m_array, n_rows, lower_class_range, upper_class_range
+    return cluster_m, n_rows, lower_class_range, upper_class_range
 
 
 @cuml.internals.api_return_any()

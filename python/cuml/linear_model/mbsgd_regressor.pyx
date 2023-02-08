@@ -191,7 +191,7 @@ class MBSGDRegressor(Base,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array()
+    @cuml.internals.api_base_return_array_skipall
     def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
@@ -223,12 +223,3 @@ class MBSGDRegressor(Base,
             "batch_size",
             "n_iter_no_change",
         ]
-
-    @property
-    @cuml.internals.api_base_return_array(input_arg=None)
-    def coef_(self):
-        return self.solver_model.coef_
-
-    @coef_.setter
-    def coef_(self, value):
-        self.solver_model.coef_ = value

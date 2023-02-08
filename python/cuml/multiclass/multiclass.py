@@ -103,12 +103,12 @@ class MulticlassClassifier(Base, ClassifierMixin):
         self.estimator = estimator
 
     @property
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @cuml.internals.api_base_return_array_skipall
     def classes_(self):
         return self.multiclass_estimator.classes_
 
     @property
-    @cuml.internals.api_base_return_array(input_arg=None)
+    @cuml.internals.api_base_return_any_skipall
     def n_classes_(self):
         return self.multiclass_estimator.n_classes_
 

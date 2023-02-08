@@ -296,7 +296,7 @@ def _list_indexing(X, key, key_dtype):
 
 
 def _transform_one(transformer, X, y, weight, **fit_params):
-    res = transformer.transform(X)
+    res = transformer.transform(X).to_output("array")
     # if we have a weight for this transformer, multiply output
     if weight is None:
         return res
@@ -316,16 +316,15 @@ def _fit_transform_one(transformer,
     be multiplied by ``weight``.
     """
     with _print_elapsed_time(message_clsname, message):
-        with cuml.using_output_type("cupy"):
-            transformer.accept_sparse = True
-            if hasattr(transformer, 'fit_transform'):
-                res = transformer.fit_transform(X, y, **fit_params)
-            else:
-                res = transformer.fit(X, y, **fit_params).transform(X)
+        transformer.accept_sparse = True
+        if hasattr(transformer, 'fit_transform'):
+            res = transformer.fit_transform(X, y, **fit_params)
+        else:
+            res = transformer.fit(X, y, **fit_params).transform(X)
 
     if weight is None:
         return res, transformer
-    return res * weight, transformer
+    return res.to_output("array") * weight, transformer
 
 
 def _name_estimators(estimators):
@@ -899,6 +898,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             return np.zeros((X.shape[0], 0))
 
         Xs, transformers = zip(*result)
+        Xs = [x.to_output("array") if hasattr(x, "to_output") else x for x in Xs]
 
         # determine if concatenated output will be sparse or not
         if any(issparse(X) for X in Xs):
