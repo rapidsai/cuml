@@ -353,6 +353,15 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
+            sklearn.svm.LinearSVC,
+            cuml.svm.LinearSVC,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVC",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
             sklearn.svm.SVR,
             cuml.svm.SVR,
             shared_args={"kernel": "rbf"},
