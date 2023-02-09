@@ -132,14 +132,5 @@ class GlobalSettings:
         self._output_type = value
 
     @property
-    def output_dtype(self):
-        """The globally-defined default output dtype for cuML API calls"""
-        return self._output_dtype
-
-    @output_dtype.setter
-    def output_dtype(self, value):
-        self._output_dtype = value
-
-    @property
     def xpy(self):
         return self.memory_type.xpy
