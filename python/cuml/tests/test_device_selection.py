@@ -539,7 +539,8 @@ def test_train_gpu_infer_cpu(test_data):
             model.fit(test_data['X_train'])
     with using_device_type('cpu'):
         infer_func = getattr(model, test_data['infer_func'])
-        cuml_output = infer_func(test_data['X_test'])
+        infer_func_kwargs = test_data.get('infer_func_kwargs', {})
+        cuml_output = infer_func(test_data['X_test'], **infer_func_kwargs)
 
     assert_func = test_data['assert_func']
     assert_func(cuml_output, test_data)
@@ -555,7 +556,8 @@ def test_train_cpu_infer_gpu(test_data):
             model.fit(test_data['X_train'])
     with using_device_type('gpu'):
         infer_func = getattr(model, test_data['infer_func'])
-        cuml_output = infer_func(test_data['X_test'])
+        infer_func_kwargs = test_data.get('infer_func_kwargs', {})
+        cuml_output = infer_func(test_data['X_test'], **infer_func_kwargs)
 
     assert_func = test_data['assert_func']
     assert_func(cuml_output, test_data)
@@ -570,7 +572,8 @@ def test_train_gpu_infer_gpu(test_data):
         else:
             model.fit(test_data['X_train'])
         infer_func = getattr(model, test_data['infer_func'])
-        cuml_output = infer_func(test_data['X_test'])
+        infer_func_kwargs = test_data.get('infer_func_kwargs', {})
+        cuml_output = infer_func(test_data['X_test'], **infer_func_kwargs)
 
     assert_func = test_data['assert_func']
     assert_func(cuml_output, test_data)
