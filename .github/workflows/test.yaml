@@ -25,6 +25,8 @@ jobs:
   conda-python-tests-singlegpu:
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.04
+    env:
+      RAPIDS_CUML_RUN_HYPOTHESIS=1
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
