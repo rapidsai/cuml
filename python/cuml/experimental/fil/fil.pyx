@@ -208,10 +208,12 @@ cdef class ForestInference_impl():
             mem_type = MemoryType.from_str(mem_type)
 
         cdef optional[bool] use_double_precision_c
+        cdef bool use_double_precision_bool
         if use_double_precision is None:
             use_double_precision_c = nullopt
         else:
-            use_double_precision_c = use_double_precision
+            use_double_precision_bool = use_double_precision
+            use_double_precision_c = use_double_precision_bool
 
         try:
             model_handle = tl_model.handle
@@ -415,7 +417,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if precision in ('native', None):
             self.use_double_precision = None
         else:
-            self.use_double_precision = (precision in ('double', 'float32'))
+            self.use_double_precision = (precision in ('double', 'float64'))
 
         self.is_classifier = output_class
 
