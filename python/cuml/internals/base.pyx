@@ -312,7 +312,6 @@ class Base(TagsMixin,
         else:
             raise AttributeError(attr)
 
-    # TODO: remove this function
     def _set_base_attributes(self,
                              output_type=None,
                              target_dtype=None,

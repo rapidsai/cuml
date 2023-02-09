@@ -172,7 +172,7 @@ def process_single(value, output_type, output_dtype):
 
 
 def process_generic(value, output_type=None, output_dtype=None):
-    # TODO: Try to refactor to not use isinstance() checks but try-fail
+    # TODO: Consider to refactor to not use isinstance() checks but try-fail
     # approach.
     if iu.is_array_like(value):
         return process_single(value, output_type, output_dtype)
@@ -362,7 +362,6 @@ api_base_return_array = api_base_return_generic
 api_base_return_sparse_array = api_base_return_generic
 
 api_base_fit_transform = _make_decorator_function(
-    # TODO: add tests for this decorator(
     process_return=True,
     get_output_type=True,
     set_output_type=True,
