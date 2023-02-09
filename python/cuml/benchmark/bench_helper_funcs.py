@@ -223,6 +223,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
 
         optimal_storage_type = 'sparse'
         optimal_algo = 'NAIVE'
+        optimal_layout = 'breadth_first'
         optimal_chunk_size = 1
         best_time = None
         OPTIMIZATION_CYCLES = 5
@@ -233,29 +234,38 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
                 allowed_algo_types.extend((
                     'TREE_REORG', 'BATCH_TREE_REORG'
                 ))
+            allowed_layout_types = ['breadth_first']
+            if experimental:
+                allowed_layout_types.append('depth_first')
             for algo in allowed_algo_types:
                 fil_kwargs['algo'] = algo
-                for chunk_size in (1, 2, 4, 8, 16, 32):
-                    fil_kwargs['threads_per_tree'] = chunk_size
-                    call_args = {}
+                for layout in allowed_layout_types:
                     if experimental:
-                        call_args = {'chunk_size': chunk_size}
-                    fil_model = m.load(model_path, **fil_kwargs)
-                    fil_model.predict(train_data, **call_args)
-                    begin = perf_counter()
-                    for _ in range(OPTIMIZATION_CYCLES):
+                        fil_kwargs['layout'] = layout
+                    for chunk_size in (1, 2, 4, 8, 16, 32):
+                        fil_kwargs['threads_per_tree'] = chunk_size
+                        call_args = {}
+                        if experimental:
+                            call_args = {'chunk_size': chunk_size}
+                        fil_model = m.load(model_path, **fil_kwargs)
                         fil_model.predict(train_data, **call_args)
-                    end = perf_counter()
-                    elapsed = end - begin
-                    if best_time is None or elapsed < best_time:
-                        best_time = elapsed
-                        optimal_storage_type = storage_type
-                        optimal_algo = algo
-                        optimal_chunk_size = chunk_size
+                        begin = perf_counter()
+                        for _ in range(OPTIMIZATION_CYCLES):
+                            fil_model.predict(train_data, **call_args)
+                        end = perf_counter()
+                        elapsed = end - begin
+                        if best_time is None or elapsed < best_time:
+                            best_time = elapsed
+                            optimal_storage_type = storage_type
+                            optimal_algo = algo
+                            optimal_chunk_size = chunk_size
+                            optimal_layout = layout
 
         fil_kwargs['storage_type'] = optimal_storage_type
         fil_kwargs['algo'] = optimal_algo
         fil_kwargs['threads_per_tree'] = optimal_chunk_size
+        if experimental:
+            fil_kwargs['layout'] = optimal_layout
 
     return OptimizedFilWrapper(
         m.load(model_path, **fil_kwargs),

@@ -225,7 +225,6 @@ cdef class ForestInference_impl():
             dev_type = kayak_device_t.gpu
         else:
             dev_type = kayak_device_t.cpu
-        # TODO: layout pass-through
         cdef kayak_tree_layout tree_layout
         if layout.lower() == 'breadth_first':
             tree_layout = kayak_tree_layout.breadth_first
@@ -398,6 +397,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             output_class=False,
+            layout='breadth_first',
             align_bytes=None,
             precision='single',
             mem_type=None,
@@ -414,6 +414,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self.align_bytes = 0
         else:
             self.align_bytes = align_bytes
+        self.layout = layout
         if precision in ('native', None):
             self.use_double_precision = None
         else:
@@ -436,6 +437,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         impl = ForestInference_impl(
             self.handle,
             self.treelite_model,
+            layout=self.layout,
             align_bytes=self.align_bytes,
             use_double_precision=self.use_double_precision,
             mem_type=mem_type,
@@ -489,6 +491,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
+            layout='breadth_first',
             mem_type=None,
             device_id=0,
             handle=None):
@@ -519,6 +522,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=verbose,
             output_class=output_class,
             align_bytes=align_bytes,
+            layout=layout,
             precision=precision,
             mem_type=mem_type,
             device_id=device_id
@@ -542,6 +546,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
+            layout='breadth_first',
             mem_type=None,
             device_id=0,
             handle=None):
@@ -565,6 +570,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=verbose,
             output_class=output_class,
             align_bytes=align_bytes,
+            layout=layout,
             precision=precision,
             mem_type=mem_type,
             device_id=device_id
@@ -590,6 +596,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
+            layout='breadth_first',
             mem_type=None,
             device_id=0,
             handle=None):
@@ -609,6 +616,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=verbose,
             output_class=output_class,
             align_bytes=align_bytes,
+            layout=layout,
             precision=precision,
             mem_type=mem_type,
             device_id=device_id
