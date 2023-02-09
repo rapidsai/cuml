@@ -632,8 +632,10 @@ class UniversalBase(Base):
             if is_array_like(arg):
                 new_kwargs[kw] = input_to_host_array(arg)[0]
             # if Real or string, pass as is
-            if isinstance(arg, (numbers.Real, str)):
+            elif isinstance(arg, (numbers.Real, str)):
                 new_kwargs[kw] = arg
+            else:
+                raise ValueError(f"Unable to process argument {kw}")
         return new_args, new_kwargs
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
