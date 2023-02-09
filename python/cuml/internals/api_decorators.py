@@ -342,55 +342,42 @@ def _make_decorator_function(
 
 
 api_return_any = _make_decorator_function(
-    # ReturnAnyCM,
     process_return=False)
 api_base_return_any = _make_decorator_function(
-    # BaseReturnAnyCM,
     set_output_type=True,
     set_n_features_in=True,
 )
-api_return_array = _make_decorator_function(
-    # ReturnArrayCM,
-    process_return=True)
-api_base_return_array = _make_decorator_function(
-    # BaseReturnArrayCM,
-    process_return=True,
-    get_output_type=True,
-)
 api_return_generic = _make_decorator_function(
-    # ReturnGenericCM,
     process_return=True
 )
 api_base_return_generic = _make_decorator_function(
-    # BaseReturnGenericCM,
     process_return=True,
     get_output_type=True,
 )
+
+# aliases:
+api_return_array = api_return_generic
+api_return_sparse_array = api_return_generic
+api_base_return_array = api_base_return_generic
+api_base_return_sparse_array = api_base_return_generic
+
 api_base_fit_transform = _make_decorator_function(
     # TODO: add tests for this decorator(
-    # BaseReturnArrayCM,
     process_return=True,
     get_output_type=True,
     set_output_type=True,
     set_n_features_in=True,
 )
 
-api_return_sparse_array = _make_decorator_function(
-    # ReturnSparseArrayCM,
-    process_return=True
-)
-api_base_return_sparse_array = _make_decorator_function(
-    # BaseReturnSparseArrayCM,
-    process_return=True,
-    get_output_type=True,
-)
-
 api_base_return_any_skipall = api_base_return_any(
-    set_output_type=False, set_n_features_in=False
+    set_output_type=False,
+    set_n_features_in=False,
 )
-api_base_return_array_skipall = api_base_return_array(get_output_type=False)
+api_base_return_array_skipall = api_base_return_array(
+    get_output_type=False,
+)
 api_base_return_generic_skipall = api_base_return_generic(
-    get_output_type=False
+    get_output_type=False,
 )
 
 
