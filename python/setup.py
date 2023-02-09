@@ -127,7 +127,7 @@ setup(name=f'cuml{cuda_suffix}',
       description="cuML - RAPIDS ML Algorithms",
       url="https://github.com/rapidsai/cuml",
       author="NVIDIA Corporation",
-      license="Apache",
+      license="Apache 2.0",
       classifiers=[
           "Intended Audience :: Developers",
           "Programming Language :: Python",
