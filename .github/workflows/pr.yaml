@@ -82,7 +82,7 @@ jobs:
   wheel-build-cuml:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@replace_versioneer
     with:
       build_type: pull-request
       package-name: cuml
@@ -94,7 +94,7 @@ jobs:
   wheel-tests-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@replace_versioneer
     with:
       build_type: pull-request
       package-name: cuml
