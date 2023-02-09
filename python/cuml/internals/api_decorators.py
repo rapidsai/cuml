@@ -265,11 +265,18 @@ def _make_decorator_function(
                 with api_context():
 
                     if in_internal_api():
+                        ret = func(*args, **kwargs)
+
                         if process_return:
-                            # Converts to CumlArray if possible.
-                            return process_generic(func(*args, **kwargs))
+                            # Convert to globally specified output_type or at
+                            # least try to convert CumlArray if possible.
+                            global_output_type = GlobalSettings().output_type
+                            if global_output_type in ("mirror", "input"):
+                                global_output_type = None
+
+                            return process_generic(ret, global_output_type)
                         else:
-                            return func(*args, **kwargs)
+                            return ret
 
                     self_val = args[0] if has_self else None
 
