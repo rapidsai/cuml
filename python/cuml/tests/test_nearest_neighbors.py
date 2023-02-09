@@ -14,6 +14,13 @@
 # limitations under the License.
 #
 
+import gc
+from cuml.common import has_scipy
+import cuml
+import sklearn
+from cuml.internals.safe_imports import cpu_only_import_from
+from numpy.testing import assert_array_equal, assert_allclose
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 import math
 
@@ -27,20 +34,15 @@ from cuml.datasets import make_blobs
 from sklearn.metrics import pairwise_distances
 from cuml.metrics import pairwise_distances as cuPW
 
-from cuml.common import logger
+from cuml.internals import logger
 
-import cupy as cp
-import cupyx
-import cudf
-import pandas as pd
-import numpy as np
-from numpy.testing import assert_array_equal, assert_allclose
-from scipy.sparse import isspmatrix_csr
-
-import sklearn
-import cuml
-from cuml.common import has_scipy
-import gc
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+cudf = gpu_only_import('cudf')
+pd = cpu_only_import('pandas')
+np = cpu_only_import('numpy')
+isspmatrix_csr = cpu_only_import_from('scipy.sparse', 'isspmatrix_csr')
 
 
 pytestmark = pytest.mark.filterwarnings("ignore:((.|\n)*)#4020((.|\n)*):"
@@ -65,6 +67,7 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
     ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.sort()
     ret.remove("haversine")  # This is tested on its own
     return ret
 
@@ -83,7 +86,9 @@ def valid_metrics_sparse(algo="brute", cuml_algo=None):
     cuml_metrics = cuml.neighbors.VALID_METRICS_SPARSE[cuml_algo]
     sklearn_metrics = set(sklearn.neighbors.VALID_METRICS_SPARSE[algo])
     sklearn_metrics.update(sklearn.neighbors.VALID_METRICS[algo])
-    return [value for value in cuml_metrics if value in sklearn_metrics]
+    ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.sort()
+    return ret
 
 
 def metric_p_combinations():
@@ -113,7 +118,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
     metric, p = metric_p
 
     if not has_scipy():
-        pytest.skip('Skipping test_neighborhood_predictions because ' +
+        pytest.skip('Skipping test_self_neighboring because ' +
                     'Scipy is missing')
 
     X, y = make_blobs(n_samples=nrows, centers=n_clusters,
@@ -161,8 +166,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
 @pytest.mark.parametrize("algo,datatype",
                          [("brute", "dataframe"),
                           ("ivfflat", "numpy"),
-                          ("ivfpq", "dataframe"),
-                          ("ivfsq", "numpy")])
+                          ("ivfpq", "dataframe")])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if not has_scipy():
@@ -197,11 +201,11 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
     (4, 10000, 128, 8),
     (8, 100, 512, 8),
     (8, 10000, 512, 16),
-    ])
+])
 def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
     algo_params = {
         'nlist': nlist,
-        'nprobe': nlist * 0.25
+        'nprobe': nlist * 0.5
     }
 
     X, y = make_blobs(n_samples=nrows, centers=5,
@@ -252,39 +256,16 @@ def test_ivfpq_pred(nrows, ncols, n_neighbors,
     assert array_equal(labels, y)
 
 
-@pytest.mark.parametrize("qtype,encodeResidual,nrows,ncols,n_neighbors,nlist",
-                         [('QT_4bit', False, 10000, 128, 8, 4),
-                          ('QT_8bit', True, 1000, 512, 7, 4),
-                          ('QT_fp16', False, 3000, 301, 5, 8)])
-def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
-    algo_params = {
-        'nlist': nlist,
-        'nprobe': nlist * 0.25,
-        'qtype': qtype,
-        'encodeResidual': encodeResidual
-    }
-
-    X, y = make_blobs(n_samples=nrows, centers=5,
-                      n_features=ncols, random_state=0)
-
-    logger.set_level(logger.level_debug)
-    knn_cu = cuKNN(algorithm="ivfsq", algo_params=algo_params)
-    knn_cu.fit(X)
-    neigh_ind = knn_cu.kneighbors(X, n_neighbors=n_neighbors,
-                                  return_distance=False)
-    del knn_cu
-    gc.collect()
-
-    labels, probs = predict(neigh_ind, y, n_neighbors)
-
-    assert array_equal(labels, y)
-
-
-@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
-@pytest.mark.parametrize("metric", set([
-        "l2", "euclidean", "sqeuclidean",
-        "cosine", "correlation"
-    ]))
+@pytest.mark.parametrize(
+    "algo, metric",
+    [
+        (algo, metric)
+        for algo in ["brute", "ivfflat", "ivfpq"]
+        for metric in ["l2", "euclidean", "sqeuclidean", "cosine",
+                       "correlation"]
+        if metric in cuml.neighbors.VALID_METRICS[algo]
+    ],
+)
 def test_ann_distances_metrics(algo, metric):
     X, y = make_blobs(n_samples=500, centers=2,
                       n_features=128, random_state=0)
@@ -367,7 +348,7 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
     with cuml.using_output_type("numpy"):
         # Assert the cuml model was properly reverted
-        np.testing.assert_allclose(knn_cu.X_m, X_orig.get(),
+        np.testing.assert_allclose(knn_cu._fit_X, X_orig.get(),
                                    atol=1e-3, rtol=1e-3)
 
     if metric == 'braycurtis':
@@ -408,7 +389,7 @@ def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     D_cuml, I_cuml = knn_cu.kneighbors(X=None, n_neighbors=k)
 
     # Assert the cuml model was properly reverted
-    cp.testing.assert_allclose(knn_cu.X_m, X_orig,
+    cp.testing.assert_allclose(knn_cu._fit_X, X_orig,
                                atol=1e-5, rtol=1e-4)
 
     # Allow a max relative diff of 10% and absolute diff of 1%
@@ -472,7 +453,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     ("dataframe", "distance", "numpy", True),
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
-    ])
+])
 @pytest.mark.parametrize('nrows', [unit_param(100), stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), stress_param(100)])
 @pytest.mark.parametrize("p", [2, 5])

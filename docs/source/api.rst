@@ -15,8 +15,8 @@ Module Configuration
 Output Data Type Configuration
 ------------------------------
 
- .. autofunction:: cuml.common.memory_utils.set_global_output_type
- .. autofunction:: cuml.common.memory_utils.using_output_type
+ .. autofunction:: cuml.internals.memory_utils.set_global_output_type
+ .. autofunction:: cuml.internals.memory_utils.using_output_type
 
 .. _verbosity-levels:
 
@@ -137,6 +137,9 @@ Feature and Label Encoding (Dask-based Multi-GPU)
  .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
     :members:
 
+ .. autoclass:: cuml.dask.preprocessing.LabelEncoder.LabelEncoder
+    :members:
+
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
     :members:
 
@@ -180,11 +183,6 @@ Dataset Generation (Dask-based Multi-GPU)
   .. automodule:: cuml.dask.datasets.regression
      :members:
 
-Array Wrappers (Internal API)
------------------------------
-
-.. autoclass:: cuml.common.CumlArray
-    :members:
 
 Metrics (regression, classification, and distance)
 --------------------------------------------------

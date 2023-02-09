@@ -19,17 +19,18 @@
 from inspect import signature
 
 from cuml.solvers import CD, QN
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.logger import warn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.logger import warn
 from cuml.linear_model.base import LinearPredictMixin
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
-class ElasticNet(Base,
+class ElasticNet(UniversalBase,
                  LinearPredictMixin,
                  RegressorMixin,
                  FMajorInputTagMixin):
@@ -123,11 +124,12 @@ class ElasticNet(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -145,8 +147,10 @@ class ElasticNet(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    coef_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'sklearn.linear_model.ElasticNet'
+    coef_ = CumlArrayDescriptor(order='F')
 
+    @device_interop_preparation
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',
@@ -234,21 +238,27 @@ class ElasticNet(Base,
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True,
             sample_weight=None) -> "ElasticNet":
         """
         Fit the model with X and y.
 
         """
+        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
+        if hasattr(X, 'index'):
+            self.feature_names_in_ = X.index
+
         self.solver_model.fit(X, y, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
+            coefs = self.solver_model.coef_
             self.coef_ = CumlArray(
-                data=self.solver_model.coef_,
-                index=self.solver_model.coef_._index,
-                dtype=self.solver_model.coef_.dtype,
-                order=self.solver_model.coef_.order,
-                shape=(self.solver_model.coef_.shape[0],)
+                data=coefs,
+                index=coefs._index,
+                dtype=coefs.dtype,
+                order=coefs.order,
+                shape=(coefs.shape[1],)
             )
             self.intercept_ = self.solver_model.intercept_.item()
 
@@ -273,3 +283,6 @@ class ElasticNet(Base,
             "solver",
             "selection",
         ]
+
+    def get_attr_names(self):
+        return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']

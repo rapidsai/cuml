@@ -16,9 +16,11 @@
 # distutils: language = c++
 
 import ctypes
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libc.stdlib cimport malloc, free
 
@@ -31,7 +33,7 @@ from pylibraft.common.handle cimport handle_t
 import cuml.internals
 import cuml.common.opg_data_utils_mg as opg
 
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition.utils cimport *
 from cuml.decomposition.utils_mg cimport *
@@ -72,8 +74,8 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         super(TSVDMG, self).__init__(**kwargs)
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsTSVDMG *params = new paramsTSVDMG()
-        params.n_components = self._n_components
+        cdef paramsTSVDMG *params = new paramsTSVDMG()
+        params.n_components = self.n_components_
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.n_iterations = self.n_iter

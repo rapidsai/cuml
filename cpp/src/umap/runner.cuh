@@ -37,13 +37,14 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
+#include <raft/core/handle.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/norm.cuh>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/sparse/op/sort.cuh>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <common/nvtx.hpp>
 #include <cuda_runtime.h>

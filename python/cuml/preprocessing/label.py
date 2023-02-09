@@ -13,15 +13,15 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import cupyx
-
-from cuml import Base
-import cuml.internals
-from cuml.common import CumlArray, has_scipy
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array_sparse import SparseCumlArray
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArray, has_scipy
+import cuml.internals
+from cuml import Base
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 @cuml.internals.api_return_sparse_array()
@@ -97,11 +97,12 @@ class LabelBinarizer(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -253,8 +254,8 @@ class LabelBinarizer(Base):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                    as scipy_sparse_isspmatrix
+            from cuml.internals.import_utils import \
+                dummy_function_always_false as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.
         if cupyx.scipy.sparse.isspmatrix(y):

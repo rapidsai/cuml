@@ -23,21 +23,23 @@ import itertools
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 import cuml.internals
-from cuml.common import logger
+from cuml.internals import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.internals import _deprecate_pos_args
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.input_utils import determine_array_dtype
+from cuml.internals.input_utils import determine_array_dtype
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -142,11 +144,12 @@ class AutoARIMA(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     convert_dtype : boolean
         When set to True, the model will automatically convert the inputs to
         np.float64.

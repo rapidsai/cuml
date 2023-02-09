@@ -22,18 +22,21 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
-import cupy as cp
-import numpy as np
-import pandas as pd
-import cudf
-import scipy
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
+scipy = cpu_only_import('scipy')
+cupyx = gpu_only_import('cupyx')
 import cuml.internals
-from cuml.common.base import _determine_stateless_output_type
-from cuml.common import (input_to_cuml_array, CumlArray, logger)
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.base import _determine_stateless_output_type
+from cuml.common import (input_to_cuml_array, CumlArray)
+from cuml.internals import logger
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.thirdparty_adapters import _get_mask

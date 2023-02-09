@@ -24,9 +24,8 @@ from pylibraft.common.cuda import Stream
 from cuml.testing.utils import \
     get_classes_from_package, \
     small_classification_dataset
-from cuml.experimental.common.base import Base as experimentalBase
 from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
-                                                            as sklBaseEstimator
+    as sklBaseEstimator
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
@@ -98,10 +97,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
         pytest.skip("Preprocessing models do not have "
                     "the base arguments in constructors.")
 
-    if issubclass(klass, experimentalBase):
-        pytest.skip("The CPU/GPU base class does not have "
-                    "the base arguments in its constructor.")
-
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
     # output_type: r"^[ ]{4}output_type :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
@@ -127,6 +122,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
     klass_doc_params = klass_doc["Parameters"]
 
     for name, param in base_sig.parameters.items():
+        if param.name == 'output_mem_type':
+            continue  # TODO(wphicks): Add this to all algos
         # Ensure the base param exists in the derived
         assert param.name in klass_sig.parameters
 
@@ -156,7 +153,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
 # ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
 def test_base_children_get_param_names(child_class: str):
-
     """
     This test ensures that the arguments in `Base.__init__` are available in
     all derived classes `get_param_names`
@@ -181,6 +177,8 @@ def test_base_children_get_param_names(child_class: str):
 
         # Now ensure the base parameters are included in get_param_names
         for name, param in sig.parameters.items():
+            if param.name == 'output_mem_type':
+                continue  # TODO(wphicks): Add this to all algos
             if (param.kind == inspect.Parameter.VAR_KEYWORD
                     or param.kind == inspect.Parameter.VAR_POSITIONAL):
                 continue

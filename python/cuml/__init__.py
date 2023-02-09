@@ -14,9 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.common.base import Base
-from cuml.common.handle import Handle
+from cuml.internals.base import Base, UniversalBase
+
+# GPU only packages
+
 import cuml.common.cuda as cuda
+from cuml.common.handle import Handle
 
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
@@ -41,6 +44,7 @@ from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
 
+import cuml.feature_extraction
 from cuml.fil import fil
 
 from cuml.internals.global_settings import (
@@ -50,7 +54,6 @@ from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
-from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
 from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
 from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
@@ -72,7 +75,8 @@ from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-from cuml.random_projection.random_projection import GaussianRandomProjection
+from cuml.random_projection.random_projection import \
+    GaussianRandomProjection
 from cuml.random_projection.random_projection import SparseRandomProjection
 from cuml.random_projection.random_projection import \
     johnson_lindenstrauss_min_dim
@@ -91,7 +95,13 @@ from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
-from cuml.common.memory_utils import set_global_output_type, using_output_type
+from cuml.internals.memory_utils import (
+    set_global_output_type, using_output_type
+)
+
+# Universal packages
+
+from cuml.linear_model.linear_regression import LinearRegression
 
 # Import verion. Remove at end of file
 from ._version import get_versions
@@ -117,6 +127,7 @@ def __getattr__(name):
 __all__ = [
     # Modules
     "common",
+    "feature_extraction",
     "metrics",
     "multiclass",
     "naive_bayes",
@@ -165,6 +176,7 @@ __all__ = [
     "TreeExplainer",
     "TSNE",
     "UMAP",
+    "UniversalBase",
     # Functions
     "johnson_lindenstrauss_min_dim",
     "make_arima",

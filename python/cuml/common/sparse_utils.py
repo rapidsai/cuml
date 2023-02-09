@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.common.import_utils import has_scipy
-import cupyx
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.safe_imports import gpu_only_import
+cupyx = gpu_only_import('cupyx')
 
 if has_scipy():
     import scipy.sparse

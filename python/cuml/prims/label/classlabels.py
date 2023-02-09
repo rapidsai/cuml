@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 
-import typing
-import cupy as cp
-import math
-from cuml.common.input_utils import input_to_cupy_array
-
-import cuml.internals
-from cuml.common.array import CumlArray
-
 from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.array import CumlArray
+import cuml.internals
+from cuml.internals.input_utils import input_to_cupy_array
+import math
+import typing
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 map_kernel_str = r'''

@@ -13,19 +13,16 @@
 # limitations under the License.
 #
 
-import numpy as np
-
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import mnmg_import
-
-from raft_dask.common.comms import Comms
-from raft_dask.common.comms import get_raft_comm_state
-
+from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.dask.common.utils import wait_and_raise_from_futures
-
-from cuml.common.memory_utils import with_cupy_rmm
+from raft_dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import Comms
+from cuml.dask.common.base import mnmg_import
+from cuml.dask.common.base import DelayedTransformMixin
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import BaseEstimator
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -58,11 +55,12 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
         The the attribute `core_sample_indices_` will not be used, setting this
@@ -81,11 +79,11 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(out_dtype):
-        def _func(sessionId, data, verbose, **kwargs):
+        def _func(sessionId, data, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
             handle = get_raft_comm_state(sessionId)["handle"]
 
-            return cumlDBSCAN(handle=handle, verbose=verbose, **kwargs
+            return cumlDBSCAN(handle=handle, **kwargs
                               ).fit(data, out_dtype=out_dtype)
         return _func
 
@@ -118,7 +116,6 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         dbscan_fit = [self.client.submit(DBSCAN._func_fit(out_dtype),
                                          comms.sessionId,
                                          data,
-                                         self.verbose,
                                          **self.kwargs,
                                          workers=[worker],
                                          pure=False)

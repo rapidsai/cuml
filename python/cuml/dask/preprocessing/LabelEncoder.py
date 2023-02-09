@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.preprocessing import LabelEncoder as LE
+from cuml.common.exceptions import NotFittedError
+from dask_cudf.core import Series as daskSeries
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
@@ -19,17 +22,15 @@ from cuml.dask.common.base import DelayedInverseTransformMixin
 from toolz import first
 
 from collections.abc import Sequence
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as daskSeries
-from cuml.common.exceptions import NotFittedError
-from cuml.preprocessing import LabelEncoder as LE
+from cuml.internals.safe_imports import gpu_only_import_from
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 
 
 class LabelEncoder(BaseEstimator,
                    DelayedTransformMixin,
                    DelayedInverseTransformMixin):
     """
-    An nvcategory based implementation of ordinal label encoding
+    A cuDF-based implementation of ordinal label encoding
 
     Parameters
     ----------
@@ -43,80 +44,83 @@ class LabelEncoder(BaseEstimator,
     --------
     Converting a categorical implementation to a numerical one
 
-    >>> from dask_cuda import LocalCUDACluster
-    >>> from dask.distributed import Client
-    >>> import cudf
-    >>> import dask_cudf
-    >>> from cuml.dask.preprocessing import LabelEncoder
+    .. code-block:: python
 
-    >>> import pandas as pd
-    >>> pd.set_option('display.max_colwidth', 2000)
+        >>> from dask_cuda import LocalCUDACluster
+        >>> from dask.distributed import Client
+        >>> import cudf
+        >>> import dask_cudf
+        >>> from cuml.dask.preprocessing import LabelEncoder
 
-    >>> cluster = LocalCUDACluster(threads_per_worker=1)
-    >>> client = Client(cluster)
-    >>> df = cudf.DataFrame({'num_col':[10, 20, 30, 30, 30],
-    ...                    'cat_col':['a','b','c','a','a']})
-    >>> ddf = dask_cudf.from_cudf(df, npartitions=2)
+        >>> import pandas as pd
+        >>> pd.set_option('display.max_colwidth', 2000)
 
-    >>> # There are two functionally equivalent ways to do this
-    >>> le = LabelEncoder()
-    >>> le.fit(ddf.cat_col)  # le = le.fit(data.category) also works
-    <cuml.dask.preprocessing.LabelEncoder.LabelEncoder object at 0x...>
-    >>> encoded = le.transform(ddf.cat_col)
-    >>> print(encoded.compute())
-    0    0
-    1    1
-    2    2
-    3    0
-    4    0
-    dtype: uint8
+        >>> cluster = LocalCUDACluster(threads_per_worker=1)
+        >>> client = Client(cluster)
+        >>> df = cudf.DataFrame({'num_col':[10, 20, 30, 30, 30],
+        ...                    'cat_col':['a','b','c','a','a']})
+        >>> ddf = dask_cudf.from_cudf(df, npartitions=2)
 
-    >>> # This method is preferred
-    >>> le = LabelEncoder()
-    >>> encoded = le.fit_transform(ddf.cat_col)
-    >>> print(encoded.compute())
-    0    0
-    1    1
-    2    2
-    3    0
-    4    0
-    dtype: uint8
+        >>> # There are two functionally equivalent ways to do this
+        >>> le = LabelEncoder()
+        >>> le.fit(ddf.cat_col)  # le = le.fit(data.category) also works
+        <cuml.dask.preprocessing.LabelEncoder.LabelEncoder object at 0x...>
+        >>> encoded = le.transform(ddf.cat_col)
+        >>> print(encoded.compute())
+        0    0
+        1    1
+        2    2
+        3    0
+        4    0
+        dtype: uint8
 
-    >>> # We can assign this to a new column
-    >>> ddf = ddf.assign(encoded=encoded.values)
-    >>> print(ddf.compute())
-    num_col cat_col  encoded
-    0       10       a        0
-    1       20       b        1
-    2       30       c        2
-    3       30       a        0
-    4       30       a        0
-    >>> # We can also encode more data
-    >>> test_data = cudf.Series(['c', 'a'])
-    >>> encoded = le.transform(dask_cudf.from_cudf(test_data,
-    ...                                            npartitions=2))
-    >>> print(encoded.compute())
-    0    2
-    1    0
-    dtype: uint8
+        >>> # This method is preferred
+        >>> le = LabelEncoder()
+        >>> encoded = le.fit_transform(ddf.cat_col)
+        >>> print(encoded.compute())
+        0    0
+        1    1
+        2    2
+        3    0
+        4    0
+        dtype: uint8
 
-    >>> # After train, ordinal label can be inverse_transform() back to
-    >>> # string labels
-    >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
-    >>> ord_label = le.inverse_transform(
-    ...    dask_cudf.from_cudf(ord_label,npartitions=2))
+        >>> # We can assign this to a new column
+        >>> ddf = ddf.assign(encoded=encoded.values)
+        >>> print(ddf.compute())
+        num_col cat_col  encoded
+        0       10       a        0
+        1       20       b        1
+        2       30       c        2
+        3       30       a        0
+        4       30       a        0
+        >>> # We can also encode more data
+        >>> test_data = cudf.Series(['c', 'a'])
+        >>> encoded = le.transform(dask_cudf.from_cudf(test_data,
+        ...                                            npartitions=2))
+        >>> print(encoded.compute())
+        0    2
+        1    0
+        dtype: uint8
 
-    >>> print(ord_label.compute())
-    0    a
-    1    a
-    2    b
-    0    c
-    1    b
-    dtype: object
-    >>> client.close()
-    >>> cluster.close()
+        >>> # After train, ordinal label can be inverse_transform() back to
+        >>> # string labels
+        >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
+        >>> ord_label = le.inverse_transform(
+        ...    dask_cudf.from_cudf(ord_label,npartitions=2))
+
+        >>> print(ord_label.compute())
+        0    a
+        1    a
+        2    b
+        0    c
+        1    b
+        dtype: object
+        >>> client.close()
+        >>> cluster.close()
 
     """
+
     def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client,
                          verbose=verbose,
@@ -124,7 +128,7 @@ class LabelEncoder(BaseEstimator,
 
     def fit(self, y):
         """
-        Fit a LabelEncoder (nvcategory) instance to a set of categories
+        Fit a LabelEncoder instance to a set of categories
 
         Parameters
         ----------
@@ -138,7 +142,7 @@ class LabelEncoder(BaseEstimator,
             A fitted instance of itself to allow method chaining
 
         Notes
-        --------
+        -----
         Number of unique classes will be collected at the client. It'll
         consume memory proportional to the number of unique classes.
         """

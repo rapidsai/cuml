@@ -12,20 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
-from cupy import linalg
-import numpy as np
-from numba import cuda
-from cuml import KernelRidge as cuKernelRidge
-from cuml.metrics import pairwise_kernels, PAIRWISE_KERNEL_FUNCTIONS
-from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
-import pytest
-import math
-import inspect
-from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
-from hypothesis import given, settings, assume, strategies as st
-from hypothesis.extra.numpy import arrays
 from cuml.testing.utils import as_type
+from hypothesis.extra.numpy import arrays
+from hypothesis import given, settings, assume, strategies as st
+from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
+import inspect
+import math
+import pytest
+from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
+from cuml.metrics import pairwise_kernels, PAIRWISE_KERNEL_FUNCTIONS
+from cuml import KernelRidge as cuKernelRidge
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+linalg = gpu_only_import_from('cupy', 'linalg')
+np = cpu_only_import('numpy')
+cuda = gpu_only_import_from('numba', 'cuda')
 
 
 def gradient_norm(model, X, y, K, sw=None):
@@ -175,6 +178,7 @@ def array_strategy(draw):
 
 @given(kernel_arg_strategy(), array_strategy())
 @settings(deadline=None)
+@pytest.mark.skip('https://github.com/rapidsai/cuml/issues/5177')
 def test_pairwise_kernels(kernel_arg, XY):
     X, Y = XY
     kernel, args = kernel_arg

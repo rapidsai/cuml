@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
-from scipy.sparse import issparse
-
-import cuml
-from cuml import KMeans
-from cuml.common.input_utils import (determine_array_type,
-                                     get_supported_input_type)
 from cuml.preprocessing import SimpleImputer
+from cuml.internals.input_utils import (
+    determine_array_type, get_supported_input_type
+)
+from cuml import KMeans
+import cuml
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+issparse = cpu_only_import_from('scipy.sparse', 'issparse')
 
 
 @cuml.internals.api_return_generic()

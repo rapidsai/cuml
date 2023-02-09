@@ -14,10 +14,13 @@
 # limitations under the License.
 #
 
-from numba import cuda
-import cudf
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+cudf = gpu_only_import('cudf')
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 def get_str_replacement_series(replacement, bool_mask):
@@ -80,6 +83,7 @@ def subtract_valid(input_array, valid_bool_array, sub_val):
             input_array[pos] = input_array[pos] - sub_val
 
 
+@cudf.core.buffer.acquire_spill_lock()
 def get_stem_series(word_str_ser, suffix_len, can_replace_mask):
     """
         word_str_ser: input string column
@@ -92,8 +96,8 @@ def get_stem_series(word_str_ser, suffix_len, can_replace_mask):
     start_series = cudf.Series(cp.zeros(len(word_str_ser), dtype=cp.int32))
     end_ser = word_str_ser.str.len()
 
-    end_ar = end_ser._column.data_array_view
-    can_replace_mask_ar = can_replace_mask._column.data_array_view
+    end_ar = end_ser._column.data_array_view(mode="read")
+    can_replace_mask_ar = can_replace_mask._column.data_array_view(mode="read")
 
     subtract_valid[NBLCK, NTHRD](end_ar, can_replace_mask_ar, suffix_len)
     return word_str_ser.str.slice_from(

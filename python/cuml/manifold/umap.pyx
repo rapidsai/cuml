@@ -18,36 +18,40 @@
 
 import typing
 import ctypes
-import numpy as np
-import pandas as pd
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 import warnings
 
 import joblib
 
-import cupy
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
-import numba.cuda as cuda
+cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
-from cuml.common.sparsefuncs import extract_knn_graph
-from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
-    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
+from cuml.common.sparsefuncs import extract_knn_infos
+from cuml.internals.safe_imports import gpu_only_import_from
+cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
+cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
 import cuml.internals
 from cuml.common import using_output_type
-from cuml.common.base import Base
+from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
-from cuml.common import logger
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import using_output_type
-from cuml.common.import_utils import has_scipy
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals import logger
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.memory_utils import using_output_type
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
 
@@ -58,8 +62,10 @@ if has_scipy(True):
     import scipy.sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
-import rmm
+rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
@@ -90,6 +96,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                     float *y,
                     int n,
                     int d,
+                    int * knn_indices,
+                    float * knn_dists,
                     UMAPParams *params,
                     float *embeddings,
                     COO * graph) except +
@@ -98,8 +106,6 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                    float * X,
                    int n,
                    int d,
-                   int64_t * knn_indices,
-                   float * knn_dists,
                    float * orig_X,
                    int orig_n,
                    float * embedding,
@@ -125,7 +131,7 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                           float *transformed) except +
 
 
-class UMAP(Base,
+class UMAP(UniversalBase,
            CMajorInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
@@ -215,13 +221,6 @@ class UMAP(Base,
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     hash_input: bool, optional (default = False)
         UMAP can hash the training input so that exact embeddings
         are returned when transform is called on the same data upon
@@ -232,6 +231,14 @@ class UMAP(Base,
         feature is made optional in the GPU version due to the
         significant overhead in copying memory to the host for
         computing the hash.
+    precomputed_knn : array / sparse array / tuple, optional (device or host)
+        Either one of a tuple (indices, distances) of
+        arrays of shape (n_samples, n_neighbors), a pairwise distances
+        dense array of shape (n_samples, n_samples) or a KNN graph
+        sparse array (preferably CSR/COO). This feature allows
+        the precomputation of the KNN outside of UMAP
+        and also allows the use of a custom distance function. This function
+        should match the metric used to train the UMAP embeedings.
     random_state : int, RandomState instance or None, optional (default=None)
         random_state is the seed used by the random number generator during
         embedding initialization and during sampling used by the optimizer.
@@ -262,14 +269,22 @@ class UMAP(Base,
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Notes
     -----
@@ -299,9 +314,10 @@ class UMAP(Base,
        <https://arxiv.org/abs/2008.00325>`_
     """
 
-    X_m = CumlArrayDescriptor()
-    embedding_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'umap.UMAP'
+    embedding_ = CumlArrayDescriptor(order='C')
 
+    @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=15,
                  n_components=2,
@@ -317,16 +333,17 @@ class UMAP(Base,
                  negative_sample_rate=5,
                  transform_queue_size=4.0,
                  init="spectral",
-                 verbose=False,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
                  target_weight=0.5,
                  target_metric="categorical",
-                 handle=None,
                  hash_input=False,
                  random_state=None,
+                 precomputed_knn=None,
                  callback=None,
+                 handle=None,
+                 verbose=False,
                  output_type=None):
 
         super().__init__(handle=handle,
@@ -339,7 +356,7 @@ class UMAP(Base,
         self.n_components = n_components
         self.metric = metric
         self.metric_kwds = metric_kwds
-        self.n_epochs = n_epochs if n_epochs else 0
+        self.n_epochs = n_epochs
 
         if init == "spectral" or init == "random":
             self.init = init
@@ -347,7 +364,7 @@ class UMAP(Base,
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is None or b is None:
-            a, b = self.find_ab_params(spread, min_dist)
+            a, b = type(self).find_ab_params(spread, min_dist)
 
         self.a = a
         self.b = b
@@ -379,8 +396,8 @@ class UMAP(Base,
                 rs = np.random.RandomState(random_state)
 
             self.random_state = rs.randint(low=0,
-                                           high=np.iinfo(np.uint64).max,
-                                           dtype=np.uint64)
+                                           high=np.iinfo(np.uint32).max,
+                                           dtype=np.uint32)
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
@@ -388,12 +405,16 @@ class UMAP(Base,
             raise Exception("Invalid target metric: {}" % target_metric)
 
         self.callback = callback  # prevent callback destruction
-        self.X_m = None
         self.embedding_ = None
 
         self.validate_hyperparams()
 
         self.sparse_fit = False
+        self._input_hash = None
+        self._small_data = False
+
+        self.precomputed_knn = extract_knn_infos(precomputed_knn,
+                                                 n_neighbors)
 
     def validate_hyperparams(self):
 
@@ -405,7 +426,7 @@ class UMAP(Base,
         cdef UMAPParams* umap_params = new UMAPParams()
         umap_params.n_neighbors = <int> cls.n_neighbors
         umap_params.n_components = <int> cls.n_components
-        umap_params.n_epochs = <int> cls.n_epochs
+        umap_params.n_epochs = <int> cls.n_epochs if cls.n_epochs else 0
         umap_params.learning_rate = <float> cls.learning_rate
         umap_params.min_dist = <float> cls.min_dist
         umap_params.spread = <float> cls.spread
@@ -480,6 +501,7 @@ class UMAP(Base,
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
                         skip_parameters_heading=True)
+    @enable_device_interop
     def fit(self, X, y=None, convert_dtype=True,
             knn_graph=None) -> "UMAP":
         """
@@ -487,24 +509,15 @@ class UMAP(Base,
 
         Parameters
         ----------
-        knn_graph : sparse array-like (device or host)
-            shape=(n_samples, n_samples)
-            A sparse array containing the k-nearest neighbors of X,
-            where the columns are the nearest neighbor indices
-            for each row and the values are their distances.
-            It's important that `k>=n_neighbors`,
-            so that UMAP can model the neighbors from this graph,
-            instead of building its own internally.
-            Users using the knn_graph parameter provide UMAP
-            with their own run of the KNN algorithm. This allows the user
-            to pick a custom distance function (sometimes useful
-            on certain datasets) whereas UMAP uses euclidean by default.
-            The custom distance function should match the metric used
-            to train UMAP embeddings. Storing and reusing a knn_graph
-            will also provide a speedup to the UMAP algorithm
-            when performing a grid search.
-            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            CSR/COO preferred other formats will go through conversion to CSR
+        knn_graph : array / sparse array / tuple, optional (device or host)
+        Either one of a tuple (indices, distances) of
+        arrays of shape (n_samples, n_neighbors), a pairwise distances
+        dense array of shape (n_samples, n_samples) or a KNN graph
+        sparse array (preferably CSR/COO). This feature allows
+        the precomputation of the KNN outside of UMAP
+        and also allows the use of a custom distance function. This function
+        should match the metric used to train the UMAP embeedings.
+        Takes precedence over the precomputed_knn parameter.
         """
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -517,14 +530,14 @@ class UMAP(Base,
         # Handle sparse inputs
         if is_sparse(X):
 
-            self.X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32,
-                                       convert_format=False)
-            self.n_rows, self.n_dims = self.X_m.shape
+            self._raw_data = SparseCumlArray(X, convert_to_dtype=cupy.float32,
+                                             convert_format=False)
+            self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
 
         # Handle dense inputs
         else:
-            self.X_m, self.n_rows, self.n_dims, dtype = \
+            self._raw_data, self.n_rows, self.n_dims, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
@@ -534,22 +547,31 @@ class UMAP(Base,
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            extract_knn_graph(knn_graph, convert_dtype)
+        cdef uintptr_t knn_dists_ptr = 0
+        cdef uintptr_t knn_indices_ptr = 0
+        if knn_graph is not None or self.precomputed_knn is not None:
+            if knn_graph is not None:
+                knn_indices, knn_dists = extract_knn_infos(knn_graph,
+                                                           self.n_neighbors)
+            elif self.precomputed_knn is not None:
+                knn_indices, knn_dists = self.precomputed_knn
 
-        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
-        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
+            if self.sparse_fit:
+                knn_indices, _, _, _ = \
+                    input_to_cuml_array(knn_indices, convert_to_dtype=np.int32)
+
+            knn_dists_ptr = knn_dists.ptr
+            knn_indices_ptr = knn_indices.ptr
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
 
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
                                           order="C", dtype=np.float32,
-                                          index=self.X_m.index)
+                                          index=self._raw_data.index)
 
         if self.hash_input:
-            with using_output_type("numpy"):
-                self.input_hash = joblib.hash(self.X_m)
+            self._input_hash = joblib.hash(self._raw_data.to_output('numpy'))
 
         cdef handle_t * handle_ = \
             <handle_t*> <size_t> self.handle.getHandle()
@@ -572,25 +594,27 @@ class UMAP(Base,
         fss_graph = GraphHolder.new_graph(handle_.get_stream())
         if self.sparse_fit:
             fit_sparse(handle_[0],
-                       <int*><uintptr_t> self.X_m.indptr.ptr,
-                       <int*><uintptr_t> self.X_m.indices.ptr,
-                       <float*><uintptr_t> self.X_m.data.ptr,
-                       <size_t> self.X_m.nnz,
+                       <int*><uintptr_t> self._raw_data.indptr.ptr,
+                       <int*><uintptr_t> self._raw_data.indices.ptr,
+                       <float*><uintptr_t> self._raw_data.data.ptr,
+                       <size_t> self._raw_data.nnz,
                        <float*> y_raw,
                        <int> self.n_rows,
                        <int> self.n_dims,
+                       <int*> knn_indices_ptr,
+                       <float*> knn_dists_ptr,
                        <UMAPParams*> umap_params,
                        <float*> embed_raw,
                        <COO*> fss_graph.get())
 
         else:
             fit(handle_[0],
-                <float*> <uintptr_t> self.X_m.ptr,
+                <float*><uintptr_t> self._raw_data.ptr,
                 <float*> y_raw,
                 <int> self.n_rows,
                 <int> self.n_dims,
-                <int64_t*> knn_indices_raw,
-                <float*> knn_dists_raw,
+                <int64_t*> knn_indices_ptr,
+                <float*> knn_dists_ptr,
                 <UMAPParams*>umap_params,
                 <float*>embed_raw,
                 <COO*> fss_graph.get())
@@ -612,6 +636,7 @@ class UMAP(Base,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
+    @enable_device_interop
     def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
@@ -658,7 +683,8 @@ class UMAP(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    def transform(self, X, convert_dtype=True, knn_graph=None) -> CumlArray:
+    @enable_device_interop
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -669,28 +695,6 @@ class UMAP(Base,
 
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
-
-        Parameters
-        ----------
-        knn_graph : sparse array-like (device or host)
-            shape=(n_samples, n_samples)
-            A sparse array containing the k-nearest neighbors of X,
-            where the columns are the nearest neighbor indices
-            for each row and the values are their distances.
-            It's important that `k>=n_neighbors`,
-            so that UMAP can model the neighbors from this graph,
-            instead of building its own internally.
-            Users using the knn_graph parameter provide UMAP
-            with their own run of the KNN algorithm. This allows the user
-            to pick a custom distance function (sometimes useful
-            on certain datasets) whereas UMAP uses euclidean by default.
-            The custom distance function should match the metric used
-            to train UMAP embeddings. Storing and reusing a knn_graph
-            will also provide a speedup to the UMAP algorithm
-            when performing a grid search.
-            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            CSR/COO preferred other formats will go through conversion to CSR
-
         """
         if len(X.shape) != 2:
             raise ValueError("X should be two dimensional")
@@ -721,27 +725,19 @@ class UMAP(Base,
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
-        if n_cols != self.n_dims:
+        if n_cols != self._raw_data.shape[1]:
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        if self.hash_input and joblib.hash(X_m.to_output('numpy')) == \
-                self.input_hash:
+        if self.hash_input:
+            if joblib.hash(X_m.to_output('numpy')) == self._input_hash:
+                del X_m
+                return self.embedding_
 
-            del X_m
-            return self.embedding_
-
-        embedding = CumlArray.zeros((X_m.shape[0],
-                                    self.n_components),
+        embedding = CumlArray.zeros((n_rows, self.n_components),
                                     order="C", dtype=np.float32,
                                     index=index)
         cdef uintptr_t xformed_ptr = embedding.ptr
-
-        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            extract_knn_graph(knn_graph, convert_dtype)
-
-        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
-        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
         cdef handle_t * handle_ = \
             <handle_t*> <size_t> self.handle.getHandle()
@@ -757,28 +753,26 @@ class UMAP(Base,
                              <int*><uintptr_t> X_m.indices.ptr,
                              <float*><uintptr_t> X_m.data.ptr,
                              <size_t> X_m.nnz,
-                             <int> X_m.shape[0],
-                             <int> X_m.shape[1],
-                             <int*><uintptr_t> self.X_m.indptr.ptr,
-                             <int*><uintptr_t> self.X_m.indices.ptr,
-                             <float*><uintptr_t> self.X_m.data.ptr,
-                             <size_t> self.X_m.nnz,
-                             <int> self.X_m.shape[0],
+                             <int> n_rows,
+                             <int> n_cols,
+                             <int*><uintptr_t> self._raw_data.indptr.ptr,
+                             <int*><uintptr_t> self._raw_data.indices.ptr,
+                             <float*><uintptr_t> self._raw_data.data.ptr,
+                             <size_t> self._raw_data.nnz,
+                             <int> self._raw_data.shape[0],
                              <float*> embed_ptr,
-                             <int> self.n_rows,
+                             <int> n_rows,
                              <UMAPParams*> umap_params,
                              <float*> xformed_ptr)
         else:
             transform(handle_[0],
                       <float*><uintptr_t> X_m.ptr,
-                      <int> X_m.shape[0],
-                      <int> X_m.shape[1],
-                      <int64_t*> knn_indices_raw,
-                      <float*> knn_dists_raw,
-                      <float*><uintptr_t>self.X_m.ptr,
-                      <int> self.n_rows,
+                      <int> n_rows,
+                      <int> n_cols,
+                      <float*><uintptr_t>self._raw_data.ptr,
+                      <int> self._raw_data.shape[0],
                       <float*> embed_ptr,
-                      <int> self.n_rows,
+                      <int> n_rows,
                       <UMAPParams*> umap_params,
                       <float*> xformed_ptr)
         self.handle.sync()
@@ -811,5 +805,9 @@ class UMAP(Base,
             "random_state",
             "callback",
             "metric",
-            "metric_kwds"
+            "metric_kwds",
+            "precomputed_knn"
         ]
+
+    def get_attr_names(self):
+        return ['_raw_data', 'embedding_', '_input_hash', '_small_data']

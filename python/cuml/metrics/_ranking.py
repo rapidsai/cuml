@@ -14,13 +14,15 @@
 # limitations under the License.
 #
 
-import typing
-import cupy as cp
-import numpy as np
-import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.input_utils import input_to_cupy_array
 import math
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.array import CumlArray
+import cuml.internals
+from cuml.internals.safe_imports import cpu_only_import
+import typing
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 @cuml.internals.api_return_generic(get_output_type=True)

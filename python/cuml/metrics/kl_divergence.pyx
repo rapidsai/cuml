@@ -14,11 +14,14 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import cuml.internals
-from cuml.common.input_utils import determine_array_type
-from cuml.common import (input_to_cuml_array, CumlArray, logger)
+from cuml.internals.input_utils import determine_array_type
+from cuml.common import (input_to_cuml_array, CumlArray)
+from cuml.internals import logger
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle

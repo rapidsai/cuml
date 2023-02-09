@@ -20,8 +20,9 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.common import rmm_cupy_ary
 
 import dask
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 class LabelBinarizer(BaseEstimator):
@@ -74,6 +75,7 @@ class LabelBinarizer(BaseEstimator):
         >>> cluster.close()
 
     """
+
     def __init__(self, *, client=None, **kwargs):
 
         super().__init__(client=client, **kwargs)
@@ -217,7 +219,7 @@ class LabelBinarizer(BaseEstimator):
         f = [dask.array.from_delayed(
             inv_func(internal_model, part, threshold),
             dtype=dtype, shape=(cp.nan,), meta=meta)
-             for w, part in parts]
+            for w, part in parts]
 
         arr = dask.array.concatenate(f, axis=0,
                                      allow_unknown_chunksizes=True)

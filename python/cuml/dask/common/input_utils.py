@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,36 +15,34 @@
 #
 
 
-import cudf
-import cuml.common.logger as logger
-import cupy as cp
-import numpy as np
-import dask.array as da
-
-from collections.abc import Sequence
-
-from cuml.common.memory_utils import with_cupy_rmm
-
-from collections import OrderedDict
-from cudf import DataFrame
-from cudf import Series
-from dask.dataframe import DataFrame as daskDataFrame
-from dask.dataframe import Series as daskSeries
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as dcSeries
-
-from cuml.dask.common.utils import get_client
-from cuml.dask.common.dask_df_utils import to_dask_cudf
-from cuml.dask.common.dask_arr_utils import validate_dask_array
-from cuml.dask.common.part_utils import _extract_partitions
-
-from dask.distributed import wait
-from dask.distributed import default_client
-from toolz import first
-
-from functools import reduce
-
 import dask.dataframe as dd
+from functools import reduce
+from toolz import first
+from dask.distributed import default_client
+from dask.distributed import wait
+from cuml.dask.common.part_utils import _extract_partitions
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.dask_df_utils import to_dask_cudf
+from cuml.dask.common.utils import get_client
+from dask_cudf.core import Series as dcSeries
+from dask.dataframe import Series as daskSeries
+from dask.dataframe import DataFrame as daskDataFrame
+from cudf import Series
+from cuml.internals.safe_imports import gpu_only_import_from
+from collections import OrderedDict
+from cuml.internals.memory_utils import with_cupy_rmm
+from collections.abc import Sequence
+import dask.array as da
+from cuml.internals.safe_imports import cpu_only_import
+import cuml.internals.logger as logger
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+
+
+DataFrame = gpu_only_import_from('cudf', 'DataFrame')
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 
 
 class DistributedDataHandler:
@@ -148,7 +146,6 @@ class DistributedDataHandler:
 
 
 def _get_datatype_from_inputs(data):
-
     """
     Gets the datatype from a distributed data input.
 

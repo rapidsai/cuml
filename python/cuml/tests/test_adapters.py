@@ -14,31 +14,35 @@
 # limitations under the License.
 #
 
-import pytest
-
-import cupy as cp
-import cupyx as cpx
-import numpy as np
-from cupyx.scipy.sparse import coo_matrix
-from scipy import stats
-
-from cuml.thirdparty_adapters.adapters import check_array, \
-    _get_mask as cu_get_mask, \
-    _masked_column_median, \
-    _masked_column_mean, \
-    _masked_column_mode
-
-from sklearn.utils._mask import _get_mask as sk_get_mask
-
+import platform
+from sklearn.preprocessing import normalize as sk_normalize
+from cuml.testing.test_preproc_utils import assert_allclose
 from cuml.thirdparty_adapters.sparsefuncs_fast import \
     csr_mean_variance_axis0, \
     csc_mean_variance_axis0, \
     _csc_mean_variance_axis0, \
     inplace_csr_row_normalize_l1, \
     inplace_csr_row_normalize_l2
+from sklearn.utils._mask import _get_mask as sk_get_mask
+from cuml.thirdparty_adapters.adapters import check_array, \
+    _get_mask as cu_get_mask, \
+    _masked_column_median, \
+    _masked_column_mean, \
+    _masked_column_mode
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
+import pytest
 
-from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.preprocessing import normalize as sk_normalize
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
+np = cpu_only_import('numpy')
+coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
+stats = cpu_only_import_from('scipy', 'stats')
+
+
+IS_ARM = platform.processor() == "aarch64"
 
 
 @pytest.fixture(scope="session",
@@ -75,6 +79,8 @@ def sparse_random_dataset(request, random_seed):
     return X.get(), X, X_sparse.get(), X_sparse
 
 
+@pytest.mark.skipif(IS_ARM, reason="Test fails unexpectedly on ARM. "
+                                   "github.com/rapidsai/cuml/issues/5100")
 def test_check_array():
     # accept_sparse
     arr = coo_matrix((3, 4), dtype=cp.float64)

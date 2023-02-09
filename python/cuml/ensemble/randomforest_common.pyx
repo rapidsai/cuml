@@ -14,18 +14,20 @@
 # limitations under the License.
 #
 import ctypes
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import math
 import warnings
 import typing
 from inspect import signature
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
 

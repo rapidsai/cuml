@@ -14,19 +14,19 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
-
-from cuml.dask.common.base import BaseEstimator
-from cuml.ensemble import RandomForestClassifier as cuRFC
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.base import DelayedPredictionMixin, \
-    DelayedPredictionProbaMixin
+import dask
+from dask.distributed import default_client
 from cuml.dask.ensemble.base import \
     BaseRandomForestModel
-from dask.distributed import default_client
-
-import dask
+from cuml.dask.common.base import DelayedPredictionMixin, \
+    DelayedPredictionProbaMixin
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.ensemble import RandomForestClassifier as cuRFC
+from cuml.dask.common.base import BaseEstimator
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
 
 
 class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
@@ -187,6 +187,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             random_state=random_state,
             **kwargs
         )
+
+    @staticmethod
+    def _predict_model_on_cpu(model, X, convert_dtype):
+        return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
     def get_summary_text(self):
         """
@@ -409,6 +413,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     TODO : Update function names used for CPU predict.
         Cuml issue #1854 has been created to track this.
     """
+
     def predict_model_on_cpu(self, X, convert_dtype=True):
         """
         Predicts the labels for X.

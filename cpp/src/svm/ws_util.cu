@@ -16,7 +16,7 @@
 
 #include <cub/cub.cuh>
 #include <limits.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace SVM {

@@ -17,23 +17,27 @@
 # distutils: language = c++
 
 import ctypes
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from enum import IntEnum
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 from cython.operator cimport dereference as deref
 
@@ -100,7 +104,7 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class TruncatedSVD(Base,
+class TruncatedSVD(UniversalBase,
                    FMajorInputTagMixin):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
@@ -195,11 +199,12 @@ class TruncatedSVD(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -233,11 +238,13 @@ class TruncatedSVD(Base,
 
     """
 
-    components_ = CumlArrayDescriptor()
-    explained_variance_ = CumlArrayDescriptor()
-    explained_variance_ratio_ = CumlArrayDescriptor()
-    singular_values_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = 'sklearn.decomposition.TruncatedSVD'
+    components_ = CumlArrayDescriptor(order='F')
+    explained_variance_ = CumlArrayDescriptor(order='F')
+    explained_variance_ratio_ = CumlArrayDescriptor(order='F')
+    singular_values_ = CumlArrayDescriptor(order='F')
 
+    @device_interop_preparation
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
@@ -272,7 +279,7 @@ class TruncatedSVD(Base,
         return algo_map[algorithm]
 
     def _build_params(self, n_rows, n_cols):
-        cpdef paramsTSVD *params = new paramsTSVD()
+        cdef paramsTSVD *params = new paramsTSVD()
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -295,6 +302,7 @@ class TruncatedSVD(Base,
                                                 dtype=self.dtype)
 
     @generate_docstring()
+    @enable_device_interop
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit LSI model on training cudf DataFrame X. y is currently ignored.
@@ -309,20 +317,22 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
+    @enable_device_interop
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
         y is currently ignored.
 
         """
-        X_m, self.n_rows, self.n_cols, self.dtype = \
+        X_m, self.n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t> \
-            self._build_params(self.n_rows, self.n_cols)
+            self._build_params(self.n_rows, self.n_features_in_)
 
-        self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
+        self._initialize_arrays(self.n_components, self.n_rows,
+                                self.n_features_in_)
 
         cdef uintptr_t comp_ptr = self.components_.ptr
 
@@ -339,7 +349,7 @@ class TruncatedSVD(Base,
                                         dtype=self.dtype, index=X_m.index)
         cdef uintptr_t t_input_ptr = _trans_input_.ptr
 
-        if self.n_components> self.n_cols:
+        if self.n_components> self.n_features_in_:
             raise ValueError(' n_components must be < n_features')
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -372,25 +382,26 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
+    @enable_device_interop
     def inverse_transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
         Returns X_original whose transform would be X.
 
         """
-
+        dtype = self.components_.dtype
         X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
                                                   else None))
 
-        cpdef paramsTSVD params
+        cdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
-        params.n_cols = self.n_cols
+        params.n_cols = self.n_features_in_
 
         input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                     dtype=self.dtype, index=X_m.index)
+                                     dtype=dtype, index=X_m.index)
 
         cdef uintptr_t trans_input_ptr = X_m.ptr
         cdef uintptr_t input_ptr = input_data.ptr
@@ -421,25 +432,29 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
+    @enable_device_interop
     def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 
         """
-        X_m, n_rows, _, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
+        dtype = self.components_.dtype
+        self.n_features_in_ = self.components_.shape[1]
 
-        cpdef paramsTSVD params
+        X_m, n_rows, _, dtype = \
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_features_in_)
+
+        cdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
-        params.n_cols = self.n_cols
+        params.n_cols = self.n_features_in_
 
         t_input_data = \
             CumlArray.zeros((params.n_rows, params.n_components),
-                            dtype=self.dtype, index=X_m.index)
+                            dtype=dtype, index=X_m.index)
 
         cdef uintptr_t input_ptr = X_m.ptr
         cdef uintptr_t trans_input_ptr = t_input_data.ptr
@@ -469,3 +484,8 @@ class TruncatedSVD(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+
+    def get_attr_names(self):
+        return ['components_', 'explained_variance_',
+                'explained_variance_ratio_', 'singular_values_',
+                'n_features_in_', 'feature_names_in_']

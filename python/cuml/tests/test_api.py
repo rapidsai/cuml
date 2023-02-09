@@ -14,16 +14,17 @@
 # limitations under the License.
 #
 
+from sklearn.datasets import make_classification
+from cuml.testing.utils import ClassEnumerator
+from cuml.internals.base import Base
+from cuml.internals.safe_imports import cpu_only_import
+import inspect
 import pytest
 import cuml
-import cuml.common.mixins as cumix
-import cupy as cp
-import inspect
-import numpy as np
-
-from cuml.common.base import Base
-from cuml.testing.utils import ClassEnumerator
-from sklearn.datasets import make_classification
+import cuml.internals.mixins as cumix
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 ###############################################################################
@@ -53,7 +54,9 @@ def dataset():
     return X, y
 
 
-models_config = ClassEnumerator(module=cuml)
+models_config = ClassEnumerator(
+    module=cuml, exclude_classes=(cuml.UniversalBase,)
+)
 models = models_config.get_models()
 
 # tag system based on experimental tag system from Scikit-learn >=0.21
@@ -255,7 +258,15 @@ def test_fit_function(dataset, model_name):
         # and the inspect module doesn't work with Cython. Therefore we need
         # to register the number of arguments manually if `fit` is decorated
         pos_args_spec = {
-            "ARIMA": 1
+            "ARIMA": 1,
+            "ElasticNet": 3,
+            "Lasso": 3,
+            "LinearRegression": 3,
+            "LogisticRegression": 3,
+            "NearestNeighbors": 2,
+            "PCA": 2,
+            "Ridge": 3,
+            "UMAP": 2
         }
         n_pos_args_fit = (
             pos_args_spec[model_name]

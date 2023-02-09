@@ -14,13 +14,15 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
-import cupy as cp
-import numpy as np
+import cuml.internals.logger as logger
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import time
 
-from cuml.common.import_utils import has_sklearn
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr
 from cuml.explainer.common import model_func_call

@@ -18,31 +18,35 @@
 import typing
 
 import ctypes
-import cudf
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.logger import warn
+from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
-from cuml.common.import_utils import has_sklearn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -181,11 +185,12 @@ class SVC(SVMBase,
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
     random_state: int (default = None)
@@ -418,8 +423,8 @@ class SVC(SVMBase,
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
-        X, _, _, _, _ = input_to_host_array(X)
-        y, _, _, _, _ = input_to_host_array(y)
+        X = input_to_host_array(X).array
+        y = input_to_host_array(y).array
 
         if not has_sklearn():
             raise RuntimeError(
@@ -526,7 +531,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X, _, _, _, _ = input_to_host_array(X)
+            X = input_to_host_array(X).array
 
             with cuml.internals.exit_internal_api():
                 preds = self.prob_svc.predict(X)
@@ -560,7 +565,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X, _, _, _, _ = input_to_host_array(X)
+            X = input_to_host_array(X).array
 
             # Exit the internal API when calling sklearn code (forces numpy
             # conversion)
@@ -613,7 +618,7 @@ class SVC(SVMBase,
 
             with cuml.internals.exit_internal_api():
                 for clf in self.prob_svc.calibrated_classifiers_:
-                    df = df + clf.base_estimator.decision_function(X)
+                    df = df + clf.estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
             return df
         elif self.n_classes_ > 2:

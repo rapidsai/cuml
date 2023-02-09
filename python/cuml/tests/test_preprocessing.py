@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 import pytest
+import sklearn
 
 from cuml.preprocessing import \
     Binarizer as cuBinarizer, \
@@ -79,10 +81,11 @@ from cuml.testing.test_preproc_utils import \
 from cuml.testing.test_preproc_utils import assert_allclose
 from cuml.metrics import pairwise_kernels
 
-import numpy as np
-import cupy as cp
-import cupyx as cpx
-import scipy
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+cpx = gpu_only_import('cupyx')
+scipy = cpu_only_import('scipy')
 
 
 @pytest.mark.parametrize("feature_range", [(0, 1), (.1, 0.8)])
@@ -421,10 +424,12 @@ def test_poly_features(failure_logger, clf_dataset, degree,  # noqa: F811
                                         interaction_only=interaction_only,
                                         include_bias=include_bias)
     sk_t_X = polyfeatures.fit_transform(X_np)
-    sk_feature_names = polyfeatures.get_feature_names()
+    if sklearn.__version__ <= "1.0":
+        sk_feature_names = polyfeatures.get_feature_names()
 
     assert_allclose(t_X, sk_t_X, rtol=0.1, atol=0.1)
-    assert sk_feature_names == cu_feature_names
+    if sklearn.__version__ <= "1.0":
+        assert sk_feature_names == cu_feature_names
 
 
 @pytest.mark.parametrize("degree", [2, 3])

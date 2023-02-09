@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cudf
-import cupy as cp
-import numpy as np
-import pandas as pd
-import pytest
-from numba import cuda
-
 from cuml.explainer.sampling import kmeans_sampling
+from cuml.internals.safe_imports import gpu_only_import_from
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cuda = gpu_only_import_from('numba', 'cuda')
 
 
 @pytest.mark.parametrize('input_type', ["cudf-df",
@@ -56,7 +58,12 @@ def test_kmeans_input(input_type):
                                       [[1., 23.],
                                        [0., 52.]])
         assert isinstance(summary[0], cudf.DataFrame)
-    elif input_type == 'pandas-df' or input_type == 'numpy':
+    elif input_type == 'pandas-df':
+        cp.testing.assert_array_equal(summary[0].values,
+                                      [[1., 23.],
+                                       [0., 52.]])
+        assert isinstance(summary[0], pd.DataFrame)
+    elif input_type == 'numpy':
         cp.testing.assert_array_equal(summary[0],
                                       [[1., 23.],
                                        [0., 52.]])
@@ -66,9 +73,9 @@ def test_kmeans_input(input_type):
                                       [23., 52.])
         assert isinstance(summary[0], cudf.core.series.Series)
     elif input_type == 'pandas-series':
-        cp.testing.assert_array_equal(summary[0].flatten(),
+        cp.testing.assert_array_equal(summary[0].to_numpy().flatten(),
                                       [23., 52.])
-        assert isinstance(summary[0], np.ndarray)
+        assert isinstance(summary[0], pd.Series)
     elif input_type == 'numba':
         cp.testing.assert_array_equal(cp.array(summary[0]).tolist(),
                                       [[1., 23.],

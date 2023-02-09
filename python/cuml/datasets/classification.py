@@ -13,13 +13,15 @@
 # limitations under the License.
 #
 
+import nvtx
+from cuml.internals.safe_imports import cpu_only_import
 import cuml.internals
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
 
-import cupy as cp
-import numpy as np
-import nvtx
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 
 def _generate_hypercube(samples, dimensions, rng):
@@ -268,11 +270,11 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
         proba_samples_per_cluster = np.array(n_samples_per_cluster) / np.sum(
             n_samples_per_cluster)
         shuffled_sample_indices = cp.array(np.random.choice(
-                                            n_clusters,
-                                            n_samples,
-                                            replace=True,
-                                            p=proba_samples_per_cluster
-                                            ))
+            n_clusters,
+            n_samples,
+            replace=True,
+            p=proba_samples_per_cluster
+        ))
         for k, centroid in enumerate(centroids):
             centroid_indices = cp.where(shuffled_sample_indices == k)
             y[centroid_indices[0]] = k % n_classes

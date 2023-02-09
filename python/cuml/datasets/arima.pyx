@@ -18,9 +18,10 @@
 
 import warnings
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from cuml.common.array import CumlArray as cumlArray
+from cuml.internals.array import CumlArray as cumlArray
 import cuml.internals
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle

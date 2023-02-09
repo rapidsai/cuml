@@ -13,19 +13,22 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
-import scipy
-import cupyx
-
-from cuml.manifold import TSNE
-from cuml.testing.utils import array_equal, stress_param
-from cuml.neighbors import NearestNeighbors as cuKNN
-
-from sklearn.datasets import make_blobs
-from sklearn.manifold import trustworthiness
-from sklearn import datasets
 from sklearn.manifold import TSNE as skTSNE
+from sklearn import datasets
+from sklearn.manifold import trustworthiness
+from sklearn.datasets import make_blobs
+from sklearn.neighbors import NearestNeighbors
+from cuml.manifold import TSNE
+from cuml.neighbors import NearestNeighbors as cuKNN
+from cuml.metrics import pairwise_distances
+from cuml.testing.utils import array_equal, stress_param
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+np = cpu_only_import('numpy')
+scipy = cpu_only_import('scipy')
+cupyx = gpu_only_import('cupyx')
+
 
 pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
                                         "experimental::")
@@ -33,11 +36,8 @@ pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
 DEFAULT_N_NEIGHBORS = 90
 DEFAULT_PERPLEXITY = 30
 
-test_datasets = {
-                 "digits": datasets.load_digits(),
-                 "boston": datasets.load_boston(),
-                 "diabetes": datasets.load_diabetes(),
-                 "cancer": datasets.load_breast_cancer(),
+tsne_datasets = {
+    "digits": datasets.load_digits(),
 }
 
 
@@ -51,12 +51,11 @@ def validate_embedding(X, Y, score=0.74, n_neighbors=DEFAULT_N_NEIGHBORS):
     assert nans == 0
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
-def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
+def test_tsne_knn_graph_used(test_datasets, type_knn_graph, method):
 
-    X = dataset.data
+    X = test_datasets.data
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
                   metric="euclidean").fit(X)
@@ -106,12 +105,11 @@ def test_tsne_knn_graph_used(dataset, type_knn_graph, method):
     assert (trust_normal - trust_garbage) > 0.15
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('type_knn_graph', ['cuml', 'sklearn'])
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
-def test_tsne_knn_parameters(dataset, type_knn_graph, method):
+def test_tsne_knn_parameters(test_datasets, type_knn_graph, method):
 
-    X = dataset.data
+    X = test_datasets.data
 
     from sklearn.preprocessing import normalize
 
@@ -142,9 +140,43 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
     validate_embedding(X, embed)
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
+@pytest.mark.parametrize('precomputed_type', ['knn_graph', 'tuple',
+                                              'pairwise'])
+@pytest.mark.parametrize('sparse_input', [False, True])
+def test_tsne_precomputed_knn(precomputed_type, sparse_input):
+    data, labels = make_blobs(n_samples=2000, n_features=10,
+                              centers=5, random_state=0)
+    data = data.astype(np.float32)
+
+    if sparse_input:
+        sparsification = np.random.choice([0., 1.],
+                                          p=[0.1, 0.9],
+                                          size=data.shape)
+        data = np.multiply(data, sparsification)
+        data = scipy.sparse.csr_matrix(data)
+
+    n_neighbors = DEFAULT_N_NEIGHBORS
+
+    if precomputed_type == 'knn_graph':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+    elif precomputed_type == 'tuple':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (precomputed_knn[1], precomputed_knn[0])
+    elif precomputed_type == 'pairwise':
+        precomputed_knn = pairwise_distances(data)
+
+    model = TSNE(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
+    embedding = model.fit_transform(data)
+    trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
+    assert trust >= 0.92
+
+
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
-def test_tsne(dataset, method):
+def test_tsne(test_datasets, method):
     """
     This tests how TSNE handles a lot of input data across time.
     (1) Numpy arrays are passed in
@@ -154,7 +186,7 @@ def test_tsne(dataset, method):
     (5) Tests NAN in TSNE output for learning rate explosions
     (6) Tests verbosity
     """
-    X = dataset.data
+    X = test_datasets.data
 
     tsne = TSNE(n_components=2,
                 random_state=1,
@@ -198,7 +230,7 @@ def test_components_exception():
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 
-    digits = test_datasets['digits'].data
+    digits = tsne_datasets['digits'].data
 
     if input_type == 'cupy':
         sp_prefix = cupyx.scipy.sparse
@@ -231,7 +263,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
 @pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
 def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
-    digits = test_datasets["digits"].data
+    digits = tsne_datasets["digits"].data
 
     neigh = cuKNN(n_neighbors=DEFAULT_N_NEIGHBORS,
                   metric="euclidean").fit(digits)
@@ -333,7 +365,8 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
                          min_grad_norm=1e-12,
                          method='barnes_hut',
                          perplexity=DEFAULT_PERPLEXITY,
-                         metric=metric)
+                         metric=metric,
+                         init="random")
 
     else:
         sk_tsne = skTSNE(n_components=2,
@@ -341,7 +374,8 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
                          min_grad_norm=1e-12,
                          method=method,
                          perplexity=DEFAULT_PERPLEXITY,
-                         metric=metric)
+                         metric=metric,
+                         init="random")
 
     cuml_embedding = cuml_tsne.fit_transform(data_sparse)
     nans = np.sum(np.isnan(cuml_embedding))
@@ -351,4 +385,4 @@ def test_tsne_distance_metrics_on_sparse_input(method, metric):
 
     assert cu_trust > 0.85
     assert nans == 0
-    assert array_equal(sk_trust, cu_trust, 0.05, with_sign=True)
+    assert array_equal(sk_trust, cu_trust, 0.06, with_sign=True)

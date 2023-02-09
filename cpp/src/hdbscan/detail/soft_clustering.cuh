@@ -22,8 +22,8 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>

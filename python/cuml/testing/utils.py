@@ -11,33 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.base import Base
+import cuml
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, brier_score_loss
+from sklearn.datasets import make_classification, make_regression
+from sklearn import datasets
+from pylibraft.common.cuda import Stream
+from sklearn.datasets import make_regression as skl_make_reg
+from numba.cuda.cudadrv.devicearray import DeviceNDArray
+from numbers import Number
+from cuml.internals.safe_imports import gpu_only_import_from
+from itertools import dropwhile
+from copy import deepcopy
+from cuml.internals.safe_imports import cpu_only_import
 import inspect
 from textwrap import dedent, indent
 
-import cupy as cp
-import numpy as np
-import pandas as pd
-from copy import deepcopy
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
 
-from numba import cuda
-from numbers import Number
-from numba.cuda.cudadrv.devicearray import DeviceNDArray
+cuda = gpu_only_import_from('numba', 'cuda')
 
-from sklearn.datasets import make_regression as skl_make_reg
 
-from pylibraft.common.cuda import Stream
-
-from sklearn import datasets
-from sklearn.datasets import make_classification, make_regression
-from sklearn.metrics import mean_squared_error, brier_score_loss
-from sklearn.model_selection import train_test_split
-
-import cudf
-import cuml
-from cuml.common.input_utils import input_to_cuml_array, is_array_like
-from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
-import pytest
+cudf = gpu_only_import('cudf')
 
 
 def array_difference(a, b, with_sign=True):
@@ -103,7 +105,7 @@ class array_equal:
                 f"total_tol={self.total_tol} ",
                 f"with_sign={self.with_sign}",
                 ">"
-            ]
+        ]
 
     def __repr__(self):
         return "".join(self._repr(threshold=5))
@@ -217,9 +219,14 @@ def as_type(type, *args):
             result.append(arg)
         else:
             # make sure X with a single feature remains 2 dimensional
-            if type == 'cudf' and len(arg.shape) > 1:
+            if type in ('cudf', 'pandas', 'df_obj') and len(arg.shape) > 1:
+                if type == 'pandas':
+                    mem_type = MemoryType.host
+                else:
+                    mem_type = None
                 result.append(input_to_cuml_array(
-                    arg).array.to_output('dataframe'))
+                    arg).array.to_output(output_type='dataframe',
+                                         output_mem_type=mem_type))
             else:
                 result.append(input_to_cuml_array(arg).array.to_output(type))
     if len(result) == 1:
@@ -347,6 +354,7 @@ class ClassEnumerator:
         Instructs the class to recursively search submodules when True,
         otherwise only classes in the specified model will be enumerated
     """
+
     def __init__(self,
                  module,
                  exclude_classes=None,
@@ -403,7 +411,7 @@ class ClassEnumerator:
             for name,
             cls in classes
             if cls not in self.exclude_classes and
-            issubclass(cls, (Base, experimentalBase))
+            issubclass(cls, Base)
         }
         models.update(self.custom_constructors)
         return models
@@ -758,3 +766,24 @@ def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
         print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
               np.mean(b))
     return equal
+
+
+def normalized_shape(shape):
+    """Normalize shape to tuple."""
+    return (shape, ) if isinstance(shape, int) else shape
+
+
+def squeezed_shape(shape):
+    """Remove all trailing axes of length 1 from shape.
+
+    Similar to, but not exactly like np.squeeze().
+    """
+    return tuple(reversed(list(dropwhile(lambda d: d == 1, reversed(shape)))))
+
+
+def series_squeezed_shape(shape):
+    """Remove all but one axes of length 1 from shape."""
+    if shape:
+        return tuple([d for d in normalized_shape(shape) if d != 1]) or (1,)
+    else:
+        return ()

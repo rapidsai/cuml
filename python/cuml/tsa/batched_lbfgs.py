@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
-import numpy as np
-import nvtx
-
 from cuml.common import has_scipy
+import nvtx
+import cuml.internals.logger as logger
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 def _fd_fprime(x, f, h):

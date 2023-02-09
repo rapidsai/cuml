@@ -13,17 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.manifold import UMAP
+from cuml.benchmark import datagen
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import
+import sklearn.ensemble as skl_ensemble
+import pickle as pickle
 import os
 import cuml
-from cuml.common import input_utils
-import numpy as np
-import pandas as pd
-import pickle as pickle
-import sklearn.ensemble as skl_ensemble
-import cudf
-from numba import cuda
-from cuml.benchmark import datagen
-from cuml.manifold import UMAP
+from cuml.internals import input_utils
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
+cuda = gpu_only_import_from('numba', 'cuda')
 
 
 def call(m, func_name, X, y=None):
@@ -108,7 +111,7 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
-    from cuml.common.import_utils import has_xgboost
+    from cuml.internals.import_utils import has_xgboost
     if has_xgboost():
         import xgboost as xgb
     else:
@@ -191,7 +194,7 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
 
 def _build_treelite_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.common.import_utils import has_xgboost
+    from cuml.internals.import_utils import has_xgboost
     import treelite
     import treelite_runtime
     if has_xgboost():

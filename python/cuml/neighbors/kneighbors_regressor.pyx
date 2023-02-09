@@ -19,14 +19,15 @@
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 
 from cython.operator cimport dereference as deref
@@ -38,13 +39,15 @@ from pylibraft.common.handle cimport handle_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 import rmm
 
 cimport cuml.common.cuda
@@ -63,9 +66,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsRegressor(NearestNeighbors,
-                          RegressorMixin,
-                          FMajorInputTagMixin):
+class KNeighborsRegressor(RegressorMixin,
+                          FMajorInputTagMixin,
+                          NearestNeighbors):
     """
 
     K-Nearest Neighbors Regressor is an instance-based learning technique,
@@ -96,10 +99,6 @@ class KNeighborsRegressor(NearestNeighbors,
           in n_features/M sub-vectors that will be encoded thanks
           to intermediary k-means clusterings. This encoding provide
           partial information allowing faster distances calculations
-        - ``'ivfsq'``: for inverted file and scalar quantization,
-          same as inverted list, in addition vectors components
-          are quantized into reduced binary representation allowing
-          faster distances calculations
     metric : string (default='euclidean').
         Distance metric to use.
     weights : string (default='uniform')
@@ -115,11 +114,12 @@ class KNeighborsRegressor(NearestNeighbors,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -212,7 +212,7 @@ class KNeighborsRegressor(NearestNeighbors,
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
         results = CumlArray.zeros(res_shape, dtype=np.float32,
                                   order="C",
-                                  index=knn_indices.index)
+                                  index=inds.index)
 
         cdef uintptr_t results_ptr = results.ptr
         cdef uintptr_t y_ptr
@@ -230,7 +230,7 @@ class KNeighborsRegressor(NearestNeighbors,
             <float*>results_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>self.n_rows,
+            <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
         )

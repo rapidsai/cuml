@@ -19,10 +19,11 @@
 import typing
 import nvtx
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 

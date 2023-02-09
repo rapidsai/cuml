@@ -13,15 +13,17 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
 import contextlib
 import doctest
 import inspect
 import io
 
 import cuml
-import numpy as np
-import pytest
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cudf = gpu_only_import('cudf')
 
 
 def _name_in_all(parent, name):
@@ -91,6 +93,8 @@ def test_docstring(docstring):
     # the use of an ellipsis "..." to match any string in the doctest
     # output. An ellipsis is useful for, e.g., memory addresses or
     # imprecise floating point values.
+    if docstring.name == "Handle":
+        pytest.skip("Docstring is tested in RAFT.")
     optionflags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
     runner = doctest.DocTestRunner(optionflags=optionflags)
 

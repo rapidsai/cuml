@@ -18,16 +18,17 @@
 
 from libc.stdint cimport uintptr_t
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 
 from cuml.metrics.distance_type cimport DistanceType
 
@@ -124,11 +125,12 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
            automatically in the event "n_neighbors" was not large enough
            to connect it.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     """
 
     labels_ = CumlArrayDescriptor()

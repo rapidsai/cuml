@@ -14,21 +14,24 @@
 # limitations under the License.
 #
 
+from pandas import Series as pdSeries
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.input_utils import convert_dtype
+from cuml.common import has_cupy
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.common import input_to_host_array
+from cuml.common import input_to_cuml_array, CumlArray
+from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
-import cudf
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
-from cuml.common import input_to_cuml_array, CumlArray
-from cuml.common import input_to_host_array
-from cuml.common.input_utils import input_to_cupy_array
-from cuml.common import has_cupy
-from cuml.common.input_utils import convert_dtype
-from cuml.common.memory_utils import _check_array_contiguity
-from numba import cuda as nbcuda
-from pandas import DataFrame as pdDF
-from pandas import Series as pdSeries
+nbcuda = gpu_only_import_from('numba', 'cuda')
+pdDF = cpu_only_import_from('pandas', 'DataFrame')
 
 
 ###############################################################################
@@ -173,8 +176,7 @@ def test_input_to_host_array(dtype, input_type, num_rows, num_cols, order):
     if input_type == 'cupy' and input_data is None:
         pytest.skip('cupy not installed')
 
-    X, X_ptr, n_rows, n_cols, dtype = input_to_host_array(input_data,
-                                                          order=order)
+    X, n_rows, n_cols, dtype = input_to_host_array(input_data, order=order)
 
     np.testing.assert_equal(X, real_data)
 
@@ -284,7 +286,7 @@ def test_non_contiguous_to_contiguous_input(dtype, input_type, order,
                                       force_contiguous=force_contiguous)
 
     if force_contiguous:
-        assert(_check_array_contiguity(cumlary))
+        assert(cumlary.is_contiguous)
 
     np.testing.assert_equal(real_data, cumlary.to_output('numpy'))
 
@@ -331,7 +333,11 @@ def check_numpy_order(ary, order):
 def check_ptr(a, b, input_type):
     if input_type == 'cudf':
         for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
-            assert col_a.base_data.ptr == col_b.base_data.ptr
+            with cudf.core.buffer.acquire_spill_lock():
+                assert (
+                    col_a.base_data.get_ptr(mode="read") ==
+                    col_b.base_data.get_ptr(mode="read")
+                )
     else:
         def get_ptr(x):
             try:

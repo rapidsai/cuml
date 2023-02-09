@@ -13,19 +13,20 @@
 # limitations under the License.
 #
 
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import determine_array_type
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array import CumlArray
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 import pickle
 
 import cuml
 import cuml.internals
-import cupy as cp
-import numpy as np
-import pytest
-from cuml.common.array import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.input_utils import determine_array_dtype
-from cuml.common.input_utils import determine_array_type
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import unsupported_cudf_dtypes
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
 test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
 
@@ -36,6 +37,10 @@ test_dtypes_short = [
     np.float16,
     np.int32,
     np.float64,
+]
+
+unsupported_cudf_dtypes = [
+    np.uint8, np.uint16, np.uint32, np.uint64, np.float16
 ]
 
 test_shapes = [10, (10, 1), (10, 5), (1, 10)]
@@ -309,14 +314,20 @@ def test_return_array(input_arg: str,
 
         return X
 
-    if (input_arg == "bad" or target_arg == "bad"):
-        pytest.xfail("Expected error with bad arg name")
+    expected_to_fail = (input_arg == "bad" and get_output_type) \
+        or (target_arg == "bad" and get_output_dtype)
 
-    test_func = cuml.internals.api_return_array(
-        input_arg=input_arg,
-        target_arg=target_arg,
-        get_output_type=get_output_type,
-        get_output_dtype=get_output_dtype)(test_func)
+    try:
+        test_func = cuml.internals.api_return_array(
+            input_arg=input_arg,
+            target_arg=target_arg,
+            get_output_type=get_output_type,
+            get_output_dtype=get_output_dtype)(test_func)
+    except ValueError:
+        assert expected_to_fail
+        return
+    else:
+        assert not expected_to_fail
 
     X_out = test_func(X=X_in, y=Y_in)
 

@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#include <glm/ols.cuh>
+#include <cuml/linear_model/glm.hpp>
 #include <gtest/gtest.h>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_pool.hpp>
+#include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>
 
@@ -138,17 +140,10 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            &intercept,
            false,
            false,
-           stream,
            params.algo);
 
-    gemmPredict(handle,
-                pred_data.data(),
-                params.n_row_2,
-                params.n_col,
-                coef.data(),
-                intercept,
-                pred.data(),
-                stream);
+    gemmPredict(
+      handle, pred_data.data(), params.n_row_2, params.n_col, coef.data(), intercept, pred.data());
 
     raft::update_device(data.data(), data_h.data(), len, stream);
     raft::update_device(labels.data(), labels_h.data(), params.n_row, stream);
@@ -163,7 +158,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            &intercept2,
            true,
            false,
-           stream,
            params.algo);
 
     gemmPredict(handle,
@@ -172,8 +166,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
                 params.n_col,
                 coef2.data(),
                 intercept2,
-                pred2.data(),
-                stream);
+                pred2.data());
 
     raft::update_device(data.data(), data_h.data(), len, stream);
     raft::update_device(labels.data(), labels_h.data(), params.n_row, stream);
@@ -188,7 +181,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            &intercept3,
            true,
            true,
-           stream,
            params.algo);
 
     gemmPredict(handle,
@@ -197,8 +189,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
                 params.n_col,
                 coef3.data(),
                 intercept3,
-                pred3.data(),
-                stream);
+                pred3.data());
   }
 
   void basicTest2()
@@ -231,7 +222,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
            &intercept_sc,
            true,
            false,
-           stream,
            params.algo);
   }
 
@@ -263,50 +253,54 @@ typedef OlsTest<float> OlsTestF;
 TEST_P(OlsTestF, Fit)
 {
   ASSERT_TRUE(devArrMatch(
-    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+    coef_ref.data(), coef.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+    coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<float>(params.tol)));
+    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    pred_ref.data(), pred.data(), params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+    pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    pred2_ref.data(), pred2.data(), params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+    pred2_ref.data(), pred2.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
+    pred3_ref.data(), pred3.data(), params.n_row_2, MLCommon::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(
-    devArrMatch(coef_sc_ref.data(), coef_sc.data(), 1, raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(devArrMatch(
+    coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef OlsTest<double> OlsTestD;
 TEST_P(OlsTestD, Fit)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    coef_ref.data(), coef.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef_ref.data(), coef.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef2_ref.data(), coef2.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef2_ref.data(), coef2.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    coef3_ref.data(), coef3.data(), params.n_col, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    coef3_ref.data(), coef3.data(), params.n_col, MLCommon::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(
-    pred_ref.data(), pred.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(MLCommon::devArrMatch(
+    pred_ref.data(), pred.data(), params.n_row_2, MLCommon::CompareApproxAbs<double>(params.tol)));
+
+  ASSERT_TRUE(devArrMatch(pred2_ref.data(),
+                          pred2.data(),
+                          params.n_row_2,
+                          MLCommon::CompareApproxAbs<double>(params.tol)));
+
+  ASSERT_TRUE(MLCommon::devArrMatch(pred3_ref.data(),
+                                    pred3.data(),
+                                    params.n_row_2,
+                                    MLCommon::CompareApproxAbs<double>(params.tol)));
 
   ASSERT_TRUE(devArrMatch(
-    pred2_ref.data(), pred2.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(raft::devArrMatch(
-    pred3_ref.data(), pred3.data(), params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
-
-  ASSERT_TRUE(
-    devArrMatch(coef_sc_ref.data(), coef_sc.data(), 1, raft::CompareApproxAbs<double>(params.tol)));
+    coef_sc_ref.data(), coef_sc.data(), 1, MLCommon::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(OlsTests, OlsTestF, ::testing::ValuesIn(inputsf2));

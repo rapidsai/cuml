@@ -19,6 +19,7 @@
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/util/cudart_utils.hpp>
 

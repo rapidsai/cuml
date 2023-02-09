@@ -17,8 +17,10 @@
 # distutils: language = c++
 
 import ctypes
-import numpy as np
-import rmm
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 import warnings
 import typing
 
@@ -27,12 +29,12 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
@@ -205,11 +207,12 @@ class KMeans(Base,
         batched pairwise distance computation is :py:`max_samples_per_batch *
         n_clusters`. It might become necessary to lower this number when
         `n_clusters` becomes prohibitively large.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------

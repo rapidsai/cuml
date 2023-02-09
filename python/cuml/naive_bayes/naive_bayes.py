@@ -13,25 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.prims.array import binarize
+from cuml.prims.label import invert_labels
+from cuml.prims.label import check_labels
+from cuml.prims.label import make_monotonic
+from cuml.internals.import_utils import has_scipy
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.base import Base
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArray
 import math
 import warnings
 import nvtx
 
-import cupy as cp
-import cupyx
-from cuml.common import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.import_utils import has_scipy
-from cuml.prims.label import make_monotonic
-from cuml.prims.label import check_labels
-from cuml.prims.label import invert_labels
-from cuml.prims.array import binarize
-
-from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 def count_features_coo_kernel(float_dtype, int_dtype):
@@ -175,8 +175,8 @@ class _BaseNB(Base, ClassifierMixin):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
+            from cuml.internals.import_utils import \
+                dummy_function_always_false as scipy_sparse_isspmatrix
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
@@ -218,8 +218,8 @@ class _BaseNB(Base, ClassifierMixin):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
+            from cuml.internals.import_utils import \
+                dummy_function_always_false as scipy_sparse_isspmatrix
 
         # todo: use a sparse CumlArray style approach when ready
         # https://github.com/rapidsai/cuml/issues/2216
@@ -294,11 +294,12 @@ class GaussianNB(_BaseNB):
     var_smoothing : float, default=1e-9
         Portion of the largest variance of all features that is added to
         variances for calculation stability.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the
@@ -368,8 +369,8 @@ class GaussianNB(_BaseNB):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
+            from cuml.internals.import_utils import \
+                dummy_function_always_false as scipy_sparse_isspmatrix
 
         if getattr(self, 'classes_') is None and _classes is None:
             raise ValueError("classes must be passed on the first call "
@@ -658,7 +659,7 @@ class GaussianNB(_BaseNB):
             [
                 "priors",
                 "var_smoothing"
-            ]
+        ]
 
 
 class _BaseDiscreteNB(_BaseNB):
@@ -753,8 +754,8 @@ class _BaseDiscreteNB(_BaseNB):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
+            from cuml.internals.import_utils import \
+                dummy_function_always_false as scipy_sparse_isspmatrix
 
         # TODO: use SparseCumlArray
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
@@ -965,7 +966,7 @@ class _BaseDiscreteNB(_BaseNB):
                 "alpha",
                 "fit_prior",
                 "class_prior"
-            ]
+        ]
 
 
 class MultinomialNB(_BaseDiscreteNB):
@@ -994,11 +995,12 @@ class MultinomialNB(_BaseDiscreteNB):
     class_prior : array-like, size (n_classes) (default=None)
         Prior probabilities of the classes. If specified, the priors are
         not adjusted according to the data.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the
@@ -1067,6 +1069,7 @@ class MultinomialNB(_BaseDiscreteNB):
         0.9245...
 
     """
+
     def __init__(self, *,
                  alpha=1.0,
                  fit_prior=True,
@@ -1132,11 +1135,12 @@ class BernoulliNB(_BaseDiscreteNB):
     class_prior : array-like of shape (n_classes,), default=None
         Prior probabilities of the classes. If specified the priors are not
         adjusted according to the data.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the
@@ -1191,6 +1195,7 @@ class BernoulliNB(_BaseDiscreteNB):
     V. Metsis, I. Androutsopoulos and G. Paliouras (2006). Spam filtering with
     naive Bayes -- Which naive Bayes? 3rd Conf. on Email and Anti-Spam (CEAS).
     """
+
     def __init__(self, *, alpha=1.0, binarize=.0, fit_prior=True,
                  class_prior=None, output_type=None, handle=None,
                  verbose=False):
@@ -1256,7 +1261,7 @@ class BernoulliNB(_BaseDiscreteNB):
         return super().get_param_names() + \
             [
                 "binarize"
-            ]
+        ]
 
 
 class ComplementNB(_BaseDiscreteNB):
@@ -1283,11 +1288,12 @@ class ComplementNB(_BaseDiscreteNB):
         The default behavior mirrors the implementation found in Mahout and
         Weka, which do not follow the full algorithm described in Table 9 of
         the paper.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the
@@ -1338,6 +1344,7 @@ class ComplementNB(_BaseDiscreteNB):
     (Vol. 3, pp. 616-623).
     https://people.csail.mit.edu/jrennie/papers/icml03-nb.pdf
     """
+
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  norm=False, output_type=None, handle=None,
                  verbose=False):
@@ -1408,7 +1415,7 @@ class ComplementNB(_BaseDiscreteNB):
         return super().get_param_names() + \
             [
                 "norm"
-            ]
+        ]
 
 
 class CategoricalNB(_BaseDiscreteNB):
@@ -1429,11 +1436,12 @@ class CategoricalNB(_BaseDiscreteNB):
     class_prior : array-like of shape (n_classes,), default=None
         Prior probabilities of the classes. If specified the priors are not
         adjusted according to the data.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the
@@ -1483,6 +1491,7 @@ class CategoricalNB(_BaseDiscreteNB):
         >>> print(clf.predict(X[2:3]))
         [3]
     """
+
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  output_type=None, handle=None, verbose=False):
         super(CategoricalNB, self).__init__(alpha=alpha,

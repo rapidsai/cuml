@@ -16,6 +16,7 @@
 
 #include <raft/sparse/coo.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/sparse/linalg/spectral.cuh>
 
 namespace raft {

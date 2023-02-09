@@ -15,20 +15,24 @@
 #
 
 import cuml
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import time
 
-from cudf import DataFrame as cu_df
-from cuml.common.array import CumlArray
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.safe_imports import gpu_only_import_from
+cu_df = gpu_only_import_from('cudf', 'DataFrame')
+from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr
 from cuml.explainer.common import get_dtype_from_model_func
 from cuml.explainer.common import get_tag_from_model_func
 from cuml.explainer.common import model_func_call
-from numba import cuda
-from pandas import DataFrame as pd_df
+cuda = gpu_only_import_from('numba', 'cuda')
+from cuml.internals.safe_imports import cpu_only_import_from
+pd_df = cpu_only_import_from('pandas', 'DataFrame')
 
 from pylibraft.common.handle cimport handle_t
 from libcpp cimport bool

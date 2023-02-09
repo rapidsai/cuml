@@ -15,16 +15,17 @@
 #
 
 from cuml.common import input_to_cuml_array
-from cuml.common.array import CumlArray
-from cuml.common.import_utils import has_sklearn
-from cuml.common.input_utils import determine_array_type
+from cuml.internals.array import CumlArray
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.input_utils import determine_array_type
 from cuml.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 
 from libc.stdint cimport uintptr_t
 import re
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import treelite
 
 if has_sklearn():

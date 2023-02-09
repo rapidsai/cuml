@@ -14,17 +14,25 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
-from cuml.common.input_utils import input_to_cupy_array
-from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
-from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
-from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
-from scipy import sparse as cpu_sparse
 from cupyx.scipy import sparse as gpu_sparse
+from scipy import sparse as cpu_sparse
+from scipy.sparse import csc_matrix as cpu_coo_matrix
+from scipy.sparse import csc_matrix as cpu_csc_matrix
+from cuml.internals.safe_imports import cpu_only_import_from
+from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+gpu_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+gpu_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
+cpu_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
 
-from pandas import DataFrame as pdDataFrame
-from cudf import DataFrame as cuDataFrame
+pdDataFrame = cpu_only_import_from('pandas', 'DataFrame')
+cuDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 
 numeric_types = [
     np.int8, np.int16, np.int32, np.int64,
@@ -259,11 +267,20 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     if is_sparse:
         check_sparse(array, accept_sparse, accept_large_sparse)
         if array.format == 'csr':
-            new_array = gpu_csr_matrix(array, copy=copy)
+            if GlobalSettings().memory_type.is_device_accessible:
+                new_array = gpu_csr_matrix(array, copy=copy)
+            else:
+                new_array = cpu_csr_matrix(array, copy=copy)
         elif array.format == 'csc':
-            new_array = gpu_csc_matrix(array, copy=copy)
+            if GlobalSettings().memory_type.is_device_accessible:
+                new_array = gpu_csc_matrix(array, copy=copy)
+            else:
+                new_array = cpu_csc_matrix(array, copy=copy)
         elif array.format == 'coo':
-            new_array = gpu_coo_matrix(array, copy=copy)
+            if GlobalSettings().memory_type.is_device_accessible:
+                new_array = gpu_coo_matrix(array, copy=copy)
+            else:
+                new_array = cpu_coo_matrix(array, copy=copy)
         else:
             raise ValueError('Sparse matrix format not supported')
         check_finite(new_array.data, force_all_finite)
@@ -271,10 +288,16 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             new_array = new_array.astype(correct_dtype)
         return new_array
     else:
-        X, n_rows, n_cols, dtype = input_to_cupy_array(array,
-                                                       order=order,
-                                                       deepcopy=copy,
-                                                       fail_on_null=False)
+        if GlobalSettings().memory_type.is_device_accessible:
+            X, n_rows, n_cols, dtype = input_to_cupy_array(array,
+                                                           order=order,
+                                                           deepcopy=copy,
+                                                           fail_on_null=False)
+        else:
+            X, n_rows, n_cols, dtype = input_to_host_array(array,
+                                                           order=order,
+                                                           deepcopy=copy,
+                                                           fail_on_null=False)
         if correct_dtype != dtype:
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)

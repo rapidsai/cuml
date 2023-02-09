@@ -21,7 +21,7 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
@@ -161,7 +161,7 @@ void get_stability_scores(const raft::handle_t& handle,
   /**
    * 1. Populate cluster sizes
    */
-  rmm::device_uvector<value_idx> cluster_sizes(n_leaves, handle.get_stream());
+  rmm::device_uvector<value_idx> cluster_sizes(n_condensed_clusters, handle.get_stream());
   thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data() + cluster_sizes.size(), 0);
 
   value_idx* sizes = cluster_sizes.data();

@@ -1,3 +1,4 @@
+
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,29 +14,29 @@
 # limitations under the License.
 #
 
-import cudf.comm.serialize  # noqa: F401
-import cupy as cp
-import dask
-import numpy as np
-from toolz import first
-from collections.abc import Iterable
-
-from cuml.dask.common.utils import get_client
-
-from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
-from cuml.common.array import CumlArray
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from raft_dask.common.comms import Comms
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common import parts_to_ranks
-from cuml.internals import BaseMetaClass
-
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as dcSeries
-from functools import wraps
-
 from distributed.client import Future
+from functools import wraps
+from dask_cudf.core import Series as dcSeries
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.base import Base
+from cuml.internals import BaseMetaClass
+from cuml.dask.common import parts_to_ranks
+from cuml.dask.common.input_utils import DistributedDataHandler
+from raft_dask.common.comms import Comms
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.internals.array import CumlArray
+from cuml.dask.common.utils import get_client
+from collections.abc import Iterable
+from toolz import first
+from cuml.internals.safe_imports import cpu_only_import
+import dask
+import cudf.comm.serialize  # noqa: F401
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
+
+
+dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
 
 
 class BaseEstimator(object, metaclass=BaseMetaClass):
@@ -45,7 +46,12 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         Constructor for distributed estimators.
         """
         self.client = get_client(client)
+
+        # set client verbosity
         self.verbose = verbose
+
+        # kwargs transmits the verbosity level to workers
+        kwargs["verbose"] = verbose
         self.kwargs = kwargs
 
         self.internal_model = None
@@ -75,7 +81,6 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         return internal_model
 
     def _set_internal_model(self, model):
-
         """
         Assigns model (a Future or list of futures containins a single-GPU
         model) to be an internal model.
@@ -129,7 +134,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
             if model.type is None:
                 wait_and_raise_from_futures([model])
 
-            if not issubclass(model.type, (Base, experimentalBase)):
+            if not issubclass(model.type, Base):
                 raise ValueError("Dask Future expected to contain cuml.Base "
                                  "but found %s instead." % model.type)
 

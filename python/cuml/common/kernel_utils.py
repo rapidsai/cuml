@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
-
-import functools
-
+import cuml.internals.logger as logger
 from uuid import uuid1
+import functools
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+np = cpu_only_import('numpy')
 
-import cuml.common.logger as logger
 
 # Mapping of common PyData dtypes to their corresponding C-primitive
 dtype_str_map = {cp.dtype("float32"): "float",

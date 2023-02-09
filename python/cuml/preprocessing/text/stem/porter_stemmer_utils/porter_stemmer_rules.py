@@ -16,7 +16,8 @@
 
 from .consonant_vowel_utils import is_vowel, is_consonant
 from .len_flags_utils import len_gt_n, len_eq_n
-import cudf
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
 
 
 def ends_with_double_constant(string_ser):

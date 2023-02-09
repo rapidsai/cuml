@@ -17,29 +17,28 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
-import numpy as np
 import pytest
-import umap
 import copy
-
-import cupyx
-import scipy.sparse
-import cupy as cp
-
-from cuml.manifold.umap import UMAP as cuUMAP
+import joblib
+import umap
+from sklearn.metrics import adjusted_rand_score
+from sklearn.manifold import trustworthiness
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.neighbors import NearestNeighbors
+from sklearn import datasets
+from cuml.internals import logger
+from cuml.metrics import pairwise_distances
 from cuml.testing.utils import array_equal, unit_param, \
     quality_param, stress_param
-from sklearn.neighbors import NearestNeighbors
+from cuml.manifold.umap import UMAP as cuUMAP
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
+scipy_sparse = cpu_only_import('scipy.sparse')
 
-import joblib
-
-from cuml.common import logger
-
-from sklearn import datasets
-from sklearn.cluster import KMeans
-from sklearn.datasets import make_blobs
-from sklearn.manifold import trustworthiness
-from sklearn.metrics import adjusted_rand_score
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
@@ -159,10 +158,10 @@ def test_umap_transform_on_digits_sparse(target_metric, input_type,
     if input_type == 'cupy':
         sp_prefix = cupyx.scipy.sparse
     else:
-        sp_prefix = scipy.sparse
+        sp_prefix = scipy_sparse
 
     data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data[digits_selection]))
+        scipy_sparse.csr_matrix(digits.data[digits_selection]))
 
     fitter = cuUMAP(n_neighbors=15,
                     verbose=logger.level_info,
@@ -173,7 +172,7 @@ def test_umap_transform_on_digits_sparse(target_metric, input_type,
                     target_metric=target_metric)
 
     new_data = sp_prefix.csr_matrix(
-        scipy.sparse.csr_matrix(digits.data[~digits_selection]))
+        scipy_sparse.csr_matrix(digits.data[~digits_selection]))
 
     if xform_method == 'fit':
         fitter.fit(data, convert_dtype=True)
@@ -298,7 +297,7 @@ def test_umap_fit_transform_score_default(target_metric):
 
     cuml_score = adjusted_rand_score(labels,
                                      KMeans(10).fit_predict(
-                                        cuml_embedding))
+                                         cuml_embedding))
     score = adjusted_rand_score(labels,
                                 KMeans(10).fit_predict(embedding))
 
@@ -478,7 +477,7 @@ def test_exp_decay_params():
 
 
 @pytest.mark.parametrize('n_neighbors', [5, 15])
-def test_umap_knn_parameters(n_neighbors):
+def test_umap_knn_graph(n_neighbors):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0)
     data = data.astype(np.float32)
@@ -495,8 +494,7 @@ def test_umap_knn_parameters(n_neighbors):
                        init='random',
                        n_neighbors=n_neighbors)
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
-        return model.transform(data, knn_graph=knn_graph,
-                               convert_dtype=True)
+        return model.transform(data, convert_dtype=True)
 
     def test_trustworthiness(embedding):
         trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
@@ -531,6 +529,41 @@ def test_umap_knn_parameters(n_neighbors):
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)
     test_equality(embedding6, embedding7)
+
+
+@pytest.mark.parametrize('precomputed_type', ['knn_graph', 'tuple',
+                                              'pairwise'])
+@pytest.mark.parametrize('sparse_input', [False, True])
+def test_umap_precomputed_knn(precomputed_type, sparse_input):
+    data, labels = make_blobs(n_samples=2000, n_features=10,
+                              centers=5, random_state=0)
+    data = data.astype(np.float32)
+
+    if sparse_input:
+        sparsification = np.random.choice([0., 1.],
+                                          p=[0.1, 0.9],
+                                          size=data.shape)
+        data = np.multiply(data, sparsification)
+        data = scipy_sparse.csr_matrix(data)
+
+    n_neighbors = 8
+
+    if precomputed_type == 'knn_graph':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors_graph(data, mode="distance")
+    elif precomputed_type == 'tuple':
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        precomputed_knn = nn.kneighbors(data, return_distance=True)
+        precomputed_knn = (precomputed_knn[1], precomputed_knn[0])
+    elif precomputed_type == 'pairwise':
+        precomputed_knn = pairwise_distances(data)
+
+    model = cuUMAP(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
+    embedding = model.fit_transform(data)
+    trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
+    assert trust >= 0.92
 
 
 def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
@@ -605,12 +638,12 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
                               centers=5, random_state=42)
 
     data_selection = np.random.RandomState(42).choice(
-                       [True, False], 1000, replace=True, p=[0.75, 0.25])
+        [True, False], 1000, replace=True, p=[0.75, 0.25])
 
     if metric == 'jaccard':
         data = data >= 0
 
-    new_data = scipy.sparse.csr_matrix(data[~data_selection])
+    new_data = scipy_sparse.csr_matrix(data[~data_selection])
 
     umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
                            metric=metric, init='random')

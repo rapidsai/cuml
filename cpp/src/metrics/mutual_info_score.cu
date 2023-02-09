@@ -18,7 +18,8 @@
 #include <raft/core/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
-#include <raft/stats/mutual_info_score.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/stats/mutual_info_score.cuh>
 
 namespace ML {
 
