@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
@@ -31,6 +31,8 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
+NOTEBOOKS_EXITCODE=0
+trap "NOTEBOOKS_EXITCODE=1" ERR
 set +e
 
 rapids-logger "notebook tests cuml"
@@ -38,7 +40,6 @@ rapids-logger "notebook tests cuml"
 # Add notebooks that should be skipped here
 # (space-separated list of filenames without paths)
 SKIPNBS="cuml_benchmarks.ipynb"
-NOTEBOOKS_EXITCODE=0
 NBTEST="$(realpath "$(dirname "$0")/utils/nbtest.sh")"
 
 cd notebooks
@@ -56,9 +57,9 @@ for nb in $(find . -name "*.ipynb"); do
         echo "--------------------------------------------------------------------------------"
     else
         nvidia-smi
-         ${NBTEST} "${nbBasename}"
-        NOTEBOOKS_EXITCODE=$((NOTEBOOKS_EXITCODE | $?))
+        ${NBTEST} "${nbBasename}"
     fi
 done
 
+rapids-logger "Test script exiting with value: $NOTEBOOKS_EXITCODE"
 exit ${NOTEBOOKS_EXITCODE}
