@@ -94,8 +94,8 @@ class SparseCumlArray():
                    domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
-                 convert_to_mem_type=GlobalSettings().memory_type,
-                 convert_index=GlobalSettings().xpy.int32,
+                 convert_to_mem_type=None,
+                 convert_index=None,
                  convert_format=True):
         is_sparse = False
         try:
@@ -132,12 +132,16 @@ class SparseCumlArray():
 
         if convert_to_mem_type:
             convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
+        else:
+            convert_to_mem_type = GlobalSettings().memory_type
 
         if convert_to_mem_type is MemoryType.mirror or not convert_to_mem_type:
             convert_to_mem_type = from_mem_type
 
         self._mem_type = convert_to_mem_type
 
+        if convert_index is None:
+            convert_index = GlobalSettings().xpy.int32
         if not convert_index:
             convert_index = data.indptr.dtype
 
