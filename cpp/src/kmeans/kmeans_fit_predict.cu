@@ -37,9 +37,9 @@ namespace ML {
                          idx_t& n_iter)
         {
             auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
-            std::optional<raft::device_vector_view<const value_t>> sw = std::nullopt;
+            std::optional<raft::device_vector_view<const value_t, idx_t>> sw = std::nullopt;
             if (sample_weight != nullptr)
-                sw = std::make_optional(raft::make_device_vector_view<value_t, idx_t>>((sample_weight), n_samples));
+                sw = std::make_optional(raft::make_device_vector_view<const value_t, idx_t>(sample_weight, n_samples));
             auto centroids_opt =
                     std::make_optional(raft::make_device_matrix_view<value_t, idx_t>(centroids, params.n_clusters, n_features));
             auto rLabels      = raft::make_device_vector_view<idx_t, idx_t>(labels, n_samples);

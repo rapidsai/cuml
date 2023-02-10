@@ -119,7 +119,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           int64_t *labels,
                           float &inertia,
                           int64_t &n_iter) except +
-    
+
     cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const double *X,
@@ -130,7 +130,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                           int64_t *labels,
                           double &inertia,
                           int64_t &n_iter) except +
-    
+
     cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       const float *centroids,
@@ -141,7 +141,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       bool normalize_weights,
                       int64_t *labels,
                       float &inertia) except +
-    
+
     cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       double *centroids,
@@ -152,7 +152,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       bool normalize_weights,
                       int64_t *labels,
                       double &inertia) except +
-    
+
     cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const float *centroids,
@@ -160,7 +160,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                         int64_t n_samples,
                         int64_t n_features,
                         float *X_new) except +
-    
+
     cdef void transform(handle_t& handle,
                         KMeansParams& params,
                         const double *centroids,
