@@ -50,7 +50,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
-import rmm
 
 cimport cuml.common.cuda
 
