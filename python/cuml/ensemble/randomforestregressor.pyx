@@ -21,7 +21,6 @@ np = cpu_only_import('numpy')
 import nvtx
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
-import warnings
 
 import cuml.internals.logger as logger
 
@@ -189,7 +188,10 @@ class RandomForestRegressor(BaseRandomForestModel,
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
     n_streams : int (default = 4 )
-        Number of parallel streams used for forest building
+        Number of parallel streams used for forest building. For almost
+        reproducible results in Random Forest Regressor, n_streams=1 is 
+        recommended. If n_streams is > 1, results may vary due to stream/thread timing 
+        differences, even when random_state is set.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
          * If type ``int``, then ``min_samples_leaf`` represents the minimum
