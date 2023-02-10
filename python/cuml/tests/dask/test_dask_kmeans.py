@@ -85,9 +85,40 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
     score = adjusted_rand_score(labels, cumlPred)
 
-    print(str(score))
-
     assert 1.0 == score
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows_per_part", [unit_param(10e6)])
+@pytest.mark.parametrize("ncols", [256])
+@pytest.mark.parametrize("nclusters", [5])
+def test_large_data_no_overflow(nrows_per_part, ncols, nclusters, client):
+
+    from cuml.dask.cluster import KMeans as cumlKMeans
+    from cuml.dask.datasets import make_blobs
+
+    n_parts = len(list(client.has_what().keys()))
+
+    X, y = make_blobs(n_samples=nrows_per_part * n_parts,
+                      n_features=ncols,
+                      centers=nclusters,
+                      n_parts=n_parts,
+                      cluster_std=0.01,
+                      random_state=10)
+
+    X_train, y_train = X, y
+
+    cumlModel = cumlKMeans(init="k-means||",
+                           n_clusters=nclusters,
+                           random_state=10)
+
+    cumlModel.fit(X_train)
+    cumlLabels = cumlModel.predict(X_train, delayed=False)
+
+    cumlPred = cumlLabels.compute().values
+    labels = y_train.compute().values
+
+    assert 1.0 == adjusted_rand_score(labels, cumlPred)
 
 
 @pytest.mark.mg
