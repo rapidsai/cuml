@@ -61,6 +61,25 @@ cdef extern from "cuml/cluster/kmeans_mg.hpp" \
                   double &inertia,
                   int &n_iter) except +
 
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const float *X,
+                  int64_t n_samples,
+                  int64_t n_features,
+                  const float *sample_weight,
+                  float *centroids,
+                  float &inertia,
+                  int64_t &n_iter) except +
+
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const double *X,
+                  int64_t n_samples,
+                  int64_t n_features,
+                  const double *sample_weight,
+                  double *centroids,
+                  double &inertia,
+                  int64_t &n_iter) except +                  
 
 class KMeansMG(KMeans):
 
@@ -99,8 +118,8 @@ class KMeansMG(KMeans):
             input_to_cuml_array(X, order='C')
 
         cdef uintptr_t input_ptr = X_m.ptr
-        cdef size_t n_rows = self.n_rows
-        cdef size_t n_cols = self.n_cols
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
@@ -121,6 +140,8 @@ class KMeansMG(KMeans):
                                                     order='C')
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
+
+        int_dtype = np.int32 if n_rows * n_cols < 2**31-1 else np.int64
 
         cdef float inertiaf = 0
         cdef double inertiad = 0
