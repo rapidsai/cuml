@@ -93,7 +93,7 @@ endfunction()
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
                         FORK             vyasr
-			PINNED_TAG       fix/remove_extern_template
+			PINNED_TAG       fix/remove_extern_templates
                         EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
