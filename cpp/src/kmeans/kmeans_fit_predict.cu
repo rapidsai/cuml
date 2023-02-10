@@ -39,12 +39,12 @@ namespace ML {
             auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
             std::optional<raft::device_vector_view<const value_t>> sw = std::nullopt;
             if (sample_weight != nullptr)
-                sw = std::make_optional(raft::make_device_vector_view((sample_weight), n_samples));
+                sw = std::make_optional(raft::make_device_vector_view<value_t, idx_t>>((sample_weight), n_samples));
             auto centroids_opt =
-                    std::make_optional(raft::make_device_matrix_view(centroids, params.n_clusters, n_features));
-            auto rLabels      = raft::make_device_vector_view(labels, n_samples);
-            auto inertia_view = raft::make_host_scalar_view(&inertia);
-            auto n_iter_view  = raft::make_host_scalar_view(&n_iter);
+                    std::make_optional(raft::make_device_matrix_view<value_t, idx_t>(centroids, params.n_clusters, n_features));
+            auto rLabels      = raft::make_device_vector_view<idx_t, idx_t>(labels, n_samples);
+            auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
+            auto n_iter_view  = raft::make_host_scalar_view<idx_t>(&n_iter);
 
             raft::cluster::kmeans_fit_predict<value_t, idx_t>(
                     handle, params, X_view, sw, centroids_opt, rLabels, inertia_view, n_iter_view);
