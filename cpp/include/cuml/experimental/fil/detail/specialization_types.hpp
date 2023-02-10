@@ -24,6 +24,8 @@ struct specialization_types {
     large_trees, std::uint32_t, std::uint16_t
   >;
   auto static constexpr const layout = layout_v;
+  auto static constexpr const is_double_precision = double_precision;
+  auto static constexpr const has_large_trees = large_trees;
 };
 
 using specialization_variant = std::variant<

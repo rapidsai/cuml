@@ -613,7 +613,8 @@ struct treelite_importer {
       num_feature,
       num_categorical_nodes,
       max_num_categories,
-      num_leaf_vector_nodes
+      num_leaf_vector_nodes,
+      layout
     );
     auto num_class = get_num_class(tl_model);
     return forest_model{import_to_specific_variant<index_type{}>(
