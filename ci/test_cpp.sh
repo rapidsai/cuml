@@ -37,9 +37,6 @@ set +e
 
 # Run libcuml gtests from libcuml-tests package
 rapids-logger "Run gtests"
-
-# TODO: exit code handling is too verbose. Find a cleaner solution.
-
 for gt in "$CONDA_PREFIX"/bin/gtests/libcuml/* ; do
     test_name=$(basename ${gt})
     echo "Running gtest $test_name"
