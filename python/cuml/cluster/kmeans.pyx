@@ -29,11 +29,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.cluster.cpp.kmeans import fit_predict as cpp_fit_predict
-from cuml.cluster.cpp.kmeans import predict as cpp_predice
-from cuml.cluster.cpp.kmeans import transform as cpp_transform
-from cuml.cluster.cpp.kmeans import KMeansParams
-from cuml.cluster.cpp.kmeans import InitMethod
+from cuml.cluster.cpp.kmeans cimport fit_predict as cpp_fit_predict
+from cuml.cluster.cpp.kmeans cimport predict as cpp_predict
+from cuml.cluster.cpp.kmeans cimport transform as cpp_transform
+from cuml.cluster.cpp.kmeans cimport KMeansParams
+from cuml.cluster.cpp.kmeans cimport InitMethod
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -314,7 +314,7 @@ class KMeans(Base,
                     <const float *>sample_weight_ptr,
                     <float*> cluster_centers_ptr,
                     <int*> labels_ptr,
-                    <float>inertiaf,
+                    inertiaf,
                     n_iter_int)
                 self.n_iter_ = n_iter_int
             else:
@@ -327,7 +327,7 @@ class KMeans(Base,
                     <const float *>sample_weight_ptr,
                     <float*> cluster_centers_ptr,
                     <int64_t*> labels_ptr,
-                    <float>inertiaf,
+                    inertiaf,
                     n_iter_int64)
                 self.n_iter_ = n_iter_int64
             self.handle.sync()
@@ -344,7 +344,7 @@ class KMeans(Base,
                     <const double *>sample_weight_ptr,
                     <double*> cluster_centers_ptr,
                     <int*> labels_ptr,
-                    <double>inertiad,
+                    inertiad,
                     n_iter_int)
                 self.n_iter_ = n_iter_int
 
@@ -358,12 +358,11 @@ class KMeans(Base,
                      <const double *>sample_weight_ptr,
                      <double*> cluster_centers_ptr,
                      <int64_t*> labels_ptr,
-                     <double>inertiad,
+                     inertiad,
                      n_iter_int64)
                 self.n_iter_ = n_iter_int64
             self.handle.sync()
             self.inertia_ = inertiad
-            self.n_iter_ = n_iter
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
                             'but input type ' + str(self.dtype) +
@@ -451,7 +450,7 @@ class KMeans(Base,
         cdef float inertiaf = 0
         cdef double inertiad = 0
         cdef KMeansParams* params = \
-            <KMeansParams*><int>self._get_kmeans_params()
+            <KMeansParams*><size_t>self._get_kmeans_params()
 
         cur_int_dtype = self.labels_.dtype
 

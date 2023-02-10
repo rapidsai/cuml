@@ -21,90 +21,127 @@
 #include <raft/cluster/kmeans_types.hpp>
 
 namespace ML {
-    namespace kmeans {
-
+namespace kmeans {
 
 // ----------------------------- predict ---------------------------------//
 
-        template<typename value_t, typename idx_t>
-        void predict_impl(const raft::handle_t& handle,
-                     const raft::cluster::KMeansParams& params,
-                     const value_t* centroids,
-                     const value_t* X,
-                     idx_t n_samples,
-                     idx_t n_features,
-                     const value_t* sample_weight,
-                     bool normalize_weights,
-                     idx_t* labels,
-                     value_t& inertia)
-        {
-            auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
-            std::optional<raft::device_vector_view<const value_t>> sw = std::nullopt;
-            if (sample_weight != nullptr)
-                sw = std::make_optional(raft::make_device_vector_view<const value_t, idx_t>(sample_weight, n_samples));
-            auto centroids_view = raft::make_device_matrix_view<const value_t, idx_t>(centroids, params.n_clusters, n_features);
-            auto rLabels        = raft::make_device_vector_view<idx_t, idx_t>(labels, n_samples);
-            auto inertia_view   = raft::make_host_scalar_view<value_t>(&inertia);
+template <typename value_t, typename idx_t>
+void predict_impl(const raft::handle_t& handle,
+                  const raft::cluster::KMeansParams& params,
+                  const value_t* centroids,
+                  const value_t* X,
+                  idx_t n_samples,
+                  idx_t n_features,
+                  const value_t* sample_weight,
+                  bool normalize_weights,
+                  idx_t* labels,
+                  value_t& inertia)
+{
+  auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
+  std::optional<raft::device_vector_view<const value_t>> sw = std::nullopt;
+  if (sample_weight != nullptr)
+    sw = std::make_optional(
+      raft::make_device_vector_view<const value_t, idx_t>(sample_weight, n_samples));
+  auto centroids_view =
+    raft::make_device_matrix_view<const value_t, idx_t>(centroids, params.n_clusters, n_features);
+  auto rLabels      = raft::make_device_vector_view<idx_t, idx_t>(labels, n_samples);
+  auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
 
-            raft::cluster::kmeans_predict<value_t, idx_t>(
-                    handle, params, X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
-        }
+  raft::cluster::kmeans_predict<value_t, idx_t>(
+    handle, params, X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
+}
 
-        void predict(const raft::handle_t& handle,
-                     const raft::cluster::KMeansParams& params,
-                     const float* centroids,
-                     const float* X,
-                     int n_samples,
-                     int n_features,
-                     const float* sample_weight,
-                     bool normalize_weights,
-                     int* labels,
-                     float& inertia)
-        {
-            predict_impl(handle, params, centroids, X, n_samples, n_features, sample_weight, normalize_weights, labels, inertia);
-        }
+void predict(const raft::handle_t& handle,
+             const raft::cluster::KMeansParams& params,
+             const float* centroids,
+             const float* X,
+             int n_samples,
+             int n_features,
+             const float* sample_weight,
+             bool normalize_weights,
+             int* labels,
+             float& inertia)
+{
+  predict_impl(handle,
+               params,
+               centroids,
+               X,
+               n_samples,
+               n_features,
+               sample_weight,
+               normalize_weights,
+               labels,
+               inertia);
+}
 
-        void predict(const raft::handle_t& handle,
-                     const raft::cluster::KMeansParams& params,
-                     const double* centroids,
-                     const double* X,
-                     int n_samples,
-                     int n_features,
-                     const double* sample_weight,
-                     bool normalize_weights,
-                     int* labels,
-                     double& inertia)
-        {
-            predict_impl(handle, params, centroids, X, n_samples, n_features, sample_weight, normalize_weights, labels, inertia);
-        }
+void predict(const raft::handle_t& handle,
+             const raft::cluster::KMeansParams& params,
+             const double* centroids,
+             const double* X,
+             int n_samples,
+             int n_features,
+             const double* sample_weight,
+             bool normalize_weights,
+             int* labels,
+             double& inertia)
+{
+  predict_impl(handle,
+               params,
+               centroids,
+               X,
+               n_samples,
+               n_features,
+               sample_weight,
+               normalize_weights,
+               labels,
+               inertia);
+}
 
-        void predict(const raft::handle_t& handle,
-                     const raft::cluster::KMeansParams& params,
-                     const float* centroids,
-                     const float* X,
-                     int64_t n_samples,
-                     int64_t n_features,
-                     const float* sample_weight,
-                     bool normalize_weights,
-                     int64_t* labels,
-                     float& inertia)
-        {
-            predict_impl(handle, params, centroids, X, n_samples, n_features, sample_weight, normalize_weights, labels, inertia);
-        }
+void predict(const raft::handle_t& handle,
+             const raft::cluster::KMeansParams& params,
+             const float* centroids,
+             const float* X,
+             int64_t n_samples,
+             int64_t n_features,
+             const float* sample_weight,
+             bool normalize_weights,
+             int64_t* labels,
+             float& inertia)
+{
+  predict_impl(handle,
+               params,
+               centroids,
+               X,
+               n_samples,
+               n_features,
+               sample_weight,
+               normalize_weights,
+               labels,
+               inertia);
+}
 
-        void predict(const raft::handle_t& handle,
-                     const raft::cluster::KMeansParams& params,
-                     const double* centroids,
-                     const double* X,
-                     int64_t n_samples,
-                     int64_t n_features,
-                     const double* sample_weight,
-                     bool normalize_weights,
-                     int64_t* labels,
-                     double& inertia)
-        {
-            predict_impl(handle, params, centroids, X, n_samples, n_features, sample_weight, normalize_weights, labels, inertia);
-        }
+void predict(const raft::handle_t& handle,
+             const raft::cluster::KMeansParams& params,
+             const double* centroids,
+             const double* X,
+             int64_t n_samples,
+             int64_t n_features,
+             const double* sample_weight,
+             bool normalize_weights,
+             int64_t* labels,
+             double& inertia)
+{
+  predict_impl(handle,
+               params,
+               centroids,
+               X,
+               n_samples,
+               n_features,
+               sample_weight,
+               normalize_weights,
+               labels,
+               inertia);
+}
 
-    };  // end namespace kmeans
+};  // end namespace kmeans
 };  // end namespace ML

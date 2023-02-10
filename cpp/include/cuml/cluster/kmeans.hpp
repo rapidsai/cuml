@@ -96,8 +96,6 @@ void fit_predict(const raft::handle_t& handle,
                  double& inertia,
                  int64_t& n_iter);
 
-
-
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
  *

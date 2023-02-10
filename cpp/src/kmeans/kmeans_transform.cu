@@ -24,22 +24,22 @@ namespace ML {
 namespace kmeans {
 
 // ----------------------------- transform ---------------------------------//
-template<typename value_t, typename idx_t>
+template <typename value_t, typename idx_t>
 void transform_impl(const raft::handle_t& handle,
-               const raft::cluster::KMeansParams& params,
-               const value_t* centroids,
-               const value_t* X,
-               idx_t n_samples,
-               idx_t n_features,
-               value_t* X_new)
+                    const raft::cluster::KMeansParams& params,
+                    const value_t* centroids,
+                    const value_t* X,
+                    idx_t n_samples,
+                    idx_t n_features,
+                    value_t* X_new)
 {
-    auto X_view         = raft::make_device_matrix_view<const value_t, idx_t>(X, n_samples, n_features);
-    auto centroids_view = raft::make_device_matrix_view<const value_t, idx_t>(centroids, params.n_clusters, n_features);
-    auto rX_new         = raft::make_device_matrix_view<value_t, idx_t>(X_new, n_samples, n_features);
+  auto X_view = raft::make_device_matrix_view<const value_t, idx_t>(X, n_samples, n_features);
+  auto centroids_view =
+    raft::make_device_matrix_view<const value_t, idx_t>(centroids, params.n_clusters, n_features);
+  auto rX_new = raft::make_device_matrix_view<value_t, idx_t>(X_new, n_samples, n_features);
 
-    raft::cluster::kmeans::transform<value_t, idx_t>(handle, params, X_view, centroids_view, rX_new);
+  raft::cluster::kmeans::transform<value_t, idx_t>(handle, params, X_view, centroids_view, rX_new);
 }
-
 
 void transform(const raft::handle_t& handle,
                const raft::cluster::KMeansParams& params,
@@ -49,8 +49,7 @@ void transform(const raft::handle_t& handle,
                int n_features,
                float* X_new)
 {
-
-    transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
+  transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
 }
 
 void transform(const raft::handle_t& handle,
@@ -61,33 +60,30 @@ void transform(const raft::handle_t& handle,
                int n_features,
                double* X_new)
 {
-    transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
+  transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
 }
 
+void transform(const raft::handle_t& handle,
+               const raft::cluster::KMeansParams& params,
+               const float* centroids,
+               const float* X,
+               int64_t n_samples,
+               int64_t n_features,
+               float* X_new)
+{
+  transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
+}
 
-    void transform(const raft::handle_t& handle,
-                   const raft::cluster::KMeansParams& params,
-                   const float* centroids,
-                   const float* X,
-                   int64_t n_samples,
-                   int64_t n_features,
-                   float* X_new)
-    {
-
-        transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
-    }
-
-    void transform(const raft::handle_t& handle,
-                   const raft::cluster::KMeansParams& params,
-                   const double* centroids,
-                   const double* X,
-                   int64_t n_samples,
-                   int64_t n_features,
-                   double* X_new)
-    {
-        transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
-    }
-
+void transform(const raft::handle_t& handle,
+               const raft::cluster::KMeansParams& params,
+               const double* centroids,
+               const double* X,
+               int64_t n_samples,
+               int64_t n_features,
+               double* X_new)
+{
+  transform_impl(handle, params, centroids, X, n_samples, n_features, X_new);
+}
 
 };  // end namespace kmeans
 };  // end namespace ML
