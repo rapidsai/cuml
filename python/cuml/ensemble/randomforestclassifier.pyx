@@ -21,7 +21,6 @@ np = cpu_only_import('numpy')
 import nvtx
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
-import warnings
 
 import cuml.internals.logger as logger
 
