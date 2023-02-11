@@ -18,8 +18,8 @@ dependencies:
 - dask-cuda=23.04.*
 - dask-cudf=23.04.*
 - dask-ml
-- dask==2023.1.1
-- distributed==2023.1.1
+- dask>=2023.1.1
+- distributed>=2023.1.1
 - doxygen=1.8.20
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
