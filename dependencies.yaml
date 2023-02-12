@@ -109,8 +109,8 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - dask==2023.1.1
-          - distributed==2023.1.1
+          - dask>=2023.1.1
+          - distributed>=2023.1.1
           - joblib>=0.11
       - output_types: conda
         packages:
