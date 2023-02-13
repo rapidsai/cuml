@@ -41,9 +41,8 @@ conda list --show-channel-urls
 
 # Build Doxygen docs
 gpuci_logger "Build Doxygen docs"
-pushd cpp
+cd "$PROJECT_WORKSPACE/cpp"
 doxygen Doxyfile.in
-popd
 
 # Build Python docs
 gpuci_logger "Build Sphinx docs"
