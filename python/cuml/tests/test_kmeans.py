@@ -319,6 +319,7 @@ def test_score(nrows, ncols, nclusters, random_state):
         sq_euc_dist = cp.sum(cp.square((x - y)))
         expected_score += sq_euc_dist
 
+
     expected_score *= -1
 
     cp.testing.assert_allclose(

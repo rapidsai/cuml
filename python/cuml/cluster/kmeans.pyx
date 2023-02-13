@@ -282,7 +282,7 @@ class KMeans(Base,
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        int_dtype = np.int32 if n_rows * self.n_cols < 2**31-1 else np.int64
+        int_dtype = np.int32 if np.int64(n_rows) * np.int64(self.n_cols) < 2**31-1 else np.int64
 
         self.labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype)
         cdef uintptr_t labels_ptr = self.labels_.ptr
@@ -439,12 +439,12 @@ class KMeans(Base,
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-        int_dtype = np.int32 if n_rows * n_cols < 2**31-1 else np.int64
+        int_dtype = np.int32 if np.int64(n_rows) * np.int64(n_cols) < 2**31-1 else np.int64
 
         labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype,
                                   index=X_m.index)
 
-        cdef uintptr_t labels_ptr = self.labels_.ptr
+        cdef uintptr_t labels_ptr = labels_.ptr
 
         # Sum of squared distances of samples to their closest cluster center.
         cdef float inertiaf = 0
@@ -452,7 +452,7 @@ class KMeans(Base,
         cdef KMeansParams* params = \
             <KMeansParams*><size_t>self._get_kmeans_params()
 
-        cur_int_dtype = self.labels_.dtype
+        cur_int_dtype = labels_.dtype
 
         if self.dtype == np.float32:
             if int_dtype == np.int32:

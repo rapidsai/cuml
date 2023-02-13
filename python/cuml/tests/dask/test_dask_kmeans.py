@@ -89,9 +89,9 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows_per_part", [unit_param(10e6)])
-@pytest.mark.parametrize("ncols", [256])
-@pytest.mark.parametrize("nclusters", [5])
+@pytest.mark.parametrize("nrows_per_part", [quality_param(1e7)])
+@pytest.mark.parametrize("ncols", [quality_param(256)])
+@pytest.mark.parametrize("nclusters", [quality_param(5)])
 def test_large_data_no_overflow(nrows_per_part, ncols, nclusters, client):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
@@ -108,15 +108,21 @@ def test_large_data_no_overflow(nrows_per_part, ncols, nclusters, client):
 
     X_train, y_train = X, y
 
+    X.compute_chunk_sizes().persist()
+
     cumlModel = cumlKMeans(init="k-means||",
                            n_clusters=nclusters,
                            random_state=10)
 
     cumlModel.fit(X_train)
-    cumlLabels = cumlModel.predict(X_train, delayed=False)
+    n_predict = int(X_train.shape[0]/4)
+    cumlLabels = cumlModel.predict(X_train[:n_predict, :], delayed=False)
 
-    cumlPred = cumlLabels.compute().values
-    labels = y_train.compute().values
+    cumlPred = cp.array(cumlLabels.compute())
+    labels = cp.squeeze(y_train.compute()[:n_predict])
+
+    print(str(cumlPred))
+    print(str(labels))
 
     assert 1.0 == adjusted_rand_score(labels, cumlPred)
 

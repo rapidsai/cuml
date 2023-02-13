@@ -141,7 +141,15 @@ class KMeansMG(KMeans):
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-        int_dtype = np.int32 if n_rows * n_cols < 2**31-1 else np.int64
+
+        int_dtype = np.int32 if np.int64(n_rows) * np.int64(n_cols) < 2**31-1 else np.int64
+
+        print(str(n_rows * n_cols))
+
+        labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype,
+                                  index=X_m.index)
+
+        cdef uintptr_t labels_ptr = labels_.ptr
 
         cdef float inertiaf = 0
         cdef double inertiad = 0
@@ -215,6 +223,10 @@ class KMeansMG(KMeans):
                             ' passed.')
 
         self.handle.sync()
+
+        self.labels_, _, _, _ =  input_to_cuml_array(self.predict(X,
+                                                     sample_weight=sample_weight), order='C',
+                                                     convert_to_dtype=self.dtype)
 
         del(X_m)
         free(params)
