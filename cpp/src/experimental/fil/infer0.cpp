@@ -5,7 +5,7 @@ namespace experimental {
 namespace fil {
 namespace detail {
 namespace inference {
-HERRING_INFER_ALL(template, kayak::device_type::cpu, 0)
+CUML_FIL_INFER_ALL(template, kayak::device_type::cpu, 0)
 }
 }
 }

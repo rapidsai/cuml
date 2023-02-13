@@ -7,10 +7,10 @@ namespace experimental {
 namespace fil {
 namespace detail {
 namespace inference {
-HERRING_INFER_ALL(template, kayak::device_type::gpu, 7)
+CUML_FIL_INFER_ALL(template, kayak::device_type::gpu, 7)
 }
 namespace device_initialization {
-HERRING_INITIALIZE_DEVICE(template, 7)
+CUML_FIL_INITIALIZE_DEVICE(template, 7)
 }
 }
 }

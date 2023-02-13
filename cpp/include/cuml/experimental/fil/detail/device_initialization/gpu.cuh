@@ -324,14 +324,14 @@ std::enable_if_t<kayak::GPU_ENABLED && D==kayak::device_type::gpu, void> initial
   );
 }
 
-HERRING_INITIALIZE_DEVICE(extern template, 0)
-HERRING_INITIALIZE_DEVICE(extern template, 1)
-HERRING_INITIALIZE_DEVICE(extern template, 2)
-HERRING_INITIALIZE_DEVICE(extern template, 3)
-HERRING_INITIALIZE_DEVICE(extern template, 4)
-HERRING_INITIALIZE_DEVICE(extern template, 5)
-HERRING_INITIALIZE_DEVICE(extern template, 6)
-HERRING_INITIALIZE_DEVICE(extern template, 7)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 0)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 1)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 2)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 3)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 4)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 5)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 6)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 7)
 
 }
 }

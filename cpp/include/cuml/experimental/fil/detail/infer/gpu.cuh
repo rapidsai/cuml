@@ -318,14 +318,14 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
  * compiled as few times as possible. A macro is used because ever
  * specialization must be explicitly declared. The final argument to the macro
  * references the 8 specialization variants compiled in standard cuML FIL. */
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 0)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 1)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 2)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 3)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 4)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 5)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 6)
-HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 7)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 0)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 1)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 2)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 3)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 4)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 5)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 6)
+CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 7)
 
 }
 }
