@@ -14,6 +14,43 @@ namespace experimental {
 namespace fil {
 namespace detail {
 
+/**
+ * The GPU kernel used to actually perform forest inference
+ *
+ * @tparam has_categorical_nodes Whether or not this kernel should be
+ * compiled to operate on trees with categorical nodes.
+ * @tparam chunk_size The number of rows to be simultaneously processed
+ * in each iteration of inference within a single block. This is a
+ * performance tuning parameter, and having it fixed at compile-time offers a
+ * measurable performance benefit. In standard cuML FIL, we compile for all
+ * powers of 2 from 1 to 32. A power of 2 is not guaranteed to optimize
+ * performance for all batch sizes and models, but it is far more likely to
+ * than other values.
+ * @tparam forest_t The type of the forest object which will be used for
+ * inference.
+ * @tparam vector_output_t If non-nullptr_t, this indicates the type we expect
+ * for outputs from vector leaves.
+ * @tparam categorical_data_t If non-nullptr_t, this indicates the type we
+ * expect for non-local categorical data storage.
+ * @param forest The forest used to perform inference
+ * @param postproc The postprocessor object used to store all necessary
+ * data for postprocessing
+ * @param output Pointer to the device-accessible buffer where output
+ * should be written
+ * @param input Pointer to the device-accessible buffer where input should be
+ * read from
+ * @param row_count The number of rows in the input
+ * @param col_count The number of columns per row in the input
+ * @param num_outputs The expected number of output elements per row
+ * @param shared_mem_byte_size The number of bytes of shared memory allocated
+ * to this kernel.
+ * @param output_workspace_size The total number of temporary elements required
+ * to be stored as an intermediate output during inference
+ * @param vector_output_p If non-nullptr, a pointer to the stored leaf
+ * vector outputs for all leaf nodes
+ * @param categorical_data If non-nullptr, a pointer to where non-local
+ * data on categorical splits are stored.
+ */
 template<
   bool has_categorical_nodes,
   index_type chunk_size,

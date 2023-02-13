@@ -11,6 +11,9 @@ namespace fil {
 
 namespace detail {
 
+/*
+ * Return the byte size to which a node with the given types should be aligned
+ */
 template<typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 auto constexpr get_node_alignment() {
   auto total = index_type(
@@ -42,7 +45,7 @@ auto constexpr get_node_alignment() {
 
 }
 
-/** @brief A single node in a forest model
+/* @brief A single node in a forest model
  *
  * Note that this implementation includes NO error checking for poorly-chosen
  * template types. If the types are not large enough to hold the required data,
@@ -82,13 +85,13 @@ template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, t
 struct alignas(
   detail::get_node_alignment<threshold_t, index_t, metadata_storage_t, offset_t>()
 ) node {
-  /// @brief An alias for layout_v
+  // @brief An alias for layout_v
   auto constexpr static const layout = layout_v;
-  /// @brief An alias for threshold_t
+  // @brief An alias for threshold_t
   using threshold_type = threshold_t;
-  /// @brief An alias for index_t
+  // @brief An alias for index_t
   using index_type = index_t;
-  /** @brief A union to hold either a threshold value or index
+  /* @brief A union to hold either a threshold value or index
    *
    * All nodes will need EITHER a threshold value, an output value, OR an index
    * to data elsewhere that wil be used either for evaluating the node (e.g. an
@@ -142,23 +145,23 @@ struct alignas(
     }} {}
 #pragma GCC diagnostic pop
 
-  /** The index of the feature for this node */
+  /* The index of the feature for this node */
   HOST DEVICE auto constexpr feature_index() const {
     return aligned_data.inner_data.metadata & FEATURE_MASK;
   }
-  /** Whether or not this node is a leaf node */
+  /* Whether or not this node is a leaf node */
   HOST DEVICE auto constexpr is_leaf() const {
     return !bool(aligned_data.inner_data.distant_offset);
   }
-  /** Whether or not to default to distant child in case of missing values */
+  /* Whether or not to default to distant child in case of missing values */
   HOST DEVICE auto constexpr default_distant() const {
     return bool(aligned_data.inner_data.metadata & DEFAULT_DISTANT_MASK);
   }
-  /** Whether or not this node is a categorical node */
+  /* Whether or not this node is a categorical node */
   HOST DEVICE auto constexpr is_categorical() const {
     return bool(aligned_data.inner_data.metadata & CATEGORICAL_MASK);
   }
-  /** The offset to the child of this node if it evaluates to given condition */
+  /* The offset to the child of this node if it evaluates to given condition */
   HOST DEVICE auto constexpr child_offset(bool condition) const {
     if constexpr (layout == kayak::tree_layout::depth_first) {
       return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
@@ -168,16 +171,16 @@ struct alignas(
       static_assert(layout == kayak::tree_layout::depth_first);
     }
   }
-  /** The threshold value for this node */
+  /* The threshold value for this node */
   HOST DEVICE auto constexpr threshold() const {
     return aligned_data.inner_data.stored_value.value;
   }
 
-  /** The index value for this node */
+  /* The index value for this node */
   HOST DEVICE auto const& index() const {
     return aligned_data.inner_data.stored_value.index;
   }
-  /** The output value for this node
+  /* The output value for this node
    *
    * @tparam output_t The expected output type for this node.
    */

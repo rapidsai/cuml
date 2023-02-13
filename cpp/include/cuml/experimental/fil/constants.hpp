@@ -20,11 +20,7 @@ namespace ML {
 namespace experimental {
 namespace fil {
   /**
-   * The default memory layout for FIL trees
-   *
-   * libcuml contains template instantiations only for inference on trees in
-   * this layout, but other applications can compile FIL functions and
-   * methods for other layouts if desired.
+   * The default memory layout for FIL trees if not otherwise specified
    */
   auto constexpr static const preferred_tree_layout = kayak::tree_layout::breadth_first;
   /**

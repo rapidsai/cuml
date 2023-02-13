@@ -13,6 +13,7 @@ namespace fil {
 namespace detail {
 namespace inference {
 
+/* The CUDA-free header declaration of the GPU infer template */
 template<
   kayak::device_type D,
   bool has_categorical_nodes,

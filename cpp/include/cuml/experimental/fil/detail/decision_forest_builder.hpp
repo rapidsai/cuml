@@ -21,6 +21,9 @@ namespace experimental {
 namespace fil {
 namespace detail {
 
+/*
+ * Exception indicating that FIL model could not be built from given input
+ */
 struct model_builder_error : std::exception {
   model_builder_error() : model_builder_error("Error while building model") {}
   model_builder_error(char const* msg) : msg_{msg} {}
@@ -30,11 +33,16 @@ struct model_builder_error : std::exception {
   char const* msg_;
 };
 
+/*
+ * Struct used to build FIL forests
+ */
 template<typename decision_forest_t>
 struct decision_forest_builder {
 
+  /* The type for nodes in the given decision_forest type */
   using node_type = typename decision_forest_t::node_type;
 
+  /* Add a root node, indicating the beginning of a new tree */
   void start_new_tree() {
     if (root_node_indexes_.size() == index_type{}) {
       root_node_indexes_.emplace_back();
@@ -55,6 +63,7 @@ struct decision_forest_builder {
     }
   }
 
+  /* Add a node with a categorical split */
   template<typename iter_t>
   void add_categorical_node(
     iter_t vec_begin,
@@ -95,6 +104,7 @@ struct decision_forest_builder {
     );
   }
 
+  /* Add a leaf node with vector output */
   template<typename iter_t>
   void add_leaf_vector_node(
     iter_t vec_begin,
@@ -113,6 +123,7 @@ struct decision_forest_builder {
     ++cur_tree_size_;
   }
 
+  /* Add a node to the model */
   template<typename value_t>
   void add_node(
     value_t val,
@@ -129,11 +140,18 @@ struct decision_forest_builder {
     ++cur_tree_size_;
   }
 
+  /* Set the element-wise postprocessing operation for this model */
   void set_element_postproc(element_op val) { element_postproc_ = val; }
+  /* Set the row-wise postprocessing operation for this model */
   void set_row_postproc(row_op val) { row_postproc_ = val; }
+  /* Set the value to divide by during postprocessing */
   void set_average_factor(double val) { average_factor_ = val; }
+  /* Set the the bias term to remove during postprocessing */
   void set_bias(double val) { bias_ = val; }
+  /* Set the the value of the constant used in the postprocessing operation
+   * (if any) */
   void set_postproc_constant(double val) { postproc_constant_ = val; }
+  /* Set the number of outputs per row for this model */
   void set_output_size(index_type val) {
     if (output_size_ != index_type{1} && output_size_ != val) {
       throw model_import_error("Inconsistent leaf vector size");
@@ -160,6 +178,7 @@ struct decision_forest_builder {
     vector_output_{} {
   }
 
+  /* Return the FIL decision forest built by this builder */
   auto get_decision_forest(
       index_type num_feature,
       index_type num_class,

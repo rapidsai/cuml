@@ -33,6 +33,38 @@ inline auto compute_output_size(
   ) * rows_per_block_iteration;
 }
 
+/* A wrapper around the underlying inference kernels to support dispatching to
+ * the right kernel
+ *
+ * This specialization is used for GPU inference. It performs any necessary
+ * computation necessary prior to kernel launch and then launches the correct
+ * inference kernel.
+ *
+ * @tparam D The type of device (CPU/GPU) on which to perform inference.
+ * @tparam has_categorical_nodes Whether or not any node in the model has
+ * categorical splits.
+ * @tparam vector_output_t If non-nullptr_t, the type of vector leaf output
+ * @tparam categorical_data_t If non-nullptr_t, the type of non-local
+ * categorical data storage
+ *
+ * @param forest The forest to be used for inference.
+ * @param postproc The postprocessor object to be used for postprocessing raw
+ * output from the forest.
+ * @param row_count The number of rows in the input
+ * @param col_count The number of columns per row in the input
+ * @param output_count The number of output elements per row
+ * @param vector_output If non-nullptr, a pointer to storage for vector leaf
+ * outputs
+ * @param categorical_data If non-nullptr, a pointer to non-local storage for
+ * data on categorical splits.
+ * @param specified_chunk_size If non-nullopt, the mini-batch size used for
+ * processing rows in a batch. For GPU inference, this determines the number of
+ * rows that are processed per iteration of inference in a single block. It
+ * is difficult to predict the optimal value for this parameter, but tuning it
+ * can result in a substantial improvement in performance. The optimal
+ * value depends on hardware, model, and batch size. Valid values are any power
+ * of 2 from 1 to 32.
+ */
 template<
   kayak::device_type D,
   bool has_categorical_nodes,
@@ -55,7 +87,6 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   kayak::cuda_stream stream=kayak::cuda_stream{}
 ) {
 
-  // std::cout << "Trees: " << forest.tree_count() << ", Rows: " << row_count << "\n";
   auto sm_count = get_sm_count(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
   auto max_shared_mem_per_sm = get_max_shared_mem_per_sm(device);
@@ -282,6 +313,11 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   kayak::cuda_check(cudaGetLastError());
 }
 
+/* This macro is invoked here to declare all standard specializations of this
+ * template as extern. This ensures that this (relatively complex) code is
+ * compiled as few times as possible. A macro is used because ever
+ * specialization must be explicitly declared. The final argument to the macro
+ * references the 8 specialization variants compiled in standard cuML FIL. */
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 0)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 1)
 HERRING_INFER_ALL(extern template, kayak::device_type::gpu, 2)

@@ -8,10 +8,20 @@ namespace ML {
 namespace experimental {
 namespace fil {
 
+/* A struct used to simplify complex access to a buffer of shared memory
+ *
+ * @param buffer A pointer to the shared memory allocation
+ * @param size The size in bytes of the shared memory allocation
+ */
 struct shared_memory_buffer {
   __device__ shared_memory_buffer(std::byte* buffer=nullptr, index_type size=index_type{}) :
     data{buffer}, total_size{size}, remaining_data{buffer}, remaining_size{size} {}
 
+  /* If possible, copy the given number of rows with the given number of columns from source
+   * to the end of this buffer, padding each row by the given number of
+   * elements (usually to reduce memory bank conflicts). If there is not enough
+   * room, no copy is performed. Return a pointer to the desired data, whether
+   * that is in the original location or copied to shared memory. */
   template <typename T>
   __device__ auto* copy(
     T* source, index_type row_count, index_type col_count, index_type row_pad=index_type{}
@@ -37,6 +47,10 @@ struct shared_memory_buffer {
     return result;
   }
 
+  /* If possible, copy the given number of elements from source to the end of this buffer
+   * If there is not enough room, no copy is performed. Return a pointer to the
+   * desired data, whether that is in the original location or copied to shared
+   * memory. */
   template <typename T>
   __device__ auto* copy(T* source, index_type element_count) {
     auto* dest = reinterpret_cast<std::remove_const_t<T>*>(remaining_data);
@@ -57,6 +71,9 @@ struct shared_memory_buffer {
     return result;
   }
 
+  /* If possible, fill the next element_count elements with given value. If
+   * there is not enough room, the fill is not performed. Return a pointer to
+   * the start of the desired data if the fill was possible or else nullptr. */
   template <typename T>
   __device__ auto* fill(index_type element_count, T value=T{}) {
     auto* dest = reinterpret_cast<std::remove_const_t<T>*>(remaining_data);
@@ -78,12 +95,15 @@ struct shared_memory_buffer {
     return result;
   }
 
+  /* Clear all stored data and return a pointer to the beginning of available
+   * shared memory */
   __device__ auto* clear() {
     remaining_size = total_size;
     remaining_data = data;
     return remaining_data;
   }
 
+  /* Pad stored data to ensure correct alignment for given type */
   template <typename T>
   __device__ void align() {
     auto pad_required = (total_size - remaining_size) % index_type(sizeof(T));
@@ -91,6 +111,8 @@ struct shared_memory_buffer {
     remaining_size -= pad_required;
   }
 
+  /* If necessary, sync threads. Note that this can cause a deadlock if not all
+   * threads call this method. */
   __device__ void sync() {
     if (requires_sync) {
       __syncthreads();
@@ -98,6 +120,7 @@ struct shared_memory_buffer {
     requires_sync = false;
   }
 
+  /* Return the remaining size in bytes left in this buffer */
   __device__ auto remaining() {
     return remaining_size;
   }

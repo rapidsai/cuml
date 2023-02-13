@@ -8,7 +8,7 @@ namespace ML {
 namespace experimental {
 namespace fil {
 
-/** A collection of trees which together form a forest model
+/* A collection of trees which together form a forest model
  */
 template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct forest {
@@ -18,12 +18,12 @@ struct forest {
   HOST DEVICE forest(node_type* forest_nodes, index_type* forest_root_indexes, index_type num_trees) :
     nodes_{forest_nodes}, root_node_indexes_{forest_root_indexes}, num_trees_{num_trees} {}
 
-  /** Return pointer to the root node of the indicated tree */
+  /* Return pointer to the root node of the indicated tree */
   HOST DEVICE auto* get_tree_root(index_type tree_index) const {
     return nodes_ + root_node_indexes_[tree_index];
   }
 
-  /** Return the number of trees in this forest */
+  /* Return the number of trees in this forest */
   HOST DEVICE auto tree_count() const {
     return num_trees_;
   }

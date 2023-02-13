@@ -10,6 +10,9 @@ namespace fil {
 namespace detail {
 namespace device_initialization {
 
+/* Non-CUDA header declaration of the GPU specialization for device
+ * initialization
+ */
 template<typename forest_t, kayak::device_type D>
 std::enable_if_t<kayak::GPU_ENABLED && D==kayak::device_type::gpu, void> initialize_device(kayak::device_id<D> device);
 

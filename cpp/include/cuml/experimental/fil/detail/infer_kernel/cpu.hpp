@@ -15,6 +15,36 @@ namespace experimental {
 namespace fil {
 namespace detail {
 
+/**
+ * The CPU "kernel" used to actually perform forest inference
+ *
+ * @tparam has_categorical_nodes Whether or not this kernel should be
+ * compiled to operate on trees with categorical nodes.
+ * @tparam forest_t The type of the forest object which will be used for
+ * inference.
+ * @tparam vector_output_t If non-nullptr_t, this indicates the type we expect
+ * for outputs from vector leaves.
+ * @tparam categorical_data_t If non-nullptr_t, this indicates the type we
+ * expect for non-local categorical data storage.
+ * @param forest The forest used to perform inference
+ * @param postproc The postprocessor object used to store all necessary
+ * data for postprocessing
+ * @param output Pointer to the host-accessible buffer where output
+ * should be written
+ * @param input Pointer to the host-accessible buffer where input should be
+ * read from
+ * @param row_count The number of rows in the input
+ * @param col_count The number of columns per row in the input
+ * @param num_outputs The expected number of output elements per row
+ * @param chunk_size The number of rows for each thread to process with its
+ * assigned trees before fetching a new set of trees/rows.
+ * @param grove_size The number of trees to assign to a thread for each chunk
+ * of rows it processes.
+ * @param vector_output_p If non-nullptr, a pointer to the stored leaf
+ * vector outputs for all leaf nodes
+ * @param categorical_data If non-nullptr, a pointer to where non-local
+ * data on categorical splits are stored.
+ */
 template<
   bool has_categorical_nodes,
   typename forest_t,

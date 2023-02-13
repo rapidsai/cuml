@@ -16,6 +16,12 @@ namespace fil {
 namespace detail {
 namespace device_initialization {
 
+/* The implementation of the template used to initialize GPU device options
+ *
+ * On GPU-enabled builds, the GPU specialization of this template ensures that
+ * the inference kernels have access to the maximum available dynamic shared
+ * memory.
+ */
 template<typename forest_t, kayak::device_type D>
 std::enable_if_t<kayak::GPU_ENABLED && D==kayak::device_type::gpu, void> initialize_device(kayak::device_id<D> device) {
   auto device_context = kayak::device_setter(device);

@@ -129,6 +129,7 @@ auto get_max_active_blocks_per_sm(
   return index_type(result);
 }
 
+/* The maximum number of bytes that can be read in a single instruction */
 auto constexpr static const MAX_READ_CHUNK = index_type{128};
 auto constexpr static const MAX_BLOCKS = index_type{65536};
 auto constexpr static const WARP_SIZE = index_type{32};

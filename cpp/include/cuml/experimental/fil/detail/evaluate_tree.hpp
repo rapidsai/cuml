@@ -10,6 +10,18 @@ namespace experimental {
 namespace fil {
 namespace detail {
 
+/*
+ * Evaluate a single tree on a single row
+ *
+ * @tparam has_vector_leaves Whether or not this tree has vector leaves
+ * @tparam has_categorical nodes Whether or not this tree has any nodes with
+ * categorical splits
+ * @tparam node_t The type of nodes in this tree
+ * @tparam io_t The type used for input to and output from this tree (typically
+ * either floats or doubles)
+ * @param node Pointer to the root node of this tree
+ * @param row Pointer to the input data for this row
+ */
 template<
   bool has_vector_leaves,
   bool has_categorical_nodes,
@@ -53,6 +65,29 @@ HOST DEVICE auto evaluate_tree(
   return cur_node.template output<has_vector_leaves>();
 }
 
+/*
+ * Evaluate a single tree which requires external categorical storage on a
+ * single node
+ *
+ * For non-categorical models and models with a relatively small number of
+ * categories for any feature, all information necessary for model evaluation
+ * can be stored on a single node. If the number of categories for any
+ * feature exceeds the available space on a node, however, the
+ * categorical split data must be stored external to the node. We pass a
+ * pointer to this external data and reconstruct bitsets from it indicating
+ * the positive and negative categories for each categorical node.
+ *
+ * @tparam has_vector_leaves Whether or not this tree has vector leaves
+ * @tparam node_t The type of nodes in this tree
+ * @tparam io_t The type used for input to and output from this tree (typically
+ * either floats or doubles)
+ * @tparam categorical_storage_t The underlying type used for storing
+ * categorical data (typically char)
+ * @param node Pointer to the root node of this tree
+ * @param row Pointer to the input data for this row
+ * @param categorical_storage Pointer to where categorical split data is
+ * stored.
+ */
 template<
   bool has_vector_leaves,
   typename node_t,
