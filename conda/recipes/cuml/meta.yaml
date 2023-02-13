@@ -1,12 +1,11 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 
-# Usage:
-#   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
 {% set py_version = environ['CONDA_PY'] %}
+{% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
   name: cuml
@@ -17,7 +16,7 @@ source:
 
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
-  string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_major }}_py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   script_env:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
@@ -69,8 +68,8 @@ requirements:
     - cudf ={{ minor_version }}
     - cupy >=7.8.0,<12.0.0a0
     - dask-cudf ={{ minor_version }}
-    - dask ==2023.1.1
-    - distributed ==2023.1.1
+    - dask >=2023.1.1
+    - distributed >=2023.1.1
     - joblib >=0.11
     - libcuml ={{ version }}
     - libcumlprims ={{ minor_version }}
@@ -79,12 +78,11 @@ requirements:
     - raft-dask ={{ minor_version }}
     - treelite {{ treelite_version }}
 
-# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
-tests:                                 # [linux64]
-  requirements:                        # [linux64]
-    - cudatoolkit ={{ cuda_version }}  # [linux64]
-  imports:                             # [linux64]
-    - cuml                             # [linux64]
+tests:
+  requirements:
+    - cudatoolkit ={{ cuda_version }}
+  imports:
+    - cuml
 
 about:
   home: https://rapids.ai/

@@ -1,7 +1,5 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
-[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/cuml/job/branches/job/cuml-branch-pipeline/)
-
 cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
 cuML enables data scientists, researchers, and software engineers to run
@@ -9,10 +7,9 @@ traditional tabular ML tasks on GPUs without going into the details of CUDA
 programming. In most cases, cuML's Python API matches the API from
 [scikit-learn](https://scikit-learn.org).
 
-
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
-Notebook](https://github.com/rapidsai/cuml/tree/branch-0.14/notebooks/tools).
+Notebook](https://github.com/rapidsai/cuml/tree/branch-23.04/notebooks/tools).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU, using cuDF:
 ```python
@@ -77,7 +74,7 @@ neighbors = nn.kneighbors(df)
 For additional examples, browse our complete [API
 documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
 example [walkthrough
-notebooks](https://github.com/rapidsai/cuml/tree/branch-0.15/notebooks). Finally, you
+notebooks](https://github.com/rapidsai/cuml/tree/branch-23.04/notebooks). Finally, you
 can find complete end-to-end examples in the [notebooks-contrib
 repo](https://github.com/rapidsai/notebooks-contrib).
 
@@ -112,9 +109,9 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Preprocessing** | Standardization, or mean removal and variance scaling / Normalization / Encoding categorical features / Discretization / Imputation of missing values / Polynomial features generation / and coming soon custom transformers and non-linear transformation | Based on Scikit-Learn preprocessing
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
-| **Model Explanation**                                 | SHAP Kernel Explainer                                                                                                               
+| **Model Explanation**                                 | SHAP Kernel Explainer
 | [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                              |
-|                                                       | SHAP Permutation Explainer                       
+|                                                       | SHAP Permutation Explainer
 | [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                               |
 | **Execution device interoperability** | | Run estimators interchangeably from host/cpu or device/gpu with minimal code change [demo](https://docs.rapids.ai/api/cuml/stable/execution_device_interoperability.html) |
 | **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
