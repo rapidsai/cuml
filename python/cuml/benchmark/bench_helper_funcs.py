@@ -231,6 +231,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         optimal_chunk_size = 1
         best_time = None
         OPTIMIZATION_CYCLES = 5
+        print("OPTIMIZING")
         for storage_type in allowed_storage_types:
             fil_kwargs['storage_type'] = storage_type
             allowed_algo_types = ['NAIVE']
@@ -271,11 +272,12 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         if experimental:
             fil_kwargs['layout'] = optimal_layout
 
-    return OptimizedFilWrapper(
-        m.load(model_path, **fil_kwargs),
-        optimal_chunk_size,
-        experimental
-    )
+        return OptimizedFilWrapper(
+            m.load(model_path, **fil_kwargs),
+            optimal_chunk_size,
+            experimental,
+            device=args['device']
+        )
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
