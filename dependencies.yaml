@@ -65,7 +65,7 @@ dependencies:
           - pre-commit
           - clang-tools==11.1.0
           - flake8
-          - GitPython==3.1.30
+          - GitPython>=3.1.30
   common_build:
     common:
       - output_types: [conda, requirements]
