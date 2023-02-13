@@ -91,16 +91,16 @@ void all_points_dist_membership_vector(const raft::handle_t& handle,
     case raft::distance::DistanceType::L2SqrtExpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
-          X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+          handle, X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, true);
       break;
     case raft::distance::DistanceType::L1:
       raft::distance::distance<raft::distance::DistanceType::L1, value_t, value_t, value_t, int>(
-        X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+        handle, X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, true);
       break;
     case raft::distance::DistanceType::CosineExpanded:
       raft::distance::
         distance<raft::distance::DistanceType::CosineExpanded, value_t, value_t, value_t, int>(
-          X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, stream, true);
+          handle, X, exemplars_dense.data(), dist.data(), m, n_exemplars, n, true);
       break;
     default: ASSERT(false, "Incorrect metric passed!");
   }
