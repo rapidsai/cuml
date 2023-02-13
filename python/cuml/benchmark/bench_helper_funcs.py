@@ -200,6 +200,10 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
+    allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
+    if args['device'] == 'cpu':
+        allowed_chunk_sizes.extend((64, 128, 256))
+
     with using_device_type(args['device']):
         fil_kwargs = {}
         for param, input_name in (
@@ -242,7 +246,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
                 for layout in allowed_layout_types:
                     if experimental:
                         fil_kwargs['layout'] = layout
-                    for chunk_size in (1, 2, 4, 8, 16, 32):
+                    for chunk_size in allowed_chunk_sizes:
                         fil_kwargs['threads_per_tree'] = chunk_size
                         call_args = {}
                         if experimental:
