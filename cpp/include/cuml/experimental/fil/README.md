@@ -148,7 +148,8 @@ higher values. Optimizing this value can make an *enormous* difference
 in performance and depends on both the model and hardware used to run it. On
 CPU, this parameter can take on any value, but powers of 2 between 1 and 512
 are recommended. A default value of 64 is generally a safe choice, unless the
-batch size is less than 64, in which case a smaller value is recommended. This
+batch size is less than 64, in which case a smaller value is recommended. In
+general, larger batch sizes benefit from higher chunk size values. This
 argument is a `std::optional`, and if `std::nullopt` is passed, a chunk size
 will be selected based on heuristics.
 
