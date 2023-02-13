@@ -142,14 +142,15 @@ loaded at double precision, this should be a `double*`.
 
 **chunk_size**: This value has a somewhat different meaning for CPU and GPU,
 but it generally indicates the number of rows which are evaluated in a single
-iteration of FIL's forest evaluation algorithm. Any power of 2 from 1 to 32
+iteration of FIL's forest evaluation algorithm. On GPU, any power of 2 from 1 to 32
 may be used for this value, and *in general* larger batches benefit from
-higher values on GPU. Optimizing this value can make an *enormous* difference
+higher values. Optimizing this value can make an *enormous* difference
 in performance and depends on both the model and hardware used to run it. On
-CPU, this value has significantly less impact and generally does not need to
-be explicitly set. This argument is a `std::optional`, and if
-`std::nullopt` is passed, a chunk size will be selected based on
-heuristics.
+CPU, this parameter can take on any value, but powers of 2 between 1 and 512
+are recommended. A default value of 64 is generally a safe choice, unless the
+batch size is less than 64, in which case a smaller value is recommended. This
+argument is a `std::optional`, and if `std::nullopt` is passed, a chunk size
+will be selected based on heuristics.
 
 ## Learning More
 While the above usage summary should be enough to get started using FIL in
