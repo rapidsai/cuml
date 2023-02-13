@@ -11,6 +11,8 @@
 #include <cuml/experimental/kayak/device_id.hpp>
 #include <cuml/experimental/kayak/device_type.hpp>
 
+/* Macro which expands to the valid arguments to an inference call for a forest
+ * model without vector leaves or non-local categorical data.*/
 #define CUML_FIL_SCALAR_LOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
@@ -26,6 +28,8 @@
   kayak::cuda_stream stream\
 )
 
+/* Macro which expands to the valid arguments to an inference call for a forest
+ * model with vector leaves but without non-local categorical data.*/
 #define CUML_FIL_VECTOR_LOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
@@ -41,6 +45,8 @@
   kayak::cuda_stream stream\
 )
 
+/* Macro which expands to the valid arguments to an inference call for a forest
+ * model without vector leaves but with non-local categorical data.*/
 #define CUML_FIL_SCALAR_NONLOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
@@ -56,6 +62,8 @@
   kayak::cuda_stream stream\
 )
 
+/* Macro which expands to the valid arguments to an inference call for a forest
+ * model with vector leaves and with non-local categorical data.*/
 #define CUML_FIL_VECTOR_NONLOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
@@ -71,21 +79,43 @@
   kayak::cuda_stream stream\
 )
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index */
 #define CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, categorical) template_type void infer<\
   dev, categorical, CUML_FIL_FOREST(variant_index)>
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index on the given device type without
+ * vector leaves or categorical nodes*/
 #define CUML_FIL_INFER_DEV_SCALAR_LEAF_NO_CAT(template_type, dev, variant_index) CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, false)CUML_FIL_SCALAR_LOCAL_ARGS(dev, variant_index);
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index on the given device type without
+ * vector leaves and with only local categorical nodes*/
 #define CUML_FIL_INFER_DEV_SCALAR_LEAF_LOCAL_CAT(template_type, dev, variant_index) CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, true)CUML_FIL_SCALAR_LOCAL_ARGS(dev, variant_index);
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index on the given device type without
+ * vector leaves and with non-local categorical nodes*/
 #define CUML_FIL_INFER_DEV_SCALAR_LEAF_NONLOCAL_CAT(template_type, dev, variant_index) CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, true)CUML_FIL_SCALAR_NONLOCAL_ARGS(dev, variant_index);
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index on the given device type with
+ * vector leaves and without categorical nodes*/
 #define CUML_FIL_INFER_DEV_VECTOR_LEAF_NO_CAT(template_type, dev, variant_index) CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, false)CUML_FIL_VECTOR_LOCAL_ARGS(dev, variant_index);
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index on the given device type with
+ * vector leaves and with only local categorical nodes*/
 #define CUML_FIL_INFER_DEV_VECTOR_LEAF_LOCAL_CAT(template_type, dev, variant_index) CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, true)CUML_FIL_VECTOR_LOCAL_ARGS(dev, variant_index);
 
+/* Macro which expands to the declaration of an inference template for a forest
+ * of the type indicated by the variant index on the given device type with
+ * vector leaves and with non-local categorical nodes*/
 #define CUML_FIL_INFER_DEV_VECTOR_LEAF_NONLOCAL_CAT(template_type, dev, variant_index) CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, true)CUML_FIL_VECTOR_NONLOCAL_ARGS(dev, variant_index);
 
+/* Macro which expands to the declaration of all valid inference templates for
+ * the given device on the forest type specified by the given variant index */
 #define CUML_FIL_INFER_ALL(template_type, dev, variant_index) CUML_FIL_INFER_DEV_SCALAR_LEAF_NO_CAT(template_type, dev, variant_index)\
   CUML_FIL_INFER_DEV_SCALAR_LEAF_LOCAL_CAT(template_type, dev, variant_index)\
   CUML_FIL_INFER_DEV_SCALAR_LEAF_NONLOCAL_CAT(template_type, dev, variant_index)\
